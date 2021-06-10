@@ -7,9 +7,8 @@ For more information about CoreProtect, visit [coreprotect.net](http://coreprote
 These documents are still a work in progress.  
 Please be sure to visit the following links for more information.
 
-**CoreProtect Commands**  
-A list of all commands that can be used within CoreProtect.  
-[https://minerealm.com/community/viewtopic.php?f=32&t=6781](https://minerealm.com/community/viewtopic.php?f=32&t=6781)
+[**CoreProtect Commands**](/commands/)  
+A list of all commands that can be used within CoreProtect.
 
 **CoreProtect Permissions**  
 A list of all permissions that can be used with CoreProtect.  

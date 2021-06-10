@@ -1,8 +1,8 @@
-# Configuration #
+# Configuration
 
 The CoreProtect configuration file can be found within the CoreProtect folder, at `config.yml`.
 
-## Per-World Configuration ##
+## Per-World Configuration
 
 If you'd like to modify the logging settings for a specific world, simply do the following:
 
@@ -12,13 +12,13 @@ If you'd like to modify the logging settings for a specific world, simply do the
 
 Secondary configuration files override the value specified in config.yml. If you leave an option out of a secondary configuration file, then the option specified in config.yml will be used.
 
-### Examples ###
+### Examples
 
 * If you'd like to disable all logging for the End, copy the `config.yml` file to `world_the_end.yml` (matching the folder name for the world). Then, simply disable all logging options within the new file.
 
 * If you just want to disable entity death logging in the Nether, but keep all other logging options the same, simply create a file named `world_nether.yml` containing the text "rollback-entities: false".
 
-## Disabling Logging ##
+## Disabling Logging
 
 To disable logging for specific users or commands, simply do the following:
 

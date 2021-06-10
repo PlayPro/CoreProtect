@@ -1,8 +1,8 @@
-# Welcome to the CoreProtect Documentation #
+# Welcome to the CoreProtect Documentation
 
 For more information about CoreProtect, visit [coreprotect.net](http://coreprotect.net).
 
-## Getting Started ##
+## Getting Started
 
 These documents are still a work in progress.  
 Please be sure to visit the following links for more information.

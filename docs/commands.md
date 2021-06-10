@@ -1,8 +1,8 @@
-# Commands #
+# Commands
 
 You can access the commands using either `/coreprotect` or it's aliases `/core` or `/co`.
 
-## Command Overview ##
+## Command Overview
 
 | Command | Description |
 | --- | --- |
@@ -17,9 +17,9 @@ You can access the commands using either `/coreprotect` or it's aliases `/core` 
 | [near](#near) | Alias for lookup with a radius of 5 |
 | [undo](#undo) | Revert a rollback/restore |
 
-## Commands Detailed ##
+## Commands Detailed
 
-### help ###
+### help
 
 Usage:
 `/co help`
@@ -40,7 +40,7 @@ Example Output:
 /co status - Displays the plugin status.
 ```
 
-### inspect ###
+### inspect
 
 Usage:
 `/co inspect`
@@ -49,7 +49,7 @@ Alias: `/co i`
 
 Enables the in-game inspector. Once activated, right-click (use) button on blocks to get detailed history of that specific block. Run the command again to return your controls to normal.
 
-### lookup ###
+### lookup
 
 Usage:
 `/co lookup <filter syntax>` See: [Filter Syntax](#filter-syntax)
@@ -58,14 +58,14 @@ Alias: `/co l`
 
 Search through block data using parameters from filter syntax.
 
-#### Pagination ####
+#### Pagination
 
 If multiple pages are returned, use the command `/co lookup <page #>` to switch pages.
 To change the number of lines displayed on a page, use the command `/co lookup <page #>:<# of lines>`.
 
 Example: `/co l 1:10` will return 10 lines of data, starting at the first page.
 
-### rollback ###
+### rollback
 
 Usage:
 `/co rollback <filter syntax>` See: [Filter Syntax](#filter-syntax)
@@ -74,7 +74,7 @@ Alias: `/co rb`
 
 Undo all block data which matches the filter.
 
-### restore ###
+### restore
 
 `/co restore <filter syntax>` See: [Filter Syntax](#filter-syntax)
 
@@ -82,7 +82,7 @@ Alias `/co rs`
 
 Restoring can be used to undo rollbacks. This will playback all block data which matches the filter that may have been previously rolled back.
 
-### purge ###
+### purge
 
 `/co purge t:<time> r:<world>`
 
@@ -102,9 +102,9 @@ This option is only available when using MySQL/MariaDB, as SQLite purges do this
 
 *Please note adding the #optimize option will significantly slow down your purge, and is generally unnecessary.*
 
-## Examples ##
+## Examples
 
-### rollback Examples ###
+### rollback Examples
 
 By default, if no radius is specified, a radius of 10 will be applied, restricting the rollback to within 10 blocks of you. Use `r:#global` to do a global rollback.
 
@@ -138,7 +138,7 @@ Rollback everything done in the last 15 minutes by anyone within 30 blocks of yo
 Rollback everything done in the last 15 minutes in a WorldEdit selection:
 >`/co rollback t:15m r:#worldedit`
 
-### lookup examples ###
+### lookup examples
 
 Lookup commands are generally the same as rollback commands. The primary difference is that a default radius is not applied to lookups, meaning all lookup commands do a global search by default.
 
@@ -157,7 +157,7 @@ Lookup all logins ever done by Notch:
 Lookup previous usernames used by Notch:
 >`/co lookup u:Notch a:username`
 
-## Filter Syntax ##
+## Filter Syntax
 
 `u:<user>` - Specify a user to rollback.
 >Example: `u:Notch`

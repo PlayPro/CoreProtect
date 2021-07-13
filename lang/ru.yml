@@ -1,6 +1,6 @@
 # CoreProtect Language File (ru)
 
-ACTION_NOT_SUPPORTED: "Данное действие не поддерживается командой."
+ACTION_NOT_SUPPORTED: "Данное действие не поддерживается этой командой."
 AMOUNT_BLOCK: "{0} {блок|блоков}"
 AMOUNT_CHUNK: "{0} {чанк|чанков}"
 AMOUNT_ENTITY: "{0} {существо|существ}"

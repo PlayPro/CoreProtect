@@ -1,194 +1,166 @@
-# Commands
-
+# CoreProtect Commands
+---
 You can access the commands using either `/coreprotect` or it's aliases `/core` or `/co`.
+___
 
 ## Command Overview
 
 | Command | Description |
 | --- | --- |
-| [help](#help) | Display a list of commands |
-| [inspect](#inspect) | Toggle the inspector |
-| [rollback](#rollback) | Rollback block data |
-| [restore](#restore) | Restore block data |
-| [lookup](#lookup) | Advanced block data lookup |
-| [purge](#purge) | Delete old block data |
-| [reload](#reload) | Reload the configuration file |
-| [status](#status) | View the plugin status |
-| [near](#near) | Alias for lookup with a radius of 5 |
-| [undo](#undo) | Revert a rollback/restore |
+| [/co help](#co-help) | Display a list of commands |
+| [/co inspect](#co-inspect) | Toggle the inspector |
+| [/co lookup](#co-lookup) | Lookup block data |
+| [/co rollback](#co-rollback) | Rollback block data |
+| [/co restore](#co-restore) | Restore block data |
+| [/co purge](#co-purge) | Delete old block data |
+| [/co reload](#co-reload) | Reload the configuration file |
+| [/co status](#co-status) | View the plugin status |
 
-## Commands Detailed
+### Alias Commands
 
-### help
+| Command | Description |
+| --- | --- |
+| /co near | Performs a lookup with a radius of 5 |
+| /co undo | Revert a rollback/restore via the opposite action|
 
-Usage:
-`/co help`
+---
 
-Displays the list of available commands
+## Commands
 
-Example Output:
+*Detailed command information is listed below.*
 
-```text
------ CoreProtect Help -----
-/co help <command> - Display more info for that command.
-/co inspect - Turns the block inspector on or off.
-/co rollback <params> - Rollback block data.
-/co restore <params> - Restore block data.
-/co lookup <params> - Advanced block data lookup.
-/co purge <params> - Delete old block data.
-/co reload - Reloads the configuration file.
-/co status - Displays the plugin status.
-```
+### /co help
+Display a list of commands in-game.
+___
 
-### inspect
+### /co inspect
+Enable the inspector. Type the command again to disable it. You can also use just "/co i".
+___
 
-Usage:
-`/co inspect`
+### /co lookup
+Perform a lookup. Nearly all of the parameters are optional.
 
-Alias: `/co i`
+| Command | Parameters |
+| --- | --- |
+| /co lookup | `u:<user> t:<time> r:<radius> a:<action> i:<include> e:<exclude>` |
+| /co l | *`/co lookup <params>`* |
 
-Enables the in-game inspector. Once activated, right-click (use) button on blocks to get detailed history of that specific block. Run the command again to return your controls to normal.
-
-### lookup
-
-Usage:
-`/co lookup <filter syntax>` See: [Filter Syntax](#filter-syntax)
-
-Alias: `/co l`
-
-Search through block data using parameters from filter syntax.
+#### Parameters
+| Parameter | Description |
+| --- | --- |
+| [`u:<user>`](#uuser) | Specify the user(s) to lookup. |
+| [`t:<time>`](#test2) | Specify the amount of time to lookup. |
+| [`r:<radius>`](#test3) | Specify a radius area to limit the lookup to. |
+| [`a:<action>`](#test4) | Restrict the lookup to a certain action. |
+| [`i:<include>`](#test5) | Include specific blocks/entities in the lookup. |
+| [`e:<exclude>`](#test6) | Exclude blocks/entities from the lookup. |
+| [`#<hashtag>`](#test7) | Add a hashtag to perform additional actions. |
 
 #### Pagination
 
-If multiple pages are returned, use the command `/co lookup <page #>` to switch pages.
-To change the number of lines displayed on a page, use the command `/co lookup <page #>:<# of lines>`.
+If multiple pages are returned, use the command `/co lookup <page>` to switch pages.  
+To change the number of lines displayed on a page, use `/co lookup <page>:<lines>`. 
 
-Example: `/co l 1:10` will return 10 lines of data, starting at the first page.
+> *For example, `/co l 1:10` will return 10 lines of data, starting at the first page.*
 
-### rollback
+---
 
-Usage:
-`/co rollback <filter syntax>` See: [Filter Syntax](#filter-syntax)
+### /co rollback
+Perform a rollback. Uses the same [parameters](#parameters) as /co lookup.  
+*Rollbacks can be used to revert player actions.*
 
-Alias: `/co rb`
+| Command | Parameters |
+| --- | --- |
+| /co rollback | `u:<user> t:<time> r:<radius> a:<action> i:<include> e:<exclude>` |
+| /co rb | *`/co rollback <params>`* |
 
-Undo all block data which matches the filter.
+---
 
-### restore
+### /co restore
+Perform a restore. Uses the same [parameters](#parameters) as /co lookup.  
+*Restoring can be used to undo rollbacks or to restore player actions.*
 
-`/co restore <filter syntax>` See: [Filter Syntax](#filter-syntax)
+| Command | Parameters |
+| --- | --- |
+| /co restore | `u:<user> t:<time> r:<radius> a:<action> i:<include> e:<exclude>` |
+| /co rs | *`/co restore <params>`* |
 
-Alias `/co rs`
+---
 
-Restoring can be used to undo rollbacks. This will playback all block data which matches the filter that may have been previously rolled back.
+### /co purge
+Purge old block data. Useful for freeing up space on your HDD if you don't need the older data.
 
-### purge
+| Command | Parameters |
+| --- | --- |
+| /co purge | `t:<time> r:<world>` |
 
-`/co purge t:<time> r:<world>`
+For example, `/co purge t:30d` will delete all data older than one month, and only keep the last 30 days of data.
 
-Purge old block data. Useful for freeing up storage space if you don't need the older data.
+> If used in-game, only data older than 30 days can be purged.  
+> If used from the console, only data older than 24 hours can be purged.
 
-Example: `/co purge t:30d` will delete all data older than one month, and only keep the last 30 days of data.
-If used in-game, only data older than 30 days can be purged. If used from the console, only data older than 24 hours can be purged.
+**Purging Worlds**  
+You can also optionally specify a world in CoreProtect v19+.  
+For example, `/co purge t:30d r:#world_nether` will delete all data older than one month in the Nether, without deleting data in any other worlds.
 
-In CoreProtect v19+ | Specify World
-
-Example: `/co purge t:30d r:#world_nether` will delete all data older than one month in the Nether, without deleting data in any other worlds.
-
-In CoreProtect v2.15+ | Optimize tag for MySQL
-
-Add `#optimize` to the end of the command like: `/co purge t:30d #optimize` will also optimize your tables and reclaim disk space.
-This option is only available when using MySQL/MariaDB, as SQLite purges do this by default.
+**MySQL Optimization**  
+In CoreProtect v2.15+, adding "#optimize" to the end of the command (e.g. `/co purge t:30d #optimize`) will also optimize your tables and reclaim disk space.
+This option is only available when using MySQL, as SQLite purges do this by default.
 
 *Please note adding the #optimize option will significantly slow down your purge, and is generally unnecessary.*
 
-## Examples
+___
 
-### rollback Examples
+### /co reload
+Reloads the configuration file.
+___
 
-By default, if no radius is specified, a radius of 10 will be applied, restricting the rollback to within 10 blocks of you. Use `r:#global` to do a global rollback.
+### /co status
+Displays the plugin status and version information.
+___
 
-Rollback Notch 1 hour (with default radius of 10):
->`/co rollback Notch t:1h`
 
-PREVIEW rolling back both Notch & Intelli 1 hour (with default radius of 10):
->`/co rollback u:Notch,Intelli t:1h #preview`
+## Parameter Details
 
-Rollback Notch 23 hours and 17 minutes (with default radius of 10):
->`/co rollback u:Notch t:23h17m`
+### `u:<user>`
 
-Rollback ONLY stone placed/broken by Notch within the last hour (with default radius of 10):
->`/co rollback u:Notch t:1h b:1`
+*You can specify a single user or multiple users.* 
 
-Rollback ONLY stone BROKEN by Notch within the last hour (with default radius of 10):
->`/co rollback u:Notch t:1h b:stone a:-block`
+* Example: `u:Notch`
+* Example: `u:Notch,Intelli`
 
-Rollback EVERYTHING Notch did in the last hour EXCEPT for stone and dirt placed/broken:
->`/co rollback u:Notch t:1h r:#global e:stone,dirt`
+---
 
-Rollback griefing Notch did in the last hour that is within 20 blocks of you:
->`/co rollback u:Notch t:1h r:20`
+### `t:<time>`
 
-Rollback griefing Notch did in the last hour ONLY in the Nether:
->`/co rollback u:Notch t:1h r:#nether`
+*You can specify weeks, days, hours, minutes, and seconds.*  
+*Time amounts can be combined, and decimals may be used.*
 
-Rollback everything done in the last 15 minutes by anyone within 30 blocks of you:
->`/co rollback t:15m r:30`
+* Example: `t:2w,5d,7h,2m,10s`
+* Example: `t:5d2h`
+* Example: `t:2.50h` *(2 and a half hours)*
 
-Rollback everything done in the last 15 minutes in a WorldEdit selection:
->`/co rollback t:15m r:#worldedit`
+---
 
-### lookup examples
+### `r:<radius>`
 
-Lookup commands are generally the same as rollback commands. The primary difference is that a default radius is not applied to lookups, meaning all lookup commands do a global search by default.
+*A numeric radius targets within that many blocks of your player location.*
 
-Lookup all diamond ore mined in the last hour:
->`/co lookup b:56 t:1h a:-block`
+* Example: `r:10` *(target within 10 blocks of your location)*
+* Example: `r:#world_the_end` *(target a specific world)*
+* Example: `r:#global` *(target the entire server)*
+* Example: `r:#worldedit` or `r:#we` *(target a WorldEdit selection)*
 
-Lookup all chat messages sent by Notch in the last 30 minutes:
->`/co lookup u:Notch t:30m a:chat`
+---
 
-Lookup all logins ever done by Notch:
->`/co lookup u:Notch a:login`
+### `a:<action>`
 
-Lookup all logins ever done by Notch:
->`/co lookup u:Notch a:login`
+*Restrict the command to a specific action*
 
-Lookup previous usernames used by Notch:
->`/co lookup u:Notch a:username`
+* Example: `a:+block` *(only include placed blocks)*
 
-## Filter Syntax
-
-`u:<user>` - Specify a user to rollback.
->Example: `u:Notch`
-
-You can also combine multiple users.
->Example: `u:Notch,Intelli`
-
-`t:<time>` - Specify the amount of time to rollback
-
-You can specify weeks,days,hours,minutes, and seconds.
-
->Example: `t:2w,5d,7h,2m,10s`
-
-You can pick and choose time amounts.
->Example: `t:5d2h`
-
-You can also use decimals.
->Example: `t:2.50h` (2 and a half hours)
-
-`r:<radius>` - Specify a radius. You can use this to only rollback blocks near you.
-
-You can specify a number (e.g. `r:5`), a world (e.g. `r:#world_the_end`), a global rollback (`r:#global`), or a WorldEdit selection (`r:#worldedit` or `r:#we`)
-
-For example, the following would only rollback damage within 10 blocks of where you are standing: `r:10`
-
-`a:<action>` - Restrict the lookup to a certain action
-For example, if you wanted to only rollback blocks placed, you would use `a:+block`
-
-Here's a list of all the actions:
-
-| Syntax | Description |
+#### Actions
+| Action | Description |
 | --- | --- |
 | `a:block` | blocks placed/broken |
 | `a:+block` | blocks placed |
@@ -212,24 +184,85 @@ Here's a list of all the actions:
 | `a:sign` | messages written on signs |
 | `a:username` | username changes |
 
-`b:<blocks>` - Restrict the rollback to certain block types.
+---
 
-For example, if you wanted to only rollback stone, you would use `b:stone`
-You can specify multiple blocks, such as `b:stone,oak_wood,bedrock`
+### `i:<include>`
 
-You can find a list of block type IDs at the [Gamepedia Minecraft Wiki](https://minecraft.fandom.com/wiki/Java_Edition_data_values)
+*Can be used to specify a block/item/entity.* 
 
-`e:<exclude>` - Exclude certain block types from the rollback.
-For example, if you don't want TNT to come back during a rollback, you would type `e:tnt`
+* Example: `i:stone` *(only include stone)*
+* Example: `i:stone,oak_wood,bedrock` *(specify multiple blocks)*
 
-`#<hashtag>` - Add a hashtag to the end of your command to perform additional actions.
-For example, to perform a rollback preview, you would use `#preview`
+> You can find a list of block type IDs at [https://coreprotect.net/wiki-blocks](https://coreprotect.net/wiki-blocks).
 
-Here's a list of available hashtags:
+---
 
+### `e:<exclude>`
+
+*Can be used to exclude a block/item/entity/user.*
+
+* Example: `e:tnt` *(exclude TNT)*
+
+---
+
+### `#<hashtag>`
+
+Add a hashtag to the end of your command to perform additional actions.
+
+* Example: `#preview` *(perform a rollback preview)*
+
+#### Hashtags
 | Hashtag | Effect |
 | --- | --- |
 | `#preview` | Preview a rollback/restore |
 | `#count` | Return the number of rows found in a lookup query |
 | `#verbose` | Display additional information during a rollback/restore |
 | `#silent` | Display minimal information during a rollback/restore |
+
+___
+
+## Example Commands
+
+### Example Rollback Commands
+
+By default, if no radius is specified, a radius of 10 will be applied, restricting the rollback to within 10 blocks of you. Use `r:#global` to do a global rollback.
+
+* `/co rollback Notch t:1h`  
+  *(rollback Notch 1 hour (with default radius of 10))*
+* `/co rollback u:Notch,Intelli t:1h #preview`  
+  *(PREVIEW rolling back both Notch & Intelli 1 hour (with default radius of 10))*
+* `/co rollback u:Notch t:23h17m`  
+  *(rollback Notch 23 hours and 17 minutes (with default radius of 10))*
+* `/co rollback u:Notch t:1h i:stone`  
+  *(rollback ONLY stone placed/broken by Notch within the last hour (with default radius of 10))*
+* `/co rollback u:Notch t:1h i:stone a:-block`  
+  *(rollback ONLY stone BROKEN by Notch within the last hour (with default radius of 10))*
+* `/co rollback u:Notch t:1h r:#global e:stone,dirt`  
+  *(rollback EVERYTHING Notch did in the last hour EXCEPT for stone and dirt placed/broken)*
+* `/co rollback u:Notch t:1h r:20`  
+  *(rollback griefing Notch did in the last hour that is within 20 blocks of you)*
+* `/co rollback u:Notch t:1h r:#nether`  
+  *(rollback griefing Notch did in the last hour ONLY in the Nether)*
+* `/co rollback t:15m r:30`  
+  *(rollback everything done in the last 15 minutes by anyone within 30 blocks of you)*
+* `/co rollback t:15m r:#worldedit`  
+  *(rollback everything done in the last 15 minutes in a WorldEdit selection)*
+
+---
+
+### Example Lookup Commands
+
+Lookup commands are generally the same as rollback commands. The primary difference is that a default radius is not applied to lookups, meaning all lookup commands do a global search by default.
+
+* `/co lookup i:diamond_ore t:1h a:-block`  
+  *(lookup all diamond ore mined in the last hour)*
+* `/co lookup u:Notch t:30m a:chat`  
+  *(lookup chat messages sent by Notch in the last 30 minutes)*
+* `/co lookup u:Notch a:login`  
+  *(lookup all logins ever done by Notch)*
+* `/co lookup u:Notch a:login`  
+  *(lookup all logins ever done by Notch)*
+* `/co lookup u:Notch a:username`  
+  *(lookup previous usernames used by Notch)*
+
+___

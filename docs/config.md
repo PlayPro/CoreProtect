@@ -12,8 +12,10 @@ If you'd like to modify the logging settings for a specific world, simply do the
 
 Secondary configuration files override the value specified in config.yml. If you leave an option out of a secondary configuration file, then the option specified in config.yml will be used.
 
-#### Examples
+### Examples
+
 * If you'd like to disable all logging for the End, copy the `config.yml` file to `world_the_end.yml` (matching the folder name for the world). Then, simply disable all logging options within the new file.
+
 * If you just want to disable entity death logging in the Nether, but keep all other logging options the same, simply create a file named `world_nether.yml` containing the text "rollback-entities: false".
 
 ## Disabling Logging
@@ -25,6 +27,7 @@ To disable logging for specific users or commands, simply do the following:
 3. Either restart your server, or type "/co reload" in-game.
 
 This can be used to disable logging for non-player users, such as "#tnt". For example, if you'd like to disable logging for the user "Notch" and for TNT explosions, the blacklist.txt file would look like this:
+
 ```text
 Notch
 #tnt

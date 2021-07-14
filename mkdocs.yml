@@ -2,5 +2,6 @@ site_name: CoreProtect Documentation
 site_url: https://docs.coreprotect.net
 theme: readthedocs
 repo_url: https://github.com/PlayPro/CoreProtect
+docs_dir: 'docs'
 extra_css:
      - css/extra.css 

@@ -49,12 +49,12 @@ Perform a lookup. Nearly all of the parameters are optional.
 | Parameter | Description |
 | --- | --- |
 | [`u:<user>`](#uuser) | Specify the user(s) to lookup. |
-| [`t:<time>`](#test2) | Specify the amount of time to lookup. |
-| [`r:<radius>`](#test3) | Specify a radius area to limit the lookup to. |
-| [`a:<action>`](#test4) | Restrict the lookup to a certain action. |
-| [`i:<include>`](#test5) | Include specific blocks/entities in the lookup. |
-| [`e:<exclude>`](#test6) | Exclude blocks/entities from the lookup. |
-| [`#<hashtag>`](#test7) | Add a hashtag to perform additional actions. |
+| [`t:<time>`](#ttime) | Specify the amount of time to lookup. |
+| [`r:<radius>`](#rradius) | Specify a radius area to limit the lookup to. |
+| [`a:<action>`](#aaction) | Restrict the lookup to a certain action. |
+| [`i:<include>`](#iinclude) | Include specific blocks/entities in the lookup. |
+| [`e:<exclude>`](#eexclude) | Exclude blocks/entities from the lookup. |
+| [`#<hashtag>`](#hashtag) | Add a hashtag to perform additional actions. |
 
 #### Pagination
 

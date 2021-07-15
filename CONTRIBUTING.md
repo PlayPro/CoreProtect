@@ -10,9 +10,11 @@ Please note we have a code of conduct, please follow it in all your interactions
 - For consistency, please only use spaces for indentation.
 - Use descriptiveCamelCase for variable/method names. Names containing underscore or abbreviations should be changed.
 - Restrict changes in a commit to a single event or section of code (e.g. refactor BlockBreakEvent and BlockPlaceEvent in separate commits)
-- Attempt to keep the amount of code refactored in a single commit small and readable. 
+- Attempt to keep the amount of code modified in a single commit small and readable. 
 - When adding new functionality, please also be sure to update the documentation as well.
 - Use common sense. If you have a suggestion for a contribution guideline, post it on Discord.
+
+Please note that although numerous improvements have been made to the codebase over the past few years, there’s still significant work to be done. Parts of this plugin are over a decade old, and new functionality is continuously being added. Refactoring is welcomed, but please be sure to keep commits a reasonable size.
 
 ## Code of Conduct
 

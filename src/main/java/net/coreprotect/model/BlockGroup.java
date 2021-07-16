@@ -81,39 +81,6 @@ public final class BlockGroup {
             NATURAL_BLOCKS.addAll(SOUL_BLOCKS);
             NATURAL_BLOCKS.addAll(VINES);
 
-            /*
-            NATURAL_BLOCKS.addAll(Tag.BASE_STONE_OVERWORLD.getValues());
-            NATURAL_BLOCKS.addAll(Tag.BEACON_BASE_BLOCKS.getValues());
-            NATURAL_BLOCKS.addAll(Tag.SOUL_FIRE_BASE_BLOCKS.getValues());
-            NATURAL_BLOCKS.addAll(Tag.GEODE_INVALID_BLOCKS.getValues());
-            NATURAL_BLOCKS.addAll(Tag.GUARDED_BY_PIGLINS.getValues());
-            NATURAL_BLOCKS.addAll(Tag.INFINIBURN_END.getValues());
-            NATURAL_BLOCKS.addAll(Tag.INFINIBURN_NETHER.getValues());
-            NATURAL_BLOCKS.addAll(Tag.INFINIBURN_OVERWORLD.getValues());
-            NATURAL_BLOCKS.addAll(Tag.INSIDE_STEP_SOUND_BLOCKS.getValues());
-            NATURAL_BLOCKS.addAll(Tag.DEEPSLATE_ORE_REPLACEABLES.getValues());
-            NATURAL_BLOCKS.addAll(Tag.DIRT.getValues());
-            NATURAL_BLOCKS.addAll(Tag.STONE_ORE_REPLACEABLES.getValues());
-            NATURAL_BLOCKS.addAll(Tag.COAL_ORES.getValues());
-            NATURAL_BLOCKS.addAll(Tag.COPPER_ORES.getValues());
-            NATURAL_BLOCKS.addAll(Tag.DIAMOND_ORES.getValues());
-            NATURAL_BLOCKS.addAll(Tag.EMERALD_ORES.getValues());
-            NATURAL_BLOCKS.addAll(Tag.GOLD_ORES.getValues());
-            NATURAL_BLOCKS.addAll(Tag.IRON_ORES.getValues());
-            NATURAL_BLOCKS.addAll(Tag.LAPIS_ORES.getValues());
-            NATURAL_BLOCKS.addAll(Tag.REDSTONE_ORES.getValues());
-            NATURAL_BLOCKS.addAll(Tag.FIRE.getValues());
-            NATURAL_BLOCKS.addAll(Tag.SNOW.getValues());
-            NATURAL_BLOCKS.addAll(Tag.BEEHIVES.getValues());
-            NATURAL_BLOCKS.addAll(Tag.BEE_GROWABLES.getValues());
-            NATURAL_BLOCKS.addAll(Tag.FLOWERS.getValues());
-            NATURAL_BLOCKS.addAll(Tag.CROPS.getValues());
-            NATURAL_BLOCKS.addAll(Tag.FEATURES_CANNOT_REPLACE.getValues());
-            NATURAL_BLOCKS.addAll(Tag.LUSH_GROUND_REPLACEABLE.getValues());
-            NATURAL_BLOCKS.addAll(Tag.MUSHROOM_GROW_BLOCK.getValues());
-            NATURAL_BLOCKS.addAll(Tag.NYLIUM.getValues());
-            NATURAL_BLOCKS.addAll(Tag.PORTALS.getValues());
-            */
         }
     }
 }

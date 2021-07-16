@@ -45,15 +45,6 @@ public class UsernameLogger {
                 preparedStmt.executeUpdate();
                 preparedStmt.close();
 
-                /*
-                    //Commented out to prevent potential issues if player manages to stay logged in with old username
-                    if (ConfigHandler.playerIdCache.get(user_row)!=null){
-                        int cache_id = ConfigHandler.playerIdCache.get(user_row);
-                        if (cache_id==id_row){
-                            ConfigHandler.playerIdCache.remove(user_row);
-                        }
-                    }
-                 */
             }
             else {
                 boolean foundUUID = false;

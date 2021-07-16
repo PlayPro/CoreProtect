@@ -137,19 +137,6 @@ public class Rollback extends Queue {
             HashMap<Long, ArrayList<Object[]>> dataList = new HashMap<>();
             HashMap<Long, ArrayList<Object[]>> itemDataList = new HashMap<>();
 
-            /*
-            int worldMin = BukkitAdapter.ADAPTER.getMinHeight(world);
-            int worldHeight = world.getMaxHeight() - worldMin;
-            int negativeOffset = (-(worldMin) >> 4);
-            Integer[] chunkSections = new Integer[worldHeight >> 4];
-            
-            int y = -2044;
-            if (y < worldMin) {
-                return;
-            }
-            int chunkSection = ((y >> 4) + negativeOffset);
-            */
-
             int worldId = -1;
             int worldMin = 0;
             int worldMax = 2032;
@@ -171,9 +158,6 @@ public class Rollback extends Queue {
                     int chunkX = rowX >> 4;
                     int chunkZ = rowZ >> 4;
                     long chunkKey = chunkX & 0xffffffffL | (chunkZ & 0xffffffffL) << 32;
-                    // int rowAction = result[8];
-                    // if (rowAction==10) result[8] = 0;
-                    // if (rowAction==11) result[8] = 1;
 
                     if (rowWorldId != worldId) {
                         String world = Util.getWorldName(rowWorldId);
@@ -183,12 +167,6 @@ public class Rollback extends Queue {
                             worldMax = bukkitWorld.getMaxHeight();
                         }
                     }
-
-                    /*
-                    if (rowY < worldMin) {
-                        continue;
-                    }
-                    */
 
                     if (chunkList.get(chunkKey) == null) {
                         int distance = 0;
@@ -209,8 +187,6 @@ public class Rollback extends Queue {
                     }
 
                     if (modifyList.get(chunkKey) == null) {
-                        // Integer[][] chunkSections = new Integer[((worldMax - worldMin) >> 4)][];
-                        // adjacentDataList.put(chunkKey, chunkSections);
                         adjacentDataList.put(chunkKey, new HashMap<>());
                         dataList.put(chunkKey, new ArrayList<>());
                         itemDataList.put(chunkKey, new ArrayList<>());
@@ -229,26 +205,6 @@ public class Rollback extends Queue {
                                 // corrupt BlockData, let the server automatically set the BlockData instead
                             }
                         }
-
-                        /*
-                        Object[][] adjacentList = adjacentDataList.get(chunkKey);
-                        
-                        int negativeOffset = (-(worldMin) >> 4);
-                        int chunkSection = ((rowY >> 4) + negativeOffset);
-                        if (adjacentList[chunkSection] == null) {
-                            adjacentList[chunkSection] = new BlockData[4096];
-                        }
-                        
-                        int sectionCoordinate = ((rowX & 15) * 16) + ((rowY & 15) * 256) + (rowZ & 15);
-                        if (rollbackType == 1) {
-                            if (adjacentList[chunkSection][sectionCoordinate] == null) {
-                                adjacentList[chunkSection][sectionCoordinate] = blockData;
-                            }
-                        }
-                        else {
-                            adjacentList[chunkSection][sectionCoordinate] = blockData;
-                        }
-                        */
 
                         int chunkCoordinate = ((rowX & 15) * 16) + (rowY * 256) + (rowZ & 15);
                         HashMap<Integer, Object> adjacentList = adjacentDataList.get(chunkKey);
@@ -1681,14 +1637,6 @@ public class Rollback extends Queue {
         int slot = 0;
 
         try {
-            /*
-            if (list instanceof Object[]) {
-                slot = (int) ((Object[]) list)[0];
-                ItemMeta itemMeta = (ItemMeta) ((Object[]) list)[1];
-                itemstack.setItemMeta(itemMeta);
-                return new Object[] { slot, itemstack };
-            }
-            */
 
             Material rowType = itemstack.getType();
             int itemCount = 0;

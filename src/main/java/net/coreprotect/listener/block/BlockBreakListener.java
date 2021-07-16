@@ -149,11 +149,6 @@ public final class BlockBreakListener extends Queue implements Listener {
                         if (!BlockGroup.TRACK_SIDE.contains(scanType)) {
                             log = false;
 
-                            /*
-                            if (physics == 0 && scanBlock.getBlockData() instanceof MultipleFacing) {
-                                physics = 1;
-                            }
-                            */
                         }
                         else {
                             // determine if side block is attached

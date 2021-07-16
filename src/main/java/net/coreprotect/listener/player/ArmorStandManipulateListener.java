@@ -117,18 +117,6 @@ public final class ArmorStandManipulateListener extends Queue implements Listene
             return;
         }
 
-        /*
-            if (item!=null && playerItem==null){
-                //player gets item
-            }
-            if (item==null && playerItem!=null){
-                //players item placed on armor stands
-            }
-            if (item!=null && playerItem!=null){
-                //items are swapped
-            }
-         */
-
         Material type = Material.ARMOR_STAND;
         Location standLocation = armorStand.getLocation();
         int x = standLocation.getBlockX();

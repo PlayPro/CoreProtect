@@ -64,8 +64,6 @@ public final class BlockIgniteListener extends Queue implements Listener {
             }
 
             if (event.getPlayer() == null) {
-                // IgniteCause cause = event.getCause(); // FLINT_AND_STEEL
-                // boolean isDispenser = (event.getIgnitingBlock() != null && event.getIgnitingBlock().getType()==Material.DISPENSER);
 
                 if (event.getCause() == IgniteCause.FIREBALL && (blockType == Material.AIR || blockType == Material.CAVE_AIR)) {
                     // Fix bug where fire is recorded as being placed above a campfire (when lit via a fireball from a dispenser)

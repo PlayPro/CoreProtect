@@ -611,20 +611,6 @@ public final class PlayerInteractListener extends Queue implements Listener {
                         if (blockData instanceof Lightable && ((Lightable) blockData).isLit() && ((BlockGroup.CANDLES.contains(type) && event.getMaterial() == Material.AIR) || (!BlockGroup.CANDLES.contains(type) && event.getMaterial().name().endsWith("_SHOVEL")))) {
                             ((Lightable) blockData).setLit(false);
                             Queue.queueBlockPlace(player.getName(), block.getState(), type, block.getState(), type, -1, 0, blockData.getAsString());
-                            /*
-                            BlockState blockState = block.getState();
-                            Bukkit.getServer().getScheduler().runTask(CoreProtect.getInstance(), () -> {
-                                try {
-                                    BlockData validateBlockData = block.getBlockData();
-                                    if (validateBlockData instanceof Lightable && !((Lightable) validateBlockData).isLit()) {
-                                        Queue.queueBlockPlace(player.getName(), blockState, type, blockState, type, -1, 0, validateBlockData.getAsString());
-                                    }
-                                }
-                                catch (Exception e) {
-                                    e.printStackTrace();
-                                }
-                            });
-                            */
                         }
 
                         isCake = type.name().endsWith(Material.CAKE.name());

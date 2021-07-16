@@ -1,6 +1,6 @@
 # Commands
 ---
-You can access the commands using either `/coreprotect` or it's aliases `/core` or `/co`.
+You can access the following commands by using `/co`.
 ___
 
 ## Command Overview
@@ -193,7 +193,8 @@ ___
 * Example: `i:stone` *(only include stone)*
 * Example: `i:stone,oak_wood,bedrock` *(specify multiple blocks)*
 
-> You can find a list of block type IDs at [https://coreprotect.net/wiki-blocks](https://coreprotect.net/wiki-blocks).
+> You can find a list of block names at [https://coreprotect.net/wiki-blocks](https://coreprotect.net/wiki-blocks).  
+> You can find a list of entity names at [https://coreprotect.net/wiki-entities](https://coreprotect.net/wiki-entities).
 
 ---
 

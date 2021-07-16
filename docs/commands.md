@@ -1,4 +1,4 @@
-# CoreProtect Commands
+# Commands
 ---
 You can access the commands using either `/coreprotect` or it's aliases `/core` or `/co`.
 ___
@@ -25,7 +25,7 @@ ___
 
 ---
 
-## Commands
+## Command Details
 
 *Detailed command information is listed below.*
 
@@ -171,12 +171,12 @@ ___
 | `a:container` | items taken from or put in chests |
 | `a:+container` | items put in chests |
 | `a:-container` | items taken from chests |
-| `a:inventory` | items dropped or picked up by players |
-| `a:+inventory` | items picked up by players |
-| `a:-inventory` | items dropped by players |
-| `a:item` | items dropped, picked up, taken from, or put in chests |
-| `a:+item` | items picked up or put in chests |
-| `a:-item` | items dropped or taken from chests |
+| `a:inventory` | items dropped, picked up, deposited, or withdrawn by players |
+| `a:+inventory` | items picked up or withdrawn by players |
+| `a:-inventory` | items dropped or deposited by players |
+| `a:item` | merges `a:container` and `a:inventory` |
+| `a:+item` | merges `a:+container` and `a:+inventory` |
+| `a:-item` | merges `a:-container` and `a:-inventory` |
 | `a:kill` | mobs/animals killed |
 | `a:session` | player logins/logouts |
 | `a:+session` | player logins |

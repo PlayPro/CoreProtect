@@ -214,10 +214,10 @@ public class CommandHandler implements CommandExecutor {
                                 int worldMinHeight = BukkitAdapter.ADAPTER.getMinHeight(location.getWorld());
 
                                 if (y < worldMinHeight) {
-                                    y = Double.valueOf(worldMinHeight);
+                                    y = worldMinHeight;
                                 }
                                 if (y > worldMaxHeight) {
-                                    y = Double.valueOf(worldMaxHeight);
+                                    y = worldMaxHeight;
                                 }
 
                                 location.setX(x);

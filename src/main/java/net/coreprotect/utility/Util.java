@@ -1294,7 +1294,7 @@ public class Util extends Queue {
     public static String[] parseCSVString(String string) {
         String[] result;
 
-        if (string.indexOf("\"") > -1) {
+        if (string.contains("\"")) {
             result = csvSplitter.split(string, -1);
         }
         else {
@@ -1306,7 +1306,7 @@ public class Util extends Queue {
             if (value.length() == 0) {
                 value = null;
             }
-            else if (string.indexOf("\"") > -1) {
+            else if (string.contains("\"")) {
                 value = value.replaceAll("^\"|\"$", "");
                 value = value.replaceAll("\"\"", "\"");
             }

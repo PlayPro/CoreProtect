@@ -37,9 +37,7 @@ public class BlockExplodeListener extends Queue implements Listener {
         }
 
         if (Config.getConfig(world).NATURAL_BREAK) {
-            Iterator<Map.Entry<Location, Block>> it = new HashMap<>(blockMap).entrySet().iterator();
-            while (it.hasNext()) {
-                Map.Entry<Location, Block> data = it.next();
+            for (Map.Entry<Location, Block> data : new HashMap<>(blockMap).entrySet()) {
                 Block block = data.getValue();
                 int x = block.getX();
                 int y = block.getY();
@@ -69,8 +67,7 @@ public class BlockExplodeListener extends Queue implements Listener {
                                 Location bisectLocation = location.clone();
                                 if (bisected.getHalf() == Half.TOP) {
                                     bisectLocation.setY(bisectLocation.getY() - 1);
-                                }
-                                else {
+                                } else {
                                     bisectLocation.setY(bisectLocation.getY() + 1);
                                 }
 
@@ -80,8 +77,7 @@ public class BlockExplodeListener extends Queue implements Listener {
                                     blockMap.put(bisectLocation, world.getBlockAt(bisectLocation));
                                 }
                             }
-                        }
-                        else if (scanType.hasGravity() && Config.getConfig(world).BLOCK_MOVEMENT) {
+                        } else if (scanType.hasGravity() && Config.getConfig(world).BLOCK_MOVEMENT) {
                             // log the top-most sand/gravel block as being removed
                             int scanY = location.getBlockY() + 1;
                             boolean topFound = false;

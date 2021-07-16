@@ -29,7 +29,7 @@ import net.coreprotect.utility.Util;
 
 public class CoreProtectAPI extends Queue {
 
-    public class ParseResult {
+    public static class ParseResult {
         String[] parse;
 
         public ParseResult(String[] data) {

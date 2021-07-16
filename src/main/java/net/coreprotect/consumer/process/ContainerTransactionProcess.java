@@ -21,7 +21,7 @@ class ContainerTransactionProcess {
             Map<Integer, Object> inventories = Consumer.consumerInventories.get(processId);
             if (inventories.get(id) != null) {
                 Object inventory = inventories.get(id);
-                String transactingChestId = location.getWorld().getUID().toString() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+                String transactingChestId = location.getWorld().getUID() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
                 String loggingChestId = user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
                 if (ConfigHandler.loggingChest.get(loggingChestId) != null) {
                     int current_chest = ConfigHandler.loggingChest.get(loggingChestId);

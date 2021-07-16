@@ -209,7 +209,7 @@ public class NetworkHandler extends Language implements Runnable {
 
                                 int status = connection.getResponseCode();
                                 if (status == 200) {
-                                    BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), "utf-8"));
+                                    BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8));
                                     StringBuilder responseBuilder = new StringBuilder();
                                     String responseLine = null;
                                     while ((responseLine = reader.readLine()) != null) {

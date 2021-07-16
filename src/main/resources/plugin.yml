@@ -1,0 +1,132 @@
+name: CoreProtect
+main: net.coreprotect.CoreProtect
+version: ${project.version}
+branch: ${project.branch}
+api-version: 1.13
+website: http://coreprotect.net
+author: Intelli
+softdepend: [WorldEdit]
+description: >
+             Provides block protection for your server.
+commands:
+  co:
+    description: Utilize the plugin
+    permission: coreprotect.co
+    permission-message: §3CoreProtect §f- You do not have permission to do that.
+    usage: /<command> <params>
+  core:
+    description: Utilize the plugin
+    permission: coreprotect.core
+    permission-message: §3CoreProtect §f- You do not have permission to do that.
+    usage: /<command> <params>
+  coreprotect:
+    description: Utilize the plugin
+    permission: coreprotect.coreprotect
+    permission-message: §3CoreProtect §f- You do not have permission to do that.
+    usage: /<command> <params>
+permissions:
+    coreprotect.*:
+        description: Gives access to all CoreProtect actions and commands
+        default: op
+        children: 
+            coreprotect.rollback: true
+            coreprotect.restore: true
+            coreprotect.inspect: true
+            coreprotect.help: true
+            coreprotect.purge: true
+            coreprotect.lookup: true
+            coreprotect.lookup.near: true
+            coreprotect.lookup.chat: true
+            coreprotect.lookup.command: true
+            coreprotect.lookup.session: true
+            coreprotect.lookup.username: true
+            coreprotect.lookup.block: true
+            coreprotect.lookup.sign: true
+            coreprotect.lookup.click: true
+            coreprotect.lookup.container: true
+            coreprotect.lookup.item: true
+            coreprotect.lookup.kill: true
+            coreprotect.teleport: true
+            coreprotect.reload: true
+            coreprotect.status: true
+    coreprotect.co:
+        description: Has permission to access the CoreProtect /co command
+        default: true
+    coreprotect.core:
+        description: Has permission to access the CoreProtect /core command
+        default: false
+    coreprotect.coreprotect:
+        description: Has permission to access the CoreProtect /coreprotect command
+        default: false
+    coreprotect.lookup:
+        description: Has permission to use the lookup command
+        default: op
+        children:
+            coreprotect.lookup.near: true
+            coreprotect.lookup.chat: true
+            coreprotect.lookup.command: true
+            coreprotect.lookup.session: true
+            coreprotect.lookup.username: true
+            coreprotect.lookup.block: true
+            coreprotect.lookup.sign: true
+            coreprotect.lookup.click: true
+            coreprotect.lookup.container: true
+            coreprotect.lookup.item: true
+            coreprotect.lookup.kill: true
+    coreprotect.lookup.near:
+        description: Has permission to lookup nearby changes via the near command
+        default: op
+    coreprotect.lookup.chat:
+        description: Has permission to lookup chat messages
+        default: op
+    coreprotect.lookup.command:
+        description: Has permission to lookup player commands
+        default: op
+    coreprotect.lookup.session:
+        description: Has permission to lookup player sessions
+        default: op
+    coreprotect.lookup.username:
+        description: Has permission to lookup player username changes
+        default: op
+    coreprotect.lookup.block:
+        description: Has permission to lookup block data
+        default: op
+    coreprotect.lookup.sign:
+        description: Has permission to lookup sign messages
+        default: op
+    coreprotect.lookup.click:
+        description: Has permission to lookup player interactions
+        default: op
+    coreprotect.lookup.container:
+        description: Has permission to lookup container transactions
+        default: op
+    coreprotect.lookup.item:
+        description: Has permission to lookup item transactions
+        default: op
+    coreprotect.lookup.kill:
+        description: Has permission to lookup entity kills
+        default: op
+    coreprotect.rollback:
+        description: Has permission to perform rollbacks
+        default: op
+    coreprotect.restore:
+        description: Has permission to perform restores
+        default: op
+    coreprotect.inspect:
+        description: Has permission to use the inspector
+        default: op
+    coreprotect.help:
+        description: Has permission to use the help command
+        default: op
+    coreprotect.purge:
+        description: Has permission to use the purge command
+        default: op
+    coreprotect.teleport:
+        description: Has permission to use the teleport command
+        default: op
+    coreprotect.reload:
+        description: Has permission to use the reload command
+        default: op
+    coreprotect.status:
+        description: Has permission to use the status command
+        default: op

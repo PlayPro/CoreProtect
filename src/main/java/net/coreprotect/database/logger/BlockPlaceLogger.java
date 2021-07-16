@@ -99,14 +99,13 @@ public class BlockPlaceLogger {
                         data = 4 + bedData;
                         doubledata = bedData;
                         bed.setPart(Bed.Part.FOOT);
-                        doubleBlockData = bed.getAsString();
                     }
                     else {
                         data = bedData;
                         doubledata = 4 + bedData;
                         bed.setPart(Bed.Part.HEAD);
-                        doubleBlockData = bed.getAsString();
                     }
+                    doubleBlockData = bed.getAsString();
                 }
                 else if (blockStateBlockData instanceof Door) {
                     Door door = (Door) blockStateBlockData;

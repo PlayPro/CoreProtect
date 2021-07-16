@@ -315,7 +315,7 @@ public class Rollback extends Queue {
                         int scanCoordinate = ((scanX & 15) * 16) + (blockY * 256) + (scanZ & 15);
 
                         if (!adjacentDataList.containsKey(scanChunkKey)) {
-                            adjacentDataList.put(scanChunkKey, new HashMap<Integer, Object>());
+                            adjacentDataList.put(scanChunkKey, new HashMap<>());
                         }
 
                         HashMap<Integer, Object> data = adjacentDataList.get(scanChunkKey);

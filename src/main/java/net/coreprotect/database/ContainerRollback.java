@@ -43,82 +43,79 @@ public class ContainerRollback extends Queue {
             final String finalUserString = userString;
             ConfigHandler.rollbackHash.put(userString, new int[] { 0, 0, 0, 0 });
 
-            Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(CoreProtect.getInstance(), new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        int[] rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
-                        int itemCount = rollbackHashData[0];
-                        // int blockCount = rollbackHashData[1];
-                        int entityCount = rollbackHashData[2];
-                        Block block = location.getBlock();
+            Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
+                try {
+                    int[] rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
+                    int itemCount = rollbackHashData[0];
+                    // int blockCount = rollbackHashData[1];
+                    int entityCount = rollbackHashData[2];
+                    Block block = location.getBlock();
 
-                        if (!block.getWorld().isChunkLoaded(block.getChunk())) {
-                            block.getWorld().getChunkAt(block.getLocation());
-                        }
-                        Object container = null;
-                        Material type = block.getType();
+                    if (!block.getWorld().isChunkLoaded(block.getChunk())) {
+                        block.getWorld().getChunkAt(block.getLocation());
+                    }
+                    Object container = null;
+                    Material type = block.getType();
 
-                        if (BlockGroup.CONTAINERS.contains(type)) {
-                            container = Util.getContainerInventory(block.getState(), false);
-                        }
-                        else {
-                            for (Entity entity : block.getChunk().getEntities()) {
-                                if (entity instanceof ArmorStand) {
-                                    if (entity.getLocation().getBlockX() == location.getBlockX() && entity.getLocation().getBlockY() == location.getBlockY() && entity.getLocation().getBlockZ() == location.getBlockZ()) {
-                                        type = Material.ARMOR_STAND;
-                                        container = Util.getEntityEquipment((LivingEntity) entity);
-                                    }
+                    if (BlockGroup.CONTAINERS.contains(type)) {
+                        container = Util.getContainerInventory(block.getState(), false);
+                    }
+                    else {
+                        for (Entity entity : block.getChunk().getEntities()) {
+                            if (entity instanceof ArmorStand) {
+                                if (entity.getLocation().getBlockX() == location.getBlockX() && entity.getLocation().getBlockY() == location.getBlockY() && entity.getLocation().getBlockZ() == location.getBlockZ()) {
+                                    type = Material.ARMOR_STAND;
+                                    container = Util.getEntityEquipment((LivingEntity) entity);
                                 }
                             }
                         }
+                    }
 
-                        int modifyCount = 0;
-                        if (container != null) {
-                            for (Object[] lookupRow : lookupList) {
-                                // int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
-                                // int rowId = lookupRow[0];
-                                // int rowTime = (Integer)lookupRow[1];
-                                // int rowUserId = (Integer)lookupRow[2];
-                                // int rowX = (Integer)lookupRow[3];
-                                // int rowY = (Integer)lookupRow[4];
-                                // int rowZ = (Integer)lookupRow[5];
-                                int rowTypeRaw = (Integer) lookupRow[6];
-                                int rowData = (Integer) lookupRow[7];
-                                int rowAction = (Integer) lookupRow[8];
-                                int rowRolledBack = (Integer) lookupRow[9];
-                                // int rowWid = (Integer)lookupRow[10];
-                                int rowAmount = (Integer) lookupRow[11];
-                                byte[] rowMetadata = (byte[]) lookupRow[12];
-                                Material rowType = Util.getType(rowTypeRaw);
+                    int modifyCount = 0;
+                    if (container != null) {
+                        for (Object[] lookupRow : lookupList) {
+                            // int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
+                            // int rowId = lookupRow[0];
+                            // int rowTime = (Integer)lookupRow[1];
+                            // int rowUserId = (Integer)lookupRow[2];
+                            // int rowX = (Integer)lookupRow[3];
+                            // int rowY = (Integer)lookupRow[4];
+                            // int rowZ = (Integer)lookupRow[5];
+                            int rowTypeRaw = (Integer) lookupRow[6];
+                            int rowData = (Integer) lookupRow[7];
+                            int rowAction = (Integer) lookupRow[8];
+                            int rowRolledBack = (Integer) lookupRow[9];
+                            // int rowWid = (Integer)lookupRow[10];
+                            int rowAmount = (Integer) lookupRow[11];
+                            byte[] rowMetadata = (byte[]) lookupRow[12];
+                            Material rowType = Util.getType(rowTypeRaw);
 
-                                if ((rollbackType == 0 && rowRolledBack == 0) || (rollbackType == 1 && rowRolledBack == 1)) {
-                                    modifyCount = modifyCount + rowAmount;
-                                    int action = 0;
+                            if ((rollbackType == 0 && rowRolledBack == 0) || (rollbackType == 1 && rowRolledBack == 1)) {
+                                modifyCount = modifyCount + rowAmount;
+                                int action = 0;
 
-                                    if (rollbackType == 0 && rowAction == 0) {
-                                        action = 1;
-                                    }
-
-                                    if (rollbackType == 1 && rowAction == 1) {
-                                        action = 1;
-                                    }
-
-                                    ItemStack itemstack = new ItemStack(rowType, rowAmount, (short) rowData);
-                                    Object[] populatedStack = Rollback.populateItemStack(itemstack, rowMetadata);
-                                    int slot = (Integer) populatedStack[0];
-                                    itemstack = (ItemStack) populatedStack[1];
-
-                                    Rollback.modifyContainerItems(type, container, slot, itemstack, action);
+                                if (rollbackType == 0 && rowAction == 0) {
+                                    action = 1;
                                 }
+
+                                if (rollbackType == 1 && rowAction == 1) {
+                                    action = 1;
+                                }
+
+                                ItemStack itemstack = new ItemStack(rowType, rowAmount, (short) rowData);
+                                Object[] populatedStack = Rollback.populateItemStack(itemstack, rowMetadata);
+                                int slot = (Integer) populatedStack[0];
+                                itemstack = (ItemStack) populatedStack[1];
+
+                                Rollback.modifyContainerItems(type, container, slot, itemstack, action);
                             }
                         }
+                    }
 
-                        ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount, modifyCount, entityCount, 1 });
-                    }
-                    catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                    ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount, modifyCount, entityCount, 1 });
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
                 }
             }, 0);
 

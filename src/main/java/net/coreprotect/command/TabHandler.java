@@ -328,18 +328,27 @@ public class TabHandler implements TabCompleter {
 
             }
             else if (args.length == 2) {
-                if (argument0.equals("help")) {
-                    List<String> completions = new ArrayList<>(Arrays.asList(HELP));
-                    return StringUtil.copyPartialMatches(argument1, completions, new ArrayList<>(completions.size()));
-                }
-                else if (argument0.equals("purge")) {
-                    List<String> completions = new ArrayList<>(Arrays.asList("t:", "r:"));
-                    return StringUtil.copyPartialMatches(argument1, completions, new ArrayList<>(completions.size()));
-                }
-                else if (argument0.equals("l") || argument0.equals("lookup") || argument0.equals("rollback") || argument0.equals("rb") || argument0.equals("ro") || argument0.equals("restore") || argument0.equals("rs") || argument0.equals("re")) {
-                    List<String> completions = new ArrayList<>(filterParams(true, argument0, argument1, hasUser, hasAction, hasInclude, hasExclude, hasRadius, hasTime, hasContainer, hasCount, hasPreview, pageLookup, validContainer));
-                    completions.addAll(Bukkit.getOnlinePlayers().stream().map(Player::getName).filter(name -> name.toLowerCase(Locale.ROOT).startsWith(argument1)).collect(Collectors.toList()));
-                    return StringUtil.copyPartialMatches(argument1, completions, new ArrayList<>(completions.size()));
+                switch (argument0) {
+                    case "help": {
+                        List<String> completions = new ArrayList<>(Arrays.asList(HELP));
+                        return StringUtil.copyPartialMatches(argument1, completions, new ArrayList<>(completions.size()));
+                    }
+                    case "purge": {
+                        List<String> completions = new ArrayList<>(Arrays.asList("t:", "r:"));
+                        return StringUtil.copyPartialMatches(argument1, completions, new ArrayList<>(completions.size()));
+                    }
+                    case "l":
+                    case "lookup":
+                    case "rollback":
+                    case "rb":
+                    case "ro":
+                    case "restore":
+                    case "rs":
+                    case "re": {
+                        List<String> completions = new ArrayList<>(filterParams(true, argument0, argument1, hasUser, hasAction, hasInclude, hasExclude, hasRadius, hasTime, hasContainer, hasCount, hasPreview, pageLookup, validContainer));
+                        completions.addAll(Bukkit.getOnlinePlayers().stream().map(Player::getName).filter(name -> name.toLowerCase(Locale.ROOT).startsWith(argument1)).collect(Collectors.toList()));
+                        return StringUtil.copyPartialMatches(argument1, completions, new ArrayList<>(completions.size()));
+                    }
                 }
             }
             else if (args.length == 3 && argument0.equals("purge")) {

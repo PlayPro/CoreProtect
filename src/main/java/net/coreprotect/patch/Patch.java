@@ -113,11 +113,10 @@ public class Patch {
                 jarInputStream.close();
             }
 
-            Collections.sort(patches, (o1, o2) -> {
+            patches.sort((o1, o2) -> {
                 if (Util.newVersion(o1, o2)) {
                     return -1;
-                }
-                else if (Util.newVersion(o2, o1)) {
+                } else if (Util.newVersion(o2, o1)) {
                     return 1;
                 }
                 return 0;

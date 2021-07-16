@@ -70,83 +70,171 @@ public class CommandHandler implements CommandExecutor {
                     if (argument.startsWith("#")) {
                         argument = argument.replaceFirst("#", "");
                     }
-                    if (argument.equals("broke") || argument.equals("break") || argument.equals("remove") || argument.equals("destroy") || argument.equals("block-break") || argument.equals("block-remove") || argument.equals("-block") || argument.equals("block-")) {
-                        result.add(0);
-                    }
-                    else if (argument.equals("placed") || argument.equals("place") || argument.equals("block-place") || argument.equals("+block") || argument.equals("block+")) {
-                        result.add(1);
-                    }
-                    else if (argument.equals("block") || argument.equals("block-change") || argument.equals("change")) {
-                        result.add(0);
-                        result.add(1);
-                    }
-                    else if (argument.equals("click") || argument.equals("clicks") || argument.equals("interact") || argument.equals("interaction") || argument.equals("player-interact") || argument.equals("player-interaction") || argument.equals("player-click")) {
-                        result.add(2);
-                    }
-                    else if (argument.equals("death") || argument.equals("deaths") || argument.equals("entity-death") || argument.equals("entity-deaths") || argument.equals("kill") || argument.equals("kills") || argument.equals("entity-kill") || argument.equals("entity-kills")) {
-                        result.add(3);
-                    }
-                    else if (argument.equals("container") || argument.equals("container-change") || argument.equals("containers") || argument.equals("chest") || argument.equals("transaction") || argument.equals("transactions")) {
-                        result.add(4);
-                    }
-                    else if (argument.equals("-container") || argument.equals("container-") || argument.equals("remove-container")) {
-                        result.add(4);
-                        result.add(0);
-                    }
-                    else if (argument.equals("+container") || argument.equals("container+") || argument.equals("container-add") || argument.equals("add-container")) {
-                        result.add(4);
-                        result.add(1);
-                    }
-                    else if (argument.equals("chat")) {
-                        result.add(6);
-                    }
-                    else if (argument.equals("command") || argument.equals("commands")) {
-                        result.add(7);
-                    }
-                    else if (argument.equals("login") || argument.equals("+session") || argument.equals("session+") || argument.equals("+connection") || argument.equals("connection+")) {
-                        result.add(8);
-                        result.add(1);
-                    }
-                    else if (argument.equals("logout") || argument.equals("-session") || argument.equals("session-") || argument.equals("-connection") || argument.equals("connection-")) {
-                        result.add(8);
-                        result.add(0);
-                    }
-                    else if (argument.equals("session") || argument.equals("sessions") || argument.equals("connection") || argument.equals("connections")) {
-                        result.add(8);
-                    }
-                    else if (argument.equals("username") || argument.equals("usernames") || argument.equals("user") || argument.equals("users") || argument.equals("name") || argument.equals("names") || argument.equals("uuid") || argument.equals("uuids") || argument.equals("username-change") || argument.equals("username-changes") || argument.equals("name-change") || argument.equals("name-changes")) {
-                        result.add(9);
-                    }
-                    else if (argument.equals("sign")) {
-                        result.add(10);
-                    }
-                    else if (argument.equals("item") || argument.equals("items")) {
-                        result.add(4);
-                        result.add(11);
-                    }
-                    else if (argument.equals("-item") || argument.equals("item-") || argument.equals("-items") || argument.equals("items-")) {
-                        result.add(4);
-                        result.add(11);
-                        result.add(0);
-                    }
-                    else if (argument.equals("+item") || argument.equals("item+") || argument.equals("+items") || argument.equals("items+")) {
-                        result.add(4);
-                        result.add(11);
-                        result.add(1);
-                    }
-                    else if (argument.equals("inv") || argument.equals("inventory") || argument.equals("inventories")) {
-                        result.add(11);
-                    }
-                    else if (argument.equals("-inv") || argument.equals("inv-") || argument.equals("-inventory") || argument.equals("inventory-") || argument.equals("-inventories") || argument.equals("drop") || argument.equals("drops") || argument.equals("deposit") || argument.equals("deposits") || argument.equals("deposited")) {
-                        result.add(11);
-                        result.add(0);
-                    }
-                    else if (argument.equals("+inv") || argument.equals("inv+") || argument.equals("+inventory") || argument.equals("inventory+") || argument.equals("+inventories") || argument.equals("pickup") || argument.equals("pickups") || argument.equals("withdraw") || argument.equals("withdraws") || argument.equals("withdrew")) {
-                        result.add(11);
-                        result.add(1);
-                    }
-                    else {
-                        result.add(-1);
+                    switch (argument) {
+                        case "broke":
+                        case "break":
+                        case "remove":
+                        case "destroy":
+                        case "block-break":
+                        case "block-remove":
+                        case "-block":
+                        case "block-":
+                            result.add(0);
+                            break;
+                        case "placed":
+                        case "place":
+                        case "block-place":
+                        case "+block":
+                        case "block+":
+                            result.add(1);
+                            break;
+                        case "block":
+                        case "block-change":
+                        case "change":
+                            result.add(0);
+                            result.add(1);
+                            break;
+                        case "click":
+                        case "clicks":
+                        case "interact":
+                        case "interaction":
+                        case "player-interact":
+                        case "player-interaction":
+                        case "player-click":
+                            result.add(2);
+                            break;
+                        case "death":
+                        case "deaths":
+                        case "entity-death":
+                        case "entity-deaths":
+                        case "kill":
+                        case "kills":
+                        case "entity-kill":
+                        case "entity-kills":
+                            result.add(3);
+                            break;
+                        case "container":
+                        case "container-change":
+                        case "containers":
+                        case "chest":
+                        case "transaction":
+                        case "transactions":
+                            result.add(4);
+                            break;
+                        case "-container":
+                        case "container-":
+                        case "remove-container":
+                            result.add(4);
+                            result.add(0);
+                            break;
+                        case "+container":
+                        case "container+":
+                        case "container-add":
+                        case "add-container":
+                            result.add(4);
+                            result.add(1);
+                            break;
+                        case "chat":
+                            result.add(6);
+                            break;
+                        case "command":
+                        case "commands":
+                            result.add(7);
+                            break;
+                        case "login":
+                        case "+session":
+                        case "session+":
+                        case "+connection":
+                        case "connection+":
+                            result.add(8);
+                            result.add(1);
+                            break;
+                        case "logout":
+                        case "-session":
+                        case "session-":
+                        case "-connection":
+                        case "connection-":
+                            result.add(8);
+                            result.add(0);
+                            break;
+                        case "session":
+                        case "sessions":
+                        case "connection":
+                        case "connections":
+                            result.add(8);
+                            break;
+                        case "username":
+                        case "usernames":
+                        case "user":
+                        case "users":
+                        case "name":
+                        case "names":
+                        case "uuid":
+                        case "uuids":
+                        case "username-change":
+                        case "username-changes":
+                        case "name-change":
+                        case "name-changes":
+                            result.add(9);
+                            break;
+                        case "sign":
+                            result.add(10);
+                            break;
+                        case "item":
+                        case "items":
+                            result.add(4);
+                            result.add(11);
+                            break;
+                        case "-item":
+                        case "item-":
+                        case "-items":
+                        case "items-":
+                            result.add(4);
+                            result.add(11);
+                            result.add(0);
+                            break;
+                        case "+item":
+                        case "item+":
+                        case "+items":
+                        case "items+":
+                            result.add(4);
+                            result.add(11);
+                            result.add(1);
+                            break;
+                        case "inv":
+                        case "inventory":
+                        case "inventories":
+                            result.add(11);
+                            break;
+                        case "-inv":
+                        case "inv-":
+                        case "-inventory":
+                        case "inventory-":
+                        case "-inventories":
+                        case "drop":
+                        case "drops":
+                        case "deposit":
+                        case "deposits":
+                        case "deposited":
+                            result.add(11);
+                            result.add(0);
+                            break;
+                        case "+inv":
+                        case "inv+":
+                        case "+inventory":
+                        case "inventory+":
+                        case "+inventories":
+                        case "pickup":
+                        case "pickups":
+                        case "withdraw":
+                        case "withdraws":
+                        case "withdrew":
+                            result.add(11);
+                            result.add(1);
+                            break;
+                        default:
+                            result.add(-1);
+                            break;
                     }
                     next = 0;
                 }
@@ -1123,44 +1211,56 @@ public class CommandHandler implements CommandExecutor {
                     }
                 }
 
-                if (corecommand.equals("rollback") || corecommand.equals("restore") || corecommand.equals("rb") || corecommand.equals("rs") || corecommand.equals("ro") || corecommand.equals("re")) {
-                    RollbackRestoreCommand.runCommand(user, command, permission, argumentArray, null, 0);
-                }
-                else if (corecommand.equals("apply")) {
-                    ApplyCommand.runCommand(user, command, permission, argumentArray);
-                }
-                else if (corecommand.equals("cancel")) {
-                    CancelCommand.runCommand(user, command, permission, argumentArray);
-                }
-                else if (corecommand.equals("undo")) {
-                    UndoCommand.runCommand(user, command, permission, argumentArray);
-                }
-                else if (corecommand.equals("help")) {
-                    HelpCommand.runCommand(user, permission, argumentArray);
-                }
-                else if (corecommand.equals("purge")) {
-                    PurgeCommand.runCommand(user, permission, argumentArray);
-                }
-                else if (corecommand.equals("inspect") || corecommand.equals("i")) {
-                    InspectCommand.runCommand(user, permission, argumentArray);
-                }
-                else if (corecommand.equals("lookup") || corecommand.equals("l")) {
-                    LookupCommand.runCommand(user, command, permission, argumentArray);
-                }
-                else if (corecommand.equals("near")) {
-                    LookupCommand.runCommand(user, command, permission, new String[] { "near", "r:5x5" });
-                }
-                else if (corecommand.equals("teleport") || corecommand.equals("tp")) {
-                    TeleportCommand.runCommand(user, permission, argumentArray);
-                }
-                else if (corecommand.equals("status") || corecommand.equals("stats") || corecommand.equals("version")) {
-                    StatusCommand.runCommand(user, permission, argumentArray);
-                }
-                else if (corecommand.equals("reload")) {
-                    ReloadCommand.runCommand(user, permission, argumentArray);
-                }
-                else {
-                    Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.COMMAND_NOT_FOUND, Color.WHITE, "/co " + corecommand));
+                switch (corecommand) {
+                    case "rollback":
+                    case "restore":
+                    case "rb":
+                    case "rs":
+                    case "ro":
+                    case "re":
+                        RollbackRestoreCommand.runCommand(user, command, permission, argumentArray, null, 0);
+                        break;
+                    case "apply":
+                        ApplyCommand.runCommand(user, command, permission, argumentArray);
+                        break;
+                    case "cancel":
+                        CancelCommand.runCommand(user, command, permission, argumentArray);
+                        break;
+                    case "undo":
+                        UndoCommand.runCommand(user, command, permission, argumentArray);
+                        break;
+                    case "help":
+                        HelpCommand.runCommand(user, permission, argumentArray);
+                        break;
+                    case "purge":
+                        PurgeCommand.runCommand(user, permission, argumentArray);
+                        break;
+                    case "inspect":
+                    case "i":
+                        InspectCommand.runCommand(user, permission, argumentArray);
+                        break;
+                    case "lookup":
+                    case "l":
+                        LookupCommand.runCommand(user, command, permission, argumentArray);
+                        break;
+                    case "near":
+                        LookupCommand.runCommand(user, command, permission, new String[]{"near", "r:5x5"});
+                        break;
+                    case "teleport":
+                    case "tp":
+                        TeleportCommand.runCommand(user, permission, argumentArray);
+                        break;
+                    case "status":
+                    case "stats":
+                    case "version":
+                        StatusCommand.runCommand(user, permission, argumentArray);
+                        break;
+                    case "reload":
+                        ReloadCommand.runCommand(user, permission, argumentArray);
+                        break;
+                    default:
+                        Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.COMMAND_NOT_FOUND, Color.WHITE, "/co " + corecommand));
+                        break;
                 }
             }
             else {

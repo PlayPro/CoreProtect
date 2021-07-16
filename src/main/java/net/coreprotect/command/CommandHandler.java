@@ -1171,7 +1171,7 @@ public class CommandHandler implements CommandExecutor {
                 String latestVersion = NetworkHandler.latestVersion();
                 if (latestVersion != null) {
                     versionAlert.put(user.getName(), true);
-                    class updateAlert implements Runnable {
+                    class UpdateAlert implements Runnable {
                         @Override
                         public void run() {
                             try {
@@ -1185,7 +1185,7 @@ public class CommandHandler implements CommandExecutor {
                             }
                         }
                     }
-                    (new Thread(new updateAlert())).start();
+                    (new Thread(new UpdateAlert())).start();
                 }
             }
 

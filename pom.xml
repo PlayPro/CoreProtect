@@ -4,7 +4,7 @@
   <artifactId>CoreProtect</artifactId>
   <version>20.0</version>
   <properties>
-    <project.branch></project.branch>
+    <project.branch/>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
   <build>
@@ -84,7 +84,7 @@
     </repository>
     <repository>
       <id>sk89q-repo</id>
-      <url>http://maven.sk89q.com/repo/</url>
+      <url>https://maven.sk89q.com/repo/</url>
     </repository>
   </repositories>
   <dependencies>

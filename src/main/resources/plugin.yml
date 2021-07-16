@@ -3,7 +3,7 @@ main: net.coreprotect.CoreProtect
 version: ${project.version}
 branch: ${project.branch}
 api-version: 1.13
-website: http://coreprotect.net
+website: https://coreprotect.net
 author: Intelli
 softdepend: [WorldEdit]
 description: >

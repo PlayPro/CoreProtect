@@ -64,7 +64,7 @@ public class NetworkHandler extends Language implements Runnable {
                 boolean keyValidated = true;
                 String keyConfig = Config.getGlobal().DONATION_KEY.trim();
                 if (keyConfig.length() > 0) {
-                    URL url = new URL("http://coreprotect.net/license/" + keyConfig);
+                    URL url = new URL("https://coreprotect.net/license/" + keyConfig);
                     HttpURLConnection connection = (HttpURLConnection) url.openConnection();
                     connection.setRequestMethod("GET");
                     connection.setRequestProperty("Accept-Charset", "UTF-8");
@@ -191,7 +191,7 @@ public class NetworkHandler extends Language implements Runnable {
                             int postDataLength = postData.length;
 
                             try {
-                                URL url = new URL("http://coreprotect.net/translate/");
+                                URL url = new URL("https://coreprotect.net/translate/");
                                 HttpURLConnection connection = (HttpURLConnection) url.openConnection();
                                 connection.setRequestMethod("POST");
                                 connection.setRequestProperty("Accept-Charset", "UTF-8");
@@ -286,7 +286,7 @@ public class NetworkHandler extends Language implements Runnable {
                 String version = Util.getPluginVersion();
 
                 try {
-                    URL url = new URL("http://update.coreprotect.net/version/");
+                    URL url = new URL("https://update.coreprotect.net/version/");
                     connection = (HttpURLConnection) url.openConnection();
                     connection.setRequestMethod("GET");
                     connection.setRequestProperty("Accept-Charset", "UTF-8");
@@ -337,7 +337,7 @@ public class NetworkHandler extends Language implements Runnable {
                     /* Stat gathering */
                     int port = Bukkit.getServer().getPort();
                     String stats = port + ":" + (donationKey != null ? donationKey : "") + ":" + version + ConfigHandler.EDITION_BRANCH;
-                    URL url = new URL("http://stats.coreprotect.net/u/?data=" + stats);
+                    URL url = new URL("https://stats.coreprotect.net/u/?data=" + stats);
                     connection = (HttpURLConnection) url.openConnection();
                     connection.setRequestMethod("GET");
                     connection.setRequestProperty("Accept-Charset", "UTF-8");

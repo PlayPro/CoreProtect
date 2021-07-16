@@ -992,7 +992,7 @@ public class Util extends Queue {
                 }
             }
             else if (version.contains(".")) {
-                String[] worldEditVersion = version.split("-|\\.");
+                String[] worldEditVersion = version.split("[-.]");
                 if (worldEditVersion.length >= 2) {
                     worldEditVersion[0] = worldEditVersion[0].replaceAll("[^0-9]", "");
                     worldEditVersion[1] = worldEditVersion[1].replaceAll("[^0-9]", "");

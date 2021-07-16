@@ -127,7 +127,7 @@ public final class CoreProtect extends JavaPlugin {
 
     private static boolean performVersionChecks() {
         try {
-            String[] bukkitVersion = Bukkit.getServer().getBukkitVersion().split("-|\\.");
+            String[] bukkitVersion = Bukkit.getServer().getBukkitVersion().split("[-.]");
             if (Util.newVersion(bukkitVersion[0] + "." + bukkitVersion[1], ConfigHandler.SPIGOT_VERSION)) {
                 Chat.console(Phrase.build(Phrase.VERSION_REQUIRED, "Spigot", ConfigHandler.SPIGOT_VERSION));
                 return false;

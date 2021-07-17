@@ -138,7 +138,7 @@ public class __2_19_0 {
                 }
             }
 
-            String blockQuery = "SELECT time, user, wid, x, y, z FROM " + ConfigHandler.prefix + "block WHERE type IN(" + signData.toString() + ") AND action='1' ORDER BY rowid ASC";
+            String blockQuery = "SELECT time, user, wid, x, y, z FROM " + ConfigHandler.prefix + "block WHERE type IN(" + signData + ") AND action='1' ORDER BY rowid ASC";
             String preparedSignQuery = "SELECT rowid as id FROM " + ConfigHandler.prefix + "sign WHERE user = ? AND wid = ? AND x = ? AND y = ? AND z = ? AND time >= ? ORDER BY rowid ASC LIMIT 0, 1";
             String preparedQueryUpdate = "UPDATE " + ConfigHandler.prefix + "sign SET action = 1 WHERE rowid = ?";
             PreparedStatement preparedSignStatement = statement.getConnection().prepareStatement(preparedSignQuery);

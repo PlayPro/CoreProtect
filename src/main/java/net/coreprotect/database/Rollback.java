@@ -288,7 +288,6 @@ public class Rollback extends Queue {
                     int chunkBlockZ = chunkZ << 4;
                     int blockX = chunkBlockX + cx;
                     int blockZ = chunkBlockZ + cz;
-                    int blockY = cy;
 
                     for (int i = 0; i < 4; i++) {
                         int scanX = blockX;
@@ -312,7 +311,7 @@ public class Rollback extends Queue {
                         int scanChunkX = scanX >> 4;
                         int scanChunkZ = scanZ >> 4;
                         long scanChunkKey = scanChunkX & 0xffffffffL | (scanChunkZ & 0xffffffffL) << 32;
-                        int scanCoordinate = ((scanX & 15) * 16) + (blockY * 256) + (scanZ & 15);
+                        int scanCoordinate = ((scanX & 15) * 16) + (cy * 256) + (scanZ & 15);
 
                         if (!adjacentDataList.containsKey(scanChunkKey)) {
                             adjacentDataList.put(scanChunkKey, new HashMap<Integer, Object>());

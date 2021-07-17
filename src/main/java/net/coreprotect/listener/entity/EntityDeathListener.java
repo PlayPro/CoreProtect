@@ -190,7 +190,6 @@ public final class EntityDeathListener extends Queue implements Listener {
                     List<Object> attributes = new ArrayList<>();
                     List<Object> details = new ArrayList<>();
                     List<Object> info = new ArrayList<>();
-                    EntityType type = entity_type;
 
                     // Basic LivingEntity attributes
                     details.add(entity.getRemoveWhenFarAway());
@@ -216,10 +215,9 @@ public final class EntityDeathListener extends Queue implements Listener {
                     }
 
                     if (entity instanceof Attributable) {
-                        Attributable attributable = entity;
 
                         for (Attribute attribute : Attribute.values()) {
-                            AttributeInstance attributeInstance = attributable.getAttribute(attribute);
+                            AttributeInstance attributeInstance = entity.getAttribute(attribute);
                             if (attributeInstance != null) {
                                 List<Object> attributeData = new ArrayList<>();
                                 List<Object> attributeModifiers = new ArrayList<>();
@@ -454,7 +452,7 @@ public final class EntityDeathListener extends Queue implements Listener {
                     data.add(details);
 
                     if (!(entity instanceof Player)) {
-                        Queue.queueEntityKill(e, entity.getLocation(), data, type);
+                        Queue.queueEntityKill(e, entity.getLocation(), data, entity_type);
                     }
                     else {
                         Queue.queuePlayerKill(e, entity.getLocation(), entity.getName());

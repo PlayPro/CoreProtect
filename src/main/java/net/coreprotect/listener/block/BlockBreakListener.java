@@ -46,8 +46,7 @@ public final class BlockBreakListener extends Queue implements Listener {
         if (blockData instanceof Directional && !(blockData instanceof Bisected) && scanMin != BlockUtil.BOTTOM && scanMin != BlockUtil.TOP) {
             Directional directional = (Directional) blockData;
             BlockFace blockFace = directional.getFacing();
-            boolean adjacent = scanBlock.getRelative(blockFace.getOppositeFace()).getLocation().equals(block.getLocation());
-            return adjacent;
+            return scanBlock.getRelative(blockFace.getOppositeFace()).getLocation().equals(block.getLocation());
         }
         else if (blockData instanceof MultipleFacing) {
             MultipleFacing multipleFacing = (MultipleFacing) blockData;

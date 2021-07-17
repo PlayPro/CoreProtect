@@ -1,7 +1,5 @@
 package net.coreprotect.bukkit;
 
-import java.util.*;
-
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -21,6 +19,13 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.Util;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 
 public class Bukkit_v1_17 extends Bukkit_v1_16 implements BukkitInterface {
 

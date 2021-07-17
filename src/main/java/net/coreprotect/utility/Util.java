@@ -2025,7 +2025,7 @@ public class Util extends Queue {
                         try {
                             hanging = block.getWorld().spawn(spawn_block.getLocation(), Painting.class);
                         }
-                        catch (Exception e) {
+                        catch (Exception ignored) {
                         }
                         if (hanging != null) {
                             hanging.teleport(block.getWorld().getBlockAt(painting_x, painting_y, painting_z).getLocation());
@@ -2051,7 +2051,7 @@ public class Util extends Queue {
                                 }
                             }
                         }
-                        catch (Exception e) {
+                        catch (Exception ignored) {
                         }
                     }
                 }

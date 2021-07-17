@@ -69,7 +69,7 @@ public class CacheHandler implements Runnable {
                                 try {
                                     iterator.remove();
                                 }
-                                catch (Exception e) {
+                                catch (Exception ignored) {
                                 }
                             }
                         }

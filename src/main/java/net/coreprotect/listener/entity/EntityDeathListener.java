@@ -245,7 +245,7 @@ public final class EntityDeathListener extends Queue implements Listener {
                         try {
                             info.add(enderman.getCarriedBlock().getAsString());
                         }
-                        catch (Exception endermanException) {
+                        catch (Exception ignored) {
                         }
                     }
                     else if (entity instanceof IronGolem) {

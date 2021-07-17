@@ -11,6 +11,7 @@ Please note we have a code of conduct, please follow it in all your interactions
 - Use descriptiveCamelCase for variable/method names. Names containing underscore or abbreviations should be changed.
 - Restrict changes in a commit to a single event or section of code (e.g. refactor BlockBreakEvent and BlockPlaceEvent in separate commits)
 - Attempt to keep the amount of code modified in a single commit small and readable. 
+- Please utilize [SonarLint](https://www.sonarlint.org) in your IDE. Contributions are automatically analyzed.
 - When adding new functionality, please also be sure to update the documentation as well.
 - Use common sense. If you have a suggestion for a contribution guideline, post it on Discord.
 

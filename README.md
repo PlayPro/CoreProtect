@@ -1,8 +1,10 @@
 ![CoreProtect](https://userfolio.com/uploads/coreprotect-banner-v19.png)
 
 [![Artistic License 2.0](https://img.shields.io/github/license/PlayPro/CoreProtect?&logo=github)](LICENSE)
+[![GitHub Workflows](https://github.com/PlayPro/CoreProtect/actions/workflows/build.yml/badge.svg)](https://github.com/PlayPro/CoreProtect/actions)
+[![Netlify Status](https://img.shields.io/netlify/c1d26a0f-65c5-4e4b-95d7-e08af671ab67)](https://app.netlify.com/sites/coreprotect/deploys)
+[![CodeFactor](https://www.codefactor.io/repository/github/playpro/coreprotect/badge)](https://www.codefactor.io/repository/github/playpro/coreprotect)
 [![Join us on Discord](https://img.shields.io/discord/348680641560313868.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/b4DZ4jy)
-[![Netlify Status](https://api.netlify.com/api/v1/badges/c1d26a0f-65c5-4e4b-95d7-e08af671ab67/deploy-status)](https://app.netlify.com/sites/coreprotect/deploys)
 
 CoreProtect
 ===========

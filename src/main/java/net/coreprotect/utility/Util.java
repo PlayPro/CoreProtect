@@ -441,7 +441,7 @@ public class Util extends Queue {
     public static <K, V extends Comparable<? super V>> SortedSet<Map.Entry<K, V>> entriesSortedByValues(Map<K, V> map) {
         SortedSet<Map.Entry<K, V>> sortedEntries = new TreeSet<>((e1, e2) -> {
             int res = e1.getValue().compareTo(e2.getValue());
-            return res != 0 ? res : 1;
+            return res != 0 ? res : 1; // this is suspicious because 'Comparator' doesn't return 0 for equal elements
         });
         sortedEntries.addAll(map.entrySet());
         return sortedEntries;
@@ -1244,11 +1244,11 @@ public class Util extends Queue {
             // Minor version
             result = true;
         }
-        else if (old_version.length < 3 && current_version.length >= 3 && old_version[0] == current_version[0] && old_version[1] == current_version[1] && 0 < current_version[2]) {
+        else if (old_version.length < 3 && current_version.length >= 3 && old_version[0].equals(current_version[0]) && old_version[1].equals(current_version[1]) && 0 < current_version[2]) {
             // Revision version (#.# vs #.#.#)
             result = true;
         }
-        else if (old_version.length >= 3 && current_version.length >= 3 && old_version[0] == current_version[0] && old_version[1] == current_version[1] && old_version[2] < current_version[2]) {
+        else if (old_version.length >= 3 && current_version.length >= 3 && old_version[0].equals(current_version[0]) && old_version[1].equals(current_version[1]) && old_version[2] < current_version[2]) {
             // Revision version (#.#.# vs #.#.#)
             result = true;
         }

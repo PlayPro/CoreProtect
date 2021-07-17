@@ -1250,7 +1250,7 @@ public class Util extends Queue {
             // Major version
             result = true;
         }
-        else if (old_version[0] == current_version[0] && old_version[1] < current_version[1]) {
+        else if (old_version[0].equals(current_version[0]) && old_version[1] < current_version[1]) {
             // Minor version
             result = true;
         }

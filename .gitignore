@@ -97,7 +97,6 @@ gradlew.bat
 *.tlb
 *.tli
 *.tlh
-*.tmp
 *.vspscc
 .builds
 *.dotCover

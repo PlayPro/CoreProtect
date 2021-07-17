@@ -69,7 +69,9 @@ public class Bukkit_v1_17 extends Bukkit_v1_16 implements BukkitInterface {
             Goat goat = (Goat) entity;
             info.add(goat.isScreaming());
         }
-        else return super.getEntityMeta(entity, info);
+        else {
+            return super.getEntityMeta(entity, info);
+        }
 
         return true;
     }
@@ -90,7 +92,9 @@ public class Bukkit_v1_17 extends Bukkit_v1_16 implements BukkitInterface {
                 goat.setScreaming(set);
             }
         }
-        else return super.setEntityMeta(entity, value, count);
+        else {
+            return super.setEntityMeta(entity, value, count);
+        }
 
         return true;
     }
@@ -115,7 +119,9 @@ public class Bukkit_v1_17 extends Bukkit_v1_16 implements BukkitInterface {
                 metadata.add(list);
             }
         }
-        else return super.getItemMeta(itemMeta, list, metadata, slot);
+        else {
+            return super.getItemMeta(itemMeta, list, metadata, slot);
+        }
 
         return true;
     }
@@ -132,7 +138,9 @@ public class Bukkit_v1_17 extends Bukkit_v1_16 implements BukkitInterface {
             }
             itemstack.setItemMeta(meta);
         }
-        else return super.setItemMeta(rowType, itemstack, map);
+        else {
+            return super.setItemMeta(rowType, itemstack, map);
+        }
 
         return true;
     }
@@ -145,7 +153,9 @@ public class Bukkit_v1_17 extends Bukkit_v1_16 implements BukkitInterface {
             boolean adjacent = scanBlock.getRelative(blockFace.getOppositeFace()).getLocation().equals(block.getLocation());
             return adjacent;
         }
-        else return super.isAttached(block, scanBlock, blockData, scanMin);
+        else {
+            return super.isAttached(block, scanBlock, blockData, scanMin);
+        }
     }
 
     @Override

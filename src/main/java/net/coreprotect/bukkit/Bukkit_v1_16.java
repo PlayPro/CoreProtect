@@ -48,7 +48,9 @@ public class Bukkit_v1_16 extends Bukkit_v1_15 implements BukkitInterface {
             Zoglin zoglin = (Zoglin) entity;
             info.add(zoglin.isBaby());
         }
-        else return super.getEntityMeta(entity, info);
+        else {
+            return super.getEntityMeta(entity, info);
+        }
 
         return true;
     }
@@ -69,7 +71,9 @@ public class Bukkit_v1_16 extends Bukkit_v1_15 implements BukkitInterface {
                 zoglin.setBaby(set);
             }
         }
-        else return super.setEntityMeta(entity, value, count);
+        else {
+            return super.setEntityMeta(entity, value, count);
+        }
 
         return true;
     }

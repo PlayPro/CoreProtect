@@ -77,11 +77,7 @@ public final class EntityDeathListener extends Queue implements Listener {
             EntityDamageEvent damage = entity.getLastDamageCause();
             if (damage != null) {
                 String e = "";
-                boolean skip = true;
-
-                if (!Config.getConfig(entity.getWorld()).SKIP_GENERIC_DATA || (!(entity instanceof Zombie) && !(entity instanceof Skeleton))) {
-                    skip = false;
-                }
+                boolean skip = Config.getConfig(entity.getWorld()).SKIP_GENERIC_DATA && (entity instanceof Zombie || entity instanceof Skeleton);
 
                 if (damage instanceof EntityDamageByEntityEvent) {
                     EntityDamageByEntityEvent attack = (EntityDamageByEntityEvent) damage;

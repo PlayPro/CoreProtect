@@ -43,12 +43,8 @@ public class Bukkit_v1_17 extends Bukkit_v1_16 implements BukkitInterface {
 
     @Override
     public String parseLegacyName(String name) {
-        switch (name) {
-            case "GRASS_PATH":
-                name = "DIRT_PATH";
-                break;
-            default:
-                break;
+        if ("GRASS_PATH".equals(name)) {
+            name = "DIRT_PATH";
         }
 
         return name;
@@ -56,12 +52,10 @@ public class Bukkit_v1_17 extends Bukkit_v1_16 implements BukkitInterface {
 
     @Override
     public int getLegacyBlockId(Material material) {
-        switch (material) {
-            case DIRT_PATH:
-                return Util.getBlockId("GRASS_PATH", false);
-            default:
-                return -1;
+        if (material == Material.DIRT_PATH) {
+            return Util.getBlockId("GRASS_PATH", false);
         }
+        return -1;
     }
 
     @Override
@@ -74,12 +68,7 @@ public class Bukkit_v1_17 extends Bukkit_v1_16 implements BukkitInterface {
             Goat goat = (Goat) entity;
             info.add(goat.isScreaming());
         }
-        else if (super.getEntityMeta(entity, info)) {
-            return true;
-        }
-        else {
-            return false;
-        }
+        else return super.getEntityMeta(entity, info);
 
         return true;
     }
@@ -100,12 +89,7 @@ public class Bukkit_v1_17 extends Bukkit_v1_16 implements BukkitInterface {
                 goat.setScreaming(set);
             }
         }
-        else if (super.setEntityMeta(entity, value, count)) {
-            return true;
-        }
-        else {
-            return false;
-        }
+        else return super.setEntityMeta(entity, value, count);
 
         return true;
     }
@@ -130,12 +114,7 @@ public class Bukkit_v1_17 extends Bukkit_v1_16 implements BukkitInterface {
                 metadata.add(list);
             }
         }
-        else if (super.getItemMeta(itemMeta, list, metadata, slot)) {
-            return true;
-        }
-        else {
-            return false;
-        }
+        else return super.getItemMeta(itemMeta, list, metadata, slot);
 
         return true;
     }
@@ -152,12 +131,7 @@ public class Bukkit_v1_17 extends Bukkit_v1_16 implements BukkitInterface {
             }
             itemstack.setItemMeta(meta);
         }
-        else if (super.setItemMeta(rowType, itemstack, map)) {
-            return true;
-        }
-        else {
-            return false;
-        }
+        else return super.setItemMeta(rowType, itemstack, map);
 
         return true;
     }
@@ -168,15 +142,9 @@ public class Bukkit_v1_17 extends Bukkit_v1_16 implements BukkitInterface {
             PointedDripstone pointedDripstone = (PointedDripstone) blockData;
             BlockFace blockFace = pointedDripstone.getVerticalDirection();
             boolean adjacent = scanBlock.getRelative(blockFace.getOppositeFace()).getLocation().equals(block.getLocation());
-            if (!adjacent) {
-                return false;
-            }
+            return adjacent;
         }
-        else if (!super.isAttached(block, scanBlock, blockData, scanMin)) {
-            return false;
-        }
-
-        return true;
+        else return super.isAttached(block, scanBlock, blockData, scanMin);
     }
 
     @Override

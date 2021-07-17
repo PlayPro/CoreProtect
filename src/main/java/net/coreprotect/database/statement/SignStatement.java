@@ -61,7 +61,7 @@ public class SignStatement {
                 }
 
                 if (data > 0) {
-                    BukkitAdapter.ADAPTER.setGlowing(sign, (data == 1 ? true : false));
+                    BukkitAdapter.ADAPTER.setGlowing(sign, (data == 1));
                 }
 
                 sign.setLine(0, line1);

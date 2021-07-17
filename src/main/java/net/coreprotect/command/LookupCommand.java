@@ -186,10 +186,7 @@ public class LookupCommand {
                 return;
             }
         }
-        boolean allPermission = false;
-        if (args[0].equals("near") && player.hasPermission("coreprotect.lookup.near")) {
-            allPermission = true;
-        }
+        boolean allPermission = args[0].equals("near") && player.hasPermission("coreprotect.lookup.near");
         if (!allPermission) {
             if (!pageLookup && (argAction.size() == 0 || (argAction.size() == 1 && (argAction.contains(0) || argAction.contains(1)))) && !player.hasPermission("coreprotect.lookup.block")) {
                 Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
@@ -744,10 +741,7 @@ public class LookupCommand {
                                         }
 
                                         int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
-                                        boolean restrict_world = false;
-                                        if (radius != null) {
-                                            restrict_world = true;
-                                        }
+                                        boolean restrict_world = radius != null;
                                         if (location == null) {
                                             restrict_world = false;
                                         }

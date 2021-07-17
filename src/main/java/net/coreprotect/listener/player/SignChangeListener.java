@@ -26,7 +26,7 @@ public final class SignChangeListener extends Queue implements Listener {
         String line3 = event.getLine(2);
         String line4 = event.getLine(3);
         int color = (blockState instanceof Sign) ? ((Sign) blockState).getColor().getColor().asRGB() : 0;
-        boolean isGlowing = (blockState instanceof Sign) ? BukkitAdapter.ADAPTER.isGlowing((Sign) blockState) : false;
+        boolean isGlowing = blockState instanceof Sign && BukkitAdapter.ADAPTER.isGlowing((Sign) blockState);
 
         if (!event.isCancelled() && Config.getConfig(block.getWorld()).SIGN_TEXT) {
             Queue.queueSignText(player, location, 1, color, isGlowing, line1, line2, line3, line4, 0);

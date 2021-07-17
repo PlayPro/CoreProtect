@@ -449,11 +449,7 @@ public class CoreProtectAPI extends Queue {
             Connection connection = Database.getConnection(false, 1000);
             if (connection != null) {
                 Statement statement = connection.createStatement();
-                boolean restrictWorld = false;
-
-                if (radius > 0) {
-                    restrictWorld = true;
-                }
+                boolean restrictWorld = radius > 0;
 
                 if (location == null) {
                     restrictWorld = false;

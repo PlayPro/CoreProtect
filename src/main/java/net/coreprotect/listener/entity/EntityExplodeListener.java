@@ -48,10 +48,7 @@ public final class EntityExplodeListener extends BlockExplodeListener implements
             user = "#endercrystal";
         }
 
-        boolean log = false;
-        if (Config.getConfig(world).EXPLOSIONS) {
-            log = true;
-        }
+        boolean log = Config.getConfig(world).EXPLOSIONS;
 
         if ((user.equals("#enderdragon") || user.equals("#wither")) && !Config.getConfig(world).ENTITY_CHANGE) {
             log = false;

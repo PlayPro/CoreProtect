@@ -74,7 +74,7 @@ public class WorldEditLogger extends Queue {
                         String line3 = getSignText(compoundTag.getString("Text3"));
                         String line4 = getSignText(compoundTag.getString("Text4"));
                         int color = DyeColor.valueOf(baseBlock.getNbtData().getString("Color").toUpperCase()).getColor().asRGB();
-                        boolean isGlowing = (compoundTag.getInt("GlowingText") == 1 ? true : false);
+                        boolean isGlowing = (compoundTag.getInt("GlowingText") == 1);
 
                         Queue.queueSignText(actor.getName(), location, 0, color, isGlowing, line1, line2, line3, line4, 5);
                     }

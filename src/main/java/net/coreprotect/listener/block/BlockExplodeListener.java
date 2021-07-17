@@ -156,10 +156,7 @@ public class BlockExplodeListener extends Queue implements Listener {
             user = "#explosion";
         }
 
-        boolean log = false;
-        if (Config.getConfig(world).EXPLOSIONS) {
-            log = true;
-        }
+        boolean log = Config.getConfig(world).EXPLOSIONS;
 
         if (!event.isCancelled() && log) {
             processBlockExplode(user, world, event.blockList());

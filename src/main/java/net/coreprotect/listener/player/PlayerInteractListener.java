@@ -578,7 +578,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                 newColor = (DyeColor.valueOf(handType.name().replaceFirst("_DYE", ""))).getColor().asRGB();
                             }
                             else {
-                                newGlowing = (handType == Material.INK_SAC ? false : true);
+                                newGlowing = (handType != Material.INK_SAC);
                             }
 
                             if (oldGlowing != newGlowing || oldColor != newColor) {

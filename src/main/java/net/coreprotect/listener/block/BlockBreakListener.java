@@ -75,11 +75,7 @@ public final class BlockBreakListener extends Queue implements Listener {
 
             return scan;
         }
-        else if (!BukkitAdapter.ADAPTER.isAttached(block, scanBlock, blockData, scanMin)) {
-            return false;
-        }
-
-        return true;
+        else return BukkitAdapter.ADAPTER.isAttached(block, scanBlock, blockData, scanMin);
     }
 
     protected static void processBlockBreak(Player player, String user, Block block, boolean logBreak, int skipScan) {

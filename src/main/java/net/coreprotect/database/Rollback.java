@@ -377,11 +377,7 @@ public class Rollback extends Queue {
                 ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount, blockCount, entityCount, 0 });
                 Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
                     try {
-                        boolean clearInventories = false;
-
-                        if (Config.getGlobal().ROLLBACK_ITEMS) {
-                            clearInventories = true;
-                        }
+                        boolean clearInventories = Config.getGlobal().ROLLBACK_ITEMS;
 
                         ArrayList<Object[]> data = finalBlockList.get(chunkKey);
                         ArrayList<Object[]> itemData = finalItemList.get(chunkKey);

@@ -87,11 +87,7 @@ public class TabHandler implements TabCompleter {
             boolean hasPreview = false;
             boolean hasPage = false;
             boolean validContainer = false;
-            boolean pageLookup = false;
-
-            if (ConfigHandler.lookupType.get(sender.getName()) != null && ConfigHandler.lookupPage.get(sender.getName()) != null) {
-                pageLookup = true;
-            }
+            boolean pageLookup = ConfigHandler.lookupType.get(sender.getName()) != null && ConfigHandler.lookupPage.get(sender.getName()) != null;
 
             for (int i = 1; i < args.length; i++) {
                 String arg = args[i].toLowerCase(Locale.ROOT);

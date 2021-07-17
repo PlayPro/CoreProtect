@@ -24,7 +24,7 @@ class SignUpdateProcess {
             int z = block.getZ();
             int wid = Util.getWorldId(block.getWorld().getName());
             int userid = ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT));
-            String query = "";
+            String query;
             if (action == 0) {
                 query = "SELECT color, data, line_1, line_2, line_3, line_4 FROM " + ConfigHandler.prefix + "sign WHERE user='" + userid + "' AND wid='" + wid + "' AND x='" + x + "' AND z='" + z + "' AND y='" + y + "' AND time < '" + time + "' ORDER BY rowid DESC LIMIT 0, 1";
             }

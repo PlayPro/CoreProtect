@@ -206,9 +206,9 @@ public class Lookup extends Queue {
                     list.add(dataArray);
                 }
                 else {
-                    int resultData = 0;
+                    int resultData;
                     int resultAmount = -1;
-                    byte[] resultMeta = null;
+                    byte[] resultMeta;
                     byte[] resultBlockData = null;
                     long resultId = results.getLong("id");
                     int resultUserId = results.getInt("user");
@@ -281,7 +281,7 @@ public class Lookup extends Queue {
 
             boolean validAction = false;
             String queryBlock = "";
-            String queryEntity = "";
+            String queryEntity;
             String queryLimit = "";
             String queryTable = "block";
             String action = "";
@@ -336,7 +336,7 @@ public class Lookup extends Queue {
                 StringBuilder includeListEntity = new StringBuilder();
 
                 for (Object restrictTarget : restrictList) {
-                    String targetName = "";
+                    String targetName;
 
                     if (restrictTarget instanceof Material) {
                         targetName = ((Material) restrictTarget).name();
@@ -373,7 +373,7 @@ public class Lookup extends Queue {
                 StringBuilder excludeListEntity = new StringBuilder();
 
                 for (Object restrictTarget : excludeList) {
-                    String targetName = "";
+                    String targetName;
 
                     if (restrictTarget instanceof Material) {
                         targetName = ((Material) restrictTarget).name();

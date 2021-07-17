@@ -218,10 +218,10 @@ public class RollbackRestoreCommand {
                     c++;
                 }
 
-                int wid = 0;
-                int x = 0;
-                int y = 0;
-                int z = 0;
+                int wid;
+                int x;
+                int y;
+                int z;
                 if (argUsers.contains("#container")) {
                     boolean valid = false;
                     if (ConfigHandler.lookupType.get(player.getName()) != null) {

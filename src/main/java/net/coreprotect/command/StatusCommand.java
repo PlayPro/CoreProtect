@@ -80,7 +80,7 @@ public class StatusCommand {
                     }
 
                     try {
-                        int consumerCount = 0;
+                        int consumerCount;
                         int currentConsumerSize = Process.getCurrentConsumerSize();
                         if (currentConsumerSize == 0) {
                             consumerCount = Consumer.getConsumerSize(0) + Consumer.getConsumerSize(1);

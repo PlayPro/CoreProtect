@@ -21,7 +21,7 @@ public class SkullBreakLogger {
             int time = (int) (System.currentTimeMillis() / 1000L);
             int type = Util.getBlockId(block.getType().name(), true);
             Skull skull = (Skull) block;
-            String skullOwner = "";
+            String skullOwner;
             int skullKey = 0;
             if (skull.hasOwner()) {
                 skullOwner = skull.getOwningPlayer().getUniqueId().toString();

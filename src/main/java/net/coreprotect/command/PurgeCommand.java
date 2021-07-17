@@ -130,8 +130,8 @@ public class PurgeCommand extends Consumer {
                     }
                     Consumer.isPaused = true;
 
-                    String query = "";
-                    PreparedStatement preparedStmt = null;
+                    String query;
+                    PreparedStatement preparedStmt;
                     boolean abort = false;
                     String purgePrefix = "tmp_" + ConfigHandler.prefix;
 

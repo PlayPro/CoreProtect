@@ -665,7 +665,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
 
                     if (event.useItemInHand() != Event.Result.DENY && Config.getConfig(world).BLOCK_PLACE) {
                         List<Material> entityBlockTypes = Arrays.asList(Material.ARMOR_STAND, Material.END_CRYSTAL);
-                        Material handType = null;
+                        Material handType;
                         ItemStack mainHand = player.getInventory().getItemInMainHand();
                         ItemStack offHand = player.getInventory().getItemInOffHand();
 

@@ -111,7 +111,7 @@ public class Util extends Queue {
 
     public static Integer[] getInternalPluginVersion() {
         int major = ConfigHandler.EDITION_VERSION;
-        int minor = 0;
+        int minor;
         int revision = 0;
 
         String pluginVersion = getPluginVersion();

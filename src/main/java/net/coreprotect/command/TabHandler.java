@@ -169,7 +169,7 @@ public class TabHandler implements TabCompleter {
                 return StringUtil.copyPartialMatches(filter + arg, completions, new ArrayList<>(completions.size()));
             }
             else if (lastArg.equals("t:") || lastArg.equals("time:") || currentArg.startsWith("t:") || currentArg.startsWith("time:")) {
-                String filter = lastArg;
+                String filter;
                 String arg = "";
                 if (currentArg.contains(":")) {
                     String[] split = currentArg.split(":", 2);
@@ -207,7 +207,7 @@ public class TabHandler implements TabCompleter {
                 return StringUtil.copyPartialMatches(filter + arg, completions, new ArrayList<>(completions.size()));
             }
             else if (lastArg.equals("page:") || currentArg.startsWith("page:")) {
-                String filter = lastArg;
+                String filter;
                 String arg = "";
                 if (currentArg.contains(":")) {
                     String[] split = currentArg.split(":", 2);
@@ -235,7 +235,7 @@ public class TabHandler implements TabCompleter {
                 }
             }
             else if (lastArg.equals("r:") || lastArg.equals("radius:") || currentArg.startsWith("r:") || currentArg.startsWith("radius:")) {
-                String filter = lastArg;
+                String filter;
                 String arg = "";
                 if (currentArg.contains(":")) {
                     String[] split = currentArg.split(":", 2);
@@ -276,7 +276,7 @@ public class TabHandler implements TabCompleter {
                 }
             }
             else if (lastArg.equals("i:") || lastArg.equals("include:") || lastArg.equals("item:") || lastArg.equals("items:") || lastArg.equals("b:") || lastArg.equals("block:") || lastArg.equals("blocks:") || currentArg.startsWith("i:") || currentArg.startsWith("include:") || currentArg.startsWith("item:") || currentArg.startsWith("items:") || currentArg.startsWith("b:") || currentArg.startsWith("block:") || currentArg.startsWith("blocks:") || lastArg.equals("e:") || lastArg.equals("exclude:") || currentArg.startsWith("e:") || currentArg.startsWith("exclude:")) {
-                String filter = lastArg;
+                String filter;
                 String arg = "";
                 if (currentArg.contains(":")) {
                     String[] split = currentArg.split(":", 2);

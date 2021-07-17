@@ -52,7 +52,7 @@ public final class BlockPistonListener extends Queue implements Listener {
             int l = 0;
             while (l <= nblocks.size()) {
                 int ll = l - 1;
-                Block n = null;
+                Block n;
                 if (ll == -1) {
                     n = bm;
                 }

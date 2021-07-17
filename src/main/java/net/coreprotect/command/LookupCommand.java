@@ -441,7 +441,7 @@ public class LookupCommand {
                                 }
                             }
                             else {
-                                String blockdata = null;
+                                String blockdata;
                                 if (t == 7) {
                                     blockdata = InteractionLookup.performLookup(command.getName(), statement, fblock, player2, 0, p2, finalLimit);
                                 }
@@ -852,7 +852,7 @@ public class LookupCommand {
                                                     int padding = (int) (timeLength + 12.50);
                                                     String leftPadding = StringUtils.leftPad("", padding, ' ');
 
-                                                    String dname = "";
+                                                    String dname;
                                                     boolean isPlayer = false;
                                                     if (daction == 3 && !finalArgAction.contains(11) && amount == -1) {
                                                         int dTypeInt = Integer.parseInt(dtype);
@@ -883,8 +883,8 @@ public class LookupCommand {
 
                                                     // Functions.sendMessage(player2, timeago+" " + ChatColors.WHITE + "- " + ChatColors.DARK_AQUA+rbd+""+dplayer+" " + ChatColors.WHITE+rbd+""+a+" " + ChatColors.DARK_AQUA+rbd+"#"+dtype+ChatColors.WHITE + ". " + ChatColors.GREY + "(x"+x+"/y"+y+"/z"+z+")");
 
-                                                    Phrase phrase = Phrase.LOOKUP_BLOCK;
-                                                    String selector = Selector.FIRST;
+                                                    Phrase phrase;
+                                                    String selector;
                                                     String action = "a:block";
                                                     if (finalArgAction.contains(4) || finalArgAction.contains(5) || finalArgAction.contains(11) || amount > -1) {
                                                         if (daction == 2 || daction == 3) {

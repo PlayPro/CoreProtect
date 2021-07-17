@@ -38,7 +38,7 @@ public final class BlockDispenseListener extends Queue implements Listener {
             if (item != null && blockData instanceof Dispenser) {
                 Dispenser dispenser = (Dispenser) blockData;
                 Material material = item.getType();
-                Material type = Material.AIR;
+                Material type;
                 String user = "#dispenser";
                 boolean forceItem = true;
 

@@ -88,7 +88,7 @@ import net.coreprotect.utility.Util;
 public class Rollback extends Queue {
 
     public static List<String[]> performRollbackRestore(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, String timeString, List<Object> restrictList, List<Object> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, int checkTime, boolean restrictWorld, boolean lookup, boolean verbose, final int rollbackType, final int preview) {
-        List<String[]> list = new ArrayList<>();
+        List<String[]> list;
 
         try {
             long startTime = System.currentTimeMillis();

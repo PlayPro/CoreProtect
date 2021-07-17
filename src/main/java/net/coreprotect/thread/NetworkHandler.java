@@ -38,8 +38,8 @@ import net.coreprotect.utility.Util;
 
 public class NetworkHandler extends Language implements Runnable {
 
-    private boolean startup = true;
-    private boolean background = false;
+    private boolean startup;
+    private boolean background;
     private boolean translate = true;
     private static String latestVersion = null;
     private static String donationKey = null;
@@ -211,7 +211,7 @@ public class NetworkHandler extends Language implements Runnable {
                                 if (status == 200) {
                                     BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8));
                                     StringBuilder responseBuilder = new StringBuilder();
-                                    String responseLine = null;
+                                    String responseLine;
                                     while ((responseLine = reader.readLine()) != null) {
                                         responseBuilder.append(responseLine.trim());
                                     }

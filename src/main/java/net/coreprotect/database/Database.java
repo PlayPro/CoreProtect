@@ -319,7 +319,7 @@ public class Database extends Queue {
             try {
                 Connection connection = Database.getConnection(true, true, true, 0);
                 if (connection != null) {
-                    String index = "";
+                    String index;
                     Statement statement = connection.createStatement();
                     index = ", INDEX(id)";
                     statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "art_map(rowid int(8) NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int(8),art varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");

@@ -24,7 +24,7 @@ public class SkullPlaceLogger {
 
             if (block instanceof Skull) {
                 Skull skull = (Skull) block;
-                String skullOwner = "";
+                String skullOwner;
                 if (skull.hasOwner()) {
                     skullOwner = skull.getOwningPlayer().getUniqueId().toString();
                     SkullStatement.insert(preparedStmt2, time, skullOwner);

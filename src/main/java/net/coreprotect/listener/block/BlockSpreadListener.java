@@ -67,7 +67,6 @@ public final class BlockSpreadListener extends Queue implements Listener {
                     }
                     below.setY(below.getY() + 1);
                 }
-                below = null;
 
                 Queue.queueBlockPlaceDelayed("#bamboo", sourceBlock.getLocation(), sourceBlock.getType(), null, sourceBlock.getState(), 0);
                 Queue.queueBlockPlaceDelayed("#bamboo", block.getLocation(), block.getType(), null, block.getState(), 0);

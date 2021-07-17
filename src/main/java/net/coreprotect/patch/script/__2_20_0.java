@@ -65,7 +65,7 @@ public class __2_20_0 {
 
             ResultSet resultSet = statement.executeQuery(entityQuery);
             while (resultSet.next()) {
-                EntityType entityType = EntityType.PIG;
+                EntityType entityType;
                 switch (resultSet.getInt("data")) {
                     case 1:
                         entityType = EntityType.ZOMBIE;

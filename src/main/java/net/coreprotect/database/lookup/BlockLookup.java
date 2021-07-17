@@ -89,8 +89,8 @@ public class BlockLookup {
                 }
                 found = true;
 
-                Phrase phrase = Phrase.LOOKUP_BLOCK;
-                String selector = Selector.FIRST;
+                Phrase phrase;
+                String selector;
                 if (resultAction == 2 || resultAction == 3) {
                     phrase = Phrase.LOOKUP_INTERACTION; // {clicked|killed}
                     selector = (resultAction != 3 ? Selector.FIRST : Selector.SECOND);

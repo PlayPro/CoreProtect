@@ -137,7 +137,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
                                         }
 
                                         for (Object item : transactingChestList) {
-                                            ItemStack addItem = null;
+                                            ItemStack addItem;
                                             ItemStack removeItem = null;
                                             if (item instanceof ItemStack) {
                                                 addItem = (ItemStack) item;
@@ -205,7 +205,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
             return;
         }
 
-        Location location = null;
+        Location location;
         try {
             location = inventory.getLocation();
         }
@@ -243,7 +243,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
             return;
         }
 
-        boolean enderChest = false;
+        boolean enderChest;
         if (inventoryAction != InventoryAction.MOVE_TO_OTHER_INVENTORY && inventoryAction != InventoryAction.COLLECT_TO_CURSOR && inventoryAction != InventoryAction.UNKNOWN) {
             // Perform this check to prevent triggering onInventoryInteractAsync when a user is just clicking items in their own inventory
             Inventory inventory = event.getView().getInventory(event.getRawSlot());

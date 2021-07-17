@@ -519,7 +519,6 @@ public class Util extends Queue {
             }
 
             if (newItem.equals(oldItem)) {
-                continue;
             }
             else return newItem.isSimilar(oldItem) && newItem.getAmount() > oldItem.getAmount();
         }

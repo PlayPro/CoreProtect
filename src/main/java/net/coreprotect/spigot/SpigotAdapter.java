@@ -44,7 +44,6 @@ public class SpigotAdapter implements SpigotInterface {
 
     @Override
     public void setHoverComponent(Object message, String[] data) {
-        return;
     }
 
     @Override

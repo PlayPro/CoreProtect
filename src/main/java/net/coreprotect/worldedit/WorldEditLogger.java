@@ -36,7 +36,7 @@ public class WorldEditLogger extends Queue {
 
     public static WorldEditPlugin getWorldEdit(Server server) {
         Plugin plugin = server.getPluginManager().getPlugin("WorldEdit");
-        if (plugin == null || !(plugin instanceof WorldEditPlugin)) {
+        if (!(plugin instanceof WorldEditPlugin)) {
             return null;
         }
 

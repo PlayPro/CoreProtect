@@ -14,7 +14,7 @@ public class ChestTool {
     public static void updateDoubleChest(Block block, BlockData blockData) {
         try {
             // modifying existing container, trigger physics update on both sides of double chest
-            if (blockData != null && blockData instanceof Chest) {
+            if (blockData instanceof Chest) {
                 int chestType = 0;
                 switch (((Chest) blockData).getType()) {
                     case LEFT:

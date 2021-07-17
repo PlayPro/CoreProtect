@@ -93,7 +93,6 @@ public class BukkitAdapter implements BukkitInterface {
 
     @Override
     public void sendSignChange(Player player, Sign sign) {
-        return;
     }
 
     @Override
@@ -128,7 +127,6 @@ public class BukkitAdapter implements BukkitInterface {
 
     @Override
     public void setGlowing(Sign sign, boolean set) {
-        return;
     }
 
     @Override

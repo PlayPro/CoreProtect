@@ -39,7 +39,7 @@ public final class BlockSpreadListener extends Queue implements Listener {
             int timestamp = (int) (System.currentTimeMillis() / 1000L);
             Object[] cacheData = CacheHandler.spreadCache.get(location);
             CacheHandler.spreadCache.put(location, new Object[] { timestamp, type });
-            if (cacheData != null && ((Material) cacheData[1]) == type) {
+            if (cacheData != null && cacheData[1] == type) {
                 return;
             }
 

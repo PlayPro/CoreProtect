@@ -79,7 +79,7 @@ public final class BlockFromToListener extends Queue implements Listener {
                     int timestamp = (int) (System.currentTimeMillis() / 1000L);
                     Object[] cacheData = CacheHandler.spreadCache.get(location);
                     CacheHandler.spreadCache.put(location, new Object[] { timestamp, type });
-                    if (toBlockState == null && cacheData != null && ((Material) cacheData[1]) == type) {
+                    if (toBlockState == null && cacheData != null && cacheData[1] == type) {
                         return;
                     }
                 }

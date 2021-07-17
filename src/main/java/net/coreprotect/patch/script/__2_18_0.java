@@ -208,8 +208,6 @@ public class __2_18_0 {
 
     protected static Material getWoolColor(int data) {
         switch (data) {
-            case 0:
-                return Material.WHITE_WOOL;
             case 1:
                 return Material.ORANGE_WOOL;
             case 2:
@@ -240,6 +238,7 @@ public class __2_18_0 {
                 return Material.RED_WOOL;
             case 15:
                 return Material.BLACK_WOOL;
+            case 0:
             default:
                 return Material.WHITE_WOOL;
         }
@@ -247,14 +246,13 @@ public class __2_18_0 {
 
     private static BlockFace getLegacyDirection(int data) {
         switch (data) {
-            case 2:
-                return BlockFace.NORTH;
             case 3:
                 return BlockFace.SOUTH;
             case 4:
                 return BlockFace.WEST;
             case 5:
                 return BlockFace.EAST;
+            case 2:
             default:
                 return BlockFace.NORTH;
         }

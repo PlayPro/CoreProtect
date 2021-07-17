@@ -205,7 +205,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                             if (ConfigHandler.lookupThrottle.get(finalPlayer.getName()) != null) {
                                                 Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(finalPlayer.getName());
                                                 if ((boolean) lookupThrottle[0] || ((System.currentTimeMillis() - (long) lookupThrottle[1])) < 100) {
-                                                    System.out.println((boolean) lookupThrottle[0] + " / " + ((System.currentTimeMillis() - (long) lookupThrottle[1])));
+                                                    System.out.println(lookupThrottle[0] + " / " + ((System.currentTimeMillis() - (long) lookupThrottle[1])));
 
                                                     Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
                                                     return;

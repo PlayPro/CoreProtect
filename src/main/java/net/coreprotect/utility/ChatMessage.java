@@ -11,13 +11,13 @@ public class ChatMessage {
 
     String message;
     String textColor = Color.WHITE;
-    String textStyle = new String();
+    String textStyle = "";
     String separator = "-";
     boolean useTag = true;
     boolean useSpaces = true;
 
     public ChatMessage() {
-        this.message = new String();
+        this.message = "";
     }
 
     public ChatMessage setSeparator(String separator) {

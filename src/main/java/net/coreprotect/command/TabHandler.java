@@ -1,11 +1,6 @@
 package net.coreprotect.command;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.bukkit.Bukkit;
@@ -296,8 +291,8 @@ public class TabHandler implements TabCompleter {
                 }
 
                 if (materials == null) {
-                    List<Material> addList = Arrays.asList(Material.ARMOR_STAND);
-                    List<Material> excludeList = Arrays.asList(Material.GRASS);
+                    List<Material> addList = Collections.singletonList(Material.ARMOR_STAND);
+                    List<Material> excludeList = Collections.singletonList(Material.GRASS);
                     Set<String> materialList = new HashSet<>();
 
                     Material[] materialValues = Material.values();
@@ -340,14 +335,14 @@ public class TabHandler implements TabCompleter {
             }
             else if (args.length == 3 && argument0.equals("purge")) {
                 if (argument1.startsWith("t:")) {
-                    List<String> completions = new ArrayList<>(Arrays.asList("r:"));
+                    List<String> completions = new ArrayList<>(Collections.singletonList("r:"));
                     return StringUtil.copyPartialMatches(args[2].toLowerCase(Locale.ROOT), completions, new ArrayList<>(completions.size()));
                 }
                 else if (argument1.startsWith("r:")) {
-                    List<String> completions = new ArrayList<>(Arrays.asList("t:"));
+                    List<String> completions = new ArrayList<>(Collections.singletonList("t:"));
                     return StringUtil.copyPartialMatches(args[2].toLowerCase(Locale.ROOT), completions, new ArrayList<>(completions.size()));
                 }
-                return Arrays.asList("");
+                return Collections.singletonList("");
             }
             else if (argument0.equals("l") || argument0.equals("lookup") || argument0.equals("rollback") || argument0.equals("rb") || argument0.equals("ro") || argument0.equals("restore") || argument0.equals("rs") || argument0.equals("re")) {
                 if ((!argument0.equals("l") && !argument0.equals("lookup")) || !hasPage) {
@@ -358,7 +353,7 @@ public class TabHandler implements TabCompleter {
             }
         }
 
-        return Arrays.asList("");
+        return Collections.singletonList("");
     }
 
     private ArrayList<String> filterParams(boolean firstParam, String lastArgument, String argument, boolean hasUser, boolean hasAction, boolean hasInclude, boolean hasExclude, boolean hasRadius, boolean hasTime, boolean hasContainer, boolean hasCount, boolean hasPreview, boolean pageLookup, boolean validContainer) {

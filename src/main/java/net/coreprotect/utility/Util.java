@@ -8,17 +8,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
+import java.util.*;
 
 import org.bukkit.Art;
 import org.bukkit.Bukkit;
@@ -1083,7 +1073,7 @@ public class Util extends Queue {
 
     public static void performSafeTeleport(Player player, Location location, boolean enforceTeleport) {
         try {
-            Set<Material> unsafeBlocks = new HashSet<>(Arrays.asList(Material.LAVA));
+            Set<Material> unsafeBlocks = new HashSet<>(Collections.singletonList(Material.LAVA));
             unsafeBlocks.addAll(BlockGroup.FIRE);
 
             int worldHeight = location.getWorld().getMaxHeight();

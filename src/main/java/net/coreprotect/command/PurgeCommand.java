@@ -7,6 +7,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.text.NumberFormat;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.bukkit.Location;
@@ -34,7 +35,7 @@ public class PurgeCommand extends Consumer {
         final int seconds = CommandHandler.parseTime(args);
         final int argWid = CommandHandler.parseWorld(args, false, false);
         final List<Integer> argAction = CommandHandler.parseAction(args);
-        final List<Integer> supportedActions = Arrays.asList();
+        final List<Integer> supportedActions = Collections.emptyList();
 
         if (ConfigHandler.converterRunning) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
@@ -169,7 +170,7 @@ public class PurgeCommand extends Consumer {
 
                     List<String> purgeTables = Arrays.asList("sign", "container", "item", "skull", "session", "chat", "command", "entity", "block");
                     List<String> worldTables = Arrays.asList("sign", "container", "item", "session", "chat", "command", "block");
-                    List<String> excludeTables = Arrays.asList("database_lock"); // don't insert data into these tables
+                    List<String> excludeTables = Collections.singletonList("database_lock"); // don't insert data into these tables
                     for (String table : ConfigHandler.databaseTables) {
                         String tableName = table.replaceAll("_", " ");
                         Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_PROCESSING, tableName));

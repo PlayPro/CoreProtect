@@ -1307,7 +1307,7 @@ public class Rollback extends Queue {
             StringBuilder usersBuilder = new StringBuilder();
             for (String value : checkUsers) {
                 if (usersBuilder.length() == 0) {
-                    usersBuilder = usersBuilder.append("").append(value);
+                    usersBuilder = usersBuilder.append(value);
                 }
                 else {
                     usersBuilder.append(", ").append(value);
@@ -1395,7 +1395,7 @@ public class Rollback extends Queue {
                     }
 
                     if (targetCount == 0) {
-                        restrictTargets = restrictTargets.append("").append(targetName);
+                        restrictTargets = restrictTargets.append(targetName);
                     }
                     else {
                         restrictTargets.append(", ").append(targetName);
@@ -1439,7 +1439,7 @@ public class Rollback extends Queue {
                     }
 
                     if (excludeCount == 0) {
-                        excludeTargets = excludeTargets.append("").append(targetName);
+                        excludeTargets = excludeTargets.append(targetName);
                     }
                     else {
                         excludeTargets.append(", ").append(targetName);
@@ -1468,7 +1468,7 @@ public class Rollback extends Queue {
                 int excludeCount = 0;
                 for (String excludeUser : excludeUserList) {
                     if (excludeCount == 0) {
-                        excludeUsers = excludeUsers.append("").append(excludeUser);
+                        excludeUsers = excludeUsers.append(excludeUser);
                     }
                     else {
                         excludeUsers.append(", ").append(excludeUser);

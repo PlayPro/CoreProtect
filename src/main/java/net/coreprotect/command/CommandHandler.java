@@ -772,7 +772,7 @@ public class CommandHandler implements CommandExecutor {
 
     protected static String parseTimeString(String[] inputArguments) {
         String[] argumentArray = inputArguments.clone();
-        String time = "";
+        StringBuilder time = new StringBuilder();
         int count = 0;
         int next = 0;
         BigDecimal w = new BigDecimal(0);
@@ -805,35 +805,35 @@ public class CommandHandler implements CommandExecutor {
                             String i4 = i3.replaceAll("[^0-9.]", "");
                             if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
                                 w = new BigDecimal(i4);
-                                time = time + " " + Phrase.build(Phrase.TIME_WEEKS, timeString(w), (w.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND));
+                                time.append(" ").append(Phrase.build(Phrase.TIME_WEEKS, timeString(w), (w.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND)));
                             }
                         }
                         else if (i3.endsWith("d")) {
                             String i4 = i3.replaceAll("[^0-9.]", "");
                             if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
                                 d = new BigDecimal(i4);
-                                time = time + " " + Phrase.build(Phrase.TIME_DAYS, timeString(d), (d.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND));
+                                time.append(" ").append(Phrase.build(Phrase.TIME_DAYS, timeString(d), (d.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND)));
                             }
                         }
                         else if (i3.endsWith("h")) {
                             String i4 = i3.replaceAll("[^0-9.]", "");
                             if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
                                 h = new BigDecimal(i4);
-                                time = time + " " + Phrase.build(Phrase.TIME_HOURS, timeString(h), (h.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND));
+                                time.append(" ").append(Phrase.build(Phrase.TIME_HOURS, timeString(h), (h.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND)));
                             }
                         }
                         else if (i3.endsWith("m")) {
                             String i4 = i3.replaceAll("[^0-9.]", "");
                             if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
                                 m = new BigDecimal(i4);
-                                time = time + " " + Phrase.build(Phrase.TIME_MINUTES, timeString(m), (m.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND));
+                                time.append(" ").append(Phrase.build(Phrase.TIME_MINUTES, timeString(m), (m.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND)));
                             }
                         }
                         else if (i3.endsWith("s")) {
                             String i4 = i3.replaceAll("[^0-9.]", "");
                             if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
                                 s = new BigDecimal(i4);
-                                time = time + " " + Phrase.build(Phrase.TIME_SECONDS, timeString(s), (s.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND));
+                                time.append(" ").append(Phrase.build(Phrase.TIME_SECONDS, timeString(s), (s.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND)));
                             }
                         }
                     }
@@ -846,11 +846,11 @@ public class CommandHandler implements CommandExecutor {
             count++;
         }
 
-        if (time.startsWith(" ")) {
-            time = time.substring(1);
+        if (time.toString().startsWith(" ")) {
+            time = new StringBuilder(time.substring(1));
         }
 
-        return time;
+        return time.toString();
     }
 
     protected static int parseRows(String[] inputArguments) {

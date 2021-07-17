@@ -35,16 +35,16 @@ public class __2_16_0 {
             }
 
             try {
-                String idList = "";
+                StringBuilder idList = new StringBuilder();
                 String query = "SELECT id FROM " + ConfigHandler.prefix + "material_map WHERE material LIKE '%_CONCRETE' OR material LIKE '%_CONCRETE_POWDER'";
                 ResultSet resultSet = statement.executeQuery(query);
                 while (resultSet.next()) {
                     String id = resultSet.getString("id");
                     if (idList.length() == 0) {
-                        idList = id;
+                        idList = new StringBuilder(id);
                     }
                     else {
-                        idList = idList + ", " + id;
+                        idList.append(", ").append(id);
                     }
                 }
                 resultSet.close();

@@ -343,8 +343,8 @@ public class Rollback extends Queue {
             if (user != null) {
                 userString = user.getName();
                 if (verbose && preview == 0) {
-                    Integer chunks = chunkList.size();
-                    Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_CHUNKS_FOUND, chunks.toString(), (chunks == 1 ? Selector.FIRST : Selector.SECOND)));
+                    int chunks = chunkList.size();
+                    Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_CHUNKS_FOUND, Integer.toString(chunks), (chunks == 1 ? Selector.FIRST : Selector.SECOND)));
                 }
             }
 
@@ -1264,8 +1264,8 @@ public class Rollback extends Queue {
                 ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount, blockCount, entityCount, 0 });
 
                 if (verbose && user != null && preview == 0) {
-                    Integer chunks = chunkList.size();
-                    Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_CHUNKS_MODIFIED, chunkCount.toString(), chunks.toString(), (chunks == 1 ? Selector.FIRST : Selector.SECOND)));
+                    int chunks = chunkList.size();
+                    Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_CHUNKS_MODIFIED, chunkCount.toString(), Integer.toString(chunks), (chunks == 1 ? Selector.FIRST : Selector.SECOND)));
                 }
             }
 
@@ -1307,7 +1307,7 @@ public class Rollback extends Queue {
             StringBuilder usersBuilder = new StringBuilder();
             for (String value : checkUsers) {
                 if (usersBuilder.length() == 0) {
-                    usersBuilder = usersBuilder.append("" + value + "");
+                    usersBuilder = usersBuilder.append("").append(value);
                 }
                 else {
                     usersBuilder.append(", ").append(value);
@@ -1395,7 +1395,7 @@ public class Rollback extends Queue {
                     }
 
                     if (targetCount == 0) {
-                        restrictTargets = restrictTargets.append("" + targetName + "");
+                        restrictTargets = restrictTargets.append("").append(targetName);
                     }
                     else {
                         restrictTargets.append(", ").append(targetName);
@@ -1439,7 +1439,7 @@ public class Rollback extends Queue {
                     }
 
                     if (excludeCount == 0) {
-                        excludeTargets = excludeTargets.append("" + targetName + "");
+                        excludeTargets = excludeTargets.append("").append(targetName);
                     }
                     else {
                         excludeTargets.append(", ").append(targetName);
@@ -1468,7 +1468,7 @@ public class Rollback extends Queue {
                 int excludeCount = 0;
                 for (String excludeUser : excludeUserList) {
                     if (excludeCount == 0) {
-                        excludeUsers = excludeUsers.append("" + excludeUser + "");
+                        excludeUsers = excludeUsers.append("").append(excludeUser);
                     }
                     else {
                         excludeUsers.append(", ").append(excludeUser);
@@ -1481,7 +1481,7 @@ public class Rollback extends Queue {
             }
 
             StringBuilder modifiedData = new StringBuilder();
-            Integer modifyCount = 0;
+            int modifyCount = 0;
             if (actionList.contains(5)) {
                 modifiedData = modifiedData.append(Phrase.build(Phrase.AMOUNT_ITEM, NumberFormat.getInstance().format(blockCount), (blockCount == 1 ? Selector.FIRST : Selector.SECOND)));
                 modifyCount++;

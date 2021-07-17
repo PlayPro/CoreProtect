@@ -167,7 +167,7 @@ public class ConfigFile extends Config {
                 out.append(Config.LINE_SEPARATOR);
                 out.append(key);
                 out.append(": ");
-                out.append("\"" + defaultValue + "\"");
+                out.append("\"").append(defaultValue).append("\"");
             }
 
             out.close();

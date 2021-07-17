@@ -178,11 +178,11 @@ public class RollbackRestoreCommand {
             }
 
             if (g == 1 && (argUsers.size() > 0 || (argUsers.size() == 0 && argRadius != null))) {
-                Integer MAX_RADIUS = Config.getGlobal().MAX_RADIUS;
+                int MAX_RADIUS = Config.getGlobal().MAX_RADIUS;
                 if (argRadius != null) {
                     int radiusValue = argRadius[0];
                     if (radiusValue > MAX_RADIUS && MAX_RADIUS > 0) {
-                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MAXIMUM_RADIUS, MAX_RADIUS.toString(), (finalAction == 0 ? Selector.SECOND : Selector.THIRD)));
+                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MAXIMUM_RADIUS, Integer.toString(MAX_RADIUS), (finalAction == 0 ? Selector.SECOND : Selector.THIRD)));
                         Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.GLOBAL_ROLLBACK, "r:#global", (finalAction == 0 ? Selector.FIRST : Selector.SECOND)));
                         return;
                     }
@@ -349,30 +349,30 @@ public class RollbackRestoreCommand {
                                             }
                                             boolean verbose = noisy == 1;
 
-                                            String users = "";
+                                            StringBuilder users = new StringBuilder();
                                             for (String value : rollbackusers2) {
                                                 if (users.length() == 0) {
-                                                    users = "" + value + "";
+                                                    users = new StringBuilder("" + value + "");
                                                 }
                                                 else {
-                                                    users = users + ", " + value;
+                                                    users.append(", ").append(value);
                                                 }
                                             }
-                                            if (users.equals("#global") && restrictWorld) {
+                                            if (users.toString().equals("#global") && restrictWorld) {
                                                 // chat output only, don't pass into any functions
-                                                users = "#" + location.getWorld().getName();
+                                                users = new StringBuilder("#" + location.getWorld().getName());
                                             }
                                             if (finalPreview == 2) {
                                                 Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PREVIEW_CANCELLING));
                                             }
                                             else if (finalPreview == 1) {
-                                                Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_STARTED, users, Selector.THIRD));
+                                                Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_STARTED, users.toString(), Selector.THIRD));
                                             }
                                             else if (finalAction == 0) {
-                                                Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_STARTED, users, Selector.FIRST));
+                                                Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_STARTED, users.toString(), Selector.FIRST));
                                             }
                                             else {
-                                                Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_STARTED, users, Selector.SECOND));
+                                                Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_STARTED, users.toString(), Selector.SECOND));
                                             }
 
                                             if (finalArgAction.contains(5)) {

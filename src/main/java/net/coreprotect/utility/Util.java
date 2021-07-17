@@ -150,14 +150,14 @@ public class Util extends Queue {
 
         StringBuilder worldDisplay = new StringBuilder();
         if (displayWorld) {
-            worldDisplay.append("/" + Util.getWorldName(worldId));
+            worldDisplay.append("/").append(Util.getWorldName(worldId));
         }
 
         // command
-        message.append("|/" + command + " teleport wid:" + worldId + " " + (x + 0.50) + " " + y + " " + (z + 0.50) + "|");
+        message.append("|/").append(command).append(" teleport wid:").append(worldId).append(" ").append(x + 0.50).append(" ").append(y).append(" ").append(z + 0.50).append("|");
 
         // chat output
-        message.append(Color.GREY + (italic ? Color.ITALIC : "") + "(x" + x + "/y" + y + "/z" + z + worldDisplay + ")");
+        message.append(Color.GREY).append(italic ? Color.ITALIC : "").append("(x").append(x).append("/y").append(y).append("/z").append(z).append(worldDisplay).append(")");
 
         return message.append(Chat.COMPONENT_TAG_CLOSE).toString();
     }
@@ -179,7 +179,7 @@ public class Util extends Queue {
             nextArrow = Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_COMMAND + "|/" + command + " l " + (page + 1) + "|" + nextArrow + Chat.COMPONENT_TAG_CLOSE;
         }
 
-        return message.append(Color.WHITE + backArrow + Phrase.build(Phrase.LOOKUP_PAGE, page + "/" + totalPages) + nextArrow).toString();
+        return message.append(Color.WHITE).append(backArrow).append(Phrase.build(Phrase.LOOKUP_PAGE, page + "/" + totalPages)).append(nextArrow).toString();
     }
 
     public static String getTimeSince(int logTime, int currentTime, boolean component) {
@@ -345,7 +345,7 @@ public class Util extends Queue {
         for (String item : array) {
             list.add(Integer.parseInt(item));
         }
-        return list.toArray(new Integer[list.size()]);
+        return list.toArray(new Integer[0]);
     }
 
     public static byte[] stringToByteData(String string, int type) {

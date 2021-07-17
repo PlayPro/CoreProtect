@@ -111,9 +111,9 @@ public class ChatMessage {
     }
 
     private static String createSpaces(String string, boolean seperatorOffset, boolean createSpaces) {
-        String result = "";
+        StringBuilder result = new StringBuilder();
         if (!createSpaces) {
-            return result;
+            return result.toString();
         }
 
         int count = (string.length() - string.replace(String.valueOf(ChatColor.COLOR_CHAR), "").length()) * 2;
@@ -122,10 +122,10 @@ public class ChatMessage {
             length += 2;
         }
         for (int i = 0; i < length; i++) {
-            result += " ";
+            result.append(" ");
         }
 
-        return result;
+        return result.toString();
     }
 
     public String build() {

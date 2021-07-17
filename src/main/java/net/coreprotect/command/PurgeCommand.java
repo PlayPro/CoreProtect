@@ -176,17 +176,17 @@ public class PurgeCommand extends Consumer {
                         Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_PROCESSING, tableName));
 
                         if (!Config.getGlobal().MYSQL) {
-                            String columns = "";
+                            StringBuilder columns = new StringBuilder();
                             ResultSet rs = connection.createStatement().executeQuery("SELECT * FROM " + purgePrefix + table);
                             ResultSetMetaData resultSetMetaData = rs.getMetaData();
                             int columnCount = resultSetMetaData.getColumnCount();
                             for (int i = 1; i <= columnCount; i++) {
                                 String name = resultSetMetaData.getColumnName(i);
                                 if (columns.length() == 0) {
-                                    columns = name;
+                                    columns = new StringBuilder(name);
                                 }
                                 else {
-                                    columns = columns + "," + name;
+                                    columns.append(",").append(name);
                                 }
                             }
                             rs.close();

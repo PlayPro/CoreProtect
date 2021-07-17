@@ -296,18 +296,18 @@ public class Lookup extends Queue {
             String query = "";
 
             if (checkUuids.size() > 0) {
-                String list = "";
+                StringBuilder list = new StringBuilder();
 
                 for (String value : checkUuids) {
                     if (list.length() == 0) {
-                        list = "'" + value + "'";
+                        list = new StringBuilder("'" + value + "'");
                     }
                     else {
-                        list = list + ",'" + value + "'";
+                        list.append(",'").append(value).append("'");
                     }
                 }
 
-                uuids = list;
+                uuids = list.toString();
             }
 
             if (!checkUsers.contains("#global")) {
@@ -475,6 +475,7 @@ public class Lookup extends Queue {
             for (Integer value : actionList) {
                 if (validActions.contains(value)) {
                     validAction = true;
+                    break;
                 }
             }
 

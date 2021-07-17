@@ -235,7 +235,7 @@ public class NetworkHandler extends Language implements Runnable {
                                         File file = new File(CoreProtect.getInstance().getDataFolder(), ConfigFile.LANGUAGE_CACHE);
                                         try (final FileOutputStream fout = new FileOutputStream(file, false)) {
                                             OutputStreamWriter out = new OutputStreamWriter(new BufferedOutputStream(fout), StandardCharsets.UTF_8);
-                                            out.append("# CoreProtect v" + pluginVersion + " Language Cache (" + languageCode + ")");
+                                            out.append("# CoreProtect v").append(pluginVersion).append(" Language Cache (").append(languageCode).append(")");
                                             out.append(Config.LINE_SEPARATOR);
 
                                             for (final Entry<Phrase, String> entry : translatedPhrases.entrySet()) {
@@ -245,7 +245,7 @@ public class NetworkHandler extends Language implements Runnable {
                                                 out.append(Config.LINE_SEPARATOR);
                                                 out.append(key);
                                                 out.append(": ");
-                                                out.append("\"" + value + "\"");
+                                                out.append("\"").append(value).append("\"");
                                             }
 
                                             out.close();

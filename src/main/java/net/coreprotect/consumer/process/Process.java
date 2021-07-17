@@ -240,8 +240,8 @@ public class Process {
 
                             // If database connection goes missing, remove processed data from consumer and abort
                             if (statement.isClosed()) {
-                                for (int index = (i - 1); index >= 0; index--) {
-                                    consumerData.remove(index);
+                                if (i > 0) {
+                                    consumerData.subList(0, i).clear();
                                 }
                                 connection = null;
                                 currentConsumerSize = 0;

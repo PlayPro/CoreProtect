@@ -227,7 +227,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
         Bukkit.getServer().getScheduler().runTaskAsynchronously(CoreProtect.getInstance(), () -> {
             try {
                 InventoryChangeListener.checkTasks(taskStarted);
-                Material containerType = (enderChest != true ? null : Material.ENDER_CHEST);
+                Material containerType = (!enderChest ? null : Material.ENDER_CHEST);
                 onInventoryInteract(player.getName(), inventory, containerState, containerType, inventoryLocation, true);
             }
             catch (Exception e) {

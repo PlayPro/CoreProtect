@@ -367,7 +367,7 @@ public class Queue {
         int currentConsumer = Consumer.currentConsumer;
         int consumerId = Consumer.newConsumerId(currentConsumer);
         addConsumer(currentConsumer, new Object[] { consumerId, Process.SIGN_TEXT, null, color, null, action, offset, null });
-        Consumer.consumerSigns.get(currentConsumer).put(consumerId, new Object[] { (glowing == true ? 1 : 0), line1, line2, line3, line4 });
+        Consumer.consumerSigns.get(currentConsumer).put(consumerId, new Object[] { (glowing ? 1 : 0), line1, line2, line3, line4 });
         queueStandardData(consumerId, currentConsumer, new String[] { user, null }, location);
     }
 

@@ -98,7 +98,7 @@ public class TeleportCommand {
 
         int chunkX = location.getBlockX() >> 4;
         int chunkZ = location.getBlockZ() >> 4;
-        if (location.getWorld().isChunkLoaded(chunkX, chunkZ) == false) {
+        if (!location.getWorld().isChunkLoaded(chunkX, chunkZ)) {
             location.getWorld().getChunkAt(location);
         }
 

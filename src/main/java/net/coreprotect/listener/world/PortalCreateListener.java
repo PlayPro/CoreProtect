@@ -11,6 +11,7 @@ import org.bukkit.event.world.PortalCreateEvent;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Lookup;
+import net.coreprotect.utility.Util;
 
 public final class PortalCreateListener extends Queue implements Listener {
 
@@ -35,8 +36,16 @@ public final class PortalCreateListener extends Queue implements Listener {
 
         for (BlockState blockState : event.getBlocks()) {
             Material type = blockState.getType();
-            if (user.equals("#portal") || !type.equals(Material.OBSIDIAN)) {
-                Queue.queueBlockPlace(user, blockState, blockState.getBlock().getType(), null, type, -1, 0, blockState.getBlockData().getAsString());
+            BlockState oldBlock = blockState.getBlock().getState();
+            if (oldBlock.equals(blockState)) {
+                continue;
+            }
+
+            if (Util.isAir(type)) {
+                Queue.queueBlockBreak(user, oldBlock, oldBlock.getType(), oldBlock.getBlockData().getAsString(), 0);
+            }
+            else {
+                Queue.queueBlockPlace(user, blockState, oldBlock.getType(), oldBlock, type, -1, 0, blockState.getBlockData().getAsString());
             }
         }
     }

@@ -15,30 +15,28 @@ import net.coreprotect.database.Lookup;
 public final class PortalCreateListener extends Queue implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
-    protected void OnPortalCreate(PortalCreateEvent event) {
+    protected void onPortalCreate(PortalCreateEvent event) {
         World world = event.getWorld();
-        if (!event.isCancelled() && Config.getConfig(world).PORTALS) {
-            String user = "#portal";
+        if (event.isCancelled() || !Config.getConfig(world).PORTALS) {
+            return;
+        }
 
-            for (BlockState block : event.getBlocks()) {
-                Material type = block.getType();
-                if (type == Material.NETHER_PORTAL || type == Material.FIRE) {
-                    String resultData = Lookup.whoPlacedCache(block);
-                    if (resultData.length() > 0) {
-                        user = resultData;
-                        break;
-                    }
+        String user = "#portal";
+        for (BlockState block : event.getBlocks()) {
+            Material type = block.getType();
+            if (type == Material.NETHER_PORTAL || type == Material.FIRE) {
+                String resultData = Lookup.whoPlacedCache(block);
+                if (resultData.length() > 0) {
+                    user = resultData;
+                    break;
                 }
             }
+        }
 
-            for (BlockState blockState : event.getBlocks()) {
-                Material type = blockState.getType();
-                if (user.equals("#portal")) {
-                    Queue.queueBlockPlace(user, blockState, blockState.getBlock().getType(), null, type, -1, 0, blockState.getBlockData().getAsString());
-                }
-                else if (!type.equals(Material.OBSIDIAN)) {
-                    Queue.queueBlockPlace(user, blockState, blockState.getBlock().getType(), null, type, -1, 0, blockState.getBlockData().getAsString());
-                }
+        for (BlockState blockState : event.getBlocks()) {
+            Material type = blockState.getType();
+            if (user.equals("#portal") || !type.equals(Material.OBSIDIAN)) {
+                Queue.queueBlockPlace(user, blockState, blockState.getBlock().getType(), null, type, -1, 0, blockState.getBlockData().getAsString());
             }
         }
     }

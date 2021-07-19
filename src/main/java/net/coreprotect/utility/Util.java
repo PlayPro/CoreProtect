@@ -107,8 +107,8 @@ import net.coreprotect.worldedit.CoreProtectEditSessionEvent;
 
 public class Util extends Queue {
 
-    public static final java.util.regex.Pattern csvSplitter = java.util.regex.Pattern.compile(",(?=([^\"]*\"[^\"]*\")*[^\"]*$)");
     public static final java.util.regex.Pattern tagParser = java.util.regex.Pattern.compile(Chat.COMPONENT_TAG_OPEN + "(.+?)" + Chat.COMPONENT_TAG_CLOSE + "|(.+?)", java.util.regex.Pattern.DOTALL);
+    private static final String NAMESPACE = "minecraft:";
 
     public static String getPluginVersion() {
         String version = CoreProtect.getInstance().getDescription().getVersion();
@@ -196,7 +196,7 @@ public class Util extends Queue {
         StringBuilder message = new StringBuilder();
         double timeSince = currentTime - (logTime + 0.00);
 
-        // minutes;
+        // minutes
         timeSince = timeSince / 60;
         if (timeSince < 60.0) {
             message.append(Phrase.build(Phrase.LOOKUP_TIME, new DecimalFormat("0.00").format(timeSince) + "/m"));
@@ -260,7 +260,7 @@ public class Util extends Queue {
 
         name = name.toLowerCase(Locale.ROOT).trim();
         if (!name.contains(":")) {
-            name = "minecraft:" + name;
+            name = NAMESPACE + name;
         }
 
         if (ConfigHandler.materials.get(name) != null) {
@@ -317,8 +317,7 @@ public class Util extends Queue {
     public static String getBlockNameShort(int id) {
         String name = getBlockName(id);
         if (name.contains(":")) {
-            String[] block_name_split = name.split(":");
-            name = block_name_split[1];
+            name = name.split(":")[1];
         }
 
         return name;
@@ -333,12 +332,10 @@ public class Util extends Queue {
             for (ItemStack o1 : items) {
                 int c2 = 0;
                 for (ItemStack o2 : items) {
-                    if (o1 != null && o2 != null) {
-                        if (c2 > c1 && o1.isSimilar(o2) && !Util.isAir(o1.getType())) { // Ignores amount
-                            int namount = o1.getAmount() + o2.getAmount();
-                            o1.setAmount(namount);
-                            o2.setAmount(0);
-                        }
+                    if (o1 != null && o2 != null && c2 > c1 && o1.isSimilar(o2) && !Util.isAir(o1.getType())) { // Ignores amount
+                        int namount = o1.getAmount() + o2.getAmount();
+                        o1.setAmount(namount);
+                        o2.setAmount(0);
                     }
                     c2++;
                 }
@@ -366,7 +363,7 @@ public class Util extends Queue {
                 return result;
             }
 
-            if (material.isBlock() && !createBlockData(material).getAsString().equals(string) && string.startsWith("minecraft:" + material.name().toLowerCase(Locale.ROOT) + "[") && string.endsWith("]")) {
+            if (material.isBlock() && !createBlockData(material).getAsString().equals(string) && string.startsWith(NAMESPACE + material.name().toLowerCase(Locale.ROOT) + "[") && string.endsWith("]")) {
                 String substring = string.substring(material.name().length() + 11, string.length() - 1);
                 String[] blockDataSplit = substring.split(",");
                 ArrayList<String> blockDataArray = new ArrayList<>();
@@ -410,7 +407,7 @@ public class Util extends Queue {
                             blockDataArray.add(block);
                         }
                     }
-                    result = "minecraft:" + material.name().toLowerCase(Locale.ROOT) + "[" + String.join(",", blockDataArray) + "]";
+                    result = NAMESPACE + material.name().toLowerCase(Locale.ROOT) + "[" + String.join(",", blockDataArray) + "]";
                 }
                 else {
                     result = "";
@@ -457,10 +454,10 @@ public class Util extends Queue {
         return sortedEntries;
     }
 
-    public static Waterlogged checkWaterlogged(BlockData BLOCK_PLACEdData, BlockState blockReplacedState) {
-        if (blockReplacedState.getType().equals(Material.WATER) && BLOCK_PLACEdData instanceof Waterlogged) {
+    public static Waterlogged checkWaterlogged(BlockData blockData, BlockState blockReplacedState) {
+        if (blockReplacedState.getType().equals(Material.WATER) && blockData instanceof Waterlogged) {
             if (blockReplacedState.getBlockData().equals(Material.WATER.createBlockData())) {
-                Waterlogged waterlogged = (Waterlogged) BLOCK_PLACEdData;
+                Waterlogged waterlogged = (Waterlogged) blockData;
                 waterlogged.setWaterlogged(true);
                 return waterlogged;
             }
@@ -498,7 +495,7 @@ public class Util extends Queue {
                 continue;
             }
 
-            if ((oldItem == null && newItem != null) || !oldItem.equals(newItem)) {
+            if (oldItem == null || !oldItem.equals(newItem)) {
                 return false;
             }
         }
@@ -524,18 +521,12 @@ public class Util extends Queue {
                 return false;
             }
 
-            if (oldItem == null && newItem != null) {
+            if (oldItem == null) {
                 return true;
             }
 
-            if (newItem.equals(oldItem)) {
-                continue;
-            }
-            else if (newItem.isSimilar(oldItem) && newItem.getAmount() > oldItem.getAmount()) {
-                return true;
-            }
-            else {
-                return false;
+            if (!newItem.equals(oldItem)) {
+                return (newItem.isSimilar(oldItem) && newItem.getAmount() > oldItem.getAmount());
             }
         }
 
@@ -670,66 +661,65 @@ public class Util extends Queue {
 
     public static ItemStack[] getContainerContents(Material type, Object container, Location location) {
         ItemStack[] contents = null;
-        if (Config.getConfig(location.getWorld()).ITEM_TRANSACTIONS) {
-            if (BlockGroup.CONTAINERS.contains(type)) {
-                try {
-                    // container may be null if called from within WorldEdit logger
-                    if (container == null) {
-                        container = location.getBlock();
-                    }
+        if (Config.getConfig(location.getWorld()).ITEM_TRANSACTIONS && BlockGroup.CONTAINERS.contains(type)) {
+            try {
+                // container may be null if called from within WorldEdit logger
+                if (container == null) {
+                    container = location.getBlock();
+                }
 
-                    if (type.equals(Material.ARMOR_STAND)) {
-                        LivingEntity entity = (LivingEntity) container;
-                        EntityEquipment equipment = Util.getEntityEquipment(entity);
-                        if (equipment != null) {
-                            contents = getArmorStandContents(equipment);
-                        }
-                    }
-                    else {
-                        Block block = (Block) container;
-                        Inventory inventory = Util.getContainerInventory(block.getState(), true);
-                        if (inventory != null) {
-                            contents = inventory.getContents();
-                        }
-                    }
-                    if (type.equals(Material.ARMOR_STAND)) {
-                        boolean hasItem = false;
-                        for (ItemStack item : contents) {
-                            if (item != null && !item.getType().equals(Material.AIR)) {
-                                hasItem = true;
-                                break;
-                            }
-                        }
-                        if (!hasItem) {
-                            contents = null;
-                        }
-                    }
-
-                    if (contents != null) {
-                        contents = Util.getContainerState(contents);
+                if (type.equals(Material.ARMOR_STAND)) {
+                    LivingEntity entity = (LivingEntity) container;
+                    EntityEquipment equipment = Util.getEntityEquipment(entity);
+                    if (equipment != null) {
+                        contents = getArmorStandContents(equipment);
                     }
                 }
-                catch (Exception e) {
-                    e.printStackTrace();
+                else {
+                    Block block = (Block) container;
+                    Inventory inventory = Util.getContainerInventory(block.getState(), true);
+                    if (inventory != null) {
+                        contents = inventory.getContents();
+                    }
+                }
+                if (type.equals(Material.ARMOR_STAND)) {
+                    boolean hasItem = false;
+                    for (ItemStack item : contents) {
+                        if (item != null && !item.getType().equals(Material.AIR)) {
+                            hasItem = true;
+                            break;
+                        }
+                    }
+                    if (!hasItem) {
+                        contents = null;
+                    }
+                }
+
+                if (contents != null) {
+                    contents = Util.getContainerState(contents);
                 }
             }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
         }
+
         return contents;
     }
 
-    public static Inventory getContainerInventory(BlockState block_state, boolean singleBlock) {
+    public static Inventory getContainerInventory(BlockState blockState, boolean singleBlock) {
         Inventory inventory = null;
         try {
-            if (block_state instanceof BlockInventoryHolder) {
+            if (blockState instanceof BlockInventoryHolder) {
                 if (singleBlock) {
                     List<Material> chests = Arrays.asList(Material.CHEST, Material.TRAPPED_CHEST);
-                    Material block_type = block_state.getType();
-                    if (chests.contains(block_type)) {
-                        inventory = ((Chest) block_state).getBlockInventory();
+                    Material type = blockState.getType();
+                    if (chests.contains(type)) {
+                        inventory = ((Chest) blockState).getBlockInventory();
                     }
                 }
                 if (inventory == null) {
-                    inventory = ((BlockInventoryHolder) block_state).getInventory();
+                    inventory = ((BlockInventoryHolder) blockState).getInventory();
                 }
             }
         }
@@ -798,9 +788,8 @@ public class Util extends Queue {
         EntityType entitytype = null;
         if (ConfigHandler.entitiesReversed.get(id) != null) {
             String name = ConfigHandler.entitiesReversed.get(id);
-            if (name.contains("minecraft:")) {
-                String[] block_name_split = name.split(":");
-                name = block_name_split[1];
+            if (name.contains(NAMESPACE)) {
+                name = name.split(":")[1];
             }
             entitytype = EntityType.valueOf(name.toUpperCase(Locale.ROOT));
         }
@@ -811,7 +800,7 @@ public class Util extends Queue {
         // Name entered by user
         EntityType type = null;
         name = name.toLowerCase(Locale.ROOT).trim();
-        if (name.contains("minecraft:")) {
+        if (name.contains(NAMESPACE)) {
             name = (name.split(":"))[1];
         }
 
@@ -822,13 +811,13 @@ public class Util extends Queue {
         return type;
     }
 
-    public static int getHangingDelay(Map<String, Integer> hanging_delay, int row_wid, int row_x, int row_y, int row_z) {
-        String token = row_wid + "." + row_x + "." + row_y + "." + row_z;
+    public static int getHangingDelay(Map<String, Integer> hangingDelay, int wid, int x, int y, int z) {
+        String token = wid + "." + x + "." + y + "." + z;
         int delay = 0;
-        if (hanging_delay.get(token) != null) {
-            delay = hanging_delay.get(token) + 1;
+        if (hangingDelay.get(token) != null) {
+            delay = hangingDelay.get(token) + 1;
         }
-        hanging_delay.put(token, delay);
+        hangingDelay.put(token, delay);
         return delay;
     }
 
@@ -881,9 +870,8 @@ public class Util extends Queue {
         Material material = null;
         if (ConfigHandler.materialsReversed.get(id) != null && id > 0) {
             String name = ConfigHandler.materialsReversed.get(id).toUpperCase(Locale.ROOT);
-            if (name.contains("MINECRAFT:")) {
-                String[] block_name_split = name.split(":");
-                name = block_name_split[1];
+            if (name.contains(NAMESPACE.toUpperCase(Locale.ROOT))) {
+                name = name.split(":")[1];
             }
 
             name = BukkitAdapter.ADAPTER.parseLegacyName(name);
@@ -898,9 +886,8 @@ public class Util extends Queue {
         Material material = null;
         name = name.toUpperCase(Locale.ROOT).trim();
         if (!name.startsWith("#")) {
-            if (name.contains("MINECRAFT:")) {
-                String[] block_name_split = name.split(":");
-                name = block_name_split[1];
+            if (name.contains(NAMESPACE.toUpperCase(Locale.ROOT))) {
+                name = name.split(":")[1];
             }
 
             name = BukkitAdapter.ADAPTER.parseLegacyName(name);
@@ -1057,15 +1044,15 @@ public class Util extends Queue {
             String result = "";
             name = name.replaceFirst("#", "").toLowerCase(Locale.ROOT).trim();
             for (World world : Bukkit.getServer().getWorlds()) {
-                String world_name = world.getName();
-                if (world_name.toLowerCase(Locale.ROOT).equals(name)) {
+                String worldName = world.getName();
+                if (worldName.toLowerCase(Locale.ROOT).equals(name)) {
                     result = world.getName();
                     break;
                 }
-                else if (world_name.toLowerCase(Locale.ROOT).endsWith(name)) {
+                else if (worldName.toLowerCase(Locale.ROOT).endsWith(name)) {
                     result = world.getName();
                 }
-                else if (world_name.toLowerCase(Locale.ROOT).replaceAll("[^a-zA-Z0-9]", "").endsWith(name)) {
+                else if (worldName.toLowerCase(Locale.ROOT).replaceAll("[^a-zA-Z0-9]", "").endsWith(name)) {
                     result = world.getName();
                 }
             }
@@ -1190,8 +1177,12 @@ public class Util extends Queue {
                 case 6:
                     name = "polished_andesite";
                     break;
+                default:
+                    name = "stone";
+                    break;
             }
         }
+
         return name;
     }
 
@@ -1249,26 +1240,25 @@ public class Util extends Queue {
         return branch;
     }
 
-    public static boolean newVersion(Integer[] old_version, Integer[] current_version) {
-        boolean result = false;
-        if (old_version[0] < current_version[0]) {
+    public static boolean newVersion(Integer[] oldVersion, Integer[] currentVersion) {
+        if (oldVersion[0] < currentVersion[0]) {
             // Major version
-            result = true;
+            return true;
         }
-        else if (old_version[0] == current_version[0] && old_version[1] < current_version[1]) {
+        else if (oldVersion[0].equals(currentVersion[0]) && oldVersion[1] < currentVersion[1]) {
             // Minor version
-            result = true;
+            return true;
         }
-        else if (old_version.length < 3 && current_version.length >= 3 && old_version[0] == current_version[0] && old_version[1] == current_version[1] && 0 < current_version[2]) {
+        else if (oldVersion.length < 3 && currentVersion.length >= 3 && oldVersion[0].equals(currentVersion[0]) && oldVersion[1].equals(currentVersion[1]) && 0 < currentVersion[2]) {
             // Revision version (#.# vs #.#.#)
-            result = true;
+            return true;
         }
-        else if (old_version.length >= 3 && current_version.length >= 3 && old_version[0] == current_version[0] && old_version[1] == current_version[1] && old_version[2] < current_version[2]) {
+        else if (oldVersion.length >= 3 && currentVersion.length >= 3 && oldVersion[0].equals(currentVersion[0]) && oldVersion[1].equals(currentVersion[1]) && oldVersion[2] < currentVersion[2]) {
             // Revision version (#.#.# vs #.#.#)
-            result = true;
+            return true;
         }
 
-        return result;
+        return false;
     }
 
     public static boolean newVersion(Integer[] oldVersion, String currentVersion) {
@@ -1289,31 +1279,6 @@ public class Util extends Queue {
         String[] oldVersionSplit = oldVersion.split("\\.");
         String[] currentVersionSplit = currentVersion.split("\\.");
         return newVersion(convertArray(oldVersionSplit), convertArray(currentVersionSplit));
-    }
-
-    public static String[] parseCSVString(String string) {
-        String[] result;
-
-        if (string.indexOf("\"") > -1) {
-            result = csvSplitter.split(string, -1);
-        }
-        else {
-            result = string.split(",", -1);
-        }
-
-        for (int i = 0; i < result.length; i++) {
-            String value = result[i];
-            if (value.length() == 0) {
-                value = null;
-            }
-            else if (string.indexOf("\"") > -1) {
-                value = value.replaceAll("^\"|\"$", "");
-                value = value.replaceAll("\"\"", "\"");
-            }
-            result[i] = value;
-        }
-
-        return result;
     }
 
     public static Map<Integer, Object> serializeItemStackLegacy(ItemStack itemStack, int slot) {
@@ -1375,8 +1340,8 @@ public class Util extends Queue {
         List<Object> meta = new ArrayList<>();
         try {
             if (block instanceof CommandBlock) {
-                CommandBlock command_block = (CommandBlock) block;
-                String command = command_block.getCommand();
+                CommandBlock commandBlock = (CommandBlock) block;
+                String command = commandBlock.getCommand();
                 if (command.length() > 0) {
                     meta.add(command);
                 }
@@ -1405,7 +1370,8 @@ public class Util extends Queue {
         catch (Exception e) {
             e.printStackTrace();
         }
-        if (meta.size() == 0) {
+
+        if (meta.isEmpty()) {
             meta = null;
         }
         return meta;
@@ -1429,7 +1395,7 @@ public class Util extends Queue {
         }, delay);
     }
 
-    public static void sendBlockChange(Player player, Location location, Material type, BlockData blockData) {
+    public static void sendBlockChange(Player player, Location location, BlockData blockData) {
         player.sendBlockChange(location, blockData);
     }
 
@@ -1469,7 +1435,7 @@ public class Util extends Queue {
                 location.setZ(location.getZ() + 0.50);
                 Entity entity = block.getLocation().getWorld().spawnEntity(location, type);
 
-                if (list.size() == 0) {
+                if (list.isEmpty()) {
                     return;
                 }
 
@@ -1769,7 +1735,7 @@ public class Util extends Queue {
                                 merchantRecipe.setIngredients(merchantIngredients);
                                 merchantRecipes.add(merchantRecipe);
                             }
-                            if (merchantRecipes.size() > 0) {
+                            if (!merchantRecipes.isEmpty()) {
                                 abstractVillager.setRecipes(merchantRecipes);
                             }
                         }
@@ -1793,12 +1759,10 @@ public class Util extends Queue {
                             raider.setPatrolLeader(set);
                         }
 
-                        if (entity instanceof Spellcaster) {
-                            if (count == 1) {
-                                Spellcaster spellcaster = (Spellcaster) entity;
-                                Spell set = (Spell) value;
-                                spellcaster.setSpell(set);
-                            }
+                        if (entity instanceof Spellcaster && count == 1) {
+                            Spellcaster spellcaster = (Spellcaster) entity;
+                            Spell set = (Spell) value;
+                            spellcaster.setSpell(set);
                         }
                     }
                     else if (entity instanceof Wolf) {
@@ -1890,18 +1854,16 @@ public class Util extends Queue {
                                     horse.getInventory().setArmor(set);
                                 }
                             }
-                            else if (count == 12) {
-                                if (value != null) {
-                                    @SuppressWarnings("unchecked")
-                                    org.bukkit.Color set = org.bukkit.Color.deserialize((Map<String, Object>) value);
-                                    ItemStack armor = horse.getInventory().getArmor();
-                                    if (armor != null) {
-                                        ItemMeta itemMeta = armor.getItemMeta();
-                                        if (itemMeta instanceof LeatherArmorMeta) {
-                                            LeatherArmorMeta leatherArmorMeta = (LeatherArmorMeta) itemMeta;
-                                            leatherArmorMeta.setColor(set);
-                                            armor.setItemMeta(leatherArmorMeta);
-                                        }
+                            else if (count == 12 && value != null) {
+                                @SuppressWarnings("unchecked")
+                                org.bukkit.Color set = org.bukkit.Color.deserialize((Map<String, Object>) value);
+                                ItemStack armor = horse.getInventory().getArmor();
+                                if (armor != null) {
+                                    ItemMeta itemMeta = armor.getItemMeta();
+                                    if (itemMeta instanceof LeatherArmorMeta) {
+                                        LeatherArmorMeta leatherArmorMeta = (LeatherArmorMeta) itemMeta;
+                                        leatherArmorMeta.setColor(set);
+                                        armor.setItemMeta(leatherArmorMeta);
                                     }
                                 }
                             }
@@ -1945,44 +1907,40 @@ public class Util extends Queue {
         Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
             try {
                 Block block = blockstate.getBlock();
-                int row_x = block.getX();
-                int row_y = block.getY();
-                int row_z = block.getZ();
+                int x = block.getX();
+                int y = block.getY();
+                int z = block.getZ();
 
                 for (Entity e : block.getChunk().getEntities()) {
                     if ((BukkitAdapter.ADAPTER.isItemFrame(rowType) && e instanceof ItemFrame) || (rowType.equals(Material.PAINTING) && e instanceof Painting)) {
                         Location el = e.getLocation();
-                        if (el.getBlockX() == row_x && el.getBlockY() == row_y && el.getBlockZ() == row_z) {
+                        if (el.getBlockX() == x && el.getBlockY() == y && el.getBlockZ() == z) {
                             e.remove();
                             break;
                         }
                     }
                 }
 
-                int dx1 = row_x + 1;
-                int dx2 = row_x - 1;
-                int dz1 = row_z + 1;
-                int dz2 = row_z - 1;
-                Block c1 = block.getWorld().getBlockAt(dx1, row_y, row_z);
-                Block c2 = block.getWorld().getBlockAt(dx2, row_y, row_z);
-                Block c3 = block.getWorld().getBlockAt(row_x, row_y, dz1);
-                Block c4 = block.getWorld().getBlockAt(row_x, row_y, dz2);
+                Block c1 = block.getWorld().getBlockAt((x + 1), y, z);
+                Block c2 = block.getWorld().getBlockAt((x - 1), y, z);
+                Block c3 = block.getWorld().getBlockAt(x, y, (z + 1));
+                Block c4 = block.getWorld().getBlockAt(x, y, (z - 1));
 
-                BlockFace face_set = null;
+                BlockFace faceSet = null;
                 if (!BlockGroup.NON_ATTACHABLE.contains(c1.getType())) {
-                    face_set = BlockFace.WEST;
+                    faceSet = BlockFace.WEST;
                     block = c1;
                 }
                 else if (!BlockGroup.NON_ATTACHABLE.contains(c2.getType())) {
-                    face_set = BlockFace.EAST;
+                    faceSet = BlockFace.EAST;
                     block = c2;
                 }
                 else if (!BlockGroup.NON_ATTACHABLE.contains(c3.getType())) {
-                    face_set = BlockFace.NORTH;
+                    faceSet = BlockFace.NORTH;
                     block = c3;
                 }
                 else if (!BlockGroup.NON_ATTACHABLE.contains(c4.getType())) {
-                    face_set = BlockFace.SOUTH;
+                    faceSet = BlockFace.SOUTH;
                     block = c4;
                 }
 
@@ -2000,58 +1958,58 @@ public class Util extends Queue {
                     face = BlockFace.SOUTH;
                 }
 
-                if (face_set != null && face != null) {
+                if (faceSet != null && face != null) {
                     if (rowType.equals(Material.PAINTING)) {
-                        String art_name = Util.getArtName(rowData);
-                        Art painting = Art.getByName(art_name.toUpperCase(Locale.ROOT));
+                        String name = Util.getArtName(rowData);
+                        Art painting = Art.getByName(name.toUpperCase(Locale.ROOT));
                         int height = painting.getBlockHeight();
                         int width = painting.getBlockWidth();
-                        int painting_x = row_x;
-                        int painting_y = row_y;
-                        int painting_z = row_z;
+                        int paintingX = x;
+                        int paintingY = y;
+                        int paintingZ = z;
                         if (height != 1 || width != 1) {
                             if (height > 1) {
                                 if (height != 3) {
-                                    painting_y = painting_y - 1;
+                                    paintingY = paintingY - 1;
                                 }
                             }
                             if (width > 1) {
-                                if (face_set.equals(BlockFace.WEST)) {
-                                    painting_z--;
+                                if (faceSet.equals(BlockFace.WEST)) {
+                                    paintingZ--;
                                 }
-                                else if (face_set.equals(BlockFace.SOUTH)) {
-                                    painting_x--;
+                                else if (faceSet.equals(BlockFace.SOUTH)) {
+                                    paintingX--;
                                 }
                             }
                         }
-                        Block spawn_block = block.getRelative(face);
-                        Util.setTypeAndData(spawn_block, Material.AIR, null, true);
+                        Block spawnBlock = block.getRelative(face);
+                        Util.setTypeAndData(spawnBlock, Material.AIR, null, true);
                         Painting hanging = null;
                         try {
-                            hanging = block.getWorld().spawn(spawn_block.getLocation(), Painting.class);
+                            hanging = block.getWorld().spawn(spawnBlock.getLocation(), Painting.class);
                         }
                         catch (Exception e) {
                         }
                         if (hanging != null) {
-                            hanging.teleport(block.getWorld().getBlockAt(painting_x, painting_y, painting_z).getLocation());
-                            hanging.setFacingDirection(face_set, true);
+                            hanging.teleport(block.getWorld().getBlockAt(paintingX, paintingY, paintingZ).getLocation());
+                            hanging.setFacingDirection(faceSet, true);
                             hanging.setArt(painting, true);
                         }
                     }
                     else if (BukkitAdapter.ADAPTER.isItemFrame(rowType)) {
                         try {
-                            Block spawn_block = block.getRelative(face);
-                            Util.setTypeAndData(spawn_block, Material.AIR, null, true);
+                            Block spawnBlock = block.getRelative(face);
+                            Util.setTypeAndData(spawnBlock, Material.AIR, null, true);
                             Class itemFrame = BukkitAdapter.ADAPTER.getFrameClass(rowType);
-                            Entity entity = block.getWorld().spawn(spawn_block.getLocation(), itemFrame);
-                            if (entity != null && entity instanceof ItemFrame) {
+                            Entity entity = block.getWorld().spawn(spawnBlock.getLocation(), itemFrame);
+                            if (entity instanceof ItemFrame) {
                                 ItemFrame hanging = (ItemFrame) entity;
-                                hanging.teleport(block.getWorld().getBlockAt(row_x, row_y, row_z).getLocation());
-                                hanging.setFacingDirection(face_set, true);
+                                hanging.teleport(block.getWorld().getBlockAt(x, y, z).getLocation());
+                                hanging.setFacingDirection(faceSet, true);
 
-                                Material row_data_material = Util.getType(rowData);
-                                if (row_data_material != null) {
-                                    ItemStack istack = new ItemStack(row_data_material, 1);
+                                Material type = Util.getType(rowData);
+                                if (type != null) {
+                                    ItemStack istack = new ItemStack(type, 1);
                                     hanging.setItem(istack);
                                 }
                             }
@@ -2084,22 +2042,23 @@ public class Util extends Queue {
         return result;
     }
 
-    public static String[] toStringArray(String[] data) {
-        int size = data.length;
+    public static String[] toStringArray(String[] array) {
+        int size = array.length;
         if (size == 11) {
-            String action_time = data[0];
-            String action_player = data[1];
-            String action_x = data[2];
-            String action_y = data[3];
-            String action_z = data[4];
-            String action_type = data[5];
-            String action_data = data[6];
-            String action_action = data[7];
-            String action_rb = data[8];
-            String action_wid = data[9];
-            String action_blockdata = data[10];
-            return new String[] { action_time, action_player, action_x, action_y, action_z, action_type, action_data, action_action, action_rb, action_wid, "", "", action_blockdata };
+            String time = array[0];
+            String user = array[1];
+            String x = array[2];
+            String y = array[3];
+            String z = array[4];
+            String type = array[5];
+            String data = array[6];
+            String action = array[7];
+            String rolledBack = array[8];
+            String wid = array[9];
+            String blockData = array[10];
+            return new String[] { time, user, x, y, z, type, data, action, rolledBack, wid, "", "", blockData };
         }
+
         return null;
     }
 

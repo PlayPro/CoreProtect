@@ -62,6 +62,7 @@ mvnw.cmd
 ## Gradle
 #################
 
+build
 gradle
 
 # Wrapper files

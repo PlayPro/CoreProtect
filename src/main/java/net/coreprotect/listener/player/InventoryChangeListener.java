@@ -174,8 +174,9 @@ public final class InventoryChangeListener extends Queue implements Listener {
 
                     int chestId = getChestId(loggingChestId);
                     if (chestId > 0) {
-                        if (ConfigHandler.forceContainer.get(loggingChestId) != null) {
-                            int forceSize = ConfigHandler.forceContainer.get(loggingChestId).size();
+                        List<ItemStack[]> forceList = ConfigHandler.forceContainer.get(loggingChestId);
+                        if (forceList != null) {
+                            int forceSize = forceList.size();
                             List<ItemStack[]> list = ConfigHandler.oldContainer.get(loggingChestId);
 
                             if (list != null && list.size() <= forceSize) {

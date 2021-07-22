@@ -39,7 +39,6 @@ public final class HopperPushListener {
         final long taskStarted = InventoryChangeListener.tasksStarted.incrementAndGet();
         Bukkit.getServer().getScheduler().runTaskAsynchronously(CoreProtect.getInstance(), () -> {
             try {
-                InventoryChangeListener.checkTasks(taskStarted);
                 if (sourceHolder == null || destinationHolder == null) {
                     return;
                 }
@@ -110,6 +109,7 @@ public final class HopperPushListener {
                     }
                 }
 
+                InventoryChangeListener.checkTasks(taskStarted);
                 InventoryChangeListener.onInventoryInteract("#hopper", destinationInventory, originalDestination, null, destinationInventory.getLocation(), true);
             }
             catch (Exception e) {

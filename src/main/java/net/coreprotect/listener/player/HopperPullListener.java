@@ -7,6 +7,7 @@ import java.util.Set;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.inventory.BrewerInventory;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -50,6 +51,17 @@ public final class HopperPullListener {
                 if (ConfigHandler.isPaper) {
                     for (ItemStack itemStack : sourceHolder.getInventory().getContents()) {
                         if (itemStack != null && Util.getItemStackHashCode(itemStack) == itemHash) {
+                            if (itemHash != Util.getItemStackHashCode(movedItem) || destinationHolder.getInventory().firstEmpty() == -1 || destinationHolder.getInventory() instanceof BrewerInventory) {
+                                abort = true;
+                            }
+
+                            break;
+                        }
+                    }
+
+                    /*
+                    for (ItemStack itemStack : sourceHolder.getInventory().getContents()) {
+                        if (itemStack != null && Util.getItemStackHashCode(itemStack) == itemHash) {
                             abort = true;
                             break;
                         }
@@ -58,11 +70,15 @@ public final class HopperPullListener {
                     if (abort) {
                         for (ItemStack itemStack : destinationHolder.getInventory().getContents()) {
                             if (itemStack != null && Util.getItemStackHashCode(itemStack) == Util.getItemStackHashCode(movedItem)) {
-                                abort = false;
+                                if (itemHash == Util.getItemStackHashCode(itemStack) && destinationHolder.getInventory().firstEmpty() > -1) {
+                                    abort = false;
+                                }
+                    
                                 break;
                             }
                         }
                     }
+                    */
                 }
                 else {
                     ItemStack[] sourceContents = sourceHolder.getInventory().getContents();

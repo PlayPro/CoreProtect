@@ -1,6 +1,9 @@
 package net.coreprotect.listener.player;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -15,12 +18,22 @@ import net.coreprotect.utility.Util;
 
 public final class HopperPullListener {
 
-    static void processHopperPull(Location location, InventoryHolder sourceHolder, InventoryHolder destinationHolder, ItemStack item, ItemStack movedItem) {
+    static void processHopperPull(Location location, InventoryHolder sourceHolder, InventoryHolder destinationHolder, ItemStack item) {
+        String loggingChestId = "#hopper-pull." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+        Object[] lastAbort = ConfigHandler.hopperAbort.get(loggingChestId);
+        if (lastAbort != null) {
+            ItemStack[] destinationContents = destinationHolder.getInventory().getContents();
+            if (((Set<?>) lastAbort[0]).contains(item) && Arrays.equals(destinationContents, (ItemStack[]) lastAbort[1])) {
+                return;
+            }
+        }
+
         ItemStack[] containerState = null;
         if (!ConfigHandler.isPaper) {
             containerState = Util.getContainerState(sourceHolder.getInventory().getContents());
         }
         ItemStack[] sourceContainer = containerState;
+        ItemStack movedItem = item.clone();
 
         final long taskStarted = InventoryChangeListener.tasksStarted.incrementAndGet();
         Bukkit.getServer().getScheduler().runTaskAsynchronously(CoreProtect.getInstance(), () -> {
@@ -32,13 +45,9 @@ public final class HopperPullListener {
 
                 boolean hopperTransactions = Config.getConfig(location.getWorld()).HOPPER_TRANSACTIONS;
                 int itemHash = Util.getItemStackHashCode(item);
-                int x = location.getBlockX();
-                int y = location.getBlockY();
-                int z = location.getBlockZ();
-                String loggingChestId = "#hopper." + x + "." + y + "." + z;
+                boolean abort = false;
 
                 if (ConfigHandler.isPaper) {
-                    boolean abort = false;
                     for (ItemStack itemStack : sourceHolder.getInventory().getContents()) {
                         if (itemStack != null && Util.getItemStackHashCode(itemStack) == itemHash) {
                             abort = true;
@@ -53,20 +62,26 @@ public final class HopperPullListener {
                                 break;
                             }
                         }
-
-                        if (abort) {
-                            ConfigHandler.hopperAbort.put(loggingChestId, true);
-                            return;
-                        }
                     }
                 }
                 else {
                     ItemStack[] sourceContents = sourceHolder.getInventory().getContents();
                     boolean addedInventory = Util.addedContainer(sourceContainer, sourceContents);
                     if (addedInventory) {
-                        ConfigHandler.hopperAbort.put(loggingChestId, true);
-                        return;
+                        abort = true;
                     }
+                }
+
+                if (abort) {
+                    Set<ItemStack> movedItems = new HashSet<>();
+                    ItemStack[] destinationContents = destinationHolder.getInventory().getContents();
+                    if (lastAbort != null && Arrays.equals(destinationContents, (ItemStack[]) lastAbort[1])) {
+                        ((Set<?>) lastAbort[0]).forEach(itemStack -> movedItems.add((ItemStack) itemStack));
+                    }
+                    movedItems.add(movedItem);
+
+                    ConfigHandler.hopperAbort.put(loggingChestId, new Object[] { movedItems, Util.getContainerState(destinationContents) });
+                    return;
                 }
 
                 boolean lastAborted = false;
@@ -78,7 +93,7 @@ public final class HopperPullListener {
                 boolean mergeMoved = true;
                 if (lastAborted) {
                     for (String loggingChestIdViewer : ConfigHandler.oldContainer.keySet()) {
-                        if (loggingChestIdViewer.equals(loggingChestId) || !loggingChestIdViewer.endsWith("." + x + "." + y + "." + z)) {
+                        if (loggingChestIdViewer.equals(loggingChestId) || !loggingChestIdViewer.endsWith("." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ())) {
                             continue;
                         }
 

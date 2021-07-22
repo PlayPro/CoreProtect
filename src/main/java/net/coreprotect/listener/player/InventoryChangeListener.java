@@ -304,6 +304,10 @@ public final class InventoryChangeListener extends Queue implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     protected void onInventoryMoveItemEvent(InventoryMoveItemEvent event) {
+        if (event.isCancelled()) {
+            return;
+        }
+
         Location location = event.getSource().getLocation();
         if (location == null) {
             return;
@@ -321,14 +325,10 @@ public final class InventoryChangeListener extends Queue implements Listener {
 
         if (Config.getConfig(location.getWorld()).HOPPER_TRANSACTIONS) {
             if (Validate.isHopper(destinationHolder) && (Validate.isContainer(sourceHolder) && !Validate.isHopper(sourceHolder))) {
-                ItemStack item = event.getItem();
-                ItemStack movedItem = item.clone();
-                HopperPullListener.processHopperPull(location, sourceHolder, destinationHolder, item, movedItem);
+                HopperPullListener.processHopperPull(location, sourceHolder, destinationHolder, event.getItem());
             }
             else if (Validate.isHopper(sourceHolder) && (Validate.isContainer(destinationHolder) && !Validate.isHopper(destinationHolder))) {
-                ItemStack item = event.getItem();
-                ItemStack movedItem = item.clone();
-                HopperPushListener.processHopperPush(location, sourceHolder, destinationHolder, item, movedItem);
+                HopperPushListener.processHopperPush(location, sourceHolder, destinationHolder, event.getItem());
             }
 
             return;
@@ -343,6 +343,6 @@ public final class InventoryChangeListener extends Queue implements Listener {
             return;
         }
 
-        HopperPullListener.processHopperPull(location, sourceHolder, destinationHolder, event.getItem(), event.getItem().clone());
+        HopperPullListener.processHopperPull(location, sourceHolder, destinationHolder, event.getItem());
     }
 }

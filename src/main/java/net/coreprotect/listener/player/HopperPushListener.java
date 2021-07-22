@@ -94,16 +94,15 @@ public final class HopperPushListener {
                         break;
                     }
 
-                    ItemStack itemStack = originalDestination[i];
+                    ItemStack itemStack = (originalDestination[i] != null ? originalDestination[i].clone() : null);
                     if (itemStack != null && itemStack.isSimilar(movedItem)) {
-                        itemStack = itemStack.clone();
                         if (itemStack.getAmount() >= removeAmount) {
                             itemStack.setAmount(itemStack.getAmount() - removeAmount);
                             removeAmount = 0;
                         }
                         else {
                             removeAmount = removeAmount - itemStack.getAmount();
-                            itemStack.setAmount(0);
+                            itemStack = null;
                         }
 
                         originalDestination[i] = itemStack;

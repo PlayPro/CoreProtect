@@ -84,42 +84,22 @@ public final class HopperPullListener {
                     return;
                 }
 
-                boolean lastAborted = false;
                 if (ConfigHandler.hopperAbort.get(loggingChestId) != null) {
                     ConfigHandler.hopperAbort.remove(loggingChestId);
-                    lastAborted = true;
-                }
-
-                boolean mergeMoved = true;
-                if (lastAborted) {
-                    for (String loggingChestIdViewer : ConfigHandler.oldContainer.keySet()) {
-                        if (loggingChestIdViewer.equals(loggingChestId) || !loggingChestIdViewer.endsWith("." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ())) {
-                            continue;
-                        }
-
-                        if (ConfigHandler.oldContainer.get(loggingChestIdViewer) != null) { // pending consumer item by another user
-                            mergeMoved = false;
-                            break;
-                        }
-                    }
                 }
 
                 if (!hopperTransactions) {
-                    if (mergeMoved) {
-                        List<Object> list = ConfigHandler.transactingChest.get(location.getWorld().getUID().toString() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ());
-                        if (list != null) {
-                            list.add(movedItem);
-                        }
+                    List<Object> list = ConfigHandler.transactingChest.get(location.getWorld().getUID().toString() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ());
+                    if (list != null) {
+                        list.add(movedItem);
                     }
                     return;
                 }
 
-                if (mergeMoved) {
-                    Location destinationLocation = destinationHolder.getInventory().getLocation();
-                    List<Object> list = ConfigHandler.transactingChest.get(destinationLocation.getWorld().getUID().toString() + "." + destinationLocation.getBlockX() + "." + destinationLocation.getBlockY() + "." + destinationLocation.getBlockZ());
-                    if (list != null) {
-                        list.add(new ItemStack[] { null, movedItem });
-                    }
+                Location destinationLocation = destinationHolder.getInventory().getLocation();
+                List<Object> list = ConfigHandler.transactingChest.get(destinationLocation.getWorld().getUID().toString() + "." + destinationLocation.getBlockX() + "." + destinationLocation.getBlockY() + "." + destinationLocation.getBlockZ());
+                if (list != null) {
+                    list.add(new ItemStack[] { null, movedItem });
                 }
 
                 if (Config.getConfig(location.getWorld()).HOPPER_FILTER_META && !movedItem.hasItemMeta()) {
@@ -136,10 +116,7 @@ public final class HopperPullListener {
                     }
                 }
 
-                if (mergeMoved) {
-                    originalSource[inventoryContents.length] = movedItem;
-                }
-
+                originalSource[inventoryContents.length] = movedItem;
                 InventoryChangeListener.onInventoryInteract("#hopper", sourceInventory, originalSource, null, sourceInventory.getLocation(), true);
             }
             catch (Exception e) {

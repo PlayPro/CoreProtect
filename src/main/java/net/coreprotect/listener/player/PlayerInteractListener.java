@@ -61,474 +61,464 @@ public final class PlayerInteractListener extends Queue implements Listener {
     public static ConcurrentHashMap<String, Object[]> lastInspectorEvent = new ConcurrentHashMap<>();
 
     @EventHandler(priority = EventPriority.LOWEST)
-    protected void onPlayerInteract(PlayerInteractEvent event) {
+    protected void onPlayerInspect(PlayerInteractEvent event) {
         Player player = event.getPlayer();
         World world = player.getWorld();
 
+        if (!Boolean.TRUE.equals(ConfigHandler.inspecting.get(player.getName()))) {
+            return;
+        }
+
         if (event.getAction().equals(Action.LEFT_CLICK_BLOCK)) {
-            if (ConfigHandler.inspecting.get(player.getName()) != null) {
-                if (ConfigHandler.inspecting.get(player.getName())) {
-                    // block check
-                    BlockState checkBlock = event.getClickedBlock().getState();
-                    int x = checkBlock.getX();
-                    int y = checkBlock.getY();
-                    int z = checkBlock.getZ();
+            BlockState checkBlock = event.getClickedBlock().getState();
+            int x = checkBlock.getX();
+            int y = checkBlock.getY();
+            int z = checkBlock.getZ();
 
-                    /* Check if clicking top half of double plant */
-                    BlockData checkBlockData = checkBlock.getBlockData();
-                    if (checkBlockData instanceof Bisected && !(checkBlockData instanceof Waterlogged)) {
-                        if (((Bisected) checkBlockData).getHalf().equals(Half.TOP) && y > BukkitAdapter.ADAPTER.getMinHeight(world)) {
-                            checkBlock = world.getBlockAt(checkBlock.getX(), checkBlock.getY() - 1, checkBlock.getZ()).getState();
-                        }
-                    }
-
-                    final BlockState blockFinal = checkBlock;
-                    final Player playerFinal = player;
-
-                    class BasicThread implements Runnable {
-                        @Override
-                        public void run() {
-                            try {
-                                if (ConfigHandler.converterRunning) {
-                                    playerFinal.sendMessage(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
-                                    return;
-                                }
-                                if (ConfigHandler.purgeRunning) {
-                                    playerFinal.sendMessage(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
-                                    return;
-                                }
-                                if (ConfigHandler.lookupThrottle.get(playerFinal.getName()) != null) {
-                                    Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(playerFinal.getName());
-                                    if ((boolean) lookupThrottle[0] || ((System.currentTimeMillis() - (long) lookupThrottle[1])) < 100) {
-                                        playerFinal.sendMessage(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                        return;
-                                    }
-                                }
-
-                                Connection connection = Database.getConnection(true);
-                                if (connection != null) {
-                                    ConfigHandler.lookupThrottle.put(playerFinal.getName(), new Object[] { true, System.currentTimeMillis() });
-                                    Statement statement = connection.createStatement();
-
-                                    String resultData = BlockLookup.performLookup(null, statement, blockFinal, playerFinal, 0, 1, 7);
-                                    if (resultData.contains("\n")) {
-                                        for (String b : resultData.split("\n")) {
-                                            Chat.sendComponent(playerFinal, b);
-                                        }
-                                    }
-                                    else if (resultData.length() > 0) {
-                                        Chat.sendComponent(playerFinal, resultData);
-                                    }
-
-                                    statement.close();
-                                    connection.close();
-                                    ConfigHandler.lookupThrottle.put(playerFinal.getName(), new Object[] { false, System.currentTimeMillis() });
-
-                                    if (blockFinal instanceof Sign && playerFinal.getGameMode() != GameMode.CREATIVE) {
-                                        Thread.sleep(1500);
-                                        Sign sign = (Sign) blockFinal;
-                                        BukkitAdapter.ADAPTER.sendSignChange(playerFinal, sign);
-                                    }
-                                }
-                                else {
-                                    playerFinal.sendMessage(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                }
-                            }
-                            catch (Exception e) {
-                                e.printStackTrace();
-                            }
-                        }
-                    }
-
-                    Runnable runnable = new BasicThread();
-                    Thread thread = new Thread(runnable);
-                    thread.start();
-
-                    if (checkBlockData instanceof Bisected) {
-                        int worldMaxHeight = world.getMaxHeight();
-                        if (y < (worldMaxHeight - 1)) {
-                            Block y1 = world.getBlockAt(x, y + 1, z);
-                            player.sendBlockChange(y1.getLocation(), y1.getBlockData());
-                        }
-
-                        int worldMinHeight = BukkitAdapter.ADAPTER.getMinHeight(world);
-                        if (y > worldMinHeight) {
-                            Block y2 = world.getBlockAt(x, y - 1, z);
-                            player.sendBlockChange(y2.getLocation(), y2.getBlockData());
-                        }
-                    }
-
-                    Block x1 = world.getBlockAt(x + 1, y, z);
-                    Block x2 = world.getBlockAt(x - 1, y, z);
-                    Block z1 = world.getBlockAt(x, y, z + 1);
-                    Block z2 = world.getBlockAt(x, y, z - 1);
-                    player.sendBlockChange(x1.getLocation(), x1.getBlockData());
-                    player.sendBlockChange(x2.getLocation(), x2.getBlockData());
-                    player.sendBlockChange(z1.getLocation(), z1.getBlockData());
-                    player.sendBlockChange(z2.getLocation(), z2.getBlockData());
-                    event.setCancelled(true);
+            /* Check if clicking top half of double plant */
+            BlockData checkBlockData = checkBlock.getBlockData();
+            if (checkBlockData instanceof Bisected && !(checkBlockData instanceof Waterlogged)) {
+                if (((Bisected) checkBlockData).getHalf().equals(Half.TOP) && y > BukkitAdapter.ADAPTER.getMinHeight(world)) {
+                    checkBlock = world.getBlockAt(checkBlock.getX(), checkBlock.getY() - 1, checkBlock.getZ()).getState();
                 }
             }
-        }
-        else if (event.getAction().equals(Action.RIGHT_CLICK_BLOCK)) {
-            if (ConfigHandler.inspecting.get(player.getName()) != null) {
-                if (ConfigHandler.inspecting.get(player.getName())) {
-                    Block block = event.getClickedBlock();
-                    if (block != null) {
-                        final Material type = block.getType();
-                        boolean isInteractBlock = BlockGroup.INTERACT_BLOCKS.contains(type);
-                        boolean isContainerBlock = BlockGroup.CONTAINERS.contains(type);
-                        boolean isSignBlock = Tag.SIGNS.isTagged(type);
 
-                        if (isInteractBlock || isContainerBlock || isSignBlock) {
-                            final Block clickedBlock = event.getClickedBlock();
-                            final Player finalPlayer = player;
-
-                            if (isSignBlock) {
-                                Location location = clickedBlock.getLocation();
-
-                                // sign messages
-                                class BasicThread implements Runnable {
-                                    @Override
-                                    public void run() {
-                                        try {
-                                            if (ConfigHandler.converterRunning) {
-                                                Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
-                                                return;
-                                            }
-
-                                            if (ConfigHandler.purgeRunning) {
-                                                Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
-                                                return;
-                                            }
-
-                                            if (ConfigHandler.lookupThrottle.get(finalPlayer.getName()) != null) {
-                                                Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(finalPlayer.getName());
-                                                if ((boolean) lookupThrottle[0] || ((System.currentTimeMillis() - (long) lookupThrottle[1])) < 100) {
-                                                    System.out.println((boolean) lookupThrottle[0] + " / " + ((System.currentTimeMillis() - (long) lookupThrottle[1])));
-
-                                                    Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                                    return;
-                                                }
-                                            }
-
-                                            ConfigHandler.lookupThrottle.put(finalPlayer.getName(), new Object[] { true, System.currentTimeMillis() });
-
-                                            Connection connection = Database.getConnection(true);
-                                            if (connection != null) {
-                                                Statement statement = connection.createStatement();
-                                                List<String> signData = SignMessageLookup.performLookup(null, statement, location, finalPlayer, 1, 7);
-                                                for (String signMessage : signData) {
-                                                    String bypass = null;
-
-                                                    if (signMessage.contains("\n")) {
-                                                        String[] split = signMessage.split("\n");
-                                                        signMessage = split[0];
-                                                        bypass = split[1];
-                                                    }
-
-                                                    if (signMessage.length() > 0) {
-                                                        Chat.sendComponent(finalPlayer, signMessage, bypass);
-                                                    }
-                                                }
-
-                                                statement.close();
-                                                connection.close();
-                                            }
-                                            else {
-                                                Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                            }
-                                        }
-                                        catch (Exception e) {
-                                            e.printStackTrace();
-                                        }
-
-                                        ConfigHandler.lookupThrottle.put(finalPlayer.getName(), new Object[] { false, System.currentTimeMillis() });
-                                    }
-                                }
-
-                                Runnable runnable = new BasicThread();
-                                Thread thread = new Thread(runnable);
-                                thread.start();
-                                event.setCancelled(true);
+            final BlockState blockFinal = checkBlock;
+            class BasicThread implements Runnable {
+                @Override
+                public void run() {
+                    try {
+                        if (ConfigHandler.converterRunning) {
+                            player.sendMessage(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
+                            return;
+                        }
+                        if (ConfigHandler.purgeRunning) {
+                            player.sendMessage(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
+                            return;
+                        }
+                        if (ConfigHandler.lookupThrottle.get(player.getName()) != null) {
+                            Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
+                            if ((boolean) lookupThrottle[0] || (System.currentTimeMillis() - (long) lookupThrottle[1]) < 100) {
+                                player.sendMessage(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
+                                return;
                             }
-                            else if (isContainerBlock && Config.getConfig(world).ITEM_TRANSACTIONS) {
-                                Location location = null;
-                                if (type.equals(Material.CHEST) || type.equals(Material.TRAPPED_CHEST)) {
-                                    Chest chest = (Chest) clickedBlock.getState();
-                                    InventoryHolder inventoryHolder = chest.getInventory().getHolder();
+                        }
 
-                                    if (inventoryHolder instanceof DoubleChest) {
-                                        DoubleChest doubleChest = (DoubleChest) inventoryHolder;
-                                        location = doubleChest.getLocation();
-                                    }
-                                    else {
-                                        location = chest.getLocation();
-                                    }
+                        Connection connection = Database.getConnection(true);
+                        if (connection != null) {
+                            ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
+                            Statement statement = connection.createStatement();
+
+                            String resultData = BlockLookup.performLookup(null, statement, blockFinal, player, 0, 1, 7);
+                            if (resultData.contains("\n")) {
+                                for (String b : resultData.split("\n")) {
+                                    Chat.sendComponent(player, b);
                                 }
-
-                                if (location == null) {
-                                    location = clickedBlock.getLocation();
-                                }
-
-                                Location finalLocation = location;
-
-                                // logged chest items
-                                class BasicThread implements Runnable {
-                                    @Override
-                                    public void run() {
-                                        try {
-                                            if (ConfigHandler.converterRunning) {
-                                                Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
-                                                return;
-                                            }
-
-                                            if (ConfigHandler.purgeRunning) {
-                                                Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
-                                                return;
-                                            }
-
-                                            if (ConfigHandler.lookupThrottle.get(finalPlayer.getName()) != null) {
-                                                Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(finalPlayer.getName());
-                                                if ((boolean) lookupThrottle[0] || ((System.currentTimeMillis() - (long) lookupThrottle[1])) < 100) {
-                                                    Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                                    return;
-                                                }
-                                            }
-
-                                            ConfigHandler.lookupThrottle.put(finalPlayer.getName(), new Object[] { true, System.currentTimeMillis() });
-
-                                            Connection connection = Database.getConnection(true);
-                                            if (connection != null) {
-                                                Statement statement = connection.createStatement();
-                                                String blockData = ChestTransactionLookup.performLookup(null, statement, finalLocation, finalPlayer, 1, 7, false);
-
-                                                if (blockData.contains("\n")) {
-                                                    for (String splitData : blockData.split("\n")) {
-                                                        Chat.sendComponent(finalPlayer, splitData);
-                                                    }
-                                                }
-                                                else {
-                                                    Chat.sendComponent(finalPlayer, blockData);
-                                                }
-
-                                                statement.close();
-                                                connection.close();
-                                            }
-                                            else {
-                                                Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                            }
-                                        }
-                                        catch (Exception e) {
-                                            e.printStackTrace();
-                                        }
-
-                                        ConfigHandler.lookupThrottle.put(finalPlayer.getName(), new Object[] { false, System.currentTimeMillis() });
-                                    }
-                                }
-
-                                Runnable runnable = new BasicThread();
-                                Thread thread = new Thread(runnable);
-                                thread.start();
-                                event.setCancelled(true);
                             }
-                            else if (isInteractBlock) {
-                                // standard player interactions
-                                Block interactBlock = clickedBlock;
-                                if (BlockGroup.DOORS.contains(type)) {
-                                    int y = interactBlock.getY() - 1;
-                                    Block blockUnder = interactBlock.getWorld().getBlockAt(interactBlock.getX(), y, interactBlock.getZ());
+                            else if (resultData.length() > 0) {
+                                Chat.sendComponent(player, resultData);
+                            }
 
-                                    if (blockUnder.getType().equals(type)) {
-                                        interactBlock = blockUnder;
-                                    }
-                                }
+                            statement.close();
+                            connection.close();
+                            ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
 
-                                final Block finalInteractBlock = interactBlock;
-                                class BasicThread implements Runnable {
-                                    @Override
-                                    public void run() {
-                                        try {
-                                            if (ConfigHandler.converterRunning) {
-                                                Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
-                                                return;
-                                            }
-                                            if (ConfigHandler.purgeRunning) {
-                                                Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
-                                                return;
-                                            }
-                                            if (ConfigHandler.lookupThrottle.get(finalPlayer.getName()) != null) {
-                                                Object[] lookup_throttle = ConfigHandler.lookupThrottle.get(finalPlayer.getName());
-                                                if ((boolean) lookup_throttle[0] || ((System.currentTimeMillis() - (long) lookup_throttle[1])) < 100) {
-                                                    Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                                    return;
-                                                }
-                                            }
-
-                                            ConfigHandler.lookupThrottle.put(finalPlayer.getName(), new Object[] { true, System.currentTimeMillis() });
-
-                                            Connection connection = Database.getConnection(true);
-                                            if (connection != null) {
-                                                Statement statement = connection.createStatement();
-                                                String blockData = InteractionLookup.performLookup(null, statement, finalInteractBlock, finalPlayer, 0, 1, 7);
-
-                                                if (blockData.contains("\n")) {
-                                                    for (String splitData : blockData.split("\n")) {
-                                                        Chat.sendComponent(finalPlayer, splitData);
-                                                    }
-                                                }
-                                                else {
-                                                    Chat.sendComponent(finalPlayer, blockData);
-                                                }
-
-                                                statement.close();
-                                                connection.close();
-                                            }
-                                            else {
-                                                Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                            }
-                                        }
-                                        catch (Exception e) {
-                                            e.printStackTrace();
-                                        }
-
-                                        ConfigHandler.lookupThrottle.put(finalPlayer.getName(), new Object[] { false, System.currentTimeMillis() });
-                                    }
-                                }
-
-                                Runnable runnable = new BasicThread();
-                                Thread thread = new Thread(runnable);
-                                thread.start();
-
-                                if (!BlockGroup.SAFE_INTERACT_BLOCKS.contains(type)) {
-                                    event.setCancelled(true);
-                                }
+                            if (blockFinal instanceof Sign && player.getGameMode() != GameMode.CREATIVE) {
+                                Thread.sleep(1500);
+                                Sign sign = (Sign) blockFinal;
+                                BukkitAdapter.ADAPTER.sendSignChange(player, sign);
                             }
                         }
                         else {
-                            boolean performLookup = true;
-                            EquipmentSlot eventHand = event.getHand();
-                            String uuid = event.getPlayer().getUniqueId().toString();
-                            long systemTime = System.currentTimeMillis();
+                            player.sendMessage(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
+                        }
+                    }
+                    catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
 
-                            if (lastInspectorEvent.get(uuid) != null) {
-                                Object[] lastEvent = lastInspectorEvent.get(uuid);
-                                long lastTime = (long) lastEvent[0];
-                                EquipmentSlot lastHand = (EquipmentSlot) lastEvent[1];
+            Runnable runnable = new BasicThread();
+            Thread thread = new Thread(runnable);
+            thread.start();
 
-                                long timeSince = systemTime - lastTime;
-                                if (timeSince < 50 && !eventHand.equals(lastHand)) {
-                                    performLookup = false;
-                                }
-                            }
+            if (checkBlockData instanceof Bisected) {
+                int worldMaxHeight = world.getMaxHeight();
+                if (y < (worldMaxHeight - 1)) {
+                    Block y1 = world.getBlockAt(x, y + 1, z);
+                    player.sendBlockChange(y1.getLocation(), y1.getBlockData());
+                }
 
-                            if (performLookup) {
-                                final Player finalPlayer = player;
-                                final BlockState finalBlock = event.getClickedBlock().getRelative(event.getBlockFace()).getState();
+                int worldMinHeight = BukkitAdapter.ADAPTER.getMinHeight(world);
+                if (y > worldMinHeight) {
+                    Block y2 = world.getBlockAt(x, y - 1, z);
+                    player.sendBlockChange(y2.getLocation(), y2.getBlockData());
+                }
+            }
 
-                                class BasicThread implements Runnable {
-                                    @Override
-                                    public void run() {
-                                        try {
-                                            if (ConfigHandler.converterRunning) {
-                                                Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
-                                                return;
-                                            }
+            Block x1 = world.getBlockAt(x + 1, y, z);
+            Block x2 = world.getBlockAt(x - 1, y, z);
+            Block z1 = world.getBlockAt(x, y, z + 1);
+            Block z2 = world.getBlockAt(x, y, z - 1);
+            player.sendBlockChange(x1.getLocation(), x1.getBlockData());
+            player.sendBlockChange(x2.getLocation(), x2.getBlockData());
+            player.sendBlockChange(z1.getLocation(), z1.getBlockData());
+            player.sendBlockChange(z2.getLocation(), z2.getBlockData());
+            event.setCancelled(true);
+        }
+        else if (event.getAction().equals(Action.RIGHT_CLICK_BLOCK)) {
+            Block block = event.getClickedBlock();
+            if (block != null) {
+                final Material type = block.getType();
+                boolean isInteractBlock = BlockGroup.INTERACT_BLOCKS.contains(type);
+                boolean isContainerBlock = BlockGroup.CONTAINERS.contains(type);
+                boolean isSignBlock = Tag.SIGNS.isTagged(type);
 
-                                            if (ConfigHandler.purgeRunning) {
-                                                Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
-                                                return;
-                                            }
+                if (isInteractBlock || isContainerBlock || isSignBlock) {
+                    final Block clickedBlock = event.getClickedBlock();
 
-                                            if (ConfigHandler.lookupThrottle.get(finalPlayer.getName()) != null) {
-                                                Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(finalPlayer.getName());
-                                                if ((boolean) lookupThrottle[0] || ((System.currentTimeMillis() - (long) lookupThrottle[1])) < 100) {
-                                                    Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                                    return;
-                                                }
-                                            }
+                    if (isSignBlock) {
+                        Location location = clickedBlock.getLocation();
 
-                                            ConfigHandler.lookupThrottle.put(finalPlayer.getName(), new Object[] { true, System.currentTimeMillis() });
-
-                                            Connection connection = Database.getConnection(true);
-                                            if (connection != null) {
-                                                Statement statement = connection.createStatement();
-                                                if (finalBlock.getType().equals(Material.AIR) || finalBlock.getType().equals(Material.CAVE_AIR)) {
-                                                    String blockData = BlockLookup.performLookup(null, statement, finalBlock, finalPlayer, 0, 1, 7);
-
-                                                    if (blockData.contains("\n")) {
-                                                        for (String b : blockData.split("\n")) {
-                                                            Chat.sendComponent(finalPlayer, b);
-                                                        }
-                                                    }
-                                                    else if (blockData.length() > 0) {
-                                                        Chat.sendComponent(finalPlayer, blockData);
-                                                    }
-                                                }
-                                                else {
-                                                    String blockData = BlockLookup.performLookup(null, statement, finalBlock, finalPlayer, 0, 1, 7);
-                                                    if (blockData.contains("\n")) {
-                                                        for (String splitData : blockData.split("\n")) {
-                                                            Chat.sendComponent(finalPlayer, splitData);
-                                                        }
-                                                    }
-                                                    else if (blockData.length() > 0) {
-                                                        Chat.sendComponent(finalPlayer, blockData);
-                                                    }
-                                                }
-
-                                                statement.close();
-                                                connection.close();
-                                            }
-                                            else {
-                                                Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                            }
-                                        }
-                                        catch (Exception e) {
-                                            e.printStackTrace();
-                                        }
-
-                                        ConfigHandler.lookupThrottle.put(finalPlayer.getName(), new Object[] { false, System.currentTimeMillis() });
+                        // sign messages
+                        class BasicThread implements Runnable {
+                            @Override
+                            public void run() {
+                                try {
+                                    if (ConfigHandler.converterRunning) {
+                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
+                                        return;
                                     }
-                                }
 
-                                Runnable runnable = new BasicThread();
-                                Thread thread = new Thread(runnable);
-                                thread.start();
+                                    if (ConfigHandler.purgeRunning) {
+                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
+                                        return;
+                                    }
 
-                                Util.updateInventory(event.getPlayer());
-                                lastInspectorEvent.put(uuid, new Object[] { systemTime, eventHand });
-
-                                if (event.hasItem()) {
-                                    Material eventItem = event.getItem().getType();
-                                    if (eventItem.isBlock() && (eventItem.createBlockData() instanceof Bisected)) {
-                                        int x = finalBlock.getX();
-                                        int y = finalBlock.getY();
-                                        int z = finalBlock.getZ();
-                                        int worldMaxHeight = world.getMaxHeight();
-                                        if (y < (worldMaxHeight - 1)) {
-                                            Block blockBisected = world.getBlockAt(x, y + 1, z);
-                                            player.sendBlockChange(blockBisected.getLocation(), blockBisected.getBlockData());
-                                        }
-                                        int worldMinHeight = BukkitAdapter.ADAPTER.getMinHeight(world);
-                                        if (y > worldMinHeight) {
-                                            Block blockBisected = world.getBlockAt(x, y - 1, z);
-                                            player.sendBlockChange(blockBisected.getLocation(), blockBisected.getBlockData());
+                                    if (ConfigHandler.lookupThrottle.get(player.getName()) != null) {
+                                        Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
+                                        if ((boolean) lookupThrottle[0] || (System.currentTimeMillis() - (long) lookupThrottle[1]) < 100) {
+                                            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
+                                            return;
                                         }
                                     }
-                                }
-                            }
 
+                                    ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
+
+                                    Connection connection = Database.getConnection(true);
+                                    if (connection != null) {
+                                        Statement statement = connection.createStatement();
+                                        List<String> signData = SignMessageLookup.performLookup(null, statement, location, player, 1, 7);
+                                        for (String signMessage : signData) {
+                                            String bypass = null;
+
+                                            if (signMessage.contains("\n")) {
+                                                String[] split = signMessage.split("\n");
+                                                signMessage = split[0];
+                                                bypass = split[1];
+                                            }
+
+                                            if (signMessage.length() > 0) {
+                                                Chat.sendComponent(player, signMessage, bypass);
+                                            }
+                                        }
+
+                                        statement.close();
+                                        connection.close();
+                                    }
+                                    else {
+                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
+                                    }
+                                }
+                                catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+
+                                ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
+                            }
+                        }
+
+                        Runnable runnable = new BasicThread();
+                        Thread thread = new Thread(runnable);
+                        thread.start();
+                        event.setCancelled(true);
+                    }
+                    else if (isContainerBlock && Config.getConfig(world).ITEM_TRANSACTIONS) {
+                        Location location = null;
+                        if (type.equals(Material.CHEST) || type.equals(Material.TRAPPED_CHEST)) {
+                            Chest chest = (Chest) clickedBlock.getState();
+                            InventoryHolder inventoryHolder = chest.getInventory().getHolder();
+
+                            if (inventoryHolder instanceof DoubleChest) {
+                                DoubleChest doubleChest = (DoubleChest) inventoryHolder;
+                                location = doubleChest.getLocation();
+                            }
+                            else {
+                                location = chest.getLocation();
+                            }
+                        }
+
+                        if (location == null) {
+                            location = clickedBlock.getLocation();
+                        }
+
+                        Location finalLocation = location;
+
+                        // logged chest items
+                        class BasicThread implements Runnable {
+                            @Override
+                            public void run() {
+                                try {
+                                    if (ConfigHandler.converterRunning) {
+                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
+                                        return;
+                                    }
+
+                                    if (ConfigHandler.purgeRunning) {
+                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
+                                        return;
+                                    }
+
+                                    if (ConfigHandler.lookupThrottle.get(player.getName()) != null) {
+                                        Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
+                                        if ((boolean) lookupThrottle[0] || (System.currentTimeMillis() - (long) lookupThrottle[1]) < 100) {
+                                            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
+                                            return;
+                                        }
+                                    }
+
+                                    ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
+
+                                    Connection connection = Database.getConnection(true);
+                                    if (connection != null) {
+                                        Statement statement = connection.createStatement();
+                                        String blockData = ChestTransactionLookup.performLookup(null, statement, finalLocation, player, 1, 7, false);
+
+                                        if (blockData.contains("\n")) {
+                                            for (String splitData : blockData.split("\n")) {
+                                                Chat.sendComponent(player, splitData);
+                                            }
+                                        }
+                                        else {
+                                            Chat.sendComponent(player, blockData);
+                                        }
+
+                                        statement.close();
+                                        connection.close();
+                                    }
+                                    else {
+                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
+                                    }
+                                }
+                                catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+
+                                ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
+                            }
+                        }
+
+                        Runnable runnable = new BasicThread();
+                        Thread thread = new Thread(runnable);
+                        thread.start();
+                        event.setCancelled(true);
+                    }
+                    else if (isInteractBlock) {
+                        // standard player interactions
+                        Block interactBlock = clickedBlock;
+                        if (BlockGroup.DOORS.contains(type)) {
+                            int y = interactBlock.getY() - 1;
+                            Block blockUnder = interactBlock.getWorld().getBlockAt(interactBlock.getX(), y, interactBlock.getZ());
+
+                            if (blockUnder.getType().equals(type)) {
+                                interactBlock = blockUnder;
+                            }
+                        }
+
+                        final Block finalInteractBlock = interactBlock;
+                        class BasicThread implements Runnable {
+                            @Override
+                            public void run() {
+                                try {
+                                    if (ConfigHandler.converterRunning) {
+                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
+                                        return;
+                                    }
+                                    if (ConfigHandler.purgeRunning) {
+                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
+                                        return;
+                                    }
+                                    if (ConfigHandler.lookupThrottle.get(player.getName()) != null) {
+                                        Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
+                                        if ((boolean) lookupThrottle[0] || (System.currentTimeMillis() - (long) lookupThrottle[1]) < 100) {
+                                            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
+                                            return;
+                                        }
+                                    }
+
+                                    ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
+
+                                    Connection connection = Database.getConnection(true);
+                                    if (connection != null) {
+                                        Statement statement = connection.createStatement();
+                                        String blockData = InteractionLookup.performLookup(null, statement, finalInteractBlock, player, 0, 1, 7);
+
+                                        if (blockData.contains("\n")) {
+                                            for (String splitData : blockData.split("\n")) {
+                                                Chat.sendComponent(player, splitData);
+                                            }
+                                        }
+                                        else {
+                                            Chat.sendComponent(player, blockData);
+                                        }
+
+                                        statement.close();
+                                        connection.close();
+                                    }
+                                    else {
+                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
+                                    }
+                                }
+                                catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+
+                                ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
+                            }
+                        }
+
+                        Runnable runnable = new BasicThread();
+                        Thread thread = new Thread(runnable);
+                        thread.start();
+
+                        if (!BlockGroup.SAFE_INTERACT_BLOCKS.contains(type)) {
                             event.setCancelled(true);
                         }
                     }
+                }
+                else {
+                    boolean performLookup = true;
+                    EquipmentSlot eventHand = event.getHand();
+                    String uuid = event.getPlayer().getUniqueId().toString();
+                    long systemTime = System.currentTimeMillis();
+
+                    if (lastInspectorEvent.get(uuid) != null) {
+                        Object[] lastEvent = lastInspectorEvent.get(uuid);
+                        long lastTime = (long) lastEvent[0];
+                        EquipmentSlot lastHand = (EquipmentSlot) lastEvent[1];
+
+                        long timeSince = systemTime - lastTime;
+                        if (timeSince < 50 && !eventHand.equals(lastHand)) {
+                            performLookup = false;
+                        }
+                    }
+
+                    if (performLookup) {
+                        final Player finalPlayer = player;
+                        final BlockState finalBlock = event.getClickedBlock().getRelative(event.getBlockFace()).getState();
+
+                        class BasicThread implements Runnable {
+                            @Override
+                            public void run() {
+                                try {
+                                    if (ConfigHandler.converterRunning) {
+                                        Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
+                                        return;
+                                    }
+
+                                    if (ConfigHandler.purgeRunning) {
+                                        Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
+                                        return;
+                                    }
+
+                                    if (ConfigHandler.lookupThrottle.get(finalPlayer.getName()) != null) {
+                                        Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(finalPlayer.getName());
+                                        if ((boolean) lookupThrottle[0] || (System.currentTimeMillis() - (long) lookupThrottle[1]) < 100) {
+                                            Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
+                                            return;
+                                        }
+                                    }
+
+                                    ConfigHandler.lookupThrottle.put(finalPlayer.getName(), new Object[] { true, System.currentTimeMillis() });
+
+                                    Connection connection = Database.getConnection(true);
+                                    if (connection != null) {
+                                        Statement statement = connection.createStatement();
+                                        if (finalBlock.getType().equals(Material.AIR) || finalBlock.getType().equals(Material.CAVE_AIR)) {
+                                            String blockData = BlockLookup.performLookup(null, statement, finalBlock, finalPlayer, 0, 1, 7);
+
+                                            if (blockData.contains("\n")) {
+                                                for (String b : blockData.split("\n")) {
+                                                    Chat.sendComponent(finalPlayer, b);
+                                                }
+                                            }
+                                            else if (blockData.length() > 0) {
+                                                Chat.sendComponent(finalPlayer, blockData);
+                                            }
+                                        }
+                                        else {
+                                            String blockData = BlockLookup.performLookup(null, statement, finalBlock, finalPlayer, 0, 1, 7);
+                                            if (blockData.contains("\n")) {
+                                                for (String splitData : blockData.split("\n")) {
+                                                    Chat.sendComponent(finalPlayer, splitData);
+                                                }
+                                            }
+                                            else if (blockData.length() > 0) {
+                                                Chat.sendComponent(finalPlayer, blockData);
+                                            }
+                                        }
+
+                                        statement.close();
+                                        connection.close();
+                                    }
+                                    else {
+                                        Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
+                                    }
+                                }
+                                catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+
+                                ConfigHandler.lookupThrottle.put(finalPlayer.getName(), new Object[] { false, System.currentTimeMillis() });
+                            }
+                        }
+
+                        Runnable runnable = new BasicThread();
+                        Thread thread = new Thread(runnable);
+                        thread.start();
+
+                        Util.updateInventory(event.getPlayer());
+                        lastInspectorEvent.put(uuid, new Object[] { systemTime, eventHand });
+
+                        if (event.hasItem()) {
+                            Material eventItem = event.getItem().getType();
+                            if (eventItem.isBlock() && (eventItem.createBlockData() instanceof Bisected)) {
+                                int x = finalBlock.getX();
+                                int y = finalBlock.getY();
+                                int z = finalBlock.getZ();
+                                int worldMaxHeight = world.getMaxHeight();
+                                if (y < (worldMaxHeight - 1)) {
+                                    Block blockBisected = world.getBlockAt(x, y + 1, z);
+                                    player.sendBlockChange(blockBisected.getLocation(), blockBisected.getBlockData());
+                                }
+                                int worldMinHeight = BukkitAdapter.ADAPTER.getMinHeight(world);
+                                if (y > worldMinHeight) {
+                                    Block blockBisected = world.getBlockAt(x, y - 1, z);
+                                    player.sendBlockChange(blockBisected.getLocation(), blockBisected.getBlockData());
+                                }
+                            }
+                        }
+                    }
+
+                    event.setCancelled(true);
                 }
             }
         }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
-    protected void onPlayerInteract_Monitor(PlayerInteractEvent event) {
+    protected void onPlayerInteract(PlayerInteractEvent event) {
         /* Logging for players punching out fire blocks. */
         if (event.getAction().equals(Action.LEFT_CLICK_BLOCK)) {
             World world = event.getClickedBlock().getWorld();
@@ -554,7 +544,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
 
                     if (Tag.SIGNS.isTagged(type)) {
                         // check if right clicked sign with dye
-                        Set<Material> DYES = EnumSet.of(Material.BLACK_DYE, Material.BLUE_DYE, Material.BROWN_DYE, Material.CYAN_DYE, Material.GRAY_DYE, Material.GREEN_DYE, Material.LIGHT_BLUE_DYE, Material.LIGHT_GRAY_DYE, Material.LIME_DYE, Material.MAGENTA_DYE, Material.ORANGE_DYE, Material.PINK_DYE, Material.PURPLE_DYE, Material.RED_DYE, Material.WHITE_DYE, Material.YELLOW_DYE);
+                        Set<Material> dyeSet = EnumSet.of(Material.BLACK_DYE, Material.BLUE_DYE, Material.BROWN_DYE, Material.CYAN_DYE, Material.GRAY_DYE, Material.GREEN_DYE, Material.LIGHT_BLUE_DYE, Material.LIGHT_GRAY_DYE, Material.LIME_DYE, Material.MAGENTA_DYE, Material.ORANGE_DYE, Material.PINK_DYE, Material.PURPLE_DYE, Material.RED_DYE, Material.WHITE_DYE, Material.YELLOW_DYE);
                         Material handType = null;
 
                         ItemStack mainHand = player.getInventory().getItemInMainHand();
@@ -562,7 +552,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             handType = mainHand.getType();
                         }
 
-                        if (handType != null && (DYES.contains(handType) || handType.name().endsWith("INK_SAC")) && Config.getConfig(block.getWorld()).SIGN_TEXT) {
+                        if (handType != null && (dyeSet.contains(handType) || handType.name().endsWith("INK_SAC")) && Config.getConfig(block.getWorld()).SIGN_TEXT) {
                             BlockState blockState = block.getState();
                             Sign sign = (Sign) blockState;
                             String line1 = sign.getLine(0);
@@ -574,11 +564,11 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             boolean oldGlowing = BukkitAdapter.ADAPTER.isGlowing(sign);
                             boolean newGlowing = oldGlowing;
 
-                            if (DYES.contains(handType)) {
+                            if (dyeSet.contains(handType)) {
                                 newColor = (DyeColor.valueOf(handType.name().replaceFirst("_DYE", ""))).getColor().asRGB();
                             }
                             else {
-                                newGlowing = (handType == Material.INK_SAC ? false : true);
+                                newGlowing = (handType != Material.INK_SAC);
                             }
 
                             if (oldGlowing != newGlowing || oldColor != newColor) {
@@ -590,20 +580,18 @@ public final class PlayerInteractListener extends Queue implements Listener {
                         }
                     }
                     else if (BlockGroup.INTERACT_BLOCKS.contains(type)) {
-                        if (event.getHand().equals(EquipmentSlot.HAND)) {
-                            if (Config.getConfig(world).PLAYER_INTERACTIONS) {
-                                Block interactBlock = event.getClickedBlock();
-                                if (BlockGroup.DOORS.contains(type)) {
-                                    int y = interactBlock.getY() - 1;
-                                    Block blockUnder = interactBlock.getWorld().getBlockAt(interactBlock.getX(), y, interactBlock.getZ());
+                        if (event.getHand().equals(EquipmentSlot.HAND) && Config.getConfig(world).PLAYER_INTERACTIONS) {
+                            Block interactBlock = event.getClickedBlock();
+                            if (BlockGroup.DOORS.contains(type)) {
+                                int y = interactBlock.getY() - 1;
+                                Block blockUnder = interactBlock.getWorld().getBlockAt(interactBlock.getX(), y, interactBlock.getZ());
 
-                                    if (blockUnder.getType().equals(type)) {
-                                        interactBlock = blockUnder;
-                                    }
+                                if (blockUnder.getType().equals(type)) {
+                                    interactBlock = blockUnder;
                                 }
-
-                                Queue.queuePlayerInteraction(player.getName(), interactBlock.getState());
                             }
+
+                            Queue.queuePlayerInteraction(player.getName(), interactBlock.getState());
                         }
                     }
                     else if (BlockGroup.LIGHTABLES.contains(type)) { // extinguishing a lit block such as a campfire
@@ -611,6 +599,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                         if (blockData instanceof Lightable && ((Lightable) blockData).isLit() && ((BlockGroup.CANDLES.contains(type) && event.getMaterial() == Material.AIR) || (!BlockGroup.CANDLES.contains(type) && event.getMaterial().name().endsWith("_SHOVEL")))) {
                             ((Lightable) blockData).setLit(false);
                             Queue.queueBlockPlace(player.getName(), block.getState(), type, block.getState(), type, -1, 0, blockData.getAsString());
+
                             /*
                             BlockState blockState = block.getState();
                             Bukkit.getServer().getScheduler().runTask(CoreProtect.getInstance(), () -> {
@@ -659,7 +648,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             int y = location.getBlockY();
                             int z = location.getBlockZ();
                             String coordinates = x + "." + y + "." + z + "." + wid + "." + userUUID;
-                            CacheHandler.interactCache.put(coordinates, new Object[] { time, block.getState() });
+                            CacheHandler.interactCache.put(coordinates, new Object[] { time, Material.CAKE, block.getState() });
                         }
                     }
 
@@ -686,11 +675,9 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                 boolean exists = false;
 
                                 for (Entity entity : crystalLocation.getChunk().getEntities()) {
-                                    if (entity instanceof EnderCrystal) {
-                                        if (entity.getLocation().getBlockX() == crystalLocation.getBlockX() && entity.getLocation().getBlockY() == crystalLocation.getBlockY() && entity.getLocation().getBlockZ() == crystalLocation.getBlockZ()) {
-                                            exists = true;
-                                            break;
-                                        }
+                                    if (entity instanceof EnderCrystal && entity.getLocation().getBlockX() == crystalLocation.getBlockX() && entity.getLocation().getBlockY() == crystalLocation.getBlockY() && entity.getLocation().getBlockZ() == crystalLocation.getBlockZ()) {
+                                        exists = true;
+                                        break;
                                     }
                                 }
 
@@ -703,13 +690,11 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                             int showingBottom = 0;
 
                                             for (Entity entity : locationFinal.getChunk().getEntities()) {
-                                                if (entity instanceof EnderCrystal) {
-                                                    if (entity.getLocation().getBlockX() == locationFinal.getBlockX() && entity.getLocation().getBlockY() == locationFinal.getBlockY() && entity.getLocation().getBlockZ() == locationFinal.getBlockZ()) {
-                                                        EnderCrystal enderCrystal = (EnderCrystal) entity;
-                                                        showingBottom = enderCrystal.isShowingBottom() ? 1 : 0;
-                                                        blockExists = true;
-                                                        break;
-                                                    }
+                                                if (entity instanceof EnderCrystal && entity.getLocation().getBlockX() == locationFinal.getBlockX() && entity.getLocation().getBlockY() == locationFinal.getBlockY() && entity.getLocation().getBlockZ() == locationFinal.getBlockZ()) {
+                                                    EnderCrystal enderCrystal = (EnderCrystal) entity;
+                                                    showingBottom = enderCrystal.isShowingBottom() ? 1 : 0;
+                                                    blockExists = true;
+                                                    break;
                                                 }
                                             }
                                             if (blockExists) {
@@ -739,10 +724,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
         }
         else if (event.getAction().equals(Action.PHYSICAL)) {
             Block block = event.getClickedBlock();
-            if (block == null) {
-                return;
-            }
-            else if (!block.getType().equals(Material.FARMLAND) && !block.getType().equals(Material.TURTLE_EGG)) {
+            if (block == null || (!block.getType().equals(Material.FARMLAND) && !block.getType().equals(Material.TURTLE_EGG))) {
                 return;
             }
 

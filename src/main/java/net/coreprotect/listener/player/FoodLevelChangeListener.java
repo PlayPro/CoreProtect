@@ -37,12 +37,12 @@ public final class FoodLevelChangeListener extends Queue implements Listener {
             String coordinates = x + "." + y + "." + z + "." + worldId + "." + userUUID;
 
             Object[] data = CacheHandler.interactCache.get(coordinates);
-            if (data != null) {
+            if (data != null && data[1] == Material.CAKE) {
                 long newTime = System.currentTimeMillis();
                 long oldTime = (long) data[0];
 
                 if ((newTime - oldTime) < 20) { // 50ms = 1 tick
-                    final BlockState oldBlockState = (BlockState) data[1];
+                    final BlockState oldBlockState = (BlockState) data[2];
 
                     Material oldType = oldBlockState.getType();
                     if (oldType.name().endsWith(Material.CAKE.name())) {

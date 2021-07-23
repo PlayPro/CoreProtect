@@ -29,10 +29,10 @@ import net.coreprotect.model.BlockGroup;
 
 public class BlockExplodeListener extends Queue implements Listener {
 
-    protected static void processBlockExplode(String user, World world, List<Block> b) {
+    protected static void processBlockExplode(String user, World world, List<Block> blockList) {
         HashMap<Location, Block> blockMap = new HashMap<>();
 
-        for (Block block : b) {
+        for (Block block : blockList) {
             blockMap.put(block.getLocation(), block);
         }
 
@@ -46,11 +46,11 @@ public class BlockExplodeListener extends Queue implements Listener {
                 int z = block.getZ();
 
                 Location[] locationMap = new Location[5];
-                locationMap[0] = new Location(world, x + 1, y, z);
-                locationMap[1] = new Location(world, x - 1, y, z);
-                locationMap[2] = new Location(world, x, y, z + 1);
-                locationMap[3] = new Location(world, x, y, z - 1);
-                locationMap[4] = new Location(world, x, y + 1, z);
+                locationMap[0] = new Location(world, (x + 1), y, z);
+                locationMap[1] = new Location(world, (x - 1), y, z);
+                locationMap[2] = new Location(world, x, y, (z + 1));
+                locationMap[3] = new Location(world, x, y, (z - 1));
+                locationMap[4] = new Location(world, x, (y + 1), z);
 
                 int scanMin = 0;
                 int scanMax = 5;
@@ -114,22 +114,20 @@ public class BlockExplodeListener extends Queue implements Listener {
             Block block = entry.getValue();
             Material blockType = block.getType();
             BlockState blockState = block.getState();
-            if (Tag.SIGNS.isTagged(blockType)) {
-                if (Config.getConfig(world).SIGN_TEXT) {
-                    try {
-                        Location location = blockState.getLocation();
-                        Sign sign = (Sign) blockState;
-                        String line1 = sign.getLine(0);
-                        String line2 = sign.getLine(1);
-                        String line3 = sign.getLine(2);
-                        String line4 = sign.getLine(3);
-                        int color = sign.getColor().getColor().asRGB();
-                        boolean isGlowing = BukkitAdapter.ADAPTER.isGlowing(sign);
-                        Queue.queueSignText(user, location, 0, color, isGlowing, line1, line2, line3, line4, 5);
-                    }
-                    catch (Exception e) {
-                        e.printStackTrace();
-                    }
+            if (Tag.SIGNS.isTagged(blockType) && Config.getConfig(world).SIGN_TEXT) {
+                try {
+                    Location location = blockState.getLocation();
+                    Sign sign = (Sign) blockState;
+                    String line1 = sign.getLine(0);
+                    String line2 = sign.getLine(1);
+                    String line3 = sign.getLine(2);
+                    String line4 = sign.getLine(3);
+                    int color = sign.getColor().getColor().asRGB();
+                    boolean isGlowing = BukkitAdapter.ADAPTER.isGlowing(sign);
+                    Queue.queueSignText(user, location, 0, color, isGlowing, line1, line2, line3, line4, 5);
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
                 }
             }
 

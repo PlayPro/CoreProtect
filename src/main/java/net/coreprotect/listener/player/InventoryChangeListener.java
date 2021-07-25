@@ -125,9 +125,10 @@ public final class InventoryChangeListener extends Queue implements Listener {
                                 ItemStack[] containerState = Util.getContainerState(inventoryData);
 
                                 // If items have been removed by a hopper, merge into containerState
-                                if (ConfigHandler.transactingChest.get(transactingChestId) != null) {
-                                    List<Object> transactingChestList = Collections.synchronizedList(new ArrayList<>(ConfigHandler.transactingChest.get(transactingChestId)));
-                                    if (transactingChestList.size() > 0) {
+                                List<Object> transactingChest = ConfigHandler.transactingChest.get(transactingChestId);
+                                if (transactingChest != null) {
+                                    List<Object> transactingChestList = Collections.synchronizedList(new ArrayList<>(transactingChest));
+                                    if (!transactingChestList.isEmpty()) {
                                         ItemStack[] newState = new ItemStack[containerState.length + transactingChestList.size()];
                                         int count = 0;
 

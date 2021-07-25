@@ -46,10 +46,14 @@ public class ContainerLogger extends Queue {
             ItemStack[] oi1 = oldList.get(0);
             ItemStack[] oldInventory = Util.getContainerState(oi1);
             ItemStack[] newInventory = Util.getContainerState(contents);
-            if (ConfigHandler.forceContainer.get(loggingContainerId) != null) {
-                List<ItemStack[]> forceList = ConfigHandler.forceContainer.get(loggingContainerId);
-                newInventory = Util.getContainerState(forceList.get(0));
-                int forceSize = modifyForceContainer(loggingContainerId, null);
+
+            List<ItemStack[]> forceList = ConfigHandler.forceContainer.get(loggingContainerId);
+            if (forceList != null) {
+                int forceSize = 0;
+                if (!forceList.isEmpty()) {
+                    newInventory = Util.getContainerState(forceList.get(0));
+                    forceSize = modifyForceContainer(loggingContainerId, null);
+                }
                 if (forceSize == 0) {
                     ConfigHandler.forceContainer.remove(loggingContainerId);
                 }

@@ -12,6 +12,10 @@ import net.coreprotect.utility.Util;
 
 public class PlayerInteractLogger {
 
+    private PlayerInteractLogger() {
+        throw new IllegalStateException("Database class");
+    }
+
     public static void log(PreparedStatement preparedStmt, int batchCount, String user, BlockState block) {
         try {
             int type = Util.getBlockId(block.getType().name(), true);

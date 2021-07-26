@@ -6,6 +6,10 @@ import net.coreprotect.utility.Util;
 
 public class ContainerStatement {
 
+    private ContainerStatement() {
+        throw new IllegalStateException("Database class");
+    }
+
     public static void insert(PreparedStatement preparedStmt, int batchCount, int time, int id, int wid, int x, int y, int z, int type, int data, int amount, Object metadata, int action, int rolledBack) {
         try {
             byte[] byteData = Util.convertByteData(metadata);

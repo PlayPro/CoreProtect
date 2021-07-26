@@ -15,6 +15,10 @@ public class Selector {
 
     final protected static Set<String> SELECTORS = new HashSet<>(Arrays.asList(Selector.FIRST, Selector.SECOND, Selector.THIRD, Selector.FOURTH));
 
+    private Selector() {
+        throw new IllegalStateException("Utility class");
+    }
+
     protected static String processSelection(String output, String param, String color) {
         String substring = output;
         try {

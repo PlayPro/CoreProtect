@@ -13,6 +13,10 @@ import net.coreprotect.utility.Util;
 
 public class SkullBreakLogger {
 
+    private SkullBreakLogger() {
+        throw new IllegalStateException("Database class");
+    }
+
     public static void log(PreparedStatement preparedStmt, PreparedStatement preparedStmt2, int batchCount, String user, BlockState block) {
         try {
             if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null || block == null) {

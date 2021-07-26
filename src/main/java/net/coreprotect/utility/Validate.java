@@ -8,6 +8,10 @@ import org.bukkit.inventory.InventoryHolder;
 
 public class Validate {
 
+    private Validate() {
+        throw new IllegalStateException("Utility class");
+    }
+
     public static boolean isHopper(InventoryHolder inventoryHolder) {
         return (inventoryHolder instanceof Hopper || inventoryHolder instanceof HopperMinecart);
     }

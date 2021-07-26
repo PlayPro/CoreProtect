@@ -6,6 +6,10 @@ import java.sql.Statement;
 
 public class MaterialStatement {
 
+    private MaterialStatement() {
+        throw new IllegalStateException("Database class");
+    }
+
     public static void insert(PreparedStatement preparedStmt, int batchCount, int id, String name) {
         try {
             preparedStmt.setInt(1, id);

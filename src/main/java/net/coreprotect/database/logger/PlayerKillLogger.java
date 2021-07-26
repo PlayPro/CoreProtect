@@ -12,6 +12,10 @@ import net.coreprotect.utility.Util;
 
 public class PlayerKillLogger {
 
+    private PlayerKillLogger() {
+        throw new IllegalStateException("Database class");
+    }
+
     public static void log(PreparedStatement preparedStmt, int batchCount, String user, BlockState block, String player) {
         try {
             if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {

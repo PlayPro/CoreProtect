@@ -5,7 +5,6 @@ import org.bukkit.ChatColor;
 public final class Color {
 
     // we define our own constants here to eliminate string concatenation
-
     // javadoc taken from org.bukkit.ChatColor
 
     /**
@@ -117,5 +116,9 @@ public final class Color {
      * Resets all previous chat colors or formats.
      */
     public static final String RESET = ChatColor.COLOR_CHAR + "r";
+
+    private Color() {
+        throw new IllegalStateException("Utility class");
+    }
 
 }

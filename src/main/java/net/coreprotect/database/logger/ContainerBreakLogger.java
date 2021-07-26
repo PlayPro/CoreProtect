@@ -12,6 +12,10 @@ import net.coreprotect.utility.Util;
 
 public class ContainerBreakLogger {
 
+    private ContainerBreakLogger() {
+        throw new IllegalStateException("Database class");
+    }
+
     public static void log(PreparedStatement preparedStmt, int batchCount, String player, Location l, Material type, ItemStack[] oldInventory) {
         try {
             Util.mergeItems(type, oldInventory);

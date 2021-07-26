@@ -14,6 +14,10 @@ import org.bukkit.util.io.BukkitObjectOutputStream;
 
 public class EntityStatement {
 
+    private EntityStatement() {
+        throw new IllegalStateException("Database class");
+    }
+
     public static void insert(PreparedStatement preparedStmt, int time, List<Object> data) {
         try {
             ByteArrayOutputStream bos = new ByteArrayOutputStream();

@@ -4,6 +4,10 @@ import java.sql.PreparedStatement;
 
 public class SessionStatement {
 
+    private SessionStatement() {
+        throw new IllegalStateException("Database class");
+    }
+
     public static void insert(PreparedStatement preparedStmt, int batchCount, int time, int user, int wid, int x, int y, int z, int action) {
         try {
             preparedStmt.setInt(1, time);

@@ -18,8 +18,8 @@ public final class Chat {
     public static final String COMPONENT_COMMAND = "COMMAND";
     public static final String COMPONENT_POPUP = "POPUP";
 
-    private Chat() throws RuntimeException {
-        throw new RuntimeException();
+    private Chat() {
+        throw new IllegalStateException("Utility class");
     }
 
     public static void sendComponent(CommandSender sender, String string, String bypass) {

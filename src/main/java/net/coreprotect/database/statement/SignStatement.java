@@ -13,6 +13,10 @@ import net.coreprotect.bukkit.BukkitAdapter;
 
 public class SignStatement {
 
+    private SignStatement() {
+        throw new IllegalStateException("Database class");
+    }
+
     public static void insert(PreparedStatement preparedStmt, int batchCount, int time, int id, int wid, int x, int y, int z, int action, int color, int data, String line1, String line2, String line3, String line4) {
         try {
             preparedStmt.setInt(1, time);

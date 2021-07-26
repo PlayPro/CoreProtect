@@ -11,6 +11,10 @@ import org.bukkit.block.Skull;
 
 public class SkullStatement {
 
+    private SkullStatement() {
+        throw new IllegalStateException("Database class");
+    }
+
     public static void insert(PreparedStatement preparedStmt, int time, String owner) {
         try {
             preparedStmt.setInt(1, time);

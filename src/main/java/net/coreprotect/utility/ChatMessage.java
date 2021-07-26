@@ -7,17 +7,17 @@ public class ChatMessage {
     /**
      * Returns the plugin name with the DARK_AQUA chat color.
      */
-    final String COREPROTECT = Color.DARK_AQUA + "CoreProtect";
+    String pluginName = Color.DARK_AQUA + "CoreProtect";
 
     String message;
     String textColor = Color.WHITE;
-    String textStyle = new String();
+    String textStyle = "";
     String separator = "-";
     boolean useTag = true;
     boolean useSpaces = true;
 
     public ChatMessage() {
-        this.message = new String();
+        this.message = "";
     }
 
     public ChatMessage setSeparator(String separator) {
@@ -129,7 +129,7 @@ public class ChatMessage {
     }
 
     public String build() {
-        return (this.useTag ? COREPROTECT : createSpaces(COREPROTECT, true, this.useSpaces)) + this.textColor + " " + this.separator + " " + this.textStyle + this.message;
+        return (this.useTag ? pluginName : createSpaces(pluginName, true, this.useSpaces)) + this.textColor + " " + this.separator + " " + this.textStyle + this.message;
     }
 
     @Override

@@ -6,6 +6,10 @@ import net.coreprotect.utility.Util;
 
 public class ItemStatement {
 
+    private ItemStatement() {
+        throw new IllegalStateException("Database class");
+    }
+
     public static void insert(PreparedStatement preparedStmt, int batchCount, int time, int id, int wid, int x, int y, int z, int type, Object data, int amount, int action) {
         try {
             byte[] byteData = Util.convertByteData(data);

@@ -9,6 +9,10 @@ import net.coreprotect.config.ConfigHandler;
 
 public class UsernameLogger {
 
+    private UsernameLogger() {
+        throw new IllegalStateException("Database class");
+    }
+
     public static void log(Connection connection, String user, String uuid, int configUsernames, int time) {
         try {
             if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {

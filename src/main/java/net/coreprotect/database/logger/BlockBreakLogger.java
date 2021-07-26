@@ -14,6 +14,10 @@ import net.coreprotect.utility.Util;
 
 public class BlockBreakLogger {
 
+    private BlockBreakLogger() {
+        throw new IllegalStateException("Database class");
+    }
+
     public static void log(PreparedStatement preparedStmt, int batchCount, String user, Location location, int type, int data, List<Object> meta, String blockData) {
         try {
             if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null || location == null) {

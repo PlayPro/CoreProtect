@@ -11,6 +11,10 @@ import net.coreprotect.utility.Util;
 
 public class ChatLogger {
 
+    private ChatLogger() {
+        throw new IllegalStateException("Database class");
+    }
+
     public static void log(PreparedStatement preparedStmt, int batchCount, int time, Location location, String user, String message) {
         try {
             if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {

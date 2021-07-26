@@ -11,6 +11,10 @@ import net.coreprotect.utility.Util;
 
 public class SignTextLogger {
 
+    private SignTextLogger() {
+        throw new IllegalStateException("Database class");
+    }
+
     public static void log(PreparedStatement preparedStmt, int batchCount, String user, Location location, int action, int color, int data, String line1, String line2, String line3, String line4, int timeOffset) {
         try {
             if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {

@@ -7,6 +7,10 @@ import net.coreprotect.utility.Util;
 
 public class BlockStatement {
 
+    private BlockStatement() {
+        throw new IllegalStateException("Database class");
+    }
+
     public static void insert(PreparedStatement preparedStmt, int batchCount, int time, int id, int wid, int x, int y, int z, int type, int data, List<Object> meta, String blockData, int action, int rolledBack) {
         try {
             byte[] bBlockData = Util.stringToByteData(blockData, type);

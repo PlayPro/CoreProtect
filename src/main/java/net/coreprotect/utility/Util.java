@@ -110,6 +110,10 @@ public class Util extends Queue {
     public static final java.util.regex.Pattern tagParser = java.util.regex.Pattern.compile(Chat.COMPONENT_TAG_OPEN + "(.+?)" + Chat.COMPONENT_TAG_CLOSE + "|(.+?)", java.util.regex.Pattern.DOTALL);
     private static final String NAMESPACE = "minecraft:";
 
+    private Util() {
+        throw new IllegalStateException("Utility class");
+    }
+
     public static String getPluginVersion() {
         String version = CoreProtect.getInstance().getDescription().getVersion();
         if (version.contains("-")) {

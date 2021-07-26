@@ -11,6 +11,10 @@ import net.coreprotect.config.ConfigHandler;
 
 public class UserStatement {
 
+    private UserStatement() {
+        throw new IllegalStateException("Database class");
+    }
+
     public static int insert(Connection connection, String user) {
         int id = -1;
 

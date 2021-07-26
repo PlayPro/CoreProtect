@@ -21,6 +21,10 @@ import net.coreprotect.utility.serialize.ItemMetaHandler;
 
 public class ContainerLogger extends Queue {
 
+    private ContainerLogger() {
+        throw new IllegalStateException("Database class");
+    }
+
     public static void log(PreparedStatement preparedStmtContainer, PreparedStatement preparedStmtItems, int batchCount, String player, Material type, Object container, Location location) {
         try {
             ItemStack[] contents = null;

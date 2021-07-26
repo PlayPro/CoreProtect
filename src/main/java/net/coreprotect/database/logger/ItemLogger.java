@@ -23,6 +23,10 @@ public class ItemLogger {
     public static final int ITEM_REMOVE_ENDER = 4;
     public static final int ITEM_ADD_ENDER = 5;
 
+    private ItemLogger() {
+        throw new IllegalStateException("Database class");
+    }
+
     public static void log(PreparedStatement preparedStmt, int batchCount, Location location, String user) {
         try {
             if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {

@@ -11,6 +11,10 @@ import net.coreprotect.utility.Util;
 
 public class PlayerSessionLogger {
 
+    private PlayerSessionLogger() {
+        throw new IllegalStateException("Database class");
+    }
+
     public static void log(PreparedStatement preparedStmt, int batchCount, String user, Location location, int time, int action) {
         try {
             if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {

@@ -1041,8 +1041,11 @@ public class Rollback extends Queue {
                                         else if (rowType != changeType && (BlockGroup.CONTAINERS.contains(rowType) || BlockGroup.CONTAINERS.contains(changeType))) {
                                             block.setType(Material.AIR); // Clear existing container to prevent errors
 
-                                            boolean update = (blockData instanceof Chest);
-                                            Util.setTypeAndData(block, rowType, blockData, update);
+                                            boolean isChest = (blockData instanceof Chest);
+                                            Util.setTypeAndData(block, rowType, blockData, (isChest));
+                                            if (isChest) {
+                                                ChestTool.updateDoubleChest(block, blockData, false);
+                                            }
 
                                             if (countBlock) {
                                                 blockCount1++;
@@ -1050,7 +1053,7 @@ public class Rollback extends Queue {
                                         }
                                         else if (BlockGroup.UPDATE_STATE.contains(rowType) || rowType.name().contains("CANDLE")) {
                                             Util.setTypeAndData(block, rowType, blockData, true);
-                                            ChestTool.updateDoubleChest(block, blockData);
+                                            ChestTool.updateDoubleChest(block, blockData, true);
                                             if (countBlock) {
                                                 blockCount1++;
                                             }

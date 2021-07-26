@@ -17,7 +17,6 @@ public class ChestTool {
     }
 
     public static void updateDoubleChest(Block block, BlockData blockData, boolean forceValidation) {
-        // modifying container, trigger physics update on both sides of double chest
         if (!(blockData instanceof Chest) || ((Chest) blockData).getType() == Type.SINGLE) {
             return;
         }
@@ -64,16 +63,18 @@ public class ChestTool {
             }
         }
 
-        if (newFace == null) {
-            return;
-        }
+        if (newFace != null) {
+            Type newType = (chestType == Type.LEFT) ? Type.RIGHT : Type.LEFT;
+            Block relativeBlock = block.getRelative(newFace);
+            if (!forceValidation && (relativeBlock.getBlockData() instanceof Chest) && ((Chest) relativeBlock.getBlockData()).getType() == newType) {
+                return;
+            }
 
-        Type newType = (chestType == Type.LEFT) ? Type.RIGHT : Type.LEFT;
-        Block relativeBlock = block.getRelative(newFace);
-        if (!forceValidation && (relativeBlock.getBlockData() instanceof Chest) && ((Chest) relativeBlock.getBlockData()).getType() == newType) {
-            return;
+            validateContainer(blockData, newType, block, relativeBlock);
         }
+    }
 
+    private static void validateContainer(BlockData blockData, Type newType, Block block, Block relativeBlock) {
         Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
             try {
                 BlockData relativeBlockData = relativeBlock.getBlockData();

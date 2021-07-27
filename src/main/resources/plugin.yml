@@ -44,6 +44,7 @@ permissions:
             coreprotect.lookup.sign: true
             coreprotect.lookup.click: true
             coreprotect.lookup.container: true
+            coreprotect.lookup.inventory: true
             coreprotect.lookup.item: true
             coreprotect.lookup.kill: true
             coreprotect.teleport: true
@@ -71,6 +72,7 @@ permissions:
             coreprotect.lookup.sign: true
             coreprotect.lookup.click: true
             coreprotect.lookup.container: true
+            coreprotect.lookup.inventory: true
             coreprotect.lookup.item: true
             coreprotect.lookup.kill: true
     coreprotect.lookup.near:
@@ -100,9 +102,12 @@ permissions:
     coreprotect.lookup.container:
         description: Has permission to lookup container transactions
         default: op
-    coreprotect.lookup.item:
-        description: Has permission to lookup item transactions
+    coreprotect.lookup.inventory:
+        description: Has permission to lookup inventory transactions
         default: op
+    coreprotect.lookup.item:
+        description: Has permission to lookup inventory transactions (deprecated)
+        default: true
     coreprotect.lookup.kill:
         description: Has permission to lookup entity kills
         default: op

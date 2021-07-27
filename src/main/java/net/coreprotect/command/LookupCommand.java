@@ -227,7 +227,7 @@ public class LookupCommand {
                 Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
                 return;
             }
-            if (argAction.contains(11) && !player.hasPermission("coreprotect.lookup.item")) {
+            if (argAction.contains(11) && (!player.hasPermission("coreprotect.lookup.inventory") || !player.hasPermission("coreprotect.lookup.item"))) {
                 Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
                 return;
             }

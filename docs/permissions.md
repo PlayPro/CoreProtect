@@ -55,8 +55,8 @@ The following permissions can be used to restrict functionality within the plugi
 * **coreprotect.lookup.container** *(default: op)*  
   Can be optionally used as a negative permission to prevent container lookups.  
   &nbsp;
-* **coreprotect.lookup.item** *(default: op)*  
-  Can be optionally used as a negative permission to prevent item lookups.  
+* **coreprotect.lookup.inventory** *(default: op)*  
+  Can be optionally used as a negative permission to prevent inventory lookups.  
   &nbsp;
 * **coreprotect.lookup.kill** *(default: op)*  
   Can be optionally used as a negative permission to prevent entity kill lookups.  

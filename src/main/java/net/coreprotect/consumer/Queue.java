@@ -306,20 +306,20 @@ public class Queue {
         queueStandardData(consumerId, currentConsumer, new String[] { user, null }, block);
     }
 
-    protected static void queuePlayerChat(Player player, String message, int time) {
+    protected static void queuePlayerChat(Player player, String message, long timestamp) {
         int currentConsumer = Consumer.currentConsumer;
         int consumerId = Consumer.newConsumerId(currentConsumer);
-        addConsumer(currentConsumer, new Object[] { consumerId, Process.PLAYER_CHAT, null, 0, null, 0, time, null });
+        addConsumer(currentConsumer, new Object[] { consumerId, Process.PLAYER_CHAT, null, 0, null, 0, 0, null });
         Consumer.consumerStrings.get(currentConsumer).put(consumerId, message);
-        queueStandardData(consumerId, currentConsumer, new String[] { player.getName(), null }, player.getLocation().clone());
+        queueStandardData(consumerId, currentConsumer, new String[] { player.getName(), null }, new Object[] { timestamp, player.getLocation().clone() });
     }
 
-    protected static void queuePlayerCommand(Player player, String message, int time) {
+    protected static void queuePlayerCommand(Player player, String message, long timestamp) {
         int currentConsumer = Consumer.currentConsumer;
         int consumerId = Consumer.newConsumerId(currentConsumer);
-        addConsumer(currentConsumer, new Object[] { consumerId, Process.PLAYER_COMMAND, null, 0, null, 0, time, null });
+        addConsumer(currentConsumer, new Object[] { consumerId, Process.PLAYER_COMMAND, null, 0, null, 0, 0, null });
         Consumer.consumerStrings.get(currentConsumer).put(consumerId, message);
-        queueStandardData(consumerId, currentConsumer, new String[] { player.getName(), null }, player.getLocation().clone());
+        queueStandardData(consumerId, currentConsumer, new String[] { player.getName(), null }, new Object[] { timestamp, player.getLocation().clone() });
     }
 
     protected static void queuePlayerInteraction(String user, BlockState block) {

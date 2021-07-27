@@ -15,7 +15,7 @@ public class ChatLogger {
         throw new IllegalStateException("Database class");
     }
 
-    public static void log(PreparedStatement preparedStmt, int batchCount, int time, Location location, String user, String message) {
+    public static void log(PreparedStatement preparedStmt, int batchCount, long time, Location location, String user, String message) {
         try {
             if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {
                 return;

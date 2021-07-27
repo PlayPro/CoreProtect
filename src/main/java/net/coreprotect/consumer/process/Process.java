@@ -141,13 +141,13 @@ public class Process {
             for (int i = 0; i < consumerDataSize; i++) {
                 Object[] data = consumerData.get(i);
                 if (data != null) {
-                    int id = (Integer) data[0];
-                    int action = (Integer) data[1];
+                    int id = (int) data[0];
+                    int action = (int) data[1];
                     Material blockType = (Material) data[2];
-                    int blockData = (Integer) data[3];
-                    Material replace_type = (Material) data[4];
-                    int replaceData = (Integer) data[5];
-                    int forceData = (Integer) data[6];
+                    int blockData = (int) data[3];
+                    Material replaceType = (Material) data[4];
+                    int replaceData = (int) data[5];
+                    int forceData = (int) data[6];
 
                     if (users.get(id) != null && consumerObject.get(id) != null) {
                         String user = users.get(id)[0];
@@ -156,10 +156,10 @@ public class Process {
                         try {
                             switch (action) {
                                 case Process.BLOCK_BREAK:
-                                    BlockBreakProcess.process(preparedStmtBlocks, preparedStmtSkulls, i, processId, id, blockType, blockData, replace_type, forceData, user, object, (String) data[7]);
+                                    BlockBreakProcess.process(preparedStmtBlocks, preparedStmtSkulls, i, processId, id, blockType, blockData, replaceType, forceData, user, object, (String) data[7]);
                                     break;
                                 case Process.BLOCK_PLACE:
-                                    BlockPlaceProcess.process(preparedStmtBlocks, preparedStmtSkulls, i, blockType, blockData, replace_type, replaceData, forceData, user, object, (String) data[7], (String) data[8]);
+                                    BlockPlaceProcess.process(preparedStmtBlocks, preparedStmtSkulls, i, blockType, blockData, replaceType, replaceData, forceData, user, object, (String) data[7], (String) data[8]);
                                     break;
                                 case Process.SIGN_TEXT:
                                     SignTextProcess.process(preparedStmtSigns, i, processId, id, forceData, user, object, replaceData, blockData);
@@ -195,10 +195,10 @@ public class Process {
                                     SkullUpdateProcess.process(statement, object, forceData);
                                     break;
                                 case Process.PLAYER_CHAT:
-                                    PlayerChatProcess.process(preparedStmtChat, i, processId, id, object, forceData, user);
+                                    PlayerChatProcess.process(preparedStmtChat, i, processId, id, (Object[]) object, user);
                                     break;
                                 case Process.PLAYER_COMMAND:
-                                    PlayerCommandProcess.process(preparedStmtCommand, i, processId, id, object, forceData, user);
+                                    PlayerCommandProcess.process(preparedStmtCommand, i, processId, id, (Object[]) object, user);
                                     break;
                                 case Process.PLAYER_LOGIN:
                                     PlayerLoginProcess.process(connection, preparedStmtSession, i, processId, id, object, blockData, replaceData, forceData, user);

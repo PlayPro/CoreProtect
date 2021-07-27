@@ -10,13 +10,14 @@ import net.coreprotect.database.logger.CommandLogger;
 
 class PlayerCommandProcess {
 
-    static void process(PreparedStatement preparedStmt, int batchCount, int processId, int id, Object object, int time, String user) {
-        if (object instanceof Location) {
+    static void process(PreparedStatement preparedStmt, int batchCount, int processId, int id, Object[] object, String user) {
+        if (object.length == 2 && object[1] instanceof Location) {
             Map<Integer, String> strings = Consumer.consumerStrings.get(processId);
             if (strings.get(id) != null) {
                 String message = strings.get(id);
-                Location location = (Location) object;
-                CommandLogger.log(preparedStmt, batchCount, time, location, user, message);
+                Long timestamp = (Long) object[0];
+                Location location = (Location) object[1];
+                CommandLogger.log(preparedStmt, batchCount, timestamp, location, user, message);
                 strings.remove(id);
             }
         }

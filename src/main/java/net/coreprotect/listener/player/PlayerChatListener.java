@@ -20,8 +20,8 @@ public final class PlayerChatListener extends Queue implements Listener {
 
         Player player = event.getPlayer();
         if (!message.startsWith("/") && Config.getConfig(player.getWorld()).PLAYER_MESSAGES) {
-            int time = (int) (System.currentTimeMillis() / 1000L);
-            Queue.queuePlayerChat(player, message, time);
+            long timestamp = System.currentTimeMillis() / 1000L;
+            Queue.queuePlayerChat(player, message, timestamp);
         }
     }
 }

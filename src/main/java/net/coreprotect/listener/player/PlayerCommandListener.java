@@ -15,8 +15,8 @@ public final class PlayerCommandListener extends Queue implements Listener {
     public void onPlayerCommandPreprocess(PlayerCommandPreprocessEvent event) {
         Player player = event.getPlayer();
         if (Config.getConfig(player.getWorld()).PLAYER_COMMANDS) {
-            int time = (int) (System.currentTimeMillis() / 1000L);
-            Queue.queuePlayerCommand(player, event.getMessage(), time);
+            long timestamp = System.currentTimeMillis() / 1000L;
+            Queue.queuePlayerCommand(player, event.getMessage(), timestamp);
         }
     }
 }

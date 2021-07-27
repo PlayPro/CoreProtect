@@ -157,13 +157,13 @@ public class CoreProtectAPI extends Queue {
         boolean match = false;
 
         if (Config.getGlobal().API_ENABLED) {
-            int unixTimestamp = (int) (System.currentTimeMillis() / 1000L);
-            int offsetTime = unixTimestamp - offset;
+            long timestamp = System.currentTimeMillis() / 1000L;
+            long offsetTime = timestamp - offset;
             List<String[]> check = blockLookup(block, time);
 
             for (String[] value : check) {
                 ParseResult result = parseResult(value);
-                if (user.equalsIgnoreCase(result.getPlayer()) && result.getActionId() == 1 && result.getTime() <= offsetTime) {
+                if (user.equalsIgnoreCase(result.getPlayer()) && result.getActionId() == 1 && result.getTimestamp() <= offsetTime) {
                     match = true;
                     break;
                 }
@@ -178,13 +178,13 @@ public class CoreProtectAPI extends Queue {
         boolean match = false;
 
         if (Config.getGlobal().API_ENABLED) {
-            int unixTimestamp = (int) (System.currentTimeMillis() / 1000L);
-            int offsetTime = unixTimestamp - offset;
+            long timestamp = System.currentTimeMillis() / 1000L;
+            long offsetTime = timestamp - offset;
             List<String[]> check = blockLookup(block, time);
 
             for (String[] value : check) {
                 ParseResult result = parseResult(value);
-                if (user.equalsIgnoreCase(result.getPlayer()) && result.getActionId() == 0 && result.getTime() <= offsetTime) {
+                if (user.equalsIgnoreCase(result.getPlayer()) && result.getActionId() == 0 && result.getTimestamp() <= offsetTime) {
                     match = true;
                     break;
                 }
@@ -202,9 +202,9 @@ public class CoreProtectAPI extends Queue {
         if (Config.getGlobal().API_ENABLED && player != null && Config.getConfig(player.getWorld()).PLAYER_MESSAGES) {
             if (message != null) {
                 if (message.length() > 0 && !message.startsWith("/")) {
-                    int time = (int) (System.currentTimeMillis() / 1000L);
+                    long timestamp = System.currentTimeMillis() / 1000L;
 
-                    Queue.queuePlayerChat(player, message, time);
+                    Queue.queuePlayerChat(player, message, timestamp);
                     return true;
                 }
             }
@@ -217,9 +217,9 @@ public class CoreProtectAPI extends Queue {
         if (Config.getGlobal().API_ENABLED && player != null && Config.getConfig(player.getWorld()).PLAYER_COMMANDS) {
             if (command != null) {
                 if (command.length() > 0 && command.startsWith("/")) {
-                    int time = (int) (System.currentTimeMillis() / 1000L);
+                    long timestamp = System.currentTimeMillis() / 1000L;
 
-                    Queue.queuePlayerCommand(player, command, time);
+                    Queue.queuePlayerCommand(player, command, timestamp);
                     return true;
                 }
             }
@@ -430,8 +430,8 @@ public class CoreProtectAPI extends Queue {
             restrictUsers.add("#global");
         }
 
-        int unixTimestamp = (int) (System.currentTimeMillis() / 1000L);
-        int timePeriod = unixTimestamp - time;
+        long timestamp = System.currentTimeMillis() / 1000L;
+        long timePeriod = timestamp - time;
 
         if (radius < 1) {
             radius = -1;

@@ -11,7 +11,7 @@ import net.coreprotect.database.logger.ChatLogger;
 class PlayerChatProcess {
 
     static void process(PreparedStatement preparedStmt, int batchCount, int processId, int id, Object[] object, String user) {
-        if (object.length == 2 && object[1] instanceof Location) {
+        if (object[1] instanceof Location) {
             Map<Integer, String> strings = Consumer.consumerStrings.get(processId);
             if (strings.get(id) != null) {
                 String message = strings.get(id);

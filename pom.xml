@@ -64,12 +64,6 @@
     </plugins>
   </build>
   <repositories>
-    <!--
-    <repository>
-      <id>public</id>
-      <url>http://repo.mvdw-software.be/content/groups/public/</url>
-    </repository>
-    -->
     <repository>
       <id>spigot-repo</id>
       <url>https://hub.spigotmc.org/nexus/content/groups/public/</url>
@@ -88,20 +82,17 @@
     </repository>
   </repositories>
   <dependencies>
-    <dependency>
-      <groupId>org.spigotmc</groupId>
-      <artifactId>spigot-api</artifactId>
-      <version>1.17-R0.1-SNAPSHOT</version>
-      <scope>provided</scope>
-    </dependency>
-    <!--
-    <dependency>
-      <groupId>org.bukkit</groupId>
-      <artifactId>bukkit</artifactId>
-      <version>1.17-R0.1-SNAPSHOT</version>
-      <scope>provided</scope>
-    </dependency>
+    <!--  
+    paper-api (<= 1.16): com.destroystokyo.paper
+    spigot-api: org.spigotmc
+    bukkit: org.bukkit 
     -->
+    <dependency>
+      <groupId>io.papermc.paper</groupId>
+      <artifactId>paper-api</artifactId>
+      <version>1.17-R0.1-SNAPSHOT</version>
+      <scope>provided</scope>
+    </dependency>
     <dependency>
       <groupId>org.bstats</groupId>
       <artifactId>bstats-bukkit-lite</artifactId>

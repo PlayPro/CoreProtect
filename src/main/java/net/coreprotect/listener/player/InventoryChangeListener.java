@@ -31,6 +31,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.utility.Util;
 import net.coreprotect.utility.Validate;
 
@@ -315,12 +316,12 @@ public final class InventoryChangeListener extends Queue implements Listener {
             return;
         }
 
-        InventoryHolder sourceHolder = event.getSource().getHolder();
+        InventoryHolder sourceHolder = PaperAdapter.ADAPTER.getHolder(event.getSource(), false);
         if (sourceHolder == null) {
             return;
         }
 
-        InventoryHolder destinationHolder = event.getDestination().getHolder();
+        InventoryHolder destinationHolder = PaperAdapter.ADAPTER.getHolder(event.getDestination(), false);
         if (destinationHolder == null) {
             return;
         }

@@ -28,6 +28,7 @@ import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.patch.Patch;
 import net.coreprotect.spigot.SpigotAdapter;
 import net.coreprotect.utility.Chat;
@@ -361,6 +362,7 @@ public class ConfigHandler extends Queue {
         try {
             BukkitAdapter.loadAdapter();
             SpigotAdapter.loadAdapter();
+            PaperAdapter.loadAdapter();
             BlockGroup.initialize();
 
             ConfigHandler.loadConfig(); // Load (or create) the configuration file.

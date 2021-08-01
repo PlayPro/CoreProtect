@@ -13,29 +13,29 @@ public class SpigotAdapter implements SpigotInterface {
 
     public static SpigotInterface ADAPTER;
     public static final int SPIGOT_UNAVAILABLE = 0;
-    public static final int SPIGOT_v1_13 = BukkitAdapter.BUKKIT_v1_13;
-    public static final int SPIGOT_v1_14 = BukkitAdapter.BUKKIT_v1_14;
-    public static final int SPIGOT_v1_15 = BukkitAdapter.BUKKIT_v1_15;
-    public static final int SPIGOT_v1_16 = BukkitAdapter.BUKKIT_v1_16;
-    public static final int SPIGOT_v1_17 = BukkitAdapter.BUKKIT_v1_17;
+    public static final int SPIGOT_V1_13 = BukkitAdapter.BUKKIT_V1_13;
+    public static final int SPIGOT_V1_14 = BukkitAdapter.BUKKIT_V1_14;
+    public static final int SPIGOT_V1_15 = BukkitAdapter.BUKKIT_V1_15;
+    public static final int SPIGOT_V1_16 = BukkitAdapter.BUKKIT_V1_16;
+    public static final int SPIGOT_V1_17 = BukkitAdapter.BUKKIT_V1_17;
 
     public static void loadAdapter() {
-        int SPIGOT_VERSION = ConfigHandler.SERVER_VERSION;
+        int spigotVersion = ConfigHandler.SERVER_VERSION;
         if (!ConfigHandler.isSpigot) {
-            SPIGOT_VERSION = SPIGOT_UNAVAILABLE;
+            spigotVersion = SPIGOT_UNAVAILABLE;
         }
 
-        switch (SPIGOT_VERSION) {
+        switch (spigotVersion) {
             case SPIGOT_UNAVAILABLE:
                 SpigotAdapter.ADAPTER = new SpigotAdapter();
                 break;
-            case SPIGOT_v1_13:
-            case SPIGOT_v1_14:
-            case SPIGOT_v1_15:
+            case SPIGOT_V1_13:
+            case SPIGOT_V1_14:
+            case SPIGOT_V1_15:
                 SpigotAdapter.ADAPTER = new SpigotHandler();
                 break;
-            case SPIGOT_v1_16:
-            case SPIGOT_v1_17:
+            case SPIGOT_V1_16:
+            case SPIGOT_V1_17:
             default:
                 SpigotAdapter.ADAPTER = new Spigot_v1_16();
                 break;

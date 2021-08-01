@@ -22,25 +22,25 @@ import net.coreprotect.utility.Util;
 public class BukkitAdapter implements BukkitInterface {
 
     public static BukkitInterface ADAPTER;
-    public static final int BUKKIT_v1_13 = 13;
-    public static final int BUKKIT_v1_14 = 14;
-    public static final int BUKKIT_v1_15 = 15;
-    public static final int BUKKIT_v1_16 = 16;
-    public static final int BUKKIT_v1_17 = 17;
+    public static final int BUKKIT_V1_13 = 13;
+    public static final int BUKKIT_V1_14 = 14;
+    public static final int BUKKIT_V1_15 = 15;
+    public static final int BUKKIT_V1_16 = 16;
+    public static final int BUKKIT_V1_17 = 17;
 
     public static void loadAdapter() {
         switch (ConfigHandler.SERVER_VERSION) {
-            case BUKKIT_v1_13:
-            case BUKKIT_v1_14:
+            case BUKKIT_V1_13:
+            case BUKKIT_V1_14:
                 BukkitAdapter.ADAPTER = new BukkitAdapter();
                 break;
-            case BUKKIT_v1_15:
+            case BUKKIT_V1_15:
                 BukkitAdapter.ADAPTER = new Bukkit_v1_15();
                 break;
-            case BUKKIT_v1_16:
+            case BUKKIT_V1_16:
                 BukkitAdapter.ADAPTER = new Bukkit_v1_16();
                 break;
-            case BUKKIT_v1_17:
+            case BUKKIT_V1_17:
             default:
                 BukkitAdapter.ADAPTER = new Bukkit_v1_17();
                 break;

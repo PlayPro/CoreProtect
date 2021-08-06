@@ -3,12 +3,13 @@ package net.coreprotect.database.logger;
 import java.sql.PreparedStatement;
 import java.util.Locale;
 
-import net.coreprotect.CoreProtect;
-import net.coreprotect.event.CoreProtectPreLogEvent;
 import org.bukkit.Location;
 
+import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.CommandStatement;
+import net.coreprotect.database.statement.UserStatement;
+import net.coreprotect.event.CoreProtectPreLogEvent;
 import net.coreprotect.utility.Util;
 
 public class CommandLogger {
@@ -36,7 +37,7 @@ public class CommandLogger {
             int y = location.getBlockY();
             int z = location.getBlockZ();
             int wid = Util.getWorldId(location.getWorld().getName());
-            int userId = ConfigHandler.getOrCreateUserId(preparedStmt.getConnection(), user);
+            int userId = UserStatement.getId(preparedStmt, user, true);
             CommandStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, message);
         }
         catch (Exception e) {

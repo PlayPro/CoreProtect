@@ -3,12 +3,13 @@ package net.coreprotect.database.logger;
 import java.sql.PreparedStatement;
 import java.util.Locale;
 
-import net.coreprotect.CoreProtect;
-import net.coreprotect.event.CoreProtectPreLogEvent;
 import org.bukkit.Location;
 
+import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.SignStatement;
+import net.coreprotect.database.statement.UserStatement;
+import net.coreprotect.event.CoreProtectPreLogEvent;
 import net.coreprotect.utility.Util;
 
 public class SignTextLogger {
@@ -29,7 +30,7 @@ public class SignTextLogger {
                 user = event.getUser();
             }
 
-            int userId = ConfigHandler.getOrCreateUserId(preparedStmt.getConnection(), user);
+            int userId = UserStatement.getId(preparedStmt, user, true);
             int wid = Util.getWorldId(location.getWorld().getName());
             int time = (int) (System.currentTimeMillis() / 1000L) - timeOffset;
             int x = location.getBlockX();

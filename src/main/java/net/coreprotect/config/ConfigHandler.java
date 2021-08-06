@@ -111,13 +111,6 @@ public class ConfigHandler extends Queue {
     public static ConcurrentHashMap<String, String> language = new ConcurrentHashMap<>();
     public static List<String> databaseTables = new ArrayList<>();
 
-    public static int getOrCreateUserId(Connection connection, String user) {
-        if (!playerIdCache.containsKey(user)) {
-            UserStatement.loadId(connection, user, null);
-        }
-        return playerIdCache.get(user.toLowerCase(Locale.ROOT));
-    }
-
     private static void checkPlayers(Connection connection) {
         ConfigHandler.playerIdCache.clear();
         ConfigHandler.playerIdCacheReversed.clear();

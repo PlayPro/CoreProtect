@@ -3,6 +3,7 @@ package net.coreprotect.database.statement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Locale;
 
@@ -34,6 +35,14 @@ public class UserStatement {
             e.printStackTrace();
         }
         return id;
+    }
+
+    public static int getId(PreparedStatement preparedStatement, String user, boolean load) throws SQLException {
+        if (load && !ConfigHandler.playerIdCache.containsKey(user.toLowerCase(Locale.ROOT))) {
+            UserStatement.loadId(preparedStatement.getConnection(), user, null);
+        }
+
+        return ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT));
     }
 
     public static int loadId(Connection connection, String user, String uuid) {

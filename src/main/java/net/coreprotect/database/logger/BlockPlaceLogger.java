@@ -4,8 +4,6 @@ import java.sql.PreparedStatement;
 import java.util.List;
 import java.util.Locale;
 
-import net.coreprotect.CoreProtect;
-import net.coreprotect.event.CoreProtectPreLogEvent;
 import org.bukkit.Material;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
@@ -14,9 +12,12 @@ import org.bukkit.block.data.type.Bed;
 import org.bukkit.block.data.type.Door;
 import org.bukkit.block.data.type.Door.Hinge;
 
+import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.BlockStatement;
+import net.coreprotect.database.statement.UserStatement;
+import net.coreprotect.event.CoreProtectPreLogEvent;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.Util;
@@ -64,7 +65,7 @@ public class BlockPlaceLogger {
                 user = event.getUser();
             }
 
-            int userId = ConfigHandler.getOrCreateUserId(preparedStmt.getConnection(), user);
+            int userId = UserStatement.getId(preparedStmt, user, true);
             int wid = Util.getWorldId(block.getWorld().getName());
             int time = (int) (System.currentTimeMillis() / 1000L);
             int x = block.getX();

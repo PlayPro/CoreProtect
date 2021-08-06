@@ -26,17 +26,14 @@ public class PlayerKillLogger {
 
             CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
             CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
-            if (!event.getUser().equals(user)) {
-                user = event.getUser();
-            }
 
+            int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
+            int playerId = ConfigHandler.playerIdCache.get(player.toLowerCase(Locale.ROOT));
             int wid = Util.getWorldId(block.getWorld().getName());
             int time = (int) (System.currentTimeMillis() / 1000L);
             int x = block.getX();
             int y = block.getY();
             int z = block.getZ();
-            int userId = UserStatement.getId(preparedStmt, user, true);
-            int playerId = ConfigHandler.playerIdCache.get(player.toLowerCase(Locale.ROOT));
             BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, 0, playerId, null, null, 3, 0);
         }
         catch (Exception e) {

@@ -28,12 +28,9 @@ public class PlayerInteractLogger {
 
             CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
             CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
-            if (!event.getUser().equals(user)) {
-                user = event.getUser();
-            }
 
+            int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
             int wid = Util.getWorldId(block.getWorld().getName());
-            int userId = UserStatement.getId(preparedStmt, user, true);
             int time = (int) (System.currentTimeMillis() / 1000L);
             int x = block.getX();
             int y = block.getY();

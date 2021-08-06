@@ -29,15 +29,12 @@ public class CommandLogger {
 
             CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
             CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
-            if (!event.getUser().equals(user)) {
-                user = event.getUser();
-            }
 
+            int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
+            int wid = Util.getWorldId(location.getWorld().getName());
             int x = location.getBlockX();
             int y = location.getBlockY();
             int z = location.getBlockZ();
-            int wid = Util.getWorldId(location.getWorld().getName());
-            int userId = UserStatement.getId(preparedStmt, user, true);
             CommandStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, message);
         }
         catch (Exception e) {

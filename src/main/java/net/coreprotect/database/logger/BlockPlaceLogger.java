@@ -61,11 +61,8 @@ public class BlockPlaceLogger {
 
             CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
             CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
-            if (!event.getUser().equals(user)) {
-                user = event.getUser();
-            }
 
-            int userId = UserStatement.getId(preparedStmt, user, true);
+            int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
             int wid = Util.getWorldId(block.getWorld().getName());
             int time = (int) (System.currentTimeMillis() / 1000L);
             int x = block.getX();
@@ -78,8 +75,8 @@ public class BlockPlaceLogger {
             int doubledata = data;
             int logdouble = 0;
 
-            if (user.length() > 0) {
-                CacheHandler.lookupCache.put("" + x + "." + y + "." + z + "." + wid + "", new Object[] { time, user, type });
+            if (event.getUser().length() > 0) {
+                CacheHandler.lookupCache.put("" + x + "." + y + "." + z + "." + wid + "", new Object[] { time, event.getUser(), type });
             }
 
             String doubleBlockData = null;

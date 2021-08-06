@@ -45,17 +45,14 @@ public class BlockBreakLogger {
 
             CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
             CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
-            if (!event.getUser().equals(user)) {
-                user = event.getUser();
-            }
 
-            int userId = UserStatement.getId(preparedStmt, user, true);
+            int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
             int wid = Util.getWorldId(location.getWorld().getName());
             int time = (int) (System.currentTimeMillis() / 1000L);
             int x = location.getBlockX();
             int y = location.getBlockY();
             int z = location.getBlockZ();
-            CacheHandler.breakCache.put("" + x + "." + y + "." + z + "." + wid + "", new Object[] { time, user, type });
+            CacheHandler.breakCache.put("" + x + "." + y + "." + z + "." + wid + "", new Object[] { time, event.getUser(), type });
             BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, type, data, meta, blockData, 0, 0);
         }
         catch (Exception e) {

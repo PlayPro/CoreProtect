@@ -26,11 +26,8 @@ public class SignTextLogger {
 
             CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
             CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
-            if (!event.getUser().equals(user)) {
-                user = event.getUser();
-            }
 
-            int userId = UserStatement.getId(preparedStmt, user, true);
+            int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
             int wid = Util.getWorldId(location.getWorld().getName());
             int time = (int) (System.currentTimeMillis() / 1000L) - timeOffset;
             int x = location.getBlockX();

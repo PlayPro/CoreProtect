@@ -11,7 +11,10 @@ Please be sure to visit the following links for more information.
 A list of all commands that can be used within CoreProtect.
 
 [**CoreProtect Permissions**](/permissions/)  
-A list of all permissions that can be used with CoreProtect.  
+A list of all permissions that can be used with CoreProtect.
+
+[**CoreProtect Events**](/events/)  
+A list of all events emitted by CoreProtect.
 
 [**CoreProtect API Documentation**](/api/)  
 Log your own block changes, perform lookups, rollbacks, restores, and more.  

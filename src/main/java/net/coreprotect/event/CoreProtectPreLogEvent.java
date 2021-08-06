@@ -2,10 +2,10 @@ package net.coreprotect.event;
 
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
-import org.jetbrains.annotations.NotNull;
 
 public class CoreProtectPreLogEvent extends Event {
 
+    private static final HandlerList handlers = new HandlerList();
     private String user;
 
     public CoreProtectPreLogEvent(String user) {
@@ -21,10 +21,8 @@ public class CoreProtectPreLogEvent extends Event {
         this.user = newUser;
     }
 
-    private static final HandlerList handlers = new HandlerList();
-
     @Override
-    public @NotNull HandlerList getHandlers() {
+    public HandlerList getHandlers() {
         return handlers;
     }
 

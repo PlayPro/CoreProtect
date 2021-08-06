@@ -3,13 +3,13 @@ package net.coreprotect.database.logger;
 import java.sql.PreparedStatement;
 import java.util.Locale;
 
-import net.coreprotect.CoreProtect;
-import net.coreprotect.event.CoreProtectPreLogEvent;
 import org.bukkit.block.BlockState;
 
+import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.BlockStatement;
 import net.coreprotect.database.statement.UserStatement;
+import net.coreprotect.event.CoreProtectPreLogEvent;
 import net.coreprotect.utility.Util;
 
 public class PlayerKillLogger {
@@ -35,7 +35,7 @@ public class PlayerKillLogger {
             int x = block.getX();
             int y = block.getY();
             int z = block.getZ();
-            int userId = ConfigHandler.getOrCreateUserId(preparedStmt.getConnection(), user);
+            int userId = UserStatement.getId(preparedStmt, user, true);
             int playerId = ConfigHandler.playerIdCache.get(player.toLowerCase(Locale.ROOT));
             BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, 0, playerId, null, null, 3, 0);
         }

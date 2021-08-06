@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import net.coreprotect.CoreProtect;
+import net.coreprotect.event.CoreProtectPreLogEvent;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.inventory.EntityEquipment;
@@ -161,8 +163,14 @@ public class ContainerLogger extends Queue {
                             metadata = null;
                         }
 
+                        CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
+                        CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+                        if (!event.getUser().equals(user)) {
+                            user = event.getUser();
+                        }
+
                         int wid = Util.getWorldId(location.getWorld().getName());
-                        int userid = ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT));
+                        int userid = ConfigHandler.getOrCreateUserId(preparedStmt.getConnection(), user);
                         int time = (int) (System.currentTimeMillis() / 1000L);
                         int x = location.getBlockX();
                         int y = location.getBlockY();

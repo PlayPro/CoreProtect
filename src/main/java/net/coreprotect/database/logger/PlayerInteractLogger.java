@@ -3,6 +3,8 @@ package net.coreprotect.database.logger;
 import java.sql.PreparedStatement;
 import java.util.Locale;
 
+import net.coreprotect.CoreProtect;
+import net.coreprotect.event.CoreProtectPreLogEvent;
 import org.bukkit.Material;
 import org.bukkit.block.BlockState;
 
@@ -22,8 +24,15 @@ public class PlayerInteractLogger {
             if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null || Util.getType(type).equals(Material.AIR) || Util.getType(type).equals(Material.CAVE_AIR)) {
                 return;
             }
+
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
+            CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+            if (!event.getUser().equals(user)) {
+                user = event.getUser();
+            }
+
             int wid = Util.getWorldId(block.getWorld().getName());
-            int userId = ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT));
+            int userId = ConfigHandler.getOrCreateUserId(preparedStmt.getConnection(), user);
             int time = (int) (System.currentTimeMillis() / 1000L);
             int x = block.getX();
             int y = block.getY();

@@ -3,6 +3,8 @@ package net.coreprotect.database.logger;
 import java.sql.PreparedStatement;
 import java.util.Locale;
 
+import net.coreprotect.CoreProtect;
+import net.coreprotect.event.CoreProtectPreLogEvent;
 import org.bukkit.Location;
 
 import net.coreprotect.config.ConfigHandler;
@@ -20,7 +22,14 @@ public class SignTextLogger {
             if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {
                 return;
             }
-            int userId = ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT));
+
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
+            CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+            if (!event.getUser().equals(user)) {
+                user = event.getUser();
+            }
+
+            int userId = ConfigHandler.getOrCreateUserId(preparedStmt.getConnection(), user);
             int wid = Util.getWorldId(location.getWorld().getName());
             int time = (int) (System.currentTimeMillis() / 1000L) - timeOffset;
             int x = location.getBlockX();

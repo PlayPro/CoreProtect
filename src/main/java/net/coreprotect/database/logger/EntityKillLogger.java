@@ -5,6 +5,8 @@ import java.sql.ResultSet;
 import java.util.List;
 import java.util.Locale;
 
+import net.coreprotect.CoreProtect;
+import net.coreprotect.event.CoreProtectPreLogEvent;
 import org.bukkit.block.BlockState;
 
 import net.coreprotect.config.ConfigHandler;
@@ -23,12 +25,19 @@ public class EntityKillLogger {
             if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {
                 return;
             }
+
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
+            CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+            if (!event.getUser().equals(user)) {
+                user = event.getUser();
+            }
+
             int wid = Util.getWorldId(block.getWorld().getName());
             int time = (int) (System.currentTimeMillis() / 1000L);
             int x = block.getX();
             int y = block.getY();
             int z = block.getZ();
-            int userid = ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT));
+            int userid = ConfigHandler.getOrCreateUserId(preparedStmt.getConnection(), user);
             EntityStatement.insert(preparedStmt2, time, data);
             ResultSet keys = preparedStmt2.getGeneratedKeys();
             keys.next();

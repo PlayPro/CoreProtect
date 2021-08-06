@@ -4,6 +4,8 @@ import java.sql.PreparedStatement;
 import java.util.List;
 import java.util.Locale;
 
+import net.coreprotect.CoreProtect;
+import net.coreprotect.event.CoreProtectPreLogEvent;
 import org.bukkit.Location;
 import org.bukkit.Material;
 
@@ -40,13 +42,19 @@ public class BlockBreakLogger {
                 blockData = blockData.replaceFirst("has_book=true", "has_book=false");
             }
 
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
+            CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+            if (!event.getUser().equals(user)) {
+                user = event.getUser();
+            }
+
             int wid = Util.getWorldId(location.getWorld().getName());
             int time = (int) (System.currentTimeMillis() / 1000L);
             int x = location.getBlockX();
             int y = location.getBlockY();
             int z = location.getBlockZ();
             CacheHandler.breakCache.put("" + x + "." + y + "." + z + "." + wid + "", new Object[] { time, user, type });
-            int userId = ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT));
+            int userId = ConfigHandler.getOrCreateUserId(preparedStmt.getConnection(), user);
             BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, type, data, meta, blockData, 0, 0);
         }
         catch (Exception e) {

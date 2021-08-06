@@ -18,6 +18,10 @@ public class CoreProtectPreLogEvent extends Event {
     }
 
     public void setUser(String newUser) {
+        if (newUser == null || newUser.isEmpty()) {
+            throw new IllegalArgumentException("Invalid user");
+        }
+
         this.user = newUser;
     }
 

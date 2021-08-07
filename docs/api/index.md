@@ -122,21 +122,39 @@ boolean hasRemoved(String user, Block block, int time, int offset)
 void performPurge(int time)
 ``` 
 
-### Usage
+---
 
-`isEnabled()`
+### Available Events
+
+*The following events are emitted by CoreProtect.*
+
+#### CoreProtectPreLogEvent
+
+Fired when a CoreProtect logger is about to log an action. Not cancellable.
+
+| Property | Description | Mutable |
+| --- | --- | --- |
+| User | The name of the user under which this action will be logged. | Yes |
+
+---
+
+### Method Usage
+
+*Detailed method information is listed below.*
+
+#### `isEnabled()`
 
 Calling this will return true if the server has the CoreProtect API enabled, and false if it does not.
 
 ---
 
-`testAPI()`
+#### `testAPI()`
 
 Running this will print out "[CoreProtect] API Test Successful." in the server console.
 
 ---
 
-`performLookup(int time, List<String> restrict_users, List<String> exclude_users, List<Object> restrict_blocks, List<Object> exclude_blocks, List<Integer> action_list, int radius, Location radius_location)`
+#### `performLookup(int time, List<String> restrict_users, List<String> exclude_users, List<Object> restrict_blocks, List<Object> exclude_blocks, List<Integer> action_list, int radius, Location radius_location)`
 
 This will perform a lookup.
 
@@ -151,7 +169,7 @@ This will perform a lookup.
 
 ---
 
-`performRollback(int time, List<String> restrict_users, List<String> exclude_users, List<Object> restrict_blocks, List<Object> exclude_blocks, List<Integer> action_list, int radius, Location radius_location)`
+#### `performRollback(int time, List<String> restrict_users, List<String> exclude_users, List<Object> restrict_blocks, List<Object> exclude_blocks, List<Integer> action_list, int radius, Location radius_location)`
 
 This will perform a rollback. Method must be called async.
 
@@ -166,7 +184,7 @@ This will perform a rollback. Method must be called async.
 
 ---
 
-`performRestore(int time, List<String> restrict_users, List<String> exclude_users, List<Object> restrict_blocks, List<Object> exclude_blocks, List<Integer> action_list, int radius, Location radius_location)`
+#### `performRestore(int time, List<String> restrict_users, List<String> exclude_users, List<Object> restrict_blocks, List<Object> exclude_blocks, List<Integer> action_list, int radius, Location radius_location)`
 
 This will perform a restore.
 
@@ -181,7 +199,7 @@ This will perform a restore.
 
 ---
 
-`blockLookup(Block block, int time)`
+#### `blockLookup(Block block, int time)`
 
 This will perform a full lookup on a single block.
 
@@ -190,7 +208,7 @@ This will perform a full lookup on a single block.
 
 ---
 
-`ParseResult parseResult(String[] result)`
+#### `ParseResult parseResult(String[] result)`
 
 This will parse results from a lookup. You'll then be able to view the following:
 
@@ -208,7 +226,7 @@ This will parse results from a lookup. You'll then be able to view the following
 
 ---
 
-`logPlacement(String user, Location location, Material type, BlockData blockData)`
+#### `logPlacement(String user, Location location, Material type, BlockData blockData)`
 
 This will log a block as being placed.
 
@@ -219,7 +237,7 @@ This will log a block as being placed.
 
 ---
 
-`logRemoval(String user, Location location, Material type, BlockData blockData)`
+#### `logRemoval(String user, Location location, Material type, BlockData blockData)`
 
 This will log a block as being removed/broken, and will log the block's inventory (if applicable).
 
@@ -230,7 +248,7 @@ This will log a block as being removed/broken, and will log the block's inventor
 
 ---
 
-`logContainerTransaction(String user, Location location)`
+#### `logContainerTransaction(String user, Location location)`
 
 This will log any transactions made to a block's inventory immediately after calling the method.
 
@@ -239,7 +257,7 @@ This will log any transactions made to a block's inventory immediately after cal
 
 ---
 
-`logInteraction(String user, Location location)`
+#### `logInteraction(String user, Location location)`
 
 This will log a block as having been interacted with.
 
@@ -248,7 +266,7 @@ This will log a block as having been interacted with.
 
 ---
 
-`hasPlaced(String user, Block block, int time, int offset)`
+#### `hasPlaced(String user, Block block, int time, int offset)`
 
 This will return true if a user has already placed a block at the location within the specified time limit.
 
@@ -259,7 +277,7 @@ This will return true if a user has already placed a block at the location withi
 
 ---
 
-`hasRemoved(String user, Block block, int time, int offset)`
+#### `hasRemoved(String user, Block block, int time, int offset)`
 
 This will return true if a user has already removed a block at the location within the specified time limit.
 
@@ -270,7 +288,7 @@ This will return true if a user has already removed a block at the location with
 
 ---
 
-`performPurge(int time)`
+#### `performPurge(int time)`
 
 This will perform a purge on the CoreProtect database.
 

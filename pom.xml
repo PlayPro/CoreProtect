@@ -82,10 +82,10 @@
     </repository>
   </repositories>
   <dependencies>
-    <!--  
+    <!--
     paper-api (<= 1.16): com.destroystokyo.paper
     spigot-api: org.spigotmc
-    bukkit: org.bukkit 
+    bukkit: org.bukkit
     -->
     <dependency>
       <groupId>io.papermc.paper</groupId>

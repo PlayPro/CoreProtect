@@ -13,9 +13,12 @@ import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
+import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.statement.ContainerStatement;
+import net.coreprotect.database.statement.UserStatement;
+import net.coreprotect.event.CoreProtectPreLogEvent;
 import net.coreprotect.utility.Util;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 
@@ -161,8 +164,11 @@ public class ContainerLogger extends Queue {
                             metadata = null;
                         }
 
+                        CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
+                        CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+
+                        int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
                         int wid = Util.getWorldId(location.getWorld().getName());
-                        int userid = ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT));
                         int time = (int) (System.currentTimeMillis() / 1000L);
                         int x = location.getBlockX();
                         int y = location.getBlockY();
@@ -170,7 +176,7 @@ public class ContainerLogger extends Queue {
                         int typeId = Util.getBlockId(item.getType().name(), true);
                         int data = item.getDurability();
                         int amount = item.getAmount();
-                        ContainerStatement.insert(preparedStmt, batchCount, time, userid, wid, x, y, z, typeId, data, amount, metadata, action, 0);
+                        ContainerStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, typeId, data, amount, metadata, action, 0);
                     }
                 }
                 slot++;

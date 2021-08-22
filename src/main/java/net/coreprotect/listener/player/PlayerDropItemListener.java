@@ -20,6 +20,10 @@ import net.coreprotect.consumer.Queue;
 public final class PlayerDropItemListener extends Queue implements Listener {
 
     protected static void playerDropItem(Location location, Player player, ItemStack itemStack) {
+        if (itemStack == null) {
+            return;
+        }
+
         String loggingItemId = player.getName().toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
         int itemId = getItemId(loggingItemId);
 
@@ -41,10 +45,6 @@ public final class PlayerDropItemListener extends Queue implements Listener {
 
         Player player = event.getPlayer();
         ItemStack itemStack = item.getItemStack();
-        if (itemStack == null) {
-            return;
-        }
-
         playerDropItem(location, player, itemStack);
     }
 

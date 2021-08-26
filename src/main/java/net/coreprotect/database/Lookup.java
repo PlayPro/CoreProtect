@@ -603,7 +603,7 @@ public class Lookup extends Queue {
             }
 
             if (Config.getGlobal().MYSQL) {
-                if (radius == null || users.length() > 0 || includeBlock.length() > 0 || includeEntity.length() > 0) {
+                /*if (radius == null || users.length() > 0 || includeBlock.length() > 0 || includeEntity.length() > 0) {
                     // index_mysql = "IGNORE INDEX(wid) ";
                     if (users.length() > 0) {
                         // index_mysql = "IGNORE INDEX(wid,type,action) ";
@@ -620,7 +620,7 @@ public class Lookup extends Queue {
                     if ((radius != null || actionList.contains(5)) || (index.equals("") && restrictWorld)) {
                         index = "USE INDEX(wid) ";
                     }
-                }
+                }*/
             }
             else {
                 if (queryTable.equals("block")) {

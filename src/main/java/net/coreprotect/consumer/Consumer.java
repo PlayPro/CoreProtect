@@ -17,12 +17,12 @@ import net.coreprotect.consumer.process.Process;
 
 public class Consumer extends Process implements Runnable, Thread.UncaughtExceptionHandler {
 
+    private static Thread consumerThread = null;
     public static volatile boolean resetConnection = false;
     public static volatile int currentConsumer = 0;
     public static volatile boolean isPaused = false;
     public static volatile boolean transacting = false;
     public static volatile boolean interrupt = false;
-    private static volatile boolean running = false;
     protected static volatile boolean pausedSuccess = false;
 
     public static ConcurrentHashMap<Integer, ArrayList<Object[]>> consumer = new ConcurrentHashMap<>(4, 0.75f, 2);
@@ -96,7 +96,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
     }
 
     public static boolean isRunning() {
-        return running;
+        return consumerThread != null && consumerThread.isAlive();
     }
 
     private static void pauseConsumer(int process_id) {
@@ -120,7 +120,6 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
 
     @Override
     public void run() {
-        running = true;
         boolean lastRun = false;
 
         while (ConfigHandler.serverRunning || ConfigHandler.converterRunning || !lastRun) {
@@ -145,20 +144,17 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
                 errorDelay();
             }
         }
-
-        running = false;
     }
 
     @Override
     public void uncaughtException(Thread thread, Throwable e) {
-        running = false;
         e.printStackTrace();
         Bukkit.getPluginManager().disablePlugin(CoreProtect.getInstance());
     }
 
     public static void startConsumer() {
-        if (running == false) {
-            Thread consumerThread = new Thread(new Consumer());
+        if (!isRunning()) {
+            consumerThread = new Thread(new Consumer());
             consumerThread.setUncaughtExceptionHandler(new Consumer());
             consumerThread.start();
         }

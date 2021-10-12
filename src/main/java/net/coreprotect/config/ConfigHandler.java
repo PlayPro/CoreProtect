@@ -14,6 +14,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -50,6 +52,7 @@ public class ConfigHandler extends Queue {
     public static String username = "root";
     public static String password = "";
     public static String prefix = "co_";
+    public static HikariDataSource hikariDataSource = null;
     public static final boolean isSpigot = Util.isSpigot();
     public static final boolean isPaper = Util.isPaper();
     public static volatile boolean serverRunning = false;
@@ -198,6 +201,25 @@ public class ConfigHandler extends Queue {
             catch (Exception e) {
                 e.printStackTrace();
             }
+        } else {
+            HikariConfig config = new HikariConfig();
+            config.setJdbcUrl("jdbc:mysql://" + ConfigHandler.host + ":" + ConfigHandler.port + "/" + ConfigHandler.database);
+            config.setUsername(ConfigHandler.username);
+            config.setPassword(ConfigHandler.password);
+            config.addDataSourceProperty("characterEncoding", "UTF-8");
+            config.addDataSourceProperty("connectionTimeout", "10000");
+            /* https://github.com/brettwooldridge/HikariCP/wiki/MySQL-Configuration */
+            /* https://cdn.oreillystatic.com/en/assets/1/event/21/Connector_J%20Performance%20Gems%20Presentation.pdf */
+            config.addDataSourceProperty("cachePrepStmts", "true");
+            config.addDataSourceProperty("prepStmtCacheSize", "250");
+            config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+            config.addDataSourceProperty("useServerPrepStmts", "true");
+            config.addDataSourceProperty("useLocalSessionState", "true");
+            config.addDataSourceProperty("rewriteBatchedStatements", "true");
+            config.addDataSourceProperty("cacheServerConfiguration", "true");
+            config.addDataSourceProperty("maintainTimeStats", "false");
+
+            ConfigHandler.hikariDataSource = new HikariDataSource(config);
         }
 
         if (ConfigHandler.serverRunning) {

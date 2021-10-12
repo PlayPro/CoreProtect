@@ -138,15 +138,7 @@ public class Database extends Queue {
             }
             if (Config.getGlobal().MYSQL) {
                 try {
-                    /* Using useServerPrepStmts, cachePrepStmts, and rewriteBatchedStatements per https://github.com/brettwooldridge/HikariCP/wiki/MySQL-Configuration */
-                    String database = "jdbc:mysql://" + ConfigHandler.host + ":" + ConfigHandler.port + "/" + ConfigHandler.database + "?useUnicode=true&characterEncoding=utf-8&connectTimeout=10000&useSSL=false&allowPublicKeyRetrieval=true&useCursorFetch=true&useLocalSessionState=true&rewriteBatchedStatements=true&maintainTimeStats=false";
-                    connection = DriverManager.getConnection(database, ConfigHandler.username, ConfigHandler.password);
-
-                    /* Recommended implementation per https://dev.mysql.com/doc/refman/5.0/en/charset-applications.html & https://dev.mysql.com/doc/refman/5.0/en/charset-syntax.html */
-                    Statement statement = connection.createStatement();
-                    statement.executeUpdate("SET NAMES 'utf8mb4'"); // COLLATE 'utf8mb4mb4_general_ci'
-                    statement.close();
-
+                    connection = ConfigHandler.hikariDataSource.getConnection();
                     ConfigHandler.databaseReachable = true;
                 }
                 catch (Exception e) {

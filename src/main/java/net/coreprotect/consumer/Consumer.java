@@ -18,7 +18,6 @@ import net.coreprotect.consumer.process.Process;
 public class Consumer extends Process implements Runnable, Thread.UncaughtExceptionHandler {
 
     private static Thread consumerThread = null;
-    public static volatile boolean resetConnection = false;
     public static volatile int currentConsumer = 0;
     public static volatile boolean isPaused = false;
     public static volatile boolean transacting = false;
@@ -103,12 +102,6 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         try {
             while ((ConfigHandler.serverRunning || ConfigHandler.converterRunning) && (Consumer.isPaused || ConfigHandler.purgeRunning || Consumer.consumer_id.get(process_id)[1] == 1)) {
                 pausedSuccess = true;
-                if (Consumer.isPaused || ConfigHandler.purgeRunning) {
-                    if (connection != null) {
-                        connection.close();
-                        connection = null;
-                    }
-                }
                 Thread.sleep(100);
             }
         }

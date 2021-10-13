@@ -1,10 +1,7 @@
 package net.coreprotect.command;
 
 import java.io.File;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
+import java.sql.*;
 import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.List;
@@ -94,14 +91,12 @@ public class PurgeCommand extends Consumer {
 
             @Override
             public void run() {
-                try {
+                try (Connection connection = Database.getConnection(false, 500)) {
                     int timestamp = (int) (System.currentTimeMillis() / 1000L);
                     int ptime = timestamp - seconds;
                     long removed = 0;
 
-                    Connection connection = null;
                     for (int i = 0; i <= 5; i++) {
-                        connection = Database.getConnection(false, 500);
                         if (connection != null) {
                             break;
                         }
@@ -343,8 +338,6 @@ public class PurgeCommand extends Consumer {
                             preparedStmt.close();
                         }
                     }
-
-                    connection.close();
 
                     if (abort) {
                         if (!Config.getGlobal().MYSQL) {

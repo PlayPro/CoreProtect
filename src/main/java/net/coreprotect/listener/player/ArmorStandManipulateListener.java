@@ -53,25 +53,24 @@ public final class ArmorStandManipulateListener extends Queue implements Listene
                     class BasicThread implements Runnable {
                         @Override
                         public void run() {
-                            try {
-                                if (ConfigHandler.converterRunning) {
-                                    Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
+                            if (ConfigHandler.converterRunning) {
+                                Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
+                                return;
+                            }
+                            if (ConfigHandler.purgeRunning) {
+                                Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
+                                return;
+                            }
+                            if (ConfigHandler.lookupThrottle.get(finalPlayer.getName()) != null) {
+                                Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(finalPlayer.getName());
+                                if ((boolean) lookupThrottle[0] || ((System.currentTimeMillis() - (long) lookupThrottle[1])) < 100) {
+                                    Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
                                     return;
                                 }
-                                if (ConfigHandler.purgeRunning) {
-                                    Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
-                                    return;
-                                }
-                                if (ConfigHandler.lookupThrottle.get(finalPlayer.getName()) != null) {
-                                    Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(finalPlayer.getName());
-                                    if ((boolean) lookupThrottle[0] || ((System.currentTimeMillis() - (long) lookupThrottle[1])) < 100) {
-                                        Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                        return;
-                                    }
-                                }
-                                ConfigHandler.lookupThrottle.put(finalPlayer.getName(), new Object[] { true, System.currentTimeMillis() });
+                            }
+                            ConfigHandler.lookupThrottle.put(finalPlayer.getName(), new Object[] { true, System.currentTimeMillis() });
 
-                                Connection connection = Database.getConnection(true);
+                            try (Connection connection = Database.getConnection(true)) {
                                 if (connection != null) {
                                     Statement statement = connection.createStatement();
                                     Location standLocation = armorStand.getLocation();
@@ -86,7 +85,6 @@ public final class ArmorStandManipulateListener extends Queue implements Listene
                                         Chat.sendComponent(finalPlayer, blockData);
                                     }
                                     statement.close();
-                                    connection.close();
                                 }
                                 else {
                                     Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));

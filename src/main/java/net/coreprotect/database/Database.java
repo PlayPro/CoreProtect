@@ -308,8 +308,7 @@ public class Database extends Queue {
 
         if (Config.getGlobal().MYSQL) {
             boolean success = false;
-            try {
-                Connection connection = Database.getConnection(true, true, true, 0);
+            try (Connection connection = Database.getConnection(true, true, true, 0)) {
                 if (connection != null) {
                     String index = "";
                     Statement statement = connection.createStatement();
@@ -349,7 +348,6 @@ public class Database extends Queue {
                         initializeTables(prefix, statement);
                     }
                     statement.close();
-                    connection.close();
                     success = true;
                 }
             }
@@ -361,8 +359,7 @@ public class Database extends Queue {
             }
         }
         if (!Config.getGlobal().MYSQL) {
-            try {
-                Connection connection = Database.getConnection(true, 0);
+            try (Connection connection = Database.getConnection(true, 0)) {
                 Statement statement = connection.createStatement();
                 List<String> tableData = new ArrayList<>();
                 List<String> indexData = new ArrayList<>();
@@ -545,7 +542,6 @@ public class Database extends Queue {
                     initializeTables(prefix, statement);
                 }
                 statement.close();
-                connection.close();
             }
             catch (Exception e) {
                 e.printStackTrace();

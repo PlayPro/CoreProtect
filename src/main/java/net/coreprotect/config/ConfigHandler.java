@@ -174,6 +174,12 @@ public class ConfigHandler extends Queue {
     }
 
     public static void loadDatabase() {
+        // close old pool when we reload the database, e.g. in purge command
+        if (ConfigHandler.hikariDataSource != null) {
+            ConfigHandler.hikariDataSource.close();
+            ConfigHandler.hikariDataSource = null;
+        }
+
         if (!Config.getGlobal().MYSQL) {
             try {
                 File tempFile = File.createTempFile("CoreProtect_" + System.currentTimeMillis(), ".tmp");
@@ -222,9 +228,6 @@ public class ConfigHandler extends Queue {
             ConfigHandler.hikariDataSource = new HikariDataSource(config);
         }
 
-        if (ConfigHandler.serverRunning) {
-            Consumer.resetConnection = true;
-        }
         Database.createDatabaseTables(ConfigHandler.prefix, false);
     }
 
@@ -390,7 +393,11 @@ public class ConfigHandler extends Queue {
             ConfigHandler.loadConfig(); // Load (or create) the configuration file.
             ConfigHandler.loadDatabase(); // Initialize MySQL and create tables if necessary.
 
-            Connection connection = Database.getConnection(true, 0);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        try (Connection connection = Database.getConnection(true, 0)) {
             Statement statement = connection.createStatement();
 
             ConfigHandler.checkPlayers(connection);
@@ -418,7 +425,6 @@ public class ConfigHandler extends Queue {
             }
 
             statement.close();
-            connection.close();
 
             return validVersion && databaseLock;
         }

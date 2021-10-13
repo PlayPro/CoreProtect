@@ -18,7 +18,7 @@ public class BlockLookupAPI {
     public static List<String[]> performLookup(Block block, int offset) {
         List<String[]> result = new ArrayList<>();
 
-        try {
+        try (Connection connection = Database.getConnection(false, 1000)) {
             if (block == null) {
                 return result;
             }
@@ -33,7 +33,6 @@ public class BlockLookupAPI {
                 checkTime = time - offset;
             }
 
-            Connection connection = Database.getConnection(false, 1000);
             if (connection == null) {
                 return result;
             }
@@ -62,7 +61,6 @@ public class BlockLookupAPI {
             }
             results.close();
             statement.close();
-            connection.close();
         }
         catch (Exception e) {
             e.printStackTrace();

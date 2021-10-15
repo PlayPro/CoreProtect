@@ -325,6 +325,10 @@ public final class InventoryChangeListener extends Queue implements Listener {
         if (destinationHolder == null) {
             return;
         }
+        
+        if (Config.getConfig(location.getWorld()).DISABLE_HOPPER_LOGGING) {
+            return;
+        }
 
         if (Config.getConfig(location.getWorld()).HOPPER_TRANSACTIONS) {
             if (Validate.isHopper(destinationHolder) && (Validate.isContainer(sourceHolder) && !Validate.isHopper(sourceHolder))) {

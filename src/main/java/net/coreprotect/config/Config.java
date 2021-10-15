@@ -74,6 +74,7 @@ public class Config extends Language {
     public boolean ITEM_TRANSACTIONS;
     public boolean ITEM_DROPS;
     public boolean ITEM_PICKUPS;
+    public boolean DISABLE_HOPPER_LOGGING;
     public boolean HOPPER_TRANSACTIONS;
     public boolean PLAYER_INTERACTIONS;
     public boolean PLAYER_MESSAGES;
@@ -126,6 +127,7 @@ public class Config extends Language {
         DEFAULT_VALUES.put("item-transactions", "true");
         DEFAULT_VALUES.put("item-drops", "true");
         DEFAULT_VALUES.put("item-pickups", "true");
+        DEFAULT_VALUES.put("disable-hopper-logging", "false");
         DEFAULT_VALUES.put("hopper-transactions", "true");
         DEFAULT_VALUES.put("player-interactions", "true");
         DEFAULT_VALUES.put("player-messages", "true");
@@ -168,6 +170,7 @@ public class Config extends Language {
         HEADERS.put("item-transactions", new String[] { "# Track item transactions, such as when a player takes items from", "# a chest, furnace, or dispenser." });
         HEADERS.put("item-drops", new String[] { "# Logs items dropped by players." });
         HEADERS.put("item-pickups", new String[] { "# Logs items picked up by players." });
+        HEADERS.put("disable-hopper-logging", new String[] { "# Disable item move event for hopper transactions." });
         HEADERS.put("hopper-transactions", new String[] { "# Track all hopper transactions, such as when a hopper removes items from a", "# chest, furnace, or dispenser." });
         HEADERS.put("player-interactions", new String[] { "# Track player interactions, such as when a player opens a door, presses", "# a button, or opens a chest. Player interactions can't be rolled back." });
         HEADERS.put("player-messages", new String[] { "# Logs messages that players send in the chat." });
@@ -221,6 +224,7 @@ public class Config extends Language {
         this.ITEM_TRANSACTIONS = this.getBoolean("item-transactions");
         this.ITEM_DROPS = this.getBoolean("item-drops");
         this.ITEM_PICKUPS = this.getBoolean("item-pickups");
+        this.DISABLE_HOPPER_LOGGING = this.getBoolean("disable-hopper-logging");
         this.HOPPER_TRANSACTIONS = this.getBoolean("hopper-transactions");
         this.PLAYER_INTERACTIONS = this.getBoolean("player-interactions");
         this.PLAYER_MESSAGES = this.getBoolean("player-messages");

@@ -316,6 +316,11 @@ public final class InventoryChangeListener extends Queue implements Listener {
             return;
         }
 
+        boolean hopperTransactions = Config.getConfig(location.getWorld()).HOPPER_TRANSACTIONS;
+        if (!hopperTransactions && !Config.getConfig(location.getWorld()).ITEM_TRANSACTIONS) {
+            return;
+        }
+
         InventoryHolder sourceHolder = PaperAdapter.ADAPTER.getHolder(event.getSource(), false);
         if (sourceHolder == null) {
             return;
@@ -326,7 +331,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
             return;
         }
 
-        if (Config.getConfig(location.getWorld()).HOPPER_TRANSACTIONS) {
+        if (hopperTransactions) {
             if (Validate.isHopper(destinationHolder) && (Validate.isContainer(sourceHolder) && !Validate.isHopper(sourceHolder))) {
                 HopperPullListener.processHopperPull(location, sourceHolder, destinationHolder, event.getItem());
             }

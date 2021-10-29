@@ -1,4 +1,4 @@
-package net.coreprotect.listener;
+package net.coreprotect.utility;
 
 import org.bukkit.plugin.PluginManager;
 
@@ -46,10 +46,8 @@ import net.coreprotect.listener.world.LeavesDecayListener;
 import net.coreprotect.listener.world.PortalCreateListener;
 import net.coreprotect.listener.world.StructureGrowListener;
 
-public final class ListenerHandler {
-
-    public ListenerHandler(CoreProtect plugin) {
-
+public final class ListenerUtil {
+    public static void registerEventListeners(CoreProtect plugin) {
         PluginManager pluginManager = plugin.getServer().getPluginManager();
 
         // Block Listeners

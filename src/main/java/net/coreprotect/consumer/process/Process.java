@@ -195,10 +195,10 @@ public class Process {
                                     SkullUpdateProcess.process(statement, object, forceData);
                                     break;
                                 case Process.PLAYER_CHAT:
-                                    PlayerChatProcess.process(preparedStmtChat, i, processId, id, (Object[]) object, user);
+                                    PlayerChatProcess.process(preparedStmtChat, i, processId, id, object, user);
                                     break;
                                 case Process.PLAYER_COMMAND:
-                                    PlayerCommandProcess.process(preparedStmtCommand, i, processId, id, (Object[]) object, user);
+                                    PlayerCommandProcess.process(preparedStmtCommand, i, processId, id, object, user);
                                     break;
                                 case Process.PLAYER_LOGIN:
                                     PlayerLoginProcess.process(connection, preparedStmtSession, i, processId, id, object, blockData, replaceData, forceData, user);

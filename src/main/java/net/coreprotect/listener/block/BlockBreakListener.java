@@ -204,7 +204,7 @@ public final class BlockBreakListener extends Queue implements Listener {
                         }
                     }
                     if (!log) {
-                        if (type.equals(Material.MOVING_PISTON)) {// broke a piston extension
+                        if (type.equals(Material.PISTON_HEAD)) {// broke a piston extension
                             if (scanType.equals(Material.STICKY_PISTON) || scanType.equals(Material.PISTON)) { // adjacent piston
                                 log = true;
                             }
@@ -218,7 +218,7 @@ public final class BlockBreakListener extends Queue implements Listener {
                 }
                 else {
                     // determine if side block is attached
-                    if (scanType.equals(Material.MOVING_PISTON)) {
+                    if (scanType.equals(Material.PISTON_HEAD)) {
                         if (!type.equals(Material.STICKY_PISTON) && !type.equals(Material.PISTON)) {
                             log = false;
                         }

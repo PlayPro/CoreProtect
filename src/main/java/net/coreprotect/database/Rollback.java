@@ -48,6 +48,7 @@ import org.bukkit.block.data.type.PistonHead;
 import org.bukkit.block.data.type.RedstoneWire;
 import org.bukkit.block.data.type.Snow;
 import org.bukkit.block.data.type.Stairs;
+import org.bukkit.block.data.type.TechnicalPiston;
 import org.bukkit.block.data.type.TrapDoor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.ArmorStand;
@@ -685,6 +686,12 @@ public class Rollback extends Queue {
                                                 pistonBlock.setBlockData(piston, false);
                                             }
                                         }
+                                        else if (rowType == Material.MOVING_PISTON && blockData instanceof TechnicalPiston && !(blockData instanceof PistonHead)) {
+                                            TechnicalPiston technicalPiston = (TechnicalPiston) blockData;
+                                            rowType = (technicalPiston.getType() == org.bukkit.block.data.type.TechnicalPiston.Type.STICKY ? Material.STICKY_PISTON : Material.PISTON);
+                                            blockData = rowType.createBlockData();
+                                            ((Piston) blockData).setFacing(technicalPiston.getFacing());
+                                        }
 
                                         if ((rowType == Material.AIR) && ((BukkitAdapter.ADAPTER.isItemFrame(oldTypeMaterial)) || (oldTypeMaterial == Material.PAINTING))) {
                                             int delay = Util.getHangingDelay(hangingDelay, rowWorldId, rowX, rowY, rowZ);
@@ -1089,6 +1096,7 @@ public class Rollback extends Queue {
                                             if (blockData instanceof MultipleFacing || BukkitAdapter.ADAPTER.isWall(blockData) || blockData instanceof Snow || blockData instanceof Stairs || blockData instanceof RedstoneWire || blockData instanceof Chest) {
                                                 physics = !(blockData instanceof Snow) || block.getY() <= BukkitAdapter.ADAPTER.getMinHeight(block.getWorld()) || (block.getWorld().getBlockAt(block.getX(), block.getY() - 1, block.getZ()).getType().equals(Material.GRASS_BLOCK));
                                             }
+
                                             Util.setTypeAndData(block, rowType, blockData, physics);
                                             if (countBlock) {
                                                 blockCount1++;

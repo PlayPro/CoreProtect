@@ -5,7 +5,6 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.function.Consumer;
 
 import net.coreprotect.database.lookup.ChestTransactionLookupAPI;
 import net.coreprotect.utility.APIUtil;

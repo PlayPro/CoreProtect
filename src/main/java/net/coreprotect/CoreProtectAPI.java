@@ -30,7 +30,8 @@ import org.jetbrains.annotations.Nullable;
 public class CoreProtectAPI extends Queue {
 
     private static class ParseResult {
-        String[] parse;
+
+        protected final String[] parse;
 
         public ParseResult(String[] data) {
             parse = data;
@@ -50,7 +51,6 @@ public class CoreProtectAPI extends Queue {
             };
         }
 
-        @Deprecated
         public int getData() {
             return Integer.parseInt(parse[6]);
         }
@@ -201,7 +201,7 @@ public class CoreProtectAPI extends Queue {
             List<String[]> check = blockLookup(block, time);
 
             for (String[] value : check) {
-                ParseResult result = parseResult(value);
+                BlockLookupResults result = parseBlockLookupResults(value);
                 if (user.equalsIgnoreCase(result.getPlayer()) && result.getActionId() == 1 && result.getTimestamp() <= offsetTime) {
                     match = true;
                     break;
@@ -222,7 +222,7 @@ public class CoreProtectAPI extends Queue {
             List<String[]> check = blockLookup(block, time);
 
             for (String[] value : check) {
-                ParseResult result = parseResult(value);
+                BlockLookupResults result = parseBlockLookupResults(value);
                 if (user.equalsIgnoreCase(result.getPlayer()) && result.getActionId() == 0 && result.getTimestamp() <= offsetTime) {
                     match = true;
                     break;
@@ -355,8 +355,12 @@ public class CoreProtectAPI extends Queue {
         return false;
     }
 
-    public ParseResult parseResult(String[] results) {
-        return new ParseResult(results);
+    public BlockLookupResults parseBlockLookupResults(String[] results) {
+        return new BlockLookupResults(results);
+    }
+
+    public ContainerLookupResults parseContainerLookupResult(String[] results) {
+        return new ContainerLookupResults(results);
     }
 
     public List<String[]> performLookup(long time, List<String> restrictUsers, List<String> excludeUsers, List<Object> restrictBlocks, List<Object> excludeBlocks, List<Integer> actionList, int radius, Location radiusLocation) {

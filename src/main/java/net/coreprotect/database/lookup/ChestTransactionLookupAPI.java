@@ -1,20 +1,18 @@
 package net.coreprotect.database.lookup;
 
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
+import net.coreprotect.database.statement.UserStatement;
+import net.coreprotect.utility.Util;
+import org.bukkit.block.Block;
+
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
-import net.coreprotect.database.Lookup;
-import org.bukkit.block.Block;
-
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.database.Database;
-import net.coreprotect.database.statement.UserStatement;
-import net.coreprotect.utility.Util;
-
-public class BlockLookupAPI {
+public class ChestTransactionLookupAPI {
 
     public static List<String[]> performLookup(Block block, long offset) {
         List<String[]> result = new ArrayList<>();
@@ -40,7 +38,7 @@ public class BlockLookupAPI {
             }
 
             Statement statement = connection.createStatement();
-            String query = "SELECT time,user,action,type,data,blockdata,rolled_back FROM " + ConfigHandler.prefix + "block WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND time >= '" + checkTime + "' ORDER BY rowid DESC";
+            String query = "SELECT time,user,action,type,data,amount,rolled_back FROM " + ConfigHandler.prefix + "container WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND time >= '" + checkTime + "' ORDER BY rowid DESC";
             ResultSet results = statement.executeQuery(query);
 
             while (results.next()) {
@@ -49,15 +47,15 @@ public class BlockLookupAPI {
                 String resultAction = results.getString("action");
                 int resultType = results.getInt("type");
                 String resultData = results.getString("data");
-                byte[] resultBlockData = results.getBytes("blockdata");
+                int resultAmount = results.getInt("amount");
                 String resultRolledBack = results.getString("rolled_back");
+
                 if (ConfigHandler.playerIdCacheReversed.get(resultUserId) == null) {
                     UserStatement.loadName(connection, resultUserId);
                 }
                 String resultUser = ConfigHandler.playerIdCacheReversed.get(resultUserId);
-                String blockData = Util.byteDataToString(resultBlockData, resultType);
 
-                String[] lookupData = new String[] { resultTime, resultUser, String.valueOf(x), String.valueOf(y), String.valueOf(z), String.valueOf(resultType), resultData, resultAction, resultRolledBack, String.valueOf(worldId), blockData };
+                String[] lookupData = new String[] { resultTime, resultUser, String.valueOf(x), String.valueOf(y), String.valueOf(z), String.valueOf(resultType), resultData, resultAction, resultRolledBack, String.valueOf(worldId), String.valueOf(resultAmount)};
                 String[] lineData = Util.toStringArray(lookupData);
                 result.add(lineData);
             }

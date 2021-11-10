@@ -6,10 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.Server;
+import net.coreprotect.database.lookup.ChestTransactionLookupAPI;
+import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
@@ -26,10 +24,12 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Util;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public class CoreProtectAPI extends Queue {
 
-    public class ParseResult {
+    private static class ParseResult {
         String[] parse;
 
         public ParseResult(String[] data) {
@@ -41,23 +41,13 @@ public class CoreProtectAPI extends Queue {
         }
 
         public String getActionString() {
-            int actionID = Integer.parseInt(parse[7]);
-            String result = "unknown";
-
-            if (actionID == 0) {
-                result = "break";
-            }
-            else if (actionID == 1) {
-                result = "place";
-            }
-            else if (actionID == 2) {
-                result = "click";
-            }
-            else if (actionID == 3) {
-                result = "kill";
-            }
-
-            return result;
+            return switch(getActionId()) {
+                case 0 -> "break";
+                case 1 -> "place";
+                case 2 -> "click";
+                case 3 -> "kill";
+                default -> "unknown";
+            };
         }
 
         @Deprecated
@@ -65,7 +55,12 @@ public class CoreProtectAPI extends Queue {
             return Integer.parseInt(parse[6]);
         }
 
+        @Deprecated
         public String getPlayer() {
+            return getEntity();
+        }
+
+        public String getEntity() {
             return parse[1];
         }
 
@@ -74,8 +69,12 @@ public class CoreProtectAPI extends Queue {
             return Integer.parseInt(parse[0]);
         }
 
+        public long getTimeLong() {
+            return Long.parseLong(parse[0]);
+        }
+
         public long getTimestamp() {
-            return Long.parseLong(parse[0]) * 1000L;
+            return getTimeLong() * 1000L;
         }
 
         public Material getType() {
@@ -85,8 +84,7 @@ public class CoreProtectAPI extends Queue {
 
             if (actionID == 3) {
                 typeName = Util.getEntityType(type).name();
-            }
-            else {
+            } else {
                 typeName = Util.getType(type).name().toLowerCase(Locale.ROOT);
                 typeName = Util.nameFilter(typeName, this.getData());
             }
@@ -94,12 +92,8 @@ public class CoreProtectAPI extends Queue {
             return Util.getType(typeName);
         }
 
-        public BlockData getBlockData() {
-            String blockData = parse[12];
-            if (blockData.length() == 0) {
-                return getType().createBlockData();
-            }
-            return Bukkit.getServer().createBlockData(blockData);
+        public boolean isRolledBack() {
+            return Integer.parseInt(parse[8]) == 1;
         }
 
         public int getX() {
@@ -114,16 +108,52 @@ public class CoreProtectAPI extends Queue {
             return Integer.parseInt(parse[4]);
         }
 
-        public boolean isRolledBack() {
-            return Integer.parseInt(parse[8]) == 1;
+        public Location getLocation() {
+            return new Location(getWorld(), getX(), getY(), getZ());
         }
 
-        public String worldName() {
+        public String getWorldName() {
             return Util.getWorldName(Integer.parseInt(parse[9]));
+        }
+
+        public World getWorld() {
+            return Bukkit.getWorld(Util.getWorldName(Integer.parseInt(parse[9])));
         }
     }
 
-    private static List<Object> parseList(List<Object> list) {
+    public static class BlockLookupResults extends ParseResult {
+
+        public BlockLookupResults(String[] data) {
+            super(data);
+        }
+
+        public BlockData getBlockData() {
+            String blockData = parse[12];
+            if (blockData.length() == 0) {
+                return getType().createBlockData();
+            }
+            return Bukkit.getServer().createBlockData(blockData);
+        }
+
+    }
+
+    public static class ContainerLookupResults extends ParseResult {
+
+        public ContainerLookupResults(String[] data) {
+            super(data);
+        }
+
+        @Override
+        public String getActionString() {
+            return switch(getActionId()) {
+                case 0 -> "added";
+                case 1 -> "removed";
+                default -> "unknown";
+            };
+        }
+    }
+
+    private static @NotNull List<Object> parseList(List<Object> list) {
         List<Object> result = new ArrayList<>();
 
         if (list != null) {
@@ -145,10 +175,19 @@ public class CoreProtectAPI extends Queue {
         return 7;
     }
 
-    public List<String[]> blockLookup(Block block, int time) {
-        if (Config.getGlobal().API_ENABLED) {
+    public List<String[]> blockLookup(Block block, long time) {
+        if (Config.getGlobal().API_ENABLED && (Config.getConfig(block.getWorld()).BLOCK_MOVEMENT
+                || Config.getConfig(block.getWorld()).BLOCK_BREAK
+                || Config.getConfig(block.getWorld()).BLOCK_PLACE
+                || Config.getConfig(block.getWorld()).BLOCK_IGNITE
+                || Config.getConfig(block.getWorld()).BLOCK_BURN))
             return BlockLookupAPI.performLookup(block, time);
-        }
+        return null;
+    }
+
+    public List<String[]> containerLookup(Block block, long time) {
+        if (Config.getGlobal().API_ENABLED && Config.getConfig(block.getWorld()).ITEM_TRANSACTIONS)
+            return ChestTransactionLookupAPI.performLookup(block, time);
         return null;
     }
 
@@ -385,7 +424,7 @@ public class CoreProtectAPI extends Queue {
         return null;
     }
 
-    private List<String[]> processData(int time, int radius, Location location, List<Object> restrictBlocks, List<Object> excludeBlocks, List<String> restrictUsers, List<String> excludeUsers, List<Integer> actionList, int action, int lookup, int offset, int rowCount, boolean useLimit) {
+    private @Nullable List<String[]> processData(int time, int radius, Location location, List<Object> restrictBlocks, List<Object> excludeBlocks, List<String> restrictUsers, List<String> excludeUsers, List<Integer> actionList, int action, int lookup, int offset, int rowCount, boolean useLimit) {
         // You need to either specify time/radius or time/user
         List<String[]> result = new ArrayList<>();
         List<String> uuids = new ArrayList<>();

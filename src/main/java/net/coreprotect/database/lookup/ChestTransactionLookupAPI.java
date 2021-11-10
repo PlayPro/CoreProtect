@@ -70,4 +70,55 @@ public class ChestTransactionLookupAPI {
         return result;
     }
 
+    public static List<String[]> performLookup(Block block) {
+        List<String[]> result = new ArrayList<>();
+
+        try {
+            if (block == null) {
+                return result;
+            }
+
+            int x = block.getX();
+            int y = block.getY();
+            int z = block.getZ();
+            int worldId = Util.getWorldId(block.getWorld().getName());
+
+            Connection connection = Database.getConnection(false, 1000);
+            if (connection == null) {
+                return result;
+            }
+
+            Statement statement = connection.createStatement();
+            String query = "SELECT time,user,action,type,data,amount,rolled_back FROM " + ConfigHandler.prefix + "container WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' ORDER BY rowid DESC";
+            ResultSet results = statement.executeQuery(query);
+
+            while (results.next()) {
+                String resultTime = results.getString("time");
+                int resultUserId = results.getInt("user");
+                String resultAction = results.getString("action");
+                int resultType = results.getInt("type");
+                String resultData = results.getString("data");
+                int resultAmount = results.getInt("amount");
+                String resultRolledBack = results.getString("rolled_back");
+
+                if (ConfigHandler.playerIdCacheReversed.get(resultUserId) == null) {
+                    UserStatement.loadName(connection, resultUserId);
+                }
+                String resultUser = ConfigHandler.playerIdCacheReversed.get(resultUserId);
+
+                String[] lookupData = new String[] { resultTime, resultUser, String.valueOf(x), String.valueOf(y), String.valueOf(z), String.valueOf(resultType), resultData, resultAction, resultRolledBack, String.valueOf(worldId), String.valueOf(resultAmount)};
+                String[] lineData = Util.toStringArray(lookupData);
+                result.add(lineData);
+            }
+            results.close();
+            statement.close();
+            connection.close();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return result;
+    }
+
 }

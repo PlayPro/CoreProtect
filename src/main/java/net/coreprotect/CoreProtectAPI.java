@@ -46,11 +46,20 @@ public class CoreProtectAPI extends Queue {
         public String getActionString() {
             String res;
             switch(getActionId()) {
-                case 0: res = "break"; break;
-                case 1: res = "place"; break;
-                case 2: res = "click"; break;
-                case 3: res = "kill"; break;
-                default: res = "unknown"; break;
+                case 0:
+                    res = "break";
+                    break;
+                case 1:
+                    res = "place";
+                    break;
+                case 2:
+                    res = "click";
+                    break;
+                case 3:
+                    res = "kill";
+                    break;
+                default:
+                    res = "unknown";
             }
             return res;
         }
@@ -155,9 +164,14 @@ public class CoreProtectAPI extends Queue {
         public String getActionString() {
             String res;
             switch(getActionId()) {
-                case 0: res = "added"; break;
-                case 1: res = "removed"; break;
-                default: res = "unknown"; break;
+                case 0:
+                    res = "removed";
+                    break;
+                case 1:
+                    res = "added";
+                    break;
+                default:
+                    res = "unknown";
             }
             return res;
         }

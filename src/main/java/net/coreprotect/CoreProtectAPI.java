@@ -168,12 +168,6 @@ public class CoreProtectAPI extends Queue {
 
     }
 
-    public static CoreProtectAPI get(JavaPlugin plugin) {
-        Plugin co = plugin.getServer().getPluginManager().getPlugin("CoreProtect");
-        CoreProtectAPI api = (co instanceof CoreProtect) ? ((CoreProtect) co).getAPI() : null;
-        return (api != null && api.isEnabled() && api.APIVersion() < 7) ? api : null;
-    }
-
     public int APIVersion() {
         return 8;
     }

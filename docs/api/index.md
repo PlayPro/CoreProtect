@@ -90,23 +90,6 @@ The first thing you need to do is get access to CoreProtect. You can do this by 
 With this code, you can then access the API with a call like the following:
 
 ```java
-import net.coreprotect.CoreProtectAPI;
-
-public class Plugin extends JavaPlugin {
-    
-    @Override
-    public void onEnable() {
-        CoreProtectAPI api = CoreProtectAPI.get(this);
-        if (api != null) { // Ensure we have access to the API
-            api.testAPI(); // Will print out "[CoreProtect] API test successful." in the console.
-        }
-    }
-    
-}
-``` 
-
-Or
-```java
 import net.coreprotect.CoreProtect;
 import net.coreprotect.CoreProtectAPI;
 
@@ -125,7 +108,7 @@ private CoreProtectAPI getCoreProtect() {
         }
 
         // Check that a compatible version of the API is loaded
-        if (CoreProtect.APIVersion() < 7) {
+        if (CoreProtect.APIVersion() < 8) {
             return null;
         }
 

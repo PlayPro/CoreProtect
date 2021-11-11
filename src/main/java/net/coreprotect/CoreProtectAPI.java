@@ -27,6 +27,7 @@ import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Util;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
 
 public class CoreProtectAPI extends Queue {
 
@@ -159,6 +160,10 @@ public class CoreProtectAPI extends Queue {
                 default: res = "unknown"; break;
             }
             return res;
+        }
+
+        public ItemStack getItem() {
+            return new ItemStack(getType(), getAmount());
         }
 
         public int getAmount() {

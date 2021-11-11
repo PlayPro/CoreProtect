@@ -50,6 +50,10 @@ World getWorld()
 
 // ContainerLookupResults
 Inventory getInventory()
+
+ItemStack getItem()
+
+int getAmount()
 ``` 
 
 ---

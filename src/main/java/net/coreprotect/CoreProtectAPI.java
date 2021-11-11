@@ -44,13 +44,15 @@ public class CoreProtectAPI extends Queue {
         }
 
         public String getActionString() {
-            return switch(getActionId()) {
-                case 0 -> "break";
-                case 1 -> "place";
-                case 2 -> "click";
-                case 3 -> "kill";
-                default -> "unknown";
-            };
+            String res;
+            switch(getActionId()) {
+                case 0: res = "break"; break;
+                case 1: res = "place"; break;
+                case 2: res = "click"; break;
+                case 3: res = "kill"; break;
+                default: res = "unknown"; break;
+            }
+            return res;
         }
 
         public int getData() {
@@ -151,11 +153,13 @@ public class CoreProtectAPI extends Queue {
 
         @Override
         public String getActionString() {
-            return switch(getActionId()) {
-                case 0 -> "added";
-                case 1 -> "removed";
-                default -> "unknown";
-            };
+            String res;
+            switch(getActionId()) {
+                case 0: res = "added"; break;
+                case 1: res = "removed"; break;
+                default: res = "unknown"; break;
+            }
+            return res;
         }
 
         public Inventory getInventory() {

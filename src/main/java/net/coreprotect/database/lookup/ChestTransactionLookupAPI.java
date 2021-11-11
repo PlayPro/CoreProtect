@@ -3,6 +3,7 @@ package net.coreprotect.database.lookup;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.UserStatement;
+import net.coreprotect.utility.APIUtil;
 import net.coreprotect.utility.Util;
 import org.bukkit.block.Block;
 
@@ -56,7 +57,7 @@ public class ChestTransactionLookupAPI {
                 String resultUser = ConfigHandler.playerIdCacheReversed.get(resultUserId);
 
                 String[] lookupData = new String[] { resultTime, resultUser, String.valueOf(x), String.valueOf(y), String.valueOf(z), String.valueOf(resultType), resultData, resultAction, resultRolledBack, String.valueOf(worldId), String.valueOf(resultAmount)};
-                String[] lineData = Util.toStringArray(lookupData);
+                String[] lineData = APIUtil.toContainerLookupResults(lookupData);
                 result.add(lineData);
             }
             results.close();
@@ -107,7 +108,7 @@ public class ChestTransactionLookupAPI {
                 String resultUser = ConfigHandler.playerIdCacheReversed.get(resultUserId);
 
                 String[] lookupData = new String[] { resultTime, resultUser, String.valueOf(x), String.valueOf(y), String.valueOf(z), String.valueOf(resultType), resultData, resultAction, resultRolledBack, String.valueOf(worldId), String.valueOf(resultAmount)};
-                String[] lineData = Util.toStringArray(lookupData);
+                String[] lineData = APIUtil.toContainerLookupResults(lookupData);
                 result.add(lineData);
             }
             results.close();

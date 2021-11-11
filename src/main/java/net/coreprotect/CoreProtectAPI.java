@@ -3,6 +3,7 @@ package net.coreprotect;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -26,8 +27,6 @@ import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Util;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.plugin.Plugin;
-import org.bukkit.plugin.java.JavaPlugin;
 
 public class CoreProtectAPI extends Queue {
 
@@ -136,7 +135,7 @@ public class CoreProtectAPI extends Queue {
         }
 
         public BlockData getBlockData() {
-            String blockData = parse[12];
+            String blockData = parse[11];
             if (blockData.length() == 0) {
                 return getType().createBlockData();
             }
@@ -160,6 +159,10 @@ public class CoreProtectAPI extends Queue {
                 default: res = "unknown"; break;
             }
             return res;
+        }
+
+        public int getAmount() {
+            return Integer.parseInt(parse[12]);
         }
 
         public Inventory getInventory() {
@@ -239,7 +242,7 @@ public class CoreProtectAPI extends Queue {
 
             for (String[] value : check) {
                 BlockLookupResults result = parseBlockLookupResults(value);
-                if (user.equalsIgnoreCase(result.getPlayer()) && result.getActionId() == 1 && result.getTimestamp() <= offsetTime) {
+                if (user.equalsIgnoreCase(result.getEntity()) && result.getActionId() == 1 && result.getTimestamp() <= offsetTime) {
                     match = true;
                     break;
                 }
@@ -260,7 +263,7 @@ public class CoreProtectAPI extends Queue {
 
             for (String[] value : check) {
                 BlockLookupResults result = parseBlockLookupResults(value);
-                if (user.equalsIgnoreCase(result.getPlayer()) && result.getActionId() == 0 && result.getTimestamp() <= offsetTime) {
+                if (user.equalsIgnoreCase(result.getEntity()) && result.getActionId() == 0 && result.getTimestamp() <= offsetTime) {
                     match = true;
                     break;
                 }
@@ -275,43 +278,33 @@ public class CoreProtectAPI extends Queue {
     }
 
     public boolean logChat(Player player, String message) {
-        if (Config.getGlobal().API_ENABLED && player != null && Config.getConfig(player.getWorld()).PLAYER_MESSAGES) {
-            if (message != null) {
-                if (message.length() > 0 && !message.startsWith("/")) {
-                    long timestamp = System.currentTimeMillis() / 1000L;
+        if (Config.getGlobal().API_ENABLED && player != null && Config.getConfig(player.getWorld()).PLAYER_MESSAGES
+                && message != null && message.length() > 0 && !message.startsWith("/")) {
+             long timestamp = System.currentTimeMillis() / 1000L;
 
-                    Queue.queuePlayerChat(player, message, timestamp);
-                    return true;
-                }
-            }
+             Queue.queuePlayerChat(player, message, timestamp);
+             return true;
         }
-
         return false;
     }
 
     public boolean logCommand(Player player, String command) {
-        if (Config.getGlobal().API_ENABLED && player != null && Config.getConfig(player.getWorld()).PLAYER_COMMANDS) {
-            if (command != null && command.startsWith("/")) {
-                long timestamp = System.currentTimeMillis() / 1000L;
+        if (Config.getGlobal().API_ENABLED && player != null && Config.getConfig(player.getWorld()).PLAYER_COMMANDS
+                && command != null && command.startsWith("/")) {
+            long timestamp = System.currentTimeMillis() / 1000L;
 
-                Queue.queuePlayerCommand(player, command, timestamp);
-                return true;
-            }
+            Queue.queuePlayerCommand(player, command, timestamp);
+            return true;
         }
 
         return false;
     }
 
     public boolean logInteraction(String user, Location location) {
-        if (Config.getGlobal().API_ENABLED) {
-            if (user != null && location != null) {
-                if (user.length() > 0) {
-                    Queue.queuePlayerInteraction(user, location.getBlock().getState());
-                    return true;
-                }
-            }
+        if (Config.getGlobal().API_ENABLED && user != null && location != null && user.length() > 0) {
+            Queue.queuePlayerInteraction(user, location.getBlock().getState());
+            return true;
         }
-
         return false;
     }
 
@@ -323,70 +316,53 @@ public class CoreProtectAPI extends Queue {
     }
 
     public boolean logPlacement(String user, Location location, Material type, BlockData blockData) {
-        if (Config.getGlobal().API_ENABLED) {
-            if (user != null && location != null) {
-                if (user.length() > 0) {
-                    Block block = location.getBlock();
-                    BlockState blockState = block.getState();
-                    String blockDataString = null;
+        if (Config.getGlobal().API_ENABLED && user != null && location != null && user.length() > 0) {
+            Block block = location.getBlock();
+            BlockState blockState = block.getState();
+            String blockDataString = null;
 
-                    if (blockData != null) {
-                        blockDataString = blockData.getAsString();
-                    }
-
-                    Queue.queueBlockPlace(user, blockState, block.getType(), null, type, -1, 0, blockDataString);
-                    return true;
-                }
+            if (blockData != null) {
+                blockDataString = blockData.getAsString();
             }
+
+            Queue.queueBlockPlace(user, blockState, block.getType(), null, type, -1, 0, blockDataString);
+            return true;
         }
         return false;
     }
 
     @Deprecated
     public boolean logPlacement(String user, Location location, Material type, byte data) {
-        if (Config.getGlobal().API_ENABLED) {
-            if (user != null && location != null) {
-                if (user.length() > 0) {
-                    Queue.queueBlockPlace(user, location.getBlock().getState(), location.getBlock().getType(), null, type, data, 1, null);
-                    return true;
-                }
-            }
+        if (Config.getGlobal().API_ENABLED && user != null && location != null && user.length() > 0) {
+            Queue.queueBlockPlace(user, location.getBlock().getState(), location.getBlock().getType(), null, type, data, 1, null);
+            return true;
         }
 
         return false;
     }
 
     public boolean logRemoval(String user, Location location, Material type, BlockData blockData) {
-        if (Config.getGlobal().API_ENABLED) {
-            if (user != null && location != null) {
-                if (user.length() > 0) {
-                    String blockDataString = null;
+        if (Config.getGlobal().API_ENABLED && user != null && location != null && user.length() > 0) {
+            String blockDataString = null;
 
-                    if (blockData != null) {
-                        blockDataString = blockData.getAsString();
-                    }
-
-                    Block block = location.getBlock();
-                    Database.containerBreakCheck(user, block.getType(), block, null, location);
-                    Queue.queueBlockBreak(user, location.getBlock().getState(), type, blockDataString, 0);
-                    return true;
-                }
+            if (blockData != null) {
+                blockDataString = blockData.getAsString();
             }
+
+            Block block = location.getBlock();
+            Database.containerBreakCheck(user, block.getType(), block, null, location);
+            Queue.queueBlockBreak(user, location.getBlock().getState(), type, blockDataString, 0);
+            return true;
         }
         return false;
     }
 
     @Deprecated
     public boolean logRemoval(String user, Location location, Material type, byte data) {
-        if (Config.getGlobal().API_ENABLED) {
-            if (user != null && location != null) {
-                if (user.length() > 0) {
-                    Queue.queueBlockBreak(user, location.getBlock().getState(), type, type.createBlockData().getAsString(), data);
-                    return true;
-                }
-            }
+        if (Config.getGlobal().API_ENABLED && user != null && location != null && user.length() > 0) {
+            Queue.queueBlockBreak(user, location.getBlock().getState(), type, type.createBlockData().getAsString(), data);
+            return true;
         }
-
         return false;
     }
 
@@ -472,7 +448,7 @@ public class CoreProtectAPI extends Queue {
             actionList = new ArrayList<>();
         }
 
-        if (actionList.size() == 0 && restrictBlocks.size() > 0) {
+        if (actionList.isEmpty() && !restrictBlocks.isEmpty()) {
             boolean addedMaterial = false;
             boolean addedEntity = false;
 
@@ -489,14 +465,14 @@ public class CoreProtectAPI extends Queue {
             }
         }
 
-        if (actionList.size() == 0) {
+        if (actionList.isEmpty()) {
             actionList.add(0);
             actionList.add(1);
         }
 
         actionList.removeIf(actionListItem -> actionListItem > 3);
 
-        if (restrictUsers.size() == 0) {
+        if (restrictUsers.isEmpty()) {
             restrictUsers.add("#global");
         }
 
@@ -519,11 +495,7 @@ public class CoreProtectAPI extends Queue {
             Connection connection = Database.getConnection(false, 1000);
             if (connection != null) {
                 Statement statement = connection.createStatement();
-                boolean restrictWorld = false;
-
-                if (radius > 0) {
-                    restrictWorld = true;
-                }
+                boolean restrictWorld = radius > 0;
 
                 if (location == null) {
                     restrictWorld = false;

@@ -130,6 +130,8 @@ Yay, you're now using the CoreProtect API!
 
 ### Available Methods
 
+___
+
 #### CoreProtectAPI
 
 ```java

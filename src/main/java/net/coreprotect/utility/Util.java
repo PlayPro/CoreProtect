@@ -2046,26 +2046,6 @@ public class Util extends Queue {
         return result;
     }
 
-    public static String[] toStringArray(String[] array) {
-        int size = array.length;
-        if (size == 11) {
-            String time = array[0];
-            String user = array[1];
-            String x = array[2];
-            String y = array[3];
-            String z = array[4];
-            String type = array[5];
-            String data = array[6];
-            String action = array[7];
-            String rolledBack = array[8];
-            String wid = array[9];
-            String blockData = array[10];
-            return new String[] { time, user, x, y, z, type, data, action, rolledBack, wid, "", "", blockData };
-        }
-
-        return null;
-    }
-
     public static void updateBlock(final BlockState block) {
         Bukkit.getServer().getScheduler().runTask(CoreProtect.getInstance(), () -> {
             try {

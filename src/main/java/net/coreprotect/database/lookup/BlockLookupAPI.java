@@ -6,7 +6,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
-import net.coreprotect.database.Lookup;
+import net.coreprotect.utility.APIUtil;
 import org.bukkit.block.Block;
 
 import net.coreprotect.config.ConfigHandler;
@@ -58,7 +58,7 @@ public class BlockLookupAPI {
                 String blockData = Util.byteDataToString(resultBlockData, resultType);
 
                 String[] lookupData = new String[] { resultTime, resultUser, String.valueOf(x), String.valueOf(y), String.valueOf(z), String.valueOf(resultType), resultData, resultAction, resultRolledBack, String.valueOf(worldId), blockData };
-                String[] lineData = Util.toStringArray(lookupData);
+                String[] lineData = APIUtil.toBlockLookupResults(lookupData);
                 result.add(lineData);
             }
             results.close();
@@ -109,7 +109,7 @@ public class BlockLookupAPI {
                 String blockData = Util.byteDataToString(resultBlockData, resultType);
 
                 String[] lookupData = new String[] { resultTime, resultUser, String.valueOf(x), String.valueOf(y), String.valueOf(z), String.valueOf(resultType), resultData, resultAction, resultRolledBack, String.valueOf(worldId), blockData };
-                String[] lineData = Util.toStringArray(lookupData);
+                String[] lineData = APIUtil.toBlockLookupResults(lookupData);
                 result.add(lineData);
             }
             results.close();

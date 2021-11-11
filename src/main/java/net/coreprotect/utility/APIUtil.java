@@ -2,14 +2,13 @@ package net.coreprotect.utility;
 
 import org.bukkit.Material;
 import org.bukkit.entity.EntityType;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class APIUtil {
 
-    public static @NotNull List<Object> parseList(List<Object> list) {
+    public static List<Object> parseList(List<Object> list) {
         List<Object> result = new ArrayList<>();
 
         if (list != null) {

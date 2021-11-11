@@ -4,46 +4,108 @@ The CoreProtect API enables you to log your own block changes, perform lookups, 
 
 | API Details |  |
 | --- | --- |
-| **API Version:** | 7 |
-| **Plugin Version:** | v20.0+ |
+| **API Version:** | 8 |
+| **Plugin Version:** | v20.1+ |
 | **Maven:** | [maven.playpro.com](https://maven.playpro.com) |
 
 *Documentation for the previous API version can be found [here](https://www.minerealm.com/community/viewtopic.php?f=32&t=16687).*
 
 ---
 
-## Upgrading from API v6
+## Upgrading from API v7
 
 The changes from the previous API version are as follows:
 
 - The following methods have been added:
 ```java
-parseResult(String[] result).getTimestamp()
+// CoreProtectAPI
+List<String[]> blockLookup(Block block)
+
+List<String[]> containerLookup(Block block, long time)
+
+List<String[]> containerLookup(Block block)
+
+List<BlockLookupResults> blockLookupParsed(Block block, long time)
+
+List<BlockLookupResults> blockLookupParsed(Block block)
+
+List<ContainerLookupResults> containerLookupParsed(Block block, long time)
+
+List<ContainerLookupResults> containerLookupParsed(Block block)
+
+BlockLookupResults parseBlockLookupResults(String[] results)
+
+ContainerLookupResults parseContainerLookupResult(String[] results)
+        
+// ParseResult
+String getEntity()
+
+long getTimeLong()
+
+Block getBlock()
+
+Location getLocation()
+
+World getWorld()
+
+// ContainerLookupResults
+Inventory getInventory()
 ``` 
 
 ---
 
 - The following methods have been deprecated:
 ```java
-parseResult(String[] result).getTime()
+// ParseResult
+String getPlayer()
 ``` 
 
 ---
 
-- The following methods have been removed:
+- The following methods have been changed: </br>
+**All methods have time in arguments, instead of `int` are now `long` type**
 ```java
-parseResult(String[] result).getTypeId()
+String worldName() -> String getWorldName()
+
+BlockData ParseResult.getBlockData() -> BlockData BlockLookupResults.getBlockData()
 ``` 
-  
+
+---
+
+- The following classes have been added:
+
+[BlockLookupResults.class]() </br>
+[ContainerLookupResults.class]()
+
 ---
 
 ## Getting Started
 
-Ensure you're using CoreProtect 20.0 or higher. Add it as an external jar to your plugin in your IDE.  
-Alternatively, if using Maven, you can add it via the repository [https://maven.playpro.com](https://maven.playpro.com) (net.coreprotect, 20.0).
+Ensure you're using CoreProtect 20.1 or higher. Add it as an external jar to your plugin in your IDE.  
+Alternatively, if using Maven, you can add it via the repository [https://maven.playpro.com](https://maven.playpro.com) (net.coreprotect, 20.1).
 
+You can then access the API with a call like the following:
 The first thing you need to do is get access to CoreProtect. You can do this by using code similar to the following:
 
+With this code, you can then access the API with a call like the following:
+
+```java
+import net.coreprotect.CoreProtectAPI;
+
+public class Plugin extends JavaPlugin {
+    
+    @Override
+    public void onEnable() {
+        CoreProtectAPI api = CoreProtectAPI.get(this);
+        if (api != null) { // Ensure we have access to the API
+            api.testAPI(); // Will print out "[CoreProtect] API test successful." in the console.
+        }
+    }
+    
+}
+``` 
+
+Or
 ```java
 import net.coreprotect.CoreProtect;
 import net.coreprotect.CoreProtectAPI;
@@ -71,14 +133,12 @@ private CoreProtectAPI getCoreProtect() {
 }
 ``` 
 
-With this code, you can then access the API with a call like the following:
-
 ```java
 CoreProtectAPI api = getCoreProtect();
-if (api != null){ // Ensure we have access to the API
-  api.testAPI(); // Will print out "[CoreProtect] API test successful." in the console.
+if (api != null) { // Ensure we have access to the API
+    api.testAPI(); // Will print out "[CoreProtect] API test successful." in the console.
 }
-``` 
+```
 
 Yay, you're now using the CoreProtect API!
 
@@ -88,20 +148,38 @@ Yay, you're now using the CoreProtect API!
 
 ### Available Methods
 
+#### CoreProtectAPI
+
 ```java
 boolean isEnabled()
 
 void testAPI()
 
-List<String[]> performLookup(int time, List<String> restrict_users, List<String> exclude_users, List<Object> restrict_blocks, List<Object> exclude_blocks, List<Integer> action_list, int radius, Location radius_location)
+List<String[]> performLookup(long time, List<String> restrict_users, List<String> exclude_users, List<Object> restrict_blocks, List<Object> exclude_blocks, List<Integer> action_list, int radius, Location radius_location)
     
-List<String[]> performRollback(int time, List<String> restrict_users, List<String> exclude_users, List<Object> restrict_blocks, List<Object> exclude_blocks, List<Integer> action_list, int radius, Location radius_location)
+List<String[]> performRollback(long time, List<String> restrict_users, List<String> exclude_users, List<Object> restrict_blocks, List<Object> exclude_blocks, List<Integer> action_list, int radius, Location radius_location)
     
-List<String[]> performRestore(int time, List<String> restrict_users, List<String> exclude_users, List<Object> restrict_blocks, List<Object> exclude_blocks, List<Integer> action_list, int radius, Location radius_location)
+List<String[]> performRestore(long time, List<String> restrict_users, List<String> exclude_users, List<Object> restrict_blocks, List<Object> exclude_blocks, List<Integer> action_list, int radius, Location radius_location)
+        
+List<String[]> blockLookup(Block block, long time)
+        
+List<String[]> blockLookup(Block block)
 
-List<String[]> blockLookup(Block block, int time)
+List<String[]> containerLookup(Block block, long time)
 
-ParseResult parseResult(String[] result)
+List<String[]> containerLookup(Block block)
+
+List<BlockLookupResults> blockLookupParsed(Block block, long time)
+        
+List<BlockLookupResults> blockLookupParsed(Block block)
+
+List<ContainerLookupResults> containerLookupParsed(Block block, long time)
+        
+List<ContainerLookupResults> containerLookupParsed(Block block)
+
+BlockLookupResults parseBlockLookupResults(String[] result)
+
+ContainerLookupResults parseContainerLookupResult(String[] result)
 
 boolean logChat(Player player, String message)
 
@@ -115,12 +193,60 @@ boolean logContainerTransaction(String user, Location location)
 
 boolean logInteraction(String user, Location location)
 
-boolean hasPlaced(String user, Block block, int time, int offset)
+boolean hasPlaced(String user, Block block, long time, int offset)
 
-boolean hasRemoved(String user, Block block, int time, int offset)
+boolean hasRemoved(String user, Block block, long time, int offset)
 
-void performPurge(int time)
+void performPurge(long time)
 ``` 
+___
+#### ParseResult
+
+```java
+int getActionId()
+
+String getActionString()
+
+int getData()
+
+String getEntity()
+        
+long getTimeLong()
+
+long getTimestamp()
+
+Material getType()
+
+boolean isRolledBack()
+
+int getX()
+
+int getY()
+
+int getZ()
+
+Location getLocation()
+
+String getWorldName()
+
+World getWorld()
+
+Block getBlock()
+```
+
+___
+#### BlockLookupResults extends ParseResult
+
+```java
+BlockData getBlockData()
+```
+
+___
+#### ContainerLookupResults extends ParseResult
+
+```java
+Inventory getInventory()
+```
 
 ---
 
@@ -154,7 +280,7 @@ Running this will print out "[CoreProtect] API Test Successful." in the server c
 
 ---
 
-#### `performLookup(int time, List<String> restrict_users, List<String> exclude_users, List<Object> restrict_blocks, List<Object> exclude_blocks, List<Integer> action_list, int radius, Location radius_location)`
+#### `performLookup(long time, List<String> restrict_users, List<String> exclude_users, List<Object> restrict_blocks, List<Object> exclude_blocks, List<Integer> action_list, int radius, Location radius_location)`
 
 This will perform a lookup.
 
@@ -169,7 +295,7 @@ This will perform a lookup.
 
 ---
 
-#### `performRollback(int time, List<String> restrict_users, List<String> exclude_users, List<Object> restrict_blocks, List<Object> exclude_blocks, List<Integer> action_list, int radius, Location radius_location)`
+#### `performRollback(long time, List<String> restrict_users, List<String> exclude_users, List<Object> restrict_blocks, List<Object> exclude_blocks, List<Integer> action_list, int radius, Location radius_location)`
 
 This will perform a rollback. Method must be called async.
 
@@ -184,7 +310,7 @@ This will perform a rollback. Method must be called async.
 
 ---
 
-#### `performRestore(int time, List<String> restrict_users, List<String> exclude_users, List<Object> restrict_blocks, List<Object> exclude_blocks, List<Integer> action_list, int radius, Location radius_location)`
+#### `performRestore(long time, List<String> restrict_users, List<String> exclude_users, List<Object> restrict_blocks, List<Object> exclude_blocks, List<Integer> action_list, int radius, Location radius_location)`
 
 This will perform a restore.
 
@@ -199,7 +325,7 @@ This will perform a restore.
 
 ---
 
-#### `blockLookup(Block block, int time)`
+#### `List<String[]> blockLookup(Block block, long time)`
 
 This will perform a full lookup on a single block.
 
@@ -208,21 +334,71 @@ This will perform a full lookup on a single block.
 
 ---
 
-#### `ParseResult parseResult(String[] result)`
+#### `List<String[]> blockLookup(Block block)`
 
-This will parse results from a lookup. You'll then be able to view the following:
+This will perform a full lookup on a single block.
 
-* **getX():** Get the X coordinate of the block.
-* **getY():** Get the Y coordinate of the block.
-* **getZ():** Get the Z coordinate of the block.
-* **getType():** Get the Material of the block.
-* **getBlockData():** Get the BlockData of the block.
-* **getPlayer():** Get the username as a string..
-* **getTimestamp():** Get the time of the action.
-* **getActionId():** Get the action ID. (0=removed, 1=placed, 2=interaction)
-* **getActionString():** Get the action as a string. (Removal, Placement, Interaction)
-* **isRolledBack():** If the block is currently rolled back or not.
-* **worldName():** The name of the world the block is located in.
+* **block:** The block to perform the lookup on.
+---
+
+#### `List<String[]> containerLookup(Block block, long time)`
+
+This will perform a full lookup on a single block with inventory (container).
+
+* **block:** The block to perform the lookup on.
+* **time:** Specify the amount of time to lookup. "5" would return results from the last 5 seconds.
+
+---
+
+#### `List<BlockLookupResults> blockLookupParsed(Block block)`
+
+This will perform a full lookup on a single block.
+
+* **block:** The block to perform the lookup on.
+---
+
+#### `List<BlockLookupResults> blockLookupParsed(Block block, long time)`
+
+This will perform a full lookup on a single block.
+
+* **block:** The block to perform the lookup on.
+* **time:** Specify the amount of time to lookup. "5" would return results from the last 5 seconds.
+
+---
+
+#### `List<BlockLookupResults> blockLookupParsed(Block block)`
+
+This will perform a full lookup on a single block.
+
+* **block:** The block to perform the lookup on.
+---
+
+#### `List<ContainerLookupResults> containerLookupParsed(Block block, long time)`
+
+This will perform a full lookup on a single block with inventory (container).
+
+* **block:** The block to perform the lookup on.
+* **time:** Specify the amount of time to lookup. "5" would return results from the last 5 seconds.
+
+---
+
+#### `List<ContainerLookupResults> containerLookupParsed(Block block)`
+
+This will perform a full lookup on a single block with inventory (container).
+
+* **block:** The block to perform the lookup on.
+
+---
+
+#### `BlockLookupResults parseBlockLookupResults(String[] result)`
+
+This will parse results from a lookup. You'll then be able to view the [following](https://docs.coreprotect.net/api/#blocklookupresults-extends-parseresult)
+
+---
+
+#### `ContainerLookupResults parseContainerLookupResult(String[] result)`
+
+This will parse results from a lookup. You'll then be able to view the [following](https://docs.coreprotect.net/api/#containerlookupresults-extends-parseresult)
 
 ---
 
@@ -266,7 +442,7 @@ This will log a block as having been interacted with.
 
 ---
 
-#### `hasPlaced(String user, Block block, int time, int offset)`
+#### `hasPlaced(String user, Block block, long time, int offset)`
 
 This will return true if a user has already placed a block at the location within the specified time limit.
 
@@ -277,7 +453,7 @@ This will return true if a user has already placed a block at the location withi
 
 ---
 
-#### `hasRemoved(String user, Block block, int time, int offset)`
+#### `hasRemoved(String user, Block block, long time, int offset)`
 
 This will return true if a user has already removed a block at the location within the specified time limit.
 
@@ -288,7 +464,7 @@ This will return true if a user has already removed a block at the location with
 
 ---
 
-#### `performPurge(int time)`
+#### `performPurge(long time)`
 
 This will perform a purge on the CoreProtect database.
 
@@ -301,16 +477,16 @@ This will perform a purge on the CoreProtect database.
 
 - Get the last 60 seconds of block data for the user "Notch".
 ```java
-CoreProtectAPI CoreProtect = getCoreProtect();
-if (CoreProtect!=null){ //Ensure we have access to the API
-  List<String[]> lookup = CoreProtect.performLookup(60, Arrays.asList("Notch"), null, null, null, null, 0, null);
-  if (lookup!=null){
-    for (String[] result : lookup){
-      ParseResult parseResult = CoreProtect.parseResult(result);
+CoreProtectAPI co = getCoreProtect();
+if (co != null) { // Ensure we have access to the API
+  List<String[]> lookup = co.performLookup(60, Arrays.asList("Notch"), null, null, null, null, 0, null);
+  if (lookup != null) {
+    for (String[] result : lookup) {
+      BlockLookupResults parseResult = co.parseBlockLookupResults(result);
       int x = parseResult.getX();
       int y = parseResult.getY();
       int z = parseResult.getZ();
-      //...
+      // ...
     }
   }
 }
@@ -320,17 +496,17 @@ if (CoreProtect!=null){ //Ensure we have access to the API
 
 - Get the last 60 seconds of block data for the user "Notch", excluding dirt and grass blocks.
 ```java
-CoreProtectAPI CoreProtect = getCoreProtect();
-if (CoreProtect!=null){ //Ensure we have access to the API
+CoreProtectAPI co = getCoreProtect();
+if (co != null) { // Ensure we have access to the API
   List<Object> exclude = Arrays.asList(Material.DIRT, Material.GRASS);
-  List<String[]> lookup = CoreProtect.performLookup(60, Arrays.asList("Notch"), null, null, exclude, null, 0, null);
-  if (lookup!=null){
-    for (String[] value : lookup){
-      ParseResult result = CoreProtect.parseResult(value);
+  List<String[]> lookup = co.performLookup(60, Arrays.asList("Notch"), null, null, exclude, null, 0, null);
+  if (lookup != null) {
+    for (String[] value : lookup) {
+      BlockLookupResults result = co.parseBlockLookupResults(value);
       int x = result.getX();
       int y = result.getY();
       int z = result.getZ();
-      //...
+      // ...
     }
   }
 }
@@ -340,16 +516,16 @@ if (CoreProtect!=null){ //Ensure we have access to the API
 
 - Get the last 60 seconds of block data within 5 blocks of a location.
 ```java
-CoreProtectAPI CoreProtect = getCoreProtect();
-if (CoreProtect!=null){ //Ensure we have access to the API
-  List<String[]> lookup = CoreProtect.performLookup(60, null, null, null, null, null, 5, location);
-  if (lookup!=null){
-    for (String[] value : lookup){
-      ParseResult result = CoreProtect.parseResult(value);
+CoreProtectAPI co = getCoreProtect();
+if (co != null) { // Ensure we have access to the API
+  List<String[]> lookup = co.performLookup(60, null, null, null, null, null, 5, location);
+  if (lookup != null) {
+    for (String[] value : lookup) {
+      BlockLookupResults result = co.parseBlockLookupResults(value);
       int x = result.getX();
       int y = result.getY();
       int z = result.getZ();
-      //...
+      // ...
     }
   }
 }
@@ -360,27 +536,27 @@ if (CoreProtect!=null){ //Ensure we have access to the API
 - Rollbacks / restores use the same code structure as the above examples. For example:
 ```java
 class BasicThread implements Runnable {
-@Override
-public void run() {
-  try {
-    CoreProtectAPI CoreProtect = getCoreProtect();
-    if (CoreProtect!=null){ //Ensure we have access to the API
-      List<String[]> lookup = CoreProtect.performRollback(60, Arrays.asList("Notch"), null, null, null, null, 0, null);
-      if (lookup!=null){
-        for (String[] value : lookup){
-          ParseResult result = CoreProtect.parseResult(value);
-          int x = result.getX();
-          int y = result.getY();
-          int z = result.getZ();
-          //...
+  @Override
+  public void run() {
+    try {
+      CoreProtectAPI co = getCoreProtect();
+      if (co != null) { // Ensure we have access to the API
+        List<String[]> lookup = co.performRollback(60, Arrays.asList("Notch"), null, null, null, null, 0, null);
+        if (lookup != null) {
+          for (String[] value : lookup) {
+              BlockLookupResults result = co.parseBlockLookupResults(value);
+            int x = result.getX();
+            int y = result.getY();
+            int z = result.getZ();
+            // ...
+          }
         }
       }
     }
+    catch (Exception e) {
+      e.printStackTrace(); 
+    }
   }
-  catch (Exception e){
-    e.printStackTrace(); 
-  }
-}
 }
 Runnable runnable = new BasicThread();
 Thread thread = new Thread(runnable);
@@ -391,9 +567,9 @@ thread.start();
 
 - Check if the user "Notch" has already placed a block at a location within the last 60 seconds.
 ```java
-CoreProtectAPI CoreProtect = getCoreProtect();
-if (CoreProtect!=null){ //Ensure we have access to the API
-  boolean hasPlaced = CoreProtect.HasPlaced("Notch", block, 60, 0);
+CoreProtectAPI co = getCoreProtect();
+if (co != null) { // Ensure we have access to the API
+  boolean hasPlaced = co.HasPlaced("Notch", block, 60, 0);
 }
 ``` 
 
@@ -401,16 +577,16 @@ if (CoreProtect!=null){ //Ensure we have access to the API
 
 - Get the last 60 seconds of block data for a specific block.
 ```java
-CoreProtectAPI CoreProtect = getCoreProtect();
-if (CoreProtect!=null){ //Ensure we have access to the API
-  List<String[]> lookup = CoreProtect.blockLookup(block, 60);
-  if (lookup!=null){
-    for (String[] result : lookup){
-      ParseResult parseResult = CoreProtect.parseResult(value);
+CoreProtectAPI co = getCoreProtect();
+if (co != null) { // Ensure we have access to the API
+  List<String[]> lookup = co.blockLookup(block, 60);
+  if (lookup != null) {
+    for (String[] result : lookup) {
+      BlockLookupResults parseResult = co.parseBlockLookupResults(value);
       int x = parseResult.getX();
       int y = parseResult.getY();
       int z = parseResult.getZ();
-      //...
+      // ...
     }
   }
 }
@@ -420,9 +596,9 @@ if (CoreProtect!=null){ //Ensure we have access to the API
 
 - Log the placement of a block at a location by the user "Notch".
 ```java
-CoreProtectAPI CoreProtect = getCoreProtect();
-if (CoreProtect!=null){ //Ensure we have access to the API
-  boolean success = CoreProtect.logPlacement("Notch", block.getLocation(), block.getType(), block.getData());
+CoreProtectAPI co = getCoreProtect();
+if (co != null) { // Ensure we have access to the API
+  boolean success = co.logPlacement("Notch", block.getLocation(), block.getType(), block.getData());
 }
 ``` 
 
@@ -430,9 +606,9 @@ if (CoreProtect!=null){ //Ensure we have access to the API
 
 - Log adding/remove items in a chest (or some other block inventory).
 ```java
-CoreProtectAPI CoreProtect = getCoreProtect();
-if (CoreProtect!=null){ //Ensure we have access to the API
-  boolean success = CoreProtect.logContainerTransaction("Notch", inventory.getLocation());
+CoreProtectAPI co = getCoreProtect();
+if (CoreProtect != null) { // Ensure we have access to the API
+  boolean success = co.logContainerTransaction("Notch", inventory.getLocation());
   // modify your container contents immediately after (e.g. [i]inventory.addItem(itemStack);[/i])
 }
 ``` 
@@ -441,14 +617,14 @@ if (CoreProtect!=null){ //Ensure we have access to the API
 
 - Perform a multi-threaded placement check to see if the user "Notch" has already placed a block at a location within the last 60 seconds. This ignores the most recent 1 second of logged data, to account for the fact that that new block data may have already been logged, depending on your code.
 ```java
-final Block block = null; //Should be an actual block
+final Block block = null; // Should be an actual block
 class BasicThread implements Runnable {
   @Override
   public void run() {
     try {
-      CoreProtectAPI CoreProtect = getCoreProtect();
-      if (CoreProtect!=null){ //Ensure we have access to the API
-        boolean hasPlaced = CoreProtect.hasPlaced("Notch", block, 60, 1);
+      CoreProtectAPI co = getCoreProtect();
+      if (co != null){ // Ensure we have access to the API
+        boolean hasPlaced = co.hasPlaced("Notch", block, 60, 1);
       }
     }
     catch (Exception e){

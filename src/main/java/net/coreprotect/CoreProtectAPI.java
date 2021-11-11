@@ -25,10 +25,9 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Util;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 public class CoreProtectAPI extends Queue {
 
@@ -95,6 +94,10 @@ public class CoreProtectAPI extends Queue {
             return Util.getType(typeName);
         }
 
+        public Block getBlock() {
+            return getLocation().getBlock();
+        }
+
         public boolean isRolledBack() {
             return Integer.parseInt(parse[8]) == 1;
         }
@@ -154,16 +157,21 @@ public class CoreProtectAPI extends Queue {
                 default -> "unknown";
             };
         }
+
+        public Inventory getInventory() {
+            return Util.getContainerInventory(getBlock().getState(), true);
+        }
+
     }
 
-    public static @Nullable CoreProtectAPI get(@NotNull JavaPlugin plugin) {
+    public static CoreProtectAPI get(JavaPlugin plugin) {
         Plugin co = plugin.getServer().getPluginManager().getPlugin("CoreProtect");
         CoreProtectAPI api = (co instanceof CoreProtect) ? ((CoreProtect) co).getAPI() : null;
         return (api != null && api.isEnabled() && api.APIVersion() < 7) ? api : null;
     }
 
     public int APIVersion() {
-        return 7;
+        return 8;
     }
 
     public List<String[]> blockLookup(Block block, long time) {
@@ -212,6 +220,14 @@ public class CoreProtectAPI extends Queue {
 
     public List<ContainerLookupResults> containerLookupParsed(Block block) {
         return containerLookup(block).stream().map(ContainerLookupResults::new).toList();
+    }
+
+    public BlockLookupResults parseBlockLookupResults(String[] results) {
+        return new BlockLookupResults(results);
+    }
+
+    public ContainerLookupResults parseContainerLookupResult(String[] results) {
+        return new ContainerLookupResults(results);
     }
 
     public boolean hasPlaced(String user, Block block, long time, int offset) {
@@ -376,14 +392,6 @@ public class CoreProtectAPI extends Queue {
         return false;
     }
 
-    public BlockLookupResults parseBlockLookupResults(String[] results) {
-        return new BlockLookupResults(results);
-    }
-
-    public ContainerLookupResults parseContainerLookupResult(String[] results) {
-        return new ContainerLookupResults(results);
-    }
-
     public List<String[]> performLookup(long time, List<String> restrictUsers, List<String> excludeUsers, List<Object> restrictBlocks, List<Object> excludeBlocks, List<Integer> actionList, int radius, Location radiusLocation) {
         if (Config.getGlobal().API_ENABLED) {
             return processData(time, radius, radiusLocation, APIUtil.parseList(restrictBlocks), APIUtil.parseList(excludeBlocks), restrictUsers, excludeUsers, actionList, 0, 1, -1, -1, false);
@@ -449,7 +457,7 @@ public class CoreProtectAPI extends Queue {
         return null;
     }
 
-    private @Nullable List<String[]> processData(long time, int radius, Location location, List<Object> restrictBlocks, List<Object> excludeBlocks, List<String> restrictUsers, List<String> excludeUsers, List<Integer> actionList, int action, int lookup, int offset, int rowCount, boolean useLimit) {
+    private List<String[]> processData(long time, int radius, Location location, List<Object> restrictBlocks, List<Object> excludeBlocks, List<String> restrictUsers, List<String> excludeUsers, List<Integer> actionList, int action, int lookup, int offset, int rowCount, boolean useLimit) {
         // You need to either specify time/radius or time/user
         List<String[]> result = new ArrayList<>();
         List<String> uuids = new ArrayList<>();

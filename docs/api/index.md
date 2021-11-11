@@ -84,10 +84,7 @@ BlockData ParseResult.getBlockData() -> BlockData BlockLookupResults.getBlockDat
 Ensure you're using CoreProtect 20.1 or higher. Add it as an external jar to your plugin in your IDE.  
 Alternatively, if using Maven, you can add it via the repository [https://maven.playpro.com](https://maven.playpro.com) (net.coreprotect, 20.1).
 
-You can then access the API with a call like the following:
 The first thing you need to do is get access to CoreProtect. You can do this by using code similar to the following:
-
-With this code, you can then access the API with a call like the following:
 
 ```java
 import net.coreprotect.CoreProtect;
@@ -115,6 +112,8 @@ private CoreProtectAPI getCoreProtect() {
         return CoreProtect;
 }
 ``` 
+
+With this code, you can then access the API with a call like the following:
 
 ```java
 CoreProtectAPI api = getCoreProtect();

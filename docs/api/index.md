@@ -78,8 +78,8 @@ BlockData ParseResult.getBlockData() -> BlockData BlockLookupResults.getBlockDat
 
 - The following classes have been added:
 
-[BlockLookupResults.class]() </br>
-[ContainerLookupResults.class]()
+[BlockLookupResults.class](#blocklookupresults-extends-parseresult) </br>
+[ContainerLookupResults.class](#containerlookupresults-extends-parseresult)
 
 ---
 
@@ -234,6 +234,10 @@ ___
 
 ```java
 Inventory getInventory()
+
+ItemStack getItem()
+
+int getAmount()
 ```
 
 ---
@@ -380,13 +384,13 @@ This will perform a full lookup on a single block with inventory (container).
 
 #### `BlockLookupResults parseBlockLookupResults(String[] result)`
 
-This will parse results from a lookup. You'll then be able to view the [following](https://docs.coreprotect.net/api/#blocklookupresults-extends-parseresult)
+This will parse results from a lookup. You'll then be able to view the [following](#blocklookupresults-extends-parseresult)
 
 ---
 
 #### `ContainerLookupResults parseContainerLookupResult(String[] result)`
 
-This will parse results from a lookup. You'll then be able to view the [following](https://docs.coreprotect.net/api/#containerlookupresults-extends-parseresult)
+This will parse results from a lookup. You'll then be able to view the [following](#containerlookupresults-extends-parseresult)
 
 ---
 

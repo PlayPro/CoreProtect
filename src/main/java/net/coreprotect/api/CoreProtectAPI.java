@@ -1,16 +1,21 @@
-package net.coreprotect;
+package net.coreprotect.api;
 
-import java.sql.Connection;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale;
-import java.util.stream.Collectors;
-
-import net.coreprotect.database.lookup.ChestTransactionLookupAPI;
+import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.Database;
+import net.coreprotect.database.Lookup;
+import net.coreprotect.database.Rollback;
+import net.coreprotect.api.results.lookup.BlockLookupAPI;
+import net.coreprotect.api.results.lookup.ChestTransactionLookupAPI;
+import net.coreprotect.language.Phrase;
+import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.utility.APIUtil;
-import org.bukkit.*;
+import net.coreprotect.utility.Chat;
+import net.coreprotect.api.results.*;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.Server;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
@@ -18,193 +23,13 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 
-import net.coreprotect.config.Config;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.database.Database;
-import net.coreprotect.database.Lookup;
-import net.coreprotect.database.Rollback;
-import net.coreprotect.database.lookup.BlockLookupAPI;
-import net.coreprotect.language.Phrase;
-import net.coreprotect.listener.player.InventoryChangeListener;
-import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.Util;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
+import java.sql.Connection;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class CoreProtectAPI extends Queue {
-
-    private static class ParseResult {
-
-        protected final String[] parse;
-
-        public ParseResult(String[] data) {
-            parse = data;
-        }
-
-        public int getActionId() {
-            return Integer.parseInt(parse[7]);
-        }
-
-        public String getActionString() {
-            String res;
-            switch(getActionId()) {
-                case 0:
-                    res = "break";
-                    break;
-                case 1:
-                    res = "place";
-                    break;
-                case 2:
-                    res = "click";
-                    break;
-                case 3:
-                    res = "kill";
-                    break;
-                default:
-                    res = "unknown";
-            }
-            return res;
-        }
-
-        public int getData() {
-            return Integer.parseInt(parse[6]);
-        }
-
-        @Deprecated
-        public String getPlayer() {
-            return getEntity();
-        }
-
-        public String getEntity() {
-            return parse[1];
-        }
-
-        @Deprecated
-        public int getTime() {
-            return Integer.parseInt(parse[0]);
-        }
-
-        public long getTimeLong() {
-            return Long.parseLong(parse[0]);
-        }
-
-        public long getTimestamp() {
-            return getTimeLong() * 1000L;
-        }
-
-        public Material getType() {
-            int actionID = this.getActionId();
-            int type = Integer.parseInt(parse[5]);
-            String typeName;
-
-            if (actionID == 3) {
-                typeName = Util.getEntityType(type).name();
-            } else {
-                typeName = Util.getType(type).name().toLowerCase(Locale.ROOT);
-                typeName = Util.nameFilter(typeName, this.getData());
-            }
-
-            return Util.getType(typeName);
-        }
-
-        public Block getBlock() {
-            return getLocation().getBlock();
-        }
-
-        public boolean isRolledBack() {
-            return Integer.parseInt(parse[8]) == 1;
-        }
-
-        public int getX() {
-            return Integer.parseInt(parse[2]);
-        }
-
-        public int getY() {
-            return Integer.parseInt(parse[3]);
-        }
-
-        public int getZ() {
-            return Integer.parseInt(parse[4]);
-        }
-
-        public Location getLocation() {
-            return new Location(getWorld(), getX(), getY(), getZ());
-        }
-
-        public String getWorldName() {
-            return Util.getWorldName(Integer.parseInt(parse[9]));
-        }
-
-        public World getWorld() {
-            return Bukkit.getWorld(getWorldName());
-        }
-    }
-
-    public class BlockLookupResults extends ParseResult {
-
-        public BlockLookupResults(String[] data) {
-            super(data);
-        }
-
-        public BlockData getBlockData() {
-            String blockData = parse[12];
-            if (blockData.length() == 0) return getType().createBlockData();
-            return Bukkit.getServer().createBlockData(blockData);
-        }
-
-        public boolean hasRemoved(String entity) {
-            return CoreProtectAPI.this.hasRemoved(entity, this);
-        }
-
-        public boolean hasPlaced(String entity) {
-            return CoreProtectAPI.this.hasPlaced(entity, this);
-        }
-
-        public boolean hasRemoved(LivingEntity entity) {
-            return CoreProtectAPI.this.hasRemoved(entity, this);
-        }
-
-        public boolean hasPlaced(LivingEntity entity) {
-            return CoreProtectAPI.this.hasPlaced(entity, this);
-        }
-
-    }
-
-    public class ContainerLookupResults extends ParseResult {
-
-        public ContainerLookupResults(String[] data) {
-            super(data);
-        }
-
-        @Override
-        public String getActionString() {
-            String res;
-            switch(getActionId()) {
-                case 0:
-                    res = "removed";
-                    break;
-                case 1:
-                    res = "added";
-                    break;
-                default:
-                    res = "unknown";
-            }
-            return res;
-        }
-
-        public ItemStack getItem() {
-            return new ItemStack(getType(), getAmount());
-        }
-
-        public int getAmount() {
-            return Integer.parseInt(parse[12]);
-        }
-
-        public Inventory getInventory() {
-            return Util.getContainerInventory(getBlock().getState(), true);
-        }
-
-    }
 
     public int APIVersion() {
         return 8;
@@ -242,28 +67,28 @@ public class CoreProtectAPI extends Queue {
         return null;
     }
 
-    public List<BlockLookupResults> blockLookupParsed(Block block, long time) {
-        return blockLookup(block, time).stream().map(BlockLookupResults::new).collect(Collectors.toList());
+    public List<BlockLookupResult> blockLookupParsed(Block block, long time) {
+        return blockLookup(block, time).stream().map(BlockLookupResult::new).collect(Collectors.toList());
     }
 
-    public List<BlockLookupResults> blockLookupParsed(Block block) {
-        return blockLookup(block).stream().map(BlockLookupResults::new).collect(Collectors.toList());
+    public List<BlockLookupResult> blockLookupParsed(Block block) {
+        return blockLookup(block).stream().map(BlockLookupResult::new).collect(Collectors.toList());
     }
 
-    public List<ContainerLookupResults> containerLookupParsed(Block block, long time) {
-        return containerLookup(block, time).stream().map(ContainerLookupResults::new).collect(Collectors.toList());
+    public List<ContainerLookupResult> containerLookupParsed(Block block, long time) {
+        return containerLookup(block, time).stream().map(ContainerLookupResult::new).collect(Collectors.toList());
     }
 
-    public List<ContainerLookupResults> containerLookupParsed(Block block) {
-        return containerLookup(block).stream().map(ContainerLookupResults::new).collect(Collectors.toList());
+    public List<ContainerLookupResult> containerLookupParsed(Block block) {
+        return containerLookup(block).stream().map(ContainerLookupResult::new).collect(Collectors.toList());
     }
 
-    public BlockLookupResults parseBlockLookupResults(String[] results) {
-        return new BlockLookupResults(results);
+    public BlockLookupResult parseBlockLookupResult(String[] results) {
+        return new BlockLookupResult(results);
     }
 
-    public ContainerLookupResults parseContainerLookupResult(String[] results) {
-        return new ContainerLookupResults(results);
+    public ContainerLookupResult parseContainerLookupResult(String[] results) {
+        return new ContainerLookupResult(results);
     }
 
     public boolean hasPlaced(String user, Block block, long time, long offset) {
@@ -276,7 +101,7 @@ public class CoreProtectAPI extends Queue {
             List<String[]> check = blockLookup(block, time);
 
             for (String[] value : check) {
-                BlockLookupResults result = parseBlockLookupResults(value);
+                BlockLookupResult result = parseBlockLookupResult(value);
                 if (user.equalsIgnoreCase(result.getEntity()) && result.getActionId() == 1 && result.getTimestamp() <= offsetTime) {
                     match = true;
                     break;
@@ -297,7 +122,7 @@ public class CoreProtectAPI extends Queue {
             List<String[]> check = blockLookup(block, time);
 
             for (String[] value : check) {
-                BlockLookupResults result = parseBlockLookupResults(value);
+                BlockLookupResult result = parseBlockLookupResult(value);
                 if (user.equalsIgnoreCase(result.getEntity()) && result.getActionId() == 0 && result.getTimestamp() <= offsetTime) {
                     match = true;
                     break;
@@ -316,7 +141,7 @@ public class CoreProtectAPI extends Queue {
             List<String[]> check = blockLookup(block);
 
             for (String[] value : check) {
-                BlockLookupResults result = parseBlockLookupResults(value);
+                BlockLookupResult result = parseBlockLookupResult(value);
                 if (user.equalsIgnoreCase(result.getEntity()) && result.getActionId() == 1) {
                     match = true;
                     break;
@@ -335,7 +160,7 @@ public class CoreProtectAPI extends Queue {
             List<String[]> check = blockLookup(block);
 
             for (String[] value : check) {
-                BlockLookupResults result = parseBlockLookupResults(value);
+                BlockLookupResult result = parseBlockLookupResult(value);
                 if (user.equalsIgnoreCase(result.getEntity()) && result.getActionId() == 0) {
                     match = true;
                     break;
@@ -346,60 +171,36 @@ public class CoreProtectAPI extends Queue {
         return match;
     }
 
-    public boolean hasPlaced(String user, BlockLookupResults result) {
+    public boolean hasPlaced(String user, BlockLookupResult result) {
         return Config.getGlobal().API_ENABLED && user.equalsIgnoreCase(result.getEntity()) && result.getActionId() == 1;
     }
 
-    public boolean hasRemoved(String user, BlockLookupResults result) {
+    public boolean hasRemoved(String user, BlockLookupResult result) {
         return Config.getGlobal().API_ENABLED && user.equalsIgnoreCase(result.getEntity()) && result.getActionId() == 0;
     }
 
     public boolean hasPlaced(LivingEntity entity, Block block) {
-        if (entity instanceof Player) {
-            Player player = (Player) entity;
-            return hasPlaced(player.getName(), block);
-        }
-        return hasPlaced("#" + entity.getType().name().toLowerCase(), block);
+        return hasPlaced(APIUtil.getUserName(entity), block);
     }
 
     public boolean hasPlaced(LivingEntity entity, Block block, long time, long offset) {
-        if (entity instanceof Player) {
-            Player player = (Player) entity;
-            return hasPlaced(player.getName(), block, time, offset);
-        }
-        return hasPlaced("#" + entity.getType().name().toLowerCase(), block, time, offset);
+        return hasPlaced(APIUtil.getUserName(entity), block, time, offset);
     }
 
     public boolean hasRemoved(LivingEntity entity, Block block) {
-        if (entity instanceof Player) {
-            Player player = (Player) entity;
-            return hasRemoved(player.getName(), block);
-        }
-        return hasRemoved("#" + entity.getType().name().toLowerCase(), block);
+        return hasRemoved(APIUtil.getUserName(entity), block);
     }
 
     public boolean hasRemoved(LivingEntity entity, Block block, long time, long offset) {
-        if (entity instanceof Player) {
-            Player player = (Player) entity;
-            return hasRemoved(player.getName(), block, time, offset);
-        }
-        return hasRemoved("#" + entity.getType().name().toLowerCase(), block);
+        return hasRemoved(APIUtil.getUserName(entity), block, time, offset);
     }
 
-    public boolean hasRemoved(LivingEntity entity, BlockLookupResults result) {
-        if (entity instanceof Player) {
-            Player player = (Player) entity;
-            return hasRemoved(player.getName(), result);
-        }
-        return hasRemoved("#" + entity.getType().name().toLowerCase(), result);
+    public boolean hasRemoved(LivingEntity entity, BlockLookupResult result) {
+        return hasRemoved(APIUtil.getUserName(entity), result);
     }
 
-    public boolean hasPlaced(LivingEntity entity, BlockLookupResults result) {
-        if (entity instanceof Player) {
-            Player player = (Player) entity;
-            return hasPlaced(player.getName(), result);
-        }
-        return hasPlaced("#" + entity.getType().name().toLowerCase(), result);
+    public boolean hasPlaced(LivingEntity entity, BlockLookupResult result) {
+        return hasPlaced(APIUtil.getUserName(entity), result);
     }
 
     public boolean isEnabled() {

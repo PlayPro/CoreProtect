@@ -1,4 +1,4 @@
-package net.coreprotect.database.lookup;
+package net.coreprotect.api.results.lookup;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;

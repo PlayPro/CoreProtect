@@ -25,17 +25,17 @@ List<String[]> containerLookup(Block block, long time)
 
 List<String[]> containerLookup(Block block)
 
-List<BlockLookupResults> blockLookupParsed(Block block, long time)
+List<BlockLookupResult> blockLookupParsed(Block block, long time)
 
-List<BlockLookupResults> blockLookupParsed(Block block)
+List<BlockLookupResult> blockLookupParsed(Block block)
 
-List<ContainerLookupResults> containerLookupParsed(Block block, long time)
+List<ContainerLookupResult> containerLookupParsed(Block block, long time)
 
-List<ContainerLookupResults> containerLookupParsed(Block block)
+List<ContainerLookupResult> containerLookupParsed(Block block)
 
-BlockLookupResults parseBlockLookupResults(String[] results)
+BlockLookupResult parseBlockLookupResult(String[] results)
 
-ContainerLookupResults parseContainerLookupResult(String[] results)
+ContainerLookupResult parseContainerLookupResult(String[] results)
 
 boolean hasPlaced(String user, Block block)
 
@@ -49,13 +49,13 @@ boolean hasRemoved(LivingEntity entity, Block block, long time, long offset)
 
 boolean hasRemoved(LivingEntity entity, Block block)
 
-boolean hasRemoved(LivingEntity entity, BlockLookupResults result)
+boolean hasRemoved(LivingEntity entity, BlockLookupResult result)
 
-boolean hasPlaced(LivingEntity entity, BlockLookupResults result)
+boolean hasPlaced(LivingEntity entity, BlockLookupResult result)
 
-boolean hasPlaced(String user, BlockLookupResults result)
+boolean hasPlaced(String user, BlockLookupResult result)
 
-boolean hasRemoved(String user, BlockLookupResults result)
+boolean hasRemoved(String user, BlockLookupResult result)
         
 // ParseResult
 String getEntity()
@@ -68,7 +68,7 @@ Location getLocation()
 
 World getWorld()
 
-// BlockLookupResults
+// BlockLookupResult
 boolean hasRemoved(String entity)
 
 boolean hasPlaced(String entity)
@@ -77,7 +77,7 @@ boolean hasRemoved(LivingEntity entity)
 
 boolean hasPlaced(LivingEntity entity)
         
-// ContainerLookupResults
+// ContainerLookupResult
 Inventory getInventory()
 
 ItemStack getItem()
@@ -101,11 +101,11 @@ String getPlayer()
 String worldName() -> String getWorldName()
 
 ParseResult parseResult(String[] result) ->
-        BlockLookupResults parseBlockLookupResults(String[] results)
+        BlockLookupResult parseBlockLookupResult(String[] results)
         // OR
-        ContainerLookupResults parseContainerLookupResult(String[] results)
+        ContainerLookupResult parseContainerLookupResult(String[] results)
 
-BlockData ParseResult.getBlockData() -> BlockData BlockLookupResults.getBlockData()
+BlockData ParseResult.getBlockData() -> BlockData BlockLookupResult.getBlockData()
 ``` 
 
 ---
@@ -119,8 +119,8 @@ ParseResult parseResult(String[] result)
 
 - The following classes have been added:
 
-[BlockLookupResults.class](#blocklookupresults-extends-parseresult) </br>
-[ContainerLookupResults.class](#containerlookupresults-extends-parseresult)
+[BlockLookupResult.class](#blocklookupresult-extends-parseresult) </br>
+[ContainerLookupResult.class](#containerlookupresult-extends-parseresult)
 
 ---
 
@@ -133,7 +133,7 @@ The first thing you need to do is get access to CoreProtect. You can do this by 
 
 ```java
 import net.coreprotect.CoreProtect;
-import net.coreprotect.CoreProtectAPI;
+import net.coreprotect.api.CoreProtectAPI;
 
 private CoreProtectAPI getCoreProtect() {
         Plugin plugin = getServer().getPluginManager().getPlugin("CoreProtect");
@@ -198,17 +198,17 @@ List<String[]> containerLookup(Block block, long time)
 
 List<String[]> containerLookup(Block block)
 
-List<BlockLookupResults> blockLookupParsed(Block block, long time)
+List<BlockLookupResult> blockLookupParsed(Block block, long time)
         
-List<BlockLookupResults> blockLookupParsed(Block block)
+List<BlockLookupResult> blockLookupParsed(Block block)
 
-List<ContainerLookupResults> containerLookupParsed(Block block, long time)
+List<ContainerLookupResult> containerLookupParsed(Block block, long time)
         
-List<ContainerLookupResults> containerLookupParsed(Block block)
+List<ContainerLookupResult> containerLookupParsed(Block block)
 
-BlockLookupResults parseBlockLookupResults(String[] result)
+BlockLookupResult parseBlockLookupResult(String[] result)
 
-ContainerLookupResults parseContainerLookupResult(String[] result)
+ContainerLookupResult parseContainerLookupResult(String[] result)
 
 boolean logChat(Player player, String message)
 
@@ -224,7 +224,27 @@ boolean logInteraction(String user, Location location)
 
 boolean hasPlaced(String user, Block block, long time, int offset)
 
+boolean hasPlaced(String user, Block block)
+
+boolean hasPlaced(String user, BlockLookupResult result)
+
+boolean hasPlaced(LivingEntity entity, Block block, long time, long offset)
+
+boolean hasPlaced(LivingEntity entity, Block block)
+
+boolean hasPlaced(LivingEntity entity, BlockLookupResult result)
+
 boolean hasRemoved(String user, Block block, long time, int offset)
+
+boolean hasRemoved(String user, Block block)
+
+boolean hasRemoved(String user, BlockLookupResult result)
+
+boolean hasRemoved(LivingEntity entity, Block block, long time, long offset)
+
+boolean hasRemoved(LivingEntity entity, Block block)
+
+boolean hasRemoved(LivingEntity entity, BlockLookupResult result)
 
 void performPurge(long time)
 ``` 
@@ -264,7 +284,7 @@ Block getBlock()
 ```
 
 ___
-#### BlockLookupResults extends ParseResult
+#### BlockLookupResult extends ParseResult
 
 ```java
 BlockData getBlockData()
@@ -279,7 +299,7 @@ boolean hasPlaced(LivingEntity entity)
 ```
 
 ___
-#### ContainerLookupResults extends ParseResult
+#### ContainerLookupResult extends ParseResult
 
 ```java
 Inventory getInventory()

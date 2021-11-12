@@ -2,11 +2,22 @@ package net.coreprotect.utility;
 
 import org.bukkit.Material;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class APIUtil {
+
+    public static String getUserName(LivingEntity entity) {
+        if (entity instanceof Player) {
+            Player player = (Player) entity;
+            return player.getName();
+        }
+        return "#" + entity.getType().name().toLowerCase(Locale.ENGLISH);
+    }
 
     public static List<Object> parseList(List<Object> list) {
         List<Object> result = new ArrayList<>();

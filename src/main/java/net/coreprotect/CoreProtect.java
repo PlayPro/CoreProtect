@@ -2,6 +2,7 @@ package net.coreprotect;
 
 import java.io.File;
 
+import net.coreprotect.api.CoreProtectAPI;
 import org.bstats.bukkit.MetricsLite;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.PluginDescriptionFile;

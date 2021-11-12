@@ -67,11 +67,23 @@ String getPlayer()
 ---
 
 - The following methods have been changed: </br>
-**All methods have time in arguments, instead of `int` are now `long` type**
+  **All methods have time in arguments, instead of `int` are now `long` type**
 ```java
 String worldName() -> String getWorldName()
 
+ParseResult parseResult(String[] result) ->
+        BlockLookupResults parseBlockLookupResults(String[] results)
+        // OR
+        ContainerLookupResults parseContainerLookupResult(String[] results)
+
 BlockData ParseResult.getBlockData() -> BlockData BlockLookupResults.getBlockData()
+``` 
+
+---
+
+- The following methods have been removed: </br>
+```java
+ParseResult parseResult(String[] result)
 ``` 
 
 ---

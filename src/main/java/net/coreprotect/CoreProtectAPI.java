@@ -145,7 +145,7 @@ public class CoreProtectAPI extends Queue {
         }
 
         public BlockData getBlockData() {
-            String blockData = parse[11];
+            String blockData = parse[12];
             if (blockData.length() == 0) {
                 return getType().createBlockData();
             }

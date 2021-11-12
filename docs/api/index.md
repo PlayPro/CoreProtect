@@ -96,7 +96,7 @@ String getPlayer()
 ---
 
 - The following methods have been changed: </br>
-  **All methods have time in arguments, instead of `int` are now `long` type**
+  <ins>**All methods have time in arguments, instead of `int` are now `long` type**</ins>
 ```java
 String worldName() -> String getWorldName()
 
@@ -284,7 +284,7 @@ Block getBlock()
 ```
 
 ___
-#### BlockLookupResult extends ParseResult
+#### BlockLookupResult extends [ParseResult](#parseresult)
 
 ```java
 BlockData getBlockData()
@@ -299,7 +299,7 @@ boolean hasPlaced(LivingEntity entity)
 ```
 
 ___
-#### ContainerLookupResult extends ParseResult
+#### ContainerLookupResult extends [ParseResult](#parseresult)
 
 ```java
 Inventory getInventory()

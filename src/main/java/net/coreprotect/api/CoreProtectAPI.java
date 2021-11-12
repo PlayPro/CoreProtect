@@ -112,27 +112,6 @@ public class CoreProtectAPI extends Queue {
         return match;
     }
 
-    public boolean hasRemoved(String user, Block block, long time, long offset) {
-        // Determine if a user has removed a block at this location in the last # of seconds.
-        boolean match = false;
-
-        if (Config.getGlobal().API_ENABLED) {
-            long timestamp = System.currentTimeMillis() / 1000L;
-            long offsetTime = timestamp - offset;
-            List<String[]> check = blockLookup(block, time);
-
-            for (String[] value : check) {
-                BlockLookupResult result = parseBlockLookupResult(value);
-                if (user.equalsIgnoreCase(result.getEntity()) && result.getActionId() == 0 && result.getTimestamp() <= offsetTime) {
-                    match = true;
-                    break;
-                }
-            }
-        }
-
-        return match;
-    }
-
     public boolean hasPlaced(String user, Block block) {
         // Determine if a user has placed a block at this location in the last # of seconds.
         boolean match = false;
@@ -150,6 +129,22 @@ public class CoreProtectAPI extends Queue {
         }
 
         return match;
+    }
+
+    public boolean hasPlaced(LivingEntity entity, Block block) {
+        return hasPlaced(APIUtil.getUserName(entity), block);
+    }
+
+    public boolean hasPlaced(LivingEntity entity, Block block, long time, long offset) {
+        return hasPlaced(APIUtil.getUserName(entity), block, time, offset);
+    }
+
+    public boolean hasPlaced(LivingEntity entity, BlockLookupResult result) {
+        return hasPlaced(APIUtil.getUserName(entity), result);
+    }
+
+    public boolean hasPlaced(String user, BlockLookupResult result) {
+        return Config.getGlobal().API_ENABLED && user.equalsIgnoreCase(result.getEntity()) && result.getActionId() == 1;
     }
 
     public boolean hasRemoved(String user, Block block) {
@@ -171,20 +166,25 @@ public class CoreProtectAPI extends Queue {
         return match;
     }
 
-    public boolean hasPlaced(String user, BlockLookupResult result) {
-        return Config.getGlobal().API_ENABLED && user.equalsIgnoreCase(result.getEntity()) && result.getActionId() == 1;
-    }
+    public boolean hasRemoved(String user, Block block, long time, long offset) {
+        // Determine if a user has removed a block at this location in the last # of seconds.
+        boolean match = false;
 
-    public boolean hasRemoved(String user, BlockLookupResult result) {
-        return Config.getGlobal().API_ENABLED && user.equalsIgnoreCase(result.getEntity()) && result.getActionId() == 0;
-    }
+        if (Config.getGlobal().API_ENABLED) {
+            long timestamp = System.currentTimeMillis() / 1000L;
+            long offsetTime = timestamp - offset;
+            List<String[]> check = blockLookup(block, time);
 
-    public boolean hasPlaced(LivingEntity entity, Block block) {
-        return hasPlaced(APIUtil.getUserName(entity), block);
-    }
+            for (String[] value : check) {
+                BlockLookupResult result = parseBlockLookupResult(value);
+                if (user.equalsIgnoreCase(result.getEntity()) && result.getActionId() == 0 && result.getTimestamp() <= offsetTime) {
+                    match = true;
+                    break;
+                }
+            }
+        }
 
-    public boolean hasPlaced(LivingEntity entity, Block block, long time, long offset) {
-        return hasPlaced(APIUtil.getUserName(entity), block, time, offset);
+        return match;
     }
 
     public boolean hasRemoved(LivingEntity entity, Block block) {
@@ -199,8 +199,8 @@ public class CoreProtectAPI extends Queue {
         return hasRemoved(APIUtil.getUserName(entity), result);
     }
 
-    public boolean hasPlaced(LivingEntity entity, BlockLookupResult result) {
-        return hasPlaced(APIUtil.getUserName(entity), result);
+    public boolean hasRemoved(String user, BlockLookupResult result) {
+        return Config.getGlobal().API_ENABLED && user.equalsIgnoreCase(result.getEntity()) && result.getActionId() == 0;
     }
 
     public boolean isEnabled() {

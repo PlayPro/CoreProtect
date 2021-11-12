@@ -23,16 +23,16 @@ public class BlockLookupResult extends ParseResult {
         return entity.equalsIgnoreCase(getEntity()) && getActionId() == 0;
     }
 
-    public boolean hasPlaced(String entity) {
-        return entity.equalsIgnoreCase(getEntity()) && getActionId() == 1;
-    }
-
     public boolean hasRemoved(LivingEntity entity) {
         if (entity instanceof Player) {
             Player player = (Player) entity;
             return Config.getGlobal().API_ENABLED && player.getName().equalsIgnoreCase(getEntity()) && getActionId() == 0;
         }
         return hasPlaced("#" + entity.getType().name().toLowerCase());
+    }
+
+    public boolean hasPlaced(String entity) {
+        return entity.equalsIgnoreCase(getEntity()) && getActionId() == 1;
     }
 
     public boolean hasPlaced(LivingEntity entity) {

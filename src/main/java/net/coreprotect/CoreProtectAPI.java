@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Collectors;
 
 import net.coreprotect.database.lookup.ChestTransactionLookupAPI;
 import net.coreprotect.utility.APIUtil;
@@ -14,6 +15,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 
 import net.coreprotect.config.Config;
@@ -134,11 +136,11 @@ public class CoreProtectAPI extends Queue {
         }
 
         public World getWorld() {
-            return Bukkit.getWorld(Util.getWorldName(Integer.parseInt(parse[9])));
+            return Bukkit.getWorld(getWorldName());
         }
     }
 
-    public static class BlockLookupResults extends ParseResult {
+    public class BlockLookupResults extends ParseResult {
 
         public BlockLookupResults(String[] data) {
             super(data);
@@ -146,15 +148,29 @@ public class CoreProtectAPI extends Queue {
 
         public BlockData getBlockData() {
             String blockData = parse[12];
-            if (blockData.length() == 0) {
-                return getType().createBlockData();
-            }
+            if (blockData.length() == 0) return getType().createBlockData();
             return Bukkit.getServer().createBlockData(blockData);
+        }
+
+        public boolean hasRemoved(String entity) {
+            return CoreProtectAPI.this.hasRemoved(entity, this);
+        }
+
+        public boolean hasPlaced(String entity) {
+            return CoreProtectAPI.this.hasPlaced(entity, this);
+        }
+
+        public boolean hasRemoved(LivingEntity entity) {
+            return CoreProtectAPI.this.hasRemoved(entity, this);
+        }
+
+        public boolean hasPlaced(LivingEntity entity) {
+            return CoreProtectAPI.this.hasPlaced(entity, this);
         }
 
     }
 
-    public static class ContainerLookupResults extends ParseResult {
+    public class ContainerLookupResults extends ParseResult {
 
         public ContainerLookupResults(String[] data) {
             super(data);
@@ -227,19 +243,19 @@ public class CoreProtectAPI extends Queue {
     }
 
     public List<BlockLookupResults> blockLookupParsed(Block block, long time) {
-        return blockLookup(block, time).stream().map(BlockLookupResults::new).toList();
+        return blockLookup(block, time).stream().map(BlockLookupResults::new).collect(Collectors.toList());
     }
 
     public List<BlockLookupResults> blockLookupParsed(Block block) {
-        return blockLookup(block).stream().map(BlockLookupResults::new).toList();
+        return blockLookup(block).stream().map(BlockLookupResults::new).collect(Collectors.toList());
     }
 
     public List<ContainerLookupResults> containerLookupParsed(Block block, long time) {
-        return containerLookup(block, time).stream().map(ContainerLookupResults::new).toList();
+        return containerLookup(block, time).stream().map(ContainerLookupResults::new).collect(Collectors.toList());
     }
 
     public List<ContainerLookupResults> containerLookupParsed(Block block) {
-        return containerLookup(block).stream().map(ContainerLookupResults::new).toList();
+        return containerLookup(block).stream().map(ContainerLookupResults::new).collect(Collectors.toList());
     }
 
     public BlockLookupResults parseBlockLookupResults(String[] results) {
@@ -250,7 +266,7 @@ public class CoreProtectAPI extends Queue {
         return new ContainerLookupResults(results);
     }
 
-    public boolean hasPlaced(String user, Block block, long time, int offset) {
+    public boolean hasPlaced(String user, Block block, long time, long offset) {
         // Determine if a user has placed a block at this location in the last # of seconds.
         boolean match = false;
 
@@ -271,7 +287,7 @@ public class CoreProtectAPI extends Queue {
         return match;
     }
 
-    public boolean hasRemoved(String user, Block block, long time, int offset) {
+    public boolean hasRemoved(String user, Block block, long time, long offset) {
         // Determine if a user has removed a block at this location in the last # of seconds.
         boolean match = false;
 
@@ -290,6 +306,100 @@ public class CoreProtectAPI extends Queue {
         }
 
         return match;
+    }
+
+    public boolean hasPlaced(String user, Block block) {
+        // Determine if a user has placed a block at this location in the last # of seconds.
+        boolean match = false;
+
+        if (Config.getGlobal().API_ENABLED) {
+            List<String[]> check = blockLookup(block);
+
+            for (String[] value : check) {
+                BlockLookupResults result = parseBlockLookupResults(value);
+                if (user.equalsIgnoreCase(result.getEntity()) && result.getActionId() == 1) {
+                    match = true;
+                    break;
+                }
+            }
+        }
+
+        return match;
+    }
+
+    public boolean hasRemoved(String user, Block block) {
+        // Determine if a user has removed a block at this location in the last # of seconds.
+        boolean match = false;
+
+        if (Config.getGlobal().API_ENABLED) {
+            List<String[]> check = blockLookup(block);
+
+            for (String[] value : check) {
+                BlockLookupResults result = parseBlockLookupResults(value);
+                if (user.equalsIgnoreCase(result.getEntity()) && result.getActionId() == 0) {
+                    match = true;
+                    break;
+                }
+            }
+        }
+
+        return match;
+    }
+
+    public boolean hasPlaced(String user, BlockLookupResults result) {
+        return Config.getGlobal().API_ENABLED && user.equalsIgnoreCase(result.getEntity()) && result.getActionId() == 1;
+    }
+
+    public boolean hasRemoved(String user, BlockLookupResults result) {
+        return Config.getGlobal().API_ENABLED && user.equalsIgnoreCase(result.getEntity()) && result.getActionId() == 0;
+    }
+
+    public boolean hasPlaced(LivingEntity entity, Block block) {
+        if (entity instanceof Player) {
+            Player player = (Player) entity;
+            return hasPlaced(player.getName(), block);
+        }
+        return hasPlaced("#" + entity.getType().name().toLowerCase(), block);
+    }
+
+    public boolean hasPlaced(LivingEntity entity, Block block, long time, long offset) {
+        if (entity instanceof Player) {
+            Player player = (Player) entity;
+            return hasPlaced(player.getName(), block, time, offset);
+        }
+        return hasPlaced("#" + entity.getType().name().toLowerCase(), block, time, offset);
+    }
+
+    public boolean hasRemoved(LivingEntity entity, Block block) {
+        if (entity instanceof Player) {
+            Player player = (Player) entity;
+            return hasRemoved(player.getName(), block);
+        }
+        return hasRemoved("#" + entity.getType().name().toLowerCase(), block);
+    }
+
+    public boolean hasRemoved(LivingEntity entity, Block block, long time, long offset) {
+        if (entity instanceof Player) {
+            Player player = (Player) entity;
+            return hasRemoved(player.getName(), block, time, offset);
+        }
+        return hasRemoved("#" + entity.getType().name().toLowerCase(), block);
+    }
+
+    public boolean hasRemoved(LivingEntity entity, BlockLookupResults result) {
+        if (entity instanceof Player) {
+            Player player = (Player) entity;
+            return hasRemoved(player.getName(), result);
+        }
+        return hasRemoved("#" + entity.getType().name().toLowerCase(), result);
+    }
+
+    public boolean hasPlaced(LivingEntity entity, BlockLookupResults result) {
+        if (entity instanceof Player) {
+            Player player = (Player) entity;
+            return hasPlaced(player.getName(), result);
+        }
+        return hasPlaced("#" + entity.getType().name().toLowerCase(), result);
     }
 
     public boolean isEnabled() {
@@ -315,7 +425,6 @@ public class CoreProtectAPI extends Queue {
             Queue.queuePlayerCommand(player, command, timestamp);
             return true;
         }
-
         return false;
     }
 
@@ -340,9 +449,7 @@ public class CoreProtectAPI extends Queue {
             BlockState blockState = block.getState();
             String blockDataString = null;
 
-            if (blockData != null) {
-                blockDataString = blockData.getAsString();
-            }
+            if (blockData != null) blockDataString = blockData.getAsString();
 
             Queue.queueBlockPlace(user, blockState, block.getType(), null, type, -1, 0, blockDataString);
             return true;
@@ -356,7 +463,6 @@ public class CoreProtectAPI extends Queue {
             Queue.queueBlockPlace(user, location.getBlock().getState(), location.getBlock().getType(), null, type, data, 1, null);
             return true;
         }
-
         return false;
     }
 
@@ -364,9 +470,7 @@ public class CoreProtectAPI extends Queue {
         if (Config.getGlobal().API_ENABLED && user != null && location != null && user.length() > 0) {
             String blockDataString = null;
 
-            if (blockData != null) {
-                blockDataString = blockData.getAsString();
-            }
+            if (blockData != null) blockDataString = blockData.getAsString();
 
             Block block = location.getBlock();
             Database.containerBreakCheck(user, block.getType(), block, null, location);
@@ -386,32 +490,28 @@ public class CoreProtectAPI extends Queue {
     }
 
     public List<String[]> performLookup(long time, List<String> restrictUsers, List<String> excludeUsers, List<Object> restrictBlocks, List<Object> excludeBlocks, List<Integer> actionList, int radius, Location radiusLocation) {
-        if (Config.getGlobal().API_ENABLED) {
+        if (Config.getGlobal().API_ENABLED)
             return processData(time, radius, radiusLocation, APIUtil.parseList(restrictBlocks), APIUtil.parseList(excludeBlocks), restrictUsers, excludeUsers, actionList, 0, 1, -1, -1, false);
-        }
         return null;
     }
 
     @Deprecated
     public List<String[]> performLookup(String user, long time, int radius, Location location, List<Object> restrict, List<Object> exclude) {
-        if (Config.getGlobal().API_ENABLED) {
+        if (Config.getGlobal().API_ENABLED)
             return processData(user, time, radius, location, APIUtil.parseList(restrict), APIUtil.parseList(exclude), 0, 1, -1, -1, false);
-        }
         return null;
     }
 
     public List<String[]> performPartialLookup(long time, List<String> restrictUsers, List<String> excludeUsers, List<Object> restrictBlocks, List<Object> excludeBlocks, List<Integer> actionList, int radius, Location radiusLocation, int limitOffset, int limitCount) {
-        if (Config.getGlobal().API_ENABLED) {
+        if (Config.getGlobal().API_ENABLED)
             return processData(time, radius, radiusLocation, APIUtil.parseList(restrictBlocks), APIUtil.parseList(excludeBlocks), restrictUsers, excludeUsers, actionList, 0, 1, limitOffset, limitCount, true);
-        }
         return null;
     }
 
     @Deprecated
     public List<String[]> performPartialLookup(String user, long time, int radius, Location location, List<Object> restrict, List<Object> exclude, int limitOffset, int limitCount) {
-        if (Config.getGlobal().API_ENABLED) {
+        if (Config.getGlobal().API_ENABLED)
             return processData(user, time, radius, location, APIUtil.parseList(restrict), APIUtil.parseList(exclude), 0, 1, limitOffset, limitCount, true);
-        }
         return null;
     }
 
@@ -421,32 +521,28 @@ public class CoreProtectAPI extends Queue {
     }
 
     public List<String[]> performRestore(long time, List<String> restrictUsers, List<String> excludeUsers, List<Object> restrictBlocks, List<Object> excludeBlocks, List<Integer> actionList, int radius, Location radiusLocation) {
-        if (Config.getGlobal().API_ENABLED) {
+        if (Config.getGlobal().API_ENABLED)
             return processData(time, radius, radiusLocation, APIUtil.parseList(restrictBlocks), APIUtil.parseList(excludeBlocks), restrictUsers, excludeUsers, actionList, 1, 2, -1, -1, false);
-        }
         return null;
     }
 
     @Deprecated
     public List<String[]> performRestore(String user, long time, int radius, Location location, List<Object> restrict, List<Object> exclude) {
-        if (Config.getGlobal().API_ENABLED) {
+        if (Config.getGlobal().API_ENABLED)
             return processData(user, time, radius, location, APIUtil.parseList(restrict), APIUtil.parseList(exclude), 1, 2, -1, -1, false);
-        }
         return null;
     }
 
     public List<String[]> performRollback(long time, List<String> restrictUsers, List<String> excludeUsers, List<Object> restrictBlocks, List<Object> excludeBlocks, List<Integer> actionList, int radius, Location radiusLocation) {
-        if (Config.getGlobal().API_ENABLED) {
+        if (Config.getGlobal().API_ENABLED)
             return processData(time, radius, radiusLocation, APIUtil.parseList(restrictBlocks), APIUtil.parseList(excludeBlocks), restrictUsers, excludeUsers, actionList, 0, 2, -1, -1, false);
-        }
         return null;
     }
 
     @Deprecated
     public List<String[]> performRollback(String user, long time, int radius, Location location, List<Object> restrict, List<Object> exclude) {
-        if (Config.getGlobal().API_ENABLED) {
+        if (Config.getGlobal().API_ENABLED)
             return processData(user, time, radius, location, APIUtil.parseList(restrict), APIUtil.parseList(exclude), 0, 2, -1, -1, false);
-        }
         return null;
     }
 
@@ -455,17 +551,9 @@ public class CoreProtectAPI extends Queue {
         List<String[]> result = new ArrayList<>();
         List<String> uuids = new ArrayList<>();
 
-        if (restrictUsers == null) {
-            restrictUsers = new ArrayList<>();
-        }
-
-        if (excludeUsers == null) {
-            excludeUsers = new ArrayList<>();
-        }
-
-        if (actionList == null) {
-            actionList = new ArrayList<>();
-        }
+        if (restrictUsers == null) restrictUsers = new ArrayList<>();
+        if (excludeUsers == null) excludeUsers = new ArrayList<>();
+        if (actionList == null) actionList = new ArrayList<>();
 
         if (actionList.isEmpty() && !restrictBlocks.isEmpty()) {
             boolean addedMaterial = false;
@@ -491,24 +579,14 @@ public class CoreProtectAPI extends Queue {
 
         actionList.removeIf(actionListItem -> actionListItem > 3);
 
-        if (restrictUsers.isEmpty()) {
-            restrictUsers.add("#global");
-        }
+        if (restrictUsers.isEmpty()) restrictUsers.add("#global");
 
         long timestamp = System.currentTimeMillis() / 1000L;
         long timePeriod = timestamp - time;
 
-        if (radius < 1) {
-            radius = -1;
-        }
-
-        if (restrictUsers.contains("#global") && radius == -1) {
-            return null;
-        }
-
-        if (radius > -1 && location == null) {
-            return null;
-        }
+        if (radius < 1) radius = -1;
+        if (restrictUsers.contains("#global") && radius == -1) return null;
+        if (radius > -1 && location == null) return null;
 
         try {
             Connection connection = Database.getConnection(false, 1000);
@@ -516,9 +594,7 @@ public class CoreProtectAPI extends Queue {
                 Statement statement = connection.createStatement();
                 boolean restrictWorld = radius > 0;
 
-                if (location == null) {
-                    restrictWorld = false;
-                }
+                if (location == null) restrictWorld = false;
 
                 Integer[] argRadius = null;
                 if (location != null && radius > 0) {
@@ -530,14 +606,11 @@ public class CoreProtectAPI extends Queue {
                 }
 
                 if (lookup == 1) {
-                    if (location != null) {
-                        restrictWorld = true;
-                    }
+                    if (location != null) restrictWorld = true;
 
                     if (useLimit) {
                         result = Lookup.performPartialLookup(statement, null, uuids, restrictUsers, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, timePeriod, offset, rowCount, restrictWorld, true);
-                    }
-                    else {
+                    } else {
                         result = Lookup.performLookup(statement, null, uuids, restrictUsers, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, timePeriod, restrictWorld, true);
                     }
                 }
@@ -551,8 +624,7 @@ public class CoreProtectAPI extends Queue {
                 statement.close();
                 connection.close();
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
@@ -562,9 +634,7 @@ public class CoreProtectAPI extends Queue {
     @Deprecated
     private List<String[]> processData(String user, long time, int radius, Location location, List<Object> restrictBlocks, List<Object> excludeBlocks, int action, int lookup, int offset, int rowCount, boolean useLimit) {
         ArrayList<String> restrictUsers = new ArrayList<>();
-        if (user != null) {
-            restrictUsers.add(user);
-        }
+        if (user != null) restrictUsers.add(user);
 
         return processData(time, radius, location, restrictBlocks, excludeBlocks, restrictUsers, null, null, action, lookup, offset, rowCount, useLimit);
     }

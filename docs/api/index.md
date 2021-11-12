@@ -36,6 +36,26 @@ List<ContainerLookupResults> containerLookupParsed(Block block)
 BlockLookupResults parseBlockLookupResults(String[] results)
 
 ContainerLookupResults parseContainerLookupResult(String[] results)
+
+boolean hasPlaced(String user, Block block)
+
+boolean hasRemoved(String user, Block block)
+
+boolean hasPlaced(LivingEntity entity, Block block)
+
+boolean hasPlaced(LivingEntity entity, Block block, long time, long offset)
+
+boolean hasRemoved(LivingEntity entity, Block block, long time, long offset)
+
+boolean hasRemoved(LivingEntity entity, Block block)
+
+boolean hasRemoved(LivingEntity entity, BlockLookupResults result)
+
+boolean hasPlaced(LivingEntity entity, BlockLookupResults result)
+
+boolean hasPlaced(String user, BlockLookupResults result)
+
+boolean hasRemoved(String user, BlockLookupResults result)
         
 // ParseResult
 String getEntity()
@@ -48,6 +68,15 @@ Location getLocation()
 
 World getWorld()
 
+// BlockLookupResults
+boolean hasRemoved(String entity)
+
+boolean hasPlaced(String entity)
+
+boolean hasRemoved(LivingEntity entity)
+
+boolean hasPlaced(LivingEntity entity)
+        
 // ContainerLookupResults
 Inventory getInventory()
 
@@ -239,6 +268,14 @@ ___
 
 ```java
 BlockData getBlockData()
+
+boolean hasRemoved(String entity)
+
+boolean hasPlaced(String entity)
+
+boolean hasRemoved(LivingEntity entity)
+
+boolean hasPlaced(LivingEntity entity)
 ```
 
 ___
@@ -457,6 +494,24 @@ This will return true if a user has already placed a block at the location withi
 
 ---
 
+#### `hasPlaced(String user, Block block)`
+
+This will return true if a user has already placed a block at the location.
+
+* **user:** The username you're checking to see if they've placed a block already.
+* **block:** The block you're checking.
+
+---
+
+#### `hasPlaced(String user, BlockLookupResults result)`
+
+This will return true if the user has placed a block in the given result.
+
+* **user:** The username you're checking to see if they've placed a block already.
+* **result:** The lookup result.
+
+---
+
 #### `hasRemoved(String user, Block block, long time, int offset)`
 
 This will return true if a user has already removed a block at the location within the specified time limit.
@@ -465,6 +520,82 @@ This will return true if a user has already removed a block at the location with
 * **block:** The block you're checking.
 * **time:** How far back to check. "5" would only check through the last 5 seconds of logged blocks.
 * **offset:** A time offset. "2" would ignore the last 2 seconds of most recently ignored data. (0=no offset)
+
+---
+
+#### `hasRemoved(String user, Block block)`
+
+This will return true if a user has already removed a block at the location.
+
+* **user:** The username you're checking to see if they've removed a block already.
+* **block:** The block you're checking.
+
+---
+
+#### `hasRemoved(String user, BlockLookupResults result)`
+
+This will return true if the user has removed a block in the given result.
+
+* **user:** The username you're checking to see if they've removed a block already.
+* **block:** The lookup result.
+
+---
+
+#### `hasPlaced(LivingEntity entity, Block block, long time, int offset)`
+
+This will return true if an entity has already placed a block at the location within the specified time limit.
+
+* **entity:** The entity you're checking to see if they've placed a block already.
+* **block:** The block you're checking.
+* **time:** How far back to check. "5" would only check through the last 5 seconds of logged blocks.
+* **offset:** A time offset. "2" would ignore the last 2 seconds of most recently ignored data. (0=no offset)
+
+---
+
+#### `hasPlaced(LivingEntity entity, Block block)`
+
+This will return true if an entity has already placed a block at the location.
+
+* **entity:** The entity you're checking to see if they've placed a block already.
+* **block:** The block you're checking.
+
+---
+
+#### `hasPlaced(LivingEntity entity, BlockLookupResults result)`
+
+This will return true if the entity has placed a block in the given result.
+
+* **entity:** The entity you're checking to see if they've placed a block already.
+* **result:** The lookup result.
+
+---
+
+#### `hasRemoved(LivingEntity entity, Block block, long time, int offset)`
+
+This will return true if an entity has already removed a block at the location within the specified time limit.
+
+* **entity:** The entity you're checking to see if they've removed a block already.
+* **block:** The block you're checking.
+* **time:** How far back to check. "5" would only check through the last 5 seconds of logged blocks.
+* **offset:** A time offset. "2" would ignore the last 2 seconds of most recently ignored data. (0=no offset)
+
+---
+
+#### `hasRemoved(LivingEntity entity, Block block)`
+
+This will return true if an entity has already removed a block at the location.
+
+* **entity:** The entity you're checking to see if they've removed a block already.
+* **block:** The block you're checking.
+
+---
+
+#### `hasRemoved(LivingEntity entity, BlockLookupResults result)`
+
+This will return true if the entity has removed a block in the given result.
+
+* **entity:** The entity you're checking to see if they've removed a block already.
+* **block:** The lookup result.
 
 ---
 

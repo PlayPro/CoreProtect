@@ -13,7 +13,7 @@ public abstract class ParseResult {
 
     protected final String[] parse;
 
-    public ParseResult(String[] data) {
+    protected ParseResult(String[] data) {
         parse = data;
     }
 

@@ -411,14 +411,14 @@ This will perform a full lookup on a single block with inventory (container).
 
 ---
 
-#### `List<BlockLookupResults> blockLookupParsed(Block block)`
+#### `List<BlockLookupResult> blockLookupParsed(Block block)`
 
 This will perform a full lookup on a single block.
 
 * **block:** The block to perform the lookup on.
 ---
 
-#### `List<BlockLookupResults> blockLookupParsed(Block block, long time)`
+#### `List<BlockLookupResult> blockLookupParsed(Block block, long time)`
 
 This will perform a full lookup on a single block.
 
@@ -427,14 +427,7 @@ This will perform a full lookup on a single block.
 
 ---
 
-#### `List<BlockLookupResults> blockLookupParsed(Block block)`
-
-This will perform a full lookup on a single block.
-
-* **block:** The block to perform the lookup on.
----
-
-#### `List<ContainerLookupResults> containerLookupParsed(Block block, long time)`
+#### `List<ContainerLookupResult> containerLookupParsed(Block block, long time)`
 
 This will perform a full lookup on a single block with inventory (container).
 
@@ -443,7 +436,7 @@ This will perform a full lookup on a single block with inventory (container).
 
 ---
 
-#### `List<ContainerLookupResults> containerLookupParsed(Block block)`
+#### `List<ContainerLookupResult> containerLookupParsed(Block block)`
 
 This will perform a full lookup on a single block with inventory (container).
 
@@ -451,15 +444,15 @@ This will perform a full lookup on a single block with inventory (container).
 
 ---
 
-#### `BlockLookupResults parseBlockLookupResults(String[] result)`
+#### `BlockLookupResult parseBlockLookupResult(String[] result)`
 
-This will parse results from a lookup. You'll then be able to view the [following](#blocklookupresults-extends-parseresult)
+This will parse results from a lookup. You'll then be able to view the [following](#blocklookupresult-extends-parseresult)
 
 ---
 
-#### `ContainerLookupResults parseContainerLookupResult(String[] result)`
+#### `ContainerLookupResult parseContainerLookupResult(String[] result)`
 
-This will parse results from a lookup. You'll then be able to view the [following](#containerlookupresults-extends-parseresult)
+This will parse results from a lookup. You'll then be able to view the [following](#containerlookupresult-extends-parseresult)
 
 ---
 
@@ -523,7 +516,7 @@ This will return true if a user has already placed a block at the location.
 
 ---
 
-#### `hasPlaced(String user, BlockLookupResults result)`
+#### `hasPlaced(String user, BlockLookupResult result)`
 
 This will return true if the user has placed a block in the given result.
 
@@ -552,7 +545,7 @@ This will return true if a user has already removed a block at the location.
 
 ---
 
-#### `hasRemoved(String user, BlockLookupResults result)`
+#### `hasRemoved(String user, BlockLookupResult result)`
 
 This will return true if the user has removed a block in the given result.
 
@@ -581,7 +574,7 @@ This will return true if an entity has already placed a block at the location.
 
 ---
 
-#### `hasPlaced(LivingEntity entity, BlockLookupResults result)`
+#### `hasPlaced(LivingEntity entity, BlockLookupResult result)`
 
 This will return true if the entity has placed a block in the given result.
 
@@ -610,7 +603,7 @@ This will return true if an entity has already removed a block at the location.
 
 ---
 
-#### `hasRemoved(LivingEntity entity, BlockLookupResults result)`
+#### `hasRemoved(LivingEntity entity, BlockLookupResult result)`
 
 This will return true if the entity has removed a block in the given result.
 

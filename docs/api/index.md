@@ -62,6 +62,8 @@ boolean hasPlaced(String user, BlockLookupResult result)
 boolean hasRemoved(String user, BlockLookupResult result)
         
 // ParseResult
+ActionType getActionType()
+        
 String getEntity()
 
 long getTimeLong()
@@ -87,6 +89,19 @@ Inventory getInventory()
 ItemStack getItem()
 
 int getAmount()
+
+// ActionType
+Phrase getPhrase()
+
+String getSelector()
+
+int getId()
+
+String getBuiltPhrase()
+
+String getBuiltPhrase(String... params)
+
+String getString()
 ``` 
 
 ---
@@ -121,6 +136,7 @@ BlockData ParseResult.getBlockData() -> BlockData BlockLookupResult.getBlockData
 
 - The following classes have been added:
 
+[ActionType.class](#actiontype) </br>
 [ParseResult.class](#parseresult) </br>
 [BlockLookupResult.class](#blocklookupresult-extends-parseresult) </br>
 [ContainerLookupResult.class](#containerlookupresult-extends-parseresult)
@@ -316,6 +332,24 @@ Inventory getInventory()
 ItemStack getItem()
 
 int getAmount()
+```
+
+---
+
+#### ActionType
+
+```java
+Phrase getPhrase()
+
+String getSelector()
+
+int getId()
+
+String getBuiltPhrase()
+
+String getBuiltPhrase(String... params)
+
+String getString()
 ```
 
 ---

@@ -22,7 +22,7 @@ public abstract class ParseResult {
     }
 
     public String getActionString() {
-        return getActionType().getActionString();
+        return getActionType().getString();
     }
 
     public String getBuiltPhrase() {

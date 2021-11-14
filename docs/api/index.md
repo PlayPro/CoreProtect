@@ -32,7 +32,11 @@ List<BlockLookupResult> blockLookupParsed(Block block)
 List<ContainerLookupResult> containerLookupParsed(Block block, long time)
 
 List<ContainerLookupResult> containerLookupParsed(Block block)
-
+        
+List<BlockLookupResult> parseBlockLookupResult(List<String[]> results)
+        
+List<ContainerLookupResult> parseContainerLookupResult(List<String[]> results)
+        
 BlockLookupResult parseBlockLookupResult(String[] results)
 
 ContainerLookupResult parseContainerLookupResult(String[] results)
@@ -89,8 +93,11 @@ int getAmount()
 
 - The following methods have been deprecated:
 ```java
-// ParseResult
+// New ParseResult
 String getPlayer()
+        
+// Old ParseResult
+ParseResult parseResult(String[] result)
 ``` 
 
 ---
@@ -100,27 +107,29 @@ String getPlayer()
 ```java
 String worldName() -> String getWorldName()
 
+// Old ParseResult
 ParseResult parseResult(String[] result) ->
+        // New results
         BlockLookupResult parseBlockLookupResult(String[] results)
         // OR
         ContainerLookupResult parseContainerLookupResult(String[] results)
 
 BlockData ParseResult.getBlockData() -> BlockData BlockLookupResult.getBlockData()
-``` 
-
----
-
-- The following methods have been removed: </br>
-```java
-ParseResult parseResult(String[] result)
-``` 
+```
 
 ---
 
 - The following classes have been added:
 
+[ParseResult.class](#parseresult) </br>
 [BlockLookupResult.class](#blocklookupresult-extends-parseresult) </br>
 [ContainerLookupResult.class](#containerlookupresult-extends-parseresult)
+
+---
+
+- The following classes have been deprecated:
+
+CoreProtect.ParseResult </br>
 
 ---
 
@@ -133,7 +142,7 @@ The first thing you need to do is get access to CoreProtect. You can do this by 
 
 ```java
 import net.coreprotect.CoreProtect;
-import net.coreprotect.api.CoreProtectAPI;
+import net.coreprotect.CoreProtectAPI;
 
 private CoreProtectAPI getCoreProtect() {
         Plugin plugin = getServer().getPluginManager().getPlugin("CoreProtect");
@@ -337,7 +346,7 @@ Calling this will return true if the server has the CoreProtect API enabled, and
 
 #### `testAPI()`
 
-Running this will print out "[CoreProtect] API Test Successful." in the server console.
+Running this will print out `[CoreProtect] API Test Successful.` in the server console.
 
 ---
 
@@ -345,14 +354,14 @@ Running this will print out "[CoreProtect] API Test Successful." in the server c
 
 This will perform a lookup.
 
-* **time:** Specify the amount of time to search back. "5" would return results from the last 5 seconds.
-* **restrict_users:** Specify any usernames to perform the lookup on. Can be set to "null" if both a radius and a location are specified.
-* **exclude_users:** Specify any usernames to exclude from the lookup. Can be set to "null".
-* **restrict_blocks:** Specify a list of EntityType's or Material's to restrict the search to. Can be set to "null".
-* **exclude_blocks:** Specify a list of EntityType's or Material's to exclude from the search. Can be set to "null".
-* **action_list:** Specify a list of action types to restrict the search to. Can be set to "null"
-* **radius:** Specify a radius to restrict the search to. A location must be specified if using this. Set to "0" to disable.
-* **radius_location:** Specify a location to search around. Can be set to "null" if no radius is specified, and a user is specified.
+* **time:** Specify the amount of time to search back. `5` would return results from the last 5 seconds.
+* **restrict_users:** Specify any usernames to perform the lookup on. Can be set to `null` if both a radius and a location are specified.
+* **exclude_users:** Specify any usernames to exclude from the lookup. Can be set to `null`.
+* **restrict_blocks:** Specify a list of EntityType's or Material's to restrict the search to. Can be set to `null`.
+* **exclude_blocks:** Specify a list of EntityType's or Material's to exclude from the search. Can be set to `null`.
+* **action_list:** Specify a list of action types to restrict the search to. Can be set to `null`
+* **radius:** Specify a radius to restrict the search to. A location must be specified if using this. Set to `0` to disable.
+* **radius_location:** Specify a location to search around. Can be set to `null` if no radius is specified, and a user is specified.
 
 ---
 
@@ -360,14 +369,14 @@ This will perform a lookup.
 
 This will perform a rollback. Method must be called async.
 
-* **time:** Specify the amount of time to rollback. "5" would return results from the last 5 seconds.
-* **restrict_users:** Specify any usernames to perform the rollback on. Can be set to "null" if both a radius and a location are specified.
-* **exclude_users:** Specify any usernames to exclude from the rollback. Can be set to "null".
-* **restrict_blocks:** Specify a list of EntityType's or Material's to restrict the rollback to. Can be set to "null".
-* **exclude_blocks:** Specify a list of EntityType's or Material's to exclude from the rollback. Can be set to "null".
-* **action_list:** Specify a list of action types to restrict the rollback to. Can be set to "null"
-* **radius:** Specify a radius to restrict the rollback to. A location must be specified if using this. Set to "0" to disable.
-* **radius_location:** Specify a location to rollback around. Can be set to "null" if no radius is specified, and a user is specified.
+* **time:** Specify the amount of time to rollback. `5` would return results from the last 5 seconds.
+* **restrict_users:** Specify any usernames to perform the rollback on. Can be set to `null` if both a radius and a location are specified.
+* **exclude_users:** Specify any usernames to exclude from the rollback. Can be set to `null`.
+* **restrict_blocks:** Specify a list of EntityType's or Material's to restrict the rollback to. Can be set to `null`.
+* **exclude_blocks:** Specify a list of EntityType's or Material's to exclude from the rollback. Can be set to `null`.
+* **action_list:** Specify a list of action types to restrict the rollback to. Can be set to `null`
+* **radius:** Specify a radius to restrict the rollback to. A location must be specified if using this. Set to `0` to disable.
+* **radius_location:** Specify a location to rollback around. Can be set to `null` if no radius is specified, and a user is specified.
 
 ---
 
@@ -375,14 +384,14 @@ This will perform a rollback. Method must be called async.
 
 This will perform a restore.
 
-* **time:** Specify the amount of time to restore. "5" would return results from the last 5 seconds.
-* **restrict_users:** Specify any usernames to perform the restore on. Can be set to "null" if both a radius and a location are specified.
-* **exclude_users:** Specify any usernames to exclude from the restore. Can be set to "null".
-* **restrict_blocks:** Specify a list of EntityType's or Material's to restrict the restore to. Can be set to "null".
-* **exclude_blocks:** Specify a list of EntityType's or Material's to exclude from the restore. Can be set to "null".
-* **action_list:** Specify a list of action types to restrict the restore to. Can be set to "null"
-* **radius:** Specify a radius to restrict the restore to. A location must be specified if using this. Set to "0" to disable.
-* **radius_location:** Specify a location to restore around. Can be set to "null" if no radius is specified, and a user is specified.
+* **time:** Specify the amount of time to restore. `5` would return results from the last 5 seconds.
+* **restrict_users:** Specify any usernames to perform the restore on. Can be set to `null` if both a radius and a location are specified.
+* **exclude_users:** Specify any usernames to exclude from the restore. Can be set to `null`.
+* **restrict_blocks:** Specify a list of EntityType's or Material's to restrict the restore to. Can be set to `null`.
+* **exclude_blocks:** Specify a list of EntityType's or Material's to exclude from the restore. Can be set to `null`.
+* **action_list:** Specify a list of action types to restrict the restore to. Can be set to `null`
+* **radius:** Specify a radius to restrict the restore to. A location must be specified if using this. Set to `0` to disable.
+* **radius_location:** Specify a location to restore around. Can be set to `null` if no radius is specified, and a user is specified.
 
 ---
 
@@ -391,7 +400,7 @@ This will perform a restore.
 This will perform a full lookup on a single block.
 
 * **block:** The block to perform the lookup on.
-* **time:** Specify the amount of time to lookup. "5" would return results from the last 5 seconds.
+* **time:** Specify the amount of time to lookup. `5` would return results from the last 5 seconds.
 
 ---
 
@@ -407,7 +416,7 @@ This will perform a full lookup on a single block.
 This will perform a full lookup on a single block with inventory (container).
 
 * **block:** The block to perform the lookup on.
-* **time:** Specify the amount of time to lookup. "5" would return results from the last 5 seconds.
+* **time:** Specify the amount of time to lookup. `5` would return results from the last 5 seconds.
 
 ---
 
@@ -423,7 +432,7 @@ This will perform a full lookup on a single block.
 This will perform a full lookup on a single block.
 
 * **block:** The block to perform the lookup on.
-* **time:** Specify the amount of time to lookup. "5" would return results from the last 5 seconds.
+* **time:** Specify the amount of time to lookup. `5` would return results from the last 5 seconds.
 
 ---
 
@@ -432,7 +441,7 @@ This will perform a full lookup on a single block.
 This will perform a full lookup on a single block with inventory (container).
 
 * **block:** The block to perform the lookup on.
-* **time:** Specify the amount of time to lookup. "5" would return results from the last 5 seconds.
+* **time:** Specify the amount of time to lookup. `5` would return results from the last 5 seconds.
 
 ---
 
@@ -463,7 +472,7 @@ This will log a block as being placed.
 * **user:** Specify the username to log as having placed the block.
 * **location:** Specify the location of the block you're logging.
 * **type:** Specify the Material of the block you're logging.
-* **blockData:** Specify the BlockData of the block you're logging. Can be set to "null".
+* **blockData:** Specify the BlockData of the block you're logging. Can be set to `null`.
 
 ---
 
@@ -474,7 +483,7 @@ This will log a block as being removed/broken, and will log the block's inventor
 * **user:** Specify the username to log as having removed the block.
 * **location:** Specify the location of the block you're logging.
 * **type:** Specify the Material of the block you're logging.
-* **blockData:** Specify the BlockData of the block you're logging. Can be set to "null".
+* **blockData:** Specify the BlockData of the block you're logging. Can be set to `null`.
 
 ---
 
@@ -502,8 +511,8 @@ This will return true if a user has already placed a block at the location withi
 
 * **user:** The username you're checking to see if they've placed a block already.
 * **block:** The block you're checking.
-* **time:** How far back to check. "5" would only check through the last 5 seconds of logged blocks.
-* **offset:** A time offset. "2" would ignore the last 2 seconds of most recently ignored data. (0=no offset)
+* **time:** How far back to check. `5` would only check through the last 5 seconds of logged blocks.
+* **offset:** A time offset. `2` would ignore the last 2 seconds of most recently ignored data. (0=no offset)
 
 ---
 
@@ -531,8 +540,8 @@ This will return true if a user has already removed a block at the location with
 
 * **user:** The username you're checking to see if they've removed a block already.
 * **block:** The block you're checking.
-* **time:** How far back to check. "5" would only check through the last 5 seconds of logged blocks.
-* **offset:** A time offset. "2" would ignore the last 2 seconds of most recently ignored data. (0=no offset)
+* **time:** How far back to check. `5` would only check through the last 5 seconds of logged blocks.
+* **offset:** A time offset. `2` would ignore the last 2 seconds of most recently ignored data. (0=no offset)
 
 ---
 
@@ -560,8 +569,8 @@ This will return true if an entity has already placed a block at the location wi
 
 * **entity:** The entity you're checking to see if they've placed a block already.
 * **block:** The block you're checking.
-* **time:** How far back to check. "5" would only check through the last 5 seconds of logged blocks.
-* **offset:** A time offset. "2" would ignore the last 2 seconds of most recently ignored data. (0=no offset)
+* **time:** How far back to check. `5` would only check through the last 5 seconds of logged blocks.
+* **offset:** A time offset. `2` would ignore the last 2 seconds of most recently ignored data. (0=no offset)
 
 ---
 
@@ -589,8 +598,8 @@ This will return true if an entity has already removed a block at the location w
 
 * **entity:** The entity you're checking to see if they've removed a block already.
 * **block:** The block you're checking.
-* **time:** How far back to check. "5" would only check through the last 5 seconds of logged blocks.
-* **offset:** A time offset. "2" would ignore the last 2 seconds of most recently ignored data. (0=no offset)
+* **time:** How far back to check. `5` would only check through the last 5 seconds of logged blocks.
+* **offset:** A time offset. `2` would ignore the last 2 seconds of most recently ignored data. (0=no offset)
 
 ---
 
@@ -616,14 +625,14 @@ This will return true if the entity has removed a block in the given result.
 
 This will perform a purge on the CoreProtect database.
 
-* **time:** Purge any data earlier than this. "120" would purge any data older than 120 seconds (2 minutes).
+* **time:** Purge any data earlier than this. `120` would purge any data older than 120 seconds (2 minutes).
 
 ---
 
 
 ### Examples
 
-- Get the last 60 seconds of block data for the user "Notch".
+- Get the last 60 seconds of block data for the user `"Notch"`.
 ```java
 CoreProtectAPI co = getCoreProtect();
 if (co != null) { // Ensure we have access to the API
@@ -642,7 +651,7 @@ if (co != null) { // Ensure we have access to the API
 
 ---
 
-- Get the last 60 seconds of block data for the user "Notch", excluding dirt and grass blocks.
+- Get the last 60 seconds of block data for the user `"Notch"`, excluding dirt and grass blocks.
 ```java
 CoreProtectAPI co = getCoreProtect();
 if (co != null) { // Ensure we have access to the API
@@ -713,7 +722,7 @@ thread.start();
 
 ---
 
-- Check if the user "Notch" has already placed a block at a location within the last 60 seconds.
+- Check if the user `"Notch"`has already placed a block at a location within the last 60 seconds.
 ```java
 CoreProtectAPI co = getCoreProtect();
 if (co != null) { // Ensure we have access to the API
@@ -742,7 +751,7 @@ if (co != null) { // Ensure we have access to the API
 
 ---
 
-- Log the placement of a block at a location by the user "Notch".
+- Log the placement of a block at a location by the user `"Notch"`.
 ```java
 CoreProtectAPI co = getCoreProtect();
 if (co != null) { // Ensure we have access to the API
@@ -763,7 +772,7 @@ if (CoreProtect != null) { // Ensure we have access to the API
 
 ---
 
-- Perform a multi-threaded placement check to see if the user "Notch" has already placed a block at a location within the last 60 seconds. This ignores the most recent 1 second of logged data, to account for the fact that that new block data may have already been logged, depending on your code.
+- Perform a multi-threaded placement check to see if the user `"Notch"` has already placed a block at a location within the last 60 seconds. This ignores the most recent 1 second of logged data, to account for the fact that that new block data may have already been logged, depending on your code.
 ```java
 final Block block = null; // Should be an actual block
 class BasicThread implements Runnable {

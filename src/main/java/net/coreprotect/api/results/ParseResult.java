@@ -22,22 +22,29 @@ public abstract class ParseResult {
     }
 
     public String getActionString() {
-        String res;
+        return getActionType().getActionString();
+    }
+
+    public String getLocatedAction() {
+        return getActionType().getLocated();
+    }
+
+    public ActionType getActionType() {
+        ActionType res;
         switch(getActionId()) {
             case 0:
-                res = "break";
+                res = ActionType.BROKE;
                 break;
             case 1:
-                res = "place";
+                res = ActionType.PLACED;
                 break;
             case 2:
-                res = "click";
+                res = ActionType.CLICKED;
                 break;
             case 3:
-                res = "kill";
+                res = ActionType.KILLED;
                 break;
-            default:
-                res = "unknown";
+            default: res = ActionType.UNKNOWN;
         }
         return res;
     }

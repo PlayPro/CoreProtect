@@ -1,21 +1,19 @@
-package net.coreprotect.api;
+package net.coreprotect;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.Lookup;
 import net.coreprotect.database.Rollback;
-import net.coreprotect.api.results.lookup.BlockLookupAPI;
-import net.coreprotect.api.results.lookup.ChestTransactionLookupAPI;
+import net.coreprotect.api.lookup.BlockLookupAPI;
+import net.coreprotect.api.lookup.ChestTransactionLookupAPI;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.utility.APIUtil;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.api.results.*;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.Server;
+import net.coreprotect.utility.Util;
+import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
@@ -27,14 +25,137 @@ import java.sql.Connection;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 public class CoreProtectAPI extends Queue {
+
+    /**
+     * @deprecated Do not use this class even in extreme cases, there are more convenient ways
+     * @see ContainerLookupResult
+     * @see BlockLookupResult
+     */
+    @Deprecated
+    public static class ParseResult {
+        String[] parse;
+
+        /**
+         * @deprecated Do not use this class even in extreme cases, there are more convenient ways
+         * @see ContainerLookupResult
+         * @see BlockLookupResult
+         */
+        @Deprecated
+        public ParseResult(String[] data) {
+            parse = data;
+        }
+
+        public int getActionId() {
+            return Integer.parseInt(parse[7]);
+        }
+
+        public String getActionString() {
+            int actionID = Integer.parseInt(parse[7]);
+            String result = "unknown";
+
+            if (actionID == 0) {
+                result = "break";
+            }
+            else if (actionID == 1) {
+                result = "place";
+            }
+            else if (actionID == 2) {
+                result = "click";
+            }
+            else if (actionID == 3) {
+                result = "kill";
+            }
+
+            return result;
+        }
+
+        @Deprecated
+        public int getData() {
+            return Integer.parseInt(parse[6]);
+        }
+
+        public String getPlayer() {
+            return parse[1];
+        }
+
+        @Deprecated
+        public int getTime() {
+            return Integer.parseInt(parse[0]);
+        }
+
+        public long getTimestamp() {
+            return Long.parseLong(parse[0]) * 1000L;
+        }
+
+        public Material getType() {
+            int actionID = this.getActionId();
+            int type = Integer.parseInt(parse[5]);
+            String typeName;
+
+            if (actionID == 3) {
+                typeName = Util.getEntityType(type).name();
+            }
+            else {
+                typeName = Util.getType(type).name().toLowerCase(Locale.ROOT);
+                typeName = Util.nameFilter(typeName, this.getData());
+            }
+
+            return Util.getType(typeName);
+        }
+
+        public BlockData getBlockData() {
+            String blockData = parse[12];
+            if (blockData.length() == 0) {
+                return getType().createBlockData();
+            }
+            return Bukkit.getServer().createBlockData(blockData);
+        }
+
+        public int getX() {
+            return Integer.parseInt(parse[2]);
+        }
+
+        public int getY() {
+            return Integer.parseInt(parse[3]);
+        }
+
+        public int getZ() {
+            return Integer.parseInt(parse[4]);
+        }
+
+        public boolean isRolledBack() {
+            return Integer.parseInt(parse[8]) == 1;
+        }
+
+        public String worldName() {
+            return Util.getWorldName(Integer.parseInt(parse[9]));
+        }
+    }
 
     public int APIVersion() {
         return 8;
     }
 
+    /**
+     *
+     * @deprecated Do not use this method even in extreme cases, there are more convenient ways
+     * @see #parseBlockLookupResult(String[])
+     * @param results Array of {@link String}
+     * @return {@link ParseResult}
+     */
+    @Deprecated
+    public ParseResult parseResult(String[] results) {
+        return new ParseResult(results);
+    }
+
+    /**
+     * @see #parseBlockLookupResult(String[])
+     * @see #parseBlockLookupResult(List)
+     */
     public List<String[]> blockLookup(Block block, long time) {
         if (Config.getGlobal().API_ENABLED && (Config.getConfig(block.getWorld()).BLOCK_MOVEMENT
                 || Config.getConfig(block.getWorld()).BLOCK_BREAK
@@ -45,6 +166,10 @@ public class CoreProtectAPI extends Queue {
         return null;
     }
 
+    /**
+     * @see #parseBlockLookupResult(String[])
+     * @see #parseBlockLookupResult(List)
+     */
     public List<String[]> blockLookup(Block block) {
         if (Config.getGlobal().API_ENABLED && (Config.getConfig(block.getWorld()).BLOCK_MOVEMENT
                 || Config.getConfig(block.getWorld()).BLOCK_BREAK
@@ -55,12 +180,21 @@ public class CoreProtectAPI extends Queue {
         return null;
     }
 
+    /**
+     * @see #parseContainerLookupResult(String[])
+     * @see #parseContainerLookupResult(List)
+     */
     public List<String[]> containerLookup(Block block, long time) {
         if (Config.getGlobal().API_ENABLED && Config.getConfig(block.getWorld()).ITEM_TRANSACTIONS)
             return ChestTransactionLookupAPI.performLookup(block, time);
         return null;
     }
 
+
+    /**
+     * @see #parseContainerLookupResult(String[])
+     * @see #parseContainerLookupResult(List)
+     */
     public List<String[]> containerLookup(Block block) {
         if (Config.getGlobal().API_ENABLED && Config.getConfig(block.getWorld()).ITEM_TRANSACTIONS)
             return ChestTransactionLookupAPI.performLookup(block);
@@ -68,19 +202,19 @@ public class CoreProtectAPI extends Queue {
     }
 
     public List<BlockLookupResult> blockLookupParsed(Block block, long time) {
-        return blockLookup(block, time).stream().map(BlockLookupResult::new).collect(Collectors.toList());
+        return parseBlockLookupResult(blockLookup(block, time));
     }
 
     public List<BlockLookupResult> blockLookupParsed(Block block) {
-        return blockLookup(block).stream().map(BlockLookupResult::new).collect(Collectors.toList());
+        return parseBlockLookupResult(blockLookup(block));
     }
 
     public List<ContainerLookupResult> containerLookupParsed(Block block, long time) {
-        return containerLookup(block, time).stream().map(ContainerLookupResult::new).collect(Collectors.toList());
+        return parseContainerLookupResult(containerLookup(block, time));
     }
 
     public List<ContainerLookupResult> containerLookupParsed(Block block) {
-        return containerLookup(block).stream().map(ContainerLookupResult::new).collect(Collectors.toList());
+        return parseContainerLookupResult(containerLookup(block));
     }
 
     public BlockLookupResult parseBlockLookupResult(String[] results) {
@@ -89,6 +223,14 @@ public class CoreProtectAPI extends Queue {
 
     public ContainerLookupResult parseContainerLookupResult(String[] results) {
         return new ContainerLookupResult(results);
+    }
+
+    public List<BlockLookupResult> parseBlockLookupResult(List<String[]> results) {
+        return results.stream().map(BlockLookupResult::new).collect(Collectors.toList());
+    }
+
+    public List<ContainerLookupResult> parseContainerLookupResult(List<String[]> results) {
+        return results.stream().map(ContainerLookupResult::new).collect(Collectors.toList());
     }
 
     public boolean hasPlaced(String user, Block block, long time, long offset) {

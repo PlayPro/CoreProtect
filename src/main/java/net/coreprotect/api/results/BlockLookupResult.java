@@ -1,12 +1,14 @@
 package net.coreprotect.api.results;
 
-import net.coreprotect.api.CoreProtectAPI;
 import net.coreprotect.config.Config;
 import org.bukkit.Bukkit;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 
+/**
+ * @see net.coreprotect.CoreProtectAPI#parseBlockLookupResult(String[])
+ */
 public class BlockLookupResult extends ParseResult {
 
     public BlockLookupResult(String[] data) {

@@ -1,4 +1,4 @@
-package net.coreprotect.api.results.lookup;
+package net.coreprotect.api.lookup;
 
 import java.sql.Connection;
 import java.sql.ResultSet;

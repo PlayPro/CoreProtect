@@ -25,8 +25,12 @@ public abstract class ParseResult {
         return getActionType().getActionString();
     }
 
-    public String getLocatedAction() {
-        return getActionType().getLocated();
+    public String getBuiltPhrase() {
+        return getActionType().getBuiltPhrase();
+    }
+
+    public String getBuiltPhrase(String... params) {
+        return getActionType().getBuiltPhrase(params);
     }
 
     public ActionType getActionType() {

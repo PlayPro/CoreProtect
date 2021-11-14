@@ -194,7 +194,7 @@ public class CoreProtectAPI extends Queue {
 
     public List<BlockLookupResult> parseBlockLookupResult(List<String[]> results) {
         return results.stream().map(BlockLookupResult::new).collect(Collectors.toList());
-
+    }
 
     /**
      * @see #parseContainerLookupResult(String[])

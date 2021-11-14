@@ -180,6 +180,22 @@ public class CoreProtectAPI extends Queue {
         return null;
     }
 
+    public List<BlockLookupResult> blockLookupParsed(Block block, long time) {
+        return parseBlockLookupResult(blockLookup(block, time));
+    }
+
+    public List<BlockLookupResult> blockLookupParsed(Block block) {
+        return parseBlockLookupResult(blockLookup(block));
+    }
+
+    public BlockLookupResult parseBlockLookupResult(String[] results) {
+        return new BlockLookupResult(results);
+    }
+
+    public List<BlockLookupResult> parseBlockLookupResult(List<String[]> results) {
+        return results.stream().map(BlockLookupResult::new).collect(Collectors.toList());
+
+
     /**
      * @see #parseContainerLookupResult(String[])
      * @see #parseContainerLookupResult(List)
@@ -201,14 +217,6 @@ public class CoreProtectAPI extends Queue {
         return null;
     }
 
-    public List<BlockLookupResult> blockLookupParsed(Block block, long time) {
-        return parseBlockLookupResult(blockLookup(block, time));
-    }
-
-    public List<BlockLookupResult> blockLookupParsed(Block block) {
-        return parseBlockLookupResult(blockLookup(block));
-    }
-
     public List<ContainerLookupResult> containerLookupParsed(Block block, long time) {
         return parseContainerLookupResult(containerLookup(block, time));
     }
@@ -217,16 +225,8 @@ public class CoreProtectAPI extends Queue {
         return parseContainerLookupResult(containerLookup(block));
     }
 
-    public BlockLookupResult parseBlockLookupResult(String[] results) {
-        return new BlockLookupResult(results);
-    }
-
     public ContainerLookupResult parseContainerLookupResult(String[] results) {
         return new ContainerLookupResult(results);
-    }
-
-    public List<BlockLookupResult> parseBlockLookupResult(List<String[]> results) {
-        return results.stream().map(BlockLookupResult::new).collect(Collectors.toList());
     }
 
     public List<ContainerLookupResult> parseContainerLookupResult(List<String[]> results) {

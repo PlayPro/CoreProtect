@@ -310,11 +310,10 @@ public class RollbackRestoreCommand {
                         class BasicThread2 implements Runnable {
                             @Override
                             public void run() {
-                                try {
+                                try (Connection connection = Database.getConnection(false, 1000)) {
                                     ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
                                     int action = finalAction;
                                     Location location = locationFinal;
-                                    Connection connection = Database.getConnection(false, 1000);
                                     if (connection != null) {
                                         Statement statement = connection.createStatement();
                                         String baduser = "";
@@ -407,7 +406,6 @@ public class RollbackRestoreCommand {
                                             Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.USER_NOT_FOUND, baduser));
                                         }
                                         statement.close();
-                                        connection.close();
                                     }
                                     else {
                                         Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));

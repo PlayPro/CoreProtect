@@ -324,9 +324,8 @@ public class LookupCommand {
             class BasicThread implements Runnable {
                 @Override
                 public void run() {
-                    try {
+                    try (Connection connection = Database.getConnection(true)) {
                         ConfigHandler.lookupThrottle.put(player2.getName(), new Object[] { true, System.currentTimeMillis() });
-                        Connection connection = Database.getConnection(true);
                         if (connection != null) {
                             Statement statement = connection.createStatement();
                             String blockdata = ChestTransactionLookup.performLookup(command.getName(), statement, location, player2, p2, finalLimit, false);
@@ -339,7 +338,6 @@ public class LookupCommand {
                                 Chat.sendComponent(player2, blockdata);
                             }
                             statement.close();
-                            connection.close();
                         }
                         else {
                             Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
@@ -422,9 +420,8 @@ public class LookupCommand {
             class BasicThread implements Runnable {
                 @Override
                 public void run() {
-                    try {
+                    try (Connection connection = Database.getConnection(true)) {
                         ConfigHandler.lookupThrottle.put(player2.getName(), new Object[] { true, System.currentTimeMillis() });
-                        Connection connection = Database.getConnection(true);
                         if (connection != null) {
                             Statement statement = connection.createStatement();
                             if (t == 8) {
@@ -461,7 +458,6 @@ public class LookupCommand {
                                 }
                             }
                             statement.close();
-                            connection.close();
                         }
                         else {
                             Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
@@ -681,7 +677,7 @@ public class LookupCommand {
                     class BasicThread2 implements Runnable {
                         @Override
                         public void run() {
-                            try {
+                            try (Connection connection = Database.getConnection(true)) {
                                 ConfigHandler.lookupThrottle.put(player2.getName(), new Object[] { true, System.currentTimeMillis() });
 
                                 List<String> uuidList = new ArrayList<>();
@@ -699,7 +695,6 @@ public class LookupCommand {
                                 ConfigHandler.lookupAlist.put(player2.getName(), finalArgAction);
                                 ConfigHandler.lookupRadius.put(player2.getName(), radius);
 
-                                Connection connection = Database.getConnection(true);
                                 if (connection != null) {
                                     Statement statement = connection.createStatement();
                                     String baduser = "";
@@ -950,7 +945,6 @@ public class LookupCommand {
                                         Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.USER_NOT_FOUND, baduser));
                                     }
                                     statement.close();
-                                    connection.close();
                                 }
                                 else {
                                     Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));

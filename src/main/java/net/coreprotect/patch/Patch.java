@@ -151,10 +151,9 @@ public class Patch {
         int result = -1;
         patching = true;
 
-        try {
+        try (Connection connection = Database.getConnection(true, 0)) {
             boolean patched = false;
             boolean allPatches = true;
-            Connection connection = Database.getConnection(true, 0);
             Statement statement = connection.createStatement();
             Integer[] newVersion = lastVersion;
 
@@ -221,7 +220,6 @@ public class Patch {
             }
 
             statement.close();
-            connection.close();
         }
         catch (Exception e) {
             e.printStackTrace();

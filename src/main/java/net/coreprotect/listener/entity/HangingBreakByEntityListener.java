@@ -33,8 +33,7 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
         class BasicThread implements Runnable {
             @Override
             public void run() {
-                try {
-                    Connection connection = Database.getConnection(true);
+                try (Connection connection = Database.getConnection(true)) {
                     if (connection != null) {
                         Statement statement = connection.createStatement();
                         String blockData = BlockLookup.performLookup(null, statement, block, player, 0, 1, 7);
@@ -49,7 +48,6 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
                         }
 
                         statement.close();
-                        connection.close();
                     }
                     else {
                         Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));

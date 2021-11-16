@@ -87,24 +87,23 @@ public final class PlayerInteractListener extends Queue implements Listener {
             class BasicThread implements Runnable {
                 @Override
                 public void run() {
-                    try {
-                        if (ConfigHandler.converterRunning) {
-                            player.sendMessage(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
+                    if (ConfigHandler.converterRunning) {
+                        player.sendMessage(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
+                        return;
+                    }
+                    if (ConfigHandler.purgeRunning) {
+                        player.sendMessage(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
+                        return;
+                    }
+                    if (ConfigHandler.lookupThrottle.get(player.getName()) != null) {
+                        Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
+                        if ((boolean) lookupThrottle[0] || (System.currentTimeMillis() - (long) lookupThrottle[1]) < 100) {
+                            player.sendMessage(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
                             return;
                         }
-                        if (ConfigHandler.purgeRunning) {
-                            player.sendMessage(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
-                            return;
-                        }
-                        if (ConfigHandler.lookupThrottle.get(player.getName()) != null) {
-                            Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
-                            if ((boolean) lookupThrottle[0] || (System.currentTimeMillis() - (long) lookupThrottle[1]) < 100) {
-                                player.sendMessage(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                return;
-                            }
-                        }
+                    }
 
-                        Connection connection = Database.getConnection(true);
+                    try (Connection connection = Database.getConnection(true)) {
                         if (connection != null) {
                             ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
                             Statement statement = connection.createStatement();
@@ -120,7 +119,6 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             }
 
                             statement.close();
-                            connection.close();
                             ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
 
                             if (blockFinal instanceof Sign && player.getGameMode() != GameMode.CREATIVE) {
@@ -185,28 +183,27 @@ public final class PlayerInteractListener extends Queue implements Listener {
                         class BasicThread implements Runnable {
                             @Override
                             public void run() {
-                                try {
-                                    if (ConfigHandler.converterRunning) {
-                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
+                                if (ConfigHandler.converterRunning) {
+                                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
+                                    return;
+                                }
+
+                                if (ConfigHandler.purgeRunning) {
+                                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
+                                    return;
+                                }
+
+                                if (ConfigHandler.lookupThrottle.get(player.getName()) != null) {
+                                    Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
+                                    if ((boolean) lookupThrottle[0] || (System.currentTimeMillis() - (long) lookupThrottle[1]) < 100) {
+                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
                                         return;
                                     }
+                                }
 
-                                    if (ConfigHandler.purgeRunning) {
-                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
-                                        return;
-                                    }
+                                ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
 
-                                    if (ConfigHandler.lookupThrottle.get(player.getName()) != null) {
-                                        Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
-                                        if ((boolean) lookupThrottle[0] || (System.currentTimeMillis() - (long) lookupThrottle[1]) < 100) {
-                                            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                            return;
-                                        }
-                                    }
-
-                                    ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
-
-                                    Connection connection = Database.getConnection(true);
+                                try (Connection connection = Database.getConnection(true)) {
                                     if (connection != null) {
                                         Statement statement = connection.createStatement();
                                         List<String> signData = SignMessageLookup.performLookup(null, statement, location, player, 1, 7);
@@ -225,7 +222,6 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                         }
 
                                         statement.close();
-                                        connection.close();
                                     }
                                     else {
                                         Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
@@ -269,28 +265,27 @@ public final class PlayerInteractListener extends Queue implements Listener {
                         class BasicThread implements Runnable {
                             @Override
                             public void run() {
-                                try {
-                                    if (ConfigHandler.converterRunning) {
-                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
-                                        return;
+                                if (ConfigHandler.converterRunning) {
+                                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
+                                    return;
+                                }
+
+                                if (ConfigHandler.purgeRunning) {
+                                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
+                                    return;
+                                }
+
+                                if (ConfigHandler.lookupThrottle.get(player.getName()) != null) {
+                                    Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
+                                    if ((boolean) lookupThrottle[0] || (System.currentTimeMillis() - (long) lookupThrottle[1]) < 100) {
+                                       Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
+                                       return;
                                     }
+                                }
 
-                                    if (ConfigHandler.purgeRunning) {
-                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
-                                        return;
-                                    }
+                                ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
 
-                                    if (ConfigHandler.lookupThrottle.get(player.getName()) != null) {
-                                        Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
-                                        if ((boolean) lookupThrottle[0] || (System.currentTimeMillis() - (long) lookupThrottle[1]) < 100) {
-                                            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                            return;
-                                        }
-                                    }
-
-                                    ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
-
-                                    Connection connection = Database.getConnection(true);
+                                try (Connection connection = Database.getConnection(true)) {
                                     if (connection != null) {
                                         Statement statement = connection.createStatement();
                                         String blockData = ChestTransactionLookup.performLookup(null, statement, finalLocation, player, 1, 7, false);
@@ -305,7 +300,6 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                         }
 
                                         statement.close();
-                                        connection.close();
                                     }
                                     else {
                                         Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
@@ -340,26 +334,25 @@ public final class PlayerInteractListener extends Queue implements Listener {
                         class BasicThread implements Runnable {
                             @Override
                             public void run() {
-                                try {
-                                    if (ConfigHandler.converterRunning) {
-                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
+                                if (ConfigHandler.converterRunning) {
+                                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
+                                    return;
+                                }
+                                if (ConfigHandler.purgeRunning) {
+                                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
+                                    return;
+                                }
+                                if (ConfigHandler.lookupThrottle.get(player.getName()) != null) {
+                                    Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
+                                    if ((boolean) lookupThrottle[0] || (System.currentTimeMillis() - (long) lookupThrottle[1]) < 100) {
+                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
                                         return;
                                     }
-                                    if (ConfigHandler.purgeRunning) {
-                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
-                                        return;
-                                    }
-                                    if (ConfigHandler.lookupThrottle.get(player.getName()) != null) {
-                                        Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
-                                        if ((boolean) lookupThrottle[0] || (System.currentTimeMillis() - (long) lookupThrottle[1]) < 100) {
-                                            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                            return;
-                                        }
-                                    }
+                                }
 
-                                    ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
+                                ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
 
-                                    Connection connection = Database.getConnection(true);
+                                try (Connection connection = Database.getConnection(true)) {
                                     if (connection != null) {
                                         Statement statement = connection.createStatement();
                                         String blockData = InteractionLookup.performLookup(null, statement, finalInteractBlock, player, 0, 1, 7);
@@ -374,7 +367,6 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                         }
 
                                         statement.close();
-                                        connection.close();
                                     }
                                     else {
                                         Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
@@ -421,28 +413,27 @@ public final class PlayerInteractListener extends Queue implements Listener {
                         class BasicThread implements Runnable {
                             @Override
                             public void run() {
-                                try {
-                                    if (ConfigHandler.converterRunning) {
-                                        Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
+                                if (ConfigHandler.converterRunning) {
+                                    Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
+                                    return;
+                                }
+
+                                if (ConfigHandler.purgeRunning) {
+                                    Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
+                                    return;
+                                }
+
+                                if (ConfigHandler.lookupThrottle.get(finalPlayer.getName()) != null) {
+                                    Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(finalPlayer.getName());
+                                    if ((boolean) lookupThrottle[0] || (System.currentTimeMillis() - (long) lookupThrottle[1]) < 100) {
+                                        Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
                                         return;
                                     }
+                                }
 
-                                    if (ConfigHandler.purgeRunning) {
-                                        Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
-                                        return;
-                                    }
+                                ConfigHandler.lookupThrottle.put(finalPlayer.getName(), new Object[] { true, System.currentTimeMillis() });
 
-                                    if (ConfigHandler.lookupThrottle.get(finalPlayer.getName()) != null) {
-                                        Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(finalPlayer.getName());
-                                        if ((boolean) lookupThrottle[0] || (System.currentTimeMillis() - (long) lookupThrottle[1]) < 100) {
-                                            Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                            return;
-                                        }
-                                    }
-
-                                    ConfigHandler.lookupThrottle.put(finalPlayer.getName(), new Object[] { true, System.currentTimeMillis() });
-
-                                    Connection connection = Database.getConnection(true);
+                                try (Connection connection = Database.getConnection(true)) {
                                     if (connection != null) {
                                         Statement statement = connection.createStatement();
                                         if (finalBlock.getType().equals(Material.AIR) || finalBlock.getType().equals(Material.CAVE_AIR)) {
@@ -470,7 +461,6 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                         }
 
                                         statement.close();
-                                        connection.close();
                                     }
                                     else {
                                         Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));

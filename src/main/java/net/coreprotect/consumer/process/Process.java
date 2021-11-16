@@ -2,6 +2,7 @@ package net.coreprotect.consumer.process;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Locale;
@@ -45,34 +46,11 @@ public class Process {
     public static final int BLOCKDATA_INSERT = 25;
     public static final int ITEM_TRANSACTION = 26;
 
-    protected static Connection connection = null;
     public static int lastLockUpdate = 0;
-    private static int lastConnection = 0;
     private static volatile int currentConsumerSize = 0;
 
     public static int getCurrentConsumerSize() {
         return currentConsumerSize;
-    }
-
-    private static void validateConnection(boolean lastRun) {
-        try {
-            if (connection != null) {
-                int timeSinceLastConnection = ((int) (System.currentTimeMillis() / 1000L)) - lastConnection;
-                if ((!lastRun && timeSinceLastConnection > 900) || !connection.isValid(5) || Consumer.resetConnection) {
-                    connection.close();
-                    connection = null;
-                    Consumer.resetConnection = false;
-                }
-            }
-
-            if (connection == null && ConfigHandler.serverRunning) {
-                connection = Database.getConnection(false, 500);
-                lastConnection = (int) (System.currentTimeMillis() / 1000L);
-            }
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-        }
     }
 
     protected static void updateLockTable(Statement statement, int locked) {
@@ -90,9 +68,7 @@ public class Process {
     }
 
     protected static void processConsumer(int processId, boolean lastRun) {
-        try {
-            // Connection
-            validateConnection(lastRun);
+        try (Connection connection = Database.getConnection(false, 500)) {
             if (connection == null) {
                 return;
             }
@@ -243,7 +219,6 @@ public class Process {
                                 for (int index = (i - 1); index >= 0; index--) {
                                     consumerData.remove(index);
                                 }
-                                connection = null;
                                 currentConsumerSize = 0;
                                 Consumer.isPaused = false;
                                 return;
@@ -288,11 +263,6 @@ public class Process {
             users.clear();
             consumerObject.clear();
             consumerData.clear();
-
-            if (lastRun) {
-                connection.close();
-                connection = null;
-            }
         }
         catch (Exception e) {
             e.printStackTrace();

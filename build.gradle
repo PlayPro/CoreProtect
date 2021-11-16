@@ -37,6 +37,7 @@ dependencies {
     }
     compileOnly 'org.spigotmc:spigot-api:1.17-R0.1-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit-lite:1.7'
+    implementation 'com.zaxxer:HikariCP:4.0.3'
 }
 
 jar {
@@ -51,6 +52,7 @@ shadowJar {
     dependencies {
         // #toString because #getGroup technically returns an Object
         relocate('org.bstats', project.group.toString())
+        relocate('com.zaxxer', project.group.toString())
     }
     archiveClassifier.set(null)
 }

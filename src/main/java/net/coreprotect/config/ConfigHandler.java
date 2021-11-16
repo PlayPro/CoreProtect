@@ -14,6 +14,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -50,6 +52,7 @@ public class ConfigHandler extends Queue {
     public static String username = "root";
     public static String password = "";
     public static String prefix = "co_";
+    public static HikariDataSource hikariDataSource = null;
     public static final boolean isSpigot = Util.isSpigot();
     public static final boolean isPaper = Util.isPaper();
     public static volatile boolean serverRunning = false;
@@ -171,6 +174,12 @@ public class ConfigHandler extends Queue {
     }
 
     public static void loadDatabase() {
+        // close old pool when we reload the database, e.g. in purge command
+        if (ConfigHandler.hikariDataSource != null) {
+            ConfigHandler.hikariDataSource.close();
+            ConfigHandler.hikariDataSource = null;
+        }
+
         if (!Config.getGlobal().MYSQL) {
             try {
                 File tempFile = File.createTempFile("CoreProtect_" + System.currentTimeMillis(), ".tmp");
@@ -198,11 +207,29 @@ public class ConfigHandler extends Queue {
             catch (Exception e) {
                 e.printStackTrace();
             }
+        } else {
+            HikariConfig config = new HikariConfig();
+            config.setJdbcUrl("jdbc:mysql://" + ConfigHandler.host + ":" + ConfigHandler.port + "/" + ConfigHandler.database);
+            config.setUsername(ConfigHandler.username);
+            config.setPassword(ConfigHandler.password);
+            config.addDataSourceProperty("characterEncoding", "UTF-8");
+            config.addDataSourceProperty("connectionTimeout", "10000");
+            /* https://github.com/brettwooldridge/HikariCP/wiki/MySQL-Configuration */
+            /* https://cdn.oreillystatic.com/en/assets/1/event/21/Connector_J%20Performance%20Gems%20Presentation.pdf */
+            config.addDataSourceProperty("cachePrepStmts", "true");
+            config.addDataSourceProperty("prepStmtCacheSize", "250");
+            config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+            config.addDataSourceProperty("useServerPrepStmts", "true");
+            config.addDataSourceProperty("useLocalSessionState", "true");
+            config.addDataSourceProperty("rewriteBatchedStatements", "true");
+            config.addDataSourceProperty("cacheServerConfiguration", "true");
+            config.addDataSourceProperty("maintainTimeStats", "false");
+            /* Disable SSL to suppress the unverified server identity warning */
+            config.addDataSourceProperty("useSSL", "false");
+
+            ConfigHandler.hikariDataSource = new HikariDataSource(config);
         }
 
-        if (ConfigHandler.serverRunning) {
-            Consumer.resetConnection = true;
-        }
         Database.createDatabaseTables(ConfigHandler.prefix, false);
     }
 
@@ -368,7 +395,11 @@ public class ConfigHandler extends Queue {
             ConfigHandler.loadConfig(); // Load (or create) the configuration file.
             ConfigHandler.loadDatabase(); // Initialize MySQL and create tables if necessary.
 
-            Connection connection = Database.getConnection(true, 0);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        try (Connection connection = Database.getConnection(true, 0)) {
             Statement statement = connection.createStatement();
 
             ConfigHandler.checkPlayers(connection);
@@ -396,7 +427,6 @@ public class ConfigHandler extends Queue {
             }
 
             statement.close();
-            connection.close();
 
             return validVersion && databaseLock;
         }

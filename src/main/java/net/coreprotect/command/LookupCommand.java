@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-import org.apache.commons.lang.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -18,6 +17,8 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
+
+import com.google.common.base.Strings;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
@@ -797,7 +798,7 @@ public class LookupCommand {
                                                     String timeago = Util.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
                                                     double time_length = Util.getTimeSince(Integer.parseInt(time), unixtimestamp, false).replaceAll("[^0-9]", "").length() * 1.50;
                                                     int padding = (int) (time_length + 12.50);
-                                                    String leftPadding = StringUtils.leftPad("", padding, ' ');
+                                                    String leftPadding = Strings.padStart("", padding, ' ');
                                                     Chat.sendComponent(player2, timeago + " " + Color.WHITE + "- " + Color.DARK_AQUA + Phrase.build(Phrase.LOOKUP_LOGIN, Color.DARK_AQUA + dplayer + Color.WHITE, (action != 0 ? Selector.FIRST : Selector.SECOND)));
                                                     Chat.sendComponent(player2, Color.WHITE + leftPadding + Color.GREY + "^ " + Util.getCoordinates(command.getName(), wid, x, y, z, true, true) + "");
                                                 }
@@ -823,7 +824,7 @@ public class LookupCommand {
                                                     String timeago = Util.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
                                                     double time_length = Util.getTimeSince(Integer.parseInt(time), unixtimestamp, false).replaceAll("[^0-9]", "").length() * 1.50;
                                                     int padding = (int) (time_length + 12.50);
-                                                    String leftPadding = StringUtils.leftPad("", padding, ' ');
+                                                    String leftPadding = Strings.padStart("", padding, ' ');
                                                     Chat.sendComponent(player2, timeago + " " + Color.WHITE + "- " + Color.DARK_AQUA + dplayer + ": " + Color.WHITE, message);
                                                     Chat.sendComponent(player2, Color.WHITE + leftPadding + Color.GREY + "^ " + Util.getCoordinates(command.getName(), wid, x, y, z, true, true) + "");
                                                 }
@@ -851,7 +852,7 @@ public class LookupCommand {
                                                     String timeago = Util.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
                                                     double timeLength = Util.getTimeSince(Integer.parseInt(time), unixtimestamp, false).replaceAll("[^0-9]", "").length() * 1.50;
                                                     int padding = (int) (timeLength + 12.50);
-                                                    String leftPadding = StringUtils.leftPad("", padding, ' ');
+                                                    String leftPadding = Strings.padStart("", padding, ' ');
 
                                                     String dname = "";
                                                     boolean isPlayer = false;

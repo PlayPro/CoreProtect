@@ -45,6 +45,7 @@ import net.coreprotect.listener.player.SignChangeListener;
 import net.coreprotect.listener.world.LeavesDecayListener;
 import net.coreprotect.listener.world.PortalCreateListener;
 import net.coreprotect.listener.world.StructureGrowListener;
+import net.coreprotect.paper.listener.PaperChatListener;
 
 public final class ListenerHandler {
 
@@ -85,7 +86,6 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new ArmorStandManipulateListener(), plugin);
         pluginManager.registerEvents(new PlayerBucketEmptyListener(), plugin);
         pluginManager.registerEvents(new PlayerBucketFillListener(), plugin);
-        pluginManager.registerEvents(new PlayerChatListener(), plugin);
         pluginManager.registerEvents(new PlayerCommandListener(), plugin);
         pluginManager.registerEvents(new PlayerDeathListener(), plugin);
         pluginManager.registerEvents(new PlayerDropItemListener(), plugin);
@@ -101,6 +101,16 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new StructureGrowListener(), plugin);
         pluginManager.registerEvents(new LeavesDecayListener(), plugin);
         pluginManager.registerEvents(new PortalCreateListener(), plugin);
+
+        // Paper Listeners / Fallbacks
+        try {
+            Class.forName("io.papermc.paper.event.player.AsyncChatEvent");
+            pluginManager.registerEvents(new PaperChatListener(), plugin);
+        }
+        catch (Exception e) {
+            pluginManager.registerEvents(new PlayerChatListener(), plugin);
+        }
+
     }
 
 }

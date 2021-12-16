@@ -4,8 +4,8 @@ The CoreProtect API enables you to log your own block changes, perform lookups, 
 
 | API Details |  |
 | --- | --- |
-| **API Version:** | 7 |
-| **Plugin Version:** | v20.0+ |
+| **API Version:** | 8 |
+| **Plugin Version:** | v20.2+ |
 | **Maven:** | [maven.playpro.com](https://maven.playpro.com) |
 
 *Documentation for the previous API version can be found [here](https://www.minerealm.com/community/viewtopic.php?f=32&t=16687).*
@@ -39,8 +39,8 @@ parseResult(String[] result).getTypeId()
 
 ## Getting Started
 
-Ensure you're using CoreProtect 20.0 or higher. Add it as an external jar to your plugin in your IDE.  
-Alternatively, if using Maven, you can add it via the repository [https://maven.playpro.com](https://maven.playpro.com) (net.coreprotect, 20.0).
+Ensure you're using CoreProtect 20.2 or higher. Add it as an external jar to your plugin in your IDE.  
+Alternatively, if using Maven, you can add it via the repository [https://maven.playpro.com](https://maven.playpro.com) (net.coreprotect, 20.2).
 
 The first thing you need to do is get access to CoreProtect. You can do this by using code similar to the following:
 

@@ -196,9 +196,9 @@ public class Util extends Queue {
         return message.append(Color.WHITE + backArrow + Phrase.build(Phrase.LOOKUP_PAGE, page + "/" + totalPages) + nextArrow).toString();
     }
 
-    public static String getTimeSince(int logTime, int currentTime, boolean component) {
+    public static String getTimeSince(long resultTime, long currentTime, boolean component) {
         StringBuilder message = new StringBuilder();
-        double timeSince = currentTime - (logTime + 0.00);
+        double timeSince = currentTime - (resultTime + 0.00);
 
         // minutes
         timeSince = timeSince / 60;
@@ -221,7 +221,7 @@ public class Util extends Queue {
         }
 
         if (component) {
-            Date logDate = new Date(logTime * 1000L);
+            Date logDate = new Date(resultTime * 1000L);
             String formattedTimestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z").format(logDate);
 
             return Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_POPUP + "|" + Color.GREY + formattedTimestamp + "|" + Color.GREY + message.toString() + Chat.COMPONENT_TAG_CLOSE;

@@ -51,7 +51,7 @@ public class LookupCommand {
         List<Object> argExclude = CommandHandler.parseExcluded(player, args, argAction);
         List<String> argExcludeUsers = CommandHandler.parseExcludedUsers(player, args);
         String ts = CommandHandler.parseTimeString(args);
-        int rbseconds = CommandHandler.parseTime(args);
+        long rbseconds = CommandHandler.parseTime(args);
         int argWid = CommandHandler.parseWorld(args, true, true);
         int parseRows = CommandHandler.parseRows(args);
         boolean count = CommandHandler.parseCount(args);
@@ -554,7 +554,7 @@ public class LookupCommand {
                     c++;
                 }
 
-                int cs = -1;
+                long cs = -1;
                 int x = 0;
                 int y = 0;
                 int z = 0;
@@ -567,7 +567,7 @@ public class LookupCommand {
                     y = Integer.parseInt(data[1]);
                     z = Integer.parseInt(data[2]);
                     wid = Integer.parseInt(data[3]);
-                    cs = Integer.parseInt(data[4]);
+                    cs = Long.parseLong(data[4]);
                     // arg_radius = Integer.parseInt(data[5]);
                     argNoisy = Integer.parseInt(data[5]);
                     argExcluded = Integer.parseInt(data[6]);
@@ -640,7 +640,7 @@ public class LookupCommand {
                 }
 
                 final List<String> rollbackusers2 = rollbackusers;
-                int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
+                long unixtimestamp = (System.currentTimeMillis() / 1000L);
                 if (cs == -1) {
                     if (rbseconds <= 0) {
                         cs = 0;
@@ -649,7 +649,7 @@ public class LookupCommand {
                         cs = unixtimestamp - rbseconds;
                     }
                 }
-                final int stime = cs;
+                final long stime = cs;
                 final Integer[] radius = argRadius;
 
                 try {

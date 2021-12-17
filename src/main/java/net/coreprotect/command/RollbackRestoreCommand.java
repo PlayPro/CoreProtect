@@ -31,7 +31,7 @@ import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
 
 public class RollbackRestoreCommand {
-    protected static void runCommand(CommandSender player, Command command, boolean permission, String[] args, Location argLocation, int forceSeconds) {
+    protected static void runCommand(CommandSender player, Command command, boolean permission, String[] args, Location argLocation, long forceSeconds) {
         Location lo = (argLocation != null ? argLocation : CommandHandler.parseLocation(player, args));
         List<String> argUuids = new ArrayList<>();
         List<String> argUsers = CommandHandler.parseUsers(args);
@@ -42,7 +42,7 @@ public class RollbackRestoreCommand {
         List<Object> argExclude = CommandHandler.parseExcluded(player, args, argAction);
         List<String> argExcludeUsers = CommandHandler.parseExcludedUsers(player, args);
         String ts = CommandHandler.parseTimeString(args);
-        int rbSeconds = CommandHandler.parseTime(args);
+        long rbSeconds = CommandHandler.parseTime(args);
         int argWid = CommandHandler.parseWorld(args, true, true);
         boolean count = CommandHandler.parseCount(args);
         boolean worldedit = CommandHandler.parseWorldEdit(args);
@@ -284,12 +284,12 @@ public class RollbackRestoreCommand {
 
                 final List<String> rollbackusers2 = rollbackusers;
                 if (rbSeconds > 0) {
-                    int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
-                    int seconds = unixtimestamp - rbSeconds;
+                    long unixtimestamp = (System.currentTimeMillis() / 1000L);
+                    long seconds = unixtimestamp - rbSeconds;
                     if (forceSeconds > 0) {
                         seconds = forceSeconds;
                     }
-                    final int stime = seconds;
+                    final long stime = seconds;
                     final Integer[] radius = argRadius;
                     try {
                         final CommandSender player2 = player;

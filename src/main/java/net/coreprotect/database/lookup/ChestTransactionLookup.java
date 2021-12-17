@@ -12,7 +12,6 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
-import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
 
@@ -48,7 +47,7 @@ public class ChestTransactionLookup {
             int x2 = (int) Math.ceil(l.getX());
             int y2 = (int) Math.ceil(l.getY());
             int z2 = (int) Math.ceil(l.getZ());
-            int time = (int) (System.currentTimeMillis() / 1000L);
+            long time = (System.currentTimeMillis() / 1000L);
             int worldId = Util.getWorldId(l.getWorld().getName());
             int count = 0;
             int rowMax = page * limit;
@@ -79,7 +78,7 @@ public class ChestTransactionLookup {
                 int resultAction = results.getInt("action");
                 int resultType = results.getInt("type");
                 int resultData = results.getInt("data");
-                int resultTime = results.getInt("time");
+                long resultTime = results.getLong("time");
                 int resultAmount = results.getInt("amount");
                 int resultRolledBack = results.getInt("rolled_back");
 

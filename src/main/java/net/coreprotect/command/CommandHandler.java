@@ -691,9 +691,9 @@ public class CommandHandler implements CommandExecutor {
         return restricted;
     }
 
-    protected static int parseTime(String[] inputArguments) {
+    protected static long parseTime(String[] inputArguments) {
         String[] argumentArray = inputArguments.clone();
-        int time = 0;
+        long time = 0;
         int count = 0;
         int next = 0;
         double w = 0;
@@ -754,7 +754,7 @@ public class CommandHandler implements CommandExecutor {
                         }
                     }
                     double rs = ((w * 7 * 24 * 60 * 60) + (d * 24 * 60 * 60) + (h * 60 * 60) + (m * 60) + s);
-                    time = (int) rs;
+                    time = (long) rs;
                     next = 0;
                 }
                 else {
@@ -763,6 +763,7 @@ public class CommandHandler implements CommandExecutor {
             }
             count++;
         }
+
         return time;
     }
 

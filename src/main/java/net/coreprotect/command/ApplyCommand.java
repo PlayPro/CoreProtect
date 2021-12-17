@@ -11,14 +11,13 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
 
 public class ApplyCommand {
     protected static void runCommand(CommandSender user, Command command, boolean permission, String[] args) {
         try {
             if (ConfigHandler.lastRollback.get(user.getName()) != null) {
                 List<Object> list = ConfigHandler.lastRollback.get(user.getName());
-                int time = (Integer) list.get(0);
+                long time = (Long) list.get(0);
                 args = (String[]) list.get(1);
                 Location location = (Location) list.get(2);
                 boolean valid = false;

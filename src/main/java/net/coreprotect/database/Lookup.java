@@ -75,7 +75,7 @@ public class Lookup extends Queue {
         return newList;
     }
 
-    public static int countLookupRows(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, List<Object> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, int checkTime, boolean restrictWorld, boolean lookup) {
+    public static int countLookupRows(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, List<Object> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, long checkTime, boolean restrictWorld, boolean lookup) {
         int rows = 0;
 
         try {

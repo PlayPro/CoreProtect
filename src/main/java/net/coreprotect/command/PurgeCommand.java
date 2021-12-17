@@ -1,7 +1,10 @@
 package net.coreprotect.command;
 
 import java.io.File;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.List;
@@ -28,7 +31,7 @@ public class PurgeCommand extends Consumer {
         int resultc = args.length;
         Location location = CommandHandler.parseLocation(player, args);
         final Integer[] argRadius = CommandHandler.parseRadius(args, player, location);
-        final int seconds = CommandHandler.parseTime(args);
+        final long seconds = CommandHandler.parseTime(args);
         final int argWid = CommandHandler.parseWorld(args, false, false);
         final List<Integer> argAction = CommandHandler.parseAction(args);
         final List<Integer> supportedActions = Arrays.asList();
@@ -92,8 +95,8 @@ public class PurgeCommand extends Consumer {
             @Override
             public void run() {
                 try (Connection connection = Database.getConnection(false, 500)) {
-                    int timestamp = (int) (System.currentTimeMillis() / 1000L);
-                    int ptime = timestamp - seconds;
+                    long timestamp = (System.currentTimeMillis() / 1000L);
+                    long ptime = timestamp - seconds;
                     long removed = 0;
 
                     for (int i = 0; i <= 5; i++) {

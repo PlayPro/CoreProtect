@@ -12,7 +12,6 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
-import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
 
@@ -45,9 +44,9 @@ public class BlockLookup {
             int x = block.getX();
             int y = block.getY();
             int z = block.getZ();
-            int time = (int) (System.currentTimeMillis() / 1000L);
+            long time = (System.currentTimeMillis() / 1000L);
             int worldId = Util.getWorldId(block.getWorld().getName());
-            int checkTime = 0;
+            long checkTime = 0;
             int count = 0;
             int rowMax = page * limit;
             int page_start = rowMax - limit;
@@ -75,7 +74,7 @@ public class BlockLookup {
                 int resultAction = results.getInt("action");
                 int resultType = results.getInt("type");
                 int resultData = results.getInt("data");
-                int resultTime = results.getInt("time");
+                long resultTime = results.getLong("time");
                 int resultRolledBack = results.getInt("rolled_back");
 
                 if (ConfigHandler.playerIdCacheReversed.get(resultUserId) == null) {

@@ -7,7 +7,6 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
 
 public class InspectCommand {
     protected static void runCommand(CommandSender player, boolean permission, String[] args) {

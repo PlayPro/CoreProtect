@@ -4,8 +4,7 @@ For more information about CoreProtect, visit [coreprotect.net](http://coreprote
 
 ## Getting Started
 
-These documents are still a work in progress.  
-Please be sure to visit the following links for more information.
+Please visit one of the following links for more information.
 
 [**CoreProtect Commands**](/commands/)  
 A list of all commands that can be used within CoreProtect.

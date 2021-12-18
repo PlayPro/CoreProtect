@@ -226,6 +226,7 @@ public class ConfigHandler extends Queue {
             config.addDataSourceProperty("cacheServerConfiguration", "true");
             config.addDataSourceProperty("maintainTimeStats", "false");
             /* Disable SSL to suppress the unverified server identity warning */
+            config.addDataSourceProperty("allowPublicKeyRetrieval", "true");
             config.addDataSourceProperty("useSSL", "false");
 
             ConfigHandler.hikariDataSource = new HikariDataSource(config);

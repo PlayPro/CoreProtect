@@ -157,7 +157,7 @@ public class RollbackRestoreCommand {
                 int xmax = location.getBlockX() + DEFAULT_RADIUS;
                 int zmin = location.getBlockZ() - DEFAULT_RADIUS;
                 int zmax = location.getBlockZ() + DEFAULT_RADIUS;
-                argRadius = new Integer[] { DEFAULT_RADIUS, xmin, xmax, -1, -1, zmin, zmax, 0 };
+                argRadius = new Integer[] { DEFAULT_RADIUS, xmin, xmax, null, null, zmin, zmax, 0 };
             }
             // if (arg_radius==-2)arg_radius = -1;
 

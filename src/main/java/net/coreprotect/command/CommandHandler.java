@@ -563,12 +563,12 @@ public class CommandHandler implements CommandExecutor {
                             rcount++;
                         }
                         if (location != null) {
-                            int xmin = location.getBlockX() - r_x;
-                            int xmax = location.getBlockX() + r_x;
-                            int ymin = -1;
-                            int ymax = -1;
-                            int zmin = location.getBlockZ() - r_z;
-                            int zmax = location.getBlockZ() + r_z;
+                            Integer xmin = location.getBlockX() - r_x;
+                            Integer xmax = location.getBlockX() + r_x;
+                            Integer ymin = null;
+                            Integer ymax = null;
+                            Integer zmin = location.getBlockZ() - r_z;
+                            Integer zmax = location.getBlockZ() + r_z;
                             if (r_y > -1) {
                                 ymin = location.getBlockY() - r_y;
                                 ymax = location.getBlockY() + r_y;

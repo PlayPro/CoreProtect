@@ -484,15 +484,15 @@ public class Lookup extends Queue {
             }
 
             if (radius != null) {
-                int xmin = radius[1];
-                int xmax = radius[2];
-                int ymin = radius[3];
-                int ymax = radius[4];
-                int zmin = radius[5];
-                int zmax = radius[6];
+                Integer xmin = radius[1];
+                Integer xmax = radius[2];
+                Integer ymin = radius[3];
+                Integer ymax = radius[4];
+                Integer zmin = radius[5];
+                Integer zmax = radius[6];
                 String queryY = "";
 
-                if (ymin > -1 && ymax > -1) {
+                if (ymin != null && ymax != null) {
                     queryY = " y >= '" + ymin + "' AND y <= '" + ymax + "' AND";
                 }
 

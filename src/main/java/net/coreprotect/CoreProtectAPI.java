@@ -464,7 +464,7 @@ public class CoreProtectAPI extends Queue {
                     int xMax = location.getBlockX() + radius;
                     int zMin = location.getBlockZ() - radius;
                     int zMax = location.getBlockZ() + radius;
-                    argRadius = new Integer[] { radius, xMin, xMax, -1, -1, zMin, zMax, 0 };
+                    argRadius = new Integer[] { radius, xMin, xMax, null, null, zMin, zMax, 0 };
                 }
 
                 if (lookup == 1) {

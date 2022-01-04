@@ -175,6 +175,18 @@ public class Database extends Queue {
         return connection;
     }
 
+    public static void closeConnection() {
+        try {
+            if (ConfigHandler.hikariDataSource != null) {
+                ConfigHandler.hikariDataSource.close();
+                ConfigHandler.hikariDataSource = null;
+            }
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     public static void performUpdate(Statement statement, long id, int action, int table) {
         try {
             int rolledBack = 1;

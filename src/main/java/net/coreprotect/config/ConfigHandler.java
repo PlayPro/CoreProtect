@@ -175,10 +175,7 @@ public class ConfigHandler extends Queue {
 
     public static void loadDatabase() {
         // close old pool when we reload the database, e.g. in purge command
-        if (ConfigHandler.hikariDataSource != null) {
-            ConfigHandler.hikariDataSource.close();
-            ConfigHandler.hikariDataSource = null;
-        }
+        Database.closeConnection();
 
         if (!Config.getGlobal().MYSQL) {
             try {

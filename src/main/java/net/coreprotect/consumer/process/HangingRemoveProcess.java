@@ -2,14 +2,14 @@ package net.coreprotect.consumer.process;
 
 import org.bukkit.block.BlockState;
 
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.entity.HangingUtil;
 
 class HangingRemoveProcess {
 
     static void process(Object object, int delay) {
         if (object instanceof BlockState) {
             BlockState block = (BlockState) object;
-            Util.removeHanging(block, delay);
+            HangingUtil.removeHanging(block, delay);
         }
     }
 }

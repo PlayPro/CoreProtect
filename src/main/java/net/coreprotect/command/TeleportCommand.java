@@ -11,6 +11,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.ChatMessage;
 import net.coreprotect.utility.Color;
+import net.coreprotect.utility.Teleport;
 import net.coreprotect.utility.Util;
 
 public class TeleportCommand {
@@ -103,7 +104,7 @@ public class TeleportCommand {
         }
 
         // Teleport the player to a safe location
-        Util.performSafeTeleport(((Player) player), location, true);
+        Teleport.performSafeTeleport(((Player) player), location, true);
 
         ConfigHandler.teleportThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
     }

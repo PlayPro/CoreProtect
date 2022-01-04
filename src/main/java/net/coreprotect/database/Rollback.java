@@ -84,6 +84,7 @@ import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.ChestTool;
 import net.coreprotect.utility.Color;
+import net.coreprotect.utility.Teleport;
 import net.coreprotect.utility.Util;
 
 public class Rollback extends Queue {
@@ -1227,7 +1228,7 @@ public class Rollback extends Queue {
                                 int chunkZ = playerLocation.getBlockZ() >> 4;
 
                                 if (chunkX == finalChunkX && chunkZ == finalChunkZ) {
-                                    Util.performSafeTeleport(player, playerLocation, false);
+                                    Teleport.performSafeTeleport(player, playerLocation, false);
                                 }
                             }
                         }

@@ -9,6 +9,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockSpreadEvent;
 
+import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.model.BlockGroup;
@@ -59,7 +60,7 @@ public final class BlockSpreadListener extends Queue implements Listener {
                 Location below = sourceBlock.getLocation().clone();
                 below.setY(below.getY() - 2);
                 for (int i = 0; i < 2; i++) {
-                    if (below.getY() >= 0) {
+                    if (below.getY() >= BukkitAdapter.ADAPTER.getMinHeight(block.getWorld())) {
                         Block belowBlock = below.getBlock();
                         if (belowBlock.getType().equals(Material.BAMBOO)) {
                             Queue.queueBlockPlaceDelayed("#bamboo", belowBlock.getLocation(), belowBlock.getType(), null, belowBlock.getState(), 0);
@@ -69,8 +70,8 @@ public final class BlockSpreadListener extends Queue implements Listener {
                 }
                 below = null;
 
-                Queue.queueBlockPlaceDelayed("#bamboo", sourceBlock.getLocation(), sourceBlock.getType(), null, sourceBlock.getState(), 0);
-                Queue.queueBlockPlaceDelayed("#bamboo", block.getLocation(), block.getType(), null, block.getState(), 0);
+                Queue.queueBlockPlaceDelayed("#bamboo", sourceBlock.getLocation(), type, null, sourceBlock.getState(), 0);
+                Queue.queueBlockPlaceDelayed("#bamboo", block.getLocation(), type, null, block.getState(), 0);
             }
         }
     }

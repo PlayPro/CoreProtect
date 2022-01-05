@@ -329,6 +329,11 @@ public class PurgeCommand extends Consumer {
                                 }
                             }
                             catch (Exception e) {
+                                if (!ConfigHandler.serverRunning) {
+                                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_FAILED));
+                                    return;
+                                }
+
                                 e.printStackTrace();
                             }
                         }

@@ -94,12 +94,14 @@ public class PurgeCommand extends Consumer {
 
             @Override
             public void run() {
-                try (Connection connection = Database.getConnection(false, 500)) {
+                try {
                     long timestamp = (System.currentTimeMillis() / 1000L);
                     long ptime = timestamp - seconds;
                     long removed = 0;
 
+                    Connection connection = null;
                     for (int i = 0; i <= 5; i++) {
+                        connection = Database.getConnection(false, 500);
                         if (connection != null) {
                             break;
                         }
@@ -341,6 +343,8 @@ public class PurgeCommand extends Consumer {
                             preparedStmt.close();
                         }
                     }
+
+                    connection.close();
 
                     if (abort) {
                         if (!Config.getGlobal().MYSQL) {

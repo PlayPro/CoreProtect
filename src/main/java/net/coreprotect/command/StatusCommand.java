@@ -97,6 +97,7 @@ public class StatusCommand {
                         }
 
                         Chat.sendMessage(player, Color.DARK_AQUA + Phrase.build(Phrase.STATUS_CONSUMER, Color.WHITE, String.format("%,d", consumerCount), (consumerCount == 1 ? Selector.FIRST : Selector.SECOND)));
+                        Chat.sendMessage(player, Color.DARK_AQUA + Phrase.build(Phrase.STATUS_STATUS, Color.WHITE, ConfigHandler.purgeRunning ? "Purging data..." : ConfigHandler.converterRunning ? "Converting data..." : consumerCount > 0 ? "Logging queued data..." : "Ready to log data.", Selector.FIRST));
                     }
                     catch (Exception e) {
                         e.printStackTrace();

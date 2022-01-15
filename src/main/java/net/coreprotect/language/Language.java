@@ -204,6 +204,7 @@ public class Language {
         phrases.put(Phrase.STATUS_DATABASE, "Database: Using {0}.");
         phrases.put(Phrase.STATUS_INTEGRATION, "{0}: Integration {enabled|disabled}.");
         phrases.put(Phrase.STATUS_LICENSE, "License: {0}");
+        phrases.put(Phrase.STATUS_STATUS, "Status: {0}");
         phrases.put(Phrase.STATUS_VERSION, "Version: {0}");
         phrases.put(Phrase.TELEPORTED, "Teleported to {0}.");
         phrases.put(Phrase.TELEPORTED_SAFETY, "Teleported you to safety.");

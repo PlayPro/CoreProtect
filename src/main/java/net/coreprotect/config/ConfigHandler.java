@@ -200,6 +200,8 @@ public class ConfigHandler extends Queue {
                 }
 
                 tempFile.delete();
+
+                Class.forName("org.sqlite.JDBC");
             }
             catch (Exception e) {
                 e.printStackTrace();

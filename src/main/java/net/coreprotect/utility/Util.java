@@ -1188,16 +1188,22 @@ public class Util extends Queue {
         return result;
     }
 
-    public static void setTypeAndData(Block block, Material type, BlockData blockData) {
+    public static void prepareTypeAndData(Map<Block, BlockData> map, Block block, Material type, BlockData blockData, boolean update) {
         if (blockData == null) {
             blockData = createBlockData(type);
         }
 
-        block.setBlockData(blockData);
+        if (!update) {
+            setTypeAndData(block, type, blockData, update);
+            map.remove(block);
+        }
+        else {
+            map.put(block, blockData);
+        }
     }
 
     public static void setTypeAndData(Block block, Material type, BlockData blockData, boolean update) {
-        if (blockData == null) {
+        if (blockData == null && type != null) {
             blockData = createBlockData(type);
         }
 

@@ -8,13 +8,12 @@ import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.TreeMap;
 
 import org.bukkit.Bukkit;
@@ -135,7 +134,6 @@ public class Rollback extends Queue {
             }
 
             TreeMap<Long, Integer> chunkList = new TreeMap<>();
-            HashMap<Long, HashMap<Integer, Object>> adjacentDataList = new HashMap<>();
             HashMap<Long, ArrayList<Object[]>> dataList = new HashMap<>();
             HashMap<Long, ArrayList<Object[]>> itemDataList = new HashMap<>();
 
@@ -213,120 +211,14 @@ public class Rollback extends Queue {
                     if (modifyList.get(chunkKey) == null) {
                         // Integer[][] chunkSections = new Integer[((worldMax - worldMin) >> 4)][];
                         // adjacentDataList.put(chunkKey, chunkSections);
-                        adjacentDataList.put(chunkKey, new HashMap<>());
                         dataList.put(chunkKey, new ArrayList<>());
                         itemDataList.put(chunkKey, new ArrayList<>());
-                    }
-
-                    if (listC == 0) {
-                        BlockData blockData = null;
-                        int rowTypeRaw = (Integer) result[6];
-                        byte[] rowBlockData = (byte[]) result[13];
-                        String blockDataString = Util.byteDataToString(rowBlockData, rowTypeRaw);
-                        if (blockDataString != null && blockDataString.length() > 0) {
-                            try {
-                                blockData = Bukkit.getServer().createBlockData(blockDataString);
-                            }
-                            catch (Exception e) {
-                                // corrupt BlockData, let the server automatically set the BlockData instead
-                            }
-                        }
-
-                        /*
-                        Object[][] adjacentList = adjacentDataList.get(chunkKey);
-                        
-                        int negativeOffset = (-(worldMin) >> 4);
-                        int chunkSection = ((rowY >> 4) + negativeOffset);
-                        if (adjacentList[chunkSection] == null) {
-                            adjacentList[chunkSection] = new BlockData[4096];
-                        }
-                        
-                        int sectionCoordinate = ((rowX & 15) * 16) + ((rowY & 15) * 256) + (rowZ & 15);
-                        if (rollbackType == 1) {
-                            if (adjacentList[chunkSection][sectionCoordinate] == null) {
-                                adjacentList[chunkSection][sectionCoordinate] = blockData;
-                            }
-                        }
-                        else {
-                            adjacentList[chunkSection][sectionCoordinate] = blockData;
-                        }
-                        */
-
-                        int chunkCoordinate = ((rowX & 15) * 16) + (rowY * 256) + (rowZ & 15);
-                        HashMap<Integer, Object> adjacentList = adjacentDataList.get(chunkKey);
-                        if (rollbackType == 1) {
-                            adjacentList.putIfAbsent(chunkCoordinate, blockData);
-                        }
-                        else {
-                            adjacentList.put(chunkCoordinate, blockData);
-                        }
-
-                        result[13] = blockDataString;
                     }
 
                     modifyList.get(chunkKey).add(result);
                 }
 
                 listC++;
-            }
-
-            Set<Long> adjacentDataKeySet = new HashSet<>(adjacentDataList.keySet());
-            for (long chunkKey : adjacentDataKeySet) {
-                HashMap<Integer, Object> adjacentData = new HashMap<>(adjacentDataList.get(chunkKey));
-                for (Entry<Integer, Object> entry : adjacentData.entrySet()) {
-                    if (entry.getValue() instanceof Boolean) {
-                        continue;
-                    }
-
-                    int chunkCoordinate = entry.getKey();
-                    int cy = (chunkCoordinate < 0 ? chunkCoordinate - 255 : chunkCoordinate) / 256;
-                    int levelData = (chunkCoordinate - (cy * 256));
-                    int cx = levelData / 16;
-                    int cz = levelData - (cx * 16);
-
-                    int chunkX = (int) chunkKey;
-                    int chunkZ = (int) (chunkKey >> 32);
-                    int chunkBlockX = chunkX << 4;
-                    int chunkBlockZ = chunkZ << 4;
-                    int blockX = chunkBlockX + cx;
-                    int blockZ = chunkBlockZ + cz;
-                    int blockY = cy;
-
-                    for (int i = 0; i < 4; i++) {
-                        int scanX = blockX;
-                        int scanZ = blockZ;
-
-                        switch (i) {
-                            case 0:
-                                scanX = scanX + 1;
-                                break;
-                            case 1:
-                                scanX = scanX - 1;
-                                break;
-                            case 2:
-                                scanZ = scanZ + 1;
-                                break;
-                            case 3:
-                                scanZ = scanZ - 1;
-                                break;
-                        }
-
-                        int scanChunkX = scanX >> 4;
-                        int scanChunkZ = scanZ >> 4;
-                        long scanChunkKey = scanChunkX & 0xffffffffL | (scanChunkZ & 0xffffffffL) << 32;
-                        int scanCoordinate = ((scanX & 15) * 16) + (blockY * 256) + (scanZ & 15);
-
-                        if (!adjacentDataList.containsKey(scanChunkKey)) {
-                            adjacentDataList.put(scanChunkKey, new HashMap<Integer, Object>());
-                        }
-
-                        HashMap<Integer, Object> data = adjacentDataList.get(scanChunkKey);
-                        if (!data.containsKey(scanCoordinate)) {
-                            data.put(scanCoordinate, true);
-                        }
-                    }
-                }
-                adjacentData.clear();
             }
 
             if (rollbackType == 1) { // Restore
@@ -387,6 +279,7 @@ public class Rollback extends Queue {
 
                         ArrayList<Object[]> data = finalBlockList.get(chunkKey);
                         ArrayList<Object[]> itemData = finalItemList.get(chunkKey);
+                        Map<Block, BlockData> chunkChanges = new LinkedHashMap<>();
                         Map<String, Integer> hangingDelay = new HashMap<>();
 
                         int finalChunkX = (int) chunkKey;
@@ -409,7 +302,8 @@ public class Rollback extends Queue {
                             int rowRolledBack = (Integer) row[9];
                             int rowWorldId = (Integer) row[10];
                             byte[] rowMeta = (byte[]) row[12];
-                            String blockDataString = (String) row[13];
+                            byte[] rowBlockData = (byte[]) row[13];
+                            String blockDataString = Util.byteDataToString(rowBlockData, rowTypeRaw);
                             Material rowType = Util.getType(rowTypeRaw);
 
                             List<Object> meta = null;
@@ -636,46 +530,6 @@ public class Rollback extends Queue {
 
                                 try {
                                     if (changeBlock) {
-                                        /* Check nearby blocks to determine if physics needs to be updated */
-                                        boolean updatePhysics = false;
-                                        if (rawBlockData != null && oldTypeMaterial != null && oldTypeMaterial.isSolid()) { // verify we're checking a block
-                                            for (int i = 0; i < 4; i++) {
-                                                int scanX = rowX;
-                                                int scanZ = rowZ;
-
-                                                switch (i) {
-                                                    case 0:
-                                                        scanX = scanX + 1;
-                                                        break;
-                                                    case 1:
-                                                        scanX = scanX - 1;
-                                                        break;
-                                                    case 2:
-                                                        scanZ = scanZ + 1;
-                                                        break;
-                                                    case 3:
-                                                        scanZ = scanZ - 1;
-                                                        break;
-                                                }
-
-                                                int scanChunkX = scanX >> 4;
-                                                int scanChunkZ = scanZ >> 4;
-                                                long scanChunkKey = scanChunkX & 0xffffffffL | (scanChunkZ & 0xffffffffL) << 32;
-                                                int scanCoordinate = ((scanX & 15) * 16) + (rowY * 256) + (scanZ & 15);
-
-                                                HashMap<Integer, Object> adjacentData = adjacentDataList.get(scanChunkKey);
-                                                Object adjacentBlock = adjacentData.get(scanCoordinate);
-                                                if (adjacentBlock instanceof Boolean) {
-                                                    adjacentBlock = bukkitWorld.getBlockAt(scanX, rowY, scanZ).getBlockData();
-                                                    adjacentData.put(scanCoordinate, adjacentBlock);
-                                                }
-                                                if (adjacentBlock instanceof MultipleFacing) {
-                                                    updatePhysics = true;
-                                                    break;
-                                                }
-                                            }
-                                        }
-
                                         /* If modifying the head of a piston, update the base piston block to prevent it from being destroyed */
                                         if (changeBlockData instanceof PistonHead) {
                                             PistonHead pistonHead = (PistonHead) changeBlockData;
@@ -751,7 +605,7 @@ public class Rollback extends Queue {
                                                 block.setBlockData(waterlogged);
                                             }
                                             else {
-                                                Util.setTypeAndData(block, rowType, blockData, true);
+                                                Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, true);
                                             }
 
                                             if (countBlock) {
@@ -759,7 +613,7 @@ public class Rollback extends Queue {
                                             }
                                         }
                                         else if ((rowType == Material.AIR) && ((oldTypeMaterial == Material.SNOW))) {
-                                            Util.setTypeAndData(block, rowType, blockData, true);
+                                            Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, true);
                                             if (countBlock) {
                                                 blockCount1++;
                                             }
@@ -814,7 +668,7 @@ public class Rollback extends Queue {
                                                     Waterlogged waterlogged = (Waterlogged) currentBlockData;
                                                     if (waterlogged.isWaterlogged()) {
                                                         boolean physics = (changeBlockData instanceof Chest);
-                                                        Util.setTypeAndData(block, Material.WATER, Material.WATER.createBlockData(), physics);
+                                                        Util.prepareTypeAndData(chunkChanges, block, Material.WATER, Material.WATER.createBlockData(), physics);
                                                         remove = false;
                                                     }
                                                 }
@@ -829,7 +683,7 @@ public class Rollback extends Queue {
                                             }
 
                                             if (remove) {
-                                                boolean physics = updatePhysics;
+                                                boolean physics = true;
                                                 if ((changeType == Material.NETHER_PORTAL) || changeBlockData instanceof MultipleFacing || changeBlockData instanceof Snow || changeBlockData instanceof Stairs || changeBlockData instanceof RedstoneWire || changeBlockData instanceof Chest) {
                                                     physics = true;
                                                 }
@@ -847,7 +701,7 @@ public class Rollback extends Queue {
                                                     int worldMinHeight = BukkitAdapter.ADAPTER.getMinHeight(bukkitWorld);
                                                     if (bisectLocation.getBlockY() >= worldMinHeight && bisectLocation.getBlockY() < worldMaxHeight) {
                                                         Block bisectBlock = block.getWorld().getBlockAt(bisectLocation);
-                                                        Util.setTypeAndData(bisectBlock, rowType, null, physics);
+                                                        Util.prepareTypeAndData(chunkChanges, bisectBlock, rowType, null, physics);
 
                                                         if (countBlock) {
                                                             blockCount1++;
@@ -855,7 +709,7 @@ public class Rollback extends Queue {
                                                     }
                                                 }
 
-                                                Util.setTypeAndData(block, rowType, null, physics);
+                                                Util.prepareTypeAndData(chunkChanges, block, rowType, null, physics);
                                             }
 
                                             if (countBlock) {
@@ -864,7 +718,7 @@ public class Rollback extends Queue {
                                         }
                                         else if ((rowType == Material.SPAWNER)) {
                                             try {
-                                                Util.setTypeAndData(block, rowType, blockData, false);
+                                                Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                                                 CreatureSpawner mobSpawner = (CreatureSpawner) block.getState();
                                                 mobSpawner.setSpawnedType(Util.getSpawnerType(rowData));
                                                 mobSpawner.update();
@@ -878,7 +732,7 @@ public class Rollback extends Queue {
                                             }
                                         }
                                         else if ((rowType == Material.SKELETON_SKULL) || (rowType == Material.SKELETON_WALL_SKULL) || (rowType == Material.WITHER_SKELETON_SKULL) || (rowType == Material.WITHER_SKELETON_WALL_SKULL) || (rowType == Material.ZOMBIE_HEAD) || (rowType == Material.ZOMBIE_WALL_HEAD) || (rowType == Material.PLAYER_HEAD) || (rowType == Material.PLAYER_WALL_HEAD) || (rowType == Material.CREEPER_HEAD) || (rowType == Material.CREEPER_WALL_HEAD) || (rowType == Material.DRAGON_HEAD) || (rowType == Material.DRAGON_WALL_HEAD)) { // skull
-                                            Util.setTypeAndData(block, rowType, blockData, false);
+                                            Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                                             if (rowData > 0) {
                                                 Queue.queueSkullUpdate(rowUser, block.getState(), rowData);
                                             }
@@ -888,7 +742,7 @@ public class Rollback extends Queue {
                                             }
                                         }
                                         else if (Tag.SIGNS.isTagged(rowType)) {// sign
-                                            Util.setTypeAndData(block, rowType, blockData, false);
+                                            Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                                             Queue.queueSignUpdate(rowUser, block.getState(), rollbackType, rowTime);
 
                                             if (countBlock) {
@@ -896,7 +750,7 @@ public class Rollback extends Queue {
                                             }
                                         }
                                         else if (BlockGroup.SHULKER_BOXES.contains(rowType)) {
-                                            Util.setTypeAndData(block, rowType, blockData, false);
+                                            Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                                             if (countBlock) {
                                                 blockCount1++;
                                             }
@@ -911,7 +765,7 @@ public class Rollback extends Queue {
                                             }
                                         }
                                         else if (rowType == Material.COMMAND_BLOCK || rowType == Material.REPEATING_COMMAND_BLOCK || rowType == Material.CHAIN_COMMAND_BLOCK) { // command block
-                                            Util.setTypeAndData(block, rowType, blockData, false);
+                                            Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                                             if (countBlock) {
                                                 blockCount1++;
                                             }
@@ -935,7 +789,7 @@ public class Rollback extends Queue {
                                                 block.setBlockData(waterlogged);
                                             }
                                             else {
-                                                Util.setTypeAndData(block, rowType, blockData, false);
+                                                Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                                             }
 
                                             if (countBlock) {
@@ -943,7 +797,7 @@ public class Rollback extends Queue {
                                             }
                                         }
                                         else if ((rowType == Material.NETHER_PORTAL) && rowAction == 0) {
-                                            Util.setTypeAndData(block, Material.FIRE, null, true);
+                                            Util.prepareTypeAndData(chunkChanges, block, Material.FIRE, null, true);
                                         }
                                         else if (rowType == Material.IRON_DOOR || BlockGroup.DOORS.contains(rowType)) {
                                             if (countBlock) {
@@ -951,7 +805,7 @@ public class Rollback extends Queue {
                                             }
 
                                             if (blockData != null) {
-                                                Util.setTypeAndData(block, rowType, blockData, false);
+                                                Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                                             }
                                             else {
                                                 block.setType(rowType, false);
@@ -995,7 +849,7 @@ public class Rollback extends Queue {
                                             }
 
                                             if (blockData != null) {
-                                                Util.setTypeAndData(block, rowType, blockData, false);
+                                                Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                                             }
                                             else {
                                                 block.setType(rowType, false);
@@ -1024,7 +878,7 @@ public class Rollback extends Queue {
                                             }
                                         }
                                         else if (rowType.name().endsWith("_BANNER")) {
-                                            Util.setTypeAndData(block, rowType, blockData, false);
+                                            Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                                             if (countBlock) {
                                                 blockCount1++;
                                             }
@@ -1050,7 +904,7 @@ public class Rollback extends Queue {
                                             block.setType(Material.AIR); // Clear existing container to prevent errors
 
                                             boolean isChest = (blockData instanceof Chest);
-                                            Util.setTypeAndData(block, rowType, blockData, (isChest));
+                                            Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, (isChest));
                                             if (isChest) {
                                                 ChestTool.updateDoubleChest(block, blockData, false);
                                             }
@@ -1060,7 +914,7 @@ public class Rollback extends Queue {
                                             }
                                         }
                                         else if (BlockGroup.UPDATE_STATE.contains(rowType) || rowType.name().contains("CANDLE")) {
-                                            Util.setTypeAndData(block, rowType, blockData, true);
+                                            Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, true);
                                             ChestTool.updateDoubleChest(block, blockData, true);
                                             if (countBlock) {
                                                 blockCount1++;
@@ -1083,22 +937,24 @@ public class Rollback extends Queue {
                                             int worldMinHeight = BukkitAdapter.ADAPTER.getMinHeight(bukkitWorld);
                                             if (bisectLocation.getBlockY() >= worldMinHeight && bisectLocation.getBlockY() < worldMaxHeight) {
                                                 Block bisectBlock = block.getWorld().getBlockAt(bisectLocation);
-                                                Util.setTypeAndData(bisectBlock, rowType, bisectData, false);
+                                                Util.prepareTypeAndData(chunkChanges, bisectBlock, rowType, bisectData, false);
                                             }
 
-                                            Util.setTypeAndData(block, rowType, blockData, false);
+                                            Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                                             if (countBlock) {
                                                 blockCount1++;
                                                 blockCount1++;
                                             }
                                         }
                                         else {
-                                            boolean physics = updatePhysics;
+                                            boolean physics = true;
+                                            /*
                                             if (blockData instanceof MultipleFacing || BukkitAdapter.ADAPTER.isWall(blockData) || blockData instanceof Snow || blockData instanceof Stairs || blockData instanceof RedstoneWire || blockData instanceof Chest) {
                                                 physics = !(blockData instanceof Snow) || block.getY() <= BukkitAdapter.ADAPTER.getMinHeight(block.getWorld()) || (block.getWorld().getBlockAt(block.getX(), block.getY() - 1, block.getZ()).getType().equals(Material.GRASS_BLOCK));
                                             }
+                                            */
 
-                                            Util.setTypeAndData(block, rowType, blockData, physics);
+                                            Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, physics);
                                             if (countBlock) {
                                                 blockCount1++;
                                             }
@@ -1121,6 +977,14 @@ public class Rollback extends Queue {
                         }
                         hangingDelay.clear();
                         data.clear();
+
+                        // Apply cached changes
+                        for (Entry<Block, BlockData> chunkChange : chunkChanges.entrySet()) {
+                            Block changeBlock = chunkChange.getKey();
+                            BlockData changeBlockData = chunkChange.getValue();
+                            Util.setTypeAndData(changeBlock, null, changeBlockData, true);
+                        }
+                        chunkChanges.clear();
 
                         Object container = null;
                         Material containerType = null;
@@ -1287,7 +1151,6 @@ public class Rollback extends Queue {
             }
 
             chunkList.clear();
-            adjacentDataList.clear();
             dataList.clear();
             itemDataList.clear();
 

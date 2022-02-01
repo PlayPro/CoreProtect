@@ -602,40 +602,6 @@ public class Lookup extends Queue {
                 queryOrder = "";
             }
 
-            if (Config.getGlobal().MYSQL) {
-                if (radius == null || users.length() > 0 || includeBlock.length() > 0 || includeEntity.length() > 0) {
-                    // index_mysql = "IGNORE INDEX(wid) ";
-                    if (users.length() > 0) {
-                        // index_mysql = "IGNORE INDEX(wid,type,action) ";
-                    }
-                }
-
-                if (queryTable.equals("block")) {
-                    if (includeBlock.length() > 0 || includeEntity.length() > 0) {
-                        index = "USE INDEX(type) ";
-                    }
-                    if (users.length() > 0) {
-                        index = "USE INDEX(user) ";
-                    }
-                    if ((radius != null || actionList.contains(5)) || (index.equals("") && restrictWorld)) {
-                        index = "USE INDEX(wid) ";
-                    }
-                }
-            }
-            else {
-                if (queryTable.equals("block")) {
-                    if (includeBlock.length() > 0 || includeEntity.length() > 0) {
-                        index = "INDEXED BY block_type_index ";
-                    }
-                    if (users.length() > 0) {
-                        index = "INDEXED BY block_user_index ";
-                    }
-                    if ((radius != null || actionList.contains(5)) || (index.equals("") && restrictWorld)) {
-                        index = "INDEXED BY block_index ";
-                    }
-                }
-            }
-
             boolean itemLookup = (actionList.contains(4) && actionList.contains(11));
             if (lookup && actionList.size() == 0) {
                 if (!count) {

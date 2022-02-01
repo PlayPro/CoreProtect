@@ -284,6 +284,7 @@ public class Lookup extends Queue {
             String queryEntity = "";
             String queryLimit = "";
             String queryTable = "block";
+            String unionLimit = "";
             String action = "";
             String includeBlock = "";
             String includeEntity = "";
@@ -562,6 +563,7 @@ public class Lookup extends Queue {
             String baseQuery = ((!includeEntity.isEmpty() || !excludeEntity.isEmpty()) ? queryEntity : queryBlock);
             if (limitOffset > -1 && limitCount > -1) {
                 queryLimit = " LIMIT " + limitOffset + ", " + limitCount + "";
+                unionLimit = " ORDER BY time DESC, id DESC LIMIT " + (limitOffset + limitCount) + "";
             }
 
             String rows = "rowid as id,time,user,wid,x,y,z,action,type,data,meta,blockdata,rolled_back";
@@ -599,6 +601,7 @@ public class Lookup extends Queue {
             if (count) {
                 rows = "COUNT(*) as count";
                 queryLimit = " LIMIT 0, 3";
+                unionLimit = "";
                 queryOrder = "";
             }
 
@@ -617,8 +620,11 @@ public class Lookup extends Queue {
                     if (users.length() > 0) {
                         index = "USE INDEX(user) ";
                     }
-                    if ((radius != null || actionList.contains(5)) || (index.equals("") && restrictWorld)) {
+                    if ((index.equals("") && restrictWorld)) {
                         index = "USE INDEX(wid) ";
+                    }
+                    if ((radius != null || actionList.contains(5))) {
+                        index = "";
                     }
                 }
             }
@@ -630,8 +636,11 @@ public class Lookup extends Queue {
                     if (users.length() > 0) {
                         index = "INDEXED BY block_user_index ";
                     }
-                    if ((radius != null || actionList.contains(5)) || (index.equals("") && restrictWorld)) {
+                    if ((index.equals("") && restrictWorld)) {
                         index = "INDEXED BY block_index ";
+                    }
+                    if ((radius != null || actionList.contains(5))) {
+                        index = "";
                     }
                 }
             }
@@ -646,7 +655,7 @@ public class Lookup extends Queue {
                     baseQuery = baseQuery.replace("action NOT IN(-1)", "action NOT IN(3)"); // if block specified for include/exclude, filter out entity data
                 }
 
-                query = "SELECT " + rows + " FROM " + ConfigHandler.prefix + queryTable + " " + index + "WHERE" + baseQuery + " UNION ";
+                query = "(SELECT " + rows + " FROM " + ConfigHandler.prefix + queryTable + " " + index + "WHERE" + baseQuery + unionLimit + ") UNION ALL ";
                 itemLookup = true;
             }
 
@@ -654,13 +663,13 @@ public class Lookup extends Queue {
                 if (!count) {
                     rows = "rowid as id,time,user,wid,x,y,z,type,metadata,data,amount,action,rolled_back";
                 }
-                query = query + "SELECT " + rows + " FROM " + ConfigHandler.prefix + "container WHERE" + queryBlock + " UNION ";
+                query = query + "(SELECT " + rows + " FROM " + ConfigHandler.prefix + "container " + index + "WHERE" + queryBlock + unionLimit + ") UNION ALL ";
 
                 if (!count) {
                     rows = "rowid as id,time,user,wid,x,y,z,type,data as metadata,0 as data,amount,action,0 as rolled_back";
                     queryOrder = " ORDER BY time DESC, id DESC";
                 }
-                query = query + "SELECT " + rows + " FROM " + ConfigHandler.prefix + "item WHERE" + queryBlock;
+                query = query + "(SELECT " + rows + " FROM " + ConfigHandler.prefix + "item " + index + "WHERE" + queryBlock + unionLimit + ")";
             }
 
             if (query.length() == 0) {

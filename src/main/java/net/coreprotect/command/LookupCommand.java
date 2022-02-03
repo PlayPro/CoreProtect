@@ -755,27 +755,33 @@ public class LookupCommand {
                                             location = new Location(Bukkit.getServer().getWorld(Util.getWorldName(finalWid)), finalX, finalY, finalZ);
                                         }
 
+                                        Long[] rowData = new Long[] { 0L, 0L, 0L, 0L };
                                         long rowMax = (long) page * displayResults;
                                         long pageStart = rowMax - displayResults;
-                                        int rows = 0;
+                                        long rows = 0L;
                                         boolean checkRows = true;
+
                                         if (typeLookup == 5 && page > 1) {
-                                            rows = ConfigHandler.lookupRows.get(player2.getName());
+                                            rowData = ConfigHandler.lookupRows.get(player2.getName());
+                                            rows = rowData[3];
+
                                             if (pageStart < rows) {
                                                 checkRows = false;
                                             }
                                         }
 
                                         if (checkRows) {
-                                            rows = Lookup.countLookupRows(statement, player2, uuidList, userList, blist, elist, euserlist, finalArgAction, location, radius, stime, restrict_world, true);
-                                            ConfigHandler.lookupRows.put(player2.getName(), rows);
+                                            rows = Lookup.countLookupRows(statement, player2, uuidList, userList, blist, elist, euserlist, finalArgAction, location, radius, rowData, stime, restrict_world, true);
+                                            rowData[3] = rows;
+                                            ConfigHandler.lookupRows.put(player2.getName(), rowData);
                                         }
                                         if (finalCount) {
                                             String row_format = NumberFormat.getInstance().format(rows);
                                             Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.LOOKUP_ROWS_FOUND, row_format, (rows == 1 ? Selector.FIRST : Selector.SECOND)));
                                         }
                                         else if (pageStart < rows) {
-                                            List<String[]> lookupList = Lookup.performPartialLookup(statement, player2, uuidList, userList, blist, elist, euserlist, finalArgAction, location, radius, stime, (int) pageStart, displayResults, restrict_world, true);
+                                            List<String[]> lookupList = Lookup.performPartialLookup(statement, player2, uuidList, userList, blist, elist, euserlist, finalArgAction, location, radius, rowData, stime, (int) pageStart, displayResults, restrict_world, true);
+
                                             Chat.sendMessage(player2, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.LOOKUP_HEADER, "CoreProtect") + Color.WHITE + " -----");
                                             if (finalArgAction.contains(6) || finalArgAction.contains(7)) { // Chat/command
                                                 for (String[] data : lookupList) {

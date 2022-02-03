@@ -28,7 +28,7 @@ public class ContainerRollback extends Queue {
         try {
             long startTime = System.currentTimeMillis();
 
-            final List<Object[]> lookupList = Lookup.performLookupRaw(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, checkTime, -1, -1, restrictWorld, lookup);
+            final List<Object[]> lookupList = Lookup.performLookupRaw(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, null, checkTime, -1, -1, restrictWorld, lookup);
             if (rollbackType == 1) {
                 Collections.reverse(lookupList);
             }

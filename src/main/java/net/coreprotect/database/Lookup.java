@@ -75,8 +75,8 @@ public class Lookup extends Queue {
         return newList;
     }
 
-    public static int countLookupRows(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, List<Object> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, long checkTime, boolean restrictWorld, boolean lookup) {
-        int rows = 0;
+    public static long countLookupRows(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, List<Object> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, Long[] rowData, long checkTime, boolean restrictWorld, boolean lookup) {
+        Long rows = 0L;
 
         try {
             while (Consumer.isPaused) {
@@ -84,9 +84,12 @@ public class Lookup extends Queue {
             }
             Consumer.isPaused = true;
 
-            ResultSet results = rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, checkTime, -1, -1, restrictWorld, lookup, true);
+            ResultSet results = rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, null, checkTime, -1, -1, restrictWorld, lookup, true);
             while (results.next()) {
-                rows += results.getInt("count");
+                int resultTable = results.getInt("tbl");
+                long count = results.getLong("count");
+                rowData[resultTable] = count;
+                rows += count;
             }
             results.close();
         }
@@ -103,7 +106,7 @@ public class Lookup extends Queue {
         List<String[]> newList = new ArrayList<>();
 
         try {
-            List<Object[]> lookupList = performLookupRaw(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, checkTime, -1, -1, restrictWorld, lookup);
+            List<Object[]> lookupList = performLookupRaw(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, null, checkTime, -1, -1, restrictWorld, lookup);
             newList = convertRawLookup(statement, lookupList);
         }
         catch (Exception e) {
@@ -113,7 +116,7 @@ public class Lookup extends Queue {
         return newList;
     }
 
-    static List<Object[]> performLookupRaw(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, List<Object> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, long checkTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup) {
+    static List<Object[]> performLookupRaw(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, List<Object> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, Long[] rowData, long checkTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup) {
         List<Object[]> list = new ArrayList<>();
         List<Integer> invalidRollbackActions = new ArrayList<>();
         invalidRollbackActions.add(2);
@@ -129,7 +132,7 @@ public class Lookup extends Queue {
 
             Consumer.isPaused = true;
 
-            ResultSet results = rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, checkTime, limitOffset, limitCount, restrictWorld, lookup, false);
+            ResultSet results = rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, rowData, checkTime, limitOffset, limitCount, restrictWorld, lookup, false);
 
             while (results.next()) {
                 if (actionList.contains(6) || actionList.contains(7)) {
@@ -256,11 +259,11 @@ public class Lookup extends Queue {
         return list;
     }
 
-    public static List<String[]> performPartialLookup(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, List<Object> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, long checkTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup) {
+    public static List<String[]> performPartialLookup(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, List<Object> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, Long[] rowData, long checkTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup) {
         List<String[]> newList = new ArrayList<>();
 
         try {
-            List<Object[]> lookupList = performLookupRaw(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, checkTime, limitOffset, limitCount, restrictWorld, lookup);
+            List<Object[]> lookupList = performLookupRaw(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, rowData, checkTime, limitOffset, limitCount, restrictWorld, lookup);
             newList = convertRawLookup(statement, lookupList);
         }
         catch (Exception e) {
@@ -270,7 +273,7 @@ public class Lookup extends Queue {
         return newList;
     }
 
-    private static ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, List<Object> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, long checkTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean count) {
+    private static ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, List<Object> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, Long[] rowData, long checkTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean count) {
         ResultSet results = null;
 
         try {
@@ -284,7 +287,6 @@ public class Lookup extends Queue {
             String queryEntity = "";
             String queryLimit = "";
             String queryTable = "block";
-            String unionLimit = "";
             String action = "";
             String includeBlock = "";
             String includeEntity = "";
@@ -293,6 +295,7 @@ public class Lookup extends Queue {
             String users = "";
             String uuids = "";
             String excludeUsers = "";
+            String unionLimit = "";
             String index = "";
             String query = "";
 
@@ -601,8 +604,8 @@ public class Lookup extends Queue {
             if (count) {
                 rows = "COUNT(*) as count";
                 queryLimit = " LIMIT 0, 3";
-                unionLimit = "";
                 queryOrder = "";
+                unionLimit = "";
             }
 
             if (Config.getGlobal().MYSQL) {
@@ -655,7 +658,7 @@ public class Lookup extends Queue {
                     baseQuery = baseQuery.replace("action NOT IN(-1)", "action NOT IN(3)"); // if block specified for include/exclude, filter out entity data
                 }
 
-                query = "(SELECT " + rows + " FROM " + ConfigHandler.prefix + queryTable + " " + index + "WHERE" + baseQuery + unionLimit + ") UNION ALL ";
+                query = "(SELECT " + (count ? "'0' as tbl," : "") + rows + " FROM " + ConfigHandler.prefix + queryTable + " " + index + "WHERE" + baseQuery + unionLimit + ") UNION ALL ";
                 itemLookup = true;
             }
 
@@ -663,17 +666,17 @@ public class Lookup extends Queue {
                 if (!count) {
                     rows = "rowid as id,time,user,wid,x,y,z,type,metadata,data,amount,action,rolled_back";
                 }
-                query = query + "(SELECT " + rows + " FROM " + ConfigHandler.prefix + "container " + index + "WHERE" + queryBlock + unionLimit + ") UNION ALL ";
+                query = query + "(SELECT " + (count ? "'1' as tbl," : "") + rows + " FROM " + ConfigHandler.prefix + "container " + index + "WHERE" + queryBlock + unionLimit + ") UNION ALL ";
 
                 if (!count) {
                     rows = "rowid as id,time,user,wid,x,y,z,type,data as metadata,0 as data,amount,action,0 as rolled_back";
                     queryOrder = " ORDER BY time DESC, id DESC";
                 }
-                query = query + "(SELECT " + rows + " FROM " + ConfigHandler.prefix + "item " + index + "WHERE" + queryBlock + unionLimit + ")";
+                query = query + "(SELECT " + (count ? "'2' as tbl," : "") + rows + " FROM " + ConfigHandler.prefix + "item " + index + "WHERE" + queryBlock + unionLimit + ")";
             }
 
             if (query.length() == 0) {
-                query = "SELECT " + rows + " FROM " + ConfigHandler.prefix + queryTable + " " + index + "WHERE" + baseQuery;
+                query = "SELECT " + (count ? "'0' as tbl," : "") + rows + " FROM " + ConfigHandler.prefix + queryTable + " " + index + "WHERE" + baseQuery;
             }
 
             query = query + queryOrder + queryLimit + "";
@@ -685,6 +688,21 @@ public class Lookup extends Queue {
 
         return results;
     }
+
+    /*
+    private static long calculateTableOffset(long col2, long col3, long limitOffset, int limitCount) {
+        return (limitOffset - (col2 + col3)) < 0L ? 0L : (limitOffset - (col2 + col3));
+    }
+    
+    private static long calculateTableLimit(long col1, long col2, long col3, long limitOffset, int limitCount) {
+        long offset = calculateTableOffset(col2, col3, limitOffset, limitCount);
+        long limit = (col2 + col3) + limitCount;
+        limit = (limit > (limitOffset + limitCount)) ? (limitOffset + limitCount) : limit;
+        limit = (limit > (col1 - offset)) ? (col1 - offset) : limit;
+    
+        return limit;
+    }
+    */
 
     public static String whoPlaced(Statement statement, BlockState block) {
         String result = "";

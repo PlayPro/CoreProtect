@@ -608,6 +608,7 @@ public class Lookup extends Queue {
                 unionLimit = "";
             }
 
+            String unionSelect = "SELECT * FROM (";
             if (Config.getGlobal().MYSQL) {
                 if (radius == null || users.length() > 0 || includeBlock.length() > 0 || includeEntity.length() > 0) {
                     // index_mysql = "IGNORE INDEX(wid) ";
@@ -630,6 +631,8 @@ public class Lookup extends Queue {
                         index = "";
                     }
                 }
+
+                unionSelect = "(";
             }
             else {
                 if (queryTable.equals("block")) {
@@ -658,7 +661,7 @@ public class Lookup extends Queue {
                     baseQuery = baseQuery.replace("action NOT IN(-1)", "action NOT IN(3)"); // if block specified for include/exclude, filter out entity data
                 }
 
-                query = "(SELECT " + (count ? "'0' as tbl," : "") + rows + " FROM " + ConfigHandler.prefix + queryTable + " " + index + "WHERE" + baseQuery + unionLimit + ") UNION ALL ";
+                query = unionSelect + "SELECT " + (count ? "'0' as tbl," : "") + rows + " FROM " + ConfigHandler.prefix + queryTable + " " + index + "WHERE" + baseQuery + unionLimit + ") UNION ALL ";
                 itemLookup = true;
             }
 
@@ -666,13 +669,13 @@ public class Lookup extends Queue {
                 if (!count) {
                     rows = "rowid as id,time,user,wid,x,y,z,type,metadata,data,amount,action,rolled_back";
                 }
-                query = query + "(SELECT " + (count ? "'1' as tbl," : "") + rows + " FROM " + ConfigHandler.prefix + "container " + index + "WHERE" + queryBlock + unionLimit + ") UNION ALL ";
+                query = query + unionSelect + "SELECT " + (count ? "'1' as tbl," : "") + rows + " FROM " + ConfigHandler.prefix + "container WHERE" + queryBlock + unionLimit + ") UNION ALL ";
 
                 if (!count) {
                     rows = "rowid as id,time,user,wid,x,y,z,type,data as metadata,0 as data,amount,action,0 as rolled_back";
                     queryOrder = " ORDER BY time DESC, id DESC";
                 }
-                query = query + "(SELECT " + (count ? "'2' as tbl," : "") + rows + " FROM " + ConfigHandler.prefix + "item " + index + "WHERE" + queryBlock + unionLimit + ")";
+                query = query + unionSelect + "SELECT " + (count ? "'2' as tbl," : "") + rows + " FROM " + ConfigHandler.prefix + "item WHERE" + queryBlock + unionLimit + ")";
             }
 
             if (query.length() == 0) {

@@ -45,7 +45,12 @@ public class SpigotAdapter implements SpigotInterface {
     }
 
     @Override
-    public void setHoverComponent(Object message, String[] data) {
+    public void addHoverComponent(Object message, String[] data) {
+        return;
+    }
+
+    @Override
+    public void setHoverEvent(Object message, String text) {
         return;
     }
 

@@ -16,7 +16,7 @@ public class SpigotHandler extends SpigotAdapter implements SpigotInterface {
     public static ChatColor DARK_AQUA = ChatColor.DARK_AQUA;
 
     @Override
-    public void setHoverComponent(Object message, String[] data) {
+    public void addHoverComponent(Object message, String[] data) {
         ((TextComponent) message).addExtra(data[2]);
     }
 
@@ -41,10 +41,11 @@ public class SpigotHandler extends SpigotAdapter implements SpigotInterface {
                 if (data[0].equals(Chat.COMPONENT_COMMAND)) {
                     TextComponent component = new TextComponent(TextComponent.fromLegacyText(data[2]));
                     component.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, data[1]));
+                    SpigotAdapter.ADAPTER.setHoverEvent(component, Util.hoverCommandFilter(data[1]));
                     message.addExtra(component);
                 }
                 else if (data[0].equals(Chat.COMPONENT_POPUP)) {
-                    SpigotAdapter.ADAPTER.setHoverComponent(message, data);
+                    SpigotAdapter.ADAPTER.addHoverComponent(message, data);
                 }
             }
             else {

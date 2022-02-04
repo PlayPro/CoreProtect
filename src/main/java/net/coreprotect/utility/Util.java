@@ -185,6 +185,47 @@ public class Util extends Queue {
         return message.toString();
     }
 
+    public static String hoverCommandFilter(String string) {
+        StringBuilder command = new StringBuilder();
+
+        String[] data = string.toLowerCase().split(" ");
+        if (data.length > 2) {
+            if (data[1].equals("l")) {
+                data[1] = "page";
+            }
+
+            if (data[2].startsWith("wid:")) {
+                String nameWid = data[2].replaceFirst("wid:", "");
+                if (nameWid.length() > 0 && nameWid.equals(nameWid.replaceAll("[^0-9]", ""))) {
+                    nameWid = Util.getWorldName(Integer.parseInt(nameWid));
+                    if (nameWid.length() > 0) {
+                        data[2] = nameWid;
+                    }
+                }
+            }
+
+            if (data[1].equals("teleport") && data.length > 5) {
+                data[3] = Integer.toString((int) (Double.parseDouble(data[3]) - 0.50));
+                data[4] = Integer.toString(Integer.parseInt(data[4]));
+                data[5] = Integer.toString((int) (Double.parseDouble(data[5]) - 0.50));
+            }
+        }
+
+        for (String s : data) {
+            if (s.isEmpty()) {
+                continue;
+            }
+
+            if (command.length() > 0) {
+                command.append(" ");
+            }
+
+            command.append(s);
+        }
+
+        return command.toString();
+    }
+
     public static String capitalize(String string, boolean allWords) {
         if (string == null || string.isEmpty()) {
             return string;

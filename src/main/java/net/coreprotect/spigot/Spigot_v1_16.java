@@ -15,7 +15,7 @@ public class Spigot_v1_16 extends SpigotHandler implements SpigotInterface {
     }
 
     @Override
-    public void setHoverComponent(Object message, String[] data) {
+    public void addHoverComponent(Object message, String[] data) {
         try {
             if (Config.getGlobal().HOVER_EVENTS) {
                 TextComponent component = new TextComponent(TextComponent.fromLegacyText(data[2]));
@@ -23,11 +23,18 @@ public class Spigot_v1_16 extends SpigotHandler implements SpigotInterface {
                 ((TextComponent) message).addExtra(component);
             }
             else {
-                super.setHoverComponent(message, data);
+                super.addHoverComponent(message, data);
             }
         }
         catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void setHoverEvent(Object component, String text) {
+        if (Config.getGlobal().HOVER_EVENTS) {
+            ((TextComponent) component).setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new Text(TextComponent.fromLegacyText(text))));
         }
     }
 

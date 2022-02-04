@@ -1107,7 +1107,7 @@ public class CommandHandler implements CommandExecutor {
                     else if (user.hasPermission("coreprotect.purge") && corecommand.equals("purge")) {
                         permission = true;
                     }
-                    else if (user.hasPermission("coreprotect.lookup") && (corecommand.equals("l") || corecommand.equals("lookup") || corecommand.equals("near"))) {
+                    else if (user.hasPermission("coreprotect.lookup") && (corecommand.equals("l") || corecommand.equals("lookup") || corecommand.equals("page") || corecommand.equals("near"))) {
                         permission = true;
                     }
                     else if (user.hasPermission("coreprotect.lookup.near") && corecommand.equals("near")) {
@@ -1145,7 +1145,7 @@ public class CommandHandler implements CommandExecutor {
                 else if (corecommand.equals("inspect") || corecommand.equals("i")) {
                     InspectCommand.runCommand(user, permission, argumentArray);
                 }
-                else if (corecommand.equals("lookup") || corecommand.equals("l")) {
+                else if (corecommand.equals("lookup") || corecommand.equals("l") || corecommand.equals("page")) {
                     LookupCommand.runCommand(user, command, permission, argumentArray);
                 }
                 else if (corecommand.equals("near")) {

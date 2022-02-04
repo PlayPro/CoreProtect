@@ -63,6 +63,11 @@ public class LookupCommand {
             return;
         }
 
+        if (args[0].toLowerCase(Locale.ROOT).equals("page") && (args.length != 2 || !args[1].equals(args[1].replaceAll("[^0-9]", "")))) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, Color.WHITE, "/co page <page>"));
+            return;
+        }
+
         int argExcluded = argExclude.size();
         int argRestricted = argBlocks.size();
 

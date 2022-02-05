@@ -21,11 +21,22 @@ public class ChestTool {
             return;
         }
 
+        Type chestType = ((Chest) blockData).getType();
+        Type newType = (chestType == Type.LEFT) ? Type.RIGHT : Type.LEFT;
+        Block relativeBlock = getDoubleChestRelative(block, blockData, chestType);
+        if (!forceValidation && (relativeBlock.getBlockData() instanceof Chest) && ((Chest) relativeBlock.getBlockData()).getType() == newType) {
+            return;
+        }
+
+        validateContainer(blockData, newType, block, relativeBlock);
+    }
+
+    public static Block getDoubleChestRelative(Block block, BlockData blockData, Type chestType)
+    {
         Directional directional = (Directional) blockData;
         BlockFace blockFace = directional.getFacing();
         BlockFace newFace = null;
 
-        Type chestType = ((Chest) blockData).getType();
         if (chestType == Type.LEFT) {
             switch (blockFace) {
                 case NORTH:
@@ -62,17 +73,13 @@ public class ChestTool {
                     break;
             }
         }
-
         if (newFace != null) {
-            Type newType = (chestType == Type.LEFT) ? Type.RIGHT : Type.LEFT;
-            Block relativeBlock = block.getRelative(newFace);
-            if (!forceValidation && (relativeBlock.getBlockData() instanceof Chest) && ((Chest) relativeBlock.getBlockData()).getType() == newType) {
-                return;
-            }
 
-            validateContainer(blockData, newType, block, relativeBlock);
+            return block.getRelative(newFace);
         }
+        return block;
     }
+
 
     private static void validateContainer(BlockData blockData, Type newType, Block block, Block relativeBlock) {
         Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {

@@ -30,11 +30,11 @@ public class Teleport {
         try {
 
             //check bypass tp conditions
-            if( player.getGameMode() == GameMode.SPECTATOR || enforceTeleport   ) {
-                player.sendMessage("Bypass condition detected");
+           /* if( player.getGameMode() == GameMode.SPECTATOR || enforceTeleport   ) {
+                player.sendMessage("Bypass condition detected" + enforceTeleport);
                 player.teleport(targetBlockLocation);
                 return true;
-            }
+            }*/
 
 
 

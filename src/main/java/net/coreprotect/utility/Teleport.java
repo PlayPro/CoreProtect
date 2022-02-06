@@ -56,6 +56,7 @@ public class Teleport {
             Block targetBlock;
             Block relativeBlock;
             BlockData relativeBlockData;
+            Material relativeBlockMaterial;
             Vector blockDelta;
             for (Location tgtBlockLocation: targetBlockLocations) {  //rename
                 targetBlock = tgtBlockLocation.getBlock();
@@ -78,10 +79,12 @@ public class Teleport {
                         blockDelta = targetBlock.getRelative(faces,deltaDirection).getLocation().toVector().subtract(tgtBlockLocation.toVector());
                         relativeBlock = targetBlock.getRelative(faces);
                         relativeBlockData = relativeBlock.getBlockData();
-                        if( relativeBlockData.getMaterial().equals(Material.AIR) ||
-                                relativeBlockData.getMaterial().equals(Material.WATER) ||
-                                relativeBlockData instanceof Slab ||
-                                relativeBlockData instanceof Stairs) {
+                        relativeBlockMaterial = relativeBlockData.getMaterial();
+                        if( relativeBlockMaterial.equals(Material.AIR) ||
+                            relativeBlockMaterial.equals(Material.WATER) ||
+                            BlockGroup.LABEL_BLOCKS.contains(relativeBlockMaterial) ||
+                            relativeBlockData instanceof Slab ||
+                            relativeBlockData instanceof Stairs) {
 
                             surroundingLocations.add(blockDelta);
                         }

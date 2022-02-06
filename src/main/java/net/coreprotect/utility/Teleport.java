@@ -30,14 +30,10 @@ public class Teleport {
         try {
 
             //check bypass tp conditions
-           /* if( player.getGameMode() == GameMode.SPECTATOR || enforceTeleport   ) {
-                player.sendMessage("Bypass condition detected" + enforceTeleport);
+            if( player.getGameMode() == GameMode.SPECTATOR || enforceTeleport   ) {
                 player.teleport(targetBlockLocation);
                 return true;
-            }*/
-
-
-
+            }
 
 
             Block primaryTargetBlock = targetBlockLocation.getBlock();
@@ -169,25 +165,25 @@ public class Teleport {
                 z > 0 && x == 0    ) {  //player on axis, -180
             targetMiddleFacingX = targetBoundingBox.getCenterX();
             targetMiddleFacingZ = targetBoundingBox.getMaxZ();
-            Bukkit.getLogger().info("South");
+
 
         } else if (z < x && z < -x ||   //player north of block, looking -Z south at it. player yaw -45 [0] 45
                 z < 0 && x == 0    ) { //player on axis, 0
             targetMiddleFacingX = targetBoundingBox.getCenterX();
             targetMiddleFacingZ = targetBoundingBox.getMinZ();
-            Bukkit.getLogger().info("North");
+
 
         } else if (x > z && x > -z ||       //player west of block, looking +X  east at it. player yaw -135 [-90] -45
                 x > 0 && z == 0    ) {   //player on axis, -90
             targetMiddleFacingX = targetBoundingBox.getMaxX();
             targetMiddleFacingZ = targetBoundingBox.getCenterZ();
-            Bukkit.getLogger().info("West");
+
 
         } else if (x < z && x < -z ||       //player east of block, looking -X west at it. player yaw 135 [-180] -135
                 x < 0 && z ==0    ) {    //player on axis, -180
             targetMiddleFacingX = targetBoundingBox.getMinX();
             targetMiddleFacingZ = targetBoundingBox.getCenterZ();
-            Bukkit.getLogger().info("East");
+
 
         }
 
@@ -304,14 +300,17 @@ public class Teleport {
                         distance + .5,
                         FluidCollisionMode.NEVER);
                 if (intersection != null) {
-                    if(intersection.getHitBlock().getLocation().equals(targetBlockLocation))
+                    Block hitBlock = intersection.getHitBlock();
+                    if(intersection.getHitBlock().getLocation().equals(targetBlockLocation) ||
+                        BlockGroup.LABEL_BLOCKS.contains(hitBlock.getBlockData().getMaterial()) )
                     {
-                        Bukkit.getLogger().info("success, intersection: " + intersection.getHitBlock());
+
                         player.teleport(proposedWithPitchAndYaw);
                         return true;
                     }
+
                     else {
-                        Bukkit.getLogger().info("false, intersection: " + intersection.getHitBlock());
+
                         return false;
                     }
 

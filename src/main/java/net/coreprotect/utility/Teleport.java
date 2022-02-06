@@ -124,10 +124,11 @@ public class Teleport {
 
             //check on top of the block and continue to world height
             Location proposedLocation = targetBlockLocation.clone();
-            for (Location tgtBlockLocation: targetBlockLocations) {
-                for (int y = 0;  y < tgtBlockLocation.getWorld().getMaxHeight()- tgtBlockLocation.getBlockY(); y++) {
-                    proposedLocation.setY(targetBlockLocation.clone().getY() + y);
-                    if (Teleport.teleportIfSafe(player, proposedLocation, targetBlockLocation, false)) return true;
+
+            for (int y = 1;  y < targetBlockLocation.getWorld().getMaxHeight()- targetBlockLocation.getBlockY(); y++) {
+                for (Location tgtBlockLocation: targetBlockLocations) {
+                    proposedLocation.setY(tgtBlockLocation.clone().getY() + y);
+                    if (Teleport.teleportIfSafe(player, proposedLocation, tgtBlockLocation, false)) return true;
                 }
             }
 
@@ -304,8 +305,10 @@ public class Teleport {
                         FluidCollisionMode.NEVER);
                 if (intersection != null) {
                     Block hitBlock = intersection.getHitBlock();
-                    if(intersection.getHitBlock().getLocation().equals(targetBlockLocation) ||
-                        BlockGroup.LABEL_BLOCKS.contains(hitBlock.getBlockData().getMaterial()) )
+                    Material hitBlockMaterial = hitBlock.getBlockData().getMaterial();
+                    if(hitBlock.getLocation().equals(targetBlockLocation) ||
+                        BlockGroup.LABEL_BLOCKS.contains(hitBlockMaterial) ||
+                        BlockGroup.TARGETABLE_THROUGH.contains(hitBlockMaterial) )
                     {
 
                         player.teleport(proposedWithPitchAndYaw);

@@ -8,11 +8,15 @@ import java.util.Set;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.block.data.Attachable;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Directional;
+import org.bukkit.block.data.FaceAttachable;
 import org.bukkit.block.data.type.Chest;
 import org.bukkit.block.data.type.Slab;
 import org.bukkit.block.data.type.Stairs;
+import org.bukkit.entity.Hanging;
+import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.Player;
 
 import net.coreprotect.model.BlockGroup;
@@ -38,7 +42,12 @@ public class Teleport {
 
             Block primaryTargetBlock = targetBlockLocation.getBlock();
             BlockData primaryTargetBlockData = primaryTargetBlock.getBlockData();
+
             Set <Location> targetBlockLocations = new LinkedHashSet<>();
+
+
+
+
             targetBlockLocations.add(targetBlockLocation.getBlock().getLocation());
 
 
@@ -48,6 +57,9 @@ public class Teleport {
                 targetBlockLocations.add(relativeBlock.getLocation());
 
             }
+
+
+
 
 
             Set <Vector> surroundingLocations = new LinkedHashSet<>();
@@ -275,9 +287,9 @@ public class Teleport {
         Material headMaterial = head.getType();
         Material groundMaterial = ground.getType();
 
-        if (    !Util.solidBlock(bodyMaterial) &&
+        if (    (!Util.solidBlock(bodyMaterial) || BlockGroup.LABEL_BLOCKS.contains(bodyMaterial) )&&
                 !unsafeBlocks.contains(bodyMaterial) && // Body not going to tp in a solid block or lava/fire
-                !Util.solidBlock(headMaterial) &&
+                (!Util.solidBlock(headMaterial)  || BlockGroup.LABEL_BLOCKS.contains(headMaterial) ) &&
                 !unsafeBlocks.contains(headMaterial) && // Head not going to tp in a solid block or lava/fire
                 !unsafeBlocks.contains(groundMaterial)  && // Check ground for lava/fire
                 !unwantedGroundMaterial.contains(groundMaterial) && //check ground is not unsafe
@@ -289,7 +301,7 @@ public class Teleport {
             Location headLocation = proposedWithPitchAndYaw.clone().add(0,1.625,0);
             double distance = headLocation.distance(targetBlockLocation);
 
-            if(distance > 1 && lineOfSightRequired) {
+            if(distance > 1 && lineOfSightRequired && targetBlockLocation.getBlock().getBlockData().getMaterial() != Material.AIR) {
                 double pitch = ((proposedWithPitchAndYaw.getPitch() + 90) * Math.PI) / 180;
                 double yaw = ((proposedWithPitchAndYaw.getYaw() + 90) * Math.PI) / 180;
                 double x = Math.sin(pitch) * Math.cos(yaw);

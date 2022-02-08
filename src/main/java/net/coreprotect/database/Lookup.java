@@ -627,7 +627,7 @@ public class Lookup extends Queue {
                     if ((index.equals("") && restrictWorld)) {
                         index = "USE INDEX(wid) ";
                     }
-                    if ((radius != null || actionList.contains(5))) {
+                    if ((radius != null || actionList.size() > 0)) {
                         index = "";
                     }
                 }
@@ -645,7 +645,7 @@ public class Lookup extends Queue {
                     if ((index.equals("") && restrictWorld)) {
                         index = "INDEXED BY block_index ";
                     }
-                    if ((radius != null || actionList.contains(5))) {
+                    if ((radius != null || actionList.size() > 0)) {
                         index = "";
                     }
                 }

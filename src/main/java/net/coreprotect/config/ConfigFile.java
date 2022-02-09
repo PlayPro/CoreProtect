@@ -181,7 +181,7 @@ public class ConfigFile extends Config {
 
             for (int i = 0; i < lines.size(); i++) {
                 if (lines.get(i).equalsIgnoreCase(oldLine)) {
-                    if (newLine.length() > 0) {
+                    if (newLine != null && newLine.length() > 0) {
                         lines.set(i, newLine);
                     }
                     else {

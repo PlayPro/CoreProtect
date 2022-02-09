@@ -658,7 +658,7 @@ public class LookupCommand {
                 final Integer[] radius = argRadius;
 
                 try {
-                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.LOOKUP_SEARCHING));
+                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Color.ITALIC + Phrase.build(Phrase.LOOKUP_SEARCHING));
                     final CommandSender player2 = player;
                     final int finalX = x;
                     final int finalY = y;
@@ -787,7 +787,7 @@ public class LookupCommand {
                                         else if (pageStart < rows) {
                                             List<String[]> lookupList = Lookup.performPartialLookup(statement, player2, uuidList, userList, blist, elist, euserlist, finalArgAction, location, radius, rowData, stime, (int) pageStart, displayResults, restrict_world, true);
 
-                                            Chat.sendMessage(player2, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.LOOKUP_HEADER, "CoreProtect") + Color.WHITE + " -----");
+                                            Chat.sendMessage(player2, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.LOOKUP_HEADER, "CoreProtect" + Color.WHITE + " | " + Color.DARK_AQUA) + Color.WHITE + " -----");
                                             if (finalArgAction.contains(6) || finalArgAction.contains(7)) { // Chat/command
                                                 for (String[] data : lookupList) {
                                                     String time = data[0];
@@ -816,7 +816,8 @@ public class LookupCommand {
                                                         leftPadding = leftPadding + Color.WHITE + Strings.padStart("", (timeLength - 50) / 4, ' ');
                                                     }
 
-                                                    Chat.sendComponent(player2, timeago + " " + Color.WHITE + "- " + Color.DARK_AQUA + Phrase.build(Phrase.LOOKUP_LOGIN, Color.DARK_AQUA + dplayer + Color.WHITE, (action != 0 ? Selector.FIRST : Selector.SECOND)));
+                                                    String tag = (action != 0 ? Color.GREEN + "+" : Color.RED + "-");
+                                                    Chat.sendComponent(player2, timeago + " " + tag + " " + Color.DARK_AQUA + Phrase.build(Phrase.LOOKUP_LOGIN, Color.DARK_AQUA + dplayer + Color.WHITE, (action != 0 ? Selector.FIRST : Selector.SECOND)));
                                                     Chat.sendComponent(player2, Color.WHITE + leftPadding + Color.GREY + "^ " + Util.getCoordinates(command.getName(), wid, x, y, z, true, true) + "");
                                                 }
                                             }
@@ -920,16 +921,19 @@ public class LookupCommand {
                                                         if (daction == 2 || daction == 3) {
                                                             phrase = Phrase.LOOKUP_ITEM; // {picked up|dropped}
                                                             selector = (daction != 2 ? Selector.FIRST : Selector.SECOND);
+                                                            tag = (daction != 2 ? Color.GREEN + "+" : Color.RED + "-");
                                                             action = "a:inventory";
                                                         }
                                                         else if (daction == 4 || daction == 5) {
                                                             phrase = Phrase.LOOKUP_STORAGE; // {deposited|withdrew}
                                                             selector = (daction != 4 ? Selector.FIRST : Selector.SECOND);
+                                                            tag = (daction != 4 ? Color.GREEN + "+" : Color.RED + "-");
                                                             action = "a:inventory";
                                                         }
                                                         else {
                                                             phrase = Phrase.LOOKUP_CONTAINER; // {added|removed}
                                                             selector = (daction != 0 ? Selector.FIRST : Selector.SECOND);
+                                                            tag = (daction != 0 ? Color.GREEN + "+" : Color.RED + "-");
                                                             action = "a:container";
                                                         }
 
@@ -939,14 +943,15 @@ public class LookupCommand {
                                                         if (daction == 2 || daction == 3) {
                                                             phrase = Phrase.LOOKUP_INTERACTION; // {clicked|killed}
                                                             selector = (daction != 3 ? Selector.FIRST : Selector.SECOND);
+                                                            tag = (daction != 3 ? Color.WHITE + "-" : Color.RED + "-");
                                                             action = (daction == 2 ? "a:click" : "a:kill");
                                                         }
                                                         else {
                                                             phrase = Phrase.LOOKUP_BLOCK; // {placed|broke}
                                                             selector = (daction != 0 ? Selector.FIRST : Selector.SECOND);
+                                                            tag = (daction != 0 ? Color.GREEN + "+" : Color.RED + "-");
                                                         }
 
-                                                        // tag = ChatColors.RED + "-";
                                                         Chat.sendComponent(player2, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, Color.DARK_AQUA + rbd + dname + Color.WHITE, selector));
                                                     }
 

@@ -91,13 +91,16 @@ public class BlockLookup {
 
                 Phrase phrase = Phrase.LOOKUP_BLOCK;
                 String selector = Selector.FIRST;
+                String tag = Color.WHITE + "-";
                 if (resultAction == 2 || resultAction == 3) {
                     phrase = Phrase.LOOKUP_INTERACTION; // {clicked|killed}
                     selector = (resultAction != 3 ? Selector.FIRST : Selector.SECOND);
+                    tag = (resultAction != 3 ? Color.WHITE + "-" : Color.RED + "-");
                 }
                 else {
                     phrase = Phrase.LOOKUP_BLOCK; // {placed|broke}
                     selector = (resultAction != 0 ? Selector.FIRST : Selector.SECOND);
+                    tag = (resultAction != 0 ? Color.GREEN + "+" : Color.RED + "-");
                 }
 
                 String rbFormat = "";
@@ -126,7 +129,7 @@ public class BlockLookup {
                     target = target.split(":")[1];
                 }
 
-                resultTextBuilder.append(timeAgo + " " + Color.WHITE + "- ").append(Phrase.build(phrase, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, Color.DARK_AQUA + rbFormat + target + Color.WHITE, selector)).append("\n");
+                resultTextBuilder.append(timeAgo + " " + tag + " ").append(Phrase.build(phrase, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, Color.DARK_AQUA + rbFormat + target + Color.WHITE, selector)).append("\n");
             }
 
             resultText = resultTextBuilder.toString();

@@ -375,13 +375,13 @@ public class Rollback extends Queue {
                                     if (preview == 2) {
                                         Block block = location1.getBlock();
                                         Material blockType = block.getType();
-                                        if (!BukkitAdapter.ADAPTER.isItemFrame(blockType) && !blockType.equals(Material.PAINTING) && !blockType.equals(Material.ARMOR_STAND)) {
+                                        if (!BukkitAdapter.ADAPTER.isItemFrame(blockType) && !blockType.equals(Material.PAINTING) && !blockType.equals(Material.ARMOR_STAND) && !blockType.equals(Material.END_CRYSTAL)) {
                                             Util.sendBlockChange(player, location1, block.getBlockData());
                                             blockCount1++;
                                         }
                                     }
                                     else {
-                                        if ((!BukkitAdapter.ADAPTER.isItemFrame(rowType)) && (rowType != Material.PAINTING) && (rowType != Material.ARMOR_STAND)) {
+                                        if ((!BukkitAdapter.ADAPTER.isItemFrame(rowType)) && (rowType != Material.PAINTING) && (rowType != Material.ARMOR_STAND) && (rowType != Material.END_CRYSTAL)) {
                                             BlockData sendBlockData = blockData;
                                             if (sendBlockData == null) {
                                                 sendBlockData = rowType.createBlockData();

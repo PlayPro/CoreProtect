@@ -70,13 +70,13 @@ public class CommandHandler implements CommandExecutor {
                     if (argument.startsWith("#")) {
                         argument = argument.replaceFirst("#", "");
                     }
-                    if (argument.equals("broke") || argument.equals("break") || argument.equals("remove") || argument.equals("destroy") || argument.equals("block-break") || argument.equals("block-remove") || argument.equals("-block") || argument.equals("block-")) {
+                    if (argument.equals("broke") || argument.equals("break") || argument.equals("remove") || argument.equals("destroy") || argument.equals("block-break") || argument.equals("block-remove") || argument.equals("-block") || argument.equals("-blocks") || argument.equals("block-")) {
                         result.add(0);
                     }
-                    else if (argument.equals("placed") || argument.equals("place") || argument.equals("block-place") || argument.equals("+block") || argument.equals("block+")) {
+                    else if (argument.equals("placed") || argument.equals("place") || argument.equals("block-place") || argument.equals("+block") || argument.equals("+blocks") || argument.equals("block+")) {
                         result.add(1);
                     }
-                    else if (argument.equals("block") || argument.equals("block-change") || argument.equals("change")) {
+                    else if (argument.equals("block") || argument.equals("blocks") || argument.equals("block-change") || argument.equals("change") || argument.equals("changes")) {
                         result.add(0);
                         result.add(1);
                     }
@@ -97,17 +97,17 @@ public class CommandHandler implements CommandExecutor {
                         result.add(4);
                         result.add(1);
                     }
-                    else if (argument.equals("chat")) {
+                    else if (argument.equals("chat") || argument.equals("chats")) {
                         result.add(6);
                     }
                     else if (argument.equals("command") || argument.equals("commands")) {
                         result.add(7);
                     }
-                    else if (argument.equals("login") || argument.equals("+session") || argument.equals("session+") || argument.equals("+connection") || argument.equals("connection+")) {
+                    else if (argument.equals("logins") || argument.equals("login") || argument.equals("+session") || argument.equals("+sessions") || argument.equals("session+") || argument.equals("+connection") || argument.equals("connection+")) {
                         result.add(8);
                         result.add(1);
                     }
-                    else if (argument.equals("logout") || argument.equals("-session") || argument.equals("session-") || argument.equals("-connection") || argument.equals("connection-")) {
+                    else if (argument.equals("logout") || argument.equals("logouts") || argument.equals("-session") || argument.equals("-sessions") || argument.equals("session-") || argument.equals("-connection") || argument.equals("connection-")) {
                         result.add(8);
                         result.add(0);
                     }
@@ -117,7 +117,7 @@ public class CommandHandler implements CommandExecutor {
                     else if (argument.equals("username") || argument.equals("usernames") || argument.equals("user") || argument.equals("users") || argument.equals("name") || argument.equals("names") || argument.equals("uuid") || argument.equals("uuids") || argument.equals("username-change") || argument.equals("username-changes") || argument.equals("name-change") || argument.equals("name-changes")) {
                         result.add(9);
                     }
-                    else if (argument.equals("sign")) {
+                    else if (argument.equals("sign") || argument.equals("signs")) {
                         result.add(10);
                     }
                     else if (argument.equals("item") || argument.equals("items")) {

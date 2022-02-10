@@ -11,12 +11,16 @@ import net.coreprotect.consumer.Queue;
 
 public final class PlayerQuitListener extends Queue implements Listener {
 
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onPlayerQuit(PlayerQuitEvent event) {
-        Player player = event.getPlayer();
+    public static void queuePlayerQuit(Player player) {
         if (Config.getConfig(player.getWorld()).PLAYER_SESSIONS) {
             int time = (int) (System.currentTimeMillis() / 1000L);
             Queue.queuePlayerQuit(player, time);
         }
     }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        queuePlayerQuit(event.getPlayer());
+    }
+
 }

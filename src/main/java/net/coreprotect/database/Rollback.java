@@ -360,7 +360,6 @@ public class Rollback extends Queue {
 
                             if (preview > 0) {
                                 if (rowAction != 3) { // entity kill
-                                    Player player = (Player) finalUser;
                                     String world = Util.getWorldName(rowWorldId);
                                     if (world.length() == 0) {
                                         continue;
@@ -370,23 +369,18 @@ public class Rollback extends Queue {
                                     if (bukkitWorld == null) {
                                         continue;
                                     }
-                                    Location location1 = new Location(bukkitWorld, rowX, rowY, rowZ);
 
+                                    Block block = new Location(bukkitWorld, rowX, rowY, rowZ).getBlock();
                                     if (preview == 2) {
-                                        Block block = location1.getBlock();
                                         Material blockType = block.getType();
                                         if (!BukkitAdapter.ADAPTER.isItemFrame(blockType) && !blockType.equals(Material.PAINTING) && !blockType.equals(Material.ARMOR_STAND) && !blockType.equals(Material.END_CRYSTAL)) {
-                                            Util.sendBlockChange(player, location1, block.getBlockData());
+                                            Util.prepareTypeAndData(chunkChanges, block, blockType, block.getBlockData(), true);
                                             blockCount1++;
                                         }
                                     }
                                     else {
                                         if ((!BukkitAdapter.ADAPTER.isItemFrame(rowType)) && (rowType != Material.PAINTING) && (rowType != Material.ARMOR_STAND) && (rowType != Material.END_CRYSTAL)) {
-                                            BlockData sendBlockData = blockData;
-                                            if (sendBlockData == null) {
-                                                sendBlockData = rowType.createBlockData();
-                                            }
-                                            Util.sendBlockChange(player, location1, sendBlockData);
+                                            Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, true);
                                             blockCount1++;
                                         }
                                     }
@@ -982,7 +976,12 @@ public class Rollback extends Queue {
                         for (Entry<Block, BlockData> chunkChange : chunkChanges.entrySet()) {
                             Block changeBlock = chunkChange.getKey();
                             BlockData changeBlockData = chunkChange.getValue();
-                            Util.setTypeAndData(changeBlock, null, changeBlockData, true);
+                            if (preview > 0) {
+                                Util.sendBlockChange((Player) finalUser, changeBlock.getLocation(), changeBlockData);
+                            }
+                            else {
+                                Util.setTypeAndData(changeBlock, null, changeBlockData, true);
+                            }
                         }
                         chunkChanges.clear();
 

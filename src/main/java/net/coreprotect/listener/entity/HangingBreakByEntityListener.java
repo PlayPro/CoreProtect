@@ -33,6 +33,23 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
         class BasicThread implements Runnable {
             @Override
             public void run() {
+                if (ConfigHandler.converterRunning) {
+                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
+                    return;
+                }
+                if (ConfigHandler.purgeRunning) {
+                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
+                    return;
+                }
+                if (ConfigHandler.lookupThrottle.get(player.getName()) != null) {
+                    Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
+                    if ((boolean) lookupThrottle[0] || ((System.currentTimeMillis() - (long) lookupThrottle[1])) < 100) {
+                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
+                        return;
+                    }
+                }
+                ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
+
                 try (Connection connection = Database.getConnection(true)) {
                     if (connection != null) {
                         Statement statement = connection.createStatement();
@@ -56,6 +73,8 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
                 catch (Exception e) {
                     e.printStackTrace();
                 }
+
+                ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
             }
         }
         Runnable runnable = new BasicThread();

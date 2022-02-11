@@ -120,28 +120,28 @@ public class CommandHandler implements CommandExecutor {
                     else if (argument.equals("sign") || argument.equals("signs")) {
                         result.add(10);
                     }
-                    else if (argument.equals("item") || argument.equals("items")) {
-                        result.add(4);
-                        result.add(11);
-                    }
-                    else if (argument.equals("-item") || argument.equals("item-") || argument.equals("-items") || argument.equals("items-")) {
-                        result.add(4);
-                        result.add(11);
-                        result.add(0);
-                    }
-                    else if (argument.equals("+item") || argument.equals("item+") || argument.equals("+items") || argument.equals("items+")) {
-                        result.add(4);
-                        result.add(11);
-                        result.add(1);
-                    }
                     else if (argument.equals("inv") || argument.equals("inventory") || argument.equals("inventories")) {
-                        result.add(11);
+                        result.add(4); // container
+                        result.add(11); // item
                     }
                     else if (argument.equals("-inv") || argument.equals("inv-") || argument.equals("-inventory") || argument.equals("inventory-") || argument.equals("-inventories") || argument.equals("drop") || argument.equals("drops") || argument.equals("deposit") || argument.equals("deposits") || argument.equals("deposited")) {
+                        result.add(4);
                         result.add(11);
                         result.add(0);
                     }
                     else if (argument.equals("+inv") || argument.equals("inv+") || argument.equals("+inventory") || argument.equals("inventory+") || argument.equals("+inventories") || argument.equals("pickup") || argument.equals("pickups") || argument.equals("withdraw") || argument.equals("withdraws") || argument.equals("withdrew")) {
+                        result.add(4);
+                        result.add(11);
+                        result.add(1);
+                    }
+                    else if (argument.equals("item") || argument.equals("items")) {
+                        result.add(11);
+                    }
+                    else if (argument.equals("-item") || argument.equals("item-") || argument.equals("-items") || argument.equals("items-")) {
+                        result.add(11);
+                        result.add(0);
+                    }
+                    else if (argument.equals("+item") || argument.equals("item+") || argument.equals("+items") || argument.equals("items+")) {
                         result.add(11);
                         result.add(1);
                     }

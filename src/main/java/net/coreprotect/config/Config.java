@@ -43,6 +43,7 @@ public class Config extends Language {
     public String LANGUAGE;
     public boolean HOVER_EVENTS;
     public boolean DATABASE_LOCK;
+    public boolean LOG_CANCELLED_CHAT;
     public boolean HOPPER_FILTER_META;
     public boolean MYSQL;
     public boolean CHECK_UPDATES;
@@ -180,6 +181,7 @@ public class Config extends Language {
     private void readValues() {
         this.HOVER_EVENTS = this.getBoolean("hover-events", true);
         this.DATABASE_LOCK = this.getBoolean("database-lock", true);
+        this.LOG_CANCELLED_CHAT = this.getBoolean("log-cancelled-chat", true);
         this.HOPPER_FILTER_META = this.getBoolean("hopper-filter-meta", false);
         this.DONATION_KEY = this.getString("donation-key");
         this.MYSQL = this.getBoolean("use-mysql");

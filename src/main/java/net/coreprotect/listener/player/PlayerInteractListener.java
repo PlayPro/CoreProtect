@@ -69,6 +69,12 @@ public final class PlayerInteractListener extends Queue implements Listener {
             return;
         }
 
+        if (!player.hasPermission("coreprotect.inspect")) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
+            ConfigHandler.inspecting.put(player.getName(), false);
+            return;
+        }
+
         if (event.getAction().equals(Action.LEFT_CLICK_BLOCK)) {
             BlockState checkBlock = event.getClickedBlock().getState();
             int x = checkBlock.getX();
@@ -278,8 +284,8 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                 if (ConfigHandler.lookupThrottle.get(player.getName()) != null) {
                                     Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
                                     if ((boolean) lookupThrottle[0] || (System.currentTimeMillis() - (long) lookupThrottle[1]) < 100) {
-                                       Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                       return;
+                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
+                                        return;
                                     }
                                 }
 

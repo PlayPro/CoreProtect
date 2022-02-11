@@ -965,7 +965,7 @@ public class LookupCommand {
                                                         else if (daction == 4 || daction == 5) {
                                                             phrase = Phrase.LOOKUP_STORAGE; // {deposited|withdrew}
                                                             selector = (daction != 4 ? Selector.FIRST : Selector.SECOND);
-                                                            tag = (daction != 4 ? Color.GREEN + "+" : Color.RED + "-");
+                                                            tag = (daction != 4 ? Color.RED + "-" : Color.GREEN + "+");
                                                             action = "a:item";
                                                         }
                                                         else {

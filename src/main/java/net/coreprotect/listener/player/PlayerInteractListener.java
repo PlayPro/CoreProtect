@@ -390,7 +390,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                         Thread thread = new Thread(runnable);
                         thread.start();
 
-                        if (!BlockGroup.SAFE_INTERACT_BLOCKS.contains(type)) {
+                        if (!BlockGroup.SAFE_INTERACT_BLOCKS.contains(type) || player.isSneaking()) {
                             event.setCancelled(true);
                         }
                     }

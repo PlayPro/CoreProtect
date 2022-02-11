@@ -262,6 +262,10 @@ public class LookupCommand {
             return;
         }
 
+        if (argAction.contains(4) && argAction.contains(11)) { // a:inventory
+            argExcludeUsers.add("#hopper");
+        }
+
         if (type == 1) {
             boolean defaultRe = true;
             int p = 0;
@@ -488,7 +492,7 @@ public class LookupCommand {
             boolean defaultRe = true;
             int pa = 1;
             int re = 4;
-            if (argAction.contains(6) || argAction.contains(7) || argAction.contains(9)) {
+            if (argAction.contains(6) || argAction.contains(7) || argAction.contains(9) || (argAction.contains(4) && argAction.contains(11))) {
                 re = 7;
             }
             if (parseRows > 0) {
@@ -857,6 +861,36 @@ public class LookupCommand {
                                                     Chat.sendComponent(player2, Color.WHITE + leftPadding + Color.GREY + "^ " + Util.getCoordinates(command.getName(), wid, x, y, z, true, true) + "");
                                                 }
                                             }
+                                            else if (finalArgAction.contains(4) && finalArgAction.contains(11)) { // inventory transactions
+                                                for (String[] data : lookupList) {
+                                                    String time = data[0];
+                                                    String dplayer = data[1];
+                                                    String dtype = data[5];
+                                                    int ddata = Integer.parseInt(data[6]);
+                                                    int daction = Integer.parseInt(data[7]);
+                                                    int amount = Integer.parseInt(data[10]);
+                                                    String rbd = (Integer.parseInt(data[8]) == 1 ? Color.STRIKETHROUGH : "");
+                                                    String timeago = Util.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
+                                                    String dname = Util.nameFilter(Util.getType(Integer.parseInt(dtype)).name().toLowerCase(Locale.ROOT), ddata);
+
+                                                    String selector = Selector.FIRST;
+                                                    String tag = Color.WHITE + "-";
+                                                    if (daction == 2 || daction == 3) { // LOOKUP_ITEM
+                                                        selector = (daction != 2 ? Selector.FIRST : Selector.SECOND);
+                                                        tag = (daction != 2 ? Color.GREEN + "+" : Color.RED + "-");
+                                                    }
+                                                    else if (daction == 4 || daction == 5) { // LOOKUP_STORAGE
+                                                        selector = (daction == 4 ? Selector.FIRST : Selector.SECOND);
+                                                        tag = (daction == 4 ? Color.GREEN + "+" : Color.RED + "-");
+                                                    }
+                                                    else { // LOOKUP_CONTAINER
+                                                        selector = (daction == 0 ? Selector.FIRST : Selector.SECOND);
+                                                        tag = (daction == 0 ? Color.GREEN + "+" : Color.RED + "-");
+                                                    }
+
+                                                    Chat.sendComponent(player2, timeago + " " + tag + " " + Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, "x" + amount, Color.DARK_AQUA + rbd + dname + Color.WHITE, selector));
+                                                }
+                                            }
                                             else {
                                                 for (String[] data : lookupList) {
                                                     int drb = Integer.parseInt(data[8]);
@@ -959,14 +993,13 @@ public class LookupCommand {
                                                         Chat.sendComponent(player2, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, Color.DARK_AQUA + rbd + dname + Color.WHITE, selector));
                                                     }
 
-                                                    boolean itemLookup = finalArgAction.contains(4) && finalArgAction.contains(11);
-                                                    action = (finalArgAction.size() == 0 || itemLookup ? " (" + action + ")" : "");
+                                                    action = (finalArgAction.size() == 0 ? " (" + action + ")" : "");
                                                     Chat.sendComponent(player2, Color.WHITE + leftPadding + Color.GREY + "^ " + Util.getCoordinates(command.getName(), wid, x, y, z, true, true) + Color.GREY + Color.ITALIC + action);
                                                 }
                                             }
                                             if (rows > displayResults) {
                                                 int total_pages = (int) Math.ceil(rows / (displayResults + 0.0));
-                                                if (finalArgAction.contains(6) || finalArgAction.contains(7) || finalArgAction.contains(9)) {
+                                                if (finalArgAction.contains(6) || finalArgAction.contains(7) || finalArgAction.contains(9) || (finalArgAction.contains(4) && finalArgAction.contains(11))) {
                                                     Chat.sendMessage(player2, "-----");
                                                 }
                                                 Chat.sendComponent(player2, Util.getPageNavigation(command.getName(), page, total_pages));

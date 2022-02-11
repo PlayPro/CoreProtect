@@ -210,6 +210,10 @@ public class RollbackRestoreCommand {
                     }
                 }
 
+                if (argAction.contains(4) && argAction.contains(11)) { // a:inventory
+                    argExcludeUsers.add("#hopper");
+                }
+
                 if (argUsers.size() == 0) {
                     argUsers.add("#global");
                 }

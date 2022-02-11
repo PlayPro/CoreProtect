@@ -106,8 +106,8 @@ permissions:
         description: Has permission to lookup inventory transactions
         default: op
     coreprotect.lookup.item:
-        description: Has permission to lookup inventory transactions (deprecated)
-        default: true
+        description: Has permission to lookup item transactions
+        default: op
     coreprotect.lookup.kill:
         description: Has permission to lookup entity kills
         default: op

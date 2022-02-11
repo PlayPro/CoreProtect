@@ -453,12 +453,12 @@ public class Lookup extends Queue {
                         // If selecting from co_item & co_container, add in actions for both transaction types
                         if (actionList.contains(11) && actionList.contains(4)) {
                             if (actionTarget == ItemLogger.ITEM_REMOVE) {
-                                actionText.append(",").append(ItemLogger.ITEM_DROP);
-                                actionText.append(",").append(ItemLogger.ITEM_ADD_ENDER);
-                            }
-                            if (actionTarget == ItemLogger.ITEM_ADD) {
                                 actionText.append(",").append(ItemLogger.ITEM_PICKUP);
                                 actionText.append(",").append(ItemLogger.ITEM_REMOVE_ENDER);
+                            }
+                            if (actionTarget == ItemLogger.ITEM_ADD) {
+                                actionText.append(",").append(ItemLogger.ITEM_DROP);
+                                actionText.append(",").append(ItemLogger.ITEM_ADD_ENDER);
                             }
                         }
                         // If just looking up drops/pickups, include ender chest transactions

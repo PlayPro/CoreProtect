@@ -127,12 +127,12 @@ public class CommandHandler implements CommandExecutor {
                     else if (argument.equals("-inv") || argument.equals("inv-") || argument.equals("-inventory") || argument.equals("inventory-") || argument.equals("-inventories")) {
                         result.add(4);
                         result.add(11);
-                        result.add(0);
+                        result.add(1);
                     }
                     else if (argument.equals("+inv") || argument.equals("inv+") || argument.equals("+inventory") || argument.equals("inventory+") || argument.equals("+inventories")) {
                         result.add(4);
                         result.add(11);
-                        result.add(1);
+                        result.add(0);
                     }
                     else if (argument.equals("item") || argument.equals("items")) {
                         result.add(11);

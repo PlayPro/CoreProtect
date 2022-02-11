@@ -960,13 +960,13 @@ public class LookupCommand {
                                                             phrase = Phrase.LOOKUP_ITEM; // {picked up|dropped}
                                                             selector = (daction != 2 ? Selector.FIRST : Selector.SECOND);
                                                             tag = (daction != 2 ? Color.GREEN + "+" : Color.RED + "-");
-                                                            action = "a:inventory";
+                                                            action = "a:item";
                                                         }
                                                         else if (daction == 4 || daction == 5) {
                                                             phrase = Phrase.LOOKUP_STORAGE; // {deposited|withdrew}
                                                             selector = (daction != 4 ? Selector.FIRST : Selector.SECOND);
                                                             tag = (daction != 4 ? Color.GREEN + "+" : Color.RED + "-");
-                                                            action = "a:inventory";
+                                                            action = "a:item";
                                                         }
                                                         else {
                                                             phrase = Phrase.LOOKUP_CONTAINER; // {added|removed}

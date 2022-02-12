@@ -216,18 +216,6 @@ public class Queue {
         queueStandardData(consumerId, currentConsumer, new String[] { user, null }, location);
     }
 
-    protected static void queueContainerRollbackUpdate(String user, Location location, List<Object[]> list, int action) {
-        if (location == null) {
-            location = new Location(Bukkit.getServer().getWorlds().get(0), 0, 0, 0);
-        }
-
-        int currentConsumer = Consumer.currentConsumer;
-        int consumerId = Consumer.newConsumerId(currentConsumer);
-        addConsumer(currentConsumer, new Object[] { consumerId, Process.CONTAINER_ROLLBACK_UPDATE, null, 0, null, 0, action, null });
-        Consumer.consumerObjectArrayList.get(currentConsumer).put(consumerId, list);
-        queueStandardData(consumerId, currentConsumer, new String[] { user, null }, location);
-    }
-
     protected static synchronized void queueContainerTransaction(String user, Location location, Material type, Object inventory, int chestId) {
         int currentConsumer = Consumer.currentConsumer;
         int consumerId = Consumer.newConsumerId(currentConsumer);
@@ -352,13 +340,14 @@ public class Queue {
         queueStandardData(consumerId, currentConsumer, new String[] { player.getName(), null }, player.getLocation().clone());
     }
 
-    protected static void queueRollbackUpdate(String user, Location location, List<Object[]> list, int action) {
+    protected static void queueRollbackUpdate(String user, Location location, List<Object[]> list, int table, int action) {
         if (location == null) {
             location = new Location(Bukkit.getServer().getWorlds().get(0), 0, 0, 0);
         }
+
         int currentConsumer = Consumer.currentConsumer;
         int consumerId = Consumer.newConsumerId(currentConsumer);
-        addConsumer(currentConsumer, new Object[] { consumerId, Process.ROLLBACK_UPDATE, null, 0, null, 0, action, null });
+        addConsumer(currentConsumer, new Object[] { consumerId, table, null, 0, null, 0, action, null });
         Consumer.consumerObjectArrayList.get(currentConsumer).put(consumerId, list);
         queueStandardData(consumerId, currentConsumer, new String[] { user, null }, location);
     }

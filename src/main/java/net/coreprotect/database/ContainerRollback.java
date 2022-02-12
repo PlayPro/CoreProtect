@@ -17,6 +17,7 @@ import org.bukkit.inventory.ItemStack;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.consumer.process.Process;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.Chat;
@@ -38,7 +39,7 @@ public class ContainerRollback extends Queue {
                 userString = user.getName();
             }
 
-            Queue.queueContainerRollbackUpdate(userString, location, lookupList, rollbackType); // Perform update transaction in consumer
+            Queue.queueRollbackUpdate(userString, location, lookupList, Process.CONTAINER_ROLLBACK_UPDATE, rollbackType); // Perform update transaction in consumer
 
             final String finalUserString = userString;
             ConfigHandler.rollbackHash.put(userString, new int[] { 0, 0, 0, 0 });

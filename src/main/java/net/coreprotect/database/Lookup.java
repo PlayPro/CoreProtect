@@ -56,7 +56,7 @@ public class Lookup extends Queue {
                     else if (i == 13 && map[i] instanceof Byte[]) {
                         results[newId] = Util.byteDataToString((byte[]) map[i], (int) map[6]);
                     }
-                    else if (i > 0) {
+                    else if (i > 0) { // skip rowid
                         if (map[i] instanceof Integer) {
                             results[newId] = map[i].toString();
                         }
@@ -123,6 +123,10 @@ public class Lookup extends Queue {
 
         if (!Config.getGlobal().ROLLBACK_ENTITIES && !actionList.contains(3)) {
             invalidRollbackActions.add(3);
+        }
+
+        if (actionList.contains(4) && actionList.contains(11)) {
+            invalidRollbackActions.clear();
         }
 
         try {
@@ -211,6 +215,7 @@ public class Lookup extends Queue {
                 else {
                     int resultData = 0;
                     int resultAmount = -1;
+                    int resultTable = 0;
                     byte[] resultMeta = null;
                     byte[] resultBlockData = null;
                     long resultId = results.getLong("id");
@@ -224,10 +229,15 @@ public class Lookup extends Queue {
                     int resultZ = results.getInt("z");
                     int resultWorldId = results.getInt("wid");
 
+                    boolean hasTbl = false;
                     if ((lookup && actionList.size() == 0) || actionList.contains(4) || actionList.contains(5) || actionList.contains(11)) {
                         resultData = results.getInt("data");
                         resultAmount = results.getInt("amount");
                         resultMeta = results.getBytes("metadata");
+                        if (!lookup) {
+                            resultTable = results.getInt("tbl");
+                            hasTbl = true;
+                        }
                     }
                     else {
                         resultData = results.getInt("data");
@@ -236,7 +246,6 @@ public class Lookup extends Queue {
                     }
 
                     boolean valid = true;
-
                     if (!lookup) {
                         if (invalidRollbackActions.contains(resultAction)) {
                             valid = false;
@@ -244,8 +253,14 @@ public class Lookup extends Queue {
                     }
 
                     if (valid) {
-                        Object[] dataArray = new Object[] { resultId, resultTime, resultUserId, resultX, resultY, resultZ, resultType, resultData, resultAction, resultRolledBack, resultWorldId, resultAmount, resultMeta, resultBlockData };
-                        list.add(dataArray);
+                        if (hasTbl) {
+                            Object[] dataArray = new Object[] { resultId, resultTime, resultUserId, resultX, resultY, resultZ, resultType, resultData, resultAction, resultRolledBack, resultWorldId, resultAmount, resultMeta, resultBlockData, resultTable };
+                            list.add(dataArray);
+                        }
+                        else {
+                            Object[] dataArray = new Object[] { resultId, resultTime, resultUserId, resultX, resultY, resultZ, resultType, resultData, resultAction, resultRolledBack, resultWorldId, resultAmount, resultMeta, resultBlockData };
+                            list.add(dataArray);
+                        }
                     }
                 }
             }
@@ -661,25 +676,25 @@ public class Lookup extends Queue {
                     baseQuery = baseQuery.replace("action NOT IN(-1)", "action NOT IN(3)"); // if block specified for include/exclude, filter out entity data
                 }
 
-                query = unionSelect + "SELECT " + (count ? "'0' as tbl," : "") + rows + " FROM " + ConfigHandler.prefix + queryTable + " " + index + "WHERE" + baseQuery + unionLimit + ") UNION ALL ";
+                query = unionSelect + "SELECT " + "'0' as tbl," + rows + " FROM " + ConfigHandler.prefix + queryTable + " " + index + "WHERE" + baseQuery + unionLimit + ") UNION ALL ";
                 itemLookup = true;
             }
 
             if (itemLookup) {
                 if (!count) {
-                    rows = "rowid as id,time,user,wid,x,y,z,type,metadata,data,amount,action,rolled_back";
+                    rows = "rowid as id,time,user,wid,x,y,z,type,metadata,data,amount,action,rolled_back_inventory as rolled_back";
                 }
-                query = query + unionSelect + "SELECT " + (count ? "'1' as tbl," : "") + rows + " FROM " + ConfigHandler.prefix + "container WHERE" + queryBlock + unionLimit + ") UNION ALL ";
+                query = query + unionSelect + "SELECT " + "'1' as tbl," + rows + " FROM " + ConfigHandler.prefix + "container WHERE" + queryBlock + unionLimit + ") UNION ALL ";
 
                 if (!count) {
-                    rows = "rowid as id,time,user,wid,x,y,z,type,data as metadata,0 as data,amount,action,0 as rolled_back";
+                    rows = "rowid as id,time,user,wid,x,y,z,type,data as metadata,0 as data,amount,action,rolled_back";
                     queryOrder = " ORDER BY time DESC, id DESC";
                 }
-                query = query + unionSelect + "SELECT " + (count ? "'2' as tbl," : "") + rows + " FROM " + ConfigHandler.prefix + "item WHERE" + queryBlock + unionLimit + ")";
+                query = query + unionSelect + "SELECT " + "'2' as tbl," + rows + " FROM " + ConfigHandler.prefix + "item WHERE" + queryBlock + unionLimit + ")";
             }
 
             if (query.length() == 0) {
-                query = "SELECT " + (count ? "'0' as tbl," : "") + rows + " FROM " + ConfigHandler.prefix + queryTable + " " + index + "WHERE" + baseQuery;
+                query = "SELECT " + "'0' as tbl," + rows + " FROM " + ConfigHandler.prefix + queryTable + " " + index + "WHERE" + baseQuery;
             }
 
             query = query + queryOrder + queryLimit + "";

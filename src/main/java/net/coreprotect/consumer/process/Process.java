@@ -44,6 +44,8 @@ public class Process {
     public static final int PLAYER_KILL = 24;
     public static final int BLOCKDATA_INSERT = 25;
     public static final int ITEM_TRANSACTION = 26;
+    public static final int INVENTORY_ROLLBACK_UPDATE = 27;
+    public static final int INVENTORY_CONTAINER_ROLLBACK_UPDATE = 28;
 
     public static int lastLockUpdate = 0;
     private static volatile int currentConsumerSize = 0;
@@ -159,6 +161,12 @@ public class Process {
                                     break;
                                 case Process.CONTAINER_ROLLBACK_UPDATE:
                                     RollbackUpdateProcess.process(statement, processId, id, forceData, 1);
+                                    break;
+                                case Process.INVENTORY_ROLLBACK_UPDATE:
+                                    RollbackUpdateProcess.process(statement, processId, id, forceData, 2);
+                                    break;
+                                case Process.INVENTORY_CONTAINER_ROLLBACK_UPDATE:
+                                    RollbackUpdateProcess.process(statement, processId, id, forceData, 3);
                                     break;
                                 case Process.WORLD_INSERT:
                                     WorldInsertProcess.process(preparedStmtWorlds, i, statement, object, forceData);

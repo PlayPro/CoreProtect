@@ -15,6 +15,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
+import java.util.UUID;
 
 import org.bukkit.Bukkit;
 import org.bukkit.DyeColor;
@@ -75,6 +76,8 @@ import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.consumer.process.Process;
+import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
@@ -136,6 +139,7 @@ public class Rollback extends Queue {
             TreeMap<Long, Integer> chunkList = new TreeMap<>();
             HashMap<Long, ArrayList<Object[]>> dataList = new HashMap<>();
             HashMap<Long, ArrayList<Object[]>> itemDataList = new HashMap<>();
+            boolean inventoryRollback = actionList.contains(11);
 
             /*
             int worldMin = BukkitAdapter.ADAPTER.getMinHeight(world);
@@ -170,7 +174,7 @@ public class Rollback extends Queue {
                     int rowWorldId = (Integer) result[10];
                     int chunkX = rowX >> 4;
                     int chunkZ = rowZ >> 4;
-                    long chunkKey = chunkX & 0xffffffffL | (chunkZ & 0xffffffffL) << 32;
+                    long chunkKey = inventoryRollback ? 0 : (chunkX & 0xffffffffL | (chunkZ & 0xffffffffL) << 32);
                     // int rowAction = result[8];
                     // if (rowAction==10) result[8] = 0;
                     // if (rowAction==11) result[8] = 1;
@@ -237,7 +241,7 @@ public class Rollback extends Queue {
             String userString = "#server";
             if (user != null) {
                 userString = user.getName();
-                if (verbose && preview == 0) {
+                if (verbose && preview == 0 && !actionList.contains(11)) {
                     Integer chunks = chunkList.size();
                     Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_CHUNKS_FOUND, chunks.toString(), (chunks == 1 ? Selector.FIRST : Selector.SECOND)));
                 }
@@ -245,8 +249,25 @@ public class Rollback extends Queue {
 
             // Perform update transaction(s) in consumer
             if (preview == 0) {
-                Queue.queueRollbackUpdate(userString, location, lookupList, rollbackType);
-                Queue.queueContainerRollbackUpdate(userString, location, itemList, rollbackType);
+                if (actionList.contains(11)) {
+                    List<Object[]> inventoryList = new ArrayList<>();
+                    List<Object[]> containerList = new ArrayList<>();
+                    for (Object[] data : itemList) {
+                        int table = (Integer) data[14];
+                        if (table == 2) { // item
+                            inventoryList.add(data);
+                        }
+                        else {
+                            containerList.add(data);
+                        }
+                    }
+                    Queue.queueRollbackUpdate(userString, location, inventoryList, Process.INVENTORY_ROLLBACK_UPDATE, rollbackType);
+                    Queue.queueRollbackUpdate(userString, location, containerList, Process.INVENTORY_CONTAINER_ROLLBACK_UPDATE, rollbackType);
+                }
+                else {
+                    Queue.queueRollbackUpdate(userString, location, lookupList, Process.ROLLBACK_UPDATE, rollbackType);
+                    Queue.queueRollbackUpdate(userString, location, itemList, Process.CONTAINER_ROLLBACK_UPDATE, rollbackType);
+                }
             }
 
             ConfigHandler.rollbackHash.put(userString, new int[] { 0, 0, 0, 0 });
@@ -272,7 +293,6 @@ public class Rollback extends Queue {
                 Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
                     try {
                         boolean clearInventories = false;
-
                         if (Config.getGlobal().ROLLBACK_ITEMS) {
                             clearInventories = true;
                         }
@@ -1010,11 +1030,52 @@ public class Rollback extends Queue {
                             byte[] rowMetadata = (byte[]) row[12];
                             Material rowType = Util.getType(rowTypeRaw);
 
-                            if (rowAction > 1) {
-                                continue; // skip inventory & ender chest transactions
-                            }
-
                             if ((rollbackType == 0 && rowRolledBack == 0) || (rollbackType == 1 && rowRolledBack == 1)) {
+                                if (inventoryRollback) {
+                                    int rowUserId = (Integer) row[2];
+                                    String rowUser = ConfigHandler.playerIdCacheReversed.get(rowUserId);
+                                    if (rowUser == null) {
+                                        continue;
+                                    }
+
+                                    String uuid = ConfigHandler.uuidCache.get(rowUser.toLowerCase(Locale.ROOT));
+                                    if (uuid == null) {
+                                        continue;
+                                    }
+
+                                    Player player = Bukkit.getServer().getPlayer(UUID.fromString(uuid));
+                                    if (player == null) {
+                                        continue;
+                                    }
+
+                                    int inventoryAction = 0;
+                                    if (rowAction == ItemLogger.ITEM_DROP || rowAction == ItemLogger.ITEM_PICKUP) {
+                                        inventoryAction = (rowAction == ItemLogger.ITEM_PICKUP ? 1 : 0);
+                                    }
+                                    else if (rowAction == ItemLogger.ITEM_REMOVE_ENDER || rowAction == ItemLogger.ITEM_ADD_ENDER) {
+                                        inventoryAction = (rowAction == ItemLogger.ITEM_REMOVE_ENDER ? 1 : 0);
+                                    }
+                                    else {
+                                        inventoryAction = (rowAction == ItemLogger.ITEM_REMOVE ? 1 : 0);
+                                    }
+
+                                    int action = rollbackType == 0 ? (inventoryAction ^ 1) : inventoryAction;
+                                    ItemStack itemstack = new ItemStack(rowType, rowAmount, (short) rowData);
+                                    Object[] populatedStack = populateItemStack(itemstack, rowMetadata);
+                                    if (rowAction == ItemLogger.ITEM_REMOVE_ENDER || rowAction == ItemLogger.ITEM_ADD_ENDER) {
+                                        modifyContainerItems(containerType, player.getEnderChest(), (Integer) populatedStack[0], ((ItemStack) populatedStack[1]).clone(), action ^ 1);
+                                    }
+                                    modifyContainerItems(containerType, player.getInventory(), (Integer) populatedStack[0], (ItemStack) populatedStack[1], action);
+
+                                    itemCount1 = itemCount1 + rowAmount;
+                                    ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount1, blockCount1, entityCount1, 0 });
+                                    continue; // remove this for merged rollbacks in future? (be sure to re-enable chunk sorting)
+                                }
+
+                                if (rowAction > 1) {
+                                    continue; // skip inventory & ender chest transactions
+                                }
+
                                 if (!containerInit || rowX != lastX || rowY != lastY || rowZ != lastZ || rowWorldId != lastWorldId) {
                                     container = null; // container patch 2.14.0
                                     String world = Util.getWorldName(rowWorldId);
@@ -1143,7 +1204,7 @@ public class Rollback extends Queue {
                 entityCount = rollbackHashData[2];
                 ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount, blockCount, entityCount, 0 });
 
-                if (verbose && user != null && preview == 0) {
+                if (verbose && user != null && preview == 0 && !actionList.contains(11)) {
                     Integer chunks = chunkList.size();
                     Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_CHUNKS_MODIFIED, chunkCount.toString(), chunks.toString(), (chunks == 1 ? Selector.FIRST : Selector.SECOND)));
                 }
@@ -1229,7 +1290,18 @@ public class Rollback extends Queue {
                 }
             }
 
-            if (actionList.contains(4)) {
+            if (actionList.contains(4) && actionList.contains(11)) {
+                if (actionList.contains(0)) {
+                    Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "+inventory", Selector.SECOND));
+                }
+                else if (actionList.contains(1)) {
+                    Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "-inventory", Selector.SECOND));
+                }
+                else {
+                    Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "inventory", Selector.SECOND));
+                }
+            }
+            else if (actionList.contains(4)) {
                 if (actionList.contains(0)) {
                     Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "-container", Selector.SECOND));
                 }
@@ -1346,6 +1418,13 @@ public class Rollback extends Queue {
 
                 int excludeCount = 0;
                 for (String excludeUser : excludeUserList) {
+                    // don't display that excluded #hopper in inventory rollbacks
+                    if (actionList.contains(4) && actionList.contains(11)) {
+                        if (excludeUser.equals("#hopper")) {
+                            continue;
+                        }
+                    }
+
                     if (excludeCount == 0) {
                         excludeUsers = excludeUsers.append("" + excludeUser + "");
                     }
@@ -1356,7 +1435,9 @@ public class Rollback extends Queue {
                     excludeCount++;
                 }
 
-                Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_EXCLUDED_USERS, excludeUsers.toString(), (excludeCount == 1 ? Selector.FIRST : Selector.SECOND)));
+                if (excludeCount > 0) {
+                    Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_EXCLUDED_USERS, excludeUsers.toString(), (excludeCount == 1 ? Selector.FIRST : Selector.SECOND)));
+                }
             }
 
             StringBuilder modifiedData = new StringBuilder();
@@ -1366,7 +1447,7 @@ public class Rollback extends Queue {
                 modifyCount++;
             }
             else if (preview == 0) {
-                if (itemCount > 0) {
+                if (itemCount > 0 || actionList.contains(4)) {
                     modifiedData = modifiedData.append(Phrase.build(Phrase.AMOUNT_ITEM, NumberFormat.getInstance().format(itemCount), (itemCount == 1 ? Selector.FIRST : Selector.SECOND)));
                     modifyCount++;
                 }
@@ -1379,11 +1460,13 @@ public class Rollback extends Queue {
                     modifyCount++;
                 }
 
-                if (modifyCount > 0) {
-                    modifiedData.append(", ");
+                if (blockCount > 0 || !actionList.contains(4)) {
+                    if (modifyCount > 0) {
+                        modifiedData.append(", ");
+                    }
+                    modifiedData.append(Phrase.build(Phrase.AMOUNT_BLOCK, NumberFormat.getInstance().format(blockCount), (blockCount == 1 ? Selector.FIRST : Selector.SECOND)));
+                    modifyCount++;
                 }
-                modifiedData.append(Phrase.build(Phrase.AMOUNT_BLOCK, NumberFormat.getInstance().format(blockCount), (blockCount == 1 ? Selector.FIRST : Selector.SECOND)));
-                modifyCount++;
             }
             else if (preview > 0) {
                 modifiedData = modifiedData.append(Phrase.build(Phrase.AMOUNT_BLOCK, NumberFormat.getInstance().format(blockCount), (blockCount == 1 ? Selector.FIRST : Selector.SECOND)));
@@ -1391,7 +1474,7 @@ public class Rollback extends Queue {
             }
 
             StringBuilder modifiedDataVerbose = new StringBuilder();
-            if (verbose && preview == 0) {
+            if (verbose && preview == 0 && !actionList.contains(11)) {
                 if (chunkCount > -1 && modifyCount < 3) {
                     if (modifyCount > 0) {
                         modifiedData.append(", ");
@@ -1428,7 +1511,7 @@ public class Rollback extends Queue {
         try {
             ItemStack[] contents = null;
 
-            if (type.equals(Material.ARMOR_STAND)) {
+            if (type != null && type.equals(Material.ARMOR_STAND)) {
                 EntityEquipment equipment = (EntityEquipment) container;
                 if (equipment != null) {
                     if (action == 1) {

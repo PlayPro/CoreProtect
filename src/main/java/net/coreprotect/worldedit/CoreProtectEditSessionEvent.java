@@ -25,48 +25,47 @@ public class CoreProtectEditSessionEvent {
     }
 
     public static void register() {
-        try {
-            if (isInitialized()) {
-                return;
-            }
+        if (isInitialized()) {
+            return;
+        }
 
-            Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
-                try {
-                    WorldEdit.getInstance().getEventBus().register(event);
-                    initialized = true;
-                    ConfigHandler.worldeditEnabled = true;
-                    Chat.console(Phrase.build(Phrase.INTEGRATION_SUCCESS, "WorldEdit", Selector.FIRST));
-                }
-                catch (Exception e) {
-                    Chat.console(Phrase.build(Phrase.INTEGRATION_ERROR, "WorldEdit", Selector.FIRST));
-                }
-            }, 0);
+        try {
+            WorldEdit.getInstance().getEventBus().register(event);
+            initialized = true;
+            ConfigHandler.worldeditEnabled = true;
         }
         catch (Exception e) {
-            e.printStackTrace();
+            // Failed to initialize WorldEdit logging
         }
+
+        Bukkit.getServer().getScheduler().runTask(CoreProtect.getInstance(), () -> {
+            try {
+                if (isInitialized()) {
+                    Chat.console(Phrase.build(Phrase.INTEGRATION_SUCCESS, "WorldEdit", Selector.FIRST));
+                }
+                else {
+                    Chat.console(Phrase.build(Phrase.INTEGRATION_ERROR, "WorldEdit", Selector.FIRST));
+                }
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     public static void unregister() {
-        try {
-            if (!isInitialized()) {
-                return;
-            }
+        if (!isInitialized()) {
+            return;
+        }
 
-            Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
-                try {
-                    WorldEdit.getInstance().getEventBus().unregister(event);
-                    initialized = false;
-                    ConfigHandler.worldeditEnabled = false;
-                    Chat.console(Phrase.build(Phrase.INTEGRATION_SUCCESS, "WorldEdit", Selector.SECOND));
-                }
-                catch (Exception e) {
-                    Chat.console(Phrase.build(Phrase.INTEGRATION_ERROR, "WorldEdit", Selector.SECOND));
-                }
-            }, 0);
+        try {
+            WorldEdit.getInstance().getEventBus().unregister(event);
+            initialized = false;
+            ConfigHandler.worldeditEnabled = false;
+            Chat.console(Phrase.build(Phrase.INTEGRATION_SUCCESS, "WorldEdit", Selector.SECOND));
         }
         catch (Exception e) {
-            e.printStackTrace();
+            Chat.console(Phrase.build(Phrase.INTEGRATION_ERROR, "WorldEdit", Selector.SECOND));
         }
     }
 
@@ -74,7 +73,7 @@ public class CoreProtectEditSessionEvent {
     public void wrapForLogging(EditSessionEvent event) {
         Actor actor = event.getActor();
         World world = event.getWorld();
-        if (actor != null && event.getStage() == Stage.BEFORE_CHANGE) {
+        if (actor != null && event.getStage() == Stage.BEFORE_HISTORY) {
             event.setExtent(new CoreProtectLogger(actor, world, event.getExtent()));
         }
     }

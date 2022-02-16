@@ -38,8 +38,11 @@ public class Language {
         phrases.put(Phrase.CACHE_ERROR, "WARNING: Error while validating {0} cache.");
         phrases.put(Phrase.CACHE_RELOAD, "Forcing reload of {mapping|world} caches from database.");
         phrases.put(Phrase.CHECK_CONFIG, "Please check config.yml");
+        phrases.put(Phrase.COMMAND_CONSOLE, "Please run the command from the console.");
         phrases.put(Phrase.COMMAND_NOT_FOUND, "Command \"{0}\" not found.");
         phrases.put(Phrase.COMMAND_THROTTLED, "Please wait a moment and try again.");
+        phrases.put(Phrase.CONSUMER_ERROR, "Consumer queue processing already {paused|resumed}.");
+        phrases.put(Phrase.CONSUMER_TOGGLED, "Consumer queue processing has been {paused|resumed}.");
         phrases.put(Phrase.CONTAINER_HEADER, "Container Transactions");
         phrases.put(Phrase.DATABASE_BUSY, "Database busy. Please try again later.");
         phrases.put(Phrase.DATABASE_INDEX_ERROR, "Unable to validate database indexes.");

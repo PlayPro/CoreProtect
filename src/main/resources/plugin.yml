@@ -135,3 +135,6 @@ permissions:
     coreprotect.status:
         description: Has permission to use the status command
         default: op
+    coreprotect.consumer:
+        description: Has permission to use the consumer command
+        default: op

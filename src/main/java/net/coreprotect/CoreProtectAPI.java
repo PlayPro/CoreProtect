@@ -16,6 +16,7 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 
+import net.coreprotect.api.QueueLookup;
 import net.coreprotect.api.SessionLookup;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
@@ -173,6 +174,10 @@ public class CoreProtectAPI extends Queue {
             return BlockLookupAPI.performLookup(block, time);
         }
         return null;
+    }
+
+    public List<String[]> queueLookup(Block block) {
+        return QueueLookup.performLookup(block);
     }
 
     public List<String[]> sessionLookup(String user, int time) {

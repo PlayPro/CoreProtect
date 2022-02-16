@@ -57,7 +57,7 @@ public class Queue {
         Consumer.consumer.get(currentConsumer).add(data);
     }
 
-    private static void queueStandardData(int consumerId, int currentConsumer, String[] user, Object object) {
+    private static synchronized void queueStandardData(int consumerId, int currentConsumer, String[] user, Object object) {
         Consumer.consumerUsers.get(currentConsumer).put(consumerId, user);
         Consumer.consumerObjects.get(currentConsumer).put(consumerId, object);
         Consumer.consumer_id.put(currentConsumer, new Integer[] { Consumer.consumer_id.get(currentConsumer)[0], 0 });

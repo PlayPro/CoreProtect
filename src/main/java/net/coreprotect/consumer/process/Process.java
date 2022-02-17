@@ -196,13 +196,13 @@ public class Process {
                                     EntitySpawnProcess.process(statement, object, forceData);
                                     break;
                                 case Process.HANGING_REMOVE:
-                                    HangingRemoveProcess.process(object, forceData);
+                                    HangingRemoveProcess.process(object, (String) data[7], forceData);
                                     break;
                                 case Process.HANGING_SPAWN:
-                                    HangingSpawnProcess.process(object, blockType, blockData, forceData);
+                                    HangingSpawnProcess.process(object, blockType, blockData, (String) data[7], forceData);
                                     break;
                                 case Process.NATURAL_BLOCK_BREAK:
-                                    NaturalBlockBreakProcess.process(statement, preparedStmtBlocks, i, processId, id, user, object, blockType, blockData);
+                                    NaturalBlockBreakProcess.process(statement, preparedStmtBlocks, i, processId, id, user, object, blockType, blockData, (String) data[7]);
                                     break;
                                 case Process.MATERIAL_INSERT:
                                     MaterialInsertProcess.process(preparedStmtMaterials, statement, i, object, forceData);

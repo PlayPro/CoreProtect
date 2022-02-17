@@ -338,7 +338,7 @@ public class Rollback extends Queue {
                             }
 
                             BlockData blockData = null;
-                            if (blockDataString != null && blockDataString.length() > 0) {
+                            if (blockDataString != null && blockDataString.contains(":")) {
                                 try {
                                     blockData = Bukkit.getServer().createBlockData(blockDataString);
                                 }
@@ -564,11 +564,11 @@ public class Rollback extends Queue {
 
                                         if ((rowType == Material.AIR) && ((BukkitAdapter.ADAPTER.isItemFrame(oldTypeMaterial)) || (oldTypeMaterial == Material.PAINTING))) {
                                             int delay = Util.getHangingDelay(hangingDelay, rowWorldId, rowX, rowY, rowZ);
-                                            Queue.queueHangingRemove(rowUser, block.getState(), delay);
+                                            Queue.queueHangingRemove(rowUser, block.getState(), blockDataString, delay);
                                         }
                                         else if ((BukkitAdapter.ADAPTER.isItemFrame(rowType)) || (rowType == Material.PAINTING)) {
                                             int delay = Util.getHangingDelay(hangingDelay, rowWorldId, rowX, rowY, rowZ);
-                                            Queue.queueHangingSpawn(rowUser, block.getState(), rowType, rowData, delay);
+                                            Queue.queueHangingSpawn(rowUser, block.getState(), rowType, blockDataString, rowData, delay);
                                         }
                                         else if ((rowType == Material.ARMOR_STAND)) {
                                             Location location1 = block.getLocation();

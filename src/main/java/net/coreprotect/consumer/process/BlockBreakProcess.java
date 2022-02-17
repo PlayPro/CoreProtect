@@ -25,7 +25,7 @@ class BlockBreakProcess {
                 SkullBreakLogger.log(preparedStmt, preparedStmtSkulls, batchCount, user, block);
             }
             else {
-                BlockBreakLogger.log(preparedStmt, batchCount, user, block.getLocation(), Util.getBlockId(blockType), blockDataId, meta, block.getBlockData().getAsString());
+                BlockBreakLogger.log(preparedStmt, batchCount, user, block.getLocation(), Util.getBlockId(blockType), blockDataId, meta, block.getBlockData().getAsString(), blockData);
                 if (forceData == 5) { // Fix for doors
                     if ((blockType == Material.IRON_DOOR || BlockGroup.DOORS.contains(blockType)) && (replaceType != Material.IRON_DOOR && !BlockGroup.DOORS.contains(replaceType))) {
                         Door door = (Door) block.getBlockData();
@@ -33,7 +33,7 @@ class BlockBreakProcess {
                         blockData = door.getAsString();
                         Location location = block.getLocation();
                         location.setY(location.getY() + 1);
-                        BlockBreakLogger.log(preparedStmt, batchCount, user, location, Util.getBlockId(blockType), 0, null, blockData);
+                        BlockBreakLogger.log(preparedStmt, batchCount, user, location, Util.getBlockId(blockType), 0, null, blockData, null);
                     }
                 }
             }

@@ -6,10 +6,10 @@ import net.coreprotect.utility.entity.HangingUtil;
 
 class HangingRemoveProcess {
 
-    static void process(Object object, int delay) {
+    static void process(Object object, String hangingData, int delay) {
         if (object instanceof BlockState) {
             BlockState block = (BlockState) object;
-            HangingUtil.removeHanging(block, delay);
+            HangingUtil.removeHanging(block, hangingData, delay);
         }
     }
 }

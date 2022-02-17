@@ -119,11 +119,13 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
                 }
             }
 
+            String blockData = null;
             Material material;
             int itemData = 0;
             if (entity instanceof ItemFrame) {
                 material = BukkitAdapter.ADAPTER.getFrameType(entity);
                 ItemFrame itemframe = (ItemFrame) entity;
+                blockData = "FACING=" + itemframe.getFacing().name();
 
                 if (itemframe.getItem() != null) {
                     itemData = Util.getBlockId(itemframe.getItem().getType());
@@ -132,11 +134,12 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
             else {
                 material = Material.PAINTING;
                 Painting painting = (Painting) entity;
+                blockData = "FACING=" + painting.getFacing().name();
                 itemData = Util.getArtId(painting.getArt().toString(), true);
             }
 
             if (!event.isCancelled() && Config.getConfig(blockEvent.getWorld()).BLOCK_BREAK && !inspecting) {
-                Queue.queueBlockBreak(culprit, blockEvent, material, null, itemData);
+                Queue.queueBlockBreak(culprit, blockEvent, material, blockData, itemData);
             }
         }
     }

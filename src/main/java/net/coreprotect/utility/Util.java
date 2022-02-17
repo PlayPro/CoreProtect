@@ -451,6 +451,15 @@ public class Util extends Queue {
                 }
                 string = String.join(",", blockDataArray);
             }
+            else if (!string.contains(":") && (material == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(material))) {
+                int id = getBlockdataId(string, true);
+                if (id > -1) {
+                    string = Integer.toString(id);
+                }
+                else {
+                    return result;
+                }
+            }
             else {
                 return result;
             }
@@ -483,7 +492,13 @@ public class Util extends Queue {
                             blockDataArray.add(block);
                         }
                     }
-                    result = NAMESPACE + material.name().toLowerCase(Locale.ROOT) + "[" + String.join(",", blockDataArray) + "]";
+
+                    if (material == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(material)) {
+                        result = String.join(",", blockDataArray);
+                    }
+                    else {
+                        result = NAMESPACE + material.name().toLowerCase(Locale.ROOT) + "[" + String.join(",", blockDataArray) + "]";
+                    }
                 }
                 else {
                     result = "";

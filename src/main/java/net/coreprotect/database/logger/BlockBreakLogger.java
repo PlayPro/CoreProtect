@@ -8,6 +8,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 
 import net.coreprotect.CoreProtect;
+import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.BlockStatement;
 import net.coreprotect.database.statement.UserStatement;
@@ -21,7 +22,7 @@ public class BlockBreakLogger {
         throw new IllegalStateException("Database class");
     }
 
-    public static void log(PreparedStatement preparedStmt, int batchCount, String user, Location location, int type, int data, List<Object> meta, String blockData) {
+    public static void log(PreparedStatement preparedStmt, int batchCount, String user, Location location, int type, int data, List<Object> meta, String blockData, String overrideData) {
         try {
             if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null || location == null) {
                 return;
@@ -41,6 +42,9 @@ public class BlockBreakLogger {
 
             if (checkType == Material.LECTERN) {
                 blockData = blockData.replaceFirst("has_book=true", "has_book=false");
+            }
+            else if (checkType == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(checkType)) {
+                blockData = overrideData;
             }
 
             CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);

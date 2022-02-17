@@ -43,11 +43,13 @@ public final class HangingBreakListener extends Queue implements Listener {
                     attachedBlock = hangingEntity.getLocation().getBlock().getRelative(attached);
                 }
 
+                String blockData = null;
                 Material material;
                 int itemData = 0;
                 if (entity instanceof ItemFrame) {
                     material = BukkitAdapter.ADAPTER.getFrameType(entity);
                     ItemFrame itemframe = (ItemFrame) entity;
+                    blockData = "FACING=" + itemframe.getFacing().name();
 
                     if (itemframe.getItem() != null) {
                         itemData = Util.getBlockId(itemframe.getItem().getType());
@@ -56,11 +58,12 @@ public final class HangingBreakListener extends Queue implements Listener {
                 else {
                     material = Material.PAINTING;
                     Painting painting = (Painting) entity;
+                    blockData = "FACING=" + painting.getFacing().name();
                     itemData = Util.getArtId(painting.getArt().toString(), true);
                 }
 
                 if (!event.isCancelled() && Config.getConfig(blockEvent.getWorld()).NATURAL_BREAK) {
-                    Queue.queueNaturalBlockBreak(causeName, blockEvent.getState(), attachedBlock, material, itemData);
+                    Queue.queueNaturalBlockBreak(causeName, blockEvent.getState(), attachedBlock, material, blockData, itemData);
                 }
             }
         }

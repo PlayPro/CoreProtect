@@ -3,6 +3,7 @@ package net.coreprotect.listener.entity;
 import java.util.Locale;
 
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -29,16 +30,17 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.projectiles.ProjectileSource;
 
 import net.coreprotect.CoreProtect;
-import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
+import net.coreprotect.listener.player.PlayerInteractEntityListener;
 import net.coreprotect.utility.Util;
 
 public final class EntityDamageByEntityListener extends Queue implements Listener {
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    // EntityPickupItemEvent resulting from this event can trigger BEFORE this event if both are set to MONITOR
+    @EventHandler(priority = EventPriority.HIGHEST)
     protected void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
         Entity damager = event.getDamager();
 
@@ -50,10 +52,12 @@ public final class EntityDamageByEntityListener extends Queue implements Listene
                 final Entity entity = event.getEntity();
                 Location entityLocation = entity.getLocation();
                 Block block = entityLocation.getBlock();
+                boolean logDrops = true;
 
                 if (damager instanceof Player) {
                     Player player = (Player) damager;
                     user = player.getName();
+                    logDrops = player.getGameMode() != GameMode.CREATIVE;
 
                     if (ConfigHandler.inspecting.get(player.getName()) != null) {
                         if (ConfigHandler.inspecting.get(player.getName())) {
@@ -105,24 +109,18 @@ public final class EntityDamageByEntityListener extends Queue implements Listene
                     user = "#" + damager.getType().name().toLowerCase(Locale.ROOT);
                 }
 
-                if (!event.isCancelled() && Config.getConfig(entity.getWorld()).BLOCK_BREAK && !inspecting) {
-                    if (entity instanceof ItemFrame) {
-                        ItemFrame frame = (ItemFrame) event.getEntity();
-                        int data = 0;
-
-                        if (frame.getItem() != null) {
-                            data = Util.getBlockId(frame.getItem().getType());
+                if (!event.isCancelled() && !inspecting) {
+                    if (entity instanceof ItemFrame && Config.getConfig(entityLocation.getWorld()).ITEM_TRANSACTIONS) {
+                        ItemFrame frame = (ItemFrame) entity;
+                        if (frame.getItem().getType() != Material.AIR) {
+                            PlayerInteractEntityListener.queueFrameTransaction(user, frame, logDrops);
                         }
-
-                        Material frameType = BukkitAdapter.ADAPTER.getFrameType(entity);
-                        Queue.queueBlockBreak(user, block.getState(), frameType, null, data);
-                        Queue.queueBlockPlace(user, block.getState(), frameType, null, frameType, data, 1, null);
                     }
-                    else if (entity instanceof EnderCrystal) {
+                    else if (entity instanceof EnderCrystal && Config.getConfig(entity.getWorld()).BLOCK_BREAK) {
                         EnderCrystal crystal = (EnderCrystal) event.getEntity();
                         Queue.queueBlockBreak(user, block.getState(), Material.END_CRYSTAL, null, crystal.isShowingBottom() ? 1 : 0);
                     }
-                    else if (entity instanceof ArmorStand) {
+                    else if (entity instanceof ArmorStand && Config.getConfig(entity.getWorld()).BLOCK_BREAK) {
                         // Do this here, as we're unable to read armor stand contents on EntityDeathEvent (in survival mode)
                         if (Config.getConfig(entityLocation.getWorld()).ITEM_TRANSACTIONS) {
                             String killer = user;

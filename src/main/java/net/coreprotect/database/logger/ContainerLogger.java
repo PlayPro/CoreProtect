@@ -9,6 +9,7 @@ import java.util.Map;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.entity.ItemFrame;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -31,11 +32,15 @@ public class ContainerLogger extends Queue {
     public static void log(PreparedStatement preparedStmtContainer, PreparedStatement preparedStmtItems, int batchCount, String player, Material type, Object container, Location location) {
         try {
             ItemStack[] contents = null;
-            if (type.equals(Material.ARMOR_STAND)) {
+            if (type == Material.ARMOR_STAND) {
                 EntityEquipment equipment = (EntityEquipment) container;
                 if (equipment != null) {
                     contents = Util.getArmorStandContents(equipment);
                 }
+            }
+            else if (type == Material.ITEM_FRAME) {
+                ItemFrame itemFrame = (ItemFrame) container;
+                contents = Util.getItemFrameItem(itemFrame);
             }
             else {
                 Inventory inventory = (Inventory) container;

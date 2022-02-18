@@ -253,20 +253,6 @@ public class Queue {
         queueStandardData(consumerId, currentConsumer, new String[] { user, null }, new Object[] { block, type });
     }
 
-    protected static void queueHangingRemove(String user, BlockState block, String blockData, int delay) {
-        int currentConsumer = Consumer.currentConsumer;
-        int consumerId = Consumer.newConsumerId(currentConsumer);
-        addConsumer(currentConsumer, new Object[] { consumerId, Process.HANGING_REMOVE, null, 0, null, 0, delay, blockData });
-        queueStandardData(consumerId, currentConsumer, new String[] { user, null }, block);
-    }
-
-    protected static void queueHangingSpawn(String user, BlockState block, Material type, String blockData, int data, int delay) {
-        int currentConsumer = Consumer.currentConsumer;
-        int consumerId = Consumer.newConsumerId(currentConsumer);
-        addConsumer(currentConsumer, new Object[] { consumerId, Process.HANGING_SPAWN, type, data, null, 0, delay, blockData });
-        queueStandardData(consumerId, currentConsumer, new String[] { user, null }, block);
-    }
-
     protected static void queueMaterialInsert(int id, String name) {
         int currentConsumer = Consumer.currentConsumer;
         int consumerId = Consumer.newConsumerId(currentConsumer);

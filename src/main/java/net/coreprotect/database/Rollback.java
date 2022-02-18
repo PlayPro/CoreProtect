@@ -55,6 +55,7 @@ import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.EnderCrystal;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EntityEquipment;
@@ -88,6 +89,7 @@ import net.coreprotect.utility.ChestTool;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Teleport;
 import net.coreprotect.utility.Util;
+import net.coreprotect.utility.entity.HangingUtil;
 
 public class Rollback extends Queue {
 
@@ -300,7 +302,6 @@ public class Rollback extends Queue {
                         ArrayList<Object[]> data = finalBlockList.get(chunkKey);
                         ArrayList<Object[]> itemData = finalItemList.get(chunkKey);
                         Map<Block, BlockData> chunkChanges = new LinkedHashMap<>();
-                        Map<String, Integer> hangingDelay = new HashMap<>();
 
                         int finalChunkX = (int) chunkKey;
                         int finalChunkZ = (int) (chunkKey >> 32);
@@ -563,12 +564,10 @@ public class Rollback extends Queue {
                                         }
 
                                         if ((rowType == Material.AIR) && ((BukkitAdapter.ADAPTER.isItemFrame(oldTypeMaterial)) || (oldTypeMaterial == Material.PAINTING))) {
-                                            int delay = Util.getHangingDelay(hangingDelay, rowWorldId, rowX, rowY, rowZ);
-                                            Queue.queueHangingRemove(rowUser, block.getState(), blockDataString, delay);
+                                            HangingUtil.removeHanging(block.getState(), blockDataString);
                                         }
                                         else if ((BukkitAdapter.ADAPTER.isItemFrame(rowType)) || (rowType == Material.PAINTING)) {
-                                            int delay = Util.getHangingDelay(hangingDelay, rowWorldId, rowX, rowY, rowZ);
-                                            Queue.queueHangingSpawn(rowUser, block.getState(), rowType, blockDataString, rowData, delay);
+                                            HangingUtil.spawnHanging(block.getState(), rowType, blockDataString, rowData);
                                         }
                                         else if ((rowType == Material.ARMOR_STAND)) {
                                             Location location1 = block.getLocation();
@@ -989,7 +988,6 @@ public class Rollback extends Queue {
                             // count++;
                             ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount1, blockCount1, entityCount1, 0 });
                         }
-                        hangingDelay.clear();
                         data.clear();
 
                         // Apply cached changes
@@ -1096,12 +1094,16 @@ public class Rollback extends Queue {
                                         container = Util.getContainerInventory(block.getState(), false);
                                         containerType = block.getType();
                                     }
-                                    else if (BlockGroup.CONTAINERS.contains(Material.ARMOR_STAND)) {
+                                    else if (BlockGroup.CONTAINERS.contains(Material.ARMOR_STAND) || BlockGroup.CONTAINERS.contains(Material.ITEM_FRAME)) {
                                         for (Entity entity : block.getChunk().getEntities()) {
-                                            if (entity instanceof ArmorStand) {
-                                                if (entity.getLocation().getBlockX() == rowX && entity.getLocation().getBlockY() == rowY && entity.getLocation().getBlockZ() == rowZ) {
+                                            if (entity.getLocation().getBlockX() == rowX && entity.getLocation().getBlockY() == rowY && entity.getLocation().getBlockZ() == rowZ) {
+                                                if (entity instanceof ArmorStand) {
                                                     container = Util.getEntityEquipment((LivingEntity) entity);
                                                     containerType = Material.ARMOR_STAND;
+                                                }
+                                                else if (entity instanceof ItemFrame) {
+                                                    container = entity;
+                                                    containerType = Material.ITEM_FRAME;
                                                 }
                                             }
                                         }
@@ -1543,6 +1545,20 @@ public class Rollback extends Queue {
                     }
                 }
             }
+            else if (type != null && type.equals(Material.ITEM_FRAME)) {
+                ItemFrame frame = (ItemFrame) container;
+                if (frame != null) {
+                    if (action == 1) {
+                        itemstack.setAmount(1);
+                    }
+                    else {
+                        itemstack.setType(Material.AIR);
+                        itemstack.setAmount(0);
+                    }
+
+                    frame.setItem(itemstack);
+                }
+            }
             else {
                 Inventory inventory = (Inventory) container;
                 if (inventory != null) {
@@ -1785,7 +1801,7 @@ public class Rollback extends Queue {
         return new Object[] { slot, itemstack };
     }
 
-    private static Object[] populateItemStack(ItemStack itemstack, byte[] metadata) {
+    public static Object[] populateItemStack(ItemStack itemstack, byte[] metadata) {
         if (metadata != null) {
             try {
                 ByteArrayInputStream metaByteStream = new ByteArrayInputStream(metadata);

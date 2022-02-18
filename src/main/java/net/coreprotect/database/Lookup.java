@@ -688,7 +688,7 @@ public class Lookup extends Queue {
 
                 if (!count) {
                     rows = "rowid as id,time,user,wid,x,y,z,type,data as metadata,0 as data,amount,action,rolled_back";
-                    queryOrder = " ORDER BY time DESC, id DESC";
+                    queryOrder = " ORDER BY time DESC, tbl DESC, id DESC";
                 }
                 query = query + unionSelect + "SELECT " + "'2' as tbl," + rows + " FROM " + ConfigHandler.prefix + "item WHERE" + queryBlock + unionLimit + ")";
             }

@@ -11,6 +11,7 @@ import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.inventory.ItemStack;
 
@@ -65,10 +66,14 @@ public class ContainerRollback extends Queue {
                         }
                         else {
                             for (Entity entity : block.getChunk().getEntities()) {
-                                if (entity instanceof ArmorStand) {
-                                    if (entity.getLocation().getBlockX() == location.getBlockX() && entity.getLocation().getBlockY() == location.getBlockY() && entity.getLocation().getBlockZ() == location.getBlockZ()) {
+                                if (entity.getLocation().getBlockX() == location.getBlockX() && entity.getLocation().getBlockY() == location.getBlockY() && entity.getLocation().getBlockZ() == location.getBlockZ()) {
+                                    if (entity instanceof ArmorStand) {
                                         type = Material.ARMOR_STAND;
                                         container = Util.getEntityEquipment((LivingEntity) entity);
+                                    }
+                                    else if (entity instanceof ItemFrame) {
+                                        type = Material.ITEM_FRAME;
+                                        container = entity;
                                     }
                                 }
                             }

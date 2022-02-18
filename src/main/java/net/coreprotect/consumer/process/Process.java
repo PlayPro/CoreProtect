@@ -35,8 +35,6 @@ public class Process {
     public static final int PLAYER_LOGOUT = 15;
     public static final int ENTITY_KILL = 16;
     public static final int ENTITY_SPAWN = 17;
-    public static final int HANGING_REMOVE = 18;
-    public static final int HANGING_SPAWN = 19;
     public static final int NATURAL_BLOCK_BREAK = 20;
     public static final int MATERIAL_INSERT = 21;
     public static final int ART_INSERT = 22;
@@ -194,12 +192,6 @@ public class Process {
                                     break;
                                 case Process.ENTITY_SPAWN:
                                     EntitySpawnProcess.process(statement, object, forceData);
-                                    break;
-                                case Process.HANGING_REMOVE:
-                                    HangingRemoveProcess.process(object, (String) data[7], forceData);
-                                    break;
-                                case Process.HANGING_SPAWN:
-                                    HangingSpawnProcess.process(object, blockType, blockData, (String) data[7], forceData);
                                     break;
                                 case Process.NATURAL_BLOCK_BREAK:
                                     NaturalBlockBreakProcess.process(statement, preparedStmtBlocks, i, processId, id, user, object, blockType, blockData, (String) data[7]);

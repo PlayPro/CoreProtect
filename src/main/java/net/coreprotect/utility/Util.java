@@ -38,6 +38,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.configuration.serialization.ConfigurationSerialization;
 import org.bukkit.configuration.serialization.DelegateDeserialization;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.BlockInventoryHolder;
@@ -400,7 +401,7 @@ public class Util extends Queue {
     }
 
     public static void mergeItems(Material material, ItemStack[] items) {
-        if (material != null && material.equals(Material.ARMOR_STAND)) {
+        if (material != null && (material.equals(Material.ARMOR_STAND) || BukkitAdapter.ADAPTER.isItemFrame(material))) {
             return;
         }
         try {
@@ -681,12 +682,16 @@ public class Util extends Queue {
                     container = location.getBlock();
                 }
 
-                if (type.equals(Material.ARMOR_STAND)) {
+                if (type == Material.ARMOR_STAND) {
                     LivingEntity entity = (LivingEntity) container;
                     EntityEquipment equipment = Util.getEntityEquipment(entity);
                     if (equipment != null) {
                         contents = getArmorStandContents(equipment);
                     }
+                }
+                else if (type == Material.ITEM_FRAME) {
+                    ItemFrame entity = (ItemFrame) container;
+                    contents = Util.getItemFrameItem(entity);
                 }
                 else {
                     Block block = (Block) container;
@@ -695,7 +700,8 @@ public class Util extends Queue {
                         contents = inventory.getContents();
                     }
                 }
-                if (type.equals(Material.ARMOR_STAND)) {
+
+                if (type == Material.ARMOR_STAND || type == Material.ITEM_FRAME) {
                     boolean hasItem = false;
                     for (ItemStack item : contents) {
                         if (item != null && !item.getType().equals(Material.AIR)) {
@@ -753,6 +759,17 @@ public class Util extends Queue {
         return equipment;
     }
 
+    public static ItemStack[] getItemFrameItem(ItemFrame entity) {
+        ItemStack[] contents = null;
+        try {
+            contents = new ItemStack[] { entity.getItem() };
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+        return contents;
+    }
+
     public static int getEntityId(EntityType type) {
         return getEntityId(type.name(), true);
     }
@@ -780,10 +797,12 @@ public class Util extends Queue {
         switch (type) {
             case ARMOR_STAND:
                 return Material.ARMOR_STAND;
+            case ITEM_FRAME:
+                return Material.ITEM_FRAME;
             case ENDER_CRYSTAL:
                 return Material.END_CRYSTAL;
             default:
-                return null;
+                return BukkitAdapter.ADAPTER.getFrameType(type);
         }
     }
 
@@ -822,16 +841,6 @@ public class Util extends Queue {
         }
 
         return type;
-    }
-
-    public static int getHangingDelay(Map<String, Integer> hangingDelay, int wid, int x, int y, int z) {
-        String token = wid + "." + x + "." + y + "." + z;
-        int delay = 0;
-        if (hangingDelay.get(token) != null) {
-            delay = hangingDelay.get(token) + 1;
-        }
-        hangingDelay.put(token, delay);
-        return delay;
     }
 
     public static int getItemStackHashCode(ItemStack item) {

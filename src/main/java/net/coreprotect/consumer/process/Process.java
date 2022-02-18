@@ -143,7 +143,7 @@ public class Process {
                                     ContainerBreakProcess.process(preparedStmtContainers, i, processId, id, blockType, user, object);
                                     break;
                                 case Process.PLAYER_INTERACTION:
-                                    PlayerInteractionProcess.process(preparedStmtBlocks, i, user, object);
+                                    PlayerInteractionProcess.process(preparedStmtBlocks, i, user, object, blockType);
                                     break;
                                 case Process.CONTAINER_TRANSACTION:
                                     ContainerTransactionProcess.process(preparedStmtContainers, preparedStmtItems, i, processId, id, blockType, forceData, user, object);

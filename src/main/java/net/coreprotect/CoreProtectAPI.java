@@ -264,7 +264,7 @@ public class CoreProtectAPI extends Queue {
         if (Config.getGlobal().API_ENABLED) {
             if (user != null && location != null) {
                 if (user.length() > 0) {
-                    Queue.queuePlayerInteraction(user, location.getBlock().getState());
+                    Queue.queuePlayerInteraction(user, location.getBlock().getState(), location.getBlock().getType());
                     return true;
                 }
             }

@@ -587,7 +587,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                 }
                             }
 
-                            Queue.queuePlayerInteraction(player.getName(), interactBlock.getState());
+                            Queue.queuePlayerInteraction(player.getName(), interactBlock.getState(), type);
                         }
                     }
                     else if (BlockGroup.LIGHTABLES.contains(type)) { // extinguishing a lit block such as a campfire

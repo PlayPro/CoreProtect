@@ -296,10 +296,10 @@ public class Queue {
         queueStandardData(consumerId, currentConsumer, new String[] { player.getName(), null }, new Object[] { timestamp, player.getLocation().clone() });
     }
 
-    protected static void queuePlayerInteraction(String user, BlockState block) {
+    protected static void queuePlayerInteraction(String user, BlockState block, Material type) {
         int currentConsumer = Consumer.currentConsumer;
         int consumerId = Consumer.newConsumerId(currentConsumer);
-        addConsumer(currentConsumer, new Object[] { consumerId, Process.PLAYER_INTERACTION, null, 0, null, 0, 0, null });
+        addConsumer(currentConsumer, new Object[] { consumerId, Process.PLAYER_INTERACTION, type, 0, null, 0, 0, null });
         queueStandardData(consumerId, currentConsumer, new String[] { user, null }, block);
     }
 

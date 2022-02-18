@@ -62,6 +62,10 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
                 return;
             }
 
+            if (frame.getItem().getType() != Material.AIR && event.getHand().equals(EquipmentSlot.HAND) && Config.getConfig(player.getWorld()).PLAYER_INTERACTIONS) {
+                Queue.queuePlayerInteraction(player.getName(), entity.getLocation().getBlock().getState(), Material.ITEM_FRAME);
+            }
+
             if (!Config.getConfig(player.getWorld()).ITEM_TRANSACTIONS) {
                 return;
             }

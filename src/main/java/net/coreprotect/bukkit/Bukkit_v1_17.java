@@ -123,7 +123,7 @@ public class Bukkit_v1_17 extends Bukkit_v1_16 implements BukkitInterface {
             if (subMeta.hasItems()) {
                 list = new ArrayList<>();
                 for (ItemStack itemStack : subMeta.getItems()) {
-                    Map<String, Object> itemMap = Util.serializeItemStack(itemStack, slot);
+                    Map<String, Object> itemMap = Util.serializeItemStack(itemStack, null, slot);
                     if (itemMap.size() > 0) {
                         list.add(itemMap);
                     }

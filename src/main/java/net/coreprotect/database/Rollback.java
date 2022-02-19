@@ -1010,6 +1010,7 @@ public class Rollback extends Queue {
                         int lastY = 0;
                         int lastZ = 0;
                         int lastWorldId = 0;
+                        String lastFace = "";
 
                         for (Object[] row : itemData) {
                             int[] rollbackHashData1 = ConfigHandler.rollbackHash.get(finalUserString);
@@ -1028,7 +1029,7 @@ public class Rollback extends Queue {
                             byte[] rowMetadata = (byte[]) row[12];
                             Material rowType = Util.getType(rowTypeRaw);
 
-                            if ((rollbackType == 0 && rowRolledBack == 0) || (rollbackType == 1 && rowRolledBack == 1)) {
+                            if (rowType != null && ((rollbackType == 0 && rowRolledBack == 0) || (rollbackType == 1 && rowRolledBack == 1))) {
                                 if (inventoryRollback) {
                                     int rowUserId = (Integer) row[2];
                                     String rowUser = ConfigHandler.playerIdCacheReversed.get(rowUserId);
@@ -1061,9 +1062,9 @@ public class Rollback extends Queue {
                                     ItemStack itemstack = new ItemStack(rowType, rowAmount, (short) rowData);
                                     Object[] populatedStack = populateItemStack(itemstack, rowMetadata);
                                     if (rowAction == ItemLogger.ITEM_REMOVE_ENDER || rowAction == ItemLogger.ITEM_ADD_ENDER) {
-                                        modifyContainerItems(containerType, player.getEnderChest(), (Integer) populatedStack[0], ((ItemStack) populatedStack[1]).clone(), action ^ 1);
+                                        modifyContainerItems(containerType, player.getEnderChest(), (Integer) populatedStack[0], ((ItemStack) populatedStack[2]).clone(), action ^ 1);
                                     }
-                                    modifyContainerItems(containerType, player.getInventory(), (Integer) populatedStack[0], (ItemStack) populatedStack[1], action);
+                                    modifyContainerItems(containerType, player.getInventory(), (Integer) populatedStack[0], (ItemStack) populatedStack[2], action);
 
                                     itemCount1 = itemCount1 + rowAmount;
                                     ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount1, blockCount1, entityCount1, 0 });
@@ -1074,7 +1075,11 @@ public class Rollback extends Queue {
                                     continue; // skip inventory & ender chest transactions
                                 }
 
-                                if (!containerInit || rowX != lastX || rowY != lastY || rowZ != lastZ || rowWorldId != lastWorldId) {
+                                ItemStack itemstack = new ItemStack(rowType, rowAmount, (short) rowData);
+                                Object[] populatedStack = populateItemStack(itemstack, rowMetadata);
+                                String faceData = (String) populatedStack[1];
+
+                                if (!containerInit || rowX != lastX || rowY != lastY || rowZ != lastZ || rowWorldId != lastWorldId || !faceData.equals(lastFace)) {
                                     container = null; // container patch 2.14.0
                                     String world = Util.getWorldName(rowWorldId);
                                     if (world.length() == 0) {
@@ -1095,6 +1100,7 @@ public class Rollback extends Queue {
                                         containerType = block.getType();
                                     }
                                     else if (BlockGroup.CONTAINERS.contains(Material.ARMOR_STAND) || BlockGroup.CONTAINERS.contains(Material.ITEM_FRAME)) {
+                                        BlockFace blockFace = BlockFace.valueOf(faceData);
                                         for (Entity entity : block.getChunk().getEntities()) {
                                             if (entity.getLocation().getBlockX() == rowX && entity.getLocation().getBlockY() == rowY && entity.getLocation().getBlockZ() == rowZ) {
                                                 if (entity instanceof ArmorStand) {
@@ -1104,6 +1110,9 @@ public class Rollback extends Queue {
                                                 else if (entity instanceof ItemFrame) {
                                                     container = entity;
                                                     containerType = Material.ITEM_FRAME;
+                                                    if (blockFace == ((ItemFrame) entity).getFacing()) {
+                                                        break;
+                                                    }
                                                 }
                                             }
                                         }
@@ -1113,9 +1122,10 @@ public class Rollback extends Queue {
                                     lastY = rowY;
                                     lastZ = rowZ;
                                     lastWorldId = rowWorldId;
+                                    lastFace = faceData;
                                 }
 
-                                if (container != null && rowType != null) {
+                                if (container != null) {
                                     int action = 0;
                                     if (rollbackType == 0 && rowAction == 0) {
                                         action = 1;
@@ -1125,10 +1135,8 @@ public class Rollback extends Queue {
                                         action = 1;
                                     }
 
-                                    ItemStack itemstack = new ItemStack(rowType, rowAmount, (short) rowData);
-                                    Object[] populatedStack = populateItemStack(itemstack, rowMetadata);
                                     int slot = (Integer) populatedStack[0];
-                                    itemstack = (ItemStack) populatedStack[1];
+                                    itemstack = (ItemStack) populatedStack[2];
 
                                     modifyContainerItems(containerType, container, slot, itemstack, action);
                                     itemCount1 = itemCount1 + rowAmount;
@@ -1652,6 +1660,7 @@ public class Rollback extends Queue {
     @SuppressWarnings("unchecked")
     public static Object[] populateItemStack(ItemStack itemstack, Object list) {
         int slot = 0;
+        String faceData = "";
 
         try {
             /*
@@ -1681,6 +1690,9 @@ public class Rollback extends Queue {
 
                 if (mapData.get("slot") != null) {
                     slot = (Integer) mapData.get("slot");
+                }
+                else if (mapData.get("facing") != null) {
+                    faceData = (String) mapData.get("facing");
                 }
                 else if (mapData.get("modifiers") != null) {
                     ItemMeta itemMeta = itemstack.getItemMeta();
@@ -1798,7 +1810,7 @@ public class Rollback extends Queue {
         catch (Exception e) {
             e.printStackTrace();
         }
-        return new Object[] { slot, itemstack };
+        return new Object[] { slot, faceData, itemstack };
     }
 
     public static Object[] populateItemStack(ItemStack itemstack, byte[] metadata) {
@@ -1817,7 +1829,7 @@ public class Rollback extends Queue {
             }
         }
 
-        return new Object[] { 0, itemstack };
+        return new Object[] { 0, "", itemstack };
     }
 
 }

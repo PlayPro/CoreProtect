@@ -1220,9 +1220,9 @@ public class Util extends Queue {
         return newVersion(convertArray(oldVersionSplit), convertArray(currentVersionSplit));
     }
 
-    public static Map<Integer, Object> serializeItemStackLegacy(ItemStack itemStack, int slot) {
+    public static Map<Integer, Object> serializeItemStackLegacy(ItemStack itemStack, String faceData, int slot) {
         Map<Integer, Object> result = new HashMap<>();
-        Map<String, Object> itemMap = serializeItemStack(itemStack, slot);
+        Map<String, Object> itemMap = serializeItemStack(itemStack, faceData, slot);
         if (itemMap.size() > 1) {
             result.put(0, itemMap.get("0"));
             result.put(1, itemMap.get("1"));
@@ -1245,11 +1245,11 @@ public class Util extends Queue {
         return result;
     }
 
-    public static Map<String, Object> serializeItemStack(ItemStack itemStack, int slot) {
+    public static Map<String, Object> serializeItemStack(ItemStack itemStack, String faceData, int slot) {
         Map<String, Object> itemMap = new HashMap<>();
         if (itemStack != null && !itemStack.getType().equals(Material.AIR)) {
             ItemStack item = itemStack.clone();
-            List<List<Map<String, Object>>> metadata = ItemMetaHandler.seralize(item, null, slot);
+            List<List<Map<String, Object>>> metadata = ItemMetaHandler.seralize(item, null, faceData, slot);
             item.setItemMeta(null);
             itemMap.put("0", item.serialize());
             itemMap.put("1", metadata);
@@ -1269,7 +1269,7 @@ public class Util extends Queue {
             List<List<Map<String, Object>>> metadata = (List<List<Map<String, Object>>>) itemMap.get("1");
 
             Object[] populatedStack = Rollback.populateItemStack(item, metadata);
-            result = (ItemStack) populatedStack[1];
+            result = (ItemStack) populatedStack[2];
         }
 
         return result;
@@ -1298,7 +1298,7 @@ public class Util extends Queue {
                 ItemStack[] inventory = shulkerBox.getSnapshotInventory().getStorageContents();
                 int slot = 0;
                 for (ItemStack itemStack : inventory) {
-                    Map<Integer, Object> itemMap = serializeItemStackLegacy(itemStack, slot);
+                    Map<Integer, Object> itemMap = serializeItemStackLegacy(itemStack, null, slot);
                     if (itemMap.size() > 0) {
                         meta.add(itemMap);
                     }

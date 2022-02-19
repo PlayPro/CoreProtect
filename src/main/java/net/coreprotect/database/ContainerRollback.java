@@ -1,6 +1,7 @@
 package net.coreprotect.database;
 
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -8,6 +9,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
@@ -60,6 +62,7 @@ public class ContainerRollback extends Queue {
                         }
                         Object container = null;
                         Material type = block.getType();
+                        List<ItemFrame> matchingFrames = new ArrayList<>();
 
                         if (BlockGroup.CONTAINERS.contains(type)) {
                             container = Util.getContainerInventory(block.getState(), false);
@@ -74,6 +77,7 @@ public class ContainerRollback extends Queue {
                                     else if (entity instanceof ItemFrame) {
                                         type = Material.ITEM_FRAME;
                                         container = entity;
+                                        matchingFrames.add((ItemFrame) entity);
                                     }
                                 }
                             }
@@ -113,12 +117,27 @@ public class ContainerRollback extends Queue {
                                     ItemStack itemstack = new ItemStack(rowType, rowAmount, (short) rowData);
                                     Object[] populatedStack = Rollback.populateItemStack(itemstack, rowMetadata);
                                     int slot = (Integer) populatedStack[0];
-                                    itemstack = (ItemStack) populatedStack[1];
+                                    String faceData = (String) populatedStack[1];
+                                    itemstack = (ItemStack) populatedStack[2];
+
+                                    if (type == Material.ITEM_FRAME && faceData.length() > 0) {
+                                        BlockFace blockFace = BlockFace.valueOf(faceData);
+                                        ItemFrame itemFrame = (ItemFrame) container;
+                                        if (blockFace != itemFrame.getFacing()) {
+                                            for (ItemFrame frame : matchingFrames) {
+                                                if (blockFace == frame.getFacing()) {
+                                                    container = frame;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
 
                                     Rollback.modifyContainerItems(type, container, slot, itemstack, action);
                                 }
                             }
                         }
+                        matchingFrames.clear();
 
                         ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount, modifyCount, entityCount, 1 });
                     }

@@ -139,7 +139,7 @@ public class CoreProtectAPI extends Queue {
                 return false;
             }
 
-            return Integer.parseInt(parse[8]) == 1;
+            return (Integer.parseInt(parse[8]) == 1 || Integer.parseInt(parse[8]) == 3);
         }
 
         public String worldName() {

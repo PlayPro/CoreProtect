@@ -252,6 +252,7 @@ public class Rollback extends Queue {
             // Perform update transaction(s) in consumer
             if (preview == 0) {
                 if (actionList.contains(11)) {
+                    List<Object[]> blockList = new ArrayList<>();
                     List<Object[]> inventoryList = new ArrayList<>();
                     List<Object[]> containerList = new ArrayList<>();
                     for (Object[] data : itemList) {
@@ -259,12 +260,16 @@ public class Rollback extends Queue {
                         if (table == 2) { // item
                             inventoryList.add(data);
                         }
-                        else {
+                        else if (table == 1) { // container
                             containerList.add(data);
+                        }
+                        else { // block
+                            blockList.add(data);
                         }
                     }
                     Queue.queueRollbackUpdate(userString, location, inventoryList, Process.INVENTORY_ROLLBACK_UPDATE, rollbackType);
                     Queue.queueRollbackUpdate(userString, location, containerList, Process.INVENTORY_CONTAINER_ROLLBACK_UPDATE, rollbackType);
+                    Queue.queueRollbackUpdate(userString, location, blockList, Process.BLOCK_INVENTORY_ROLLBACK_UPDATE, rollbackType);
                 }
                 else {
                     Queue.queueRollbackUpdate(userString, location, lookupList, Process.ROLLBACK_UPDATE, rollbackType);
@@ -320,7 +325,7 @@ public class Rollback extends Queue {
                             int rowTypeRaw = (Integer) row[6];
                             int rowData = (Integer) row[7];
                             int rowAction = (Integer) row[8];
-                            int rowRolledBack = (Integer) row[9];
+                            int rowRolledBack = Util.rolledBack((Integer) row[9], false);
                             int rowWorldId = (Integer) row[10];
                             byte[] rowMeta = (byte[]) row[12];
                             byte[] rowBlockData = (byte[]) row[13];
@@ -1023,14 +1028,15 @@ public class Rollback extends Queue {
                             int rowTypeRaw = (Integer) row[6];
                             int rowData = (Integer) row[7];
                             int rowAction = (Integer) row[8];
-                            int rowRolledBack = (Integer) row[9];
+                            int rowRolledBack = Util.rolledBack((Integer) row[9], false);
                             int rowWorldId = (Integer) row[10];
                             int rowAmount = (Integer) row[11];
                             byte[] rowMetadata = (byte[]) row[12];
                             Material rowType = Util.getType(rowTypeRaw);
 
-                            if (rowType != null && ((rollbackType == 0 && rowRolledBack == 0) || (rollbackType == 1 && rowRolledBack == 1))) {
-                                if (inventoryRollback) {
+                            int rolledBackInventory = Util.rolledBack((Integer) row[9], true);
+                            if (rowType != null) {
+                                if (inventoryRollback && ((rollbackType == 0 && rolledBackInventory == 0) || (rollbackType == 1 && rolledBackInventory == 1))) {
                                     int rowUserId = (Integer) row[2];
                                     String rowUser = ConfigHandler.playerIdCacheReversed.get(rowUserId);
                                     if (rowUser == null) {
@@ -1071,77 +1077,79 @@ public class Rollback extends Queue {
                                     continue; // remove this for merged rollbacks in future? (be sure to re-enable chunk sorting)
                                 }
 
-                                if (rowAction > 1) {
+                                if (inventoryRollback || rowAction > 1) {
                                     continue; // skip inventory & ender chest transactions
                                 }
 
-                                ItemStack itemstack = new ItemStack(rowType, rowAmount, (short) rowData);
-                                Object[] populatedStack = populateItemStack(itemstack, rowMetadata);
-                                String faceData = (String) populatedStack[1];
+                                if ((rollbackType == 0 && rowRolledBack == 0) || (rollbackType == 1 && rowRolledBack == 1)) {
+                                    ItemStack itemstack = new ItemStack(rowType, rowAmount, (short) rowData);
+                                    Object[] populatedStack = populateItemStack(itemstack, rowMetadata);
+                                    String faceData = (String) populatedStack[1];
 
-                                if (!containerInit || rowX != lastX || rowY != lastY || rowZ != lastZ || rowWorldId != lastWorldId || !faceData.equals(lastFace)) {
-                                    container = null; // container patch 2.14.0
-                                    String world = Util.getWorldName(rowWorldId);
-                                    if (world.length() == 0) {
-                                        continue;
-                                    }
+                                    if (!containerInit || rowX != lastX || rowY != lastY || rowZ != lastZ || rowWorldId != lastWorldId || !faceData.equals(lastFace)) {
+                                        container = null; // container patch 2.14.0
+                                        String world = Util.getWorldName(rowWorldId);
+                                        if (world.length() == 0) {
+                                            continue;
+                                        }
 
-                                    World bukkitWorld = Bukkit.getServer().getWorld(world);
-                                    if (bukkitWorld == null) {
-                                        continue;
-                                    }
-                                    Block block = bukkitWorld.getBlockAt(rowX, rowY, rowZ);
-                                    if (!bukkitWorld.isChunkLoaded(block.getChunk())) {
-                                        bukkitWorld.getChunkAt(block.getLocation());
-                                    }
+                                        World bukkitWorld = Bukkit.getServer().getWorld(world);
+                                        if (bukkitWorld == null) {
+                                            continue;
+                                        }
+                                        Block block = bukkitWorld.getBlockAt(rowX, rowY, rowZ);
+                                        if (!bukkitWorld.isChunkLoaded(block.getChunk())) {
+                                            bukkitWorld.getChunkAt(block.getLocation());
+                                        }
 
-                                    if (BlockGroup.CONTAINERS.contains(block.getType())) {
-                                        container = Util.getContainerInventory(block.getState(), false);
-                                        containerType = block.getType();
-                                    }
-                                    else if (BlockGroup.CONTAINERS.contains(Material.ARMOR_STAND) || BlockGroup.CONTAINERS.contains(Material.ITEM_FRAME)) {
-                                        BlockFace blockFace = BlockFace.valueOf(faceData);
-                                        for (Entity entity : block.getChunk().getEntities()) {
-                                            if (entity.getLocation().getBlockX() == rowX && entity.getLocation().getBlockY() == rowY && entity.getLocation().getBlockZ() == rowZ) {
-                                                if (entity instanceof ArmorStand) {
-                                                    container = Util.getEntityEquipment((LivingEntity) entity);
-                                                    containerType = Material.ARMOR_STAND;
-                                                }
-                                                else if (entity instanceof ItemFrame) {
-                                                    container = entity;
-                                                    containerType = Material.ITEM_FRAME;
-                                                    if (blockFace == ((ItemFrame) entity).getFacing()) {
-                                                        break;
+                                        if (BlockGroup.CONTAINERS.contains(block.getType())) {
+                                            container = Util.getContainerInventory(block.getState(), false);
+                                            containerType = block.getType();
+                                        }
+                                        else if (BlockGroup.CONTAINERS.contains(Material.ARMOR_STAND) || BlockGroup.CONTAINERS.contains(Material.ITEM_FRAME)) {
+                                            BlockFace blockFace = BlockFace.valueOf(faceData);
+                                            for (Entity entity : block.getChunk().getEntities()) {
+                                                if (entity.getLocation().getBlockX() == rowX && entity.getLocation().getBlockY() == rowY && entity.getLocation().getBlockZ() == rowZ) {
+                                                    if (entity instanceof ArmorStand) {
+                                                        container = Util.getEntityEquipment((LivingEntity) entity);
+                                                        containerType = Material.ARMOR_STAND;
+                                                    }
+                                                    else if (entity instanceof ItemFrame) {
+                                                        container = entity;
+                                                        containerType = Material.ITEM_FRAME;
+                                                        if (blockFace == ((ItemFrame) entity).getFacing()) {
+                                                            break;
+                                                        }
                                                     }
                                                 }
                                             }
                                         }
+
+                                        lastX = rowX;
+                                        lastY = rowY;
+                                        lastZ = rowZ;
+                                        lastWorldId = rowWorldId;
+                                        lastFace = faceData;
                                     }
 
-                                    lastX = rowX;
-                                    lastY = rowY;
-                                    lastZ = rowZ;
-                                    lastWorldId = rowWorldId;
-                                    lastFace = faceData;
+                                    if (container != null) {
+                                        int action = 0;
+                                        if (rollbackType == 0 && rowAction == 0) {
+                                            action = 1;
+                                        }
+
+                                        if (rollbackType == 1 && rowAction == 1) {
+                                            action = 1;
+                                        }
+
+                                        int slot = (Integer) populatedStack[0];
+                                        itemstack = (ItemStack) populatedStack[2];
+
+                                        modifyContainerItems(containerType, container, slot, itemstack, action);
+                                        itemCount1 = itemCount1 + rowAmount;
+                                    }
+                                    containerInit = true;
                                 }
-
-                                if (container != null) {
-                                    int action = 0;
-                                    if (rollbackType == 0 && rowAction == 0) {
-                                        action = 1;
-                                    }
-
-                                    if (rollbackType == 1 && rowAction == 1) {
-                                        action = 1;
-                                    }
-
-                                    int slot = (Integer) populatedStack[0];
-                                    itemstack = (ItemStack) populatedStack[2];
-
-                                    modifyContainerItems(containerType, container, slot, itemstack, action);
-                                    itemCount1 = itemCount1 + rowAmount;
-                                }
-                                containerInit = true;
                             }
 
                             ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount1, blockCount1, entityCount1, 0 });

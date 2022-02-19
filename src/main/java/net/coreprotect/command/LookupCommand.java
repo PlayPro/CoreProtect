@@ -869,7 +869,7 @@ public class LookupCommand {
                                                     int ddata = Integer.parseInt(data[6]);
                                                     int daction = Integer.parseInt(data[7]);
                                                     int amount = Integer.parseInt(data[10]);
-                                                    String rbd = (Integer.parseInt(data[8]) == 1 ? Color.STRIKETHROUGH : "");
+                                                    String rbd = ((Integer.parseInt(data[8]) == 2 || Integer.parseInt(data[8]) == 3) ? Color.STRIKETHROUGH : "");
                                                     String timeago = Util.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
                                                     String dname = Util.nameFilter(Util.getType(Integer.parseInt(dtype)).name().toLowerCase(Locale.ROOT), ddata);
 
@@ -895,7 +895,7 @@ public class LookupCommand {
                                                 for (String[] data : lookupList) {
                                                     int drb = Integer.parseInt(data[8]);
                                                     String rbd = "";
-                                                    if (drb == 1) {
+                                                    if (drb == 1 || drb == 3) {
                                                         rbd = Color.STRIKETHROUGH;
                                                     }
 

@@ -96,7 +96,7 @@ public class ContainerRollback extends Queue {
                                 int rowTypeRaw = (Integer) lookupRow[6];
                                 int rowData = (Integer) lookupRow[7];
                                 int rowAction = (Integer) lookupRow[8];
-                                int rowRolledBack = (Integer) lookupRow[9];
+                                int rowRolledBack = Util.rolledBack((Integer) lookupRow[9], false);
                                 // int rowWid = (Integer)lookupRow[10];
                                 int rowAmount = (Integer) lookupRow[11];
                                 byte[] rowMetadata = (byte[]) lookupRow[12];

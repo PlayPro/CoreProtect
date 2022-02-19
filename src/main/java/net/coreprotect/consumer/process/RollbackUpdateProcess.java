@@ -6,6 +6,7 @@ import java.util.Map;
 
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.Database;
+import net.coreprotect.utility.Util;
 
 class RollbackUpdateProcess {
 
@@ -16,8 +17,8 @@ class RollbackUpdateProcess {
             for (Object[] listRow : list) {
                 long rowid = (Long) listRow[0];
                 int rolledBack = (Integer) listRow[9];
-                if (rolledBack == action) {
-                    Database.performUpdate(statement, rowid, action, table);
+                if (Util.rolledBack(rolledBack, (table == 2 || table == 3 || table == 4)) == action) { // 1 = restore, 0 = rollback
+                    Database.performUpdate(statement, rowid, rolledBack, table);
                 }
             }
             updateLists.remove(id);

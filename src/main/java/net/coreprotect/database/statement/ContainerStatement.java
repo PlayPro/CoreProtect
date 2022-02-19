@@ -25,7 +25,6 @@ public class ContainerStatement {
             preparedStmt.setObject(10, byteData);
             preparedStmt.setInt(11, action);
             preparedStmt.setInt(12, rolledBack);
-            preparedStmt.setInt(13, 0); // rolled_back_inventory
             preparedStmt.addBatch();
 
             if (batchCount > 0 && batchCount % 1000 == 0) {

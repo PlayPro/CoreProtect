@@ -104,7 +104,7 @@ public class BlockLookup {
                 }
 
                 String rbFormat = "";
-                if (resultRolledBack == 1) {
+                if (resultRolledBack == 1 || resultRolledBack == 3) {
                     rbFormat = Color.STRIKETHROUGH;
                 }
 

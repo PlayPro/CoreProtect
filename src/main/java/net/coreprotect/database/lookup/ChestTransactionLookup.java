@@ -97,7 +97,7 @@ public class ChestTransactionLookup {
                 String selector = (resultAction != 0 ? Selector.FIRST : Selector.SECOND);
                 String tag = (resultAction != 0 ? Color.GREEN + "+" : Color.RED + "-");
                 String rbFormat = "";
-                if (resultRolledBack == 1) {
+                if (resultRolledBack == 1 || resultRolledBack == 3) {
                     rbFormat = Color.STRIKETHROUGH;
                 }
 

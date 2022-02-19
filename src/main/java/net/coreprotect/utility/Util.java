@@ -1421,4 +1421,29 @@ public class Util extends Queue {
         return result;
     }
 
+    public static int rolledBack(int rolledBack, boolean isInventory) {
+        switch (rolledBack) {
+            case 1: // just block rolled back
+                return isInventory ? 0 : 1;
+            case 2: // just inventory rolled back
+                return isInventory ? 1 : 0;
+            case 3: // block and inventory rolled back
+                return 1;
+            default: // no rollbacks
+                return 0;
+        }
+    }
+
+    public static int toggleRolledBack(int rolledBack, boolean isInventory) {
+        switch (rolledBack) {
+            case 1: // just block rolled back
+                return isInventory ? 3 : 0;
+            case 2: // just inventory rolled back
+                return isInventory ? 0 : 3;
+            case 3: // block and inventory rolled back
+                return isInventory ? 1 : 2;
+            default: // no rollbacks
+                return isInventory ? 2 : 1;
+        }
+    }
 }

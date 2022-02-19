@@ -187,21 +187,14 @@ public class Database extends Queue {
         }
     }
 
-    public static void performUpdate(Statement statement, long id, int action, int table) {
+    public static void performUpdate(Statement statement, long id, int rb, int table) {
         try {
-            int rolledBack = 1;
-            if (action == 1) {
-                rolledBack = 0;
-            }
-
-            if (table == 1) {
+            int rolledBack = Util.toggleRolledBack(rb, (table == 2 || table == 3 || table == 4)); // co_item, co_container, co_block
+            if (table == 1 || table == 3) {
                 statement.executeUpdate("UPDATE " + ConfigHandler.prefix + "container SET rolled_back='" + rolledBack + "' WHERE rowid='" + id + "'");
             }
             else if (table == 2) {
                 statement.executeUpdate("UPDATE " + ConfigHandler.prefix + "item SET rolled_back='" + rolledBack + "' WHERE rowid='" + id + "'");
-            }
-            else if (table == 3) {
-                statement.executeUpdate("UPDATE " + ConfigHandler.prefix + "container SET rolled_back_inventory='" + rolledBack + "' WHERE rowid='" + id + "'");
             }
             else {
                 statement.executeUpdate("UPDATE " + ConfigHandler.prefix + "block SET rolled_back='" + rolledBack + "' WHERE rowid='" + id + "'");
@@ -218,7 +211,7 @@ public class Database extends Queue {
             String signInsert = "INSERT INTO " + ConfigHandler.prefix + "sign (time, user, wid, x, y, z, action, color, data, line_1, line_2, line_3, line_4) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             String blockInsert = "INSERT INTO " + ConfigHandler.prefix + "block (time, user, wid, x, y, z, type, data, meta, blockdata, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             String skullInsert = "INSERT INTO " + ConfigHandler.prefix + "skull (time, owner) VALUES (?, ?)";
-            String containerInsert = "INSERT INTO " + ConfigHandler.prefix + "container (time, user, wid, x, y, z, type, data, amount, metadata, action, rolled_back, rolled_back_inventory) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            String containerInsert = "INSERT INTO " + ConfigHandler.prefix + "container (time, user, wid, x, y, z, type, data, amount, metadata, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             String itemInsert = "INSERT INTO " + ConfigHandler.prefix + "item (time, user, wid, x, y, z, type, data, amount, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             String worldInsert = "INSERT INTO " + ConfigHandler.prefix + "world (id, world) VALUES (?, ?)";
             String chatInsert = "INSERT INTO " + ConfigHandler.prefix + "chat (time, user, wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)";
@@ -339,7 +332,7 @@ public class Database extends Queue {
                     index = ", INDEX(time), INDEX(user,time), INDEX(wid,x,z,time)";
                     statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "command(rowid int(8) NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int(10), user int(8), wid int(4), x int(8), y int (3), z int(8), message varchar(16000)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
                     index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(type,time)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "container(rowid int(10) NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int(10), user int(8), wid int(4), x int(8), y int(3), z int(8), type int(6), data int(6), amount int(4), metadata blob, action int(2), rolled_back tinyint(1), rolled_back_inventory tinyint(1)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "container(rowid int(10) NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int(10), user int(8), wid int(4), x int(8), y int(3), z int(8), type int(6), data int(6), amount int(4), metadata blob, action int(2), rolled_back tinyint(1)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
                     index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(type,time)";
                     statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "item(rowid int(10) NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int(10), user int(8), wid int(4), x int(8), y int(3), z int(8), type int(6), data blob, amount int(4), action tinyint(1), rolled_back tinyint(1)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
                     statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "database_lock(rowid int(8) NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),status tinyint(1),time int(10)) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
@@ -417,7 +410,7 @@ public class Database extends Queue {
                     statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "command (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, message TEXT);");
                 }
                 if (!tableData.contains(prefix + "container")) {
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "container (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, data INTEGER, amount INTEGER, metadata BLOB, action INTEGER, rolled_back INTEGER, rolled_back_inventory INTEGER);");
+                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "container (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, data INTEGER, amount INTEGER, metadata BLOB, action INTEGER, rolled_back INTEGER);");
                 }
                 if (!tableData.contains(prefix + "item")) {
                     statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "item (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, data BLOB, amount INTEGER, action INTEGER, rolled_back INTEGER);");

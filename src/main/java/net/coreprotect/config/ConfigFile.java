@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -191,6 +192,27 @@ public class ConfigFile extends Config {
                     break;
                 }
             }
+
+            if (lines.size() > 0) {
+                String lastLine = lines.get(lines.size() - 1); // append the final line to prevent a line separator from being added
+                Files.write(path, (lines.remove(lines.size() - 1).isEmpty() ? lines : lines), StandardCharsets.UTF_8);
+                Files.write(path, lastLine.getBytes(StandardCharsets.UTF_8), StandardOpenOption.APPEND);
+                lines.clear();
+            }
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void sortFile(String fileName) {
+        try {
+            Path path = Paths.get(ConfigHandler.path + fileName);
+            List<String> lines = Files.readAllLines(path);
+            List<String> sort = lines.subList(2, lines.size());
+            Collections.sort(sort);
+            lines = lines.subList(0, 2);
+            lines.addAll(sort);
 
             if (lines.size() > 0) {
                 String lastLine = lines.get(lines.size() - 1); // append the final line to prevent a line separator from being added

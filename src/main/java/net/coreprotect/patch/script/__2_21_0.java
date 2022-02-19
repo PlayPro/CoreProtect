@@ -37,6 +37,7 @@ public class __2_21_0 {
 
             ConfigFile.modifyLine("language.yml", "LOOKUP_VIEW_PAGE: \"To view a page, type \\\"{0}\\\".\"", null);
             ConfigFile.modifyLine("language.yml", "PREVIEW_CONTAINER: \"You can't preview container transactions.\"", null);
+            ConfigFile.sortFile("language.yml");
         }
         catch (Exception e) {
             e.printStackTrace();

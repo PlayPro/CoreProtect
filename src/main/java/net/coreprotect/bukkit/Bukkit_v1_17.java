@@ -15,6 +15,7 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.type.PointedDripstone;
 import org.bukkit.entity.Axolotl;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.GlowItemFrame;
 import org.bukkit.entity.Goat;
 import org.bukkit.entity.ItemFrame;
@@ -122,7 +123,7 @@ public class Bukkit_v1_17 extends Bukkit_v1_16 implements BukkitInterface {
             if (subMeta.hasItems()) {
                 list = new ArrayList<>();
                 for (ItemStack itemStack : subMeta.getItems()) {
-                    Map<String, Object> itemMap = Util.serializeItemStack(itemStack, slot);
+                    Map<String, Object> itemMap = Util.serializeItemStack(itemStack, null, slot);
                     if (itemMap.size() > 0) {
                         list.add(itemMap);
                     }
@@ -197,6 +198,18 @@ public class Bukkit_v1_17 extends Bukkit_v1_16 implements BukkitInterface {
     @Override
     public Material getFrameType(Entity entity) {
         return (entity instanceof GlowItemFrame) ? Material.GLOW_ITEM_FRAME : Material.ITEM_FRAME;
+    }
+
+    @Override
+    public Material getFrameType(EntityType type) {
+        switch (type) {
+            case ITEM_FRAME:
+                return Material.ITEM_FRAME;
+            case GLOW_ITEM_FRAME:
+                return Material.GLOW_ITEM_FRAME;
+            default:
+                return null;
+        }
     }
 
     @Override

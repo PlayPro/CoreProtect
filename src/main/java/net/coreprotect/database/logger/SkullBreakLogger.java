@@ -36,7 +36,7 @@ public class SkullBreakLogger {
                 keys.close();
             }
 
-            BlockBreakLogger.log(preparedStmt, batchCount, user, block.getLocation(), type, skullKey, null, block.getBlockData().getAsString());
+            BlockBreakLogger.log(preparedStmt, batchCount, user, block.getLocation(), type, skullKey, null, block.getBlockData().getAsString(), null);
         }
         catch (Exception e) {
             e.printStackTrace();

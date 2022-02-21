@@ -58,6 +58,7 @@ public class ConfigHandler extends Queue {
     public static volatile boolean serverRunning = false;
     public static volatile boolean converterRunning = false;
     public static volatile boolean purgeRunning = false;
+    public static volatile boolean pauseConsumer = false;
     public static volatile boolean worldeditEnabled = false;
     public static volatile boolean databaseReachable = true;
     public static volatile int worldId = 0;

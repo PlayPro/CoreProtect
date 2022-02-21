@@ -115,7 +115,7 @@ public class SignMessageLookup {
             if (found) {
                 if (count > limit) {
                     result.add(Color.WHITE + "-----");
-                    result.add(Util.getPageNavigation(command, page, totalPages) + "| " + Phrase.build(Phrase.LOOKUP_VIEW_PAGE, Color.WHITE, "/co l <page>"));
+                    result.add(Util.getPageNavigation(command, page, totalPages));
                 }
             }
             else {

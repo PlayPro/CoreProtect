@@ -1,6 +1,7 @@
 package net.coreprotect.database;
 
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -8,15 +9,18 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.consumer.process.Process;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.Chat;
@@ -38,7 +42,7 @@ public class ContainerRollback extends Queue {
                 userString = user.getName();
             }
 
-            Queue.queueContainerRollbackUpdate(userString, location, lookupList, rollbackType); // Perform update transaction in consumer
+            Queue.queueRollbackUpdate(userString, location, lookupList, Process.CONTAINER_ROLLBACK_UPDATE, rollbackType); // Perform update transaction in consumer
 
             final String finalUserString = userString;
             ConfigHandler.rollbackHash.put(userString, new int[] { 0, 0, 0, 0 });
@@ -58,16 +62,22 @@ public class ContainerRollback extends Queue {
                         }
                         Object container = null;
                         Material type = block.getType();
+                        List<ItemFrame> matchingFrames = new ArrayList<>();
 
                         if (BlockGroup.CONTAINERS.contains(type)) {
                             container = Util.getContainerInventory(block.getState(), false);
                         }
                         else {
                             for (Entity entity : block.getChunk().getEntities()) {
-                                if (entity instanceof ArmorStand) {
-                                    if (entity.getLocation().getBlockX() == location.getBlockX() && entity.getLocation().getBlockY() == location.getBlockY() && entity.getLocation().getBlockZ() == location.getBlockZ()) {
+                                if (entity.getLocation().getBlockX() == location.getBlockX() && entity.getLocation().getBlockY() == location.getBlockY() && entity.getLocation().getBlockZ() == location.getBlockZ()) {
+                                    if (entity instanceof ArmorStand) {
                                         type = Material.ARMOR_STAND;
                                         container = Util.getEntityEquipment((LivingEntity) entity);
+                                    }
+                                    else if (entity instanceof ItemFrame) {
+                                        type = Material.ITEM_FRAME;
+                                        container = entity;
+                                        matchingFrames.add((ItemFrame) entity);
                                     }
                                 }
                             }
@@ -86,7 +96,7 @@ public class ContainerRollback extends Queue {
                                 int rowTypeRaw = (Integer) lookupRow[6];
                                 int rowData = (Integer) lookupRow[7];
                                 int rowAction = (Integer) lookupRow[8];
-                                int rowRolledBack = (Integer) lookupRow[9];
+                                int rowRolledBack = Util.rolledBack((Integer) lookupRow[9], false);
                                 // int rowWid = (Integer)lookupRow[10];
                                 int rowAmount = (Integer) lookupRow[11];
                                 byte[] rowMetadata = (byte[]) lookupRow[12];
@@ -107,12 +117,27 @@ public class ContainerRollback extends Queue {
                                     ItemStack itemstack = new ItemStack(rowType, rowAmount, (short) rowData);
                                     Object[] populatedStack = Rollback.populateItemStack(itemstack, rowMetadata);
                                     int slot = (Integer) populatedStack[0];
-                                    itemstack = (ItemStack) populatedStack[1];
+                                    String faceData = (String) populatedStack[1];
+                                    itemstack = (ItemStack) populatedStack[2];
+
+                                    if (type == Material.ITEM_FRAME && faceData.length() > 0) {
+                                        BlockFace blockFace = BlockFace.valueOf(faceData);
+                                        ItemFrame itemFrame = (ItemFrame) container;
+                                        if (blockFace != itemFrame.getFacing()) {
+                                            for (ItemFrame frame : matchingFrames) {
+                                                if (blockFace == frame.getFacing()) {
+                                                    container = frame;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
 
                                     Rollback.modifyContainerItems(type, container, slot, itemstack, action);
                                 }
                             }
                         }
+                        matchingFrames.clear();
 
                         ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount, modifyCount, entityCount, 1 });
                     }

@@ -70,13 +70,13 @@ public class CommandHandler implements CommandExecutor {
                     if (argument.startsWith("#")) {
                         argument = argument.replaceFirst("#", "");
                     }
-                    if (argument.equals("broke") || argument.equals("break") || argument.equals("remove") || argument.equals("destroy") || argument.equals("block-break") || argument.equals("block-remove") || argument.equals("-block") || argument.equals("block-")) {
+                    if (argument.equals("broke") || argument.equals("break") || argument.equals("remove") || argument.equals("destroy") || argument.equals("block-break") || argument.equals("block-remove") || argument.equals("-block") || argument.equals("-blocks") || argument.equals("block-")) {
                         result.add(0);
                     }
-                    else if (argument.equals("placed") || argument.equals("place") || argument.equals("block-place") || argument.equals("+block") || argument.equals("block+")) {
+                    else if (argument.equals("placed") || argument.equals("place") || argument.equals("block-place") || argument.equals("+block") || argument.equals("+blocks") || argument.equals("block+")) {
                         result.add(1);
                     }
-                    else if (argument.equals("block") || argument.equals("block-change") || argument.equals("change")) {
+                    else if (argument.equals("block") || argument.equals("blocks") || argument.equals("block-change") || argument.equals("change") || argument.equals("changes")) {
                         result.add(0);
                         result.add(1);
                     }
@@ -97,17 +97,17 @@ public class CommandHandler implements CommandExecutor {
                         result.add(4);
                         result.add(1);
                     }
-                    else if (argument.equals("chat")) {
+                    else if (argument.equals("chat") || argument.equals("chats")) {
                         result.add(6);
                     }
                     else if (argument.equals("command") || argument.equals("commands")) {
                         result.add(7);
                     }
-                    else if (argument.equals("login") || argument.equals("+session") || argument.equals("session+") || argument.equals("+connection") || argument.equals("connection+")) {
+                    else if (argument.equals("logins") || argument.equals("login") || argument.equals("+session") || argument.equals("+sessions") || argument.equals("session+") || argument.equals("+connection") || argument.equals("connection+")) {
                         result.add(8);
                         result.add(1);
                     }
-                    else if (argument.equals("logout") || argument.equals("-session") || argument.equals("session-") || argument.equals("-connection") || argument.equals("connection-")) {
+                    else if (argument.equals("logout") || argument.equals("logouts") || argument.equals("-session") || argument.equals("-sessions") || argument.equals("session-") || argument.equals("-connection") || argument.equals("connection-")) {
                         result.add(8);
                         result.add(0);
                     }
@@ -117,31 +117,31 @@ public class CommandHandler implements CommandExecutor {
                     else if (argument.equals("username") || argument.equals("usernames") || argument.equals("user") || argument.equals("users") || argument.equals("name") || argument.equals("names") || argument.equals("uuid") || argument.equals("uuids") || argument.equals("username-change") || argument.equals("username-changes") || argument.equals("name-change") || argument.equals("name-changes")) {
                         result.add(9);
                     }
-                    else if (argument.equals("sign")) {
+                    else if (argument.equals("sign") || argument.equals("signs")) {
                         result.add(10);
                     }
-                    else if (argument.equals("item") || argument.equals("items")) {
-                        result.add(4);
-                        result.add(11);
+                    else if (argument.equals("inv") || argument.equals("inventory") || argument.equals("inventories")) {
+                        result.add(4); // container
+                        result.add(11); // item
                     }
-                    else if (argument.equals("-item") || argument.equals("item-") || argument.equals("-items") || argument.equals("items-")) {
-                        result.add(4);
-                        result.add(11);
-                        result.add(0);
-                    }
-                    else if (argument.equals("+item") || argument.equals("item+") || argument.equals("+items") || argument.equals("items+")) {
+                    else if (argument.equals("-inv") || argument.equals("inv-") || argument.equals("-inventory") || argument.equals("inventory-") || argument.equals("-inventories")) {
                         result.add(4);
                         result.add(11);
                         result.add(1);
                     }
-                    else if (argument.equals("inv") || argument.equals("inventory") || argument.equals("inventories")) {
-                        result.add(11);
-                    }
-                    else if (argument.equals("-inv") || argument.equals("inv-") || argument.equals("-inventory") || argument.equals("inventory-") || argument.equals("-inventories") || argument.equals("drop") || argument.equals("drops") || argument.equals("deposit") || argument.equals("deposits") || argument.equals("deposited")) {
+                    else if (argument.equals("+inv") || argument.equals("inv+") || argument.equals("+inventory") || argument.equals("inventory+") || argument.equals("+inventories")) {
+                        result.add(4);
                         result.add(11);
                         result.add(0);
                     }
-                    else if (argument.equals("+inv") || argument.equals("inv+") || argument.equals("+inventory") || argument.equals("inventory+") || argument.equals("+inventories") || argument.equals("pickup") || argument.equals("pickups") || argument.equals("withdraw") || argument.equals("withdraws") || argument.equals("withdrew")) {
+                    else if (argument.equals("item") || argument.equals("items")) {
+                        result.add(11);
+                    }
+                    else if (argument.equals("-item") || argument.equals("item-") || argument.equals("-items") || argument.equals("items-") || argument.equals("drop") || argument.equals("drops") || argument.equals("deposit") || argument.equals("deposits") || argument.equals("deposited")) {
+                        result.add(11);
+                        result.add(0);
+                    }
+                    else if (argument.equals("+item") || argument.equals("item+") || argument.equals("+items") || argument.equals("items+") || argument.equals("pickup") || argument.equals("pickups") || argument.equals("withdraw") || argument.equals("withdraws") || argument.equals("withdrew")) {
                         result.add(11);
                         result.add(1);
                     }
@@ -1098,7 +1098,7 @@ public class CommandHandler implements CommandExecutor {
                     else if (user.hasPermission("coreprotect.restore") && (corecommand.equals("restore") || corecommand.equals("rs") || corecommand.equals("re") || corecommand.equals("undo") || corecommand.equals("apply") || corecommand.equals("cancel"))) {
                         permission = true;
                     }
-                    else if (user.hasPermission("coreprotect.inspect") && (corecommand.equals("i") || corecommand.equals("inspect"))) {
+                    else if (user.hasPermission("coreprotect.inspect") && (corecommand.equals("i") || corecommand.equals("inspect") || corecommand.equals("inspector"))) {
                         permission = true;
                     }
                     else if (user.hasPermission("coreprotect.help") && corecommand.equals("help")) {
@@ -1120,6 +1120,9 @@ public class CommandHandler implements CommandExecutor {
                         permission = true;
                     }
                     else if (user.hasPermission("coreprotect.status") && (corecommand.equals("status") || corecommand.equals("stats") || corecommand.equals("version"))) {
+                        permission = true;
+                    }
+                    else if (user.hasPermission("coreprotect.consumer") && corecommand.equals("consumer")) {
                         permission = true;
                     }
                 }
@@ -1159,6 +1162,9 @@ public class CommandHandler implements CommandExecutor {
                 }
                 else if (corecommand.equals("reload")) {
                     ReloadCommand.runCommand(user, permission, argumentArray);
+                }
+                else if (corecommand.equals("consumer")) {
+                    ConsumerCommand.runCommand(user, permission, argumentArray);
                 }
                 else {
                     Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.COMMAND_NOT_FOUND, Color.WHITE, "/co " + corecommand));

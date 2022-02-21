@@ -109,7 +109,7 @@ public class ItemMetaHandler {
         return result.toString();
     }
 
-    public static List<List<Map<String, Object>>> seralize(ItemStack item, Material type, int slot) {
+    public static List<List<Map<String, Object>>> seralize(ItemStack item, Material type, String faceData, int slot) {
         List<List<Map<String, Object>>> metadata = new ArrayList<>();
         List<Map<String, Object>> list = new ArrayList<>();
         List<Object> modifiers = new ArrayList<>();
@@ -210,7 +210,7 @@ public class ItemMetaHandler {
                     list = new ArrayList<>();
 
                     for (ItemStack chargedProjectile : subMeta.getChargedProjectiles()) {
-                        Map<String, Object> itemMap = Util.serializeItemStack(chargedProjectile, slot);
+                        Map<String, Object> itemMap = Util.serializeItemStack(chargedProjectile, null, slot);
                         if (itemMap.size() > 0) {
                             list.add(itemMap);
                         }
@@ -241,6 +241,14 @@ public class ItemMetaHandler {
         if (type != null && type.equals(Material.ARMOR_STAND)) {
             Map<String, Object> meta = new HashMap<>();
             meta.put("slot", slot);
+            list = new ArrayList<>();
+            list.add(meta);
+            metadata.add(list);
+        }
+
+        if (faceData != null && faceData.length() > 0) {
+            Map<String, Object> meta = new HashMap<>();
+            meta.put("facing", faceData);
             list = new ArrayList<>();
             list.add(meta);
             metadata.add(list);

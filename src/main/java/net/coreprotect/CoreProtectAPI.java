@@ -16,6 +16,8 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 
+import net.coreprotect.api.QueueLookup;
+import net.coreprotect.api.SessionLookup;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
@@ -42,8 +44,18 @@ public class CoreProtectAPI extends Queue {
 
         public String getActionString() {
             int actionID = Integer.parseInt(parse[7]);
-            String result = "unknown";
+            if (parse.length < 13 && Integer.parseInt(parse[6]) == SessionLookup.ID) {
+                switch (actionID) {
+                    case 0:
+                        return "logout";
+                    case 1:
+                        return "login";
+                    default:
+                        return "unknown";
+                }
+            }
 
+            String result = "unknown";
             if (actionID == 0) {
                 result = "break";
             }
@@ -79,6 +91,10 @@ public class CoreProtectAPI extends Queue {
         }
 
         public Material getType() {
+            if (parse.length < 13) {
+                return null;
+            }
+
             int actionID = this.getActionId();
             int type = Integer.parseInt(parse[5]);
             String typeName;
@@ -95,8 +111,12 @@ public class CoreProtectAPI extends Queue {
         }
 
         public BlockData getBlockData() {
+            if (parse.length < 13) {
+                return null;
+            }
+
             String blockData = parse[12];
-            if (blockData.length() == 0) {
+            if (blockData == null || blockData.length() == 0) {
                 return getType().createBlockData();
             }
             return Bukkit.getServer().createBlockData(blockData);
@@ -115,11 +135,15 @@ public class CoreProtectAPI extends Queue {
         }
 
         public boolean isRolledBack() {
-            return Integer.parseInt(parse[8]) == 1;
+            if (parse.length < 13) {
+                return false;
+            }
+
+            return (Integer.parseInt(parse[8]) == 1 || Integer.parseInt(parse[8]) == 3);
         }
 
         public String worldName() {
-            return Util.getWorldName(Integer.parseInt(parse[9]));
+            return Util.getWorldName(Integer.parseInt(parse.length < 13 ? parse[5] : parse[9]));
         }
     }
 
@@ -150,6 +174,14 @@ public class CoreProtectAPI extends Queue {
             return BlockLookupAPI.performLookup(block, time);
         }
         return null;
+    }
+
+    public List<String[]> queueLookup(Block block) {
+        return QueueLookup.performLookup(block);
+    }
+
+    public List<String[]> sessionLookup(String user, int time) {
+        return SessionLookup.performLookup(user, time);
     }
 
     public boolean hasPlaced(String user, Block block, int time, int offset) {
@@ -232,7 +264,7 @@ public class CoreProtectAPI extends Queue {
         if (Config.getGlobal().API_ENABLED) {
             if (user != null && location != null) {
                 if (user.length() > 0) {
-                    Queue.queuePlayerInteraction(user, location.getBlock().getState());
+                    Queue.queuePlayerInteraction(user, location.getBlock().getState(), location.getBlock().getType());
                     return true;
                 }
             }

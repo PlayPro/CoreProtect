@@ -9,6 +9,7 @@ import java.util.Map;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.entity.ItemFrame;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -31,11 +32,18 @@ public class ContainerLogger extends Queue {
     public static void log(PreparedStatement preparedStmtContainer, PreparedStatement preparedStmtItems, int batchCount, String player, Material type, Object container, Location location) {
         try {
             ItemStack[] contents = null;
-            if (type.equals(Material.ARMOR_STAND)) {
+            String faceData = null;
+
+            if (type == Material.ARMOR_STAND) {
                 EntityEquipment equipment = (EntityEquipment) container;
                 if (equipment != null) {
                     contents = Util.getArmorStandContents(equipment);
                 }
+            }
+            else if (type == Material.ITEM_FRAME) {
+                ItemFrame itemFrame = (ItemFrame) container;
+                contents = Util.getItemFrameItem(itemFrame);
+                faceData = itemFrame.getFacing().name();
             }
             else {
                 Inventory inventory = (Inventory) container;
@@ -133,8 +141,8 @@ public class ContainerLogger extends Queue {
             Util.mergeItems(type, newInventory);
 
             if (type != Material.ENDER_CHEST) {
-                logTransaction(preparedStmtContainer, batchCount, player, type, oldInventory, 0, location);
-                logTransaction(preparedStmtContainer, batchCount, player, type, newInventory, 1, location);
+                logTransaction(preparedStmtContainer, batchCount, player, type, faceData, oldInventory, 0, location);
+                logTransaction(preparedStmtContainer, batchCount, player, type, faceData, newInventory, 1, location);
             }
             else { // pass ender chest transactions to item logger
                 ItemLogger.logTransaction(preparedStmtItems, batchCount, player, location, oldInventory, ItemLogger.ITEM_REMOVE_ENDER);
@@ -149,7 +157,7 @@ public class ContainerLogger extends Queue {
         }
     }
 
-    protected static void logTransaction(PreparedStatement preparedStmt, int batchCount, String user, Material type, ItemStack[] items, int action, Location location) {
+    protected static void logTransaction(PreparedStatement preparedStmt, int batchCount, String user, Material type, String faceData, ItemStack[] items, int action, Location location) {
         try {
             if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {
                 return;
@@ -159,7 +167,7 @@ public class ContainerLogger extends Queue {
                 if (item != null) {
                     if (item.getAmount() > 0 && !Util.isAir(item.getType())) {
                         // Object[] metadata = new Object[] { slot, item.getItemMeta() };
-                        List<List<Map<String, Object>>> metadata = ItemMetaHandler.seralize(item, type, slot);
+                        List<List<Map<String, Object>>> metadata = ItemMetaHandler.seralize(item, type, faceData, slot);
                         if (metadata.size() == 0) {
                             metadata = null;
                         }

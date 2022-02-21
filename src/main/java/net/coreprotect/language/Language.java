@@ -38,8 +38,11 @@ public class Language {
         phrases.put(Phrase.CACHE_ERROR, "WARNING: Error while validating {0} cache.");
         phrases.put(Phrase.CACHE_RELOAD, "Forcing reload of {mapping|world} caches from database.");
         phrases.put(Phrase.CHECK_CONFIG, "Please check config.yml");
+        phrases.put(Phrase.COMMAND_CONSOLE, "Please run the command from the console.");
         phrases.put(Phrase.COMMAND_NOT_FOUND, "Command \"{0}\" not found.");
         phrases.put(Phrase.COMMAND_THROTTLED, "Please wait a moment and try again.");
+        phrases.put(Phrase.CONSUMER_ERROR, "Consumer queue processing already {paused|resumed}.");
+        phrases.put(Phrase.CONSUMER_TOGGLED, "Consumer queue processing has been {paused|resumed}.");
         phrases.put(Phrase.CONTAINER_HEADER, "Container Transactions");
         phrases.put(Phrase.DATABASE_BUSY, "Database busy. Please try again later.");
         phrases.put(Phrase.DATABASE_INDEX_ERROR, "Unable to validate database indexes.");
@@ -142,7 +145,6 @@ public class Language {
         phrases.put(Phrase.LOOKUP_STORAGE, "{0} {deposited|withdrew} {1} {2}.");
         phrases.put(Phrase.LOOKUP_TIME, "{0} ago");
         phrases.put(Phrase.LOOKUP_USERNAME, "{0} logged in as {1}.");
-        phrases.put(Phrase.LOOKUP_VIEW_PAGE, "To view a page, type \"{0}\".");
         phrases.put(Phrase.MAXIMUM_RADIUS, "The maximum {lookup|rollback|restore} radius is {0}.");
         phrases.put(Phrase.MISSING_ACTION_USER, "To use that action, please specify a user.");
         phrases.put(Phrase.MISSING_LOOKUP_TIME, "Please specify the amount of time to {lookup|rollback|restore}.");
@@ -168,8 +170,8 @@ public class Language {
         phrases.put(Phrase.PLEASE_SELECT, "Please select: \"{0}\" or \"{1}\".");
         phrases.put(Phrase.PREVIEW_CANCELLED, "Preview cancelled.");
         phrases.put(Phrase.PREVIEW_CANCELLING, "Cancelling preview...");
-        phrases.put(Phrase.PREVIEW_CONTAINER, "You can't preview container transactions.");
         phrases.put(Phrase.PREVIEW_IN_GAME, "You can only preview rollbacks in-game.");
+        phrases.put(Phrase.PREVIEW_TRANSACTION, "You can't preview {container|inventory} transactions.");
         phrases.put(Phrase.PURGE_ABORTED, "Purge failed. Database may be corrupt.");
         phrases.put(Phrase.PURGE_ERROR, "Unable to process {0} data!");
         phrases.put(Phrase.PURGE_FAILED, "Purge failed. Please try again later.");
@@ -218,6 +220,7 @@ public class Language {
         phrases.put(Phrase.UPDATE_NOTICE, "Notice: {0} is now available.");
         phrases.put(Phrase.UPGRADE_IN_PROGRESS, "Upgrade in progress. Please try again later.");
         phrases.put(Phrase.USER_NOT_FOUND, "User \"{0}\" not found.");
+        phrases.put(Phrase.USER_OFFLINE, "The user \"{0}\" is not online.");
         phrases.put(Phrase.USING_MYSQL, "Using MySQL for data storage.");
         phrases.put(Phrase.USING_SQLITE, "Using SQLite for data storage.");
         phrases.put(Phrase.VALID_DONATION_KEY, "Valid donation key.");

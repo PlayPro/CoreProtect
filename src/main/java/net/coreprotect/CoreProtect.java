@@ -4,6 +4,7 @@ import java.io.File;
 
 import org.bstats.bukkit.MetricsLite;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -17,6 +18,7 @@ import net.coreprotect.database.Database;
 import net.coreprotect.language.Language;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.ListenerHandler;
+import net.coreprotect.listener.player.PlayerQuitListener;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.NetworkHandler;
 import net.coreprotect.utility.Chat;
@@ -158,6 +160,13 @@ public final class CoreProtect extends JavaPlugin {
 
     private static void safeShutdown(CoreProtect plugin) {
         try {
+            /* if server is stopping, log disconnections of online players */
+            if (plugin.getServer().isStopping()) {
+                for (Player player : plugin.getServer().getOnlinePlayers()) {
+                    PlayerQuitListener.queuePlayerQuit(player);
+                }
+            }
+
             ConfigHandler.serverRunning = false;
             long shutdownTime = System.currentTimeMillis();
             long alertTime = shutdownTime + (10 * 1000);

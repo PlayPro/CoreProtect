@@ -57,7 +57,7 @@ public class Queue {
         Consumer.consumer.get(currentConsumer).add(data);
     }
 
-    private static void queueStandardData(int consumerId, int currentConsumer, String[] user, Object object) {
+    private static synchronized void queueStandardData(int consumerId, int currentConsumer, String[] user, Object object) {
         Consumer.consumerUsers.get(currentConsumer).put(consumerId, user);
         Consumer.consumerObjects.get(currentConsumer).put(consumerId, object);
         Consumer.consumer_id.put(currentConsumer, new Integer[] { Consumer.consumer_id.get(currentConsumer)[0], 0 });
@@ -216,18 +216,6 @@ public class Queue {
         queueStandardData(consumerId, currentConsumer, new String[] { user, null }, location);
     }
 
-    protected static void queueContainerRollbackUpdate(String user, Location location, List<Object[]> list, int action) {
-        if (location == null) {
-            location = new Location(Bukkit.getServer().getWorlds().get(0), 0, 0, 0);
-        }
-
-        int currentConsumer = Consumer.currentConsumer;
-        int consumerId = Consumer.newConsumerId(currentConsumer);
-        addConsumer(currentConsumer, new Object[] { consumerId, Process.CONTAINER_ROLLBACK_UPDATE, null, 0, null, 0, action, null });
-        Consumer.consumerObjectArrayList.get(currentConsumer).put(consumerId, list);
-        queueStandardData(consumerId, currentConsumer, new String[] { user, null }, location);
-    }
-
     protected static synchronized void queueContainerTransaction(String user, Location location, Material type, Object inventory, int chestId) {
         int currentConsumer = Consumer.currentConsumer;
         int consumerId = Consumer.newConsumerId(currentConsumer);
@@ -265,20 +253,6 @@ public class Queue {
         queueStandardData(consumerId, currentConsumer, new String[] { user, null }, new Object[] { block, type });
     }
 
-    protected static void queueHangingRemove(String user, BlockState block, int delay) {
-        int currentConsumer = Consumer.currentConsumer;
-        int consumerId = Consumer.newConsumerId(currentConsumer);
-        addConsumer(currentConsumer, new Object[] { consumerId, Process.HANGING_REMOVE, null, 0, null, 0, delay, null });
-        queueStandardData(consumerId, currentConsumer, new String[] { user, null }, block);
-    }
-
-    protected static void queueHangingSpawn(String user, BlockState block, Material type, int data, int delay) {
-        int currentConsumer = Consumer.currentConsumer;
-        int consumerId = Consumer.newConsumerId(currentConsumer);
-        addConsumer(currentConsumer, new Object[] { consumerId, Process.HANGING_SPAWN, type, data, null, 0, delay, null });
-        queueStandardData(consumerId, currentConsumer, new String[] { user, null }, block);
-    }
-
     protected static void queueMaterialInsert(int id, String name) {
         int currentConsumer = Consumer.currentConsumer;
         int consumerId = Consumer.newConsumerId(currentConsumer);
@@ -293,7 +267,7 @@ public class Queue {
         queueStandardData(consumerId, currentConsumer, new String[] { null, null }, data);
     }
 
-    protected static void queueNaturalBlockBreak(String user, BlockState block, Block relative, Material type, int data) {
+    protected static void queueNaturalBlockBreak(String user, BlockState block, Block relative, Material type, String blockData, int data) {
         List<BlockState> blockStates = new ArrayList<>();
         if (relative != null) {
             blockStates.add(relative.getState());
@@ -301,7 +275,7 @@ public class Queue {
 
         int currentConsumer = Consumer.currentConsumer;
         int consumerId = Consumer.newConsumerId(currentConsumer);
-        addConsumer(currentConsumer, new Object[] { consumerId, Process.NATURAL_BLOCK_BREAK, type, data, null, 0, 0, null });
+        addConsumer(currentConsumer, new Object[] { consumerId, Process.NATURAL_BLOCK_BREAK, type, data, null, 0, 0, blockData });
         Consumer.consumerBlockList.get(currentConsumer).put(consumerId, blockStates);
         queueStandardData(consumerId, currentConsumer, new String[] { user, null }, block);
     }
@@ -322,10 +296,10 @@ public class Queue {
         queueStandardData(consumerId, currentConsumer, new String[] { player.getName(), null }, new Object[] { timestamp, player.getLocation().clone() });
     }
 
-    protected static void queuePlayerInteraction(String user, BlockState block) {
+    protected static void queuePlayerInteraction(String user, BlockState block, Material type) {
         int currentConsumer = Consumer.currentConsumer;
         int consumerId = Consumer.newConsumerId(currentConsumer);
-        addConsumer(currentConsumer, new Object[] { consumerId, Process.PLAYER_INTERACTION, null, 0, null, 0, 0, null });
+        addConsumer(currentConsumer, new Object[] { consumerId, Process.PLAYER_INTERACTION, type, 0, null, 0, 0, null });
         queueStandardData(consumerId, currentConsumer, new String[] { user, null }, block);
     }
 
@@ -352,13 +326,14 @@ public class Queue {
         queueStandardData(consumerId, currentConsumer, new String[] { player.getName(), null }, player.getLocation().clone());
     }
 
-    protected static void queueRollbackUpdate(String user, Location location, List<Object[]> list, int action) {
+    protected static void queueRollbackUpdate(String user, Location location, List<Object[]> list, int table, int action) {
         if (location == null) {
             location = new Location(Bukkit.getServer().getWorlds().get(0), 0, 0, 0);
         }
+
         int currentConsumer = Consumer.currentConsumer;
         int consumerId = Consumer.newConsumerId(currentConsumer);
-        addConsumer(currentConsumer, new Object[] { consumerId, Process.ROLLBACK_UPDATE, null, 0, null, 0, action, null });
+        addConsumer(currentConsumer, new Object[] { consumerId, table, null, 0, null, 0, action, null });
         Consumer.consumerObjectArrayList.get(currentConsumer).put(consumerId, list);
         queueStandardData(consumerId, currentConsumer, new String[] { user, null }, location);
     }

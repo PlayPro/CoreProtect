@@ -9,6 +9,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.Sign;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -19,6 +20,8 @@ public interface BukkitInterface {
     public Material getBucketContents(Material material);
 
     public Material getFrameType(Entity entity);
+
+    public Material getFrameType(EntityType type);
 
     public Class<?> getFrameClass(Material material);
 

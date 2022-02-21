@@ -15,6 +15,8 @@ import org.bukkit.event.hanging.HangingBreakEvent;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.Lookup;
+import net.coreprotect.listener.player.PlayerInteractEntityListener;
 import net.coreprotect.utility.Util;
 
 public final class HangingBreakListener extends Queue implements Listener {
@@ -29,6 +31,7 @@ public final class HangingBreakListener extends Queue implements Listener {
             if (cause.equals(HangingBreakEvent.RemoveCause.EXPLOSION) || cause.equals(HangingBreakEvent.RemoveCause.PHYSICS) || cause.equals(HangingBreakEvent.RemoveCause.OBSTRUCTION)) {
                 String causeName = "#explosion";
                 Block attachedBlock = null;
+                boolean logDrops = false;
 
                 if (cause.equals(HangingBreakEvent.RemoveCause.PHYSICS)) {
                     causeName = "#physics";
@@ -41,26 +44,36 @@ public final class HangingBreakListener extends Queue implements Listener {
                     Hanging hangingEntity = (Hanging) entity;
                     BlockFace attached = hangingEntity.getAttachedFace();
                     attachedBlock = hangingEntity.getLocation().getBlock().getRelative(attached);
+                    String removed = Lookup.whoRemovedCache(attachedBlock.getState());
+                    if (removed.length() > 0) {
+                        causeName = removed;
+                        logDrops = true;
+                    }
                 }
 
+                String blockData = null;
                 Material material;
                 int itemData = 0;
                 if (entity instanceof ItemFrame) {
                     material = BukkitAdapter.ADAPTER.getFrameType(entity);
                     ItemFrame itemframe = (ItemFrame) entity;
+                    blockData = "FACING=" + itemframe.getFacing().name();
 
-                    if (itemframe.getItem() != null) {
-                        itemData = Util.getBlockId(itemframe.getItem().getType());
+                    if (!event.isCancelled() && Config.getConfig(entity.getWorld()).ITEM_TRANSACTIONS) {
+                        if (itemframe.getItem().getType() != Material.AIR) {
+                            PlayerInteractEntityListener.queueFrameTransaction(causeName, itemframe, logDrops);
+                        }
                     }
                 }
                 else {
                     material = Material.PAINTING;
                     Painting painting = (Painting) entity;
+                    blockData = "FACING=" + painting.getFacing().name();
                     itemData = Util.getArtId(painting.getArt().toString(), true);
                 }
 
                 if (!event.isCancelled() && Config.getConfig(blockEvent.getWorld()).NATURAL_BREAK) {
-                    Queue.queueNaturalBlockBreak(causeName, blockEvent.getState(), attachedBlock, material, itemData);
+                    Queue.queueNaturalBlockBreak(causeName, blockEvent.getState(), attachedBlock, material, blockData, itemData);
                 }
             }
         }

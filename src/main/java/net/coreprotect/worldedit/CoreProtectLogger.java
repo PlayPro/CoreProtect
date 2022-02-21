@@ -6,7 +6,6 @@ import org.bukkit.inventory.ItemStack;
 
 import com.sk89q.worldedit.WorldEditException;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
-import com.sk89q.worldedit.bukkit.BukkitWorld;
 import com.sk89q.worldedit.extension.platform.Actor;
 import com.sk89q.worldedit.extent.AbstractDelegateExtent;
 import com.sk89q.worldedit.extent.Extent;
@@ -34,10 +33,7 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
 
     @Override
     public <T extends BlockStateHolder<T>> boolean setBlock(BlockVector3 position, T block) throws WorldEditException {
-        if (!(eventWorld instanceof BukkitWorld)) {
-            return eventExtent.setBlock(position, block);
-        }
-        org.bukkit.World world = ((BukkitWorld) eventWorld).getWorld();
+        org.bukkit.World world = BukkitAdapter.adapt(eventWorld);
         if (!Config.getConfig(world).WORLDEDIT) {
             return eventExtent.setBlock(position, block);
         }

@@ -88,7 +88,7 @@ public class InteractionLookup {
                 found = true;
 
                 String rbFormat = "";
-                if (resultRolledBack == 1) {
+                if (resultRolledBack == 1 || resultRolledBack == 3) {
                     rbFormat = Color.STRIKETHROUGH;
                 }
 
@@ -115,7 +115,7 @@ public class InteractionLookup {
             if (found) {
                 if (count > limit) {
                     String pageInfo = Color.WHITE + "-----\n";
-                    pageInfo = pageInfo + Util.getPageNavigation(command, page, totalPages) + "| " + Phrase.build(Phrase.LOOKUP_VIEW_PAGE, Color.WHITE, "/co l <page>") + "\n";
+                    pageInfo = pageInfo + Util.getPageNavigation(command, page, totalPages) + "\n";
                     result = result + pageInfo;
                 }
             }

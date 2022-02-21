@@ -350,7 +350,7 @@ public class EntityUtil {
                                 @SuppressWarnings("unchecked")
                                 List<List<Map<String, Object>>> metadata = (List<List<Map<String, Object>>>) itemMap.get(1);
                                 Object[] populatedStack = Rollback.populateItemStack(result, metadata);
-                                result = (ItemStack) populatedStack[1];
+                                result = (ItemStack) populatedStack[2];
                                 int uses = (int) recipe.get(1);
                                 int maxUses = (int) recipe.get(2);
                                 boolean experienceReward = (boolean) recipe.get(3);
@@ -365,7 +365,7 @@ public class EntityUtil {
                                     @SuppressWarnings("unchecked")
                                     List<List<Map<String, Object>>> itemMetaData = (List<List<Map<String, Object>>>) ingredientMap.get(1);
                                     populatedStack = Rollback.populateItemStack(item, itemMetaData);
-                                    item = (ItemStack) populatedStack[1];
+                                    item = (ItemStack) populatedStack[2];
                                     merchantIngredients.add(item);
                                 }
                                 MerchantRecipe merchantRecipe = new MerchantRecipe(result, uses, maxUses, experienceReward);

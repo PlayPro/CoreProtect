@@ -6,7 +6,6 @@ import java.util.Locale;
 
 import org.bukkit.Location;
 import org.bukkit.entity.Item;
-import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -19,12 +18,12 @@ import net.coreprotect.consumer.Queue;
 
 public final class PlayerDropItemListener extends Queue implements Listener {
 
-    protected static void playerDropItem(Location location, Player player, ItemStack itemStack) {
-        if (itemStack == null) {
+    public static void playerDropItem(Location location, String user, ItemStack itemStack) {
+        if (!Config.getConfig(location.getWorld()).ITEM_DROPS || itemStack == null) {
             return;
         }
 
-        String loggingItemId = player.getName().toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+        String loggingItemId = user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
         int itemId = getItemId(loggingItemId);
 
         List<ItemStack> list = ConfigHandler.itemsDrop.getOrDefault(loggingItemId, new ArrayList<>());
@@ -32,20 +31,14 @@ public final class PlayerDropItemListener extends Queue implements Listener {
         ConfigHandler.itemsDrop.put(loggingItemId, list);
 
         int time = (int) (System.currentTimeMillis() / 1000L) + 1;
-        Queue.queueItemTransaction(player.getName(), location.clone(), time, itemId);
+        Queue.queueItemTransaction(user, location.clone(), time, itemId);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     protected void onPlayerDropItem(PlayerDropItemEvent event) {
         Item item = event.getItemDrop();
-        Location location = item.getLocation();
-        if (!Config.getConfig(location.getWorld()).ITEM_DROPS) {
-            return;
-        }
-
-        Player player = event.getPlayer();
         ItemStack itemStack = item.getItemStack();
-        playerDropItem(location, player, itemStack);
+        playerDropItem(item.getLocation(), event.getPlayer().getName(), itemStack);
     }
 
 }

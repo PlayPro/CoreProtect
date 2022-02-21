@@ -59,7 +59,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
                 BlockState blockState = location.getBlock().getState();
                 Material type = blockState.getType();
 
-                if (BlockGroup.CONTAINERS.contains(type)) {
+                if (BlockGroup.CONTAINERS.contains(type) && blockState instanceof InventoryHolder) {
                     InventoryHolder inventoryHolder = (InventoryHolder) blockState;
                     return onInventoryInteract(user, inventoryHolder.getInventory(), inventoryData, null, location, false);
                 }

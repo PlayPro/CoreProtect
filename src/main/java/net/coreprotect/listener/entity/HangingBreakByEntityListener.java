@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.Statement;
 import java.util.Locale;
 
+import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.block.BlockState;
 import org.bukkit.entity.Entity;
@@ -22,6 +23,7 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.lookup.BlockLookup;
 import net.coreprotect.language.Phrase;
+import net.coreprotect.listener.player.PlayerInteractEntityListener;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
@@ -33,6 +35,28 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
         class BasicThread implements Runnable {
             @Override
             public void run() {
+                if (!player.hasPermission("coreprotect.inspect")) {
+                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
+                    ConfigHandler.inspecting.put(player.getName(), false);
+                    return;
+                }
+                if (ConfigHandler.converterRunning) {
+                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
+                    return;
+                }
+                if (ConfigHandler.purgeRunning) {
+                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
+                    return;
+                }
+                if (ConfigHandler.lookupThrottle.get(player.getName()) != null) {
+                    Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
+                    if ((boolean) lookupThrottle[0] || ((System.currentTimeMillis() - (long) lookupThrottle[1])) < 100) {
+                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
+                        return;
+                    }
+                }
+                ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
+
                 try (Connection connection = Database.getConnection(true)) {
                     if (connection != null) {
                         Statement statement = connection.createStatement();
@@ -56,6 +80,8 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
                 catch (Exception e) {
                     e.printStackTrace();
                 }
+
+                ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
             }
         }
         Runnable runnable = new BasicThread();
@@ -68,6 +94,7 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
         Entity entity = event.getEntity();
         Entity remover = event.getRemover();
         BlockState blockEvent = event.getEntity().getLocation().getBlock().getState();
+        boolean logDrops = true;
 
         boolean inspecting = false;
         if (event.getRemover() instanceof Player) {
@@ -89,30 +116,36 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
                 if (remover instanceof Player) {
                     Player player = (Player) remover;
                     culprit = player.getName();
+                    logDrops = player.getGameMode() != GameMode.CREATIVE;
                 }
                 else if (remover.getType() != null) {
                     culprit = "#" + remover.getType().name().toLowerCase(Locale.ROOT);
                 }
             }
 
+            String blockData = null;
             Material material;
             int itemData = 0;
             if (entity instanceof ItemFrame) {
                 material = BukkitAdapter.ADAPTER.getFrameType(entity);
                 ItemFrame itemframe = (ItemFrame) entity;
+                blockData = "FACING=" + itemframe.getFacing().name();
 
-                if (itemframe.getItem() != null) {
-                    itemData = Util.getBlockId(itemframe.getItem().getType());
+                if (!event.isCancelled() && Config.getConfig(entity.getWorld()).ITEM_TRANSACTIONS && !inspecting) {
+                    if (itemframe.getItem().getType() != Material.AIR) {
+                        PlayerInteractEntityListener.queueFrameTransaction(culprit, itemframe, logDrops);
+                    }
                 }
             }
             else {
                 material = Material.PAINTING;
                 Painting painting = (Painting) entity;
+                blockData = "FACING=" + painting.getFacing().name();
                 itemData = Util.getArtId(painting.getArt().toString(), true);
             }
 
             if (!event.isCancelled() && Config.getConfig(blockEvent.getWorld()).BLOCK_BREAK && !inspecting) {
-                Queue.queueBlockBreak(culprit, blockEvent, material, null, itemData);
+                Queue.queueBlockBreak(culprit, blockEvent, material, blockData, itemData);
             }
         }
     }

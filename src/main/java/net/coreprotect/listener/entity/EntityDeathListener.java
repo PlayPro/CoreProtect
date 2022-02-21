@@ -317,7 +317,7 @@ public final class EntityDeathListener extends Queue implements Listener {
                             List<Object> ingredients = new ArrayList<>();
                             List<Object> itemMap = new ArrayList<>();
                             ItemStack item = merchantRecipe.getResult().clone();
-                            List<List<Map<String, Object>>> metadata = ItemMetaHandler.seralize(item, item.getType(), 0);
+                            List<List<Map<String, Object>>> metadata = ItemMetaHandler.seralize(item, item.getType(), null, 0);
                             item.setItemMeta(null);
                             itemMap.add(item.serialize());
                             itemMap.add(metadata);
@@ -329,7 +329,7 @@ public final class EntityDeathListener extends Queue implements Listener {
                             for (ItemStack ingredient : merchantRecipe.getIngredients()) {
                                 itemMap = new ArrayList<>();
                                 item = ingredient.clone();
-                                metadata = ItemMetaHandler.seralize(item, item.getType(), 0);
+                                metadata = ItemMetaHandler.seralize(item, item.getType(), null, 0);
                                 item.setItemMeta(null);
                                 itemMap.add(item.serialize());
                                 itemMap.add(metadata);

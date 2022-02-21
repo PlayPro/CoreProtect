@@ -19,9 +19,9 @@ public class PlayerInteractLogger {
         throw new IllegalStateException("Database class");
     }
 
-    public static void log(PreparedStatement preparedStmt, int batchCount, String user, BlockState block) {
+    public static void log(PreparedStatement preparedStmt, int batchCount, String user, BlockState block, Material blockType) {
         try {
-            int type = Util.getBlockId(block.getType().name(), true);
+            int type = Util.getBlockId(blockType.name(), true);
             if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null || Util.getType(type).equals(Material.AIR) || Util.getType(type).equals(Material.CAVE_AIR)) {
                 return;
             }

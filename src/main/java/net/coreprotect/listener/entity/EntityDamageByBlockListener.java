@@ -13,11 +13,10 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByBlockEvent;
 
-import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
-import net.coreprotect.utility.Util;
+import net.coreprotect.listener.player.PlayerInteractEntityListener;
 
 public final class EntityDamageByBlockListener extends Queue implements Listener {
 
@@ -33,7 +32,7 @@ public final class EntityDamageByBlockListener extends Queue implements Listener
             return;
         }
 
-        if (event.isCancelled() || !Config.getConfig(entity.getWorld()).BLOCK_BREAK) {
+        if (event.isCancelled()) {
             return;
         }
 
@@ -43,22 +42,17 @@ public final class EntityDamageByBlockListener extends Queue implements Listener
             user = "#tnt";
         }
 
-        if (entity instanceof ItemFrame) {
-            Material frameType = BukkitAdapter.ADAPTER.getFrameType(entity);
-            ItemFrame frame = (ItemFrame) event.getEntity();
-            int data = 0;
-            if (frame.getItem() != null) {
-                data = Util.getBlockId(frame.getItem().getType());
+        if (entity instanceof ItemFrame && Config.getConfig(entity.getWorld()).ITEM_TRANSACTIONS) {
+            ItemFrame frame = (ItemFrame) entity;
+            if (frame.getItem().getType() != Material.AIR) {
+                PlayerInteractEntityListener.queueFrameTransaction(user, frame, false);
             }
-
-            Queue.queueBlockBreak(user, block.getState(), frameType, null, data);
-            Queue.queueBlockPlace(user, block.getState(), frameType, null, frameType, -1, 0, null);
         }
-        else if (entity instanceof ArmorStand) {
+        else if (entity instanceof ArmorStand && Config.getConfig(entity.getWorld()).BLOCK_BREAK) {
             Database.containerBreakCheck(user, Material.ARMOR_STAND, entity, null, block.getLocation());
             Queue.queueBlockBreak(user, block.getState(), Material.ARMOR_STAND, null, (int) entity.getLocation().getYaw());
         }
-        else if (entity instanceof EnderCrystal) {
+        else if (entity instanceof EnderCrystal && Config.getConfig(entity.getWorld()).BLOCK_BREAK) {
             EnderCrystal crystal = (EnderCrystal) event.getEntity();
             Queue.queueBlockBreak(user, block.getState(), Material.END_CRYSTAL, null, crystal.isShowingBottom() ? 1 : 0);
         }

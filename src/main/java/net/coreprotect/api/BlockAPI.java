@@ -1,4 +1,4 @@
-package net.coreprotect.database.lookup;
+package net.coreprotect.api;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -13,7 +13,7 @@ import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.utility.Util;
 
-public class BlockLookupAPI {
+public class BlockAPI {
 
     public static List<String[]> performLookup(Block block, int offset) {
         List<String[]> result = new ArrayList<>();

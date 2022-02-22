@@ -16,6 +16,7 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 
+import net.coreprotect.api.BlockAPI;
 import net.coreprotect.api.QueueLookup;
 import net.coreprotect.api.SessionLookup;
 import net.coreprotect.config.Config;
@@ -23,7 +24,6 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.Lookup;
 import net.coreprotect.database.Rollback;
-import net.coreprotect.database.lookup.BlockLookupAPI;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.utility.Chat;
@@ -171,7 +171,7 @@ public class CoreProtectAPI extends Queue {
 
     public List<String[]> blockLookup(Block block, int time) {
         if (Config.getGlobal().API_ENABLED) {
-            return BlockLookupAPI.performLookup(block, time);
+            return BlockAPI.performLookup(block, time);
         }
         return null;
     }

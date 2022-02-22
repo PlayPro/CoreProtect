@@ -89,6 +89,7 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new PlayerCommandListener(), plugin);
         pluginManager.registerEvents(new PlayerDeathListener(), plugin);
         pluginManager.registerEvents(new PlayerDropItemListener(), plugin);
+        pluginManager.registerEvents(new PlayerPickupArrowListener(), plugin);
         pluginManager.registerEvents(new FoodLevelChangeListener(), plugin);
         pluginManager.registerEvents(new PlayerInteractEntityListener(), plugin);
         pluginManager.registerEvents(new PlayerJoinListener(), plugin);

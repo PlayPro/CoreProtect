@@ -178,6 +178,16 @@ public class RollbackRestoreCommand {
                 return;
             }
 
+            if (argAction.contains(4) && argAction.contains(11)) { // a:inventory
+                if (argUsers.size() == 0) {
+                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_ACTION_USER));
+                    return;
+                }
+                if (!argExcludeUsers.contains("#hopper")) {
+                    argExcludeUsers.add("#hopper");
+                }
+            }
+
             if (g == 1 && (argUsers.size() > 0 || (argUsers.size() == 0 && argRadius != null))) {
                 Integer MAX_RADIUS = Config.getGlobal().MAX_RADIUS;
                 if (argRadius != null) {
@@ -210,13 +220,10 @@ public class RollbackRestoreCommand {
                     }
                 }
 
-                if (argAction.contains(4) && argAction.contains(11) && !argExcludeUsers.contains("#hopper")) { // a:inventory
-                    argExcludeUsers.add("#hopper");
-                }
-
                 if (argUsers.size() == 0) {
                     argUsers.add("#global");
                 }
+
                 List<String> rollbackusers = argUsers;
                 int c = 0;
                 for (String ruser : rollbackusers) {

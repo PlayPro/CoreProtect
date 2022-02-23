@@ -183,6 +183,12 @@ public class RollbackRestoreCommand {
                     Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_ACTION_USER));
                     return;
                 }
+                if (!argExclude.contains(Material.FIRE)) {
+                    argExclude.add(Material.FIRE);
+                }
+                if (!argExclude.contains(Material.WATER)) {
+                    argExclude.add(Material.WATER);
+                }
                 if (!argExcludeUsers.contains("#hopper")) {
                     argExcludeUsers.add("#hopper");
                 }

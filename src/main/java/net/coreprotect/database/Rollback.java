@@ -1394,8 +1394,14 @@ public class Rollback extends Queue {
 
                 int excludeCount = 0;
                 for (Object excludeTarget : excludeList) {
-                    String targetName = "";
+                    // don't display that excluded water/fire in inventory rollbacks
+                    if (actionList.contains(4) && actionList.contains(11)) {
+                        if (excludeTarget.equals(Material.FIRE) || excludeTarget.equals(Material.WATER)) {
+                            continue;
+                        }
+                    }
 
+                    String targetName = "";
                     if (excludeTarget instanceof Material) {
                         targetName = ((Material) excludeTarget).name().toLowerCase(Locale.ROOT);
                         item = (!item ? !(((Material) excludeTarget).isBlock()) : item);
@@ -1427,7 +1433,9 @@ public class Rollback extends Queue {
                     targetType = Selector.SECOND;
                 }
 
-                Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_INCLUDE, excludeTargets.toString(), Selector.SECOND, targetType, (excludeCount == 1 ? Selector.FIRST : Selector.SECOND))); // exclude
+                if (excludeCount > 0) {
+                    Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_INCLUDE, excludeTargets.toString(), Selector.SECOND, targetType, (excludeCount == 1 ? Selector.FIRST : Selector.SECOND))); // exclude
+                }
             }
 
             if (excludeUserList.size() > 0) {

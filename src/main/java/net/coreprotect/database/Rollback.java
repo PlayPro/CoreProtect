@@ -1689,9 +1689,24 @@ public class Rollback extends Queue {
             */
 
             Material rowType = itemstack.getType();
+            List<Object> metaList = (List<Object>) list;
+            if (!(metaList.get(0) instanceof List<?>)) {
+                if (rowType.name().endsWith("_BANNER")) {
+                    BannerMeta meta = (BannerMeta) itemstack.getItemMeta();
+                    for (Object value : metaList) {
+                        if (value instanceof Map) {
+                            Pattern pattern = new Pattern((Map<String, Object>) value);
+                            meta.addPattern(pattern);
+                        }
+                    }
+                    itemstack.setItemMeta(meta);
+                }
+
+                return new Object[] { slot, faceData, itemstack };
+            }
+
             int itemCount = 0;
             Builder effectBuilder = FireworkEffect.builder();
-
             for (List<Map<String, Object>> map : (List<List<Map<String, Object>>>) list) {
                 if (map.size() == 0) {
                     if (itemCount == 3 && (rowType == Material.FIREWORK_ROCKET || rowType == Material.FIREWORK_STAR)) {

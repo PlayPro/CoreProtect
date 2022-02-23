@@ -1107,7 +1107,6 @@ public class Rollback extends Queue {
                                             containerType = block.getType();
                                         }
                                         else if (BlockGroup.CONTAINERS.contains(Material.ARMOR_STAND) || BlockGroup.CONTAINERS.contains(Material.ITEM_FRAME)) {
-                                            BlockFace blockFace = BlockFace.valueOf(faceData);
                                             for (Entity entity : block.getChunk().getEntities()) {
                                                 if (entity.getLocation().getBlockX() == rowX && entity.getLocation().getBlockY() == rowY && entity.getLocation().getBlockZ() == rowZ) {
                                                     if (entity instanceof ArmorStand) {
@@ -1117,7 +1116,7 @@ public class Rollback extends Queue {
                                                     else if (entity instanceof ItemFrame) {
                                                         container = entity;
                                                         containerType = Material.ITEM_FRAME;
-                                                        if (blockFace == ((ItemFrame) entity).getFacing()) {
+                                                        if (faceData.length() > 0 && (BlockFace.valueOf(faceData) == ((ItemFrame) entity).getFacing())) {
                                                             break;
                                                         }
                                                     }

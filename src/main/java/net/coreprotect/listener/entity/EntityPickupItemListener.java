@@ -33,7 +33,7 @@ public class EntityPickupItemListener extends Queue implements Listener {
         ConfigHandler.itemsPickup.put(loggingItemId, list);
 
         int time = (int) (System.currentTimeMillis() / 1000L) + 1;
-        Queue.queueItemTransaction(player.getName(), location.clone(), time, itemId);
+        Queue.queueItemTransaction(player.getName(), location.clone(), time, 0, itemId);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

@@ -140,6 +140,7 @@ public class Language {
         phrases.put(Phrase.LOOKUP_ITEM, "{0} {picked up|dropped} {1} {2}.");
         phrases.put(Phrase.LOOKUP_LOGIN, "{0} logged {in|out}.");
         phrases.put(Phrase.LOOKUP_PAGE, "Page {0}");
+        phrases.put(Phrase.LOOKUP_PROJECTILE, "{0} {threw|shot} {1} {2}.");
         phrases.put(Phrase.LOOKUP_ROWS_FOUND, "{0} {row|rows} found.");
         phrases.put(Phrase.LOOKUP_SEARCHING, "Lookup searching. Please wait...");
         phrases.put(Phrase.LOOKUP_STORAGE, "{0} {deposited|withdrew} {1} {2}.");

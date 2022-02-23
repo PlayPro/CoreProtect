@@ -224,10 +224,10 @@ public class Queue {
         queueStandardData(consumerId, currentConsumer, new String[] { user, null }, location);
     }
 
-    protected static void queueItemTransaction(String user, Location location, int time, int itemId) {
+    protected static void queueItemTransaction(String user, Location location, int time, int offset, int itemId) {
         int currentConsumer = Consumer.currentConsumer;
         int consumerId = Consumer.newConsumerId(currentConsumer);
-        addConsumer(currentConsumer, new Object[] { consumerId, Process.ITEM_TRANSACTION, null, 0, null, time, itemId, null });
+        addConsumer(currentConsumer, new Object[] { consumerId, Process.ITEM_TRANSACTION, null, offset, null, time, itemId, null });
         queueStandardData(consumerId, currentConsumer, new String[] { user, null }, location);
     }
 

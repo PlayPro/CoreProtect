@@ -41,6 +41,7 @@ import net.coreprotect.listener.player.PlayerInteractListener;
 import net.coreprotect.listener.player.PlayerJoinListener;
 import net.coreprotect.listener.player.PlayerQuitListener;
 import net.coreprotect.listener.player.PlayerTakeLecternBookListener;
+import net.coreprotect.listener.player.ProjectileLaunchListener;
 import net.coreprotect.listener.player.SignChangeListener;
 import net.coreprotect.listener.world.LeavesDecayListener;
 import net.coreprotect.listener.world.PortalCreateListener;
@@ -97,6 +98,7 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new SignChangeListener(), plugin);
         pluginManager.registerEvents(new PlayerInteractListener(), plugin);
         pluginManager.registerEvents(new PlayerTakeLecternBookListener(), plugin);
+        pluginManager.registerEvents(new ProjectileLaunchListener(), plugin);
 
         // World Listeners
         pluginManager.registerEvents(new StructureGrowListener(), plugin);

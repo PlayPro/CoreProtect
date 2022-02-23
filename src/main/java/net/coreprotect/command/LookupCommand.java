@@ -883,6 +883,10 @@ public class LookupCommand {
                                                         selector = (daction == 4 ? Selector.FIRST : Selector.SECOND);
                                                         tag = (daction == 4 ? Color.GREEN + "+" : Color.RED + "-");
                                                     }
+                                                    else if (daction == 6 || daction == 7) { // LOOKUP_PROJECTILE
+                                                        selector = Selector.SECOND;
+                                                        tag = Color.RED + "-";
+                                                    }
                                                     else { // LOOKUP_CONTAINER
                                                         selector = (daction == 0 ? Selector.FIRST : Selector.SECOND);
                                                         tag = (daction == 0 ? Color.GREEN + "+" : Color.RED + "-");
@@ -966,6 +970,12 @@ public class LookupCommand {
                                                             phrase = Phrase.LOOKUP_STORAGE; // {deposited|withdrew}
                                                             selector = (daction != 4 ? Selector.FIRST : Selector.SECOND);
                                                             tag = (daction != 4 ? Color.RED + "-" : Color.GREEN + "+");
+                                                            action = "a:item";
+                                                        }
+                                                        else if (daction == 6 || daction == 7) {
+                                                            phrase = Phrase.LOOKUP_PROJECTILE; // {threw|shot}
+                                                            selector = (daction != 7 ? Selector.FIRST : Selector.SECOND);
+                                                            tag = Color.RED + "-";
                                                             action = "a:item";
                                                         }
                                                         else {

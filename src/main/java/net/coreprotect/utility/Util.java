@@ -801,6 +801,16 @@ public class Util extends Queue {
                 return Material.ITEM_FRAME;
             case ENDER_CRYSTAL:
                 return Material.END_CRYSTAL;
+            case ENDER_PEARL:
+                return Material.ENDER_PEARL;
+            case SPLASH_POTION:
+                return Material.SPLASH_POTION;
+            case THROWN_EXP_BOTTLE:
+                return Material.EXPERIENCE_BOTTLE;
+            case TRIDENT:
+                return Material.TRIDENT;
+            case FIREWORK:
+                return Material.FIREWORK_ROCKET;
             default:
                 return BukkitAdapter.ADAPTER.getFrameType(type);
         }

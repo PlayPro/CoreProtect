@@ -475,12 +475,16 @@ public class Lookup extends Queue {
                             if (actionTarget == ItemLogger.ITEM_ADD) {
                                 actionText.append(",").append(ItemLogger.ITEM_DROP);
                                 actionText.append(",").append(ItemLogger.ITEM_ADD_ENDER);
+                                actionText.append(",").append(ItemLogger.ITEM_THROW);
+                                actionText.append(",").append(ItemLogger.ITEM_SHOOT);
                             }
                         }
                         // If just looking up drops/pickups, include ender chest transactions
                         else if (actionList.contains(11) && !actionList.contains(4)) {
                             if (actionTarget == ItemLogger.ITEM_DROP) {
                                 actionText.append(",").append(ItemLogger.ITEM_ADD_ENDER);
+                                actionText.append(",").append(ItemLogger.ITEM_THROW);
+                                actionText.append(",").append(ItemLogger.ITEM_SHOOT);
                             }
                             if (actionTarget == ItemLogger.ITEM_PICKUP) {
                                 actionText.append(",").append(ItemLogger.ITEM_REMOVE_ENDER);

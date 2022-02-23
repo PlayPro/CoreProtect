@@ -13,15 +13,18 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.block.BlockIgniteEvent.IgniteCause;
+import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.logger.ItemLogger;
+import net.coreprotect.listener.player.ProjectileLaunchListener;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.Util;
 
-public final class BlockIgniteListener extends Queue implements Listener {
+public final class BlockIgniteListener extends ProjectileLaunchListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onBlockIgnite(BlockIgniteEvent event) {
@@ -77,6 +80,10 @@ public final class BlockIgniteListener extends Queue implements Listener {
                 Queue.queueBlockPlace("#fire", block.getState(), block.getType(), replacedBlock, blockIgnited, -1, 0, forceBlockData.getAsString());
             }
             else {
+                if (event.getCause() == IgniteCause.FIREBALL) {
+                    playerLaunchProjectile(event.getPlayer().getLocation(), event.getPlayer().getName(), new ItemStack(Material.FIRE_CHARGE), 1, -1, 1, ItemLogger.ITEM_THROW);
+                }
+
                 Player player = event.getPlayer();
                 Queue.queueBlockPlace(player.getName(), block.getState(), block.getType(), replacedBlock, blockIgnited, -1, 0, forceBlockData.getAsString());
                 int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);

@@ -18,7 +18,7 @@ import net.coreprotect.consumer.Queue;
 
 public final class PlayerDropItemListener extends Queue implements Listener {
 
-    public static void playerDropItem(Location location, String user, ItemStack itemStack) {
+    protected static void playerDropItem(Location location, String user, ItemStack itemStack) {
         if (!Config.getConfig(location.getWorld()).ITEM_DROPS || itemStack == null) {
             return;
         }
@@ -31,7 +31,7 @@ public final class PlayerDropItemListener extends Queue implements Listener {
         ConfigHandler.itemsDrop.put(loggingItemId, list);
 
         int time = (int) (System.currentTimeMillis() / 1000L) + 1;
-        Queue.queueItemTransaction(user, location.clone(), time, itemId);
+        Queue.queueItemTransaction(user, location.clone(), time, 0, itemId);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

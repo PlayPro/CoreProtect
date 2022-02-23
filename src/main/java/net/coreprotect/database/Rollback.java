@@ -1037,6 +1037,7 @@ public class Rollback extends Queue {
                             int rolledBackInventory = Util.rolledBack((Integer) row[9], true);
                             if (rowType != null) {
                                 if (inventoryRollback && ((rollbackType == 0 && rolledBackInventory == 0) || (rollbackType == 1 && rolledBackInventory == 1))) {
+                                    Material inventoryItem = Util.itemFilter(rowType);
                                     int rowUserId = (Integer) row[2];
                                     String rowUser = ConfigHandler.playerIdCacheReversed.get(rowUserId);
                                     if (rowUser == null) {
@@ -1065,7 +1066,7 @@ public class Rollback extends Queue {
                                     }
 
                                     int action = rollbackType == 0 ? (inventoryAction ^ 1) : inventoryAction;
-                                    ItemStack itemstack = new ItemStack(rowType, rowAmount, (short) rowData);
+                                    ItemStack itemstack = new ItemStack(inventoryItem, rowAmount, (short) rowData);
                                     Object[] populatedStack = populateItemStack(itemstack, rowMetadata);
                                     if (rowAction == ItemLogger.ITEM_REMOVE_ENDER || rowAction == ItemLogger.ITEM_ADD_ENDER) {
                                         modifyContainerItems(containerType, player.getEnderChest(), (Integer) populatedStack[0], ((ItemStack) populatedStack[2]).clone(), action ^ 1);

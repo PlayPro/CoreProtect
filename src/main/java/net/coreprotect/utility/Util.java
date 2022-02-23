@@ -1105,6 +1105,18 @@ public class Util extends Queue {
         Chat.sendComponent(consoleSender, Color.RESET + "[CoreProtect] " + string + Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_POPUP + "| | " + Chat.COMPONENT_TAG_CLOSE);
     }
 
+    public static Material itemFilter(Material material) {
+        if (material == null) {
+            return material;
+        }
+
+        if (!material.isItem() && material.name().contains("WALL_")) {
+            material = Material.valueOf(material.name().replace("WALL_", ""));
+        }
+
+        return material;
+    }
+
     public static String nameFilter(String name, int data) {
         if (name.equals("stone")) {
             switch (data) {

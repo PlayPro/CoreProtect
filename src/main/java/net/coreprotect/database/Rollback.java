@@ -32,6 +32,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.CommandBlock;
 import org.bukkit.block.CreatureSpawner;
+import org.bukkit.block.ShulkerBox;
 import org.bukkit.block.banner.Pattern;
 import org.bukkit.block.data.Bisected;
 import org.bukkit.block.data.Bisected.Half;
@@ -62,6 +63,7 @@ import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BannerMeta;
+import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.CrossbowMeta;
 import org.bukkit.inventory.meta.FireworkEffectMeta;
 import org.bukkit.inventory.meta.FireworkMeta;
@@ -1704,7 +1706,7 @@ public class Rollback extends Queue {
 
             Material rowType = itemstack.getType();
             List<Object> metaList = (List<Object>) list;
-            if (!(metaList.get(0) instanceof List<?>)) {
+            if (metaList.size() > 0 && !(metaList.get(0) instanceof List<?>)) {
                 if (rowType.name().endsWith("_BANNER")) {
                     BannerMeta meta = (BannerMeta) itemstack.getItemMeta();
                     for (Object value : metaList) {
@@ -1713,6 +1715,18 @@ public class Rollback extends Queue {
                             meta.addPattern(pattern);
                         }
                     }
+                    itemstack.setItemMeta(meta);
+                }
+                else if (BlockGroup.SHULKER_BOXES.contains(rowType)) {
+                    BlockStateMeta meta = (BlockStateMeta) itemstack.getItemMeta();
+                    ShulkerBox shulkerBox = (ShulkerBox) meta.getBlockState();
+                    for (Object value : metaList) {
+                        ItemStack item = Util.unserializeItemStackLegacy(value);
+                        if (item != null) {
+                            shulkerBox.getInventory().addItem(item);
+                        }
+                    }
+                    meta.setBlockState(shulkerBox);
                     itemstack.setItemMeta(meta);
                 }
 

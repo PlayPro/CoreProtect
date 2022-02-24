@@ -719,7 +719,7 @@ public class Rollback extends Queue {
                                                     int worldMinHeight = BukkitAdapter.ADAPTER.getMinHeight(bukkitWorld);
                                                     if (bisectLocation.getBlockY() >= worldMinHeight && bisectLocation.getBlockY() < worldMaxHeight) {
                                                         Block bisectBlock = block.getWorld().getBlockAt(bisectLocation);
-                                                        Util.prepareTypeAndData(chunkChanges, bisectBlock, rowType, null, physics);
+                                                        Util.prepareTypeAndData(chunkChanges, bisectBlock, rowType, null, false);
 
                                                         if (countBlock) {
                                                             blockCount1++;

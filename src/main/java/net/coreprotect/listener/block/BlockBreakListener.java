@@ -22,6 +22,7 @@ import org.bukkit.block.data.MultipleFacing;
 import org.bukkit.block.data.Rail;
 import org.bukkit.block.data.Rail.Shape;
 import org.bukkit.block.data.Waterlogged;
+import org.bukkit.block.data.type.Bed;
 import org.bukkit.block.data.type.Bell;
 import org.bukkit.block.data.type.Lantern;
 import org.bukkit.enchantments.Enchantment;
@@ -46,8 +47,10 @@ public final class BlockBreakListener extends Queue implements Listener {
         if (blockData instanceof Directional && !(blockData instanceof Bisected) && scanMin != BlockUtil.BOTTOM && scanMin != BlockUtil.TOP) {
             Directional directional = (Directional) blockData;
             BlockFace blockFace = directional.getFacing();
-            boolean adjacent = scanBlock.getRelative(blockFace.getOppositeFace()).getLocation().equals(block.getLocation());
-            return adjacent;
+            if (blockData instanceof Bed) {
+                blockFace = ((Bed) blockData).getPart() == Bed.Part.FOOT ? blockFace.getOppositeFace() : blockFace;
+            }
+            return scanBlock.getRelative(blockFace.getOppositeFace()).getLocation().equals(block.getLocation());
         }
         else if (blockData instanceof MultipleFacing) {
             MultipleFacing multipleFacing = (MultipleFacing) blockData;
@@ -119,10 +122,6 @@ public final class BlockBreakListener extends Queue implements Listener {
 
             if (scanMin < 7) {
                 Location scanLocation = locationMap[scanMin - 1];
-                if (scanMin == 4 && (type == Material.IRON_DOOR || BlockGroup.DOORS.contains(type))) { // required for doors
-                    scanLocation = locationMap[5];
-                    scanDown = true;
-                }
                 Block scanBlock = world.getBlockAt(scanLocation);
                 Material scanType = scanBlock.getType();
                 if (scanMin == 5) {

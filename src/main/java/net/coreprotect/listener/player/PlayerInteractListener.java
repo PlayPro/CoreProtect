@@ -25,6 +25,8 @@ import org.bukkit.block.data.Bisected.Half;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Lightable;
 import org.bukkit.block.data.Waterlogged;
+import org.bukkit.block.data.type.Bed;
+import org.bukkit.block.data.type.Bed.Part;
 import org.bukkit.block.data.type.Cake;
 import org.bukkit.entity.EnderCrystal;
 import org.bukkit.entity.Entity;
@@ -86,6 +88,13 @@ public final class PlayerInteractListener extends Queue implements Listener {
             if (checkBlockData instanceof Bisected && !(checkBlockData instanceof Waterlogged)) {
                 if (((Bisected) checkBlockData).getHalf().equals(Half.TOP) && y > BukkitAdapter.ADAPTER.getMinHeight(world)) {
                     checkBlock = world.getBlockAt(checkBlock.getX(), checkBlock.getY() - 1, checkBlock.getZ()).getState();
+                }
+            }
+            /* Check if clicking top half of bed */
+            if (checkBlockData instanceof Bed) {
+                Bed bed = (Bed) checkBlockData;
+                if (bed.getPart().equals(Part.HEAD)) {
+                    checkBlock = event.getClickedBlock().getRelative(bed.getFacing().getOppositeFace()).getState();
                 }
             }
 

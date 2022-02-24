@@ -726,6 +726,13 @@ public class Rollback extends Queue {
                                                         }
                                                     }
                                                 }
+                                                else if (changeBlockData instanceof Bed) {
+                                                    Bed bed = (Bed) changeBlockData;
+                                                    if (bed.getPart() == Part.FOOT) {
+                                                        Block adjacentBlock = block.getRelative(bed.getFacing());
+                                                        Util.prepareTypeAndData(chunkChanges, adjacentBlock, rowType, null, false);
+                                                    }
+                                                }
 
                                                 Util.prepareTypeAndData(chunkChanges, block, rowType, null, physics);
                                             }
@@ -817,83 +824,73 @@ public class Rollback extends Queue {
                                         else if ((rowType == Material.NETHER_PORTAL) && rowAction == 0) {
                                             Util.prepareTypeAndData(chunkChanges, block, Material.FIRE, null, true);
                                         }
-                                        else if (rowType == Material.IRON_DOOR || BlockGroup.DOORS.contains(rowType)) {
+                                        else if (blockData == null && rowData > 0 && (rowType == Material.IRON_DOOR || BlockGroup.DOORS.contains(rowType))) {
                                             if (countBlock) {
                                                 blockCount1++;
                                             }
 
-                                            if (blockData != null) {
-                                                Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
+                                            block.setType(rowType, false);
+                                            Door door = (Door) block.getBlockData();
+                                            if (rowData >= 8) {
+                                                door.setHalf(Half.TOP);
+                                                rowData = rowData - 8;
                                             }
                                             else {
-                                                block.setType(rowType, false);
-                                                Door door = (Door) block.getBlockData();
-                                                if (rowData >= 8) {
-                                                    door.setHalf(Half.TOP);
-                                                    rowData = rowData - 8;
-                                                }
-                                                else {
-                                                    door.setHalf(Half.BOTTOM);
-                                                }
-                                                if (rowData >= 4) {
-                                                    door.setHinge(Hinge.RIGHT);
-                                                    rowData = rowData - 4;
-                                                }
-                                                else {
-                                                    door.setHinge(Hinge.LEFT);
-                                                }
-                                                BlockFace face = BlockFace.NORTH;
-
-                                                switch (rowData) {
-                                                    case 0:
-                                                        face = BlockFace.EAST;
-                                                        break;
-                                                    case 1:
-                                                        face = BlockFace.SOUTH;
-                                                        break;
-                                                    case 2:
-                                                        face = BlockFace.WEST;
-                                                        break;
-                                                }
-
-                                                door.setFacing(face);
-                                                door.setOpen(false);
-                                                block.setBlockData(door, false);
+                                                door.setHalf(Half.BOTTOM);
                                             }
+                                            if (rowData >= 4) {
+                                                door.setHinge(Hinge.RIGHT);
+                                                rowData = rowData - 4;
+                                            }
+                                            else {
+                                                door.setHinge(Hinge.LEFT);
+                                            }
+                                            BlockFace face = BlockFace.NORTH;
+
+                                            switch (rowData) {
+                                                case 0:
+                                                    face = BlockFace.EAST;
+                                                    break;
+                                                case 1:
+                                                    face = BlockFace.SOUTH;
+                                                    break;
+                                                case 2:
+                                                    face = BlockFace.WEST;
+                                                    break;
+                                            }
+
+                                            door.setFacing(face);
+                                            door.setOpen(false);
+                                            block.setBlockData(door, false);
                                         }
-                                        else if (rowType.name().endsWith("_BED")) {
+                                        else if (blockData == null && rowData > 0 && (rowType.name().endsWith("_BED"))) {
                                             if (countBlock) {
                                                 blockCount1++;
                                             }
 
-                                            if (blockData != null) {
-                                                Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
+                                            block.setType(rowType, false);
+                                            Bed bed = (Bed) block.getBlockData();
+                                            BlockFace face = BlockFace.NORTH;
+
+                                            if (rowData > 4) {
+                                                bed.setPart(Part.HEAD);
+                                                rowData = rowData - 4;
                                             }
-                                            else {
-                                                block.setType(rowType, false);
-                                                Bed bed = (Bed) block.getBlockData();
-                                                BlockFace face = BlockFace.NORTH;
 
-                                                if (rowData > 4) {
-                                                    bed.setPart(Part.HEAD);
-                                                    rowData = rowData - 4;
-                                                }
-
-                                                switch (rowData) {
-                                                    case 2:
-                                                        face = BlockFace.WEST;
-                                                        break;
-                                                    case 3:
-                                                        face = BlockFace.EAST;
-                                                        break;
-                                                    case 4:
-                                                        face = BlockFace.SOUTH;
-                                                        break;
-                                                }
-
-                                                bed.setFacing(face);
-                                                block.setBlockData(bed, false);
+                                            switch (rowData) {
+                                                case 2:
+                                                    face = BlockFace.WEST;
+                                                    break;
+                                                case 3:
+                                                    face = BlockFace.EAST;
+                                                    break;
+                                                case 4:
+                                                    face = BlockFace.SOUTH;
+                                                    break;
                                             }
+
+                                            bed.setFacing(face);
+                                            block.setBlockData(bed, false);
                                         }
                                         else if (rowType.name().endsWith("_BANNER")) {
                                             Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
@@ -961,6 +958,23 @@ public class Rollback extends Queue {
                                             Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                                             if (countBlock) {
                                                 blockCount1++;
+                                                blockCount1++;
+                                            }
+                                        }
+                                        else if (rowType != Material.AIR && rawBlockData instanceof Bed) {
+                                            Bed bed = (Bed) rawBlockData;
+                                            if (bed.getPart() == Part.FOOT) {
+                                                Block adjacentBlock = block.getRelative(bed.getFacing());
+                                                Bed bedData = (Bed) rawBlockData.clone();
+                                                bedData.setPart(Part.HEAD);
+                                                Util.prepareTypeAndData(chunkChanges, adjacentBlock, rowType, bedData, false);
+                                                if (countBlock) {
+                                                    blockCount1++;
+                                                }
+                                            }
+
+                                            Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, true);
+                                            if (countBlock) {
                                                 blockCount1++;
                                             }
                                         }

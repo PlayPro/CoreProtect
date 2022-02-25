@@ -266,6 +266,7 @@ public class LookupCommand {
         if (argAction.contains(4) && argAction.contains(11)) { // a:inventory
             argExclude.add(Material.FIRE);
             argExclude.add(Material.WATER);
+            argExclude.add(Material.FARMLAND);
             argExcludeUsers.add("#hopper");
         }
 

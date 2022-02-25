@@ -1411,9 +1411,9 @@ public class Rollback extends Queue {
 
                 int excludeCount = 0;
                 for (Object excludeTarget : excludeList) {
-                    // don't display that excluded water/fire in inventory rollbacks
+                    // don't display that excluded water/fire/farmland in inventory rollbacks
                     if (actionList.contains(4) && actionList.contains(11)) {
-                        if (excludeTarget.equals(Material.FIRE) || excludeTarget.equals(Material.WATER)) {
+                        if (excludeTarget.equals(Material.FIRE) || excludeTarget.equals(Material.WATER) || excludeTarget.equals(Material.FARMLAND)) {
                             continue;
                         }
                     }

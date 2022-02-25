@@ -183,15 +183,11 @@ public class RollbackRestoreCommand {
                     Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_ACTION_USER));
                     return;
                 }
-                if (!argExclude.contains(Material.FIRE)) {
-                    argExclude.add(Material.FIRE);
-                }
-                if (!argExclude.contains(Material.WATER)) {
-                    argExclude.add(Material.WATER);
-                }
-                if (!argExcludeUsers.contains("#hopper")) {
-                    argExcludeUsers.add("#hopper");
-                }
+
+                argExclude.add(Material.FIRE);
+                argExclude.add(Material.WATER);
+                argExclude.add(Material.FARMLAND);
+                argExcludeUsers.add("#hopper");
             }
 
             if (g == 1 && (argUsers.size() > 0 || (argUsers.size() == 0 && argRadius != null))) {

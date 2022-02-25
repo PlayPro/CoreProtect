@@ -4,6 +4,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Lightable;
@@ -73,6 +74,52 @@ public final class BlockIgniteListener extends ProjectileLaunchListener implemen
                 if (event.getCause() == IgniteCause.FIREBALL && (blockType == Material.AIR || blockType == Material.CAVE_AIR)) {
                     // Fix bug where fire is recorded as being placed above a campfire (when lit via a fireball from a dispenser)
                     if (BlockGroup.LIGHTABLES.contains(blockBelow)) {
+                        return;
+                    }
+                }
+
+                if (blockIgnited == Material.FIRE && event.getCause() == IgniteCause.LAVA && event.getIgnitingBlock() != null) {
+                    boolean burnableBlock = false;
+                    for (BlockFace face : BlockFace.values()) {
+                        Location blockLocation = block.getLocation();
+                        scanLocation.setX(blockLocation.getX());
+                        scanLocation.setY(blockLocation.getY());
+                        scanLocation.setZ(blockLocation.getZ());
+
+                        switch (face) {
+                            case NORTH:
+                                scanLocation.setZ(scanLocation.getZ() - 1);
+                                break;
+                            case SOUTH:
+                                scanLocation.setZ(scanLocation.getZ() + 1);
+                                break;
+                            case WEST:
+                                scanLocation.setX(scanLocation.getX() - 1);
+                                break;
+                            case EAST:
+                                scanLocation.setX(scanLocation.getX() + 1);
+                                break;
+                            case DOWN:
+                                scanLocation.setY(scanLocation.getY() - 1);
+                                break;
+                            case UP:
+                                scanLocation.setY(scanLocation.getY() + 1);
+                                break;
+                            default:
+                                continue;
+                        }
+
+                        if (scanLocation.getY() < BukkitAdapter.ADAPTER.getMinHeight(world) || scanLocation.getY() >= world.getMaxHeight()) {
+                            continue;
+                        }
+
+                        if (scanLocation.getBlock().getType().isBurnable()) {
+                            burnableBlock = true;
+                            break;
+                        }
+                    }
+
+                    if (!burnableBlock) {
                         return;
                     }
                 }

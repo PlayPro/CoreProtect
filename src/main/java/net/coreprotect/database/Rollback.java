@@ -413,6 +413,9 @@ public class Rollback extends Queue {
                                         }
                                     }
                                 }
+                                else {
+                                    entityCount1++;
+                                }
                             }
                             else if (rowAction == 3) { // entity kill
                                 String world = Util.getWorldName(rowWorldId);
@@ -1488,7 +1491,7 @@ public class Rollback extends Queue {
                 modifiedData = modifiedData.append(Phrase.build(Phrase.AMOUNT_ITEM, NumberFormat.getInstance().format(blockCount), (blockCount == 1 ? Selector.FIRST : Selector.SECOND)));
                 modifyCount++;
             }
-            else if (preview == 0) {
+            else {
                 if (itemCount > 0 || actionList.contains(4)) {
                     modifiedData = modifiedData.append(Phrase.build(Phrase.AMOUNT_ITEM, NumberFormat.getInstance().format(itemCount), (itemCount == 1 ? Selector.FIRST : Selector.SECOND)));
                     modifyCount++;
@@ -1502,17 +1505,13 @@ public class Rollback extends Queue {
                     modifyCount++;
                 }
 
-                if (blockCount > 0 || !actionList.contains(4)) {
+                if (blockCount > 0 || !actionList.contains(4) || preview > 0) {
                     if (modifyCount > 0) {
                         modifiedData.append(", ");
                     }
                     modifiedData.append(Phrase.build(Phrase.AMOUNT_BLOCK, NumberFormat.getInstance().format(blockCount), (blockCount == 1 ? Selector.FIRST : Selector.SECOND)));
                     modifyCount++;
                 }
-            }
-            else if (preview > 0) {
-                modifiedData = modifiedData.append(Phrase.build(Phrase.AMOUNT_BLOCK, NumberFormat.getInstance().format(blockCount), (blockCount == 1 ? Selector.FIRST : Selector.SECOND)));
-                modifyCount++;
             }
 
             StringBuilder modifiedDataVerbose = new StringBuilder();

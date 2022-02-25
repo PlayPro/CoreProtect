@@ -27,6 +27,9 @@ public class ItemLogger {
     public static final int ITEM_ADD_ENDER = 5;
     public static final int ITEM_THROW = 6;
     public static final int ITEM_SHOOT = 7;
+    public static final int ITEM_BREAK = 8;
+    public static final int ITEM_DESTROY = 9;
+    public static final int ITEM_CREATE = 10;
 
     private ItemLogger() {
         throw new IllegalStateException("Database class");
@@ -60,14 +63,35 @@ public class ItemLogger {
             itemShots = shotList.toArray(itemShots);
             shotList.clear();
 
+            List<ItemStack> breakList = ConfigHandler.itemsBreak.getOrDefault(loggingItemId, new ArrayList<>());
+            ItemStack[] itemBreaks = new ItemStack[breakList.size()];
+            itemBreaks = breakList.toArray(itemBreaks);
+            breakList.clear();
+
+            List<ItemStack> destroyList = ConfigHandler.itemsDestroy.getOrDefault(loggingItemId, new ArrayList<>());
+            ItemStack[] itemDestroys = new ItemStack[destroyList.size()];
+            itemDestroys = destroyList.toArray(itemDestroys);
+            destroyList.clear();
+
+            List<ItemStack> createList = ConfigHandler.itemsCreate.getOrDefault(loggingItemId, new ArrayList<>());
+            ItemStack[] itemCreates = new ItemStack[createList.size()];
+            itemCreates = createList.toArray(itemCreates);
+            createList.clear();
+
             Util.mergeItems(null, itemPickups);
             Util.mergeItems(null, itemDrops);
             Util.mergeItems(null, itemThrows);
             Util.mergeItems(null, itemShots);
+            Util.mergeItems(null, itemBreaks);
+            Util.mergeItems(null, itemDestroys);
+            Util.mergeItems(null, itemCreates);
             logTransaction(preparedStmt, batchCount, offset, user, location, itemPickups, ITEM_PICKUP);
             logTransaction(preparedStmt, batchCount, offset, user, location, itemDrops, ITEM_DROP);
             logTransaction(preparedStmt, batchCount, offset, user, location, itemThrows, ITEM_THROW);
             logTransaction(preparedStmt, batchCount, offset, user, location, itemShots, ITEM_SHOOT);
+            logTransaction(preparedStmt, batchCount, offset, user, location, itemBreaks, ITEM_BREAK);
+            logTransaction(preparedStmt, batchCount, offset, user, location, itemDestroys, ITEM_DESTROY);
+            logTransaction(preparedStmt, batchCount, offset, user, location, itemCreates, ITEM_CREATE);
         }
         catch (Exception e) {
             e.printStackTrace();

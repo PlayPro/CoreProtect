@@ -18,7 +18,7 @@ class ItemTransactionProcess extends Queue {
 
             if (ConfigHandler.loggingItem.get(loggingItemId) != null) {
                 int current_chest = ConfigHandler.loggingItem.get(loggingItemId);
-                if (ConfigHandler.itemsPickup.get(loggingItemId) == null && ConfigHandler.itemsDrop.get(loggingItemId) == null && ConfigHandler.itemsThrown.get(loggingItemId) == null && ConfigHandler.itemsShot.get(loggingItemId) == null) {
+                if (ConfigHandler.itemsPickup.get(loggingItemId) == null && ConfigHandler.itemsDrop.get(loggingItemId) == null && ConfigHandler.itemsThrown.get(loggingItemId) == null && ConfigHandler.itemsShot.get(loggingItemId) == null && ConfigHandler.itemsBreak.get(loggingItemId) == null && ConfigHandler.itemsDestroy.get(loggingItemId) == null && ConfigHandler.itemsCreate.get(loggingItemId) == null) {
                     return;
                 }
                 if (current_chest == forceData) {
@@ -29,6 +29,9 @@ class ItemTransactionProcess extends Queue {
                         ConfigHandler.itemsDrop.remove(loggingItemId);
                         ConfigHandler.itemsThrown.remove(loggingItemId);
                         ConfigHandler.itemsShot.remove(loggingItemId);
+                        ConfigHandler.itemsBreak.remove(loggingItemId);
+                        ConfigHandler.itemsDestroy.remove(loggingItemId);
+                        ConfigHandler.itemsCreate.remove(loggingItemId);
                         ConfigHandler.loggingItem.remove(loggingItemId);
                     }
                     else {

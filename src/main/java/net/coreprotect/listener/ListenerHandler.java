@@ -28,6 +28,7 @@ import net.coreprotect.listener.entity.HangingBreakByEntityListener;
 import net.coreprotect.listener.entity.HangingBreakListener;
 import net.coreprotect.listener.entity.HangingPlaceListener;
 import net.coreprotect.listener.player.ArmorStandManipulateListener;
+import net.coreprotect.listener.player.CraftItemListener;
 import net.coreprotect.listener.player.FoodLevelChangeListener;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.listener.player.PlayerBucketEmptyListener;
@@ -83,8 +84,9 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new HangingBreakByEntityListener(), plugin);
 
         // Player Listeners
-        pluginManager.registerEvents(new InventoryChangeListener(), plugin);
         pluginManager.registerEvents(new ArmorStandManipulateListener(), plugin);
+        pluginManager.registerEvents(new CraftItemListener(), plugin);
+        pluginManager.registerEvents(new InventoryChangeListener(), plugin);
         pluginManager.registerEvents(new PlayerBucketEmptyListener(), plugin);
         pluginManager.registerEvents(new PlayerBucketFillListener(), plugin);
         pluginManager.registerEvents(new PlayerCommandListener(), plugin);

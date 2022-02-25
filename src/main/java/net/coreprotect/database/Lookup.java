@@ -304,6 +304,7 @@ public class Lookup extends Queue {
             String queryLimit = "";
             String queryTable = "block";
             String action = "";
+            String actionExclude = "";
             String includeBlock = "";
             String includeEntity = "";
             String excludeBlock = "";
@@ -445,6 +446,15 @@ public class Lookup extends Queue {
                 excludeUsers = excludeUserText.toString();
             }
 
+            // Specify actions to exclude from a:item
+            if ((lookup && actionList.size() == 0) || (actionList.contains(11) && actionList.size() == 1)) {
+                StringBuilder actionText = new StringBuilder();
+                actionText = actionText.append(ItemLogger.ITEM_BREAK);
+                actionText.append(",").append(ItemLogger.ITEM_DESTROY);
+                actionText.append(",").append(ItemLogger.ITEM_CREATE);
+                actionExclude = actionText.toString();
+            }
+
             if (!actionList.isEmpty()) {
                 StringBuilder actionText = new StringBuilder();
                 for (Integer actionTarget : actionList) {
@@ -471,12 +481,15 @@ public class Lookup extends Queue {
                             if (actionTarget == ItemLogger.ITEM_REMOVE) {
                                 actionText.append(",").append(ItemLogger.ITEM_PICKUP);
                                 actionText.append(",").append(ItemLogger.ITEM_REMOVE_ENDER);
+                                actionText.append(",").append(ItemLogger.ITEM_CREATE);
                             }
                             if (actionTarget == ItemLogger.ITEM_ADD) {
                                 actionText.append(",").append(ItemLogger.ITEM_DROP);
                                 actionText.append(",").append(ItemLogger.ITEM_ADD_ENDER);
                                 actionText.append(",").append(ItemLogger.ITEM_THROW);
                                 actionText.append(",").append(ItemLogger.ITEM_SHOOT);
+                                actionText.append(",").append(ItemLogger.ITEM_BREAK);
+                                actionText.append(",").append(ItemLogger.ITEM_DESTROY);
                             }
                         }
                         // If just looking up drops/pickups, include ender chest transactions
@@ -535,7 +548,7 @@ public class Lookup extends Queue {
             if (validAction) {
                 queryBlock = queryBlock + " action IN(" + action + ") AND";
             }
-            else if (inventoryQuery || includeBlock.length() > 0 || includeEntity.length() > 0 || excludeBlock.length() > 0 || excludeEntity.length() > 0) {
+            else if (inventoryQuery || actionExclude.length() > 0 || includeBlock.length() > 0 || includeEntity.length() > 0 || excludeBlock.length() > 0 || excludeEntity.length() > 0) {
                 queryBlock = queryBlock + " action NOT IN(-1) AND";
             }
 
@@ -708,10 +721,19 @@ public class Lookup extends Queue {
                     rows = "rowid as id,time,user,wid,x,y,z,type,data as metadata,0 as data,amount,action,rolled_back";
                     queryOrder = " ORDER BY time DESC, tbl DESC, id DESC";
                 }
+
+                if (actionExclude.length() > 0) {
+                    queryBlock = queryBlock.replace("action NOT IN(-1)", "action NOT IN(" + actionExclude + ")");
+                }
+
                 query = query + unionSelect + "SELECT " + "'2' as tbl," + rows + " FROM " + ConfigHandler.prefix + "item WHERE" + queryBlock + unionLimit + ")";
             }
 
             if (query.length() == 0) {
+                if (actionExclude.length() > 0) {
+                    baseQuery = baseQuery.replace("action NOT IN(-1)", "action NOT IN(" + actionExclude + ")");
+                }
+
                 query = "SELECT " + "'0' as tbl," + rows + " FROM " + ConfigHandler.prefix + queryTable + " " + index + "WHERE" + baseQuery;
             }
 

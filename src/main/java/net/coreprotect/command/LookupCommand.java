@@ -24,6 +24,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.Lookup;
+import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.database.lookup.BlockLookup;
 import net.coreprotect.database.lookup.ChestTransactionLookup;
 import net.coreprotect.database.lookup.InteractionLookup;
@@ -889,6 +890,10 @@ public class LookupCommand {
                                                     else if (daction == 6 || daction == 7) { // LOOKUP_PROJECTILE
                                                         selector = Selector.SECOND;
                                                         tag = Color.RED + "-";
+                                                    }
+                                                    else if (daction == ItemLogger.ITEM_BREAK || daction == ItemLogger.ITEM_DESTROY || daction == ItemLogger.ITEM_CREATE) {
+                                                        selector = (daction == ItemLogger.ITEM_CREATE ? Selector.FIRST : Selector.SECOND);
+                                                        tag = (daction == ItemLogger.ITEM_CREATE ? Color.GREEN + "+" : Color.RED + "-");
                                                     }
                                                     else { // LOOKUP_CONTAINER
                                                         selector = (daction == 0 ? Selector.FIRST : Selector.SECOND);

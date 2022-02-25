@@ -875,7 +875,7 @@ public class LookupCommand {
                                                     int amount = Integer.parseInt(data[10]);
                                                     String rbd = ((Integer.parseInt(data[8]) == 2 || Integer.parseInt(data[8]) == 3) ? Color.STRIKETHROUGH : "");
                                                     String timeago = Util.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
-                                                    Material blockType = Util.itemFilter(Util.getType(Integer.parseInt(dtype)));
+                                                    Material blockType = Util.itemFilter(Util.getType(Integer.parseInt(dtype)), (Integer.parseInt(data[13]) == 0));
                                                     String dname = Util.nameFilter(blockType.name().toLowerCase(Locale.ROOT), ddata);
 
                                                     String selector = Selector.FIRST;

@@ -234,10 +234,8 @@ public class Lookup extends Queue {
                         resultData = results.getInt("data");
                         resultAmount = results.getInt("amount");
                         resultMeta = results.getBytes("metadata");
-                        if (!lookup) {
-                            resultTable = results.getInt("tbl");
-                            hasTbl = true;
-                        }
+                        resultTable = results.getInt("tbl");
+                        hasTbl = true;
                     }
                     else {
                         resultData = results.getInt("data");

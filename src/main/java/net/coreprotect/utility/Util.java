@@ -1105,12 +1105,29 @@ public class Util extends Queue {
         Chat.sendComponent(consoleSender, Color.RESET + "[CoreProtect] " + string + Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_POPUP + "| | " + Chat.COMPONENT_TAG_CLOSE);
     }
 
-    public static Material itemFilter(Material material) {
-        if (material == null) {
+    // This filter is only used for a:inventory
+    public static Material itemFilter(Material material, boolean blockTable) {
+        if (material == null || (!blockTable && material.isItem())) {
             return material;
         }
 
-        if (!material.isItem() && material.name().contains("WALL_")) {
+        switch (material) {
+            case WHEAT:
+                material = Material.WHEAT_SEEDS;
+                break;
+            case PUMPKIN_STEM:
+                material = Material.PUMPKIN_SEEDS;
+                break;
+            case MELON_STEM:
+                material = Material.MELON_SEEDS;
+                break;
+            case BEETROOTS:
+                material = Material.BEETROOT_SEEDS;
+                break;
+            default:
+        }
+
+        if (material.name().contains("WALL_")) {
             material = Material.valueOf(material.name().replace("WALL_", ""));
         }
 

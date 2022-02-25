@@ -1053,7 +1053,7 @@ public class Rollback extends Queue {
                             int rolledBackInventory = Util.rolledBack((Integer) row[9], true);
                             if (rowType != null) {
                                 if (inventoryRollback && ((rollbackType == 0 && rolledBackInventory == 0) || (rollbackType == 1 && rolledBackInventory == 1))) {
-                                    Material inventoryItem = Util.itemFilter(rowType);
+                                    Material inventoryItem = Util.itemFilter(rowType, ((Integer) row[14] == 0));
                                     int rowUserId = (Integer) row[2];
                                     String rowUser = ConfigHandler.playerIdCacheReversed.get(rowUserId);
                                     if (rowUser == null) {

@@ -813,6 +813,8 @@ public class Util extends Queue {
                 return Material.FIREWORK_ROCKET;
             case EGG:
                 return Material.EGG;
+            case SNOWBALL:
+                return Material.SNOWBALL;
             default:
                 return BukkitAdapter.ADAPTER.getFrameType(type);
         }

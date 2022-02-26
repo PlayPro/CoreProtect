@@ -72,8 +72,9 @@ public class ProjectileLaunchListener extends Queue implements Listener {
             UUID uuid = pair.getKey();
             Object[] data = pair.getValue();
             ItemStack itemStack = (ItemStack) data[2];
+            Material entityMaterial = Util.getEntityMaterial(event.getEntityType());
             boolean isBow = BOWS.contains(itemStack.getType());
-            if ((data[0].equals(key) || data[1].equals(key)) && (Util.getEntityMaterial(event.getEntityType()) == itemStack.getType() || isBow)) {
+            if ((data[0].equals(key) || data[1].equals(key)) && (entityMaterial == itemStack.getType() || (itemStack.getType() == Material.LINGERING_POTION && entityMaterial == Material.SPLASH_POTION) || isBow)) {
                 Player player = Bukkit.getServer().getPlayer(uuid);
 
                 boolean thrownItem = (itemStack.getType() != Material.FIREWORK_ROCKET && !isBow);

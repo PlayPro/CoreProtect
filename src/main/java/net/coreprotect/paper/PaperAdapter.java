@@ -1,5 +1,6 @@
 package net.coreprotect.paper;
 
+import org.bukkit.Server;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 
@@ -44,6 +45,11 @@ public class PaperAdapter implements PaperInterface {
     @Override
     public InventoryHolder getHolder(Inventory holder, boolean useSnapshot) {
         return holder.getHolder();
+    }
+
+    @Override
+    public boolean isStopping(Server server) {
+        return false;
     }
 
 }

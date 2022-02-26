@@ -19,6 +19,7 @@ import net.coreprotect.language.Language;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.ListenerHandler;
 import net.coreprotect.listener.player.PlayerQuitListener;
+import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.NetworkHandler;
 import net.coreprotect.utility.Chat;
@@ -161,7 +162,7 @@ public final class CoreProtect extends JavaPlugin {
     private static void safeShutdown(CoreProtect plugin) {
         try {
             /* if server is stopping, log disconnections of online players */
-            if (plugin.getServer().isStopping()) {
+            if (PaperAdapter.ADAPTER.isStopping(plugin.getServer())) {
                 for (Player player : plugin.getServer().getOnlinePlayers()) {
                     PlayerQuitListener.queuePlayerQuit(player);
                 }

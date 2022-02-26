@@ -811,6 +811,8 @@ public class Util extends Queue {
                 return Material.TRIDENT;
             case FIREWORK:
                 return Material.FIREWORK_ROCKET;
+            case EGG:
+                return Material.EGG;
             default:
                 return BukkitAdapter.ADAPTER.getFrameType(type);
         }

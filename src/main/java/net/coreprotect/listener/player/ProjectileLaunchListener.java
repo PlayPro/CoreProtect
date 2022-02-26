@@ -1,33 +1,38 @@
 package net.coreprotect.listener.player;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.UUID;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.entity.Egg;
+import org.bukkit.entity.AbstractArrow;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityShootBowEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
-import org.bukkit.event.player.PlayerEggThrowEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.CrossbowMeta;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.logger.ItemLogger;
+import net.coreprotect.listener.PlayerPickupArrowListener;
 import net.coreprotect.utility.Util;
 
 public class ProjectileLaunchListener extends Queue implements Listener {
+
+    public static Set<Material> BOWS = new HashSet<>(Arrays.asList(Material.BOW, Material.CROSSBOW));
 
     protected static void playerLaunchProjectile(Location location, String user, ItemStack itemStack, int amount, int delay, int offset, int action) {
         if (!Config.getConfig(location.getWorld()).ITEM_DROPS || itemStack == null) {
@@ -66,15 +71,37 @@ public class ProjectileLaunchListener extends Queue implements Listener {
             Map.Entry<UUID, Object[]> pair = it.next();
             UUID uuid = pair.getKey();
             Object[] data = pair.getValue();
-            if ((data[0].equals(key) || data[1].equals(key)) && Util.getEntityMaterial(event.getEntityType()) == ((ItemStack) data[2]).getType()) {
+            ItemStack itemStack = (ItemStack) data[2];
+            boolean isBow = BOWS.contains(itemStack.getType());
+            if ((data[0].equals(key) || data[1].equals(key)) && (Util.getEntityMaterial(event.getEntityType()) == itemStack.getType() || isBow)) {
                 Player player = Bukkit.getServer().getPlayer(uuid);
-                ItemStack itemStack = (ItemStack) data[2];
-                playerLaunchProjectile(location, player.getName(), itemStack, 1, 1, 0, (itemStack.getType() != Material.FIREWORK_ROCKET ? ItemLogger.ITEM_THROW : ItemLogger.ITEM_SHOOT));
+
+                boolean thrownItem = (itemStack.getType() != Material.FIREWORK_ROCKET && !isBow);
+                if (isBow) {
+                    if (itemStack.getType() == Material.CROSSBOW) {
+                        CrossbowMeta meta = (CrossbowMeta) itemStack.getItemMeta();
+                        for (ItemStack item : meta.getChargedProjectiles()) {
+                            itemStack = item;
+                            break;
+                        }
+                    }
+                    else if (event.getEntity() instanceof AbstractArrow) {
+                        itemStack = PlayerPickupArrowListener.getArrowType((AbstractArrow) event.getEntity());
+                    }
+
+                    if (itemStack == null || BOWS.contains(itemStack.getType())) {
+                        return; // unnecessary under normal circumstances
+                    }
+                }
+
+                playerLaunchProjectile(location, player.getName(), itemStack, 1, 1, 0, (thrownItem ? ItemLogger.ITEM_THROW : ItemLogger.ITEM_SHOOT));
                 it.remove();
             }
         }
     }
 
+    // Requires Bukkit 1.17+
+    /*
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     protected void onEntityShootBow(EntityShootBowEvent event) {
         if (!(event.getEntity() instanceof Player)) {
@@ -84,12 +111,15 @@ public class ProjectileLaunchListener extends Queue implements Listener {
         ItemStack itemStack = event.getConsumable();
         playerLaunchProjectile(event.getEntity().getLocation(), event.getEntity().getName(), itemStack, 1, 1, 0, ItemLogger.ITEM_SHOOT);
     }
-
+    */
+    // Requires Bukkit 1.16+
+    /*
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     protected void onPlayerEggThrow(PlayerEggThrowEvent event) {
         Egg egg = event.getEgg();
         ItemStack itemStack = egg.getItem();
         playerLaunchProjectile(event.getPlayer().getLocation(), event.getPlayer().getName(), itemStack, 0, 1, 0, ItemLogger.ITEM_THROW);
     }
+    */
 
 }

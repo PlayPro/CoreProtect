@@ -1836,8 +1836,10 @@ public class Rollback extends Queue {
                         if (itemCount == 1) {
                             effectBuilder = FireworkEffect.builder();
                             for (Map<String, Object> fireworkData : map) {
+                                org.bukkit.FireworkEffect.Type type = (org.bukkit.FireworkEffect.Type) fireworkData.getOrDefault("type", org.bukkit.FireworkEffect.Type.BALL);
                                 boolean hasFlicker = (Boolean) fireworkData.get("flicker");
                                 boolean hasTrail = (Boolean) fireworkData.get("trail");
+                                effectBuilder.with(type);
                                 effectBuilder.flicker(hasFlicker);
                                 effectBuilder.trail(hasTrail);
                             }

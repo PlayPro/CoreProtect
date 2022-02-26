@@ -279,6 +279,7 @@ public class ItemMetaHandler {
         }
 
         Map<String, Object> hasCheck = new HashMap<>();
+        hasCheck.put("type", effect.getType());
         hasCheck.put("flicker", effect.hasFlicker());
         hasCheck.put("trail", effect.hasTrail());
         list.add(hasCheck);

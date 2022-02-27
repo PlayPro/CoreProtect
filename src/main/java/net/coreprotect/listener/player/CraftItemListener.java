@@ -119,6 +119,10 @@ public final class CraftItemListener extends Queue implements Listener {
 
         if (addItem.getAmount() > 0) {
             for (ItemStack oldItem : oldItems) {
+                if (oldItem == null) {
+                    continue;
+                }
+
                 ItemStack removedItem = oldItem.clone();
                 removedItem.setAmount(oldItem.getAmount() * amountMultiplier);
                 playerCraftItem(player.getLocation(), player.getName(), removedItem, ItemLogger.ITEM_DESTROY);

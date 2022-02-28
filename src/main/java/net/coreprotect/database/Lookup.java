@@ -773,7 +773,7 @@ public class Lookup extends Queue {
             int z = block.getZ();
             int time = (int) (System.currentTimeMillis() / 1000L);
             int worldId = Util.getWorldId(block.getWorld().getName());
-            String query = "SELECT user,type FROM " + ConfigHandler.prefix + "block WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND rolled_back IN(0,2) AND action='1' ORDER BY rowid DESC LIMIT 0, 1";
+            String query = "SELECT user,type FROM " + ConfigHandler.prefix + "block " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND rolled_back IN(0,2) AND action='1' ORDER BY rowid DESC LIMIT 0, 1";
 
             ResultSet results = statement.executeQuery(query);
             while (results.next()) {

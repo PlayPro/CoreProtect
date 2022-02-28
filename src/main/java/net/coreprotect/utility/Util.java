@@ -1464,6 +1464,43 @@ public class Util extends Queue {
         return result;
     }
 
+    public static String getWidIndex(String queryTable) {
+        String index = "";
+        boolean isMySQL = Config.getGlobal().MYSQL;
+        if (isMySQL) {
+            index = "USE INDEX(wid) ";
+        }
+        else {
+            switch (queryTable) {
+                case "block":
+                    index = "INDEXED BY block_index ";
+                    break;
+                case "container":
+                    index = "INDEXED BY container_index ";
+                    break;
+                case "item":
+                    index = "INDEXED BY item_index ";
+                    break;
+                case "sign":
+                    index = "INDEXED BY sign_index ";
+                    break;
+                case "chat":
+                    index = "INDEXED BY chat_wid_index ";
+                    break;
+                case "command":
+                    index = "INDEXED BY command_wid_index ";
+                    break;
+                case "session":
+                    index = "INDEXED BY session_index ";
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        return index;
+    }
+
     public static int rolledBack(int rolledBack, boolean isInventory) {
         switch (rolledBack) {
             case 1: // just block rolled back

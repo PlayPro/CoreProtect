@@ -231,6 +231,9 @@ public class Util extends Queue {
     public static String getTimeSince(long resultTime, long currentTime, boolean component) {
         StringBuilder message = new StringBuilder();
         double timeSince = currentTime - (resultTime + 0.00);
+        if (timeSince < 0.00) {
+            timeSince = 0.00;
+        }
 
         // minutes
         timeSince = timeSince / 60;

@@ -31,8 +31,6 @@ import net.coreprotect.utility.Util;
 
 public class CoreProtectAPI extends Queue {
 
-    private boolean checkedBlocksHub = false;
-
     public class ParseResult {
         String[] parse;
 
@@ -168,24 +166,6 @@ public class CoreProtectAPI extends Queue {
     }
 
     public int APIVersion() {
-        try {
-            // deny access to BlocksHub to prevent duplicate data from being logged
-            if (!checkedBlocksHub && Bukkit.getPluginManager().getPlugin("BlocksHub") != null) {
-                for (StackTraceElement element : Thread.currentThread().getStackTrace()) {
-                    if (element.getClassName().startsWith("org.primesoft.blockshub")) {
-                        checkedBlocksHub = true;
-                        return 0;
-                    }
-                }
-            }
-            else if (!checkedBlocksHub) {
-                checkedBlocksHub = true;
-            }
-        }
-        catch (Exception e) {
-            // proceed with returning API version
-        }
-
         return 8;
     }
 

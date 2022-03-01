@@ -294,6 +294,10 @@ public class Database extends Queue {
 
     private static void initializeTables(String prefix, Statement statement) {
         try {
+            if (!Config.getGlobal().MYSQL) {
+                statement.executeUpdate("PRAGMA journal_mode=WAL;");
+            }
+
             boolean lockInitialized = false;
             String query = "SELECT rowid as id FROM " + prefix + "database_lock WHERE rowid='1' LIMIT 1";
             ResultSet rs = statement.executeQuery(query);

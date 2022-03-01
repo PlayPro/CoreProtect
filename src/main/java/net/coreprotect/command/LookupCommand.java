@@ -52,7 +52,9 @@ public class LookupCommand {
         List<Object> argExclude = CommandHandler.parseExcluded(player, args, argAction);
         List<String> argExcludeUsers = CommandHandler.parseExcludedUsers(player, args);
         String ts = CommandHandler.parseTimeString(args);
-        long rbseconds = CommandHandler.parseTime(args);
+        long[] argTime = CommandHandler.parseTime(args);
+        long startTime = argTime[0];
+        long endTime = argTime[1];
         int argWid = CommandHandler.parseWorld(args, true, true);
         int parseRows = CommandHandler.parseRows(args);
         boolean count = CommandHandler.parseCount(args);
@@ -258,7 +260,7 @@ public class LookupCommand {
             }
         }
 
-        if (rbseconds <= 0 && !pageLookup && type == 4 && (argBlocks.size() > 0 || argUsers.size() > 0)) {
+        if (startTime <= 0 && !pageLookup && type == 4 && (argBlocks.size() > 0 || argUsers.size() > 0)) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_LOOKUP_TIME, Selector.FIRST));
             return;
         }
@@ -571,7 +573,8 @@ public class LookupCommand {
                     c++;
                 }
 
-                long cs = -1;
+                long timeStart = -1;
+                long timeEnd = 0;
                 int x = 0;
                 int y = 0;
                 int z = 0;
@@ -584,14 +587,14 @@ public class LookupCommand {
                     y = Integer.parseInt(data[1]);
                     z = Integer.parseInt(data[2]);
                     wid = Integer.parseInt(data[3]);
-                    cs = Long.parseLong(data[4]);
-                    // arg_radius = Integer.parseInt(data[5]);
-                    argNoisy = Integer.parseInt(data[5]);
-                    argExcluded = Integer.parseInt(data[6]);
-                    argRestricted = Integer.parseInt(data[7]);
-                    argWid = Integer.parseInt(data[8]);
+                    timeStart = Long.parseLong(data[4]);
+                    timeEnd = Long.parseLong(data[5]);
+                    argNoisy = Integer.parseInt(data[6]);
+                    argExcluded = Integer.parseInt(data[7]);
+                    argRestricted = Integer.parseInt(data[8]);
+                    argWid = Integer.parseInt(data[9]);
                     if (defaultRe) {
-                        re = Integer.parseInt(data[9]);
+                        re = Integer.parseInt(data[10]);
                     }
 
                     rollbackusers = ConfigHandler.lookupUlist.get(player.getName());
@@ -601,7 +604,8 @@ public class LookupCommand {
                     argAction = ConfigHandler.lookupAlist.get(player.getName());
                     argRadius = ConfigHandler.lookupRadius.get(player.getName());
                     ts = ConfigHandler.lookupTime.get(player.getName());
-                    rbseconds = 1;
+                    startTime = 1;
+                    endTime = 0;
                 }
                 else {
                     if (lo != null) {
@@ -658,15 +662,23 @@ public class LookupCommand {
 
                 final List<String> rollbackusers2 = rollbackusers;
                 long unixtimestamp = (System.currentTimeMillis() / 1000L);
-                if (cs == -1) {
-                    if (rbseconds <= 0) {
-                        cs = 0;
+                if (timeStart == -1) {
+                    if (startTime <= 0) {
+                        timeStart = 0;
                     }
                     else {
-                        cs = unixtimestamp - rbseconds;
+                        timeStart = unixtimestamp - startTime;
+                    }
+                    if (endTime <= 0) {
+                        timeEnd = 0;
+                    }
+                    else {
+                        timeEnd = unixtimestamp - endTime;
                     }
                 }
-                final long stime = cs;
+
+                final long finalTimeStart = timeStart;
+                final long finalTimeEnd = timeEnd;
                 final Integer[] radius = argRadius;
 
                 try {
@@ -701,7 +713,7 @@ public class LookupCommand {
                                 List<String> uuidList = new ArrayList<>();
                                 Location location = finalLocation;
                                 boolean exists = false;
-                                String bc = finalX + "." + finalY + "." + finalZ + "." + finalWid + "." + stime + "." + noisy + "." + excluded + "." + restricted + "." + finalArgWid + "." + displayResults;
+                                String bc = finalX + "." + finalY + "." + finalZ + "." + finalWid + "." + finalTimeStart + "." + finalTimeEnd + "." + noisy + "." + excluded + "." + restricted + "." + finalArgWid + "." + displayResults;
                                 ConfigHandler.lookupCommand.put(player2.getName(), bc);
                                 ConfigHandler.lookupPage.put(player2.getName(), page);
                                 ConfigHandler.lookupTime.put(player2.getName(), rtime);
@@ -788,7 +800,7 @@ public class LookupCommand {
                                         }
 
                                         if (checkRows) {
-                                            rows = Lookup.countLookupRows(statement, player2, uuidList, userList, blist, elist, euserlist, finalArgAction, location, radius, rowData, stime, restrict_world, true);
+                                            rows = Lookup.countLookupRows(statement, player2, uuidList, userList, blist, elist, euserlist, finalArgAction, location, radius, rowData, finalTimeStart, finalTimeEnd, restrict_world, true);
                                             rowData[3] = rows;
                                             ConfigHandler.lookupRows.put(player2.getName(), rowData);
                                         }
@@ -797,7 +809,7 @@ public class LookupCommand {
                                             Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.LOOKUP_ROWS_FOUND, row_format, (rows == 1 ? Selector.FIRST : Selector.SECOND)));
                                         }
                                         else if (pageStart < rows) {
-                                            List<String[]> lookupList = Lookup.performPartialLookup(statement, player2, uuidList, userList, blist, elist, euserlist, finalArgAction, location, radius, rowData, stime, (int) pageStart, displayResults, restrict_world, true);
+                                            List<String[]> lookupList = Lookup.performPartialLookup(statement, player2, uuidList, userList, blist, elist, euserlist, finalArgAction, location, radius, rowData, finalTimeStart, finalTimeEnd, (int) pageStart, displayResults, restrict_world, true);
 
                                             Chat.sendMessage(player2, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.LOOKUP_HEADER, "CoreProtect" + Color.WHITE + " | " + Color.DARK_AQUA) + Color.WHITE + " -----");
                                             if (finalArgAction.contains(6) || finalArgAction.contains(7)) { // Chat/command

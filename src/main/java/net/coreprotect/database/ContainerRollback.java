@@ -28,11 +28,11 @@ import net.coreprotect.utility.Util;
 
 public class ContainerRollback extends Queue {
 
-    public static void performContainerRollbackRestore(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, String timeString, List<Object> restrictList, List<Object> excludeList, List<String> excludeUserList, List<Integer> actionList, final Location location, Integer[] radius, long checkTime, boolean restrictWorld, boolean lookup, boolean verbose, final int rollbackType) {
+    public static void performContainerRollbackRestore(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, String timeString, List<Object> restrictList, List<Object> excludeList, List<String> excludeUserList, List<Integer> actionList, final Location location, Integer[] radius, long startTime, long endTime, boolean restrictWorld, boolean lookup, boolean verbose, final int rollbackType) {
         try {
-            long startTime = System.currentTimeMillis();
+            long timeStart = System.currentTimeMillis();
 
-            final List<Object[]> lookupList = Lookup.performLookupRaw(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, null, checkTime, -1, -1, restrictWorld, lookup);
+            final List<Object[]> lookupList = Lookup.performLookupRaw(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, null, startTime, endTime, -1, -1, restrictWorld, lookup);
             if (rollbackType == 1) {
                 Collections.reverse(lookupList);
             }
@@ -164,8 +164,8 @@ public class ContainerRollback extends Queue {
 
             rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
             int blockCount = rollbackHashData[1];
-            long endTime = System.currentTimeMillis();
-            double totalSeconds = (endTime - startTime) / 1000.0;
+            long timeFinish = System.currentTimeMillis();
+            double totalSeconds = (timeFinish - timeStart) / 1000.0;
 
             if (user != null) {
                 int file = -1;

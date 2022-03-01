@@ -168,7 +168,6 @@ public class CoreProtectAPI extends Queue {
     }
 
     public int APIVersion() {
-        return 8;
         try {
             // deny access to BlocksHub to prevent duplicate data from being logged
             if (!checkedBlocksHub && Bukkit.getPluginManager().getPlugin("BlocksHub") != null) {
@@ -187,6 +186,7 @@ public class CoreProtectAPI extends Queue {
             // proceed with returning API version
         }
 
+        return 8;
     }
 
     public List<String[]> blockLookup(Block block, int time) {
@@ -483,7 +483,8 @@ public class CoreProtectAPI extends Queue {
         }
 
         long timestamp = System.currentTimeMillis() / 1000L;
-        long timePeriod = timestamp - time;
+        long startTime = timestamp - time;
+        long endTime = 0;
 
         if (radius < 1) {
             radius = -1;
@@ -525,16 +526,16 @@ public class CoreProtectAPI extends Queue {
                     }
 
                     if (useLimit) {
-                        result = Lookup.performPartialLookup(statement, null, uuids, restrictUsers, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, null, timePeriod, offset, rowCount, restrictWorld, true);
+                        result = Lookup.performPartialLookup(statement, null, uuids, restrictUsers, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, null, startTime, endTime, offset, rowCount, restrictWorld, true);
                     }
                     else {
-                        result = Lookup.performLookup(statement, null, uuids, restrictUsers, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, timePeriod, restrictWorld, true);
+                        result = Lookup.performLookup(statement, null, uuids, restrictUsers, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, startTime, endTime, restrictWorld, true);
                     }
                 }
                 else {
                     if (!Bukkit.isPrimaryThread()) {
                         boolean verbose = false;
-                        result = Rollback.performRollbackRestore(statement, null, uuids, restrictUsers, null, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, timePeriod, restrictWorld, false, verbose, action, 0);
+                        result = Rollback.performRollbackRestore(statement, null, uuids, restrictUsers, null, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, startTime, endTime, restrictWorld, false, verbose, action, 0);
                     }
                 }
 

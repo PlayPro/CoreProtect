@@ -117,6 +117,7 @@ public class ConfigHandler extends Queue {
     public static Map<String, List<Object>> lastRollback = syncMap();
     public static Map<String, Boolean> activeRollbacks = syncMap();
     public static Map<UUID, Object[]> entityBlockMapper = syncMap();
+    public static ConcurrentHashMap<Long, Long> populatedChunks = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, String> language = new ConcurrentHashMap<>();
     public static List<String> databaseTables = new ArrayList<>();
 

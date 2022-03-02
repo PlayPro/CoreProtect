@@ -10,6 +10,7 @@ import com.sk89q.worldedit.util.eventbus.Subscribe;
 import com.sk89q.worldedit.world.World;
 
 import net.coreprotect.CoreProtect;
+import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
@@ -31,7 +32,7 @@ public class CoreProtectEditSessionEvent {
         }
 
         try {
-            if (Bukkit.getServer().getPluginManager().getPlugin("AsyncWorldEdit") == null) {
+            if (Bukkit.getServer().getPluginManager().getPlugin("AsyncWorldEdit") == null || Config.getGlobal().ENABLE_AWE) {
                 WorldEdit.getInstance().getEventBus().register(event);
                 initialized = true;
                 ConfigHandler.worldeditEnabled = true;

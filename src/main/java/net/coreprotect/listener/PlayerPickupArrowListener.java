@@ -13,9 +13,10 @@ import org.bukkit.potion.PotionData;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionType;
 
+import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.entity.EntityPickupItemListener;
 
-public class PlayerPickupArrowListener extends EntityPickupItemListener implements Listener {
+public final class PlayerPickupArrowListener extends Queue implements Listener {
 
     public static ItemStack getArrowType(AbstractArrow arrow) {
         ItemStack itemStack = null;

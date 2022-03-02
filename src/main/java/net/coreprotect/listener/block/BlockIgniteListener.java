@@ -25,7 +25,7 @@ import net.coreprotect.model.BlockGroup;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.Util;
 
-public final class BlockIgniteListener extends ProjectileLaunchListener implements Listener {
+public final class BlockIgniteListener extends Queue implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onBlockIgnite(BlockIgniteEvent event) {
@@ -128,7 +128,7 @@ public final class BlockIgniteListener extends ProjectileLaunchListener implemen
             }
             else {
                 if (event.getCause() == IgniteCause.FIREBALL) {
-                    playerLaunchProjectile(event.getPlayer().getLocation(), event.getPlayer().getName(), new ItemStack(Material.FIRE_CHARGE), 1, -1, 1, ItemLogger.ITEM_THROW);
+                    ProjectileLaunchListener.playerLaunchProjectile(event.getPlayer().getLocation(), event.getPlayer().getName(), new ItemStack(Material.FIRE_CHARGE), 1, -1, 1, ItemLogger.ITEM_THROW);
                 }
 
                 Player player = event.getPlayer();

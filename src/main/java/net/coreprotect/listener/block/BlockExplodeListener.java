@@ -27,9 +27,9 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
 import net.coreprotect.model.BlockGroup;
 
-public class BlockExplodeListener extends Queue implements Listener {
+public final class BlockExplodeListener extends Queue implements Listener {
 
-    protected static void processBlockExplode(String user, World world, List<Block> blockList) {
+    public static void processBlockExplode(String user, World world, List<Block> blockList) {
         HashMap<Location, Block> blockMap = new HashMap<>();
 
         for (Block block : blockList) {

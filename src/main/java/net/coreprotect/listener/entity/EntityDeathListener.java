@@ -54,6 +54,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
@@ -113,8 +114,9 @@ public final class EntityDeathListener extends Queue implements Listener {
             return;
         }
 
+        boolean isCommand = (damage.getCause() == DamageCause.VOID && entity.getLocation().getBlockY() >= BukkitAdapter.ADAPTER.getMinHeight(entity.getWorld()));
         if (e == null) {
-            e = "";
+            e = isCommand ? "#command" : "";
         }
 
         boolean skip = true;
@@ -194,6 +196,14 @@ public final class EntityDeathListener extends Queue implements Listener {
                 Block block = entityLocation.getBlock();
                 Queue.queueBlockBreak(e, block.getState(), Material.ARMOR_STAND, null, (int) entityLocation.getYaw());
             }
+            /*
+            else if (isCommand) {
+                entityLocation.setY(entityLocation.getY() + 0.99);
+                Block block = entityLocation.getBlock();
+                Database.containerBreakCheck(e, Material.ARMOR_STAND, entity, null, block.getLocation());
+                Queue.queueBlockBreak(e, block.getState(), Material.ARMOR_STAND, null, (int) entityLocation.getYaw());
+            }
+            */
             return;
         }
 

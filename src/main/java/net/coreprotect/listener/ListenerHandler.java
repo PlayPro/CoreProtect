@@ -31,6 +31,7 @@ import net.coreprotect.listener.player.ArmorStandManipulateListener;
 import net.coreprotect.listener.player.CraftItemListener;
 import net.coreprotect.listener.player.FoodLevelChangeListener;
 import net.coreprotect.listener.player.InventoryChangeListener;
+import net.coreprotect.listener.player.InventoryClickListener;
 import net.coreprotect.listener.player.PlayerBucketEmptyListener;
 import net.coreprotect.listener.player.PlayerBucketFillListener;
 import net.coreprotect.listener.player.PlayerChatListener;
@@ -90,6 +91,7 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new CraftItemListener(), plugin);
         pluginManager.registerEvents(new FoodLevelChangeListener(), plugin);
         pluginManager.registerEvents(new InventoryChangeListener(), plugin);
+        pluginManager.registerEvents(new InventoryClickListener(), plugin);
         pluginManager.registerEvents(new PlayerBucketEmptyListener(), plugin);
         pluginManager.registerEvents(new PlayerBucketFillListener(), plugin);
         pluginManager.registerEvents(new PlayerCommandListener(), plugin);

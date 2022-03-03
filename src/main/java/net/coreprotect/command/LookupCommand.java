@@ -908,6 +908,10 @@ public class LookupCommand {
                                                         selector = (daction == ItemLogger.ITEM_CREATE ? Selector.FIRST : Selector.SECOND);
                                                         tag = (daction == ItemLogger.ITEM_CREATE ? Color.GREEN + "+" : Color.RED + "-");
                                                     }
+                                                    else if (daction == ItemLogger.ITEM_SELL || daction == ItemLogger.ITEM_BUY) { // LOOKUP_TRADE
+                                                        selector = (daction == ItemLogger.ITEM_BUY ? Selector.FIRST : Selector.SECOND);
+                                                        tag = (daction == ItemLogger.ITEM_BUY ? Color.GREEN + "+" : Color.RED + "-");
+                                                    }
                                                     else { // LOOKUP_CONTAINER
                                                         selector = (daction == 0 ? Selector.FIRST : Selector.SECOND);
                                                         tag = (daction == 0 ? Color.GREEN + "+" : Color.RED + "-");

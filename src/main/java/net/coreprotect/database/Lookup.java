@@ -450,6 +450,8 @@ public class Lookup extends Queue {
                 actionText = actionText.append(ItemLogger.ITEM_BREAK);
                 actionText.append(",").append(ItemLogger.ITEM_DESTROY);
                 actionText.append(",").append(ItemLogger.ITEM_CREATE);
+                actionText.append(",").append(ItemLogger.ITEM_SELL);
+                actionText.append(",").append(ItemLogger.ITEM_BUY);
                 actionExclude = actionText.toString();
             }
 
@@ -480,6 +482,7 @@ public class Lookup extends Queue {
                                 actionText.append(",").append(ItemLogger.ITEM_PICKUP);
                                 actionText.append(",").append(ItemLogger.ITEM_REMOVE_ENDER);
                                 actionText.append(",").append(ItemLogger.ITEM_CREATE);
+                                actionText.append(",").append(ItemLogger.ITEM_BUY);
                             }
                             if (actionTarget == ItemLogger.ITEM_ADD) {
                                 actionText.append(",").append(ItemLogger.ITEM_DROP);
@@ -488,6 +491,7 @@ public class Lookup extends Queue {
                                 actionText.append(",").append(ItemLogger.ITEM_SHOOT);
                                 actionText.append(",").append(ItemLogger.ITEM_BREAK);
                                 actionText.append(",").append(ItemLogger.ITEM_DESTROY);
+                                actionText.append(",").append(ItemLogger.ITEM_SELL);
                             }
                         }
                         // If just looking up drops/pickups, include ender chest transactions

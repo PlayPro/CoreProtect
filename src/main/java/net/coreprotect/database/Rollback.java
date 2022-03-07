@@ -531,13 +531,18 @@ public class Rollback extends Queue {
 
                                 if ((rowType == changeType) && ((!BukkitAdapter.ADAPTER.isItemFrame(oldTypeMaterial)) && (oldTypeMaterial != Material.PAINTING) && (oldTypeMaterial != Material.ARMOR_STAND)) && (oldTypeMaterial != Material.END_CRYSTAL)) {
                                     // block is already changed!
-                                    if (blockData != null) {
-                                        if (blockData.getAsString().equals(changeBlockData.getAsString()) || blockData instanceof MultipleFacing || blockData instanceof Stairs || blockData instanceof RedstoneWire) {
+                                    BlockData checkData = rowType == Material.AIR ? blockData : rawBlockData;
+                                    if (checkData != null) {
+                                        if (checkData.getAsString().equals(changeBlockData.getAsString()) || checkData instanceof MultipleFacing || checkData instanceof Stairs || checkData instanceof RedstoneWire) {
                                             if (rowType != Material.CHEST && rowType != Material.TRAPPED_CHEST) { // always update double chests
                                                 changeBlock = false;
                                             }
                                         }
                                     }
+                                    else if (rowType == Material.AIR) {
+                                        changeBlock = false;
+                                    }
+
                                     countBlock = false;
                                 }
                                 else if ((changeType != Material.AIR) && (changeType != Material.CAVE_AIR)) {

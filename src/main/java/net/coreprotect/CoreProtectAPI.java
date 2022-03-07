@@ -3,8 +3,10 @@ package net.coreprotect;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -147,17 +149,17 @@ public class CoreProtectAPI extends Queue {
         }
     }
 
-    private static List<Object> parseList(List<Object> list) {
-        List<Object> result = new ArrayList<>();
+    private static Map<Object, Boolean> parseList(List<Object> list) {
+        Map<Object, Boolean> result = new HashMap<>();
 
         if (list != null) {
             for (Object value : list) {
                 if (value instanceof Material || value instanceof EntityType) {
-                    result.add(value);
+                    result.put(value, false);
                 }
                 else if (value instanceof Integer) {
                     Material material = Util.getType((Integer) value);
-                    result.add(material);
+                    result.put(material, false);
                 }
             }
         }
@@ -417,7 +419,7 @@ public class CoreProtectAPI extends Queue {
         return null;
     }
 
-    private List<String[]> processData(int time, int radius, Location location, List<Object> restrictBlocks, List<Object> excludeBlocks, List<String> restrictUsers, List<String> excludeUsers, List<Integer> actionList, int action, int lookup, int offset, int rowCount, boolean useLimit) {
+    private List<String[]> processData(int time, int radius, Location location, Map<Object, Boolean> restrictBlocksMap, Map<Object, Boolean> excludeBlocks, List<String> restrictUsers, List<String> excludeUsers, List<Integer> actionList, int action, int lookup, int offset, int rowCount, boolean useLimit) {
         // You need to either specify time/radius or time/user
         List<String[]> result = new ArrayList<>();
         List<String> uuids = new ArrayList<>();
@@ -434,6 +436,7 @@ public class CoreProtectAPI extends Queue {
             actionList = new ArrayList<>();
         }
 
+        List<Object> restrictBlocks = new ArrayList<>(restrictBlocksMap.keySet());
         if (actionList.size() == 0 && restrictBlocks.size() > 0) {
             boolean addedMaterial = false;
             boolean addedEntity = false;
@@ -530,7 +533,7 @@ public class CoreProtectAPI extends Queue {
     }
 
     @Deprecated
-    private List<String[]> processData(String user, int time, int radius, Location location, List<Object> restrictBlocks, List<Object> excludeBlocks, int action, int lookup, int offset, int rowCount, boolean useLimit) {
+    private List<String[]> processData(String user, int time, int radius, Location location, Map<Object, Boolean> restrictBlocks, Map<Object, Boolean> excludeBlocks, int action, int lookup, int offset, int rowCount, boolean useLimit) {
         ArrayList<String> restrictUsers = new ArrayList<>();
         if (user != null) {
             restrictUsers.add(user);

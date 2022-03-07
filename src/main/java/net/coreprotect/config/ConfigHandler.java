@@ -105,7 +105,7 @@ public class ConfigHandler extends Queue {
     public static Map<String, Integer> lookupPage = syncMap();
     public static Map<String, String> lookupCommand = syncMap();
     public static Map<String, List<Object>> lookupBlist = syncMap();
-    public static Map<String, List<Object>> lookupElist = syncMap();
+    public static Map<String, Map<Object, Boolean>> lookupElist = syncMap();
     public static Map<String, List<String>> lookupEUserlist = syncMap();
     public static Map<String, List<String>> lookupUlist = syncMap();
     public static Map<String, List<Integer>> lookupAlist = syncMap();

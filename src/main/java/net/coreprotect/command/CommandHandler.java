@@ -3,8 +3,10 @@ package net.coreprotect.command;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -255,9 +257,9 @@ public class CommandHandler implements CommandExecutor {
         return result;
     }
 
-    protected static List<Object> parseExcluded(CommandSender player, String[] inputArguments, List<Integer> argAction) {
+    protected static Map<Object, Boolean> parseExcluded(CommandSender player, String[] inputArguments, List<Integer> argAction) {
         String[] argumentArray = inputArguments.clone();
-        List<Object> excluded = new ArrayList<>();
+        Map<Object, Boolean> excluded = new HashMap<>();
         int count = 0;
         int next = 0;
         for (String argument : argumentArray) {
@@ -276,20 +278,22 @@ public class CommandHandler implements CommandExecutor {
                         String[] i2 = argument.split(",");
                         for (String i3 : i2) {
                             if (i3.equals("#natural")) {
-                                excluded.addAll(naturalBlocks);
+                                for (Material block : naturalBlocks) {
+                                    excluded.put(block, false);
+                                }
                             }
                             else {
                                 Material i3_material = Util.getType(i3);
                                 if (i3_material != null && (i3_material.isBlock() || argAction.contains(4))) {
-                                    excluded.add(i3_material);
+                                    excluded.put(i3_material, false);
                                 }
                                 else {
                                     EntityType i3_entity = Util.getEntityType(i3);
                                     if (i3_entity != null) {
-                                        excluded.add(i3_entity);
+                                        excluded.put(i3_entity, false);
                                     }
                                     else if (i3_material != null) {
-                                        excluded.add(i3_material);
+                                        excluded.put(i3_material, false);
                                     }
                                 }
                             }
@@ -303,20 +307,22 @@ public class CommandHandler implements CommandExecutor {
                     }
                     else {
                         if (argument.equals("#natural")) {
-                            excluded.addAll(naturalBlocks);
+                            for (Material block : naturalBlocks) {
+                                excluded.put(block, false);
+                            }
                         }
                         else {
                             Material iMaterial = Util.getType(argument);
                             if (iMaterial != null && (iMaterial.isBlock() || argAction.contains(4))) {
-                                excluded.add(iMaterial);
+                                excluded.put(iMaterial, false);
                             }
                             else {
                                 EntityType iEntity = Util.getEntityType(argument);
                                 if (iEntity != null) {
-                                    excluded.add(iEntity);
+                                    excluded.put(iEntity, false);
                                 }
                                 else if (iMaterial != null) {
-                                    excluded.add(iMaterial);
+                                    excluded.put(iMaterial, false);
                                 }
                             }
                         }

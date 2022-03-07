@@ -46,6 +46,7 @@ public class Config extends Language {
     public boolean DATABASE_LOCK;
     public boolean LOG_CANCELLED_CHAT;
     public boolean HOPPER_FILTER_META;
+    public boolean EXCLUDE_TNT;
     public boolean MYSQL;
     public boolean CHECK_UPDATES;
     public boolean API_ENABLED;
@@ -185,6 +186,7 @@ public class Config extends Language {
         this.DATABASE_LOCK = this.getBoolean("database-lock", true);
         this.LOG_CANCELLED_CHAT = this.getBoolean("log-cancelled-chat", true);
         this.HOPPER_FILTER_META = this.getBoolean("hopper-filter-meta", false);
+        this.EXCLUDE_TNT = this.getBoolean("exclude-tnt", false);
         this.DONATION_KEY = this.getString("donation-key");
         this.MYSQL = this.getBoolean("use-mysql");
         this.PREFIX = this.getString("table-prefix");

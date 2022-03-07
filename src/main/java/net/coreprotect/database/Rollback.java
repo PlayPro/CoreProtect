@@ -95,7 +95,7 @@ import net.coreprotect.utility.entity.HangingUtil;
 
 public class Rollback extends Queue {
 
-    public static List<String[]> performRollbackRestore(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, String timeString, List<Object> restrictList, List<Object> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, long startTime, long endTime, boolean restrictWorld, boolean lookup, boolean verbose, final int rollbackType, final int preview) {
+    public static List<String[]> performRollbackRestore(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, String timeString, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, long startTime, long endTime, boolean restrictWorld, boolean lookup, boolean verbose, final int rollbackType, final int preview) {
         List<String[]> list = new ArrayList<>();
 
         try {
@@ -112,12 +112,12 @@ public class Rollback extends Queue {
 
             boolean ROLLBACK_ITEMS = false;
             List<Object> itemRestrictList = new ArrayList<>(restrictList);
-            List<Object> itemExcludeList = new ArrayList<>(excludeList);
+            Map<Object, Boolean> itemExcludeList = new HashMap<>(excludeList);
 
             if (actionList.contains(1)) {
                 for (Object target : restrictList) {
                     if (target instanceof Material) {
-                        if (!excludeList.contains(target)) {
+                        if (!excludeList.containsKey(target)) {
                             if (BlockGroup.CONTAINERS.contains(target)) {
                                 ROLLBACK_ITEMS = true;
                                 itemRestrictList.clear();
@@ -137,6 +137,7 @@ public class Rollback extends Queue {
                     itemActionList.add(4);
                 }
 
+                itemExcludeList.entrySet().removeIf(entry -> Boolean.TRUE.equals(entry.getValue()));
                 itemList = Lookup.performLookupRaw(statement, user, checkUuids, checkUsers, itemRestrictList, itemExcludeList, excludeUserList, itemActionList, location, radius, null, startTime, endTime, -1, -1, restrictWorld, lookup);
             }
 
@@ -1277,7 +1278,7 @@ public class Rollback extends Queue {
         return null;
     }
 
-    static void finishRollbackRestore(CommandSender user, Location location, List<String> checkUsers, List<Object> restrictList, List<Object> excludeList, List<String> excludeUserList, List<Integer> actionList, String timeString, Integer chunkCount, Double seconds, Integer itemCount, Integer blockCount, Integer entityCount, int rollbackType, Integer[] radius, boolean verbose, boolean restrictWorld, int preview) {
+    static void finishRollbackRestore(CommandSender user, Location location, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, String timeString, Integer chunkCount, Double seconds, Integer itemCount, Integer blockCount, Integer entityCount, int rollbackType, Integer[] radius, boolean verbose, boolean restrictWorld, int preview) {
         try {
             if (preview == 2) {
                 Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PREVIEW_CANCELLED));
@@ -1418,7 +1419,15 @@ public class Rollback extends Queue {
                 boolean entity = false;
 
                 int excludeCount = 0;
-                for (Object excludeTarget : excludeList) {
+                for (Map.Entry<Object, Boolean> entry : excludeList.entrySet()) {
+                    Object excludeTarget = entry.getKey();
+                    Boolean excludeTargetInternal = entry.getValue();
+
+                    // don't display default block excludes
+                    if (Boolean.TRUE.equals(excludeTargetInternal)) {
+                        continue;
+                    }
+
                     // don't display that excluded water/fire/farmland in inventory rollbacks
                     if (actionList.contains(4) && actionList.contains(11)) {
                         if (excludeTarget.equals(Material.FIRE) || excludeTarget.equals(Material.WATER) || excludeTarget.equals(Material.FARMLAND)) {

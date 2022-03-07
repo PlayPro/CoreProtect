@@ -5,6 +5,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -39,7 +40,7 @@ public class RollbackRestoreCommand {
         int argNoisy = CommandHandler.parseNoisy(args);
         List<Integer> argAction = CommandHandler.parseAction(args);
         List<Object> argBlocks = CommandHandler.parseRestricted(player, args, argAction);
-        List<Object> argExclude = CommandHandler.parseExcluded(player, args, argAction);
+        Map<Object, Boolean> argExclude = CommandHandler.parseExcluded(player, args, argAction);
         List<String> argExcludeUsers = CommandHandler.parseExcludedUsers(player, args);
         String ts = CommandHandler.parseTimeString(args);
         long[] argTime = CommandHandler.parseTime(args);
@@ -76,7 +77,7 @@ public class RollbackRestoreCommand {
         }
 
         /* check for invalid block/entity combinations (exclude) */
-        for (Object arg : argExclude) {
+        for (Object arg : argExclude.keySet()) {
             if (arg instanceof Material) {
                 hasBlock = true;
             }
@@ -186,10 +187,13 @@ public class RollbackRestoreCommand {
                     return;
                 }
 
-                argExclude.add(Material.FIRE);
-                argExclude.add(Material.WATER);
-                argExclude.add(Material.FARMLAND);
+                argExclude.put(Material.FIRE, false);
+                argExclude.put(Material.WATER, false);
+                argExclude.put(Material.FARMLAND, false);
                 argExcludeUsers.add("#hopper");
+            }
+            else if (!argAction.contains(4) && Config.getGlobal().EXCLUDE_TNT && !argExclude.containsKey(Material.TNT) && !argBlocks.contains(Material.TNT)) {
+                argExclude.put(Material.TNT, true);
             }
 
             if (g == 1 && (argUsers.size() > 0 || (argUsers.size() == 0 && argRadius != null))) {
@@ -329,7 +333,7 @@ public class RollbackRestoreCommand {
                         final String rtime = ts;
                         final List<String> uuidList = argUuids;
                         final List<Object> blist = argBlocks;
-                        final List<Object> elist = argExclude;
+                        final Map<Object, Boolean> elist = argExclude;
                         final List<String> euserlist = argExcludeUsers;
                         final Location locationFinal = lo;
                         final int finalArgWid = argWid;

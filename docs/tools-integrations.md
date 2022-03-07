@@ -18,6 +18,11 @@ Displays how many ores a player has destroyed in a specific time span.
 [https://dev.bukkit.org/bukkit-plugins/coreprotect-anti-xray/](https://dev.bukkit.org/bukkit-plugins/coreprotect-anti-xray/)  
 &nbsp;
 
+* **CoreProtect TNT**  
+The CoreProtect TNT extension adds logging for TNT and creeper explosion sources.
+[https://www.spigotmc.org/resources/coreprotect-tnt-log-tnt-creeper-explode-source.69609/](https://www.spigotmc.org/resources/coreprotect-tnt-log-tnt-creeper-explode-source.69609/)
+&nbsp;
+
 ## Tools
 
 * **CoreProtect Lookup Web Interface**  

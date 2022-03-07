@@ -181,10 +181,10 @@ public final class CraftItemListener extends Queue implements Listener {
                     return;
                 }
                 removedItem.setAmount(removedItem.getAmount() * amountMultiplier);
-                logCraftedItem(player.getLocation(), player.getName(), removedItem, isTrade ? ItemLogger.ITEM_SELL : ItemLogger.ITEM_DESTROY);
+                logCraftedItem(event.getInventory().getLocation(), player.getName(), removedItem, isTrade ? ItemLogger.ITEM_SELL : ItemLogger.ITEM_DESTROY);
             }
 
-            logCraftedItem(player.getLocation(), player.getName(), addItem, isTrade ? ItemLogger.ITEM_BUY : ItemLogger.ITEM_CREATE);
+            logCraftedItem(event.getInventory().getLocation(), player.getName(), addItem, isTrade ? ItemLogger.ITEM_BUY : ItemLogger.ITEM_CREATE);
         }
     }
 

@@ -53,6 +53,9 @@ public final class BlockIgniteListener extends Queue implements Listener {
                         }
                     }
                 }
+                else if (event.getCause() == IgniteCause.ENDER_CRYSTAL && blockBelow == Material.AIR) {
+                    return;
+                }
             }
 
             BlockState replacedBlock = null;

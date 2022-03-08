@@ -7,7 +7,7 @@ plugins {
 }
 
 group = 'net.coreprotect'
-String projectVersion = '20.4'
+String projectVersion = '21.0'
 String projectBranch = ''
 version = projectVersion // `version` might be modified, we don't always want that (e.g. plugin.yml)
 description = 'Provides block protection for your server.'

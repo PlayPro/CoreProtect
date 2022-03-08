@@ -168,7 +168,7 @@ public class CoreProtectAPI extends Queue {
     }
 
     public int APIVersion() {
-        return 8;
+        return 9;
     }
 
     public List<String[]> blockLookup(Block block, int time) {

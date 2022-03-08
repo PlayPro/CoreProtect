@@ -138,7 +138,8 @@ ___
 
 * Example: `t:2w,5d,7h,2m,10s`
 * Example: `t:5d2h`
-* Example: `t:2.50h` *(2 and a half hours)*
+* Example: `t:1h-2h` *(between one to two hours)*
+* Example: `t:2.50h` *(two and a half hours)*
 
 ---
 
@@ -171,12 +172,12 @@ ___
 | `a:container` | items taken from or put in chests |
 | `a:+container` | items put in chests |
 | `a:-container` | items taken from chests |
-| `a:inventory` | items dropped, picked up, deposited, or withdrawn by players |
-| `a:+inventory` | items picked up or withdrawn by players |
-| `a:-inventory` | items dropped or deposited by players |
-| `a:item` | merges `a:container` and `a:inventory` |
-| `a:+item` | merges `a:+container` and `a:+inventory` |
-| `a:-item` | merges `a:-container` and `a:-inventory` |
+| `a:inventory` | items added or removed from player inventories |
+| `a:+inventory` | items added to player inventories |
+| `a:-inventory` | items removed from player inventories |
+| `a:item` | items dropped, thrown, picked up, deposited, or withdrawn by players |
+| `a:+item` | items picked up or withdrawn by players |
+| `a:-item` | items dropped, thrown, or deposited by players |
 | `a:kill` | mobs/animals killed |
 | `a:session` | player logins/logouts |
 | `a:+session` | player logins |

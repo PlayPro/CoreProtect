@@ -171,6 +171,7 @@ public final class CraftItemListener extends Queue implements Listener {
         }
 
         if (addItem.getAmount() > 0) {
+            Location location = (isTrade || event.getInventory().getLocation() == null) ? player.getLocation() : event.getInventory().getLocation();
             for (ItemStack oldItem : oldItems) {
                 if (oldItem == null || oldItem.getType() == Material.AIR) {
                     continue;
@@ -181,10 +182,10 @@ public final class CraftItemListener extends Queue implements Listener {
                     return;
                 }
                 removedItem.setAmount(removedItem.getAmount() * amountMultiplier);
-                logCraftedItem(event.getInventory().getLocation(), player.getName(), removedItem, isTrade ? ItemLogger.ITEM_SELL : ItemLogger.ITEM_DESTROY);
+                logCraftedItem(location, player.getName(), removedItem, isTrade ? ItemLogger.ITEM_SELL : ItemLogger.ITEM_DESTROY);
             }
 
-            logCraftedItem(event.getInventory().getLocation(), player.getName(), addItem, isTrade ? ItemLogger.ITEM_BUY : ItemLogger.ITEM_CREATE);
+            logCraftedItem(location, player.getName(), addItem, isTrade ? ItemLogger.ITEM_BUY : ItemLogger.ITEM_CREATE);
         }
     }
 

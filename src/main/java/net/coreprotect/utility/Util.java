@@ -19,7 +19,6 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
-import org.bukkit.Art;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -628,10 +627,6 @@ public class Util extends Queue {
         return false;
     }
 
-    public static int getArtId(Art art) {
-        return art.getId();
-    }
-
     public static int getArtId(String name, boolean internal) {
         int id = -1;
         name = name.toLowerCase(Locale.ROOT).trim();
@@ -1173,10 +1168,6 @@ public class Util extends Queue {
 
     public static ItemStack newItemStack(Material type, int amount) {
         return new ItemStack(type, amount);
-    }
-
-    public static ItemStack newItemStack(Material type, int amount, short data) {
-        return new ItemStack(type, amount, data);
     }
 
     public static boolean isSpigot() {

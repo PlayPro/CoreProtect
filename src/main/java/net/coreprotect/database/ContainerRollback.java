@@ -115,7 +115,7 @@ public class ContainerRollback extends Queue {
                                         action = 1;
                                     }
 
-                                    ItemStack itemstack = new ItemStack(rowType, rowAmount, (short) rowData);
+                                    ItemStack itemstack = new ItemStack(rowType, rowAmount);
                                     Object[] populatedStack = Rollback.populateItemStack(itemstack, rowMetadata);
                                     int slot = (Integer) populatedStack[0];
                                     String faceData = (String) populatedStack[1];

@@ -182,7 +182,7 @@ public class ContainerLogger extends Queue {
                         int y = location.getBlockY();
                         int z = location.getBlockZ();
                         int typeId = Util.getBlockId(item.getType().name(), true);
-                        int data = item.getDurability();
+                        int data = 0;
                         int amount = item.getAmount();
                         ContainerStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, typeId, data, amount, metadata, action, 0);
                     }

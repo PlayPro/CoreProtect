@@ -1091,7 +1091,7 @@ public class Rollback extends Queue {
                                     }
 
                                     int action = rollbackType == 0 ? (inventoryAction ^ 1) : inventoryAction;
-                                    ItemStack itemstack = new ItemStack(inventoryItem, rowAmount, (short) rowData);
+                                    ItemStack itemstack = new ItemStack(inventoryItem, rowAmount);
                                     Object[] populatedStack = populateItemStack(itemstack, rowMetadata);
                                     if (rowAction == ItemLogger.ITEM_REMOVE_ENDER || rowAction == ItemLogger.ITEM_ADD_ENDER) {
                                         modifyContainerItems(containerType, player.getEnderChest(), (Integer) populatedStack[0], ((ItemStack) populatedStack[2]).clone(), action ^ 1);
@@ -1108,7 +1108,7 @@ public class Rollback extends Queue {
                                 }
 
                                 if ((rollbackType == 0 && rowRolledBack == 0) || (rollbackType == 1 && rowRolledBack == 1)) {
-                                    ItemStack itemstack = new ItemStack(rowType, rowAmount, (short) rowData);
+                                    ItemStack itemstack = new ItemStack(rowType, rowAmount);
                                     Object[] populatedStack = populateItemStack(itemstack, rowMetadata);
                                     String faceData = (String) populatedStack[1];
 

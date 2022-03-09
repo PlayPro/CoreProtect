@@ -368,14 +368,14 @@ public class RollbackRestoreCommand {
                                         }
                                         if (exists) {
                                             for (String check : euserlist) {
-                                                if (!check.equals("#global")) {
+                                                if (!check.equals("#global") && !check.equals("#hopper")) {
                                                     exists = PlayerLookup.playerExists(connection, check);
                                                     if (!exists) {
                                                         baduser = check;
                                                         break;
                                                     }
                                                 }
-                                                else {
+                                                else if (check.equals("#global")) {
                                                     baduser = "#global";
                                                     exists = false;
                                                 }

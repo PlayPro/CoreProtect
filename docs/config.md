@@ -24,8 +24,9 @@ To disable logging for specific users or commands, simply do the following:
 2. Enter the names of the users (or commands) you'd like to disable logging for (each username on a new line).
 3. Either restart your server, or type "/co reload" in-game.
 
-This can be used to disable logging for non-player users, such as "#tnt". For example, if you'd like to disable logging for the user "Notch" and for TNT explosions, the blacklist.txt file would look like this:
+This can be used to disable logging for non-player users, such as "#tnt". For example, if you'd like to disable logging for the user "Notch", TNT explosions, and the "/help" command, the blacklist.txt file would look like this:
 ```text
 Notch
 #tnt
+/help
 ```

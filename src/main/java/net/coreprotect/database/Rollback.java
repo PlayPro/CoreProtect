@@ -62,6 +62,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.BannerMeta;
 import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.CrossbowMeta;
@@ -1615,13 +1616,32 @@ public class Rollback extends Queue {
             else {
                 Inventory inventory = (Inventory) container;
                 if (inventory != null) {
+                    boolean isPlayerInventory = (inventory instanceof PlayerInventory);
                     if (action == 1) {
                         int count = 0;
                         int amount = itemstack.getAmount();
                         itemstack.setAmount(1);
 
                         while (count < amount) {
-                            inventory.addItem(itemstack);
+                            boolean addedItem = false;
+                            if (isPlayerInventory) {
+                                addedItem = Util.setPlayerArmor((PlayerInventory) inventory, itemstack);
+                            }
+                            if (!addedItem) {
+                                addedItem = (inventory.addItem(itemstack).size() == 0);
+                            }
+                            if (!addedItem && isPlayerInventory) {
+                                PlayerInventory playerInventory = (PlayerInventory) inventory;
+                                ItemStack offhand = playerInventory.getItemInOffHand();
+                                if (offhand == null || offhand.getType() == Material.AIR || (itemstack.isSimilar(offhand) && offhand.getAmount() < offhand.getMaxStackSize())) {
+                                    ItemStack setOffhand = itemstack.clone();
+                                    if (itemstack.isSimilar(offhand)) {
+                                        setOffhand.setAmount(offhand.getAmount() + 1);
+                                    }
+
+                                    playerInventory.setItemInOffHand(setOffhand);
+                                }
+                            }
                             count++;
                         }
                     }
@@ -1630,7 +1650,7 @@ public class Rollback extends Queue {
                         ItemStack removeMatch = itemstack.clone();
                         removeMatch.setAmount(1);
 
-                        ItemStack[] inventoryContents = inventory.getStorageContents().clone();
+                        ItemStack[] inventoryContents = (isPlayerInventory ? inventory.getContents() : inventory.getStorageContents()).clone();
                         for (int i = inventoryContents.length - 1; i >= 0; i--) {
                             if (inventoryContents[i] != null) {
                                 ItemStack itemStack = inventoryContents[i].clone();
@@ -1667,7 +1687,12 @@ public class Rollback extends Queue {
                             }
                         }
 
-                        inventory.setStorageContents(inventoryContents);
+                        if (isPlayerInventory) {
+                            inventory.setContents(inventoryContents);
+                        }
+                        else {
+                            inventory.setStorageContents(inventoryContents);
+                        }
 
                         int count = 0;
                         while (count < removeAmount) {

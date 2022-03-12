@@ -44,6 +44,7 @@ import org.bukkit.inventory.BlockInventoryHolder;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.util.io.BukkitObjectOutputStream;
@@ -653,6 +654,33 @@ public class Util extends Queue {
             artname = ConfigHandler.artReversed.get(id);
         }
         return artname;
+    }
+
+    public static boolean setPlayerArmor(PlayerInventory inventory, ItemStack itemStack) {
+        String itemName = itemStack.getType().name();
+        boolean isHelmet = (itemName.endsWith("_HELMET") || itemName.endsWith("_HEAD") || itemName.endsWith("_SKULL") || itemName.endsWith("_PUMPKIN"));
+        boolean isChestplate = (itemName.endsWith("_CHESTPLATE"));
+        boolean isLeggings = (itemName.endsWith("_LEGGINGS"));
+        boolean isBoots = (itemName.endsWith("_BOOTS"));
+
+        if (isHelmet && inventory.getHelmet() == null) {
+            inventory.setHelmet(itemStack);
+            return true;
+        }
+        else if (isChestplate && inventory.getChestplate() == null) {
+            inventory.setChestplate(itemStack);
+            return true;
+        }
+        else if (isLeggings && inventory.getLeggings() == null) {
+            inventory.setLeggings(itemStack);
+            return true;
+        }
+        else if (isBoots && inventory.getBoots() == null) {
+            inventory.setBoots(itemStack);
+            return true;
+        }
+
+        return false;
     }
 
     public static ItemStack[] getArmorStandContents(EntityEquipment equipment) {

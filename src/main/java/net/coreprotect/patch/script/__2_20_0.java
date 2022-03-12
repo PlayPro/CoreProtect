@@ -39,7 +39,7 @@ public class __2_20_0 {
                 }
 
                 try {
-                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign ADD COLUMN data tinyint(1)");
+                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign ADD COLUMN data TINYINT");
                 }
                 catch (Exception e) {
                     Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, ConfigHandler.prefix + "sign", Selector.FIRST, Selector.FIRST));

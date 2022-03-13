@@ -17,9 +17,10 @@ public class UndoCommand {
         try {
             if (ConfigHandler.lastRollback.get(user.getName()) != null) {
                 List<Object> list = ConfigHandler.lastRollback.get(user.getName());
-                long time = (Long) list.get(0);
-                args = (String[]) list.get(1);
-                Location location = (Location) list.get(2);
+                long startTime = (Long) list.get(0);
+                long endTime = (Long) list.get(1);
+                args = (String[]) list.get(2);
+                Location location = (Location) list.get(3);
                 for (String arg : args) {
                     if (arg.equals("#preview")) {
                         CancelCommand.runCommand(user, command, permission, args);
@@ -38,7 +39,7 @@ public class UndoCommand {
                 }
                 if (valid) {
                     ConfigHandler.lastRollback.remove(user.getName());
-                    RollbackRestoreCommand.runCommand(user, command, permission, args, location, time);
+                    RollbackRestoreCommand.runCommand(user, command, permission, args, location, startTime, endTime);
                 }
             }
             else {

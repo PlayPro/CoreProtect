@@ -4,6 +4,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -28,11 +29,11 @@ import net.coreprotect.utility.Util;
 
 public class ContainerRollback extends Queue {
 
-    public static void performContainerRollbackRestore(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, String timeString, List<Object> restrictList, List<Object> excludeList, List<String> excludeUserList, List<Integer> actionList, final Location location, Integer[] radius, long checkTime, boolean restrictWorld, boolean lookup, boolean verbose, final int rollbackType) {
+    public static void performContainerRollbackRestore(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, String timeString, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, final Location location, Integer[] radius, long startTime, long endTime, boolean restrictWorld, boolean lookup, boolean verbose, final int rollbackType) {
         try {
-            long startTime = System.currentTimeMillis();
+            long timeStart = System.currentTimeMillis();
 
-            final List<Object[]> lookupList = Lookup.performLookupRaw(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, null, checkTime, -1, -1, restrictWorld, lookup);
+            final List<Object[]> lookupList = Lookup.performLookupRaw(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, null, startTime, endTime, -1, -1, restrictWorld, lookup);
             if (rollbackType == 1) {
                 Collections.reverse(lookupList);
             }
@@ -114,7 +115,7 @@ public class ContainerRollback extends Queue {
                                         action = 1;
                                     }
 
-                                    ItemStack itemstack = new ItemStack(rowType, rowAmount, (short) rowData);
+                                    ItemStack itemstack = new ItemStack(rowType, rowAmount);
                                     Object[] populatedStack = Rollback.populateItemStack(itemstack, rowMetadata);
                                     int slot = (Integer) populatedStack[0];
                                     String faceData = (String) populatedStack[1];
@@ -164,8 +165,8 @@ public class ContainerRollback extends Queue {
 
             rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
             int blockCount = rollbackHashData[1];
-            long endTime = System.currentTimeMillis();
-            double totalSeconds = (endTime - startTime) / 1000.0;
+            long timeFinish = System.currentTimeMillis();
+            double totalSeconds = (timeFinish - timeStart) / 1000.0;
 
             if (user != null) {
                 int file = -1;

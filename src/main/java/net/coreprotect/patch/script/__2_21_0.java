@@ -16,7 +16,7 @@ public class __2_21_0 {
         try {
             if (Config.getGlobal().MYSQL) {
                 try {
-                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "item ADD COLUMN rolled_back tinyint(1) DEFAULT 0;");
+                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "item ADD COLUMN rolled_back TINYINT DEFAULT 0;");
                 }
                 catch (Exception e) {
                     Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, ConfigHandler.prefix + "item", Selector.FIRST, Selector.FIRST));

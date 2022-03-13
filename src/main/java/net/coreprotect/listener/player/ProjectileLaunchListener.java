@@ -30,11 +30,11 @@ import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.listener.PlayerPickupArrowListener;
 import net.coreprotect.utility.Util;
 
-public class ProjectileLaunchListener extends Queue implements Listener {
+public final class ProjectileLaunchListener extends Queue implements Listener {
 
     public static Set<Material> BOWS = new HashSet<>(Arrays.asList(Material.BOW, Material.CROSSBOW));
 
-    protected static void playerLaunchProjectile(Location location, String user, ItemStack itemStack, int amount, int delay, int offset, int action) {
+    public static void playerLaunchProjectile(Location location, String user, ItemStack itemStack, int amount, int delay, int offset, int action) {
         if (!Config.getConfig(location.getWorld()).ITEM_DROPS || itemStack == null) {
             return;
         }

@@ -138,7 +138,8 @@ ___
 
 * Example: `t:2w,5d,7h,2m,10s`
 * Example: `t:5d2h`
-* Example: `t:2.50h` *(2 and a half hours)*
+* Example: `t:1h-2h` *(between one to two hours)*
+* Example: `t:2.50h` *(two and a half hours)*
 
 ---
 
@@ -171,12 +172,12 @@ ___
 | `a:container` | items taken from or put in chests |
 | `a:+container` | items put in chests |
 | `a:-container` | items taken from chests |
-| `a:inventory` | items dropped, picked up, deposited, or withdrawn by players |
-| `a:+inventory` | items picked up or withdrawn by players |
-| `a:-inventory` | items dropped or deposited by players |
-| `a:item` | merges `a:container` and `a:inventory` |
-| `a:+item` | merges `a:+container` and `a:+inventory` |
-| `a:-item` | merges `a:-container` and `a:-inventory` |
+| `a:inventory` | items added or removed from player inventories |
+| `a:+inventory` | items added to player inventories |
+| `a:-inventory` | items removed from player inventories |
+| `a:item` | items dropped, thrown, picked up, deposited, or withdrawn by players |
+| `a:+item` | items picked up or withdrawn by players |
+| `a:-item` | items dropped, thrown, or deposited by players |
 | `a:kill` | mobs/animals killed |
 | `a:session` | player logins/logouts |
 | `a:+session` | player logins |
@@ -244,6 +245,8 @@ By default, if no radius is specified, a radius of 10 will be applied, restricti
   *(rollback griefing Notch did in the last hour that is within 20 blocks of you)*
 * `/co rollback u:Notch t:1h r:#nether`  
   *(rollback griefing Notch did in the last hour ONLY in the Nether)*
+* `/co rollback u:Notch t:5m a:inventory`  
+  *(rollback inventory transactions by Notch in the last 5 minutes)*
 * `/co rollback t:15m r:30`  
   *(rollback everything done in the last 15 minutes by anyone within 30 blocks of you)*
 * `/co rollback t:15m r:#worldedit`  
@@ -259,6 +262,8 @@ Lookup commands are generally the same as rollback commands. The primary differe
   *(lookup all diamond ore mined in the last hour)*
 * `/co lookup u:Notch t:30m a:chat`  
   *(lookup chat messages sent by Notch in the last 30 minutes)*
+* `/co lookup u:Notch t:3d a:inventory`  
+  *(lookup inventory transactions by Notch in the last 3 days)*
 * `/co lookup u:Notch a:login`  
   *(lookup all logins ever done by Notch)*
 * `/co lookup u:Notch a:login`  

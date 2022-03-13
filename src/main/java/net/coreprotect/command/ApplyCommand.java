@@ -17,9 +17,10 @@ public class ApplyCommand {
         try {
             if (ConfigHandler.lastRollback.get(user.getName()) != null) {
                 List<Object> list = ConfigHandler.lastRollback.get(user.getName());
-                long time = (Long) list.get(0);
-                args = (String[]) list.get(1);
-                Location location = (Location) list.get(2);
+                long startTime = (Long) list.get(0);
+                long endTime = (Long) list.get(1);
+                args = (String[]) list.get(2);
+                Location location = (Location) list.get(3);
                 boolean valid = false;
                 for (int i = 0; i < args.length; i++) {
                     if (args[i].equals("#preview")) {
@@ -32,7 +33,7 @@ public class ApplyCommand {
                 }
                 else {
                     ConfigHandler.lastRollback.remove(user.getName());
-                    RollbackRestoreCommand.runCommand(user, command, permission, args, location, time);
+                    RollbackRestoreCommand.runCommand(user, command, permission, args, location, startTime, endTime);
                 }
             }
             else {

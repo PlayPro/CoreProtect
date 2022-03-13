@@ -31,10 +31,12 @@ public class PurgeCommand extends Consumer {
         int resultc = args.length;
         Location location = CommandHandler.parseLocation(player, args);
         final Integer[] argRadius = CommandHandler.parseRadius(args, player, location);
-        final long seconds = CommandHandler.parseTime(args);
+        final long[] argTime = CommandHandler.parseTime(args);
         final int argWid = CommandHandler.parseWorld(args, false, false);
         final List<Integer> argAction = CommandHandler.parseAction(args);
         final List<Integer> supportedActions = Arrays.asList();
+        long startTime = argTime[1] > 0 ? argTime[0] : 0;
+        long endTime = argTime[1] > 0 ? argTime[1] : argTime[0];
 
         if (ConfigHandler.converterRunning) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
@@ -52,7 +54,7 @@ public class PurgeCommand extends Consumer {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co purge t:<time>"));
             return;
         }
-        if (seconds <= 0) {
+        if (endTime <= 0) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co purge t:<time>"));
             return;
         }
@@ -72,11 +74,11 @@ public class PurgeCommand extends Consumer {
                 return;
             }
         }
-        if (player instanceof Player && seconds < 2592000) {
+        if (player instanceof Player && endTime < 2592000) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_MINIMUM_TIME, "30", Selector.FIRST)); // 30 days
             return;
         }
-        else if (seconds < 86400) {
+        else if (endTime < 86400) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_MINIMUM_TIME, "24", Selector.SECOND)); // 24 hours
             return;
         }
@@ -96,7 +98,8 @@ public class PurgeCommand extends Consumer {
             public void run() {
                 try {
                     long timestamp = (System.currentTimeMillis() / 1000L);
-                    long ptime = timestamp - seconds;
+                    long timeStart = startTime > 0 ? (timestamp - startTime) : 0;
+                    long timeEnd = timestamp - endTime;
                     long removed = 0;
 
                     Connection connection = null;
@@ -196,10 +199,10 @@ public class PurgeCommand extends Consumer {
                                     String timeLimit = "";
                                     if (purgeTables.contains(table)) {
                                         if (argWid > 0 && worldTables.contains(table)) {
-                                            timeLimit = " WHERE (wid = '" + argWid + "' AND time >= '" + ptime + "') OR wid != '" + argWid + "'";
+                                            timeLimit = " WHERE (wid = '" + argWid + "' AND (time >= '" + timeEnd + "' OR time < '" + timeStart + "')) OR wid != '" + argWid + "'";
                                         }
                                         else if (argWid == 0) {
-                                            timeLimit = " WHERE time >= '" + ptime + "'";
+                                            timeLimit = " WHERE (time >= '" + timeEnd + "' OR time < '" + timeStart + "')";
                                         }
                                     }
                                     query = "INSERT INTO " + purgePrefix + table + " SELECT " + columns + " FROM " + ConfigHandler.prefix + table + timeLimit;
@@ -262,7 +265,7 @@ public class PurgeCommand extends Consumer {
                                     }
 
                                     if (purge) {
-                                        query = "DELETE FROM " + purgePrefix + table + " WHERE time < '" + ptime + "'" + worldRestriction;
+                                        query = "DELETE FROM " + purgePrefix + table + " WHERE time < '" + timeEnd + "' AND time >= '" + timeStart + "'" + worldRestriction;
                                         preparedStmt = connection.prepareStatement(query);
                                         preparedStmt.execute();
                                         preparedStmt.close();
@@ -321,7 +324,7 @@ public class PurgeCommand extends Consumer {
                                 }
 
                                 if (purge) {
-                                    query = "DELETE FROM " + ConfigHandler.prefix + table + " WHERE time < '" + ptime + "'" + worldRestriction;
+                                    query = "DELETE FROM " + ConfigHandler.prefix + table + " WHERE time < '" + timeEnd + "' AND time >= '" + timeStart + "'" + worldRestriction;
                                     preparedStmt = connection.prepareStatement(query);
                                     preparedStmt.execute();
                                     removed = removed + preparedStmt.getUpdateCount();

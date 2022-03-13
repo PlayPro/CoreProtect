@@ -9,7 +9,7 @@ import org.bukkit.event.player.PlayerTakeLecternBookEvent;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 
-public class PlayerTakeLecternBookListener extends Queue implements Listener {
+public final class PlayerTakeLecternBookListener extends Queue implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerTakeLecternBook(PlayerTakeLecternBookEvent event) {

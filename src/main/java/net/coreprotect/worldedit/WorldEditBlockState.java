@@ -178,4 +178,10 @@ public final class WorldEditBlockState implements BlockState {
         return false;
     }
 
+    @Override
+    public boolean isCollidable() {
+        // TODO Auto-generated method stub
+        return false;
+    }
+
 }

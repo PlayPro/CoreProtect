@@ -40,7 +40,7 @@ public class __2_15_0 {
 
             try {
                 if (Config.getGlobal().MYSQL) {
-                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "block MODIFY COLUMN rowid bigint(20) NOT NULL AUTO_INCREMENT, ADD COLUMN blockdata BLOB");
+                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "block MODIFY COLUMN rowid bigint NOT NULL AUTO_INCREMENT, ADD COLUMN blockdata BLOB");
                 }
                 else {
                     statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "block ADD COLUMN blockdata BLOB");

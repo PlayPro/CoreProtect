@@ -95,6 +95,8 @@ public class ConfigHandler extends Queue {
     public static ConcurrentHashMap<String, List<ItemStack>> itemsBreak = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, List<ItemStack>> itemsDestroy = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, List<ItemStack>> itemsCreate = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, List<ItemStack>> itemsSell = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, List<ItemStack>> itemsBuy = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, Object[]> hopperAbort = new ConcurrentHashMap<>();
     public static Map<String, List<ItemStack[]>> forceContainer = syncMap();
     public static Map<String, Integer> lookupType = syncMap();
@@ -103,7 +105,7 @@ public class ConfigHandler extends Queue {
     public static Map<String, Integer> lookupPage = syncMap();
     public static Map<String, String> lookupCommand = syncMap();
     public static Map<String, List<Object>> lookupBlist = syncMap();
-    public static Map<String, List<Object>> lookupElist = syncMap();
+    public static Map<String, Map<Object, Boolean>> lookupElist = syncMap();
     public static Map<String, List<String>> lookupEUserlist = syncMap();
     public static Map<String, List<String>> lookupUlist = syncMap();
     public static Map<String, List<Integer>> lookupAlist = syncMap();
@@ -117,6 +119,7 @@ public class ConfigHandler extends Queue {
     public static Map<String, List<Object>> lastRollback = syncMap();
     public static Map<String, Boolean> activeRollbacks = syncMap();
     public static Map<UUID, Object[]> entityBlockMapper = syncMap();
+    public static ConcurrentHashMap<Long, Long> populatedChunks = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, String> language = new ConcurrentHashMap<>();
     public static List<String> databaseTables = new ArrayList<>();
 

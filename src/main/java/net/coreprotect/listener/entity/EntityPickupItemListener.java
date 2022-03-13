@@ -18,9 +18,9 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 
-public class EntityPickupItemListener extends Queue implements Listener {
+public final class EntityPickupItemListener extends Queue implements Listener {
 
-    protected static void onItemPickup(Player player, Location location, ItemStack itemStack) {
+    public static void onItemPickup(Player player, Location location, ItemStack itemStack) {
         if (itemStack == null || location == null || !Config.getConfig(location.getWorld()).ITEM_PICKUPS) {
             return;
         }

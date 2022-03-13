@@ -18,5 +18,21 @@ public final class PlayerCommandListener extends Queue implements Listener {
             long timestamp = System.currentTimeMillis() / 1000L;
             Queue.queuePlayerCommand(player, event.getMessage(), timestamp);
         }
+
+        /*
+        if (Config.getGlobal().ENTITY_KILLS && player.hasPermission("bukkit.command.kill")) {
+            EntityDeathListener.parseEntityKills(event.getMessage());
+        }
+        */
     }
+
+    /*
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onServerCommand(ServerCommandEvent event) {
+        if (Config.getGlobal().ENTITY_KILLS && event.getCommand().toLowerCase(Locale.ROOT).startsWith("kill")) {
+            EntityDeathListener.parseEntityKills(event.getCommand());
+        }
+    }
+    */
+
 }

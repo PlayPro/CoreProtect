@@ -19,7 +19,6 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
-import org.bukkit.Art;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -45,6 +44,7 @@ import org.bukkit.inventory.BlockInventoryHolder;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.util.io.BukkitObjectOutputStream;
@@ -231,6 +231,9 @@ public class Util extends Queue {
     public static String getTimeSince(long resultTime, long currentTime, boolean component) {
         StringBuilder message = new StringBuilder();
         double timeSince = currentTime - (resultTime + 0.00);
+        if (timeSince < 0.00) {
+            timeSince = 0.00;
+        }
 
         // minutes
         timeSince = timeSince / 60;
@@ -625,10 +628,6 @@ public class Util extends Queue {
         return false;
     }
 
-    public static int getArtId(Art art) {
-        return art.getId();
-    }
-
     public static int getArtId(String name, boolean internal) {
         int id = -1;
         name = name.toLowerCase(Locale.ROOT).trim();
@@ -655,6 +654,33 @@ public class Util extends Queue {
             artname = ConfigHandler.artReversed.get(id);
         }
         return artname;
+    }
+
+    public static boolean setPlayerArmor(PlayerInventory inventory, ItemStack itemStack) {
+        String itemName = itemStack.getType().name();
+        boolean isHelmet = (itemName.endsWith("_HELMET") || itemName.endsWith("_HEAD") || itemName.endsWith("_SKULL") || itemName.endsWith("_PUMPKIN"));
+        boolean isChestplate = (itemName.endsWith("_CHESTPLATE"));
+        boolean isLeggings = (itemName.endsWith("_LEGGINGS"));
+        boolean isBoots = (itemName.endsWith("_BOOTS"));
+
+        if (isHelmet && inventory.getHelmet() == null) {
+            inventory.setHelmet(itemStack);
+            return true;
+        }
+        else if (isChestplate && inventory.getChestplate() == null) {
+            inventory.setChestplate(itemStack);
+            return true;
+        }
+        else if (isLeggings && inventory.getLeggings() == null) {
+            inventory.setLeggings(itemStack);
+            return true;
+        }
+        else if (isBoots && inventory.getBoots() == null) {
+            inventory.setBoots(itemStack);
+            return true;
+        }
+
+        return false;
     }
 
     public static ItemStack[] getArmorStandContents(EntityEquipment equipment) {
@@ -1172,10 +1198,6 @@ public class Util extends Queue {
         return new ItemStack(type, amount);
     }
 
-    public static ItemStack newItemStack(Material type, int amount, short data) {
-        return new ItemStack(type, amount, data);
-    }
-
     public static boolean isSpigot() {
         try {
             Class.forName("org.spigotmc.SpigotConfig");
@@ -1462,6 +1484,43 @@ public class Util extends Queue {
         }
 
         return result;
+    }
+
+    public static String getWidIndex(String queryTable) {
+        String index = "";
+        boolean isMySQL = Config.getGlobal().MYSQL;
+        if (isMySQL) {
+            index = "USE INDEX(wid) ";
+        }
+        else {
+            switch (queryTable) {
+                case "block":
+                    index = "INDEXED BY block_index ";
+                    break;
+                case "container":
+                    index = "INDEXED BY container_index ";
+                    break;
+                case "item":
+                    index = "INDEXED BY item_index ";
+                    break;
+                case "sign":
+                    index = "INDEXED BY sign_index ";
+                    break;
+                case "chat":
+                    index = "INDEXED BY chat_wid_index ";
+                    break;
+                case "command":
+                    index = "INDEXED BY command_wid_index ";
+                    break;
+                case "session":
+                    index = "INDEXED BY session_index ";
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        return index;
     }
 
     public static int rolledBack(int rolledBack, boolean isInventory) {

@@ -62,6 +62,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.BannerMeta;
 import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.CrossbowMeta;
@@ -95,15 +96,15 @@ import net.coreprotect.utility.entity.HangingUtil;
 
 public class Rollback extends Queue {
 
-    public static List<String[]> performRollbackRestore(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, String timeString, List<Object> restrictList, List<Object> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, long checkTime, boolean restrictWorld, boolean lookup, boolean verbose, final int rollbackType, final int preview) {
+    public static List<String[]> performRollbackRestore(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, String timeString, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, long startTime, long endTime, boolean restrictWorld, boolean lookup, boolean verbose, final int rollbackType, final int preview) {
         List<String[]> list = new ArrayList<>();
 
         try {
-            long startTime = System.currentTimeMillis();
+            long timeStart = System.currentTimeMillis();
             List<Object[]> lookupList = new ArrayList<>();
 
             if (!actionList.contains(4) && !actionList.contains(5) && !checkUsers.contains("#container")) {
-                lookupList = Lookup.performLookupRaw(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, null, checkTime, -1, -1, restrictWorld, lookup);
+                lookupList = Lookup.performLookupRaw(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, null, startTime, endTime, -1, -1, restrictWorld, lookup);
             }
 
             if (lookupList == null) {
@@ -112,12 +113,12 @@ public class Rollback extends Queue {
 
             boolean ROLLBACK_ITEMS = false;
             List<Object> itemRestrictList = new ArrayList<>(restrictList);
-            List<Object> itemExcludeList = new ArrayList<>(excludeList);
+            Map<Object, Boolean> itemExcludeList = new HashMap<>(excludeList);
 
             if (actionList.contains(1)) {
                 for (Object target : restrictList) {
                     if (target instanceof Material) {
-                        if (!excludeList.contains(target)) {
+                        if (!excludeList.containsKey(target)) {
                             if (BlockGroup.CONTAINERS.contains(target)) {
                                 ROLLBACK_ITEMS = true;
                                 itemRestrictList.clear();
@@ -137,7 +138,8 @@ public class Rollback extends Queue {
                     itemActionList.add(4);
                 }
 
-                itemList = Lookup.performLookupRaw(statement, user, checkUuids, checkUsers, itemRestrictList, itemExcludeList, excludeUserList, itemActionList, location, radius, null, checkTime, -1, -1, restrictWorld, lookup);
+                itemExcludeList.entrySet().removeIf(entry -> Boolean.TRUE.equals(entry.getValue()));
+                itemList = Lookup.performLookupRaw(statement, user, checkUuids, checkUsers, itemRestrictList, itemExcludeList, excludeUserList, itemActionList, location, radius, null, startTime, endTime, -1, -1, restrictWorld, lookup);
             }
 
             TreeMap<Long, Integer> chunkList = new TreeMap<>();
@@ -531,13 +533,18 @@ public class Rollback extends Queue {
 
                                 if ((rowType == changeType) && ((!BukkitAdapter.ADAPTER.isItemFrame(oldTypeMaterial)) && (oldTypeMaterial != Material.PAINTING) && (oldTypeMaterial != Material.ARMOR_STAND)) && (oldTypeMaterial != Material.END_CRYSTAL)) {
                                     // block is already changed!
-                                    if (blockData != null) {
-                                        if (blockData.getAsString().equals(changeBlockData.getAsString()) || blockData instanceof MultipleFacing || blockData instanceof Stairs || blockData instanceof RedstoneWire) {
+                                    BlockData checkData = rowType == Material.AIR ? blockData : rawBlockData;
+                                    if (checkData != null) {
+                                        if (checkData.getAsString().equals(changeBlockData.getAsString()) || checkData instanceof MultipleFacing || checkData instanceof Stairs || checkData instanceof RedstoneWire) {
                                             if (rowType != Material.CHEST && rowType != Material.TRAPPED_CHEST) { // always update double chests
                                                 changeBlock = false;
                                             }
                                         }
                                     }
+                                    else if (rowType == Material.AIR) {
+                                        changeBlock = false;
+                                    }
+
                                     countBlock = false;
                                 }
                                 else if ((changeType != Material.AIR) && (changeType != Material.CAVE_AIR)) {
@@ -1074,8 +1081,8 @@ public class Rollback extends Queue {
                                     }
 
                                     int inventoryAction = 0;
-                                    if (rowAction == ItemLogger.ITEM_DROP || rowAction == ItemLogger.ITEM_PICKUP || rowAction == ItemLogger.ITEM_THROW || rowAction == ItemLogger.ITEM_SHOOT || rowAction == ItemLogger.ITEM_BREAK || rowAction == ItemLogger.ITEM_DESTROY || rowAction == ItemLogger.ITEM_CREATE) {
-                                        inventoryAction = ((rowAction == ItemLogger.ITEM_PICKUP || rowAction == ItemLogger.ITEM_CREATE) ? 1 : 0);
+                                    if (rowAction == ItemLogger.ITEM_DROP || rowAction == ItemLogger.ITEM_PICKUP || rowAction == ItemLogger.ITEM_THROW || rowAction == ItemLogger.ITEM_SHOOT || rowAction == ItemLogger.ITEM_BREAK || rowAction == ItemLogger.ITEM_DESTROY || rowAction == ItemLogger.ITEM_CREATE || rowAction == ItemLogger.ITEM_SELL || rowAction == ItemLogger.ITEM_BUY) {
+                                        inventoryAction = ((rowAction == ItemLogger.ITEM_PICKUP || rowAction == ItemLogger.ITEM_CREATE || rowAction == ItemLogger.ITEM_BUY) ? 1 : 0);
                                     }
                                     else if (rowAction == ItemLogger.ITEM_REMOVE_ENDER || rowAction == ItemLogger.ITEM_ADD_ENDER) {
                                         inventoryAction = (rowAction == ItemLogger.ITEM_REMOVE_ENDER ? 1 : 0);
@@ -1085,7 +1092,7 @@ public class Rollback extends Queue {
                                     }
 
                                     int action = rollbackType == 0 ? (inventoryAction ^ 1) : inventoryAction;
-                                    ItemStack itemstack = new ItemStack(inventoryItem, rowAmount, (short) rowData);
+                                    ItemStack itemstack = new ItemStack(inventoryItem, rowAmount);
                                     Object[] populatedStack = populateItemStack(itemstack, rowMetadata);
                                     if (rowAction == ItemLogger.ITEM_REMOVE_ENDER || rowAction == ItemLogger.ITEM_ADD_ENDER) {
                                         modifyContainerItems(containerType, player.getEnderChest(), (Integer) populatedStack[0], ((ItemStack) populatedStack[2]).clone(), action ^ 1);
@@ -1102,7 +1109,7 @@ public class Rollback extends Queue {
                                 }
 
                                 if ((rollbackType == 0 && rowRolledBack == 0) || (rollbackType == 1 && rowRolledBack == 1)) {
-                                    ItemStack itemstack = new ItemStack(rowType, rowAmount, (short) rowData);
+                                    ItemStack itemstack = new ItemStack(rowType, rowAmount);
                                     Object[] populatedStack = populateItemStack(itemstack, rowMetadata);
                                     String faceData = (String) populatedStack[1];
 
@@ -1255,8 +1262,8 @@ public class Rollback extends Queue {
             int itemCount = rollbackHashData[0];
             int blockCount = rollbackHashData[1];
             int entityCount = rollbackHashData[2];
-            long endTime = System.currentTimeMillis();
-            double totalSeconds = (endTime - startTime) / 1000.0;
+            long timeFinish = System.currentTimeMillis();
+            double totalSeconds = (timeFinish - timeStart) / 1000.0;
 
             if (user != null) {
                 finishRollbackRestore(user, location, checkUsers, restrictList, excludeList, excludeUserList, actionList, timeString, chunkCount, totalSeconds, itemCount, blockCount, entityCount, rollbackType, radius, verbose, restrictWorld, preview);
@@ -1272,7 +1279,7 @@ public class Rollback extends Queue {
         return null;
     }
 
-    static void finishRollbackRestore(CommandSender user, Location location, List<String> checkUsers, List<Object> restrictList, List<Object> excludeList, List<String> excludeUserList, List<Integer> actionList, String timeString, Integer chunkCount, Double seconds, Integer itemCount, Integer blockCount, Integer entityCount, int rollbackType, Integer[] radius, boolean verbose, boolean restrictWorld, int preview) {
+    static void finishRollbackRestore(CommandSender user, Location location, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, String timeString, Integer chunkCount, Double seconds, Integer itemCount, Integer blockCount, Integer entityCount, int rollbackType, Integer[] radius, boolean verbose, boolean restrictWorld, int preview) {
         try {
             if (preview == 2) {
                 Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PREVIEW_CANCELLED));
@@ -1413,7 +1420,15 @@ public class Rollback extends Queue {
                 boolean entity = false;
 
                 int excludeCount = 0;
-                for (Object excludeTarget : excludeList) {
+                for (Map.Entry<Object, Boolean> entry : excludeList.entrySet()) {
+                    Object excludeTarget = entry.getKey();
+                    Boolean excludeTargetInternal = entry.getValue();
+
+                    // don't display default block excludes
+                    if (Boolean.TRUE.equals(excludeTargetInternal)) {
+                        continue;
+                    }
+
                     // don't display that excluded water/fire/farmland in inventory rollbacks
                     if (actionList.contains(4) && actionList.contains(11)) {
                         if (excludeTarget.equals(Material.FIRE) || excludeTarget.equals(Material.WATER) || excludeTarget.equals(Material.FARMLAND)) {
@@ -1601,13 +1616,32 @@ public class Rollback extends Queue {
             else {
                 Inventory inventory = (Inventory) container;
                 if (inventory != null) {
+                    boolean isPlayerInventory = (inventory instanceof PlayerInventory);
                     if (action == 1) {
                         int count = 0;
                         int amount = itemstack.getAmount();
                         itemstack.setAmount(1);
 
                         while (count < amount) {
-                            inventory.addItem(itemstack);
+                            boolean addedItem = false;
+                            if (isPlayerInventory) {
+                                addedItem = Util.setPlayerArmor((PlayerInventory) inventory, itemstack);
+                            }
+                            if (!addedItem) {
+                                addedItem = (inventory.addItem(itemstack).size() == 0);
+                            }
+                            if (!addedItem && isPlayerInventory) {
+                                PlayerInventory playerInventory = (PlayerInventory) inventory;
+                                ItemStack offhand = playerInventory.getItemInOffHand();
+                                if (offhand == null || offhand.getType() == Material.AIR || (itemstack.isSimilar(offhand) && offhand.getAmount() < offhand.getMaxStackSize())) {
+                                    ItemStack setOffhand = itemstack.clone();
+                                    if (itemstack.isSimilar(offhand)) {
+                                        setOffhand.setAmount(offhand.getAmount() + 1);
+                                    }
+
+                                    playerInventory.setItemInOffHand(setOffhand);
+                                }
+                            }
                             count++;
                         }
                     }
@@ -1616,7 +1650,7 @@ public class Rollback extends Queue {
                         ItemStack removeMatch = itemstack.clone();
                         removeMatch.setAmount(1);
 
-                        ItemStack[] inventoryContents = inventory.getStorageContents().clone();
+                        ItemStack[] inventoryContents = (isPlayerInventory ? inventory.getContents() : inventory.getStorageContents()).clone();
                         for (int i = inventoryContents.length - 1; i >= 0; i--) {
                             if (inventoryContents[i] != null) {
                                 ItemStack itemStack = inventoryContents[i].clone();
@@ -1653,7 +1687,12 @@ public class Rollback extends Queue {
                             }
                         }
 
-                        inventory.setStorageContents(inventoryContents);
+                        if (isPlayerInventory) {
+                            inventory.setContents(inventoryContents);
+                        }
+                        else {
+                            inventory.setStorageContents(inventoryContents);
+                        }
 
                         int count = 0;
                         while (count < removeAmount) {

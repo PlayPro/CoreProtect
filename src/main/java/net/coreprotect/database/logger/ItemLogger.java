@@ -30,6 +30,8 @@ public class ItemLogger {
     public static final int ITEM_BREAK = 8;
     public static final int ITEM_DESTROY = 9;
     public static final int ITEM_CREATE = 10;
+    public static final int ITEM_SELL = 11;
+    public static final int ITEM_BUY = 12;
 
     private ItemLogger() {
         throw new IllegalStateException("Database class");
@@ -78,6 +80,16 @@ public class ItemLogger {
             itemCreates = createList.toArray(itemCreates);
             createList.clear();
 
+            List<ItemStack> sellList = ConfigHandler.itemsSell.getOrDefault(loggingItemId, new ArrayList<>());
+            ItemStack[] itemSells = new ItemStack[sellList.size()];
+            itemSells = sellList.toArray(itemSells);
+            sellList.clear();
+
+            List<ItemStack> buyList = ConfigHandler.itemsBuy.getOrDefault(loggingItemId, new ArrayList<>());
+            ItemStack[] itemBuys = new ItemStack[buyList.size()];
+            itemBuys = buyList.toArray(itemBuys);
+            buyList.clear();
+
             Util.mergeItems(null, itemPickups);
             Util.mergeItems(null, itemDrops);
             Util.mergeItems(null, itemThrows);
@@ -85,6 +97,8 @@ public class ItemLogger {
             Util.mergeItems(null, itemBreaks);
             Util.mergeItems(null, itemDestroys);
             Util.mergeItems(null, itemCreates);
+            Util.mergeItems(null, itemSells);
+            Util.mergeItems(null, itemBuys);
             logTransaction(preparedStmt, batchCount, offset, user, location, itemPickups, ITEM_PICKUP);
             logTransaction(preparedStmt, batchCount, offset, user, location, itemDrops, ITEM_DROP);
             logTransaction(preparedStmt, batchCount, offset, user, location, itemThrows, ITEM_THROW);
@@ -92,6 +106,8 @@ public class ItemLogger {
             logTransaction(preparedStmt, batchCount, offset, user, location, itemBreaks, ITEM_BREAK);
             logTransaction(preparedStmt, batchCount, offset, user, location, itemDestroys, ITEM_DESTROY);
             logTransaction(preparedStmt, batchCount, offset, user, location, itemCreates, ITEM_CREATE);
+            logTransaction(preparedStmt, batchCount, offset, user, location, itemSells, ITEM_SELL);
+            logTransaction(preparedStmt, batchCount, offset, user, location, itemBuys, ITEM_BUY);
         }
         catch (Exception e) {
             e.printStackTrace();

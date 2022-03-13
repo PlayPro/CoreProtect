@@ -24,7 +24,7 @@ public class __2_19_0 {
         try {
             if (Config.getGlobal().MYSQL) {
                 try {
-                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign ADD COLUMN action int(1)");
+                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign ADD COLUMN action int");
                     statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign DROP INDEX wid");
                     statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign ADD INDEX(wid,x,z,time), ADD INDEX(user,time), ADD INDEX(time)");
                 }
@@ -37,14 +37,14 @@ public class __2_19_0 {
                 }
 
                 try {
-                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "chat ADD COLUMN wid int(4), ADD COLUMN x int(8), ADD COLUMN y int(3), ADD COLUMN z int(8), ADD INDEX(wid,x,z,time)");
+                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "chat ADD COLUMN wid int, ADD COLUMN x int, ADD COLUMN y int, ADD COLUMN z int, ADD INDEX(wid,x,z,time)");
                 }
                 catch (Exception e) {
                     Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, ConfigHandler.prefix + "chat", Selector.FIRST, Selector.FIRST));
                 }
 
                 try {
-                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "command ADD COLUMN wid int(4), ADD COLUMN x int(8), ADD COLUMN y int(3), ADD COLUMN z int(8), ADD INDEX(wid,x,z,time)");
+                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "command ADD COLUMN wid int, ADD COLUMN x int, ADD COLUMN y int, ADD COLUMN z int, ADD INDEX(wid,x,z,time)");
                 }
                 catch (Exception e) {
                     Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, ConfigHandler.prefix + "command", Selector.FIRST, Selector.FIRST));

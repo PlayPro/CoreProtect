@@ -16,9 +16,10 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityExplodeEvent;
 
 import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.block.BlockExplodeListener;
 
-public final class EntityExplodeListener extends BlockExplodeListener implements Listener {
+public final class EntityExplodeListener extends Queue implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onEntityExplode(EntityExplodeEvent event) {

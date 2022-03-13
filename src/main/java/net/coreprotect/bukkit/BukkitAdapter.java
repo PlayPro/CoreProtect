@@ -15,6 +15,7 @@ import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import net.coreprotect.config.ConfigHandler;
@@ -43,9 +44,11 @@ public class BukkitAdapter implements BukkitInterface {
                 BukkitAdapter.ADAPTER = new Bukkit_v1_16();
                 break;
             case BUKKIT_V1_17:
+                BukkitAdapter.ADAPTER = new Bukkit_v1_17();
+                break;
             case BUKKIT_V1_18:
             default:
-                BukkitAdapter.ADAPTER = new Bukkit_v1_17();
+                BukkitAdapter.ADAPTER = new Bukkit_v1_18();
                 break;
         }
     }
@@ -142,6 +145,11 @@ public class BukkitAdapter implements BukkitInterface {
     @Override
     public boolean isInvisible(Material material) {
         return Util.isAir(material);
+    }
+
+    @Override
+    public ItemStack adjustIngredient(MerchantRecipe recipe, ItemStack itemStack) {
+        return null;
     }
 
 }

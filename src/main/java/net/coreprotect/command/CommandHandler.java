@@ -3,8 +3,10 @@ package net.coreprotect.command;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -255,9 +257,9 @@ public class CommandHandler implements CommandExecutor {
         return result;
     }
 
-    protected static List<Object> parseExcluded(CommandSender player, String[] inputArguments, List<Integer> argAction) {
+    protected static Map<Object, Boolean> parseExcluded(CommandSender player, String[] inputArguments, List<Integer> argAction) {
         String[] argumentArray = inputArguments.clone();
-        List<Object> excluded = new ArrayList<>();
+        Map<Object, Boolean> excluded = new HashMap<>();
         int count = 0;
         int next = 0;
         for (String argument : argumentArray) {
@@ -276,20 +278,22 @@ public class CommandHandler implements CommandExecutor {
                         String[] i2 = argument.split(",");
                         for (String i3 : i2) {
                             if (i3.equals("#natural")) {
-                                excluded.addAll(naturalBlocks);
+                                for (Material block : naturalBlocks) {
+                                    excluded.put(block, false);
+                                }
                             }
                             else {
                                 Material i3_material = Util.getType(i3);
                                 if (i3_material != null && (i3_material.isBlock() || argAction.contains(4))) {
-                                    excluded.add(i3_material);
+                                    excluded.put(i3_material, false);
                                 }
                                 else {
                                     EntityType i3_entity = Util.getEntityType(i3);
                                     if (i3_entity != null) {
-                                        excluded.add(i3_entity);
+                                        excluded.put(i3_entity, false);
                                     }
                                     else if (i3_material != null) {
-                                        excluded.add(i3_material);
+                                        excluded.put(i3_material, false);
                                     }
                                 }
                             }
@@ -303,20 +307,22 @@ public class CommandHandler implements CommandExecutor {
                     }
                     else {
                         if (argument.equals("#natural")) {
-                            excluded.addAll(naturalBlocks);
+                            for (Material block : naturalBlocks) {
+                                excluded.put(block, false);
+                            }
                         }
                         else {
                             Material iMaterial = Util.getType(argument);
                             if (iMaterial != null && (iMaterial.isBlock() || argAction.contains(4))) {
-                                excluded.add(iMaterial);
+                                excluded.put(iMaterial, false);
                             }
                             else {
                                 EntityType iEntity = Util.getEntityType(argument);
                                 if (iEntity != null) {
-                                    excluded.add(iEntity);
+                                    excluded.put(iEntity, false);
                                 }
                                 else if (iMaterial != null) {
-                                    excluded.add(iMaterial);
+                                    excluded.put(iMaterial, false);
                                 }
                             }
                         }
@@ -691,11 +697,13 @@ public class CommandHandler implements CommandExecutor {
         return restricted;
     }
 
-    protected static long parseTime(String[] inputArguments) {
+    protected static long[] parseTime(String[] inputArguments) {
         String[] argumentArray = inputArguments.clone();
-        long time = 0;
+        long timeStart = 0;
+        long timeEnd = 0;
         int count = 0;
         int next = 0;
+        boolean range = false;
         double w = 0;
         double d = 0;
         double h = 0;
@@ -720,41 +728,59 @@ public class CommandHandler implements CommandExecutor {
                     argument = argument.replaceAll("d", "d:");
                     argument = argument.replaceAll("h", "h:");
                     argument = argument.replaceAll("s", "s:");
+                    range = argument.contains("-");
+
+                    int argCount = 0;
                     String[] i2 = argument.split(":");
                     for (String i3 : i2) {
-                        if (i3.endsWith("w")) {
+                        if (range && argCount > 0 && timeStart == 0 && i3.startsWith("-")) {
+                            timeStart = (long) (((w * 7 * 24 * 60 * 60) + (d * 24 * 60 * 60) + (h * 60 * 60) + (m * 60) + s));
+                            w = 0;
+                            d = 0;
+                            h = 0;
+                            m = 0;
+                            s = 0;
+                        }
+
+                        if (i3.endsWith("w") && w == 0) {
                             String i4 = i3.replaceAll("[^0-9.]", "");
                             if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
                                 w = Double.parseDouble(i4);
                             }
                         }
-                        else if (i3.endsWith("d")) {
+                        else if (i3.endsWith("d") && d == 0) {
                             String i4 = i3.replaceAll("[^0-9.]", "");
                             if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
                                 d = Double.parseDouble(i4);
                             }
                         }
-                        else if (i3.endsWith("h")) {
+                        else if (i3.endsWith("h") && h == 0) {
                             String i4 = i3.replaceAll("[^0-9.]", "");
                             if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
                                 h = Double.parseDouble(i4);
                             }
                         }
-                        else if (i3.endsWith("m")) {
+                        else if (i3.endsWith("m") && m == 0) {
                             String i4 = i3.replaceAll("[^0-9.]", "");
                             if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
                                 m = Double.parseDouble(i4);
                             }
                         }
-                        else if (i3.endsWith("s")) {
+                        else if (i3.endsWith("s") && s == 0) {
                             String i4 = i3.replaceAll("[^0-9.]", "");
                             if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
                                 s = Double.parseDouble(i4);
                             }
                         }
+
+                        argCount++;
                     }
-                    double rs = ((w * 7 * 24 * 60 * 60) + (d * 24 * 60 * 60) + (h * 60 * 60) + (m * 60) + s);
-                    time = (long) rs;
+                    if (timeStart > 0) {
+                        timeEnd = (long) (((w * 7 * 24 * 60 * 60) + (d * 24 * 60 * 60) + (h * 60 * 60) + (m * 60) + s));
+                    }
+                    else {
+                        timeStart = (long) (((w * 7 * 24 * 60 * 60) + (d * 24 * 60 * 60) + (h * 60 * 60) + (m * 60) + s));
+                    }
                     next = 0;
                 }
                 else {
@@ -764,7 +790,12 @@ public class CommandHandler implements CommandExecutor {
             count++;
         }
 
-        return time;
+        if (timeEnd >= timeStart) {
+            return new long[] { timeEnd, timeStart };
+        }
+        else {
+            return new long[] { timeStart, timeEnd };
+        }
     }
 
     private static String timeString(BigDecimal input) {
@@ -776,6 +807,7 @@ public class CommandHandler implements CommandExecutor {
         String time = "";
         int count = 0;
         int next = 0;
+        boolean range = false;
         BigDecimal w = new BigDecimal(0);
         BigDecimal d = new BigDecimal(0);
         BigDecimal h = new BigDecimal(0);
@@ -800,43 +832,82 @@ public class CommandHandler implements CommandExecutor {
                     argument = argument.replaceAll("d", "d:");
                     argument = argument.replaceAll("h", "h:");
                     argument = argument.replaceAll("s", "s:");
+                    range = argument.contains("-");
+
+                    int argCount = 0;
                     String[] i2 = argument.split(":");
                     for (String i3 : i2) {
-                        if (i3.endsWith("w")) {
+                        if (range && argCount > 0 && !time.contains("-") && i3.startsWith("-")) {
+                            w = new BigDecimal(0);
+                            d = new BigDecimal(0);
+                            h = new BigDecimal(0);
+                            m = new BigDecimal(0);
+                            s = new BigDecimal(0);
+                            time = time + " -";
+                        }
+
+                        if (i3.endsWith("w") && w.intValue() == 0) {
                             String i4 = i3.replaceAll("[^0-9.]", "");
                             if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
                                 w = new BigDecimal(i4);
-                                time = time + " " + Phrase.build(Phrase.TIME_WEEKS, timeString(w), (w.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND));
+                                if (range) {
+                                    time = time + " " + timeString(w) + "w";
+                                }
+                                else {
+                                    time = time + " " + Phrase.build(Phrase.TIME_WEEKS, timeString(w), (w.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND));
+                                }
                             }
                         }
-                        else if (i3.endsWith("d")) {
+                        else if (i3.endsWith("d") && d.intValue() == 0) {
                             String i4 = i3.replaceAll("[^0-9.]", "");
                             if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
                                 d = new BigDecimal(i4);
-                                time = time + " " + Phrase.build(Phrase.TIME_DAYS, timeString(d), (d.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND));
+                                if (range) {
+                                    time = time + " " + timeString(d) + "d";
+                                }
+                                else {
+                                    time = time + " " + Phrase.build(Phrase.TIME_DAYS, timeString(d), (d.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND));
+                                }
                             }
                         }
-                        else if (i3.endsWith("h")) {
+                        else if (i3.endsWith("h") && h.intValue() == 0) {
                             String i4 = i3.replaceAll("[^0-9.]", "");
                             if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
                                 h = new BigDecimal(i4);
-                                time = time + " " + Phrase.build(Phrase.TIME_HOURS, timeString(h), (h.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND));
+                                if (range) {
+                                    time = time + " " + timeString(h) + "h";
+                                }
+                                else {
+                                    time = time + " " + Phrase.build(Phrase.TIME_HOURS, timeString(h), (h.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND));
+                                }
                             }
                         }
-                        else if (i3.endsWith("m")) {
+                        else if (i3.endsWith("m") && m.intValue() == 0) {
                             String i4 = i3.replaceAll("[^0-9.]", "");
                             if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
                                 m = new BigDecimal(i4);
-                                time = time + " " + Phrase.build(Phrase.TIME_MINUTES, timeString(m), (m.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND));
+                                if (range) {
+                                    time = time + " " + timeString(m) + "m";
+                                }
+                                else {
+                                    time = time + " " + Phrase.build(Phrase.TIME_MINUTES, timeString(m), (m.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND));
+                                }
                             }
                         }
-                        else if (i3.endsWith("s")) {
+                        else if (i3.endsWith("s") && s.intValue() == 0) {
                             String i4 = i3.replaceAll("[^0-9.]", "");
                             if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
                                 s = new BigDecimal(i4);
-                                time = time + " " + Phrase.build(Phrase.TIME_SECONDS, timeString(s), (s.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND));
+                                if (range) {
+                                    time = time + " " + timeString(s) + "s";
+                                }
+                                else {
+                                    time = time + " " + Phrase.build(Phrase.TIME_SECONDS, timeString(s), (s.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND));
+                                }
                             }
                         }
+
+                        argCount++;
                     }
                     next = 0;
                 }
@@ -1128,7 +1199,7 @@ public class CommandHandler implements CommandExecutor {
                 }
 
                 if (corecommand.equals("rollback") || corecommand.equals("restore") || corecommand.equals("rb") || corecommand.equals("rs") || corecommand.equals("ro") || corecommand.equals("re")) {
-                    RollbackRestoreCommand.runCommand(user, command, permission, argumentArray, null, 0);
+                    RollbackRestoreCommand.runCommand(user, command, permission, argumentArray, null, 0, 0);
                 }
                 else if (corecommand.equals("apply")) {
                     ApplyCommand.runCommand(user, command, permission, argumentArray);

@@ -27,6 +27,7 @@ public class BlockPlaceLogger {
             if (user == null || ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {
                 return;
             }
+
             Material type = block.getType();
             if (blockData == null && (forceType == null || (!forceType.equals(Material.WATER)) && (!forceType.equals(Material.LAVA)))) {
                 blockData = block.getBlockData().getAsString();
@@ -53,15 +54,36 @@ public class BlockPlaceLogger {
                 return;
             }
 
+            int x = block.getX();
+            int y = block.getY();
+            int z = block.getZ();
+            long chunkKey = (x >> 4) & 0xffffffffL | ((z >> 4) & 0xffffffffL) << 32;
+            if (ConfigHandler.populatedChunks.get(chunkKey) != null) {
+                boolean isWater = user.equals("#water");
+                boolean isLava = user.equals("#lava");
+                boolean isVine = user.equals("#vine");
+                if (isWater || isLava || isVine) {
+                    int timeDelay = isWater ? 60 : 240;
+                    long timeSincePopulation = ((System.currentTimeMillis() / 1000L) - ConfigHandler.populatedChunks.getOrDefault(chunkKey, 0L));
+                    if (timeSincePopulation <= timeDelay) {
+                        return;
+                    }
+
+                    if (timeSincePopulation > 240) {
+                        ConfigHandler.populatedChunks.remove(chunkKey);
+                    }
+                }
+                else if (type == Material.WATER || type == Material.LAVA) {
+                    ConfigHandler.populatedChunks.remove(chunkKey);
+                }
+            }
+
             CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
             CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
 
             int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
             int wid = Util.getWorldId(block.getWorld().getName());
             int time = (int) (System.currentTimeMillis() / 1000L);
-            int x = block.getX();
-            int y = block.getY();
-            int z = block.getZ();
 
             if (event.getUser().length() > 0) {
                 CacheHandler.lookupCache.put("" + x + "." + y + "." + z + "." + wid + "", new Object[] { time, event.getUser(), type });

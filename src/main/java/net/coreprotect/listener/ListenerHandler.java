@@ -32,6 +32,7 @@ import net.coreprotect.listener.player.ArmorStandManipulateListener;
 import net.coreprotect.listener.player.CraftItemListener;
 import net.coreprotect.listener.player.FoodLevelChangeListener;
 import net.coreprotect.listener.player.InventoryChangeListener;
+import net.coreprotect.listener.player.InventoryClickListener;
 import net.coreprotect.listener.player.PlayerBucketEmptyListener;
 import net.coreprotect.listener.player.PlayerBucketFillListener;
 import net.coreprotect.listener.player.PlayerChatListener;
@@ -46,6 +47,7 @@ import net.coreprotect.listener.player.PlayerQuitListener;
 import net.coreprotect.listener.player.PlayerTakeLecternBookListener;
 import net.coreprotect.listener.player.ProjectileLaunchListener;
 import net.coreprotect.listener.player.SignChangeListener;
+import net.coreprotect.listener.world.ChunkPopulateListener;
 import net.coreprotect.listener.world.LeavesDecayListener;
 import net.coreprotect.listener.world.PortalCreateListener;
 import net.coreprotect.listener.world.StructureGrowListener;
@@ -90,6 +92,7 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new CraftItemListener(), plugin);
         pluginManager.registerEvents(new FoodLevelChangeListener(), plugin);
         pluginManager.registerEvents(new InventoryChangeListener(), plugin);
+        pluginManager.registerEvents(new InventoryClickListener(), plugin);
         pluginManager.registerEvents(new PlayerBucketEmptyListener(), plugin);
         pluginManager.registerEvents(new PlayerBucketFillListener(), plugin);
         pluginManager.registerEvents(new PlayerCommandListener(), plugin);
@@ -106,9 +109,10 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new ProjectileLaunchListener(), plugin);
 
         // World Listeners
-        pluginManager.registerEvents(new StructureGrowListener(), plugin);
+        pluginManager.registerEvents(new ChunkPopulateListener(), plugin);
         pluginManager.registerEvents(new LeavesDecayListener(), plugin);
         pluginManager.registerEvents(new PortalCreateListener(), plugin);
+        pluginManager.registerEvents(new StructureGrowListener(), plugin);
 
         // Paper Listeners / Fallbacks
         try {

@@ -5,6 +5,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -31,7 +32,7 @@ import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
 
 public class RollbackRestoreCommand {
-    protected static void runCommand(CommandSender player, Command command, boolean permission, String[] args, Location argLocation, long forceSeconds) {
+    protected static void runCommand(CommandSender player, Command command, boolean permission, String[] args, Location argLocation, long forceStart, long forceEnd) {
         Location lo = (argLocation != null ? argLocation : CommandHandler.parseLocation(player, args));
         List<String> argUuids = new ArrayList<>();
         List<String> argUsers = CommandHandler.parseUsers(args);
@@ -39,10 +40,12 @@ public class RollbackRestoreCommand {
         int argNoisy = CommandHandler.parseNoisy(args);
         List<Integer> argAction = CommandHandler.parseAction(args);
         List<Object> argBlocks = CommandHandler.parseRestricted(player, args, argAction);
-        List<Object> argExclude = CommandHandler.parseExcluded(player, args, argAction);
+        Map<Object, Boolean> argExclude = CommandHandler.parseExcluded(player, args, argAction);
         List<String> argExcludeUsers = CommandHandler.parseExcludedUsers(player, args);
         String ts = CommandHandler.parseTimeString(args);
-        long rbSeconds = CommandHandler.parseTime(args);
+        long[] argTime = CommandHandler.parseTime(args);
+        long startTime = argTime[0];
+        long endTime = argTime[1];
         int argWid = CommandHandler.parseWorld(args, true, true);
         boolean count = CommandHandler.parseCount(args);
         boolean worldedit = CommandHandler.parseWorldEdit(args);
@@ -74,7 +77,7 @@ public class RollbackRestoreCommand {
         }
 
         /* check for invalid block/entity combinations (exclude) */
-        for (Object arg : argExclude) {
+        for (Object arg : argExclude.keySet()) {
             if (arg instanceof Material) {
                 hasBlock = true;
             }
@@ -139,7 +142,7 @@ public class RollbackRestoreCommand {
                 return;
             }
         }
-        if (preview > 1 && forceSeconds <= 0) {
+        if (preview > 1 && forceStart <= 0) {
             preview = 1;
         }
 
@@ -184,10 +187,13 @@ public class RollbackRestoreCommand {
                     return;
                 }
 
-                argExclude.add(Material.FIRE);
-                argExclude.add(Material.WATER);
-                argExclude.add(Material.FARMLAND);
+                argExclude.put(Material.FIRE, false);
+                argExclude.put(Material.WATER, false);
+                argExclude.put(Material.FARMLAND, false);
                 argExcludeUsers.add("#hopper");
+            }
+            else if (!argAction.contains(4) && Config.getGlobal().EXCLUDE_TNT && !argExclude.containsKey(Material.TNT) && !argBlocks.contains(Material.TNT)) {
+                argExclude.put(Material.TNT, true);
             }
 
             if (g == 1 && (argUsers.size() > 0 || (argUsers.size() == 0 && argRadius != null))) {
@@ -310,13 +316,16 @@ public class RollbackRestoreCommand {
                 }
 
                 final List<String> rollbackusers2 = rollbackusers;
-                if (rbSeconds > 0) {
+                if (startTime > 0) {
                     long unixtimestamp = (System.currentTimeMillis() / 1000L);
-                    long seconds = unixtimestamp - rbSeconds;
-                    if (forceSeconds > 0) {
-                        seconds = forceSeconds;
+                    long timeStart = unixtimestamp - startTime;
+                    long timeEnd = endTime > 0 ? (unixtimestamp - endTime) : 0;
+                    if (forceStart > 0) {
+                        timeStart = forceStart;
+                        timeEnd = forceEnd;
                     }
-                    final long stime = seconds;
+                    final long finalTimeStart = timeStart;
+                    final long finalTimeEnd = timeEnd;
                     final Integer[] radius = argRadius;
                     try {
                         final CommandSender player2 = player;
@@ -324,7 +333,7 @@ public class RollbackRestoreCommand {
                         final String rtime = ts;
                         final List<String> uuidList = argUuids;
                         final List<Object> blist = argBlocks;
-                        final List<Object> elist = argExclude;
+                        final Map<Object, Boolean> elist = argExclude;
                         final List<String> euserlist = argExcludeUsers;
                         final Location locationFinal = lo;
                         final int finalArgWid = argWid;
@@ -359,14 +368,14 @@ public class RollbackRestoreCommand {
                                         }
                                         if (exists) {
                                             for (String check : euserlist) {
-                                                if (!check.equals("#global")) {
+                                                if (!check.equals("#global") && !check.equals("#hopper")) {
                                                     exists = PlayerLookup.playerExists(connection, check);
                                                     if (!exists) {
                                                         baduser = check;
                                                         break;
                                                     }
                                                 }
-                                                else {
+                                                else if (check.equals("#global")) {
                                                     baduser = "#global";
                                                     exists = false;
                                                 }
@@ -416,14 +425,15 @@ public class RollbackRestoreCommand {
                                             }
 
                                             if (finalArgAction.contains(5)) {
-                                                ContainerRollback.performContainerRollbackRestore(statement, player2, uuidList, rollbackusers2, rtime, blist, elist, euserlist, finalArgAction, location, radius, stime, restrictWorld, false, verbose, action);
+                                                ContainerRollback.performContainerRollbackRestore(statement, player2, uuidList, rollbackusers2, rtime, blist, elist, euserlist, finalArgAction, location, radius, finalTimeStart, finalTimeEnd, restrictWorld, false, verbose, action);
                                             }
                                             else {
-                                                Rollback.performRollbackRestore(statement, player2, uuidList, rollbackusers2, rtime, blist, elist, euserlist, finalArgAction, location, radius, stime, restrictWorld, false, verbose, action, finalPreview);
+                                                Rollback.performRollbackRestore(statement, player2, uuidList, rollbackusers2, rtime, blist, elist, euserlist, finalArgAction, location, radius, finalTimeStart, finalTimeEnd, restrictWorld, false, verbose, action, finalPreview);
                                             }
                                             if (finalPreview < 2) {
                                                 List<Object> list = new ArrayList<>();
-                                                list.add(stime);
+                                                list.add(finalTimeStart);
+                                                list.add(finalTimeEnd);
                                                 list.add(finalArgs);
                                                 list.add(locationFinal);
                                                 ConfigHandler.lastRollback.put(player2.getName(), list);

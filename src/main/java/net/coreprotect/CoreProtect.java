@@ -50,6 +50,8 @@ public final class CoreProtect extends JavaPlugin {
         return api;
     }
 
+    public static final String COREPROTECT_PLUGIN_CHANNEL = "coreprotect:data";
+
     @Override
     public void onEnable() {
         instance = this;
@@ -117,6 +119,8 @@ public final class CoreProtect extends JavaPlugin {
             catch (Exception e) {
                 // Failed to connect to bStats server or something else went wrong.
             }
+
+            getServer().getMessenger().registerOutgoingPluginChannel(this, COREPROTECT_PLUGIN_CHANNEL);
         }
         else {
             Chat.console(Phrase.build(Phrase.ENABLE_FAILED, ConfigHandler.EDITION_NAME));
@@ -199,6 +203,8 @@ public final class CoreProtect extends JavaPlugin {
 
                 Thread.sleep(100);
             }
+
+            getInstance().getServer().getMessenger().unregisterOutgoingPluginChannel(getInstance(), COREPROTECT_PLUGIN_CHANNEL);
 
             Database.closeConnection();
             Chat.console(Phrase.build(Phrase.DISABLE_SUCCESS, "CoreProtect v" + plugin.getDescription().getVersion()));

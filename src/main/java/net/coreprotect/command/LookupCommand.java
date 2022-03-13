@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import net.coreprotect.listener.pluginchannel.PluginChannelListener;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -995,6 +996,7 @@ public class LookupCommand {
                                                         }
 
                                                         Chat.sendComponent(player2, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, "x" + amount, Color.DARK_AQUA + rbd + dname + Color.WHITE, selector));
+                                                        PluginChannelListener.getInstance().sendData(player2, timeago, phrase, selector, dplayer, dname, amount, x, y, z, wid, rbd);
                                                     }
                                                     else {
                                                         if (daction == 2 || daction == 3) {
@@ -1010,6 +1012,7 @@ public class LookupCommand {
                                                         }
 
                                                         Chat.sendComponent(player2, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, Color.DARK_AQUA + rbd + dname + Color.WHITE, selector));
+                                                        PluginChannelListener.getInstance().sendData(player2, timeago, phrase, selector, dplayer, dname, amount, x, y, z, wid, rbd);
                                                     }
 
                                                     action = (finalArgAction.size() == 0 ? " (" + action + ")" : "");

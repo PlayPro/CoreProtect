@@ -5,6 +5,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
+import net.coreprotect.listener.pluginchannel.PluginChannelListener;
 import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 
@@ -109,6 +110,7 @@ public class SignMessageLookup {
                 }
                 found = true;
                 result.add(timeAgo + Color.WHITE + " - " + Color.DARK_AQUA + resultUser + ": " + Color.WHITE + "\n" + message.toString() + Color.WHITE);
+                PluginChannelListener.getInstance().sendSignData(commandSender, timeAgo, resultUser, message.toString(), x, y, z, worldId);
             }
             results.close();
 

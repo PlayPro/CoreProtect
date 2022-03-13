@@ -1,5 +1,6 @@
 package net.coreprotect.listener;
 
+import net.coreprotect.listener.pluginchannel.PluginChannelListener;
 import org.bukkit.plugin.PluginManager;
 
 import net.coreprotect.CoreProtect;
@@ -118,6 +119,8 @@ public final class ListenerHandler {
             pluginManager.registerEvents(new PlayerChatListener(), plugin);
         }
 
+        // Plugin channel events
+        pluginManager.registerEvents(new PluginChannelListener(), plugin);
     }
 
 }

@@ -3,6 +3,8 @@ package net.coreprotect.language;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import net.coreprotect.utility.ChatMessage;
 import net.coreprotect.utility.Color;
@@ -287,4 +289,15 @@ public enum Phrase {
         return output;
     }
 
+    public static String getPhraseSelector(Phrase phrase, String selector) {
+        String translatedPhrase = phrase.getTranslatedPhrase();
+        Pattern phrasePattern = Pattern.compile("(\\{[a-zA-Z|]+})");
+        Matcher patternMatch = phrasePattern.matcher(translatedPhrase);
+        String match = "";
+        if (patternMatch.matches()) {
+            match = patternMatch.group(0);
+            match = Selector.processSelection(match, selector, "");
+        }
+        return match;
+    }
 }

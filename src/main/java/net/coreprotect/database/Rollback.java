@@ -1038,6 +1038,7 @@ public class Rollback extends Queue {
                         }
                         chunkChanges.clear();
 
+                        Map<Player, List<Integer>> sortPlayers = new HashMap<>();
                         Object container = null;
                         Material containerType = null;
                         boolean containerInit = false;
@@ -1101,7 +1102,14 @@ public class Rollback extends Queue {
                                     if (rowAction == ItemLogger.ITEM_REMOVE_ENDER || rowAction == ItemLogger.ITEM_ADD_ENDER) {
                                         modifyContainerItems(containerType, player.getEnderChest(), (Integer) populatedStack[0], ((ItemStack) populatedStack[2]).clone(), action ^ 1);
                                     }
-                                    modifyContainerItems(containerType, player.getInventory(), (Integer) populatedStack[0], (ItemStack) populatedStack[2], action);
+                                    int modifiedArmor = modifyContainerItems(containerType, player.getInventory(), (Integer) populatedStack[0], (ItemStack) populatedStack[2], action);
+                                    if (modifiedArmor > -1) {
+                                        List<Integer> currentSortList = sortPlayers.getOrDefault(player, new ArrayList<>());
+                                        if (!currentSortList.contains(modifiedArmor)) {
+                                            currentSortList.add(modifiedArmor);
+                                        }
+                                        sortPlayers.put(player, currentSortList);
+                                    }
 
                                     itemCount1 = itemCount1 + rowAmount;
                                     ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount1, blockCount1, entityCount1, 0 });
@@ -1185,6 +1193,11 @@ public class Rollback extends Queue {
                             ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount1, blockCount1, entityCount1, 0 });
                         }
                         itemData.clear();
+
+                        for (Entry<Player, List<Integer>> sortEntry : sortPlayers.entrySet()) {
+                            sortContainerItems(sortEntry.getKey().getInventory(), sortEntry.getValue());
+                        }
+                        sortPlayers.clear();
 
                         int[] rollbackHashData1 = ConfigHandler.rollbackHash.get(finalUserString);
                         int itemCount1 = rollbackHashData1[0];
@@ -1567,7 +1580,8 @@ public class Rollback extends Queue {
         }
     }
 
-    static void modifyContainerItems(Material type, Object container, int slot, ItemStack itemstack, int action) {
+    static int modifyContainerItems(Material type, Object container, int slot, ItemStack itemstack, int action) {
+        int modifiedArmor = -1;
         try {
             ItemStack[] contents = null;
 
@@ -1629,7 +1643,9 @@ public class Rollback extends Queue {
                         while (count < amount) {
                             boolean addedItem = false;
                             if (isPlayerInventory) {
-                                addedItem = Util.setPlayerArmor((PlayerInventory) inventory, itemstack);
+                                int setArmor = Util.setPlayerArmor((PlayerInventory) inventory, itemstack);
+                                addedItem = (setArmor > -1);
+                                modifiedArmor = addedItem ? setArmor : modifiedArmor;
                             }
                             if (!addedItem) {
                                 addedItem = (inventory.addItem(itemstack).size() == 0);
@@ -1706,6 +1722,37 @@ public class Rollback extends Queue {
                     }
                 }
             }
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return modifiedArmor;
+    }
+
+    public static void sortContainerItems(PlayerInventory inventory, List<Integer> modifiedArmorSlots) {
+        try {
+            ItemStack[] armorContents = inventory.getArmorContents();
+            ItemStack[] storageContents = inventory.getStorageContents();
+
+            for (int armor = 0; armor < armorContents.length; armor++) {
+                ItemStack armorItem = armorContents[armor];
+                if (armorItem == null || !modifiedArmorSlots.contains(armor)) {
+                    continue;
+                }
+
+                for (int storage = 0; storage < storageContents.length; storage++) {
+                    ItemStack storageItem = storageContents[storage];
+                    if (storageItem == null) {
+                        storageContents[storage] = armorItem;
+                        armorContents[armor] = null;
+                        break;
+                    }
+                }
+            }
+
+            inventory.setArmorContents(armorContents);
+            inventory.setStorageContents(storageContents);
         }
         catch (Exception e) {
             e.printStackTrace();

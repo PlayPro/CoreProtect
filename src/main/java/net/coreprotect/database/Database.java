@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -85,6 +86,12 @@ public class Database extends Queue {
             Consumer.transacting = false;
             Consumer.interrupt = false;
             return;
+        }
+    }
+
+    public static void performCheckpoint(Statement statement) throws SQLException {
+        if (!Config.getGlobal().MYSQL) {
+            statement.executeUpdate("PRAGMA wal_checkpoint(TRUNCATE)");
         }
     }
 

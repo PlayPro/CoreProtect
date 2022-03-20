@@ -73,8 +73,10 @@ public class Process {
                 return;
             }
 
-            Consumer.isPaused = true;
             Statement statement = connection.createStatement();
+            Database.performCheckpoint(statement);
+
+            Consumer.isPaused = true;
             ArrayList<Object[]> consumerData = Consumer.consumer.get(processId);
             Map<Integer, String[]> users = Consumer.consumerUsers.get(processId);
             Map<Integer, Object> consumerObject = Consumer.consumerObjects.get(processId);

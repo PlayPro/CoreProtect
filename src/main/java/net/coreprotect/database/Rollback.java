@@ -526,16 +526,24 @@ public class Rollback extends Queue {
                                 boolean countBlock = true;
                                 Material changeType = block.getType();
                                 BlockData changeBlockData = block.getBlockData();
+                                BlockData pendingChangeData = chunkChanges.get(block);
+                                Material pendingChangeType = changeType;
+                                if (pendingChangeData != null) {
+                                    pendingChangeType = pendingChangeData.getMaterial();
+                                }
+                                else {
+                                    pendingChangeData = changeBlockData;
+                                }
 
                                 if (rowRolledBack == 1 && rollbackType == 0) { // rollback
                                     countBlock = false;
                                 }
 
-                                if ((rowType == changeType) && ((!BukkitAdapter.ADAPTER.isItemFrame(oldTypeMaterial)) && (oldTypeMaterial != Material.PAINTING) && (oldTypeMaterial != Material.ARMOR_STAND)) && (oldTypeMaterial != Material.END_CRYSTAL)) {
+                                if ((rowType == pendingChangeType) && ((!BukkitAdapter.ADAPTER.isItemFrame(oldTypeMaterial)) && (oldTypeMaterial != Material.PAINTING) && (oldTypeMaterial != Material.ARMOR_STAND)) && (oldTypeMaterial != Material.END_CRYSTAL)) {
                                     // block is already changed!
                                     BlockData checkData = rowType == Material.AIR ? blockData : rawBlockData;
                                     if (checkData != null) {
-                                        if (checkData.getAsString().equals(changeBlockData.getAsString()) || checkData instanceof MultipleFacing || checkData instanceof Stairs || checkData instanceof RedstoneWire) {
+                                        if (checkData.getAsString().equals(pendingChangeData.getAsString()) || checkData instanceof MultipleFacing || checkData instanceof Stairs || checkData instanceof RedstoneWire) {
                                             if (rowType != Material.CHEST && rowType != Material.TRAPPED_CHEST) { // always update double chests
                                                 changeBlock = false;
                                             }
@@ -547,11 +555,11 @@ public class Rollback extends Queue {
 
                                     countBlock = false;
                                 }
-                                else if ((changeType != Material.AIR) && (changeType != Material.CAVE_AIR)) {
+                                else if ((pendingChangeType != Material.AIR) && (pendingChangeType != Material.CAVE_AIR)) {
                                     countBlock = true;
                                 }
 
-                                if ((changeType == Material.WATER) && (rowType != Material.AIR) && (rowType != Material.CAVE_AIR) && blockData != null) {
+                                if ((pendingChangeType == Material.WATER) && (rowType != Material.AIR) && (rowType != Material.CAVE_AIR) && blockData != null) {
                                     if (blockData instanceof Waterlogged) {
                                         if (Material.WATER.createBlockData().equals(block.getBlockData())) {
                                             Waterlogged waterlogged = (Waterlogged) blockData;
@@ -628,11 +636,10 @@ public class Rollback extends Queue {
                                             }
                                         }
                                         else if ((rowType == Material.AIR) && ((oldTypeMaterial == Material.WATER))) {
-                                            BlockData existingBlockData = block.getBlockData();
-                                            if (existingBlockData instanceof Waterlogged) {
-                                                Waterlogged waterlogged = (Waterlogged) existingBlockData;
+                                            if (pendingChangeData instanceof Waterlogged) {
+                                                Waterlogged waterlogged = (Waterlogged) pendingChangeData;
                                                 waterlogged.setWaterlogged(false);
-                                                block.setBlockData(waterlogged);
+                                                Util.prepareTypeAndData(chunkChanges, block, null, waterlogged, false);
                                             }
                                             else {
                                                 Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, true);
@@ -693,16 +700,14 @@ public class Rollback extends Queue {
 
                                             boolean remove = true;
                                             if ((rowType == Material.AIR)) {
-                                                BlockData currentBlockData = block.getBlockData();
-                                                if (currentBlockData instanceof Waterlogged) {
-                                                    Waterlogged waterlogged = (Waterlogged) currentBlockData;
+                                                if (pendingChangeData instanceof Waterlogged) {
+                                                    Waterlogged waterlogged = (Waterlogged) pendingChangeData;
                                                     if (waterlogged.isWaterlogged()) {
-                                                        boolean physics = (changeBlockData instanceof Chest);
-                                                        Util.prepareTypeAndData(chunkChanges, block, Material.WATER, Material.WATER.createBlockData(), physics);
+                                                        Util.prepareTypeAndData(chunkChanges, block, Material.WATER, Material.WATER.createBlockData(), true);
                                                         remove = false;
                                                     }
                                                 }
-                                                else if ((changeType == Material.WATER)) {
+                                                else if ((pendingChangeType == Material.WATER)) {
                                                     if (rawBlockData instanceof Waterlogged) {
                                                         Waterlogged waterlogged = (Waterlogged) rawBlockData;
                                                         if (waterlogged.isWaterlogged()) {
@@ -819,11 +824,10 @@ public class Rollback extends Queue {
                                             }
                                         }
                                         else if ((rowType == Material.WATER)) {
-                                            BlockData existingBlockData = block.getBlockData();
-                                            if (existingBlockData instanceof Waterlogged) {
-                                                Waterlogged waterlogged = (Waterlogged) existingBlockData;
+                                            if (pendingChangeData instanceof Waterlogged) {
+                                                Waterlogged waterlogged = (Waterlogged) pendingChangeData;
                                                 waterlogged.setWaterlogged(true);
-                                                block.setBlockData(waterlogged);
+                                                Util.prepareTypeAndData(chunkChanges, block, null, waterlogged, false);
                                             }
                                             else {
                                                 Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);

@@ -302,7 +302,12 @@ public class Database extends Queue {
     private static void initializeTables(String prefix, Statement statement) {
         try {
             if (!Config.getGlobal().MYSQL) {
-                statement.executeUpdate("PRAGMA journal_mode=WAL;");
+                if (!Config.getGlobal().DISABLE_WAL) {
+                    statement.executeUpdate("PRAGMA journal_mode=WAL;");
+                }
+                else {
+                    statement.executeUpdate("PRAGMA journal_mode=DELETE;");
+                }
             }
 
             boolean lockInitialized = false;

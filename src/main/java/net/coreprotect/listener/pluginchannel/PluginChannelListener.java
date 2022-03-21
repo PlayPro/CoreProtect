@@ -190,6 +190,6 @@ public class PluginChannelListener implements Listener
             return;
         }
 
-        player.sendPluginMessage(CoreProtect.getInstance(), CoreProtect.COREPROTECT_PLUGIN_CHANNEL, data);
+        player.sendPluginMessage(CoreProtect.getInstance(), CoreProtect.coreProtectPluginChannelData, data);
     }
 }

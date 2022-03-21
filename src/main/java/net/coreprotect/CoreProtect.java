@@ -30,6 +30,9 @@ import net.coreprotect.utility.Util;
 public final class CoreProtect extends JavaPlugin {
 
     private static CoreProtect instance;
+    public static final String coreProtectPluginChannelData = "coreprotect:data";
+    public static final String coreProtectPluginChannelHandshake = "coreprotect:handshake";
+    public static final int coreProtectNetworkingProtocol = 1;
 
     /**
      * Get the instance of CoreProtect
@@ -50,10 +53,6 @@ public final class CoreProtect extends JavaPlugin {
     public CoreProtectAPI getAPI() {
         return api;
     }
-
-    public static final String COREPROTECT_PLUGIN_CHANNEL = "coreprotect:data";
-    public static final String COREPROTECT_PLUGIN_CHANNEL_HANDSHAKE = "coreprotect:handshake";
-    public static final int COREPROTECT_NETWORKING_PROTOCOL = 1;
 
     @Override
     public void onEnable() {
@@ -123,9 +122,9 @@ public final class CoreProtect extends JavaPlugin {
                 // Failed to connect to bStats server or something else went wrong.
             }
 
-            getServer().getMessenger().registerIncomingPluginChannel(this, COREPROTECT_PLUGIN_CHANNEL_HANDSHAKE, new PluginChannelHandshakeListener());
-            getServer().getMessenger().registerOutgoingPluginChannel(this, COREPROTECT_PLUGIN_CHANNEL_HANDSHAKE);
-            getServer().getMessenger().registerOutgoingPluginChannel(this, COREPROTECT_PLUGIN_CHANNEL);
+            getServer().getMessenger().registerIncomingPluginChannel(this, coreProtectPluginChannelHandshake, new PluginChannelHandshakeListener());
+            getServer().getMessenger().registerOutgoingPluginChannel(this, coreProtectPluginChannelHandshake);
+            getServer().getMessenger().registerOutgoingPluginChannel(this, coreProtectPluginChannelData);
         }
         else {
             Chat.console(Phrase.build(Phrase.ENABLE_FAILED, ConfigHandler.EDITION_NAME));
@@ -209,9 +208,9 @@ public final class CoreProtect extends JavaPlugin {
                 Thread.sleep(100);
             }
 
-            getInstance().getServer().getMessenger().unregisterIncomingPluginChannel(getInstance(), COREPROTECT_PLUGIN_CHANNEL_HANDSHAKE);
-            getInstance().getServer().getMessenger().unregisterOutgoingPluginChannel(getInstance(), COREPROTECT_PLUGIN_CHANNEL_HANDSHAKE);
-            getInstance().getServer().getMessenger().unregisterOutgoingPluginChannel(getInstance(), COREPROTECT_PLUGIN_CHANNEL);
+            getInstance().getServer().getMessenger().unregisterIncomingPluginChannel(getInstance(), coreProtectPluginChannelHandshake);
+            getInstance().getServer().getMessenger().unregisterOutgoingPluginChannel(getInstance(), coreProtectPluginChannelHandshake);
+            getInstance().getServer().getMessenger().unregisterOutgoingPluginChannel(getInstance(), coreProtectPluginChannelData);
 
             Database.closeConnection();
             Chat.console(Phrase.build(Phrase.DISABLE_SUCCESS, "CoreProtect v" + plugin.getDescription().getVersion()));

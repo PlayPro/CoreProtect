@@ -54,7 +54,7 @@ public class PluginChannelHandshakeListener implements PluginMessageListener, Li
             return;
         }
 
-        if (!channel.equals(CoreProtect.COREPROTECT_PLUGIN_CHANNEL_HANDSHAKE)) {
+        if (!channel.equals(CoreProtect.coreProtectPluginChannelHandshake)) {
             return;
         }
 
@@ -71,14 +71,14 @@ public class PluginChannelHandshakeListener implements PluginMessageListener, Li
             int protocolVersion = dis.readInt();
             Util.networkDebug(String.valueOf(protocolVersion));
 
-            if (protocolVersion != CoreProtect.COREPROTECT_NETWORKING_PROTOCOL) {
+            if (protocolVersion != CoreProtect.coreProtectNetworkingProtocol) {
                 Chat.console("Player " + player.getName() + " failed registering the CoreProtect channel using " + modId + " " + modVersion + " with protocol version " + protocolVersion);
             }
 
             getPluginChannelPlayers().add(player.getUniqueId());
             Chat.console("Player " + player.getName() + " registered the CoreProtect channel using " + modId + " " + modVersion + " with protocol version " + protocolVersion);
 
-            player.sendPluginMessage(CoreProtect.getInstance(), CoreProtect.COREPROTECT_PLUGIN_CHANNEL_HANDSHAKE, sendRegistered());
+            player.sendPluginMessage(CoreProtect.getInstance(), CoreProtect.coreProtectPluginChannelHandshake, sendRegistered());
         } catch (Exception exception) {
             Chat.console(exception.toString());
             exception.printStackTrace();

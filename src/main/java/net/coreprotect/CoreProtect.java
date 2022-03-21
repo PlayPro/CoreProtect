@@ -2,6 +2,7 @@ package net.coreprotect;
 
 import java.io.File;
 
+import net.coreprotect.listener.pluginchannel.PluginChannelHandshakeListener;
 import org.bstats.bukkit.MetricsLite;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -51,6 +52,8 @@ public final class CoreProtect extends JavaPlugin {
     }
 
     public static final String COREPROTECT_PLUGIN_CHANNEL = "coreprotect:data";
+    public static final String COREPROTECT_PLUGIN_CHANNEL_HANDSHAKE = "coreprotect:handshake";
+    public static final int COREPROTECT_NETWORKING_PROTOCOL = 1;
 
     @Override
     public void onEnable() {
@@ -120,6 +123,8 @@ public final class CoreProtect extends JavaPlugin {
                 // Failed to connect to bStats server or something else went wrong.
             }
 
+            getServer().getMessenger().registerIncomingPluginChannel(this, COREPROTECT_PLUGIN_CHANNEL_HANDSHAKE, new PluginChannelHandshakeListener());
+            getServer().getMessenger().registerOutgoingPluginChannel(this, COREPROTECT_PLUGIN_CHANNEL_HANDSHAKE);
             getServer().getMessenger().registerOutgoingPluginChannel(this, COREPROTECT_PLUGIN_CHANNEL);
         }
         else {
@@ -204,6 +209,8 @@ public final class CoreProtect extends JavaPlugin {
                 Thread.sleep(100);
             }
 
+            getInstance().getServer().getMessenger().unregisterIncomingPluginChannel(getInstance(), COREPROTECT_PLUGIN_CHANNEL_HANDSHAKE);
+            getInstance().getServer().getMessenger().unregisterOutgoingPluginChannel(getInstance(), COREPROTECT_PLUGIN_CHANNEL_HANDSHAKE);
             getInstance().getServer().getMessenger().unregisterOutgoingPluginChannel(getInstance(), COREPROTECT_PLUGIN_CHANNEL);
 
             Database.closeConnection();

@@ -84,6 +84,7 @@ public class Config extends Language {
     public boolean PLAYER_SESSIONS;
     public boolean USERNAME_CHANGES;
     public boolean WORLDEDIT;
+    public boolean NETWORKING_DEBUG;
     public int MYSQL_PORT;
     public int DEFAULT_RADIUS;
     public int MAX_RADIUS;
@@ -136,6 +137,7 @@ public class Config extends Language {
         DEFAULT_VALUES.put("player-sessions", "true");
         DEFAULT_VALUES.put("username-changes", "true");
         DEFAULT_VALUES.put("worldedit", "true");
+        DEFAULT_VALUES.put("networking-debug", "false");
 
         HEADERS.put("donation-key", new String[] { "# CoreProtect is donationware. For more information, visit our project page." });
         HEADERS.put("use-mysql", new String[] { "# MySQL is optional and not required.", "# If you prefer to use MySQL, enable the following and fill out the fields." });
@@ -178,6 +180,7 @@ public class Config extends Language {
         HEADERS.put("player-sessions", new String[] { "# Logs the logins and logouts of players." });
         HEADERS.put("username-changes", new String[] { "# Logs when a player changes their Minecraft username." });
         HEADERS.put("worldedit", new String[] { "# Logs changes made via the plugin \"WorldEdit\" if it's in use on your server." });
+        HEADERS.put("networking-debug", new String[] { "# If enabled, networking debug gets logged in console." });
     }
 
     private void readValues() {
@@ -234,6 +237,7 @@ public class Config extends Language {
         this.PLAYER_SESSIONS = this.getBoolean("player-sessions");
         this.USERNAME_CHANGES = this.getBoolean("username-changes");
         this.WORLDEDIT = this.getBoolean("worldedit");
+        this.NETWORKING_DEBUG = this.getBoolean("networking-debug");
     }
 
     public static void init() throws IOException {

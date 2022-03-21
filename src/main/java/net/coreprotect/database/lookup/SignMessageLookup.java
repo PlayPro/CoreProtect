@@ -110,7 +110,7 @@ public class SignMessageLookup {
                 }
                 found = true;
                 result.add(timeAgo + Color.WHITE + " - " + Color.DARK_AQUA + resultUser + ": " + Color.WHITE + "\n" + message.toString() + Color.WHITE);
-                PluginChannelListener.getInstance().sendSignData(commandSender, timeAgo, resultUser, message.toString(), x, y, z, worldId);
+                PluginChannelListener.getInstance().sendMessageData(commandSender, resultTime, resultUser, message.toString(), true, x, y, z, worldId);
             }
             results.close();
 

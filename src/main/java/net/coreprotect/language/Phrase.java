@@ -291,13 +291,18 @@ public enum Phrase {
 
     public static String getPhraseSelector(Phrase phrase, String selector) {
         String translatedPhrase = phrase.getTranslatedPhrase();
-        Pattern phrasePattern = Pattern.compile("(\\{[a-zA-Z|]+})");
+        Util.networkDebug("translatedphrase:"+translatedPhrase);
+        Pattern phrasePattern = Pattern.compile("(\\{[a-zA-Z| ]+})");
+        Util.networkDebug(phrasePattern.toString());
         Matcher patternMatch = phrasePattern.matcher(translatedPhrase);
         String match = "";
-        if (patternMatch.matches()) {
-            match = patternMatch.group(0);
+        if (patternMatch.find()) {
+            match = patternMatch.group(1);
+            Util.networkDebug("match:"+match);
             match = Selector.processSelection(match, selector, "");
+            Util.networkDebug("match2:"+match);
         }
+        Util.networkDebug("result:"+match);
         return match;
     }
 }

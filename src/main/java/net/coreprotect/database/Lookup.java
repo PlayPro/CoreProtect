@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import net.coreprotect.listener.pluginchannel.PluginChannelHandshakeListener;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -24,6 +25,7 @@ import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.Util;
+import org.bukkit.entity.Player;
 
 public class Lookup extends Queue {
 
@@ -147,6 +149,18 @@ public class Lookup extends Queue {
                     String resultMessage = results.getString("message");
 
                     Object[] dataArray = new Object[] { resultId, resultTime, resultUserId, resultMessage };
+                    if (PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(((Player) user).getUniqueId())) {
+                        int resultWorldId = results.getInt("wid");
+                        int resultX = results.getInt("x");
+                        int resultY = results.getInt("y");
+                        int resultZ = results.getInt("z");
+                        Object[] secondArray = new Object[] { resultWorldId, resultX, resultY, resultZ };
+                        Object[] result = new Object[dataArray.length + secondArray.length];
+                        System.arraycopy(dataArray, 0, result, 0, dataArray.length);
+                        System.arraycopy(secondArray, 0, result, dataArray.length, secondArray.length);
+
+                        dataArray = result;
+                    }
                     list.add(dataArray);
                 }
                 else if (actionList.contains(8)) {
@@ -619,6 +633,9 @@ public class Lookup extends Queue {
             else if (actionList.contains(6) || actionList.contains(7)) {
                 queryTable = "chat";
                 rows = "rowid as id,time,user,message";
+                if (PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(((Player) user).getUniqueId())) {
+                    rows += ",wid,x,y,z";
+                }
 
                 if (actionList.contains(7)) {
                     queryTable = "command";

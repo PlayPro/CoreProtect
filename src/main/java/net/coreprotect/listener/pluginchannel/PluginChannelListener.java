@@ -1,125 +1,183 @@
 package net.coreprotect.listener.pluginchannel;
 
-import com.google.common.io.ByteArrayDataOutput;
-import com.google.common.io.ByteStreams;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.language.Phrase;
-import net.coreprotect.utility.Chat;
+import net.coreprotect.language.Selector;
 import net.coreprotect.utility.Util;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerChannelEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.player.PlayerRegisterChannelEvent;
-import org.bukkit.event.player.PlayerUnregisterChannelEvent;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
+import java.util.Random;
 
 public class PluginChannelListener implements Listener
 {
-    private final Set<UUID> pluginChannelPlayers;
     private static PluginChannelListener instance;
 
     public PluginChannelListener() {
         instance = this;
-        pluginChannelPlayers = new HashSet<>();
     }
 
     public static PluginChannelListener getInstance() {
         return instance;
     }
 
-    public Set<UUID> getPluginChannelPlayers() {
-        return pluginChannelPlayers;
-    }
-
-    @EventHandler
-    public void onPlayerRegisterChannel(PlayerRegisterChannelEvent event) {
-        handleChannelEvent(event, Action.REGISTER);
-    }
-
-    @EventHandler
-    public void onPlayerUnregisterChannel(PlayerUnregisterChannelEvent event) {
-        handleChannelEvent(event, Action.UNREGISTER);
-    }
-
-    @EventHandler
-    public void onPlayerQuit(PlayerQuitEvent event) {
-        getPluginChannelPlayers().remove(event.getPlayer().getUniqueId());
-    }
-
-    public void sendData(CommandSender commandSender, String timeAgo, Phrase phrase, String selector, String resultUser, String target, int amount, int x, int y, int z, int worldId, String rbFormat) throws IOException
+    public void sendData(CommandSender commandSender, long timeAgo, Phrase phrase, String selector, String resultUser, String target, int amount, int x, int y, int z, int worldId, String rbFormat) throws IOException
     {
+        String phraseSelector = Phrase.getPhraseSelector(phrase, selector);
+        String worldName = Util.getWorldName(worldId);
+
         ByteArrayOutputStream msgBytes = new ByteArrayOutputStream();
         DataOutputStream msgOut = new DataOutputStream(msgBytes);
-        msgOut.writeUTF(timeAgo);
-        msgOut.writeUTF(Phrase.getPhraseSelector(phrase, selector));
+        msgOut.writeInt(1);
+        msgOut.writeLong(timeAgo * 1000);
+        msgOut.writeUTF(phraseSelector);
         msgOut.writeUTF(resultUser);
         msgOut.writeUTF(target);
         msgOut.writeInt(amount);
         msgOut.writeInt(x);
         msgOut.writeInt(y);
         msgOut.writeInt(z);
-        msgOut.writeUTF(Util.getWorldName(worldId));
+        msgOut.writeUTF(worldName);
         msgOut.writeBoolean(!rbFormat.isEmpty());
+        Util.networkDebug(String.valueOf(timeAgo*1000));
+        Util.networkDebug(phraseSelector);
+        Util.networkDebug(resultUser);
+        Util.networkDebug(target);
+        Util.networkDebug(String.valueOf(amount));
+        Util.networkDebug(String.valueOf(x));
+        Util.networkDebug(String.valueOf(y));
+        Util.networkDebug(String.valueOf(z));
+        Util.networkDebug(worldName);
+        Util.networkDebug(String.valueOf(!rbFormat.isEmpty()));
+        Util.networkDebug("");
 
-        send(commandSender, msgBytes);
+        send(commandSender, msgBytes.toByteArray());
     }
 
-    public void sendSignData(CommandSender commandSender, String timeAgo, String resultUser, String message, int x, int y, int z, int worldId) throws IOException
+    public void sendInfoData(CommandSender commandSender, long timeAgo, Phrase phrase, String selector, String resultUser, int amount, int x, int y, int z, int worldId) throws IOException
     {
+        String phraseSelector = Phrase.getPhraseSelector(phrase, selector);
+        String worldName = Util.getWorldName(worldId);
+
         ByteArrayOutputStream msgBytes = new ByteArrayOutputStream();
         DataOutputStream msgOut = new DataOutputStream(msgBytes);
-        msgOut.writeUTF(timeAgo);
+
+        msgOut.writeInt(2);
+        msgOut.writeLong(timeAgo * 1000);
+        msgOut.writeUTF(phraseSelector);
         msgOut.writeUTF(resultUser);
-        msgOut.writeUTF(message);
+        msgOut.writeInt(amount);
         msgOut.writeInt(x);
         msgOut.writeInt(y);
         msgOut.writeInt(z);
-        msgOut.writeUTF(Util.getWorldName(worldId));
+        msgOut.writeUTF(worldName);
+        Util.networkDebug(String.valueOf(timeAgo*1000));
+        Util.networkDebug(phraseSelector);
+        Util.networkDebug(resultUser);
+        Util.networkDebug(String.valueOf(amount));
+        Util.networkDebug(String.valueOf(x));
+        Util.networkDebug(String.valueOf(y));
+        Util.networkDebug(String.valueOf(z));
+        Util.networkDebug(worldName);
+        Util.networkDebug("");
 
-        send(commandSender, msgBytes);
+        send(commandSender, msgBytes.toByteArray());
     }
 
-    private void send(CommandSender commandSender, ByteArrayOutputStream msgBytes) {
+    public void sendMessageData(CommandSender commandSender, long timeAgo, String resultUser, String message, boolean sign, int x, int y, int z, int worldId) throws IOException
+    {
+        String worldName = Util.getWorldName(worldId);
+
+        ByteArrayOutputStream msgBytes = new ByteArrayOutputStream();
+        DataOutputStream msgOut = new DataOutputStream(msgBytes);
+
+        msgOut.writeInt(3);
+        msgOut.writeLong(timeAgo * 1000);
+        msgOut.writeUTF(resultUser);
+        msgOut.writeUTF(message);
+        msgOut.writeBoolean(sign);
+        msgOut.writeInt(x);
+        msgOut.writeInt(y);
+        msgOut.writeInt(z);
+        msgOut.writeUTF(worldName);
+        Util.networkDebug(String.valueOf(timeAgo*1000));
+        Util.networkDebug(resultUser);
+        Util.networkDebug(message);
+        Util.networkDebug(String.valueOf(sign));
+        Util.networkDebug(String.valueOf(x));
+        Util.networkDebug(String.valueOf(y));
+        Util.networkDebug(String.valueOf(z));
+        Util.networkDebug(worldName);
+        Util.networkDebug("");
+
+        send(commandSender, msgBytes.toByteArray());
+    }
+
+    public void sendUsernameData(CommandSender commandSender, long timeAgo, String resultUser, String target) throws IOException
+    {
+        ByteArrayOutputStream msgBytes = new ByteArrayOutputStream();
+        DataOutputStream msgOut = new DataOutputStream(msgBytes);
+
+        msgOut.writeInt(4);
+        msgOut.writeLong(timeAgo * 1000);
+        msgOut.writeUTF(resultUser);
+        msgOut.writeUTF(target);
+        Util.networkDebug(String.valueOf(timeAgo*1000));
+        Util.networkDebug(resultUser);
+        Util.networkDebug(target);
+        Util.networkDebug("");
+
+        send(commandSender, msgBytes.toByteArray());
+    }
+
+    public void sendTest(CommandSender commandSender, String type) throws IOException
+    {
+        int worldId = 1;
+        Random rand = new Random();
+        int timeAgo = rand.nextInt(20);
+        String selector = Selector.FIRST;
+        String resultUser = "Anne";
+        int amount = 5;
+        int x = rand.nextInt(10);
+        int y = rand.nextInt(10);
+        int z = rand.nextInt(10);
+        String rbFormat = "test";
+        String message = "This is a test";
+        boolean sign = true;
+
+        switch (type) {
+            case "2":
+                sendInfoData(commandSender, timeAgo, Phrase.LOOKUP_LOGIN, selector, resultUser, amount, x, y, z, worldId);
+                break;
+            case "3":
+                sendMessageData(commandSender, timeAgo, resultUser, message, sign, x, y, z, worldId);
+                break;
+            case "4":
+                 sendUsernameData(commandSender, timeAgo, resultUser, "Arne");
+                break;
+            default:
+                sendData(commandSender, timeAgo, Phrase.LOOKUP_CONTAINER, selector, resultUser, "clay_ball", amount, x, y, z, worldId, rbFormat);
+                break;
+        }
+
+    }
+
+    private void send(CommandSender commandSender, byte[] msgBytes) {
         if (commandSender instanceof ConsoleCommandSender) {
             return;
         }
-        ByteArrayDataOutput out = ByteStreams.newDataOutput();
-        out.writeShort(msgBytes.toByteArray().length);
-        out.write(msgBytes.toByteArray());
-        PluginChannelListener.getInstance().sendCoreProtectPluginChannel((Player) commandSender, out.toByteArray());
+
+        PluginChannelListener.getInstance().sendCoreProtectPluginChannel((Player) commandSender, msgBytes);
     }
 
     public void sendCoreProtectPluginChannel(Player player, byte[] data) {
-        if (getPluginChannelPlayers().contains(player.getUniqueId())) {
+        if (PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(player.getUniqueId())) {
             sendCoreProtectData(player, data);
-        }
-    }
-
-    private void handleChannelEvent(PlayerChannelEvent event, Action action) {
-        if (!event.getChannel().equals(CoreProtect.COREPROTECT_PLUGIN_CHANNEL)) {
-            return;
-        }
-
-        Player player = event.getPlayer();
-        switch (action) {
-            case REGISTER:
-                getPluginChannelPlayers().add(player.getUniqueId());
-                Chat.console("Player " + player.getName() + " registered the CoreProtect channel");
-                break;
-            case UNREGISTER:
-                getPluginChannelPlayers().remove(player.getUniqueId());
-                Chat.console("Player " + player.getName() + " unregistered the CoreProtect channel");
-                break;
         }
     }
 
@@ -129,10 +187,5 @@ public class PluginChannelListener implements Listener
         }
 
         player.sendPluginMessage(CoreProtect.getInstance(), CoreProtect.COREPROTECT_PLUGIN_CHANNEL, data);
-    }
-
-    public enum Action {
-        REGISTER,
-        UNREGISTER
     }
 }

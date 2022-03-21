@@ -734,7 +734,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                     String relativeBlockKey = world.getName() + "-" + relativeBlockLocation.getBlockX() + "-" + relativeBlockLocation.getBlockY() + "-" + relativeBlockLocation.getBlockZ();
                     String blockKey = world.getName() + "-" + blockLocation.getBlockX() + "-" + blockLocation.getBlockY() + "-" + blockLocation.getBlockZ();
                     Object[] keys = new Object[] { relativeBlockKey, blockKey, handItem };
-                    ConfigHandler.entityBlockMapper.put(player.getUniqueId(), keys);
+                    ConfigHandler.entityBlockMapper.put(player.getName(), keys);
                 }
             }
         }

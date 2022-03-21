@@ -9,13 +9,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.UUID;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.AbstractArrow;
-import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -66,17 +63,15 @@ public final class ProjectileLaunchListener extends Queue implements Listener {
     protected void onProjectileLaunch(ProjectileLaunchEvent event) {
         Location location = event.getEntity().getLocation();
         String key = location.getWorld().getName() + "-" + location.getBlockX() + "-" + location.getBlockY() + "-" + location.getBlockZ();
-        Iterator<Entry<UUID, Object[]>> it = ConfigHandler.entityBlockMapper.entrySet().iterator();
+        Iterator<Entry<String, Object[]>> it = ConfigHandler.entityBlockMapper.entrySet().iterator();
         while (it.hasNext()) {
-            Map.Entry<UUID, Object[]> pair = it.next();
-            UUID uuid = pair.getKey();
+            Map.Entry<String, Object[]> pair = it.next();
+            String name = pair.getKey();
             Object[] data = pair.getValue();
             ItemStack itemStack = (ItemStack) data[2];
             Material entityMaterial = Util.getEntityMaterial(event.getEntityType());
             boolean isBow = BOWS.contains(itemStack.getType());
             if ((data[0].equals(key) || data[1].equals(key)) && (entityMaterial == itemStack.getType() || (itemStack.getType() == Material.LINGERING_POTION && entityMaterial == Material.SPLASH_POTION) || isBow)) {
-                Player player = Bukkit.getServer().getPlayer(uuid);
-
                 boolean thrownItem = (itemStack.getType() != Material.FIREWORK_ROCKET && !isBow);
                 if (isBow) {
                     if (itemStack.getType() == Material.CROSSBOW) {
@@ -95,7 +90,7 @@ public final class ProjectileLaunchListener extends Queue implements Listener {
                     }
                 }
 
-                playerLaunchProjectile(location, player.getName(), itemStack, 1, 1, 0, (thrownItem ? ItemLogger.ITEM_THROW : ItemLogger.ITEM_SHOOT));
+                playerLaunchProjectile(location, name, itemStack, 1, 1, 0, (thrownItem ? ItemLogger.ITEM_THROW : ItemLogger.ITEM_SHOOT));
                 it.remove();
             }
         }

@@ -34,6 +34,8 @@ Info: To read you need to read out correctly, you will need to get `written byte
 |             | Z: `Int`               | World name: `UTF`      | World name: `UTF`  |                    |
 |             | World name: `UTF`      |                        |                    |                    |
 |             | Rolledback: `Boolean`  |                        |                    |                    |
+|             | isContainer: `Boolean` |                        |                    |                    |
+|             | Added: `Boolean`       |                        |                    |                    |
 
 Example (Fabric):
 ```
@@ -50,6 +52,8 @@ int y = dis.readInt();
 int z = dis.readInt();
 String worldName = dis.readUTF();
 boolean rolledback = dis.readBoolean();
+boolean isContainer = dis.readBoolean();
+boolean added = dis.readBoolean();
 ```
 
 ### Handshake Packet

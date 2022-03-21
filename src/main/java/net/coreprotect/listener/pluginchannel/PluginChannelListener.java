@@ -26,7 +26,7 @@ public class PluginChannelListener implements Listener
         return instance;
     }
 
-    public void sendData(CommandSender commandSender, long timeAgo, Phrase phrase, String selector, String resultUser, String target, int amount, int x, int y, int z, int worldId, String rbFormat) throws IOException
+    public void sendData(CommandSender commandSender, long timeAgo, Phrase phrase, String selector, String resultUser, String target, int amount, int x, int y, int z, int worldId, String rbFormat, boolean isContainer, boolean added) throws IOException
     {
         String phraseSelector = Phrase.getPhraseSelector(phrase, selector);
         String worldName = Util.getWorldName(worldId);
@@ -44,6 +44,8 @@ public class PluginChannelListener implements Listener
         msgOut.writeInt(z);
         msgOut.writeUTF(worldName);
         msgOut.writeBoolean(!rbFormat.isEmpty());
+        msgOut.writeBoolean(isContainer);
+        msgOut.writeBoolean(added);
         Util.networkDebug(String.valueOf(timeAgo*1000));
         Util.networkDebug(phraseSelector);
         Util.networkDebug(resultUser);
@@ -54,6 +56,8 @@ public class PluginChannelListener implements Listener
         Util.networkDebug(String.valueOf(z));
         Util.networkDebug(worldName);
         Util.networkDebug(String.valueOf(!rbFormat.isEmpty()));
+        Util.networkDebug(String.valueOf(isContainer));
+        Util.networkDebug(String.valueOf(added));
         Util.networkDebug("");
 
         send(commandSender, msgBytes.toByteArray());
@@ -161,7 +165,7 @@ public class PluginChannelListener implements Listener
                  sendUsernameData(commandSender, timeAgo, resultUser, "Arne");
                 break;
             default:
-                sendData(commandSender, timeAgo, Phrase.LOOKUP_CONTAINER, selector, resultUser, "clay_ball", amount, x, y, z, worldId, rbFormat);
+                sendData(commandSender, timeAgo, Phrase.LOOKUP_CONTAINER, selector, resultUser, "clay_ball", amount, x, y, z, worldId, rbFormat, false, true);
                 break;
         }
 

@@ -15,6 +15,7 @@ ___
 | [/co purge](#co-purge) | Delete old block data |
 | [/co reload](#co-reload) | Reload the configuration file |
 | [/co status](#co-status) | View the plugin status |
+| [/co consumer](#co-consumer) | Toggle consumer processing |
 
 ### Alias Commands
 
@@ -117,6 +118,10 @@ ___
 
 ### /co status
 Displays the plugin status and version information.
+___
+
+### /co consumer
+Console command to pause or resume consumer queue processing.
 ___
 
 

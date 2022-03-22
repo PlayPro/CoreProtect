@@ -137,6 +137,9 @@ public enum Phrase {
     MISSING_ROLLBACK_RADIUS,
     MISSING_ROLLBACK_USER,
     MYSQL_UNAVAILABLE,
+    NETWORK_HANDSHAKE_FAILED,
+    NETWORK_HANDSHAKE_SUCCESS,
+    NETWORK_TESTDATA,
     NO_DATA,
     NO_DATA_LOCATION,
     NO_PERMISSION,
@@ -291,18 +294,13 @@ public enum Phrase {
 
     public static String getPhraseSelector(Phrase phrase, String selector) {
         String translatedPhrase = phrase.getTranslatedPhrase();
-        Util.networkDebug("translatedphrase:"+translatedPhrase);
         Pattern phrasePattern = Pattern.compile("(\\{[a-zA-Z| ]+})");
-        Util.networkDebug(phrasePattern.toString());
         Matcher patternMatch = phrasePattern.matcher(translatedPhrase);
         String match = "";
         if (patternMatch.find()) {
             match = patternMatch.group(1);
-            Util.networkDebug("match:"+match);
             match = Selector.processSelection(match, selector, "");
-            Util.networkDebug("match2:"+match);
         }
-        Util.networkDebug("result:"+match);
         return match;
     }
 }

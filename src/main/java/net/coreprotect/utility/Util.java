@@ -1548,10 +1548,4 @@ public class Util extends Queue {
                 return isInventory ? 2 : 1;
         }
     }
-
-    public static void networkDebug(String message) {
-        if (Config.getGlobal().NETWORKING_DEBUG) {
-            Chat.console(message);
-        }
-    }
 }

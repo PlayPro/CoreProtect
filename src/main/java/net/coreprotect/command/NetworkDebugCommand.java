@@ -1,0 +1,24 @@
+package net.coreprotect.command;
+
+import net.coreprotect.config.Config;
+import net.coreprotect.language.Phrase;
+import net.coreprotect.listener.pluginchannel.PluginChannelListener;
+import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.Color;
+import org.bukkit.command.CommandSender;
+
+public class NetworkDebugCommand
+{
+    protected static void runCommand(CommandSender player, boolean permission, String[] args) {
+        if (!permission || !Config.getGlobal().NETWORKING_DEBUG) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
+            return;
+        }
+
+        try
+        {
+            PluginChannelListener.getInstance().sendTest(player, args.length == 2 ? args[1] : "");
+        } catch (Exception ignored) {
+        }
+    }
+}

@@ -10,7 +10,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import net.coreprotect.listener.pluginchannel.PluginChannelListener;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -1197,7 +1196,7 @@ public class CommandHandler implements CommandExecutor {
                     else if (user.hasPermission("coreprotect.consumer") && corecommand.equals("consumer")) {
                         permission = true;
                     }
-                    else if (user.hasPermission("coreprotect.register") && Config.getGlobal().NETWORKING_DEBUG && corecommand.equals("testing")) {
+                    else if (user.hasPermission("coreprotect.networking") && corecommand.equals("network-debug")) {
                         permission = true;
                     }
                 }
@@ -1241,12 +1240,8 @@ public class CommandHandler implements CommandExecutor {
                 else if (corecommand.equals("consumer")) {
                     ConsumerCommand.runCommand(user, permission, argumentArray);
                 }
-                else if (corecommand.equals("testing") && permission && argumentArray.length == 2) {
-                    try
-                    {
-                        PluginChannelListener.getInstance().sendTest(user, argumentArray[1]);
-                    } catch (Exception ignored) {
-                    }
+                else if (corecommand.equals("network-debug")) {
+                    NetworkDebugCommand.runCommand(user, permission, argumentArray);
                 }
                 else {
                     Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.COMMAND_NOT_FOUND, Color.WHITE, "/co " + corecommand));

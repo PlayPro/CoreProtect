@@ -1,8 +1,11 @@
 package net.coreprotect.listener.pluginchannel;
 
 import net.coreprotect.CoreProtect;
+import net.coreprotect.config.Config;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
+import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
@@ -46,19 +49,22 @@ public class PluginChannelListener implements Listener
         msgOut.writeBoolean(!rbFormat.isEmpty());
         msgOut.writeBoolean(isContainer);
         msgOut.writeBoolean(added);
-        Util.networkDebug(String.valueOf(timeAgo*1000));
-        Util.networkDebug(phraseSelector);
-        Util.networkDebug(resultUser);
-        Util.networkDebug(target);
-        Util.networkDebug(String.valueOf(amount));
-        Util.networkDebug(String.valueOf(x));
-        Util.networkDebug(String.valueOf(y));
-        Util.networkDebug(String.valueOf(z));
-        Util.networkDebug(worldName);
-        Util.networkDebug(String.valueOf(!rbFormat.isEmpty()));
-        Util.networkDebug(String.valueOf(isContainer));
-        Util.networkDebug(String.valueOf(added));
-        Util.networkDebug("");
+        if (Config.getGlobal().NETWORKING_DEBUG)
+        {
+            Chat.console(String.valueOf(timeAgo * 1000));
+            Chat.console(phraseSelector);
+            Chat.console(resultUser);
+            Chat.console(target);
+            Chat.console(String.valueOf(amount));
+            Chat.console(String.valueOf(x));
+            Chat.console(String.valueOf(y));
+            Chat.console(String.valueOf(z));
+            Chat.console(worldName);
+            Chat.console(String.valueOf(!rbFormat.isEmpty()));
+            Chat.console(String.valueOf(isContainer));
+            Chat.console(String.valueOf(added));
+            Chat.console("");
+        }
 
         send(commandSender, msgBytes.toByteArray());
     }
@@ -80,15 +86,18 @@ public class PluginChannelListener implements Listener
         msgOut.writeInt(y);
         msgOut.writeInt(z);
         msgOut.writeUTF(worldName);
-        Util.networkDebug(String.valueOf(timeAgo*1000));
-        Util.networkDebug(phraseSelector);
-        Util.networkDebug(resultUser);
-        Util.networkDebug(String.valueOf(amount));
-        Util.networkDebug(String.valueOf(x));
-        Util.networkDebug(String.valueOf(y));
-        Util.networkDebug(String.valueOf(z));
-        Util.networkDebug(worldName);
-        Util.networkDebug("");
+        if (Config.getGlobal().NETWORKING_DEBUG)
+        {
+            Chat.console(String.valueOf(timeAgo * 1000));
+            Chat.console(phraseSelector);
+            Chat.console(resultUser);
+            Chat.console(String.valueOf(amount));
+            Chat.console(String.valueOf(x));
+            Chat.console(String.valueOf(y));
+            Chat.console(String.valueOf(z));
+            Chat.console(worldName);
+            Chat.console("");
+        }
 
         send(commandSender, msgBytes.toByteArray());
     }
@@ -109,15 +118,18 @@ public class PluginChannelListener implements Listener
         msgOut.writeInt(y);
         msgOut.writeInt(z);
         msgOut.writeUTF(worldName);
-        Util.networkDebug(String.valueOf(timeAgo*1000));
-        Util.networkDebug(resultUser);
-        Util.networkDebug(message);
-        Util.networkDebug(String.valueOf(sign));
-        Util.networkDebug(String.valueOf(x));
-        Util.networkDebug(String.valueOf(y));
-        Util.networkDebug(String.valueOf(z));
-        Util.networkDebug(worldName);
-        Util.networkDebug("");
+        if (Config.getGlobal().NETWORKING_DEBUG)
+        {
+            Chat.console(String.valueOf(timeAgo * 1000));
+            Chat.console(resultUser);
+            Chat.console(message);
+            Chat.console(String.valueOf(sign));
+            Chat.console(String.valueOf(x));
+            Chat.console(String.valueOf(y));
+            Chat.console(String.valueOf(z));
+            Chat.console(worldName);
+            Chat.console("");
+        }
 
         send(commandSender, msgBytes.toByteArray());
     }
@@ -131,10 +143,14 @@ public class PluginChannelListener implements Listener
         msgOut.writeLong(timeAgo * 1000);
         msgOut.writeUTF(resultUser);
         msgOut.writeUTF(target);
-        Util.networkDebug(String.valueOf(timeAgo*1000));
-        Util.networkDebug(resultUser);
-        Util.networkDebug(target);
-        Util.networkDebug("");
+
+        if (Config.getGlobal().NETWORKING_DEBUG)
+        {
+            Chat.console(String.valueOf(timeAgo * 1000));
+            Chat.console(resultUser);
+            Chat.console(target);
+            Chat.console("");
+        }
 
         send(commandSender, msgBytes.toByteArray());
     }
@@ -168,7 +184,7 @@ public class PluginChannelListener implements Listener
                 sendData(commandSender, timeAgo, Phrase.LOOKUP_CONTAINER, selector, resultUser, "clay_ball", amount, x, y, z, worldId, rbFormat, false, true);
                 break;
         }
-
+        commandSender.sendMessage(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NETWORK_TESTDATA));
     }
 
     private void send(CommandSender commandSender, byte[] msgBytes) {
@@ -186,7 +202,7 @@ public class PluginChannelListener implements Listener
     }
 
     private void sendCoreProtectData(Player player, byte[] data) {
-        if (!player.hasPermission("coreprotect.register")) {
+        if (!player.hasPermission("coreprotect.networking")) {
             return;
         }
 

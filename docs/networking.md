@@ -9,7 +9,7 @@ CoreProtect Networking allows also clients to receive data using the Packets.
 
 ##Packets
 
-The server will not respond unless the player has the correct permissions, which is `coreprotect.register` and the relevant command permissions
+The server will not respond unless the player has the correct permissions, which is `coreprotect.networking` and the relevant command permissions
 
 ## Server to Client
 

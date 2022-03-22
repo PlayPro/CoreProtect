@@ -47,6 +47,7 @@ permissions:
             coreprotect.lookup.inventory: true
             coreprotect.lookup.item: true
             coreprotect.lookup.kill: true
+            coreprotect.networking: true
             coreprotect.teleport: true
             coreprotect.reload: true
             coreprotect.status: true
@@ -137,4 +138,7 @@ permissions:
         default: op
     coreprotect.consumer:
         description: Has permission to use the consumer command
+        default: op
+    coreprotect.networking:
+        description: Has permission to use the network debug command and able to use the networking api
         default: op

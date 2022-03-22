@@ -1,8 +1,9 @@
 package net.coreprotect.listener.pluginchannel;
 
 import net.coreprotect.CoreProtect;
+import net.coreprotect.config.Config;
+import net.coreprotect.language.Phrase;
 import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.Util;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -50,7 +51,7 @@ public class PluginChannelHandshakeListener implements PluginMessageListener, Li
 
     private void handleHandshake(String channel, Player player, byte[] bytes)
     {
-        if (!player.hasPermission("coreprotect.register")) {
+        if (!player.hasPermission("coreprotect.networking")) {
             return;
         }
 
@@ -63,20 +64,23 @@ public class PluginChannelHandshakeListener implements PluginMessageListener, Li
 
         try
         {
-            Util.networkDebug(new String(bytes));
             String modVersion = dis.readUTF();
-            Util.networkDebug(modVersion);
             String modId = dis.readUTF();
-            Util.networkDebug(modId);
             int protocolVersion = dis.readInt();
-            Util.networkDebug(String.valueOf(protocolVersion));
+            if (Config.getGlobal().NETWORKING_DEBUG)
+            {
+                Chat.console(new String(bytes));
+                Chat.console(modVersion);
+                Chat.console(modId);
+                Chat.console(String.valueOf(protocolVersion));
+            }
 
             if (protocolVersion != CoreProtect.coreProtectNetworkingProtocol) {
-                Chat.console("Player " + player.getName() + " failed registering the CoreProtect channel using " + modId + " " + modVersion + " with protocol version " + protocolVersion);
+                Chat.console(Phrase.build(Phrase.NETWORK_HANDSHAKE_FAILED, player.getName(), modId, modVersion, String.valueOf(protocolVersion)));
             }
 
             getPluginChannelPlayers().add(player.getUniqueId());
-            Chat.console("Player " + player.getName() + " registered the CoreProtect channel using " + modId + " " + modVersion + " with protocol version " + protocolVersion);
+            Chat.console(Phrase.build(Phrase.NETWORK_HANDSHAKE_SUCCESS, player.getName(), modId, modVersion, String.valueOf(protocolVersion)));
 
             player.sendPluginMessage(CoreProtect.getInstance(), CoreProtect.coreProtectPluginChannelHandshake, sendRegistered());
         } catch (Exception exception) {

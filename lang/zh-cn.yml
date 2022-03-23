@@ -13,8 +13,8 @@ CHECK_CONFIG: "请检查 config.yml 文件"
 COMMAND_CONSOLE: "请在控制台中运行此命令。"
 COMMAND_NOT_FOUND: "找不到命令 \"{0}\""
 COMMAND_THROTTLED: "请稍等片刻，然后重试。"
-CONSUMER_ERROR: "消费者队列处理已经{暂停|恢复}。" # TODO: CONSUMER绝对不是“消费者”，但是找不到更好的翻译
-CONSUMER_TOGGLED: "消费者队列处理现已{暂停|恢复}。" # TODO: 需要进一步讨论
+CONSUMER_ERROR: "数据处理队列已经{暂停|恢复}。"
+CONSUMER_TOGGLED: "数据处理队列现已{暂停|恢复}。"
 CONTAINER_HEADER: "容器物品变更记录"
 DATABASE_BUSY: "数据库繁忙，请稍后重试。"
 DATABASE_INDEX_ERROR: "无法验证数据库索引。"

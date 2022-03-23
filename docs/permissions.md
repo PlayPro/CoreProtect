@@ -35,6 +35,9 @@ The following permissions can be used to restrict functionality within the plugi
   &nbsp;
 * **coreprotect.status** *(default: op)*  
   Allows access to the CoreProtect status command.  
+  &nbsp;
+* **coreprotect.consumer** *(default: op)*  
+  Allows access to the CoreProtect consumer command.  
   
 ---
 
@@ -57,6 +60,9 @@ The following permissions can be used to restrict functionality within the plugi
   &nbsp;
 * **coreprotect.lookup.inventory** *(default: op)*  
   Can be optionally used as a negative permission to prevent inventory lookups.  
+  &nbsp;
+* **coreprotect.lookup.item** *(default: op)*  
+  Can be optionally used as a negative permission to prevent item lookups.  
   &nbsp;
 * **coreprotect.lookup.kill** *(default: op)*  
   Can be optionally used as a negative permission to prevent entity kill lookups.  

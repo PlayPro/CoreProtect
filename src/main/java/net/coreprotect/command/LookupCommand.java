@@ -266,6 +266,11 @@ public class LookupCommand {
         }
 
         if (argAction.contains(4) && argAction.contains(11)) { // a:inventory
+            if (argUsers.size() == 0) {
+                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_ACTION_USER));
+                return;
+            }
+
             argExclude.put(Material.FIRE, false);
             argExclude.put(Material.WATER, false);
             argExclude.put(Material.FARMLAND, false);
@@ -571,6 +576,13 @@ public class LookupCommand {
                         }
                     }
                     c++;
+
+                    if (argAction.contains(4) && argAction.contains(11)) {
+                        if (ruser.startsWith("#")) {
+                            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_USERNAME, ruser));
+                            return;
+                        }
+                    }
                 }
 
                 long timeStart = -1;

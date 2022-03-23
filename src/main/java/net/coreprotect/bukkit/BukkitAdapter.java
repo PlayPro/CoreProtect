@@ -38,7 +38,7 @@ public class BukkitAdapter implements BukkitInterface {
                 BukkitAdapter.ADAPTER = new BukkitAdapter();
                 break;
             case BUKKIT_V1_15:
-                BukkitAdapter.ADAPTER = new Bukkit_v1_15();
+                BukkitAdapter.ADAPTER = new Bukkit_v1_15_Helper();
                 break;
             case BUKKIT_V1_16:
                 BukkitAdapter.ADAPTER = new Bukkit_v1_16();

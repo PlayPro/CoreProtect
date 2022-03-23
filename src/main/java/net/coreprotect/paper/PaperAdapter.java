@@ -31,7 +31,7 @@ public class PaperAdapter implements PaperInterface {
             case PAPER_V1_13:
             case PAPER_V1_14:
             case PAPER_V1_15:
-                PaperAdapter.ADAPTER = new PaperHandler();
+                PaperAdapter.ADAPTER = new PaperHelper();
                 break;
             case PAPER_V1_16:
             case PAPER_V1_17:

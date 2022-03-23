@@ -239,7 +239,7 @@ public class Config extends Language {
     }
 
     public static void init() throws IOException {
-        parseConfig(loadFiles(ConfigFile.CONFIG));
+        parseConfig(loadFiles(ConfigFileHelper.CONFIG));
         // pass variables to ConfigFile.parseConfig(ConfigFile.loadFiles());
     }
 
@@ -324,7 +324,7 @@ public class Config extends Language {
     public void load(final InputStream in) throws IOException {
         // if we fail reading, we will not corrupt our current config.
         final Map<String, String> newConfig = new LinkedHashMap<>(this.config.size());
-        ConfigFile.load(in, newConfig, false);
+        ConfigFileHelper.load(in, newConfig, false);
 
         this.clearConfig();
         this.config.putAll(newConfig);
@@ -360,7 +360,7 @@ public class Config extends Language {
 
         for (final File worldConfigFile : configFolder.listFiles((File file) -> file.getName().endsWith(".yml"))) {
             final String name = worldConfigFile.getName();
-            if (name.equals(ConfigFile.CONFIG) || name.equals(ConfigFile.LANGUAGE)) {
+            if (name.equals(ConfigFileHelper.CONFIG) || name.equals(ConfigFileHelper.LANGUAGE)) {
                 continue;
             }
 

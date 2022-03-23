@@ -33,7 +33,7 @@ public class SpigotAdapter implements SpigotInterface {
             case SPIGOT_V1_13:
             case SPIGOT_V1_14:
             case SPIGOT_V1_15:
-                SpigotAdapter.ADAPTER = new SpigotHandler();
+                SpigotAdapter.ADAPTER = new SpigotHelper();
                 break;
             case SPIGOT_V1_16:
             case SPIGOT_V1_17:

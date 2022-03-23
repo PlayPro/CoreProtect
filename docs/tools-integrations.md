@@ -31,7 +31,7 @@ Search through your CoreProtect history with an easy-to-use interface.
 &nbsp;
 
 * **Watson**  
-Watson is a client side Minecraft mod that displays CoreProtect logs in 3D.  
+Watson is a client side Minecraft mod that displays CoreProtect logs in 3D and has an integration connected to Coreprotect.  
 [https://github.com/vacla/Watson](https://github.com/vacla/Watson)  
 &nbsp;
 

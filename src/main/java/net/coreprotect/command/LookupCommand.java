@@ -4,7 +4,6 @@ import java.sql.Connection;
 import java.sql.Statement;
 import java.text.NumberFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -833,7 +832,6 @@ public class LookupCommand {
                                                     String time = data[0];
                                                     String dplayer = data[1];
                                                     String message = data[2];
-                                                    Chat.console("Data: "+Arrays.toString(data));
                                                     String timeago = Util.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
                                                     Chat.sendComponent(player2, timeago + " " + Color.WHITE + "- " + Color.DARK_AQUA + dplayer + ": " + Color.WHITE, message);
                                                     if (PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(((Player) player2).getUniqueId())) {

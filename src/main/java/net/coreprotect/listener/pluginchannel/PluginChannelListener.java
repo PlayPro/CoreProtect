@@ -31,6 +31,10 @@ public class PluginChannelListener implements Listener {
     }
 
     public void sendData(CommandSender commandSender, long timeAgo, Phrase phrase, String selector, String resultUser, String target, int amount, int x, int y, int z, int worldId, String rbFormat, boolean isContainer, boolean added) throws IOException {
+        if (!PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(commandSender)) {
+            return;
+        }
+
         String phraseSelector = Phrase.getPhraseSelector(phrase, selector);
         String worldName = Util.getWorldName(worldId);
 
@@ -69,6 +73,10 @@ public class PluginChannelListener implements Listener {
     }
 
     public void sendInfoData(CommandSender commandSender, long timeAgo, Phrase phrase, String selector, String resultUser, int amount, int x, int y, int z, int worldId) throws IOException {
+        if (!PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(commandSender)) {
+            return;
+        }
+
         String phraseSelector = Phrase.getPhraseSelector(phrase, selector);
         String worldName = Util.getWorldName(worldId);
 
@@ -100,6 +108,10 @@ public class PluginChannelListener implements Listener {
     }
 
     public void sendMessageData(CommandSender commandSender, long timeAgo, String resultUser, String message, boolean sign, int x, int y, int z, int worldId) throws IOException {
+        if (!PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(commandSender)) {
+            return;
+        }
+
         String worldName = Util.getWorldName(worldId);
 
         ByteArrayOutputStream msgBytes = new ByteArrayOutputStream();
@@ -130,6 +142,10 @@ public class PluginChannelListener implements Listener {
     }
 
     public void sendUsernameData(CommandSender commandSender, long timeAgo, String resultUser, String target) throws IOException {
+        if (!PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(commandSender)) {
+            return;
+        }
+
         ByteArrayOutputStream msgBytes = new ByteArrayOutputStream();
         DataOutputStream msgOut = new DataOutputStream(msgBytes);
 
@@ -149,6 +165,10 @@ public class PluginChannelListener implements Listener {
     }
 
     public void sendTest(CommandSender commandSender, String type) throws IOException {
+        if (!PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(commandSender)) {
+            return;
+        }
+
         int worldId = 1;
         Random rand = new Random();
         int timeAgo = rand.nextInt(20);
@@ -181,10 +201,6 @@ public class PluginChannelListener implements Listener {
 
     private void send(CommandSender commandSender, byte[] msgBytes) {
         if (!(commandSender instanceof Player)) {
-            return;
-        }
-
-        if (!PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(commandSender)) {
             return;
         }
 

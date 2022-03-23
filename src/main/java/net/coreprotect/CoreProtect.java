@@ -2,7 +2,6 @@ package net.coreprotect;
 
 import java.io.File;
 
-import net.coreprotect.listener.pluginchannel.PluginChannelHandshakeListener;
 import org.bstats.bukkit.MetricsLite;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -15,7 +14,6 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.process.Process;
-import net.coreprotect.database.Database;
 import net.coreprotect.language.Language;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.ListenerHandler;
@@ -30,9 +28,6 @@ import net.coreprotect.utility.Util;
 public final class CoreProtect extends JavaPlugin {
 
     private static CoreProtect instance;
-    public static final String coreProtectPluginChannelData = "coreprotect:data";
-    public static final String coreProtectPluginChannelHandshake = "coreprotect:handshake";
-    public static final int coreProtectNetworkingProtocol = 1;
 
     /**
      * Get the instance of CoreProtect
@@ -121,10 +116,6 @@ public final class CoreProtect extends JavaPlugin {
             catch (Exception e) {
                 // Failed to connect to bStats server or something else went wrong.
             }
-
-            getServer().getMessenger().registerIncomingPluginChannel(this, coreProtectPluginChannelHandshake, new PluginChannelHandshakeListener());
-            getServer().getMessenger().registerOutgoingPluginChannel(this, coreProtectPluginChannelHandshake);
-            getServer().getMessenger().registerOutgoingPluginChannel(this, coreProtectPluginChannelData);
         }
         else {
             Chat.console(Phrase.build(Phrase.ENABLE_FAILED, ConfigHandler.EDITION_NAME));
@@ -208,11 +199,7 @@ public final class CoreProtect extends JavaPlugin {
                 Thread.sleep(100);
             }
 
-            getInstance().getServer().getMessenger().unregisterIncomingPluginChannel(getInstance(), coreProtectPluginChannelHandshake);
-            getInstance().getServer().getMessenger().unregisterOutgoingPluginChannel(getInstance(), coreProtectPluginChannelHandshake);
-            getInstance().getServer().getMessenger().unregisterOutgoingPluginChannel(getInstance(), coreProtectPluginChannelData);
-
-            Database.closeConnection();
+            ConfigHandler.performDisable();
             Chat.console(Phrase.build(Phrase.DISABLE_SUCCESS, "CoreProtect v" + plugin.getDescription().getVersion()));
         }
         catch (Exception e) {

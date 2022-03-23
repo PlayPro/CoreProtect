@@ -1,5 +1,15 @@
 package net.coreprotect.listener.pluginchannel;
 
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.util.Random;
+
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.ConsoleCommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.event.Listener;
+
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.language.Phrase;
@@ -7,18 +17,10 @@ import net.coreprotect.language.Selector;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
-import org.bukkit.command.CommandSender;
-import org.bukkit.command.ConsoleCommandSender;
-import org.bukkit.entity.Player;
-import org.bukkit.event.Listener;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.util.Random;
+public class PluginChannelListener implements Listener {
 
-public class PluginChannelListener implements Listener
-{
+    public static final String pluginChannel = "coreprotect:data";
     private static PluginChannelListener instance;
 
     public PluginChannelListener() {
@@ -29,8 +31,7 @@ public class PluginChannelListener implements Listener
         return instance;
     }
 
-    public void sendData(CommandSender commandSender, long timeAgo, Phrase phrase, String selector, String resultUser, String target, int amount, int x, int y, int z, int worldId, String rbFormat, boolean isContainer, boolean added) throws IOException
-    {
+    public void sendData(CommandSender commandSender, long timeAgo, Phrase phrase, String selector, String resultUser, String target, int amount, int x, int y, int z, int worldId, String rbFormat, boolean isContainer, boolean added) throws IOException {
         String phraseSelector = Phrase.getPhraseSelector(phrase, selector);
         String worldName = Util.getWorldName(worldId);
 
@@ -49,8 +50,7 @@ public class PluginChannelListener implements Listener
         msgOut.writeBoolean(!rbFormat.isEmpty());
         msgOut.writeBoolean(isContainer);
         msgOut.writeBoolean(added);
-        if (Config.getGlobal().NETWORKING_DEBUG)
-        {
+        if (Config.getGlobal().NETWORKING_DEBUG) {
             Chat.console(String.valueOf(timeAgo * 1000));
             Chat.console(phraseSelector);
             Chat.console(resultUser);
@@ -69,8 +69,7 @@ public class PluginChannelListener implements Listener
         send(commandSender, msgBytes.toByteArray());
     }
 
-    public void sendInfoData(CommandSender commandSender, long timeAgo, Phrase phrase, String selector, String resultUser, int amount, int x, int y, int z, int worldId) throws IOException
-    {
+    public void sendInfoData(CommandSender commandSender, long timeAgo, Phrase phrase, String selector, String resultUser, int amount, int x, int y, int z, int worldId) throws IOException {
         String phraseSelector = Phrase.getPhraseSelector(phrase, selector);
         String worldName = Util.getWorldName(worldId);
 
@@ -86,8 +85,7 @@ public class PluginChannelListener implements Listener
         msgOut.writeInt(y);
         msgOut.writeInt(z);
         msgOut.writeUTF(worldName);
-        if (Config.getGlobal().NETWORKING_DEBUG)
-        {
+        if (Config.getGlobal().NETWORKING_DEBUG) {
             Chat.console(String.valueOf(timeAgo * 1000));
             Chat.console(phraseSelector);
             Chat.console(resultUser);
@@ -102,8 +100,7 @@ public class PluginChannelListener implements Listener
         send(commandSender, msgBytes.toByteArray());
     }
 
-    public void sendMessageData(CommandSender commandSender, long timeAgo, String resultUser, String message, boolean sign, int x, int y, int z, int worldId) throws IOException
-    {
+    public void sendMessageData(CommandSender commandSender, long timeAgo, String resultUser, String message, boolean sign, int x, int y, int z, int worldId) throws IOException {
         String worldName = Util.getWorldName(worldId);
 
         ByteArrayOutputStream msgBytes = new ByteArrayOutputStream();
@@ -118,8 +115,7 @@ public class PluginChannelListener implements Listener
         msgOut.writeInt(y);
         msgOut.writeInt(z);
         msgOut.writeUTF(worldName);
-        if (Config.getGlobal().NETWORKING_DEBUG)
-        {
+        if (Config.getGlobal().NETWORKING_DEBUG) {
             Chat.console(String.valueOf(timeAgo * 1000));
             Chat.console(resultUser);
             Chat.console(message);
@@ -134,8 +130,7 @@ public class PluginChannelListener implements Listener
         send(commandSender, msgBytes.toByteArray());
     }
 
-    public void sendUsernameData(CommandSender commandSender, long timeAgo, String resultUser, String target) throws IOException
-    {
+    public void sendUsernameData(CommandSender commandSender, long timeAgo, String resultUser, String target) throws IOException {
         ByteArrayOutputStream msgBytes = new ByteArrayOutputStream();
         DataOutputStream msgOut = new DataOutputStream(msgBytes);
 
@@ -144,8 +139,7 @@ public class PluginChannelListener implements Listener
         msgOut.writeUTF(resultUser);
         msgOut.writeUTF(target);
 
-        if (Config.getGlobal().NETWORKING_DEBUG)
-        {
+        if (Config.getGlobal().NETWORKING_DEBUG) {
             Chat.console(String.valueOf(timeAgo * 1000));
             Chat.console(resultUser);
             Chat.console(target);
@@ -155,8 +149,7 @@ public class PluginChannelListener implements Listener
         send(commandSender, msgBytes.toByteArray());
     }
 
-    public void sendTest(CommandSender commandSender, String type) throws IOException
-    {
+    public void sendTest(CommandSender commandSender, String type) throws IOException {
         int worldId = 1;
         Random rand = new Random();
         int timeAgo = rand.nextInt(20);
@@ -178,7 +171,7 @@ public class PluginChannelListener implements Listener
                 sendMessageData(commandSender, timeAgo, resultUser, message, sign, x, y, z, worldId);
                 break;
             case "4":
-                 sendUsernameData(commandSender, timeAgo, resultUser, "Arne");
+                sendUsernameData(commandSender, timeAgo, resultUser, "Arne");
                 break;
             default:
                 sendData(commandSender, timeAgo, Phrase.LOOKUP_CONTAINER, selector, resultUser, "clay_ball", amount, x, y, z, worldId, rbFormat, false, true);
@@ -206,6 +199,6 @@ public class PluginChannelListener implements Listener
             return;
         }
 
-        player.sendPluginMessage(CoreProtect.getInstance(), CoreProtect.coreProtectPluginChannelData, data);
+        player.sendPluginMessage(CoreProtect.getInstance(), pluginChannel, data);
     }
 }

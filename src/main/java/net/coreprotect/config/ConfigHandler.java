@@ -28,6 +28,7 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
+import net.coreprotect.listener.ListenerHandler;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.patch.Patch;
@@ -411,7 +412,7 @@ public class ConfigHandler extends Queue {
 
             ConfigHandler.loadConfig(); // Load (or create) the configuration file.
             ConfigHandler.loadDatabase(); // Initialize MySQL and create tables if necessary.
-
+            ListenerHandler.registerNetworking(); // Register channels for networking API
         }
         catch (Exception e) {
             e.printStackTrace();
@@ -453,6 +454,16 @@ public class ConfigHandler extends Queue {
         }
 
         return false;
+    }
+
+    public static void performDisable() {
+        try {
+            Database.closeConnection();
+            ListenerHandler.unregisterNetworking(); // Unregister channels for networking API
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
 }

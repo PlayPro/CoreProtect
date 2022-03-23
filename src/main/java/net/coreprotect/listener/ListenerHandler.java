@@ -1,6 +1,5 @@
 package net.coreprotect.listener;
 
-import net.coreprotect.listener.pluginchannel.PluginChannelListener;
 import org.bukkit.plugin.PluginManager;
 
 import net.coreprotect.CoreProtect;
@@ -47,6 +46,8 @@ import net.coreprotect.listener.player.PlayerQuitListener;
 import net.coreprotect.listener.player.PlayerTakeLecternBookListener;
 import net.coreprotect.listener.player.ProjectileLaunchListener;
 import net.coreprotect.listener.player.SignChangeListener;
+import net.coreprotect.listener.pluginchannel.PluginChannelHandshakeListener;
+import net.coreprotect.listener.pluginchannel.PluginChannelListener;
 import net.coreprotect.listener.world.ChunkPopulateListener;
 import net.coreprotect.listener.world.LeavesDecayListener;
 import net.coreprotect.listener.world.PortalCreateListener;
@@ -125,6 +126,18 @@ public final class ListenerHandler {
 
         // Plugin channel events
         pluginManager.registerEvents(new PluginChannelListener(), plugin);
+    }
+
+    public static void registerNetworking() {
+        CoreProtect.getInstance().getServer().getMessenger().registerIncomingPluginChannel(CoreProtect.getInstance(), PluginChannelHandshakeListener.pluginChannel, new PluginChannelHandshakeListener());
+        CoreProtect.getInstance().getServer().getMessenger().registerOutgoingPluginChannel(CoreProtect.getInstance(), PluginChannelHandshakeListener.pluginChannel);
+        CoreProtect.getInstance().getServer().getMessenger().registerOutgoingPluginChannel(CoreProtect.getInstance(), PluginChannelListener.pluginChannel);
+    }
+
+    public static void unregisterNetworking() {
+        CoreProtect.getInstance().getServer().getMessenger().unregisterIncomingPluginChannel(CoreProtect.getInstance(), PluginChannelHandshakeListener.pluginChannel);
+        CoreProtect.getInstance().getServer().getMessenger().unregisterOutgoingPluginChannel(CoreProtect.getInstance(), PluginChannelHandshakeListener.pluginChannel);
+        CoreProtect.getInstance().getServer().getMessenger().unregisterOutgoingPluginChannel(CoreProtect.getInstance(), PluginChannelListener.pluginChannel);
     }
 
 }

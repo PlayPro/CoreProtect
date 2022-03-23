@@ -1,26 +1,26 @@
-# Networking
+# Networking API
 
-CoreProtect Networking allows also clients to receive data using the Packets.
+The CoreProtect Networking API allows clients to receive data using packets.
 
 | Networking Details      |        |
 |-------------------------|--------|
 | **Networking Version:** | 1      |
-| **Plugin Version:**     | v21.2+ |
+| **Plugin Version:**     | v21.3+ |
 
-##Packets
+---
 
-The server will not respond unless the player has the correct permissions, which is `coreprotect.networking` and the relevant command permissions
+## Packets
+
+The server will not respond unless the player has the correct permission, which is `coreprotect.networking`.
+
+---
 
 ## Server to Client
 
 ### Data Packet
-Sends Data From The Database.
+Sends data from the database.
 
-Channel: `coreprotect:data`
-
-Buf Content:
-
-Info: To read you need to read out correctly, you will need to get `written bytes` and put it inside an byteArrayInputStream
+* Channel: `coreprotect:data`
 
 | Type: `Int` | 1                      | 2                      | 3                  | 4                  |
 |-------------|------------------------|------------------------|--------------------|--------------------|
@@ -59,24 +59,20 @@ boolean added = dis.readBoolean();
 ### Handshake Packet
 Sends handshake if player is registered.
 
-Channel: `coreprotect:handshake`
+* Channel: `coreprotect:handshake`
+* Registered: `Boolean`
 
-Buf Content:
-
-Registered: `Boolean`
+---
 
 ## Client to Server
 
 ### Handshake Packet
 Sends handshake to register
 
-Channel: `coreprotect:handshake`
-
-Buf Content:
-
-Mod Version: `UTF`
-Mod Id: `UTF`
-Coreprotect Protocol: `Int`
+* Channel: `coreprotect:handshake`  
+* Mod Version: `UTF`  
+* Mod Id: `UTF`   
+* CoreProtect Protocol: `Int`
 
 Example (Fabric):
 ```
@@ -88,3 +84,15 @@ msgOut.writeUTF(modId);
 msgOut.writeInt(coreprotectProtocol);
 packetByteBuf.writeBytes(msgBytes.toByteArray());
 ```
+
+---
+
+## Debugging
+
+### /co network-debug
+Allows you to debug the networking API if you are registered and have correct permissions.
+
+**Example**  
+`/co network-debug <type>`
+
+___

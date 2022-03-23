@@ -5,18 +5,17 @@ ___
 
 ## Command Overview
 
-| Command | Description                   |
-| --- |-------------------------------|
-| [/co help](#co-help) | Display a list of commands    |
-| [/co inspect](#co-inspect) | Toggle the inspector          |
-| [/co lookup](#co-lookup) | Lookup block data             |
-| [/co rollback](#co-rollback) | Rollback block data           |
-| [/co restore](#co-restore) | Restore block data            |
-| [/co purge](#co-purge) | Delete old block data         |
+| Command | Description |
+| --- | --- |
+| [/co help](#co-help) | Display a list of commands |
+| [/co inspect](#co-inspect) | Toggle the inspector |
+| [/co lookup](#co-lookup) | Lookup block data |
+| [/co rollback](#co-rollback) | Rollback block data |
+| [/co restore](#co-restore) | Restore block data |
+| [/co purge](#co-purge) | Delete old block data |
 | [/co reload](#co-reload) | Reload the configuration file |
-| [/co status](#co-status) | View the plugin status        |
-| [/co consumer](#co-consumer) | Toggle consumer processing    |
-| [/co network-debug](#co-network-debug) | Debug Networking Api |
+| [/co status](#co-status) | View the plugin status |
+| [/co consumer](#co-consumer) | Toggle consumer processing |
 
 ### Alias Commands
 
@@ -124,13 +123,6 @@ ___
 ### /co consumer
 Console command to pause or resume consumer queue processing.
 ___
-
-### /co network-debug
-Allows to debug the network api if you are registered and have correct permissions.
-
-**Example**  
-`/co network-debug <type>`, See [Networking api docs](/networking) to see what the type means.
----
 
 
 ## Parameter Details

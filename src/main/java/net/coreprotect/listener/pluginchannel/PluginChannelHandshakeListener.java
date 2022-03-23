@@ -84,6 +84,7 @@ public class PluginChannelHandshakeListener implements PluginMessageListener, Li
 
             if (protocolVersion != networkingProtocolVersion) {
                 Chat.console(Phrase.build(Phrase.NETWORK_HANDSHAKE_FAILED, player.getName(), modId, modVersion, String.valueOf(protocolVersion)));
+                return;
             }
 
             getPluginChannelPlayers().add(player.getUniqueId());

@@ -5,7 +5,6 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
-import net.coreprotect.listener.pluginchannel.PluginChannelListener;
 import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 
@@ -13,6 +12,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
+import net.coreprotect.listener.pluginchannel.PluginChannelListener;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
 

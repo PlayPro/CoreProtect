@@ -1,11 +1,7 @@
 package net.coreprotect.utility.serialize;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.utility.Util;
 import org.bukkit.Color;
 import org.bukkit.FireworkEffect;
 import org.bukkit.Material;
@@ -14,36 +10,40 @@ import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.block.banner.Pattern;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.BannerMeta;
-import org.bukkit.inventory.meta.CrossbowMeta;
-import org.bukkit.inventory.meta.EnchantmentStorageMeta;
-import org.bukkit.inventory.meta.FireworkEffectMeta;
-import org.bukkit.inventory.meta.FireworkMeta;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.inventory.meta.LeatherArmorMeta;
-import org.bukkit.inventory.meta.MapMeta;
-import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.inventory.meta.*;
 import org.bukkit.potion.PotionEffect;
 
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.utility.Util;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 
 public class ItemMetaHandler {
 
     public static String getEnchantmentName(Enchantment enchantment, int level) {
         String name = enchantment.getKey().getKey();
 
-        switch (name) {
-            case "vanishing_curse":
-                name = "Curse of Vanishing";
-                break;
-            case "binding_curse":
-                name = "Curse of Binding";
-                break;
-            default:
-                name = Util.capitalize(name.replace("_", " "), true);
-                break;
-        }
+//       switch (name) {
+//            case "vanishing_curse":
+//                name = "Curse of Vanishing";
+//                break;
+//            case "binding_curse":
+//                name = "Curse of Binding";
+//                break;
+//            default:
+//                name = Util.capitalize(name.replace("_", " "), true);
+//                break;
+//        }
+
+        VanishingCurse vanishingCurse=new VanishingCurse();
+        BindingCurse bindingCurse = new BindingCurse();
+        DefaultName defaultName = new DefaultName();
+        vanishingCurse.getName("vanishing_curse");
+        bindingCurse.getName("binding_curse");
+        defaultName.getName(name);
+
+
 
         if (enchantment.getMaxLevel() > 1) {
             name = name + " " + getEnchantmentLevel(level);
@@ -118,7 +118,7 @@ public class ItemMetaHandler {
             ItemMeta itemMeta = item.getItemMeta().clone();
 
             if (itemMeta.hasAttributeModifiers()) {
-                for (Map.Entry<Attribute, AttributeModifier> entry : itemMeta.getAttributeModifiers().entries()) {
+                for (Entry<Attribute, AttributeModifier> entry : itemMeta.getAttributeModifiers().entries()) {
                     Map<Attribute, Map<String, Object>> attributeList = new HashMap<>();
                     Attribute attribute = entry.getKey();
                     AttributeModifier modifier = entry.getValue();

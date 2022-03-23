@@ -154,12 +154,7 @@ public class Lookup extends Queue {
                         int resultX = results.getInt("x");
                         int resultY = results.getInt("y");
                         int resultZ = results.getInt("z");
-                        Object[] secondArray = new Object[] { resultWorldId, resultX, resultY, resultZ };
-                        Object[] result = new Object[dataArray.length + secondArray.length];
-                        System.arraycopy(dataArray, 0, result, 0, dataArray.length);
-                        System.arraycopy(secondArray, 0, result, dataArray.length, secondArray.length);
-
-                        dataArray = result;
+                        dataArray = new Object[] { resultId, resultTime, resultUserId, resultMessage, resultWorldId, resultX, resultY, resultZ };
                     }
                     list.add(dataArray);
                 }

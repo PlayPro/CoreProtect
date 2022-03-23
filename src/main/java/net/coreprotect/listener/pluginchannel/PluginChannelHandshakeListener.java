@@ -9,6 +9,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -40,8 +41,12 @@ public class PluginChannelHandshakeListener implements PluginMessageListener, Li
         return pluginChannelPlayers;
     }
 
-    public boolean isPluginChannelPlayer(UUID uuid) {
-        return getPluginChannelPlayers().contains(uuid);
+    public boolean isPluginChannelPlayer(CommandSender commandSender) {
+        if (!(commandSender instanceof Player)) {
+            return false;
+        }
+
+        return getPluginChannelPlayers().contains(((Player) commandSender).getUniqueId());
     }
 
     @EventHandler

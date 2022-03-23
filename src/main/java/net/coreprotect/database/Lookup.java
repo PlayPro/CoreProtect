@@ -14,7 +14,6 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Player;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
@@ -149,7 +148,7 @@ public class Lookup extends Queue {
                     String resultMessage = results.getString("message");
 
                     Object[] dataArray = new Object[] { resultId, resultTime, resultUserId, resultMessage };
-                    if (PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(((Player) user).getUniqueId())) {
+                    if (PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(user)) {
                         int resultWorldId = results.getInt("wid");
                         int resultX = results.getInt("x");
                         int resultY = results.getInt("y");
@@ -628,7 +627,7 @@ public class Lookup extends Queue {
             else if (actionList.contains(6) || actionList.contains(7)) {
                 queryTable = "chat";
                 rows = "rowid as id,time,user,message";
-                if (PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(((Player) user).getUniqueId())) {
+                if (PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(user)) {
                     rows += ",wid,x,y,z";
                 }
 

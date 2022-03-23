@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.util.Random;
 
 import org.bukkit.command.CommandSender;
-import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
 
@@ -181,17 +180,15 @@ public class PluginChannelListener implements Listener {
     }
 
     private void send(CommandSender commandSender, byte[] msgBytes) {
-        if (commandSender instanceof ConsoleCommandSender) {
+        if (!(commandSender instanceof Player)) {
             return;
         }
 
-        PluginChannelListener.getInstance().sendCoreProtectPluginChannel((Player) commandSender, msgBytes);
-    }
-
-    public void sendCoreProtectPluginChannel(Player player, byte[] data) {
-        if (PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(player.getUniqueId())) {
-            sendCoreProtectData(player, data);
+        if (!PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(commandSender)) {
+            return;
         }
+
+        PluginChannelListener.getInstance().sendCoreProtectData((Player) commandSender, msgBytes);
     }
 
     private void sendCoreProtectData(Player player, byte[] data) {

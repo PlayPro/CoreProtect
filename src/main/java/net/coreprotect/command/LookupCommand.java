@@ -834,7 +834,7 @@ public class LookupCommand {
                                                     String message = data[2];
                                                     String timeago = Util.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
                                                     Chat.sendComponent(player2, timeago + " " + Color.WHITE + "- " + Color.DARK_AQUA + dplayer + ": " + Color.WHITE, message);
-                                                    if (PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(((Player) player2).getUniqueId())) {
+                                                    if (PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(player2)) {
                                                         int wid = Integer.parseInt(data[3]);
                                                         int x = Integer.parseInt(data[4]);
                                                         int y = Integer.parseInt(data[5]);

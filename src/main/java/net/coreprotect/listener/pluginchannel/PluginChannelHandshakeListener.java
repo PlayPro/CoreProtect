@@ -75,7 +75,7 @@ public class PluginChannelHandshakeListener implements PluginMessageListener, Li
             String modVersion = dis.readUTF();
             String modId = dis.readUTF();
             int protocolVersion = dis.readInt();
-            if (Config.getGlobal().NETWORKING_DEBUG) {
+            if (Config.getGlobal().NETWORK_DEBUG) {
                 Chat.console(new String(bytes));
                 Chat.console(modVersion);
                 Chat.console(modId);

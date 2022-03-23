@@ -90,7 +90,8 @@ packetByteBuf.writeBytes(msgBytes.toByteArray());
 ## Debugging
 
 ### /co network-debug
-Allows you to debug the networking API if you are registered and have correct permissions.
+Allows you to debug the networking API if you are registered and have correct permissions.  
+To utilize the command, `network-debug: true` must be set in the CoreProtect `config.yml`.
 
 **Example**  
 `/co network-debug <type>`

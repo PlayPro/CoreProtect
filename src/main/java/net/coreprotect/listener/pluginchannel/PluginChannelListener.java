@@ -53,7 +53,7 @@ public class PluginChannelListener implements Listener {
         msgOut.writeBoolean(!rbFormat.isEmpty());
         msgOut.writeBoolean(isContainer);
         msgOut.writeBoolean(added);
-        if (Config.getGlobal().NETWORKING_DEBUG) {
+        if (Config.getGlobal().NETWORK_DEBUG) {
             Chat.console(String.valueOf(timeAgo * 1000));
             Chat.console(phraseSelector);
             Chat.console(resultUser);
@@ -92,7 +92,7 @@ public class PluginChannelListener implements Listener {
         msgOut.writeInt(y);
         msgOut.writeInt(z);
         msgOut.writeUTF(worldName);
-        if (Config.getGlobal().NETWORKING_DEBUG) {
+        if (Config.getGlobal().NETWORK_DEBUG) {
             Chat.console(String.valueOf(timeAgo * 1000));
             Chat.console(phraseSelector);
             Chat.console(resultUser);
@@ -126,7 +126,7 @@ public class PluginChannelListener implements Listener {
         msgOut.writeInt(y);
         msgOut.writeInt(z);
         msgOut.writeUTF(worldName);
-        if (Config.getGlobal().NETWORKING_DEBUG) {
+        if (Config.getGlobal().NETWORK_DEBUG) {
             Chat.console(String.valueOf(timeAgo * 1000));
             Chat.console(resultUser);
             Chat.console(message);
@@ -154,7 +154,7 @@ public class PluginChannelListener implements Listener {
         msgOut.writeUTF(resultUser);
         msgOut.writeUTF(target);
 
-        if (Config.getGlobal().NETWORKING_DEBUG) {
+        if (Config.getGlobal().NETWORK_DEBUG) {
             Chat.console(String.valueOf(timeAgo * 1000));
             Chat.console(resultUser);
             Chat.console(target);

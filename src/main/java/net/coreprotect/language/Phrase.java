@@ -137,9 +137,8 @@ public enum Phrase {
     MISSING_ROLLBACK_RADIUS,
     MISSING_ROLLBACK_USER,
     MYSQL_UNAVAILABLE,
-    NETWORK_HANDSHAKE_FAILED,
-    NETWORK_HANDSHAKE_SUCCESS,
-    NETWORK_TESTDATA,
+    NETWORK_CONNECTION,
+    NETWORK_TEST,
     NO_DATA,
     NO_DATA_LOCATION,
     NO_PERMISSION,
@@ -301,6 +300,7 @@ public enum Phrase {
             match = patternMatch.group(1);
             match = Selector.processSelection(match, selector, "");
         }
+
         return match;
     }
 }

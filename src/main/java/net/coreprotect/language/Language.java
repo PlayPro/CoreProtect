@@ -154,9 +154,8 @@ public class Language {
         phrases.put(Phrase.MISSING_ROLLBACK_RADIUS, "You did not specify a {rollback|restore} radius.");
         phrases.put(Phrase.MISSING_ROLLBACK_USER, "You did not specify a {rollback|restore} user.");
         phrases.put(Phrase.MYSQL_UNAVAILABLE, "Unable to connect to MySQL server.");
-        phrases.put(Phrase.NETWORK_HANDSHAKE_FAILED, "Player {0} failed registering the CoreProtect channel using {1} {2} with protocol version {3}");
-        phrases.put(Phrase.NETWORK_HANDSHAKE_SUCCESS, "Player {0} registered the CoreProtect channel using {1} {2} with protocol version {3}");
-        phrases.put(Phrase.NETWORK_TESTDATA, "Test data has been sent.");
+        phrases.put(Phrase.NETWORK_CONNECTION, "Connection by {0} {successful|failed}. Using {1} {2}.");
+        phrases.put(Phrase.NETWORK_TEST, "Network test data has been successful sent.");
         phrases.put(Phrase.NO_DATA, "No data found at {0}.");
         phrases.put(Phrase.NO_DATA_LOCATION, "No {data|transactions|interactions|messages} found at this location.");
         phrases.put(Phrase.NO_PERMISSION, "You do not have permission to do that.");

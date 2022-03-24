@@ -196,7 +196,8 @@ public class PluginChannelListener implements Listener {
                 sendData(commandSender, timeAgo, Phrase.LOOKUP_CONTAINER, selector, resultUser, "clay_ball", amount, x, y, z, worldId, rbFormat, false, true);
                 break;
         }
-        commandSender.sendMessage(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NETWORK_TESTDATA));
+
+        commandSender.sendMessage(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NETWORK_TEST));
     }
 
     private void send(CommandSender commandSender, byte[] msgBytes) {

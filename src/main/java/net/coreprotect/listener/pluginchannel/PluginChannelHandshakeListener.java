@@ -19,6 +19,7 @@ import org.bukkit.plugin.messaging.PluginMessageListener;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.language.Phrase;
+import net.coreprotect.language.Selector;
 import net.coreprotect.utility.Chat;
 
 public class PluginChannelHandshakeListener implements PluginMessageListener, Listener {
@@ -83,12 +84,12 @@ public class PluginChannelHandshakeListener implements PluginMessageListener, Li
             }
 
             if (protocolVersion != networkingProtocolVersion) {
-                Chat.console(Phrase.build(Phrase.NETWORK_HANDSHAKE_FAILED, player.getName(), modId, modVersion, String.valueOf(protocolVersion)));
+                Chat.console(Phrase.build(Phrase.NETWORK_CONNECTION, player.getName(), modId, modVersion, Selector.SECOND));
                 return;
             }
 
             getPluginChannelPlayers().add(player.getUniqueId());
-            Chat.console(Phrase.build(Phrase.NETWORK_HANDSHAKE_SUCCESS, player.getName(), modId, modVersion, String.valueOf(protocolVersion)));
+            Chat.console(Phrase.build(Phrase.NETWORK_CONNECTION, player.getName(), modId, modVersion, Selector.FIRST));
 
             player.sendPluginMessage(CoreProtect.getInstance(), pluginChannel, sendRegistered());
         }

@@ -8,22 +8,18 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import net.coreprotect.bukkit.BukkitAdapterLegacy;
+import net.coreprotect.bukkit.BukkitAdapter;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockState;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.EntityType;
 
-import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.database.statement.UserStatement;
-import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.Util;
 
 public class Lookup extends Queue {
@@ -369,7 +365,7 @@ public class Lookup extends Queue {
                         }
 
                         /* Include legacy IDs */
-                        int legacyId = BukkitAdapterLegacy.ADAPTER.getLegacyBlockId((Material) restrictTarget);
+                        int legacyId = BukkitAdapter.ADAPTER.getLegacyBlockId((Material) restrictTarget);
                         if (legacyId > 0) {
                             includeListMaterial.append(",").append(legacyId);
                         }
@@ -406,7 +402,7 @@ public class Lookup extends Queue {
                         }
 
                         /* Include legacy IDs */
-                        int legacyId = BukkitAdapterLegacy.ADAPTER.getLegacyBlockId((Material) restrictTarget);
+                        int legacyId = BukkitAdapter.ADAPTER.getLegacyBlockId((Material) restrictTarget);
                         if (legacyId > 0) {
                             excludeListMaterial.append(",").append(legacyId);
                         }

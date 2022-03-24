@@ -33,23 +33,23 @@ import net.coreprotect.utility.Util;
 
 public class RollbackRestoreCommand {
     protected static void runCommand(CommandSender player, Command command, boolean permission, String[] args, Location argLocation, long forceStart, long forceEnd) {
-        Location lo = (argLocation != null ? argLocation : CommandHandler.parseLocation(player, args));
+        Location lo = (argLocation != null ? argLocation : CommandHandlerParseLocation.parseLocation(player, args));
         List<String> argUuids = new ArrayList<>();
         List<String> argUsers = CommandHandler.parseUsers(args);
-        Integer[] argRadius = CommandHandler.parseRadius(args, player, lo);
+        Integer[] argRadius = CommandHandlerParseLocation.parseRadius(args, player, lo);
         int argNoisy = CommandHandler.parseNoisy(args);
         List<Integer> argAction = CommandHandler.parseAction(args);
-        List<Object> argBlocks = CommandHandler.parseRestricted(player, args, argAction);
+        List<Object> argBlocks = CommandHandlerParseLocation.parseRestricted(player, args, argAction);
         Map<Object, Boolean> argExclude = CommandHandler.parseExcluded(player, args, argAction);
         List<String> argExcludeUsers = CommandHandler.parseExcludedUsers(player, args);
-        String ts = CommandHandler.parseTimeString(args);
-        long[] argTime = CommandHandler.parseTime(args);
+        String ts = CommandHandlerParseLocation.parseTimeString(args);
+        long[] argTime = CommandHandlerParseLocation.parseTime(args);
         long startTime = argTime[0];
         long endTime = argTime[1];
-        int argWid = CommandHandler.parseWorld(args, true, true);
+        int argWid = CommandHandlerParseWorld.parseWorld(args, true, true);
         boolean count = CommandHandler.parseCount(args);
-        boolean worldedit = CommandHandler.parseWorldEdit(args);
-        boolean forceglobal = CommandHandler.parseForceGlobal(args);
+        boolean worldedit = CommandHandlerParseWorld.parseWorldEdit(args);
+        boolean forceglobal = CommandHandlerParseLocation.parseForceGlobal(args);
         int preview = CommandHandler.parsePreview(args);
         String corecommand = args[0].toLowerCase(Locale.ROOT);
 
@@ -111,7 +111,7 @@ public class RollbackRestoreCommand {
             return;
         }
         if (argWid == -1) {
-            String worldName = CommandHandler.parseWorldName(args, true);
+            String worldName = CommandHandlerParseWorld.parseWorldName(args, true);
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.WORLD_NOT_FOUND, worldName));
             return;
         }

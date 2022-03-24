@@ -29,10 +29,10 @@ public class PurgeCommand extends Consumer {
 
     protected static void runCommand(final CommandSender player, boolean permission, String[] args) {
         int resultc = args.length;
-        Location location = CommandHandler.parseLocation(player, args);
-        final Integer[] argRadius = CommandHandler.parseRadius(args, player, location);
-        final long[] argTime = CommandHandler.parseTime(args);
-        final int argWid = CommandHandler.parseWorld(args, false, false);
+        Location location = CommandHandlerParseLocation.parseLocation(player, args);
+        final Integer[] argRadius = CommandHandlerParseLocation.parseRadius(args, player, location);
+        final long[] argTime = CommandHandlerParseLocation.parseTime(args);
+        final int argWid = CommandHandlerParseWorld.parseWorld(args, false, false);
         final List<Integer> argAction = CommandHandler.parseAction(args);
         final List<Integer> supportedActions = Arrays.asList();
         long startTime = argTime[1] > 0 ? argTime[0] : 0;
@@ -63,7 +63,7 @@ public class PurgeCommand extends Consumer {
             return;
         }
         if (argWid == -1) {
-            String worldName = CommandHandler.parseWorldName(args, false);
+            String worldName = CommandHandlerParseWorld.parseWorldName(args, false);
             Chat.sendMessage(player, new ChatMessage(Phrase.build(Phrase.WORLD_NOT_FOUND, worldName)).build());
             return;
         }
@@ -117,7 +117,7 @@ public class PurgeCommand extends Consumer {
                     }
 
                     if (argWid > 0) {
-                        String worldName = CommandHandler.parseWorldName(args, false);
+                        String worldName = CommandHandlerParseWorld.parseWorldName(args, false);
                         Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_STARTED, worldName));
                     }
                     else {

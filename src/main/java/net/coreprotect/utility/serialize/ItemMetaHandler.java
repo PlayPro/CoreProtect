@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import net.coreprotect.bukkit.BukkitAdapter;
 import org.bukkit.Color;
 import org.bukkit.FireworkEffect;
 import org.bukkit.Material;
@@ -25,7 +26,6 @@ import org.bukkit.inventory.meta.MapMeta;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.potion.PotionEffect;
 
-import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.utility.Util;
 
 public class ItemMetaHandler {

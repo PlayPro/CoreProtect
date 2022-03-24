@@ -24,33 +24,36 @@ import net.coreprotect.utility.Util;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 
 public class ContainerLogger extends Queue {
-
+    static ItemStack[] contents = null;
+    static String faceData = null;
     private ContainerLogger() {
         throw new IllegalStateException("Database class");
     }
 
+    public static void setMaterialType(Material type, Object container, ItemStack[] contents, String faceData){
+        if (type == Material.ARMOR_STAND) {
+            EntityEquipment equipment = (EntityEquipment) container;
+            if (equipment != null) {
+                contents = Util.getArmorStandContents(equipment);
+            }
+        }
+        else if (type == Material.ITEM_FRAME) {
+            ItemFrame itemFrame = (ItemFrame) container;
+            contents = Util.getItemFrameItem(itemFrame);
+            faceData = itemFrame.getFacing().name();
+        }
+        else {
+            Inventory inventory = (Inventory) container;
+            if (inventory != null) {
+                contents = inventory.getContents();
+            }
+        }
+
+    }
+
     public static void log(PreparedStatement preparedStmtContainer, PreparedStatement preparedStmtItems, int batchCount, String player, Material type, Object container, Location location) {
         try {
-            ItemStack[] contents = null;
-            String faceData = null;
-
-            if (type == Material.ARMOR_STAND) {
-                EntityEquipment equipment = (EntityEquipment) container;
-                if (equipment != null) {
-                    contents = Util.getArmorStandContents(equipment);
-                }
-            }
-            else if (type == Material.ITEM_FRAME) {
-                ItemFrame itemFrame = (ItemFrame) container;
-                contents = Util.getItemFrameItem(itemFrame);
-                faceData = itemFrame.getFacing().name();
-            }
-            else {
-                Inventory inventory = (Inventory) container;
-                if (inventory != null) {
-                    contents = inventory.getContents();
-                }
-            }
+            setMaterialType(type, container, contents,faceData);
 
             if (contents == null) {
                 return;

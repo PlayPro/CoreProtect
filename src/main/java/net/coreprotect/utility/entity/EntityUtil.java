@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import net.coreprotect.bukkit.BukkitAdapter;
 import org.bukkit.Bukkit;
 import org.bukkit.DyeColor;
 import org.bukkit.Location;
@@ -55,7 +56,6 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
 
 import net.coreprotect.CoreProtect;
-import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.database.Rollback;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.Util;

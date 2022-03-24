@@ -38,7 +38,7 @@ public class BukkitAdapter implements BukkitInterface {
                 BukkitAdapter.ADAPTER = new BukkitAdapter();
                 break;
             case BUKKIT_V1_15:
-                BukkitAdapter.ADAPTER = new Bukkit_v1_15_Helper();
+                BukkitAdapter.ADAPTER = new Bukkit_v1_15();
                 break;
             case BUKKIT_V1_16:
                 BukkitAdapter.ADAPTER = new Bukkit_v1_16();
@@ -112,6 +112,41 @@ public class BukkitAdapter implements BukkitInterface {
     @Override
     public ItemStack adjustIngredient(MerchantRecipe recipe, ItemStack itemStack) {
         return null;
+    }
+
+    @Override
+    public String parseLegacyName(String name) {
+        return name;
+    }
+
+    @Override
+    public int getLegacyBlockId(Material material) {
+        return -1;
+    }
+
+    @Override
+    public boolean getEntityMeta(LivingEntity entity, List<Object> info) {
+        return false;
+    }
+
+    @Override
+    public boolean setEntityMeta(Entity entity, Object value, int count) {
+        return false;
+    }
+
+    @Override
+    public boolean getItemMeta(ItemMeta itemMeta, List<Map<String, Object>> list, List<List<Map<String, Object>>> metadata, int slot) {
+        return false;
+    }
+
+    @Override
+    public boolean setItemMeta(Material rowType, ItemStack itemstack, List<Map<String, Object>> map) {
+        return false;
+    }
+
+    @Override
+    public boolean isAttached(Block block, Block scanBlock, BlockData blockData, int scanMin) {
+        return false;
     }
 
 

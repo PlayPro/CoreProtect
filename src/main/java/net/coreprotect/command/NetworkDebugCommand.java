@@ -4,7 +4,7 @@ import org.bukkit.command.CommandSender;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.language.Phrase;
-import net.coreprotect.listener.pluginchannel.PluginChannelListener;
+import net.coreprotect.listener.channel.PluginChannelListener;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 

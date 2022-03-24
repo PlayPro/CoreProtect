@@ -1,4 +1,4 @@
-package net.coreprotect.listener.pluginchannel;
+package net.coreprotect.listener.channel;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;

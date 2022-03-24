@@ -22,7 +22,7 @@ import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.database.statement.UserStatement;
-import net.coreprotect.listener.pluginchannel.PluginChannelHandshakeListener;
+import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.Util;
 

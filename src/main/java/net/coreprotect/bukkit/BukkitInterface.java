@@ -28,18 +28,6 @@ public interface BukkitInterface {
 
     public Class<?> getFrameClass(Material material);
 
-    public String parseLegacyName(String name);
-
-    public boolean getEntityMeta(LivingEntity entity, List<Object> info);
-
-    public boolean setEntityMeta(Entity entity, Object value, int count);
-
-    public boolean getItemMeta(ItemMeta itemMeta, List<Map<String, Object>> list, List<List<Map<String, Object>>> metadata, int slot);
-
-    public boolean setItemMeta(Material rowType, ItemStack itemstack, List<Map<String, Object>> map);
-
-    public boolean isAttached(Block block, Block scanBlock, BlockData blockData, int scanMin);
-
     public boolean isWall(BlockData blockData);
 
     public boolean isItemFrame(Material material);
@@ -50,7 +38,7 @@ public interface BukkitInterface {
 
     public int getMinHeight(World world);
 
-    public int getLegacyBlockId(Material material);
+//    public int getLegacyBlockId(Material material);
 
     public void sendSignChange(Player player, Sign sign);
 

@@ -1,5 +1,6 @@
 package net.coreprotect.listener.entity;
 
+import net.coreprotect.database.Placed;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -44,7 +45,7 @@ public final class HangingBreakListener extends Queue implements Listener {
                     Hanging hangingEntity = (Hanging) entity;
                     BlockFace attached = hangingEntity.getAttachedFace();
                     attachedBlock = hangingEntity.getLocation().getBlock().getRelative(attached);
-                    String removed = Lookup.whoRemovedCache(attachedBlock.getState());
+                    String removed = Placed.whoRemovedCache(attachedBlock.getState());
                     if (removed.length() > 0) {
                         causeName = removed;
                         logDrops = true;

@@ -5,6 +5,7 @@ import java.sql.Statement;
 import java.util.List;
 import java.util.Map;
 
+import net.coreprotect.database.Placed;
 import org.bukkit.block.BlockState;
 
 import net.coreprotect.consumer.Consumer;
@@ -21,7 +22,7 @@ class StructureGrowthProcess {
             Map<Integer, List<BlockState>> blockLists = Consumer.consumerBlockList.get(processId);
             if (blockLists.get(id) != null) {
                 List<BlockState> blockStates = blockLists.get(id);
-                String resultData = Lookup.whoPlaced(statement, block);
+                String resultData = Placed.whoPlaced(statement, block);
                 if (resultData.length() > 0) {
                     user = resultData;
                 }

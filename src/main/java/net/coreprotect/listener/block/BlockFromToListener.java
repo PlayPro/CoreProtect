@@ -1,5 +1,6 @@
 package net.coreprotect.listener.block;
 
+import net.coreprotect.database.Placed;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -68,7 +69,7 @@ public final class BlockFromToListener extends Queue implements Listener {
                 int z = toBlock.getZ();
                 int wid = Util.getWorldId(block.getWorld().getName());
                 if (Config.getConfig(world).LIQUID_TRACKING) {
-                    String p = Lookup.whoPlacedCache(block);
+                    String p = Placed.whoPlacedCache(block);
                     if (p.length() > 0) {
                         f = p;
                     }

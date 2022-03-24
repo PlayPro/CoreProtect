@@ -53,44 +53,6 @@ public class BukkitAdapter implements BukkitInterface {
         }
     }
 
-    @Override
-    public String parseLegacyName(String name) {
-        return name;
-    }
-
-    @Override
-    public int getLegacyBlockId(Material material) {
-        return -1;
-    }
-
-    @Override
-    public boolean getEntityMeta(LivingEntity entity, List<Object> info) {
-        return false;
-    }
-
-    @Override
-    public boolean setEntityMeta(Entity entity, Object value, int count) {
-        return false;
-    }
-
-    @Override
-    public boolean getItemMeta(ItemMeta itemMeta, List<Map<String, Object>> list, List<List<Map<String, Object>>> metadata, int slot) {
-        return false;
-    }
-
-    @Override
-    public boolean setItemMeta(Material rowType, ItemStack itemstack, List<Map<String, Object>> map) {
-        return false;
-    }
-
-    @Override
-    public boolean isAttached(Block block, Block scanBlock, BlockData blockData, int scanMin) {
-        if (blockData instanceof Directional) {
-            return (scanMin < 5 && scanBlock.getRelative(((Directional) blockData).getFacing().getOppositeFace()).getLocation().equals(block.getLocation()));
-        }
-
-        return true; // unvalidated attachments default to true
-    }
 
     @Override
     public boolean isWall(BlockData blockData) {
@@ -151,5 +113,6 @@ public class BukkitAdapter implements BukkitInterface {
     public ItemStack adjustIngredient(MerchantRecipe recipe, ItemStack itemStack) {
         return null;
     }
+
 
 }

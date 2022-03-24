@@ -1,5 +1,6 @@
 package net.coreprotect.listener.world;
 
+import net.coreprotect.database.Placed;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.BlockState;
@@ -26,7 +27,7 @@ public final class PortalCreateListener extends Queue implements Listener {
         for (BlockState block : event.getBlocks()) {
             Material type = block.getType();
             if (type == Material.NETHER_PORTAL || type == Material.FIRE) {
-                String resultData = Lookup.whoPlacedCache(block);
+                String resultData = Placed.whoPlacedCache(block);
                 if (resultData.length() > 0) {
                     user = resultData;
                     break;

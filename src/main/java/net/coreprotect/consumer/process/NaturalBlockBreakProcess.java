@@ -5,6 +5,7 @@ import java.sql.Statement;
 import java.util.List;
 import java.util.Map;
 
+import net.coreprotect.database.Placed;
 import org.bukkit.Material;
 import org.bukkit.block.BlockState;
 
@@ -22,7 +23,7 @@ class NaturalBlockBreakProcess {
             if (blockLists.get(id) != null) {
                 List<BlockState> blockStateList = blockLists.get(id);
                 for (BlockState blockState : blockStateList) {
-                    String removed = Lookup.whoRemovedCache(blockState);
+                    String removed = Placed.whoRemovedCache(blockState);
                     if (removed.length() > 0) {
                         user = removed;
                     }

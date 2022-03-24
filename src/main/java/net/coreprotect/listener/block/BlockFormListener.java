@@ -1,5 +1,6 @@
 package net.coreprotect.listener.block;
 
+import net.coreprotect.database.Placed;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -24,7 +25,7 @@ public final class BlockFormListener extends Queue implements Listener {
         BlockState newState = event.getNewState();
         if (Config.getConfig(world).LIQUID_TRACKING && (newState.getType().equals(Material.OBSIDIAN) || newState.getType().equals(Material.COBBLESTONE) || event.getBlock().getType().name().endsWith("_CONCRETE_POWDER"))) {
             Block block = event.getBlock();
-            String player = Lookup.whoPlacedCache(block);
+            String player = Placed.whoPlacedCache(block);
             int wid = Util.getWorldId(world.getName());
             if (!(player.length() > 0)) {
                 int x = block.getX();

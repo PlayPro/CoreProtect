@@ -42,8 +42,8 @@ public class RollbackRestoreCommand {
         List<Object> argBlocks = CommandHandlerParseLocation.parseRestricted(player, args, argAction);
         Map<Object, Boolean> argExclude = CommandHandler.parseExcluded(player, args, argAction);
         List<String> argExcludeUsers = CommandHandler.parseExcludedUsers(player, args);
-        String ts = CommandHandlerParseLocation.parseTimeString(args);
-        long[] argTime = CommandHandlerParseLocation.parseTime(args);
+        String ts = CommandHandlerParseTime.parseTimeString(args);
+        long[] argTime = CommandHandlerParseTime.parseTime(args);
         long startTime = argTime[0];
         long endTime = argTime[1];
         int argWid = CommandHandlerParseWorld.parseWorld(args, true, true);

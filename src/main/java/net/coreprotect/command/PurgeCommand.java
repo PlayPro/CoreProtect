@@ -31,7 +31,7 @@ public class PurgeCommand extends Consumer {
         int resultc = args.length;
         Location location = CommandHandlerParseLocation.parseLocation(player, args);
         final Integer[] argRadius = CommandHandlerParseLocation.parseRadius(args, player, location);
-        final long[] argTime = CommandHandlerParseLocation.parseTime(args);
+        final long[] argTime = CommandHandlerParseTime.parseTime(args);
         final int argWid = CommandHandlerParseWorld.parseWorld(args, false, false);
         final List<Integer> argAction = CommandHandler.parseAction(args);
         final List<Integer> supportedActions = Arrays.asList();

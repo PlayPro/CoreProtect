@@ -161,7 +161,7 @@ public final class CoreProtect extends JavaPlugin {
     private static void safeShutdown(CoreProtect plugin) {
         try {
             /* if server is stopping, log disconnections of online players */
-            if (PaperAdapter.ADAPTER.isStopping(plugin.getServer())) {
+            if (ConfigHandler.serverRunning && PaperAdapter.ADAPTER.isStopping(plugin.getServer())) {
                 for (Player player : plugin.getServer().getOnlinePlayers()) {
                     PlayerQuitListener.queuePlayerQuit(player);
                 }

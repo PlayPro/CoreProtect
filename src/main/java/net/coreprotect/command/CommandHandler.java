@@ -1196,6 +1196,9 @@ public class CommandHandler implements CommandExecutor {
                     else if (user.hasPermission("coreprotect.consumer") && corecommand.equals("consumer")) {
                         permission = true;
                     }
+                    else if (user.hasPermission("coreprotect.networking") && corecommand.equals("network-debug")) {
+                        permission = true;
+                    }
                 }
 
                 if (corecommand.equals("rollback") || corecommand.equals("restore") || corecommand.equals("rb") || corecommand.equals("rs") || corecommand.equals("ro") || corecommand.equals("re")) {
@@ -1236,6 +1239,9 @@ public class CommandHandler implements CommandExecutor {
                 }
                 else if (corecommand.equals("consumer")) {
                     ConsumerCommand.runCommand(user, permission, argumentArray);
+                }
+                else if (corecommand.equals("network-debug")) {
+                    NetworkDebugCommand.runCommand(user, permission, argumentArray);
                 }
                 else {
                     Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.COMMAND_NOT_FOUND, Color.WHITE, "/co " + corecommand));

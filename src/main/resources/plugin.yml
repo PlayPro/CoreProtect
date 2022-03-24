@@ -50,6 +50,8 @@ permissions:
             coreprotect.teleport: true
             coreprotect.reload: true
             coreprotect.status: true
+            coreprotect.consumer: true
+            coreprotect.networking: true
     coreprotect.co:
         description: Has permission to access the CoreProtect /co command
         default: true
@@ -137,4 +139,7 @@ permissions:
         default: op
     coreprotect.consumer:
         description: Has permission to use the consumer command
+        default: op
+    coreprotect.networking:
+        description: Has permission to use the networking API
         default: op

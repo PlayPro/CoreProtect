@@ -38,6 +38,9 @@ The following permissions can be used to restrict functionality within the plugi
   &nbsp;
 * **coreprotect.consumer** *(default: op)*  
   Allows access to the CoreProtect consumer command.  
+  &nbsp;
+* **coreprotect.networking** *(default: op)*  
+  Allows access to the CoreProtect networking API.  
   
 ---
 

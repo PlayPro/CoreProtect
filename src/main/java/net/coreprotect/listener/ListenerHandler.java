@@ -15,6 +15,8 @@ import net.coreprotect.listener.block.BlockIgniteListener;
 import net.coreprotect.listener.block.BlockPistonListener;
 import net.coreprotect.listener.block.BlockPlaceListener;
 import net.coreprotect.listener.block.BlockSpreadListener;
+import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
+import net.coreprotect.listener.channel.PluginChannelListener;
 import net.coreprotect.listener.entity.CreatureSpawnListener;
 import net.coreprotect.listener.entity.EntityBlockFormListener;
 import net.coreprotect.listener.entity.EntityChangeBlockListener;
@@ -122,6 +124,20 @@ public final class ListenerHandler {
             pluginManager.registerEvents(new PlayerChatListener(), plugin);
         }
 
+        // Plugin channel events
+        pluginManager.registerEvents(new PluginChannelListener(), plugin);
+    }
+
+    public static void registerNetworking() {
+        CoreProtect.getInstance().getServer().getMessenger().registerIncomingPluginChannel(CoreProtect.getInstance(), PluginChannelHandshakeListener.pluginChannel, new PluginChannelHandshakeListener());
+        CoreProtect.getInstance().getServer().getMessenger().registerOutgoingPluginChannel(CoreProtect.getInstance(), PluginChannelHandshakeListener.pluginChannel);
+        CoreProtect.getInstance().getServer().getMessenger().registerOutgoingPluginChannel(CoreProtect.getInstance(), PluginChannelListener.pluginChannel);
+    }
+
+    public static void unregisterNetworking() {
+        CoreProtect.getInstance().getServer().getMessenger().unregisterIncomingPluginChannel(CoreProtect.getInstance(), PluginChannelHandshakeListener.pluginChannel);
+        CoreProtect.getInstance().getServer().getMessenger().unregisterOutgoingPluginChannel(CoreProtect.getInstance(), PluginChannelHandshakeListener.pluginChannel);
+        CoreProtect.getInstance().getServer().getMessenger().unregisterOutgoingPluginChannel(CoreProtect.getInstance(), PluginChannelListener.pluginChannel);
     }
 
 }

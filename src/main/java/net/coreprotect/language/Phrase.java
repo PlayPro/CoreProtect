@@ -3,6 +3,8 @@ package net.coreprotect.language;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import net.coreprotect.utility.ChatMessage;
 import net.coreprotect.utility.Color;
@@ -135,6 +137,8 @@ public enum Phrase {
     MISSING_ROLLBACK_RADIUS,
     MISSING_ROLLBACK_USER,
     MYSQL_UNAVAILABLE,
+    NETWORK_CONNECTION,
+    NETWORK_TEST,
     NO_DATA,
     NO_DATA_LOCATION,
     NO_PERMISSION,
@@ -287,4 +291,16 @@ public enum Phrase {
         return output;
     }
 
+    public static String getPhraseSelector(Phrase phrase, String selector) {
+        String translatedPhrase = phrase.getTranslatedPhrase();
+        Pattern phrasePattern = Pattern.compile("(\\{[a-zA-Z| ]+})");
+        Matcher patternMatch = phrasePattern.matcher(translatedPhrase);
+        String match = "";
+        if (patternMatch.find()) {
+            match = patternMatch.group(1);
+            match = Selector.processSelection(match, selector, "");
+        }
+
+        return match;
+    }
 }

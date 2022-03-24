@@ -22,6 +22,7 @@ import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.database.statement.UserStatement;
+import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.Util;
 
@@ -147,6 +148,13 @@ public class Lookup extends Queue {
                     String resultMessage = results.getString("message");
 
                     Object[] dataArray = new Object[] { resultId, resultTime, resultUserId, resultMessage };
+                    if (PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(user)) {
+                        int resultWorldId = results.getInt("wid");
+                        int resultX = results.getInt("x");
+                        int resultY = results.getInt("y");
+                        int resultZ = results.getInt("z");
+                        dataArray = new Object[] { resultId, resultTime, resultUserId, resultMessage, resultWorldId, resultX, resultY, resultZ };
+                    }
                     list.add(dataArray);
                 }
                 else if (actionList.contains(8)) {
@@ -619,6 +627,9 @@ public class Lookup extends Queue {
             else if (actionList.contains(6) || actionList.contains(7)) {
                 queryTable = "chat";
                 rows = "rowid as id,time,user,message";
+                if (PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(user)) {
+                    rows += ",wid,x,y,z";
+                }
 
                 if (actionList.contains(7)) {
                     queryTable = "command";

@@ -1386,12 +1386,16 @@ public class Util extends Queue {
     }
 
     public static BlockData createBlockData(Material material) {
-        BlockData result = material.createBlockData();
-        if (result instanceof Waterlogged) {
-            ((Waterlogged) result).setWaterlogged(false);
+        try {
+            BlockData result = material.createBlockData();
+            if (result instanceof Waterlogged) {
+                ((Waterlogged) result).setWaterlogged(false);
+            }
+            return result;
         }
-
-        return result;
+        catch (Exception e) {
+            return null;
+        }
     }
 
     public static void prepareTypeAndData(Map<Block, BlockData> map, Block block, Material type, BlockData blockData, boolean update) {
@@ -1413,7 +1417,9 @@ public class Util extends Queue {
             blockData = createBlockData(type);
         }
 
-        block.setBlockData(blockData, update);
+        if (blockData != null) {
+            block.setBlockData(blockData, update);
+        }
     }
 
     public static boolean successfulQuery(Connection connection, String query) {

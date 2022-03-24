@@ -1914,7 +1914,7 @@ public class Rollback extends Queue {
                         }
                         itemstack.setItemMeta(meta);
                     }
-                    else if ((rowType == Material.MAP)) {
+                    else if (rowType == Material.MAP || rowType == Material.FILLED_MAP) {
                         for (Map<String, Object> colorData : map) {
                             MapMeta meta = (MapMeta) itemstack.getItemMeta();
                             org.bukkit.Color color = org.bukkit.Color.deserialize(colorData);

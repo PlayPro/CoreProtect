@@ -1,6 +1,7 @@
 package net.coreprotect.api;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -74,6 +75,7 @@ public class QueueLookup extends Queue {
                 }
             }
 
+            Collections.reverse(result);
         }
         catch (Exception e) {
             e.printStackTrace();

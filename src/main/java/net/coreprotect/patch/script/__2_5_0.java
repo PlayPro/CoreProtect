@@ -8,7 +8,7 @@ import net.coreprotect.patch.Patch;
 
 public class __2_5_0 {
 
-    protected static boolean patch(Statement statement) {
+    protected static boolean alterTableColumns(Statement statement) {
         try {
             if (Config.getGlobal().MYSQL) {
                 try {

@@ -661,24 +661,17 @@ public class Lookup extends Queue {
 
             String unionSelect = "SELECT * FROM (";
             if (Config.getGlobal().MYSQL) {
-                if (radius == null || users.length() > 0 || includeBlock.length() > 0 || includeEntity.length() > 0) {
-                    // index_mysql = "IGNORE INDEX(wid) ";
-                    if (users.length() > 0) {
-                        // index_mysql = "IGNORE INDEX(wid,type,action) ";
-                    }
-                }
-
                 if (queryTable.equals("block")) {
                     if (includeBlock.length() > 0 || includeEntity.length() > 0) {
-                        index = "USE INDEX(type) ";
+                        index = "USE INDEX(type) IGNORE INDEX(user,wid) ";
                     }
                     if (users.length() > 0) {
-                        index = "USE INDEX(user) ";
+                        index = "USE INDEX(user) IGNORE INDEX(type,wid) ";
                     }
-                    if ((index.equals("") && restrictWorld)) {
-                        index = "USE INDEX(wid) ";
+                    if (radius != null && (radius[2] - radius[1]) <= 50 && (radius[6] - radius[5]) <= 50) {
+                        index = "USE INDEX(wid) IGNORE INDEX(type,user) ";
                     }
-                    if ((radius != null || actionList.size() > 0)) {
+                    if ((restrictWorld && (users.length() > 0 || includeBlock.length() > 0 || includeEntity.length() > 0))) {
                         index = "";
                     }
                 }
@@ -693,10 +686,10 @@ public class Lookup extends Queue {
                     if (users.length() > 0) {
                         index = "INDEXED BY block_user_index ";
                     }
-                    if ((index.equals("") && restrictWorld)) {
+                    if (radius != null && (radius[2] - radius[1]) <= 50 && (radius[6] - radius[5]) <= 50) {
                         index = "INDEXED BY block_index ";
                     }
-                    if ((radius != null || actionList.size() > 0)) {
+                    if ((restrictWorld && (users.length() > 0 || includeBlock.length() > 0 || includeEntity.length() > 0))) {
                         index = "";
                     }
                 }

@@ -179,7 +179,7 @@ public class Config extends Language {
         HEADERS.put("player-commands", new String[] { "# Logs all commands used by players." });
         HEADERS.put("player-sessions", new String[] { "# Logs the logins and logouts of players." });
         HEADERS.put("username-changes", new String[] { "# Logs when a player changes their Minecraft username." });
-        HEADERS.put("worldedit", new String[] { "# Logs changes made via the plugin \"WorldEdit\" if it's in use on your server." });
+        HEADERS.put("worldedit", new String[] { "# Logs changes made via the plugin \"WorldEdit\" if it's in use on your server.", "# Unfortunately, when \"FAWE\" is used, many things cannot be logged." });
     }
 
     private void readValues() {

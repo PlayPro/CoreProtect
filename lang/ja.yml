@@ -148,7 +148,7 @@ PREVIEW_IN_GAME: "ロールバックのプレビューはゲーム内のみ可�
 PREVIEW_TRANSACTION: "{コンテナ|インベントリ}の取引はプレビューできません。"
 PURGE_ABORTED: "消去に失敗しました。データベースが壊れている可能性があります。"
 PURGE_ERROR: "{0} データを処理できません!"
-PURGE_FAILED: "消去に失敗しました。後で再試行してください。
+PURGE_FAILED: "消去に失敗しました。後で再試行してください。"
 PURGE_IN_PROGRESS: "消去が進行中です。後で再試行してください。"
 PURGE_MINIMUM_TIME: "{0} {days|hours} より古いデータのみ消去できます。"
 PURGE_NOTICE_1: "時間がかかる場合がありますので、ご注意ください。"

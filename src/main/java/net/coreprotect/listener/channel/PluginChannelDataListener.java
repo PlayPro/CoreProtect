@@ -17,16 +17,16 @@ import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
 
-public class PluginChannelListener implements Listener {
+public class PluginChannelDataListener implements Listener {
 
     public static final String pluginChannel = "coreprotect:data";
-    private static PluginChannelListener instance;
+    private static PluginChannelDataListener instance;
 
-    public PluginChannelListener() {
+    public PluginChannelDataListener() {
         instance = this;
     }
 
-    public static PluginChannelListener getInstance() {
+    public static PluginChannelDataListener getInstance() {
         return instance;
     }
 
@@ -205,7 +205,7 @@ public class PluginChannelListener implements Listener {
             return;
         }
 
-        PluginChannelListener.getInstance().sendCoreProtectData((Player) commandSender, msgBytes);
+        PluginChannelDataListener.getInstance().sendCoreProtectData((Player) commandSender, msgBytes);
     }
 
     private void sendCoreProtectData(Player player, byte[] data) {

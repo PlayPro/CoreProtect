@@ -2,6 +2,7 @@ package net.coreprotect.utility;
 
 import java.util.logging.Level;
 
+import net.coreprotect.listener.channel.PluginChannelResponseListener;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Server;
@@ -71,4 +72,8 @@ public final class Chat {
         }
     }
 
+    public static void sendResponse(CommandSender user, String message, String type) {
+        sendMessage(user, message);
+        PluginChannelResponseListener.getInstance().sendData(user, message, type);
+    }
 }

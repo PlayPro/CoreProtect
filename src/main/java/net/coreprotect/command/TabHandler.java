@@ -404,4 +404,9 @@ public class TabHandler implements TabCompleter {
 
         return params;
     }
+
+    public static String[] getActions()
+    {
+        return ACTIONS;
+    }
 }

@@ -12,7 +12,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
-import net.coreprotect.listener.channel.PluginChannelListener;
+import net.coreprotect.listener.channel.PluginChannelDataListener;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
 
@@ -118,7 +118,7 @@ public class ChestTransactionLookup {
                 }
 
                 resultBuilder.append(timeAgo + " " + tag + " ").append(Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, "x" + resultAmount, Color.DARK_AQUA + rbFormat + target + Color.WHITE, selector)).append("\n");
-                PluginChannelListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_CONTAINER, selector, resultUser, target, resultAmount, x, y, z, worldId, rbFormat, true, tag.contains("+"));
+                PluginChannelDataListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_CONTAINER, selector, resultUser, target, resultAmount, x, y, z, worldId, rbFormat, true, tag.contains("+"));
             }
             result = resultBuilder.toString();
             results.close();

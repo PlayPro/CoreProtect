@@ -6,9 +6,14 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import net.coreprotect.command.TabHandler;
+import net.coreprotect.config.ConfigHandler;
+import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -103,6 +108,17 @@ public class PluginChannelHandshakeListener implements PluginMessageListener, Li
         ByteArrayOutputStream msgBytes = new ByteArrayOutputStream();
         DataOutputStream msgOut = new DataOutputStream(msgBytes);
         msgOut.writeBoolean(true);
+        String[] actionsList = TabHandler.getActions();
+        msgOut.writeInt(actionsList.length);
+        for (String action : actionsList) {
+            msgOut.writeUTF(action);
+        }
+        List<World> worlds = Bukkit.getServer().getWorlds();
+        msgOut.writeInt(worlds.size());
+        for (World world : worlds) {
+            msgOut.writeUTF(world.getName());
+        }
+        msgOut.writeUTF(ConfigHandler.EDITION_NAME + " v" + CoreProtect.getInstance().getDescription().getVersion());
 
         return msgBytes.toByteArray();
     }

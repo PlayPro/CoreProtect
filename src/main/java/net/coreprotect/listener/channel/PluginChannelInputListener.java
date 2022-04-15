@@ -95,11 +95,11 @@ public class PluginChannelInputListener implements PluginMessageListener, Listen
             }
 
             StringBuilder cmd = new StringBuilder();
-            cmd.append("/").append(command).append(" lookup ").append(time).append(" ").append(restrictUsers);
+            cmd.append(command).append(" lookup ").append(time).append(" ").append(restrictUsers);
             cmd.append(" ").append(excludedUsers).append(" ").append(restrictBlocks).append(" ").append(excludedBlocks);
             cmd.append(" ").append(actionList).append(" ").append(radius);
 
-
+            Bukkit.dispatchCommand(player, cmd.toString());
         }
         catch (Exception exception) {
             Chat.console(exception.toString());

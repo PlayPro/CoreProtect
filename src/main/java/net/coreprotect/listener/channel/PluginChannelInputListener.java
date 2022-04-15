@@ -3,7 +3,6 @@ package net.coreprotect.listener.channel;
 import net.coreprotect.config.Config;
 import net.coreprotect.utility.Chat;
 import org.bukkit.Bukkit;
-import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.messaging.PluginMessageListener;
@@ -43,41 +42,13 @@ public class PluginChannelInputListener implements PluginMessageListener, Listen
         DataInputStream dis = new DataInputStream(in);
 
         try {
-            int time = dis.readInt();
-            List<String> restrictUsers = readStringList(dis);
-            List<String> excludedUsers = readStringList(dis);
-            List<Object> restrictBlocks = readObjectList(dis);
-            List<Object> excludedBlocks = readObjectList(dis);
-            List<Integer> actionList = readIntList(dis);
-            int radius = dis.readInt();
-            Location location = player.getLocation();
-            String world = dis.readUTF();
-            double x = dis.readDouble();
-            double y = dis.readDouble();
-            double z = dis.readDouble();
-            if (!world.isEmpty() && Bukkit.getServer().getWorld(world) != null) {
-                location.setWorld(Bukkit.getServer().getWorld(world));
-            }
-            if (x != 0) {
-                location.setX(x);
-            }
-            if (y != 0) {
-                location.setY(y);
-            }
-            if (z != 0) {
-                location.setZ(z);
-            }
+            String search = dis.readUTF();
+            int pages = dis.readInt();
 
             if (Config.getGlobal().NETWORK_DEBUG) {
                 Chat.console(new String(bytes));
-                Chat.console(String.valueOf(time));
-                Chat.console(String.valueOf(restrictUsers));
-                Chat.console(String.valueOf(excludedUsers));
-                Chat.console(String.valueOf(restrictBlocks));
-                Chat.console(String.valueOf(excludedBlocks));
-                Chat.console(String.valueOf(actionList));
-                Chat.console(String.valueOf(radius));
-                Chat.console(location.toString());
+                Chat.console(search);
+                Chat.console(String.valueOf(pages));
             }
 
             String command;
@@ -94,12 +65,7 @@ public class PluginChannelInputListener implements PluginMessageListener, Listen
                 command = "co";
             }
 
-            StringBuilder cmd = new StringBuilder();
-            cmd.append(command).append(" lookup ").append(time).append(" ").append(restrictUsers);
-            cmd.append(" ").append(excludedUsers).append(" ").append(restrictBlocks).append(" ").append(excludedBlocks);
-            cmd.append(" ").append(actionList).append(" ").append(radius);
-
-            Bukkit.dispatchCommand(player, cmd.toString());
+            Bukkit.dispatchCommand(player, command + " lookup " + search);
         }
         catch (Exception exception) {
             Chat.console(exception.toString());

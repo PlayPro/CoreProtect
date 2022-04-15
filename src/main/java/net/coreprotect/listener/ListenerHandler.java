@@ -133,6 +133,8 @@ public final class ListenerHandler {
         CoreProtect.getInstance().getServer().getMessenger().registerOutgoingPluginChannel(CoreProtect.getInstance(), PluginChannelDataListener.pluginChannel);
         CoreProtect.getInstance().getServer().getMessenger().registerOutgoingPluginChannel(CoreProtect.getInstance(), PluginChannelHandshakeListener.pluginChannel);
         CoreProtect.getInstance().getServer().getMessenger().registerOutgoingPluginChannel(CoreProtect.getInstance(), PluginChannelResponseListener.pluginChannel);
+        new PluginChannelDataListener();
+        new PluginChannelResponseListener();
     }
 
     public static void unregisterNetworking() {
@@ -142,5 +144,4 @@ public final class ListenerHandler {
         CoreProtect.getInstance().getServer().getMessenger().unregisterOutgoingPluginChannel(CoreProtect.getInstance(), PluginChannelHandshakeListener.pluginChannel);
         CoreProtect.getInstance().getServer().getMessenger().unregisterOutgoingPluginChannel(CoreProtect.getInstance(), PluginChannelResponseListener.pluginChannel);
     }
-
 }

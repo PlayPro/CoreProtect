@@ -122,7 +122,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
                             ConfigHandler.forceContainer.computeIfAbsent(loggingChestIdViewer, k -> new ArrayList<>());
                             List<ItemStack[]> list = ConfigHandler.forceContainer.get(loggingChestIdViewer);
 
-                            if (list.size() < sizeOld) {
+                            if (list != null && list.size() < sizeOld) {
                                 ItemStack[] containerState = Util.getContainerState(inventoryData);
 
                                 // If items have been removed by a hopper, merge into containerState

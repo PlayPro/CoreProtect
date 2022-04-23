@@ -44,11 +44,13 @@ public class PluginChannelInputListener implements PluginMessageListener, Listen
         try {
             String search = dis.readUTF();
             int pages = dis.readInt();
+            int amountRows = dis.readInt();
 
             if (Config.getGlobal().NETWORK_DEBUG) {
                 Chat.console(new String(bytes));
                 Chat.console(search);
                 Chat.console(String.valueOf(pages));
+                Chat.console(String.valueOf(amountRows));
             }
 
             String command;
@@ -65,41 +67,20 @@ public class PluginChannelInputListener implements PluginMessageListener, Listen
                 command = "co";
             }
 
-            Bukkit.dispatchCommand(player, command + " lookup " + search);
+            Bukkit.dispatchCommand(player, command + " " + search);
+
+            if (pages == 1 || !search.contains("lookup")) {
+                return;
+            }
+
+            for (int page = 2; page <= pages; page++)
+            {
+                Bukkit.dispatchCommand(player, command + " lookup " + page + ":" + amountRows);
+            }
         }
         catch (Exception exception) {
             Chat.console(exception.toString());
             exception.printStackTrace();
         }
-    }
-
-    private List<String> readStringList(DataInputStream dis) throws IOException {
-        int listCount = dis.readInt();
-        List<String> list = new ArrayList<>();
-        for (int i = 0; i < listCount; i++)
-        {
-            list.add(dis.readUTF());
-        }
-        return list;
-    }
-
-    private List<Object> readObjectList(DataInputStream dis) throws IOException {
-        int listCount = dis.readInt();
-        List<Object> list = new ArrayList<>();
-        for (int i = 0; i < listCount; i++)
-        {
-            list.add(dis.readUTF());
-        }
-        return list;
-    }
-
-    private List<Integer> readIntList(DataInputStream dis) throws IOException {
-        int listCount = dis.readInt();
-        List<Integer> list = new ArrayList<>();
-        for (int i = 0; i < listCount; i++)
-        {
-            list.add(dis.readInt());
-        }
-        return list;
     }
 }

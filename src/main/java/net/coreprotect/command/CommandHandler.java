@@ -647,7 +647,7 @@ public class CommandHandler implements CommandExecutor {
                                         restricted.add(i3_material);
                                     }
                                     else {
-                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE, i3));
+                                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE, i3), "coreprotect:search");
                                         // Functions.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co help include"));
                                         return null;
                                     }
@@ -679,7 +679,7 @@ public class CommandHandler implements CommandExecutor {
                                     restricted.add(material);
                                 }
                                 else {
-                                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE, argument));
+                                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE, argument), "coreprotect:search");
                                     // Functions.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co help include"));
                                     return null;
                                 }

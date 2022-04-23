@@ -83,14 +83,14 @@ public class Teleport {
                     if (!enforceTeleport) {
                         // Only send a message if the player was moved by at least 1 block
                         if (location.getY() >= (oldY + 1.00)) {
-                            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.TELEPORTED_SAFETY));
+                            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.TELEPORTED_SAFETY), "coreprotect:teleport");
                         }
                     }
                     else {
-                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.TELEPORTED, "x" + playerX + "/y" + checkY + "/z" + playerZ + "/" + location.getWorld().getName()));
+                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.TELEPORTED, "x" + playerX + "/y" + checkY + "/z" + playerZ + "/" + location.getWorld().getName()), "coreprotect:teleport");
                     }
                     if (alert) {
-                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + Color.ITALIC + "- " + Phrase.build(Phrase.DIRT_BLOCK));
+                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + Color.ITALIC + "- " + Phrase.build(Phrase.DIRT_BLOCK), "coreprotect:teleport");
                     }
                 }
 

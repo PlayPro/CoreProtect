@@ -19,7 +19,7 @@ public class Teleport {
         throw new IllegalStateException("Utility class");
     }
 
-    public static void performSafeTeleport(Player player, Location location, boolean enforceTeleport) {
+    public static void performSafeTeleport(Player player, Location location, boolean enforceTeleport, boolean silent) {
         try {
             Set<Material> unsafeBlocks = new HashSet<>(Arrays.asList(Material.LAVA));
             unsafeBlocks.addAll(BlockGroup.FIRE);
@@ -83,14 +83,14 @@ public class Teleport {
                     if (!enforceTeleport) {
                         // Only send a message if the player was moved by at least 1 block
                         if (location.getY() >= (oldY + 1.00)) {
-                            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.TELEPORTED_SAFETY), "coreprotect:teleport");
+                            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.TELEPORTED_SAFETY), "coreprotect:teleport", silent);
                         }
                     }
                     else {
-                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.TELEPORTED, "x" + playerX + "/y" + checkY + "/z" + playerZ + "/" + location.getWorld().getName()), "coreprotect:teleport");
+                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.TELEPORTED, "x" + playerX + "/y" + checkY + "/z" + playerZ + "/" + location.getWorld().getName()), "coreprotect:teleport", silent);
                     }
                     if (alert) {
-                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + Color.ITALIC + "- " + Phrase.build(Phrase.DIRT_BLOCK), "coreprotect:teleport");
+                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + Color.ITALIC + "- " + Phrase.build(Phrase.DIRT_BLOCK), "coreprotect:teleport", silent);
                     }
                 }
 

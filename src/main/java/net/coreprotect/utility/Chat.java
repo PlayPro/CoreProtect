@@ -52,7 +52,7 @@ public final class Chat {
         }
     }
 
-    public static void sendGlobalMessage(CommandSender user, String string) {
+    public static void sendGlobalMessage(CommandSender user, String string, boolean silent) {
         if (user instanceof ConsoleCommandSender) {
             sendMessage(user, Color.DARK_AQUA + "[CoreProtect] " + Color.WHITE + string);
             return;
@@ -62,18 +62,26 @@ public final class Chat {
         server.getConsoleSender().sendMessage("[CoreProtect] " + string);
         for (Player player : server.getOnlinePlayers()) {
             if (player.isOp() && !player.getName().equals(user.getName())) {
-                sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + string, "coreprotect:purge");
+                sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + string, "coreprotect:purge", silent);
             }
         }
         if (user instanceof Player) {
             if (((Player) user).isOnline()) {
-                sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + string, "coreprotect:purge");
+                sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + string, "coreprotect:purge", silent);
             }
         }
     }
 
-    public static void sendResponse(CommandSender user, String message, String type) {
-        sendMessage(user, message);
+    public static void sendResponse(CommandSender user, String message, String type, boolean silent) {
+        sendMessageSilent(user, message, silent);
         PluginChannelResponseListener.getInstance().sendData(user, message, type);
+    }
+
+    public static void sendMessageSilent(CommandSender user, String message, boolean silent) {
+        if (silent) {
+            return;
+        }
+
+        sendMessage(user, message);
     }
 }

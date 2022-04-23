@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -627,6 +628,7 @@ public class CommandHandler implements CommandExecutor {
                     argument = argument.replaceAll("blocks:", "");
                     argument = argument.replaceAll("block:", "");
                     argument = argument.replaceAll("b:", "");
+                    boolean silent = parseSilentChat(player, inputArguments);
                     if (argument.contains(",")) {
                         String[] i2 = argument.split(",");
                         for (String i3 : i2) {
@@ -647,7 +649,7 @@ public class CommandHandler implements CommandExecutor {
                                         restricted.add(i3_material);
                                     }
                                     else {
-                                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE, i3), "coreprotect:search");
+                                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE, i3), "coreprotect:search", silent);
                                         // Functions.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co help include"));
                                         return null;
                                     }
@@ -679,7 +681,7 @@ public class CommandHandler implements CommandExecutor {
                                     restricted.add(material);
                                 }
                                 else {
-                                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE, argument), "coreprotect:search");
+                                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE, argument), "coreprotect:search", silent);
                                     // Functions.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co help include"));
                                     return null;
                                 }
@@ -695,6 +697,28 @@ public class CommandHandler implements CommandExecutor {
             count++;
         }
         return restricted;
+    }
+
+    protected static boolean parseSilentChat(CommandSender player, String[] inputArguments) {
+        if (!PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(player)) {
+            return false;
+        }
+        String[] argumentArray = inputArguments.clone();
+        boolean silentChat = false;
+        int count = 0;
+        for (String argument : argumentArray) {
+            if (count > 0) {
+                argument = argument.trim().toLowerCase(Locale.ROOT);
+                argument = argument.replaceAll("\\\\", "");
+                argument = argument.replaceAll("'", "");
+
+                if (argument.equals("#silentchat")) {
+                    silentChat = true;
+                }
+            }
+            count++;
+        }
+        return silentChat;
     }
 
     protected static long[] parseTime(String[] inputArguments) {

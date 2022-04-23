@@ -66,13 +66,14 @@ public class LookupCommand {
         boolean worldedit = CommandHandler.parseWorldEdit(args);
         boolean forceglobal = CommandHandler.parseForceGlobal(args);
         boolean pageLookup = false;
+        boolean silent = CommandHandler.parseSilentChat(player, args);
 
         if (argBlocks == null || argExclude == null || argExcludeUsers == null) {
             return;
         }
 
         if (args[0].toLowerCase(Locale.ROOT).equals("page") && (args.length != 2 || !args[1].equals(args[1].replaceAll("[^0-9]", "")))) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, Color.WHITE, "/co page <page>"), typeLookupPacket);
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, Color.WHITE, "/co page <page>"), typeLookupPacket, silent);
             return;
         }
 
@@ -92,7 +93,7 @@ public class LookupCommand {
                     argAction.add(3);
                 }
                 else if (!argAction.contains(3)) {
-                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE_COMBO), typeLookupPacket);
+                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE_COMBO), typeLookupPacket, silent);
                     return;
                 }
             }
@@ -109,20 +110,20 @@ public class LookupCommand {
                     argAction.add(3);
                 }
                 else if (!argAction.contains(3)) {
-                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE_COMBO), typeLookupPacket);
+                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE_COMBO), typeLookupPacket, silent);
                     return;
                 }
             }
         }
 
         if (hasBlock && hasEntity) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE_COMBO), typeLookupPacket);
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE_COMBO), typeLookupPacket, silent);
             return;
         }
 
         if (argWid == -1) {
             String worldName = CommandHandler.parseWorldName(args, true);
-            Chat.sendResponse(player, new ChatMessage(Phrase.build(Phrase.WORLD_NOT_FOUND, worldName)).build(), typeLookupPacket);
+            Chat.sendResponse(player, new ChatMessage(Phrase.build(Phrase.WORLD_NOT_FOUND, worldName)).build(), typeLookupPacket, silent);
             return;
         }
 
@@ -165,38 +166,38 @@ public class LookupCommand {
 
         if (!permission) {
             if (!pageLookup || !player.hasPermission("coreprotect.inspect")) {
-                Chat.sendResponse(player, new ChatMessage(Phrase.build(Phrase.NO_PERMISSION)).build(), typeLookupPacket);
+                Chat.sendResponse(player, new ChatMessage(Phrase.build(Phrase.NO_PERMISSION)).build(), typeLookupPacket, silent);
                 return;
             }
         }
         if (ConfigHandler.converterRunning) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS), typeLookupPacket);
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS), typeLookupPacket, silent);
             return;
         }
         if (ConfigHandler.purgeRunning) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS), typeLookupPacket);
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS), typeLookupPacket, silent);
             return;
         }
         if (resultc < 2) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co l <params>"), typeLookupPacket);
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co l <params>"), typeLookupPacket, silent);
             return;
         }
         if (argAction.contains(-1)) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_ACTION), typeLookupPacket);
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_ACTION), typeLookupPacket, silent);
             return;
         }
         if (worldedit && argRadius == null) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_SELECTION, "WorldEdit"), typeLookupPacket);
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_SELECTION, "WorldEdit"), typeLookupPacket, silent);
             return;
         }
         if (argRadius != null && argRadius[0] == -1) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_RADIUS), typeLookupPacket);
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_RADIUS), typeLookupPacket, silent);
             return;
         }
         if (ConfigHandler.lookupThrottle.get(player.getName()) != null) {
             Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
             if ((boolean) lookupThrottle[0] || ((System.currentTimeMillis() - (long) lookupThrottle[1])) < 50) {
-                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY), typeLookupPacket);
+                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY), typeLookupPacket, silent);
                 return;
             }
         }
@@ -206,73 +207,73 @@ public class LookupCommand {
         }
         if (!allPermission) {
             if (!pageLookup && (argAction.size() == 0 || (argAction.size() == 1 && (argAction.contains(0) || argAction.contains(1)))) && !player.hasPermission("coreprotect.lookup.block")) {
-                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket);
+                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket, silent);
                 return;
             }
             if (argAction.contains(2) && !player.hasPermission("coreprotect.lookup.click")) {
-                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket);
+                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket, silent);
                 return;
             }
             if (argAction.contains(3) && !player.hasPermission("coreprotect.lookup.kill")) {
-                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket);
+                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket, silent);
                 return;
             }
             if (argAction.contains(4) && !argAction.contains(11) && !player.hasPermission("coreprotect.lookup.container")) {
-                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket);
+                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket, silent);
                 return;
             }
             if (argAction.contains(6) && !player.hasPermission("coreprotect.lookup.chat")) {
-                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket);
+                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket, silent);
                 return;
             }
             if (argAction.contains(7) && !player.hasPermission("coreprotect.lookup.command")) {
-                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket);
+                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket, silent);
                 return;
             }
             if (argAction.contains(8) && !player.hasPermission("coreprotect.lookup.session")) {
-                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket);
+                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket, silent);
                 return;
             }
             if (argAction.contains(9) && !player.hasPermission("coreprotect.lookup.username")) {
-                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket);
+                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket, silent);
                 return;
             }
             if (argAction.contains(10) && !player.hasPermission("coreprotect.lookup.sign")) {
-                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket);
+                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket, silent);
                 return;
             }
             if (argAction.contains(11) && !argAction.contains(4) && !player.hasPermission("coreprotect.lookup.item")) {
-                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket);
+                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket, silent);
                 return;
             }
             if (argAction.contains(4) && argAction.contains(11) && !player.hasPermission("coreprotect.lookup.inventory")) {
-                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket);
+                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket, silent);
                 return;
             }
         }
         if (argAction.contains(6) || argAction.contains(7) || argAction.contains(8) || argAction.contains(9) || argAction.contains(10)) {
             if (argAction.contains(9) && (argRadius != null || argWid > 0 || worldedit)) {
-                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INCOMPATIBLE_ACTION, "r:"), typeLookupPacket);
+                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INCOMPATIBLE_ACTION, "r:"), typeLookupPacket, silent);
                 return;
             }
             if (argBlocks.size() > 0) {
-                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INCOMPATIBLE_ACTION, "i:"), typeLookupPacket);
+                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INCOMPATIBLE_ACTION, "i:"), typeLookupPacket, silent);
                 return;
             }
             if (argExclude.size() > 0) {
-                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INCOMPATIBLE_ACTION, "e:"), typeLookupPacket);
+                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INCOMPATIBLE_ACTION, "e:"), typeLookupPacket, silent);
                 return;
             }
         }
 
         if (startTime <= 0 && !pageLookup && type == 4 && (argBlocks.size() > 0 || argUsers.size() > 0)) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_LOOKUP_TIME, Selector.FIRST), typeLookupPacket);
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_LOOKUP_TIME, Selector.FIRST), typeLookupPacket, silent);
             return;
         }
 
         if (argAction.contains(4) && argAction.contains(11)) { // a:inventory
             if (argUsers.size() == 0) {
-                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_ACTION_USER), typeLookupPacket);
+                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_ACTION_USER), typeLookupPacket, silent);
                 return;
             }
 
@@ -370,7 +371,7 @@ public class LookupCommand {
                             statement.close();
                         }
                         else {
-                            Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY), typeLookupPacket);
+                            Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY), typeLookupPacket, silent);
                         }
                     }
                     catch (Exception e) {
@@ -490,7 +491,7 @@ public class LookupCommand {
                             statement.close();
                         }
                         else {
-                            Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY), typeLookupPacket);
+                            Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY), typeLookupPacket, silent);
                         }
                     }
                     catch (Exception e) {
@@ -562,8 +563,8 @@ public class LookupCommand {
                 if (argRadius != null) {
                     int radiusValue = argRadius[0];
                     if (radiusValue > MAX_RADIUS && MAX_RADIUS > 0) {
-                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MAXIMUM_RADIUS, MAX_RADIUS.toString(), Selector.FIRST), typeLookupPacket);
-                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.GLOBAL_LOOKUP), typeLookupPacket);
+                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MAXIMUM_RADIUS, MAX_RADIUS.toString(), Selector.FIRST), typeLookupPacket, silent);
+                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.GLOBAL_LOOKUP), typeLookupPacket, silent);
                         return;
                     }
                 }
@@ -584,7 +585,7 @@ public class LookupCommand {
 
                     if (argAction.contains(4) && argAction.contains(11)) {
                         if (ruser.startsWith("#")) {
-                            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_USERNAME, ruser), typeLookupPacket);
+                            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_USERNAME, ruser), typeLookupPacket, silent);
                             return;
                         }
                     }
@@ -632,13 +633,13 @@ public class LookupCommand {
                     }
 
                     if (rollbackusers.size() == 1 && rollbackusers.contains("#global") && argAction.contains(9)) {
-                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co l a:username u:<user>"), typeLookupPacket);
+                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co l a:username u:<user>"), typeLookupPacket, silent);
                         return;
                     }
 
                     if (rollbackusers.contains("#container")) {
                         if (argAction.contains(6) || argAction.contains(7) || argAction.contains(8) || argAction.contains(9) || argAction.contains(10) || argAction.contains(11)) {
-                            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_USERNAME, "#container"), typeLookupPacket);
+                            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_USERNAME, "#container"), typeLookupPacket, silent);
                             return;
                         }
 
@@ -657,7 +658,7 @@ public class LookupCommand {
 
                         if (valid) {
                             if (!player.hasPermission("coreprotect.lookup.container") && !allPermission) {
-                                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket);
+                                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeLookupPacket, silent);
                                 return;
                             }
                             String lcommand = ConfigHandler.lookupCommand.get(player.getName());
@@ -671,7 +672,7 @@ public class LookupCommand {
                             argWid = 0;
                         }
                         else {
-                            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_CONTAINER), typeLookupPacket);
+                            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_CONTAINER), typeLookupPacket, silent);
                             return;
                         }
                     }
@@ -699,7 +700,7 @@ public class LookupCommand {
                 final Integer[] radius = argRadius;
 
                 try {
-                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Color.ITALIC + Phrase.build(Phrase.LOOKUP_SEARCHING), typeLookupPacket);
+                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Color.ITALIC + Phrase.build(Phrase.LOOKUP_SEARCHING), typeLookupPacket, silent);
                     final CommandSender player2 = player;
                     final int finalX = x;
                     final int finalY = y;
@@ -823,12 +824,12 @@ public class LookupCommand {
                                         }
                                         if (finalCount) {
                                             String row_format = NumberFormat.getInstance().format(rows);
-                                            Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.LOOKUP_ROWS_FOUND, row_format, (rows == 1 ? Selector.FIRST : Selector.SECOND)));
+                                            Chat.sendMessageSilent(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.LOOKUP_ROWS_FOUND, row_format, (rows == 1 ? Selector.FIRST : Selector.SECOND)), silent);
                                         }
                                         else if (pageStart < rows) {
                                             List<String[]> lookupList = Lookup.performPartialLookup(statement, player2, uuidList, userList, blist, elist, euserlist, finalArgAction, location, radius, rowData, finalTimeStart, finalTimeEnd, (int) pageStart, displayResults, restrict_world, true);
 
-                                            Chat.sendMessage(player2, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.LOOKUP_HEADER, "CoreProtect" + Color.WHITE + " | " + Color.DARK_AQUA) + Color.WHITE + " -----");
+                                            Chat.sendMessageSilent(player2, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.LOOKUP_HEADER, "CoreProtect" + Color.WHITE + " | " + Color.DARK_AQUA) + Color.WHITE + " -----", silent);
                                             if (finalArgAction.contains(6) || finalArgAction.contains(7)) { // Chat/command
                                                 for (String[] data : lookupList) {
                                                     String time = data[0];
@@ -1069,25 +1070,25 @@ public class LookupCommand {
                                             if (rows > displayResults) {
                                                 int total_pages = (int) Math.ceil(rows / (displayResults + 0.0));
                                                 if (finalArgAction.contains(6) || finalArgAction.contains(7) || finalArgAction.contains(9) || (finalArgAction.contains(4) && finalArgAction.contains(11))) {
-                                                    Chat.sendMessage(player2, "-----");
+                                                    Chat.sendMessageSilent(player2, "-----", silent);
                                                 }
                                                 Chat.sendComponent(player2, Util.getPageNavigation(command.getName(), page, total_pages));
                                             }
                                         }
                                         else if (rows > 0) {
-                                            Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS_PAGE, Selector.FIRST), typeLookupPacket);
+                                            Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS_PAGE, Selector.FIRST), typeLookupPacket, silent);
                                         }
                                         else {
-                                            Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS), typeLookupPacket);
+                                            Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS), typeLookupPacket, silent);
                                         }
                                     }
                                     else {
-                                        Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.USER_NOT_FOUND, baduser), typeLookupPacket);
+                                        Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.USER_NOT_FOUND, baduser), typeLookupPacket, silent);
                                     }
                                     statement.close();
                                 }
                                 else {
-                                    Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY), typeLookupPacket);
+                                    Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY), typeLookupPacket, silent);
                                 }
                             }
                             catch (Exception e) {
@@ -1108,20 +1109,20 @@ public class LookupCommand {
             else {
                 // Functions.sendMessage(player, ChatColors.RED + "You did not specify a lookup radius.");
                 if (argUsers.size() == 0 && argBlocks.size() == 0 && (argWid > 0 || forceglobal)) {
-                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_LOOKUP_USER, Selector.FIRST), typeLookupPacket);
+                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_LOOKUP_USER, Selector.FIRST), typeLookupPacket, silent);
                     return;
                 }
                 else if (argUsers.size() == 0 && argBlocks.size() == 0 && argRadius == null) {
-                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_LOOKUP_USER, Selector.SECOND), typeLookupPacket);
+                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_LOOKUP_USER, Selector.SECOND), typeLookupPacket, silent);
                     return;
                 }
                 else {
-                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co l <params>"), typeLookupPacket);
+                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co l <params>"), typeLookupPacket, silent);
                 }
             }
         }
         else {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co l <params>"), typeLookupPacket);
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co l <params>"), typeLookupPacket, silent);
         }
     }
 }

@@ -62,12 +62,12 @@ public final class Chat {
         server.getConsoleSender().sendMessage("[CoreProtect] " + string);
         for (Player player : server.getOnlinePlayers()) {
             if (player.isOp() && !player.getName().equals(user.getName())) {
-                sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + string);
+                sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + string, "coreprotect:purge");
             }
         }
         if (user instanceof Player) {
             if (((Player) user).isOnline()) {
-                sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + string);
+                sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + string, "coreprotect:purge");
             }
         }
     }

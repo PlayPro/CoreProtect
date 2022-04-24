@@ -1,5 +1,6 @@
 package net.coreprotect.listener.channel;
 
+import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.utility.Chat;
 import org.bukkit.Bukkit;
@@ -73,10 +74,22 @@ public class PluginChannelInputListener implements PluginMessageListener, Listen
                 return;
             }
 
-            for (int page = 2; page <= pages; page++)
-            {
-                Bukkit.dispatchCommand(player, command + " lookup " + page + ":" + amountRows);
+            class sendLookupPages implements Runnable {
+                @Override
+                public void run() {
+                    try {
+                        for (int page = 2; page <= pages; page++)
+                        {
+                            Thread.sleep(100);
+                            Bukkit.dispatchCommand(player, command + " lookup " + page + ":" + amountRows);
+                        }
+                    }
+                    catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
             }
+            Bukkit.getScheduler().runTask(CoreProtect.getInstance(), new sendLookupPages());
         }
         catch (Exception exception) {
             Chat.console(exception.toString());

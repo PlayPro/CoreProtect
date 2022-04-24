@@ -10,19 +10,19 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-import net.coreprotect.command.TabHandler;
-import net.coreprotect.config.ConfigHandler;
 import org.bukkit.Bukkit;
-import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.messaging.PluginMessageListener;
+import org.bukkit.World;
 
 import net.coreprotect.CoreProtect;
+import net.coreprotect.command.TabHandler;
 import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.utility.Chat;

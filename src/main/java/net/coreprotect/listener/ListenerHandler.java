@@ -1,6 +1,5 @@
 package net.coreprotect.listener;
 
-import net.coreprotect.listener.channel.PluginChannelResponseListener;
 import org.bukkit.plugin.PluginManager;
 
 import net.coreprotect.CoreProtect;
@@ -19,6 +18,7 @@ import net.coreprotect.listener.block.BlockSpreadListener;
 import net.coreprotect.listener.channel.PluginChannelDataListener;
 import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
 import net.coreprotect.listener.channel.PluginChannelInputListener;
+import net.coreprotect.listener.channel.PluginChannelResponseListener;
 import net.coreprotect.listener.entity.CreatureSpawnListener;
 import net.coreprotect.listener.entity.EntityBlockFormListener;
 import net.coreprotect.listener.entity.EntityChangeBlockListener;

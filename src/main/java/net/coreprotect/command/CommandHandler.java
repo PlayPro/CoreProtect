@@ -10,7 +10,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -26,6 +25,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
+import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.thread.NetworkHandler;
 import net.coreprotect.utility.Chat;

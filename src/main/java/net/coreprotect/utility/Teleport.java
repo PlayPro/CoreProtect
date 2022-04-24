@@ -14,6 +14,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.model.BlockGroup;
 
 public class Teleport {
+
     private static final String typeTeleportPacket = "coreprotect:teleport";
     private Teleport() {
         throw new IllegalStateException("Utility class");

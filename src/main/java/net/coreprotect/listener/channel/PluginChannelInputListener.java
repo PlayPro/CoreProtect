@@ -1,16 +1,16 @@
 package net.coreprotect.listener.channel;
 
-import net.coreprotect.CoreProtect;
-import net.coreprotect.config.Config;
-import net.coreprotect.utility.Chat;
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
+
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 
-import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
+import net.coreprotect.CoreProtect;
+import net.coreprotect.config.Config;
+import net.coreprotect.utility.Chat;
 
 public class PluginChannelInputListener implements PluginMessageListener, Listener {
 

@@ -2,8 +2,6 @@ package net.coreprotect.utility;
 
 import java.util.logging.Level;
 
-import net.coreprotect.command.PurgeCommand;
-import net.coreprotect.listener.channel.PluginChannelResponseListener;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Server;
@@ -11,6 +9,8 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 
+import net.coreprotect.command.PurgeCommand;
+import net.coreprotect.listener.channel.PluginChannelResponseListener;
 import net.coreprotect.spigot.SpigotAdapter;
 
 public final class Chat {

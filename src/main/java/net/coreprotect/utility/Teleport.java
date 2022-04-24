@@ -14,7 +14,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.model.BlockGroup;
 
 public class Teleport {
-
+    private static final String typeTeleportPacket = "coreprotect:teleport";
     private Teleport() {
         throw new IllegalStateException("Utility class");
     }
@@ -83,14 +83,14 @@ public class Teleport {
                     if (!enforceTeleport) {
                         // Only send a message if the player was moved by at least 1 block
                         if (location.getY() >= (oldY + 1.00)) {
-                            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.TELEPORTED_SAFETY), "coreprotect:teleport", silent);
+                            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.TELEPORTED_SAFETY), typeTeleportPacket, silent);
                         }
                     }
                     else {
-                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.TELEPORTED, "x" + playerX + "/y" + checkY + "/z" + playerZ + "/" + location.getWorld().getName()), "coreprotect:teleport", silent);
+                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.TELEPORTED, "x" + playerX + "/y" + checkY + "/z" + playerZ + "/" + location.getWorld().getName()), typeTeleportPacket, silent);
                     }
                     if (alert) {
-                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + Color.ITALIC + "- " + Phrase.build(Phrase.DIRT_BLOCK), "coreprotect:teleport", silent);
+                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + Color.ITALIC + "- " + Phrase.build(Phrase.DIRT_BLOCK), typeTeleportPacket, silent);
                     }
                 }
 

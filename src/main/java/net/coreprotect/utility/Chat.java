@@ -2,6 +2,7 @@ package net.coreprotect.utility;
 
 import java.util.logging.Level;
 
+import net.coreprotect.command.PurgeCommand;
 import net.coreprotect.listener.channel.PluginChannelResponseListener;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -62,12 +63,12 @@ public final class Chat {
         server.getConsoleSender().sendMessage("[CoreProtect] " + string);
         for (Player player : server.getOnlinePlayers()) {
             if (player.isOp() && !player.getName().equals(user.getName())) {
-                sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + string, "coreprotect:purge", silent);
+                sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + string, PurgeCommand.typePurgePacket, silent);
             }
         }
         if (user instanceof Player) {
             if (((Player) user).isOnline()) {
-                sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + string, "coreprotect:purge", silent);
+                sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + string, PurgeCommand.typePurgePacket, silent);
             }
         }
     }

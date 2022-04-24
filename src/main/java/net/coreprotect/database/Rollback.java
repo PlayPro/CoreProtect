@@ -17,6 +17,7 @@ import java.util.Map.Entry;
 import java.util.TreeMap;
 import java.util.UUID;
 
+import net.coreprotect.command.RollbackRestoreCommand;
 import org.bukkit.Bukkit;
 import org.bukkit.DyeColor;
 import org.bukkit.FireworkEffect;
@@ -1299,7 +1300,7 @@ public class Rollback extends Queue {
     static void finishRollbackRestore(CommandSender user, Location location, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, String timeString, Integer chunkCount, Double seconds, Integer itemCount, Integer blockCount, Integer entityCount, int rollbackType, Integer[] radius, boolean verbose, boolean restrictWorld, boolean silent, int preview) {
         try {
             if (preview == 2) {
-                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PREVIEW_CANCELLED), "coreprotect:rollbackrestore", silent);
+                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PREVIEW_CANCELLED), RollbackRestoreCommand.typeRollbackRestorePacket, silent);
                 return;
             }
 
@@ -1321,24 +1322,24 @@ public class Rollback extends Queue {
             }
 
             if (preview > 0) {
-                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_COMPLETED, users, Selector.THIRD), "coreprotect:rollbackrestore", silent); // preview
+                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_COMPLETED, users, Selector.THIRD), RollbackRestoreCommand.typeRollbackRestorePacket, silent); // preview
             }
             else if (rollbackType == 0) {
-                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_COMPLETED, users, Selector.FIRST), "coreprotect:rollbackrestore", silent); // rollback
+                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_COMPLETED, users, Selector.FIRST), RollbackRestoreCommand.typeRollbackRestorePacket, silent); // rollback
             }
             else if (rollbackType == 1) {
-                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_COMPLETED, users, Selector.SECOND), "coreprotect:rollbackrestore", silent); // restore
+                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_COMPLETED, users, Selector.SECOND), RollbackRestoreCommand.typeRollbackRestorePacket, silent); // restore
             }
 
             if (preview == 1 || rollbackType == 0 || rollbackType == 1) {
-                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_TIME, timeString), "coreprotect:rollbackrestore", silent);
+                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_TIME, timeString), RollbackRestoreCommand.typeRollbackRestorePacket, silent);
             }
 
             if (radius != null) {
                 int worldedit = radius[7];
                 if (worldedit == 0) {
                     Integer rollbackRadius = radius[0];
-                    Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_RADIUS, rollbackRadius.toString(), (rollbackRadius == 1 ? Selector.FIRST : Selector.SECOND)), "coreprotect:rollbackrestore", silent);
+                    Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_RADIUS, rollbackRadius.toString(), (rollbackRadius == 1 ? Selector.FIRST : Selector.SECOND)), RollbackRestoreCommand.typeRollbackRestorePacket, silent);
                 }
                 else {
                     Chat.sendMessageSilent(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_SELECTION, "#worldedit"), silent);
@@ -1347,43 +1348,43 @@ public class Rollback extends Queue {
 
             if (restrictWorld && radius == null) {
                 if (location != null) {
-                    Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, location.getWorld().getName(), Selector.FIRST), "coreprotect:rollbackrestore", silent);
+                    Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, location.getWorld().getName(), Selector.FIRST), RollbackRestoreCommand.typeRollbackRestorePacket, silent);
                 }
             }
 
             if (actionList.contains(4) && actionList.contains(11)) {
                 if (actionList.contains(0)) {
-                    Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "+inventory", Selector.SECOND), "coreprotect:rollbackrestore", silent);
+                    Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "+inventory", Selector.SECOND), RollbackRestoreCommand.typeRollbackRestorePacket, silent);
                 }
                 else if (actionList.contains(1)) {
-                    Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "-inventory", Selector.SECOND), "coreprotect:rollbackrestore", silent);
+                    Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "-inventory", Selector.SECOND), RollbackRestoreCommand.typeRollbackRestorePacket, silent);
                 }
                 else {
-                    Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "inventory", Selector.SECOND), "coreprotect:rollbackrestore", silent);
+                    Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "inventory", Selector.SECOND), RollbackRestoreCommand.typeRollbackRestorePacket, silent);
                 }
             }
             else if (actionList.contains(4)) {
                 if (actionList.contains(0)) {
-                    Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "-container", Selector.SECOND), "coreprotect:rollbackrestore", silent);
+                    Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "-container", Selector.SECOND), RollbackRestoreCommand.typeRollbackRestorePacket, silent);
                 }
                 else if (actionList.contains(1)) {
-                    Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "+container", Selector.SECOND), "coreprotect:rollbackrestore", silent);
+                    Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "+container", Selector.SECOND), RollbackRestoreCommand.typeRollbackRestorePacket, silent);
                 }
                 else {
-                    Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "container", Selector.SECOND), "coreprotect:rollbackrestore", silent);
+                    Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "container", Selector.SECOND), RollbackRestoreCommand.typeRollbackRestorePacket, silent);
                 }
             }
             else if (actionList.contains(0) && actionList.contains(1)) {
-                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "block", Selector.SECOND), "coreprotect:rollbackrestore", silent);
+                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "block", Selector.SECOND), RollbackRestoreCommand.typeRollbackRestorePacket, silent);
             }
             else if (actionList.contains(0)) {
-                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "-block", Selector.SECOND), "coreprotect:rollbackrestore", silent);
+                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "-block", Selector.SECOND), RollbackRestoreCommand.typeRollbackRestorePacket, silent);
             }
             else if (actionList.contains(1)) {
-                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "+block", Selector.SECOND), "coreprotect:rollbackrestore", silent);
+                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "+block", Selector.SECOND), RollbackRestoreCommand.typeRollbackRestorePacket, silent);
             }
             else if (actionList.contains(3)) {
-                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "kill", Selector.SECOND), "coreprotect:rollbackrestore", silent);
+                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "kill", Selector.SECOND), RollbackRestoreCommand.typeRollbackRestorePacket, silent);
             }
 
             if (restrictList.size() > 0) {
@@ -1427,7 +1428,7 @@ public class Rollback extends Queue {
                     targetType = Selector.SECOND;
                 }
 
-                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_INCLUDE, restrictTargets.toString(), Selector.FIRST, targetType, (targetCount == 1 ? Selector.FIRST : Selector.SECOND)), "coreprotect:rollbackrestore", silent); // include
+                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_INCLUDE, restrictTargets.toString(), Selector.FIRST, targetType, (targetCount == 1 ? Selector.FIRST : Selector.SECOND)), RollbackRestoreCommand.typeRollbackRestorePacket, silent); // include
             }
 
             if (excludeList.size() > 0) {
@@ -1486,7 +1487,7 @@ public class Rollback extends Queue {
                 }
 
                 if (excludeCount > 0) {
-                    Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_INCLUDE, excludeTargets.toString(), Selector.SECOND, targetType, (excludeCount == 1 ? Selector.FIRST : Selector.SECOND)), "coreprotect:rollbackrestore", silent); // exclude
+                    Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_INCLUDE, excludeTargets.toString(), Selector.SECOND, targetType, (excludeCount == 1 ? Selector.FIRST : Selector.SECOND)), RollbackRestoreCommand.typeRollbackRestorePacket, silent); // exclude
                 }
             }
 
@@ -1513,7 +1514,7 @@ public class Rollback extends Queue {
                 }
 
                 if (excludeCount > 0) {
-                    Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_EXCLUDED_USERS, excludeUsers.toString(), (excludeCount == 1 ? Selector.FIRST : Selector.SECOND)), "coreprotect:rollbackrestore", silent);
+                    Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_EXCLUDED_USERS, excludeUsers.toString(), (excludeCount == 1 ? Selector.FIRST : Selector.SECOND)), RollbackRestoreCommand.typeRollbackRestorePacket, silent);
                 }
             }
 
@@ -1560,19 +1561,19 @@ public class Rollback extends Queue {
                 }
             }
 
-            Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_MODIFIED, modifiedData.toString(), (preview == 0 ? Selector.FIRST : Selector.SECOND)), "coreprotect:rollbackrestore", silent);
+            Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_MODIFIED, modifiedData.toString(), (preview == 0 ? Selector.FIRST : Selector.SECOND)), RollbackRestoreCommand.typeRollbackRestorePacket, silent);
             if (modifiedDataVerbose.length() > 0) {
-                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_MODIFIED, modifiedDataVerbose.toString(), (preview == 0 ? Selector.FIRST : Selector.SECOND)), "coreprotect:rollbackrestore", silent);
+                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_MODIFIED, modifiedDataVerbose.toString(), (preview == 0 ? Selector.FIRST : Selector.SECOND)), RollbackRestoreCommand.typeRollbackRestorePacket, silent);
             }
 
             if (preview == 0) {
                 BigDecimal decimalSeconds = new BigDecimal(seconds).setScale(1, RoundingMode.HALF_EVEN);
-                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_LENGTH, decimalSeconds.stripTrailingZeros().toPlainString(), (decimalSeconds.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND)), "coreprotect:rollbackrestore", silent);
+                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_LENGTH, decimalSeconds.stripTrailingZeros().toPlainString(), (decimalSeconds.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND)), RollbackRestoreCommand.typeRollbackRestorePacket, silent);
             }
 
             Chat.sendMessageSilent(user, "-----", silent);
             if (preview > 0) {
-                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PLEASE_SELECT, "/co apply", "/co cancel"), "coreprotect:rollbackrestore", silent);
+                Chat.sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PLEASE_SELECT, "/co apply", "/co cancel"), RollbackRestoreCommand.typeRollbackRestorePacket, silent);
             }
         }
         catch (Exception e) {

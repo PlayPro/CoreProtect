@@ -27,6 +27,7 @@ import net.coreprotect.utility.Util;
 
 public class PurgeCommand extends Consumer {
 
+    public static final String typePurgePacket = "coreprotect:purge";
     protected static void runCommand(final CommandSender player, boolean permission, String[] args) {
         int resultc = args.length;
         Location location = CommandHandler.parseLocation(player, args);
@@ -40,47 +41,47 @@ public class PurgeCommand extends Consumer {
         final boolean silent = CommandHandler.parseSilentChat(player, args);
 
         if (ConfigHandler.converterRunning) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS), "coreprotect:purge", silent);
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS), typePurgePacket, silent);
             return;
         }
         if (ConfigHandler.purgeRunning) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS), "coreprotect:purge", silent);
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS), typePurgePacket, silent);
             return;
         }
         if (!permission) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), "coreprotect:purge", silent);
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typePurgePacket, silent);
             return;
         }
         if (resultc <= 1) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co purge t:<time>"), "coreprotect:purge", silent);
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co purge t:<time>"), typePurgePacket, silent);
             return;
         }
         if (endTime <= 0) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co purge t:<time>"), "coreprotect:purge", silent);
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co purge t:<time>"), typePurgePacket, silent);
             return;
         }
         if (argRadius != null) {
-            Chat.sendResponse(player, new ChatMessage(Phrase.build(Phrase.INVALID_WORLD)).build(), "coreprotect:purge", silent);
+            Chat.sendResponse(player, new ChatMessage(Phrase.build(Phrase.INVALID_WORLD)).build(), typePurgePacket, silent);
             return;
         }
         if (argWid == -1) {
             String worldName = CommandHandler.parseWorldName(args, false);
-            Chat.sendResponse(player, new ChatMessage(Phrase.build(Phrase.WORLD_NOT_FOUND, worldName)).build(), "coreprotect:purge", silent);
+            Chat.sendResponse(player, new ChatMessage(Phrase.build(Phrase.WORLD_NOT_FOUND, worldName)).build(), typePurgePacket, silent);
             return;
         }
         for (int action : argAction) {
             if (!supportedActions.contains(action)) {
-                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ACTION_NOT_SUPPORTED), "coreprotect:purge", silent);
+                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ACTION_NOT_SUPPORTED), typePurgePacket, silent);
                 // Functions.sendMessage(player, new ChatMessage("Please specify a valid purge action.").build());
                 return;
             }
         }
         if (player instanceof Player && endTime < 2592000) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_MINIMUM_TIME, "30", Selector.FIRST), "coreprotect:purge", silent); // 30 days
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_MINIMUM_TIME, "30", Selector.FIRST), typePurgePacket, silent); // 30 days
             return;
         }
         else if (endTime < 86400) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_MINIMUM_TIME, "24", Selector.SECOND), "coreprotect:purge", silent); // 24 hours
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_MINIMUM_TIME, "24", Selector.SECOND), typePurgePacket, silent); // 24 hours
             return;
         }
 

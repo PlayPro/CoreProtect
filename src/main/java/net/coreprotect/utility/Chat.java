@@ -74,6 +74,10 @@ public final class Chat {
 
     public static void sendResponse(CommandSender user, String message, String type, boolean silent) {
         sendMessageSilent(user, message, silent);
+        sendPluginChatResponseMessage(user, message, type);
+    }
+
+    public static void sendPluginChatResponseMessage(CommandSender user, String message, String type) {
         PluginChannelResponseListener.getInstance().sendData(user, message, type);
     }
 
@@ -83,5 +87,21 @@ public final class Chat {
         }
 
         sendMessage(user, message);
+    }
+
+    public static void sendComponentSilent(CommandSender user, String message, boolean silent) {
+        if (silent) {
+            return;
+        }
+
+        sendComponent(user, message);
+    }
+
+    public static void sendComponentSilent(CommandSender user, String message, String bypass, boolean silent) {
+        if (silent) {
+            return;
+        }
+
+        sendComponent(user, message, bypass);
     }
 }

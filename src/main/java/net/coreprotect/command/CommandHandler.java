@@ -1162,7 +1162,7 @@ public class CommandHandler implements CommandExecutor {
     }
 
     private static void validUserCheck(List<String> users, String user) {
-        List<String> badUsers = Arrays.asList("n", "noisy", "v", "verbose", "#v", "#verbose", "#silent", "#preview", "#preview_cancel", "#count", "#sum");
+        List<String> badUsers = Arrays.asList("n", "noisy", "v", "verbose", "#v", "#verbose", "#silent", "#preview", "#preview_cancel", "#count", "#sum", "#silentchat");
         String check = user.replaceAll("[\\s'\"]", "");
         if (check.equals(user) && check.length() > 0) {
             if (user.equalsIgnoreCase("#global")) {

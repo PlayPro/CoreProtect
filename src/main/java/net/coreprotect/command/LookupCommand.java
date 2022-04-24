@@ -339,8 +339,9 @@ public class LookupCommand {
             if (defaultRe) {
                 re = Integer.parseInt(data[7]);
             }
+            boolean finalSilent = Boolean.parseBoolean(data[8]);
 
-            String bc = x + "." + y + "." + z + "." + wid + "." + x2 + "." + y2 + "." + z2 + "." + re;
+            String bc = x + "." + y + "." + z + "." + wid + "." + x2 + "." + y2 + "." + z2 + "." + re + "." + finalSilent;
             ConfigHandler.lookupCommand.put(player.getName(), bc);
 
             String world = Util.getWorldName(wid);
@@ -362,16 +363,16 @@ public class LookupCommand {
                             String blockdata = ChestTransactionLookup.performLookup(command.getName(), statement, location, player2, p2, finalLimit, false);
                             if (blockdata.contains("\n")) {
                                 for (String b : blockdata.split("\n")) {
-                                    Chat.sendComponent(player2, b);
+                                    Chat.sendComponentSilent(player2, b, finalSilent);
                                 }
                             }
                             else {
-                                Chat.sendComponent(player2, blockdata);
+                                Chat.sendComponentSilent(player2, blockdata, finalSilent);
                             }
                             statement.close();
                         }
                         else {
-                            Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY), typeLookupPacket, silent);
+                            Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY), typeLookupPacket, finalSilent);
                         }
                     }
                     catch (Exception e) {
@@ -437,8 +438,9 @@ public class LookupCommand {
             if (defaultRe) {
                 re = Integer.parseInt(data[5]);
             }
+            boolean finalSilent = Boolean.parseBoolean(data[5]);
 
-            String bc = x + "." + y + "." + z + "." + wid + "." + lookupType + "." + re;
+            String bc = x + "." + y + "." + z + "." + wid + "." + lookupType + "." + re + "." + finalSilent;
             ConfigHandler.lookupCommand.put(player.getName(), bc);
 
             String world = Util.getWorldName(wid);
@@ -467,7 +469,7 @@ public class LookupCommand {
                                     }
 
                                     if (signMessage.length() > 0) {
-                                        Chat.sendComponent(player2, signMessage, bypass);
+                                        Chat.sendComponentSilent(player2, signMessage, bypass, finalSilent);
                                     }
                                 }
                             }
@@ -481,17 +483,17 @@ public class LookupCommand {
                                 }
                                 if (blockdata.contains("\n")) {
                                     for (String b : blockdata.split("\n")) {
-                                        Chat.sendComponent(player2, b);
+                                        Chat.sendComponentSilent(player2, b, finalSilent);
                                     }
                                 }
                                 else if (blockdata.length() > 0) {
-                                    Chat.sendComponent(player2, blockdata);
+                                    Chat.sendComponentSilent(player2, blockdata, finalSilent);
                                 }
                             }
                             statement.close();
                         }
                         else {
-                            Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY), typeLookupPacket, silent);
+                            Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY), typeLookupPacket, finalSilent);
                         }
                     }
                     catch (Exception e) {
@@ -614,6 +616,7 @@ public class LookupCommand {
                     if (defaultRe) {
                         re = Integer.parseInt(data[10]);
                     }
+                    silent = Boolean.parseBoolean(data[11]);
 
                     rollbackusers = ConfigHandler.lookupUlist.get(player.getName());
                     argBlocks = ConfigHandler.lookupBlist.get(player.getName());
@@ -670,6 +673,15 @@ public class LookupCommand {
                             argAction.add(5);
                             argRadius = null;
                             argWid = 0;
+                            if (data.length == 9) {
+                                silent = Boolean.parseBoolean(data[8]);
+                            }
+                            if (data.length == 7) {
+                                silent = Boolean.parseBoolean(data[6]);
+                            }
+                            if (data.length == 12) {
+                                silent = Boolean.parseBoolean(data[11]);
+                            }
                         }
                         else {
                             Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_CONTAINER), typeLookupPacket, silent);
@@ -721,6 +733,7 @@ public class LookupCommand {
                     final Location finalLocation = lo;
                     final List<Integer> finalArgAction = argAction;
                     final boolean finalCount = count;
+                    final boolean finalSilent = silent;
 
                     class BasicThread2 implements Runnable {
                         @Override
@@ -731,7 +744,7 @@ public class LookupCommand {
                                 List<String> uuidList = new ArrayList<>();
                                 Location location = finalLocation;
                                 boolean exists = false;
-                                String bc = finalX + "." + finalY + "." + finalZ + "." + finalWid + "." + finalTimeStart + "." + finalTimeEnd + "." + noisy + "." + excluded + "." + restricted + "." + finalArgWid + "." + displayResults;
+                                String bc = finalX + "." + finalY + "." + finalZ + "." + finalWid + "." + finalTimeStart + "." + finalTimeEnd + "." + noisy + "." + excluded + "." + restricted + "." + finalArgWid + "." + displayResults + "." + finalSilent;
                                 ConfigHandler.lookupCommand.put(player2.getName(), bc);
                                 ConfigHandler.lookupPage.put(player2.getName(), page);
                                 ConfigHandler.lookupTime.put(player2.getName(), rtime);
@@ -824,19 +837,19 @@ public class LookupCommand {
                                         }
                                         if (finalCount) {
                                             String row_format = NumberFormat.getInstance().format(rows);
-                                            Chat.sendMessageSilent(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.LOOKUP_ROWS_FOUND, row_format, (rows == 1 ? Selector.FIRST : Selector.SECOND)), silent);
+                                            Chat.sendMessageSilent(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.LOOKUP_ROWS_FOUND, row_format, (rows == 1 ? Selector.FIRST : Selector.SECOND)), finalSilent);
                                         }
                                         else if (pageStart < rows) {
                                             List<String[]> lookupList = Lookup.performPartialLookup(statement, player2, uuidList, userList, blist, elist, euserlist, finalArgAction, location, radius, rowData, finalTimeStart, finalTimeEnd, (int) pageStart, displayResults, restrict_world, true);
 
-                                            Chat.sendMessageSilent(player2, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.LOOKUP_HEADER, "CoreProtect" + Color.WHITE + " | " + Color.DARK_AQUA) + Color.WHITE + " -----", silent);
+                                            Chat.sendMessageSilent(player2, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.LOOKUP_HEADER, "CoreProtect" + Color.WHITE + " | " + Color.DARK_AQUA) + Color.WHITE + " -----", finalSilent);
                                             if (finalArgAction.contains(6) || finalArgAction.contains(7)) { // Chat/command
                                                 for (String[] data : lookupList) {
                                                     String time = data[0];
                                                     String dplayer = data[1];
                                                     String message = data[2];
                                                     String timeago = Util.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
-                                                    Chat.sendComponent(player2, timeago + " " + Color.WHITE + "- " + Color.DARK_AQUA + dplayer + ": " + Color.WHITE, message);
+                                                    Chat.sendComponentSilent(player2, timeago + " " + Color.WHITE + "- " + Color.DARK_AQUA + dplayer + ": " + Color.WHITE, message, finalSilent);
                                                     if (PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(player2)) {
                                                         int wid = Integer.parseInt(data[3]);
                                                         int x = Integer.parseInt(data[4]);
@@ -866,8 +879,8 @@ public class LookupCommand {
                                                     }
 
                                                     String tag = (action != 0 ? Color.GREEN + "+" : Color.RED + "-");
-                                                    Chat.sendComponent(player2, timeago + " " + tag + " " + Color.DARK_AQUA + Phrase.build(Phrase.LOOKUP_LOGIN, Color.DARK_AQUA + dplayer + Color.WHITE, (action != 0 ? Selector.FIRST : Selector.SECOND)));
-                                                    Chat.sendComponent(player2, Color.WHITE + leftPadding + Color.GREY + "^ " + Util.getCoordinates(command.getName(), wid, x, y, z, true, true) + "");
+                                                    Chat.sendComponentSilent(player2, timeago + " " + tag + " " + Color.DARK_AQUA + Phrase.build(Phrase.LOOKUP_LOGIN, Color.DARK_AQUA + dplayer + Color.WHITE, (action != 0 ? Selector.FIRST : Selector.SECOND)), finalSilent);
+                                                    Chat.sendComponentSilent(player2, Color.WHITE + leftPadding + Color.GREY + "^ " + Util.getCoordinates(command.getName(), wid, x, y, z, true, true) + "", finalSilent);
                                                     PluginChannelDataListener.getInstance().sendInfoData(player2, Integer.parseInt(time), Phrase.LOOKUP_LOGIN, (action != 0 ? Selector.FIRST : Selector.SECOND), dplayer, -1, x, y, z, wid);
                                                 }
                                             }
@@ -877,7 +890,7 @@ public class LookupCommand {
                                                     String user = ConfigHandler.uuidCacheReversed.get(data[1]);
                                                     String username = data[2];
                                                     String timeago = Util.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
-                                                    Chat.sendComponent(player2, timeago + " " + Color.WHITE + "- " + Phrase.build(Phrase.LOOKUP_USERNAME, Color.DARK_AQUA + user + Color.WHITE, Color.DARK_AQUA + username + Color.WHITE));
+                                                    Chat.sendComponentSilent(player2, timeago + " " + Color.WHITE + "- " + Phrase.build(Phrase.LOOKUP_USERNAME, Color.DARK_AQUA + user + Color.WHITE, Color.DARK_AQUA + username + Color.WHITE), finalSilent);
                                                     PluginChannelDataListener.getInstance().sendUsernameData(player2, Integer.parseInt(time), user, username);
                                                 }
                                             }
@@ -900,8 +913,8 @@ public class LookupCommand {
                                                         leftPadding = leftPadding + Color.WHITE + Strings.padStart("", (timeLength - 50) / 4, ' ');
                                                     }
 
-                                                    Chat.sendComponent(player2, timeago + " " + Color.WHITE + "- " + Color.DARK_AQUA + dplayer + ": " + Color.WHITE, message);
-                                                    Chat.sendComponent(player2, Color.WHITE + leftPadding + Color.GREY + "^ " + Util.getCoordinates(command.getName(), wid, x, y, z, true, true) + "");
+                                                    Chat.sendComponentSilent(player2, timeago + " " + Color.WHITE + "- " + Color.DARK_AQUA + dplayer + ": " + Color.WHITE, message, finalSilent);
+                                                    Chat.sendComponentSilent(player2, Color.WHITE + leftPadding + Color.GREY + "^ " + Util.getCoordinates(command.getName(), wid, x, y, z, true, true) + "", finalSilent);
                                                     PluginChannelDataListener.getInstance().sendMessageData(player2, Integer.parseInt(time), dplayer, message, true, x, y, z, wid);
                                                 }
                                             }
@@ -949,7 +962,7 @@ public class LookupCommand {
                                                         tag = (daction == 0 ? Color.GREEN + "+" : Color.RED + "-");
                                                     }
 
-                                                    Chat.sendComponent(player2, timeago + " " + tag + " " + Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, "x" + amount, Color.DARK_AQUA + rbd + dname + Color.WHITE, selector));
+                                                    Chat.sendComponentSilent(player2, timeago + " " + tag + " " + Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, "x" + amount, Color.DARK_AQUA + rbd + dname + Color.WHITE, selector), finalSilent);
                                                     PluginChannelDataListener.getInstance().sendData(player2, Integer.parseInt(time), Phrase.LOOKUP_CONTAINER, selector, dplayer, dname, amount, x, y, z, wid, rbd, true, tag.contains("+"));
                                                 }
                                             }
@@ -1043,7 +1056,7 @@ public class LookupCommand {
                                                             action = "a:container";
                                                         }
 
-                                                        Chat.sendComponent(player2, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, "x" + amount, Color.DARK_AQUA + rbd + dname + Color.WHITE, selector));
+                                                        Chat.sendComponentSilent(player2, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, "x" + amount, Color.DARK_AQUA + rbd + dname + Color.WHITE, selector), finalSilent);
                                                         PluginChannelDataListener.getInstance().sendData(player2, Integer.parseInt(time), phrase, selector, dplayer, dname, (tag.contains("+") ? 1 : -1), x, y, z, wid, rbd, action.contains("container"), tag.contains("+"));
                                                     }
                                                     else {
@@ -1059,36 +1072,36 @@ public class LookupCommand {
                                                             tag = (daction != 0 ? Color.GREEN + "+" : Color.RED + "-");
                                                         }
 
-                                                        Chat.sendComponent(player2, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, Color.DARK_AQUA + rbd + dname + Color.WHITE, selector));
+                                                        Chat.sendComponentSilent(player2, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, Color.DARK_AQUA + rbd + dname + Color.WHITE, selector), finalSilent);
                                                         PluginChannelDataListener.getInstance().sendData(player2, Integer.parseInt(time), phrase, selector, dplayer, dname, (tag.contains("+") ? 1 : -1), x, y, z, wid, rbd, false, tag.contains("+"));
                                                     }
 
                                                     action = (finalArgAction.size() == 0 ? " (" + action + ")" : "");
-                                                    Chat.sendComponent(player2, Color.WHITE + leftPadding + Color.GREY + "^ " + Util.getCoordinates(command.getName(), wid, x, y, z, true, true) + Color.GREY + Color.ITALIC + action);
+                                                    Chat.sendComponentSilent(player2, Color.WHITE + leftPadding + Color.GREY + "^ " + Util.getCoordinates(command.getName(), wid, x, y, z, true, true) + Color.GREY + Color.ITALIC + action, finalSilent);
                                                 }
                                             }
                                             if (rows > displayResults) {
                                                 int total_pages = (int) Math.ceil(rows / (displayResults + 0.0));
                                                 if (finalArgAction.contains(6) || finalArgAction.contains(7) || finalArgAction.contains(9) || (finalArgAction.contains(4) && finalArgAction.contains(11))) {
-                                                    Chat.sendMessageSilent(player2, "-----", silent);
+                                                    Chat.sendMessageSilent(player2, "-----", finalSilent);
                                                 }
-                                                Chat.sendComponent(player2, Util.getPageNavigation(command.getName(), page, total_pages));
+                                                Chat.sendComponentSilent(player2, Util.getPageNavigation(command.getName(), page, total_pages), finalSilent);
                                             }
                                         }
                                         else if (rows > 0) {
-                                            Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS_PAGE, Selector.FIRST), typeLookupPacket, silent);
+                                            Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS_PAGE, Selector.FIRST), typeLookupPacket, finalSilent);
                                         }
                                         else {
-                                            Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS), typeLookupPacket, silent);
+                                            Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS), typeLookupPacket, finalSilent);
                                         }
                                     }
                                     else {
-                                        Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.USER_NOT_FOUND, baduser), typeLookupPacket, silent);
+                                        Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.USER_NOT_FOUND, baduser), typeLookupPacket, finalSilent);
                                     }
                                     statement.close();
                                 }
                                 else {
-                                    Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY), typeLookupPacket, silent);
+                                    Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY), typeLookupPacket, finalSilent);
                                 }
                             }
                             catch (Exception e) {

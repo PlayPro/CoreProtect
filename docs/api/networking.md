@@ -61,6 +61,50 @@ Sends handshake if player is registered.
 
 * Channel: `coreprotect:handshake`
 * Registered: `Boolean`
+* Actions:
+  * Total results: `Int`
+  * Item: `UTF`
+* Worlds:
+  * Total results: `Int`
+  * Item: `UTF`
+* Version: `UTF`
+
+Example (Fabric):
+```
+ByteArrayInputStream in = new ByteArrayInputStream(buf.getWrittenBytes());
+DataInputStream dis = new DataInputStream(in);
+boolean coreprotectRegistered = dis.readBoolean();
+int total = dis.readInt();
+List<String> list = new ArrayList<>();
+for (int i = 0; i < total; i++)
+{
+    list.add(dis.readUTF());
+}
+List<String> actions = list;
+total = dis.readInt();
+list = new ArrayList<>();
+for (int i = 0; i < total; i++)
+{
+    list.add(dis.readUTF());
+}
+List<String> worlds = list;
+String version = dis.readUTF();
+```
+
+### Response Packet
+Sends Responses.
+
+* Channel: `coreprotect:response`
+* Type: `UTF`
+* Message: `UTF`
+
+Example (Fabric):
+```
+ByteArrayInputStream in = new ByteArrayInputStream(buf.getWrittenBytes());
+DataInputStream dis = new DataInputStream(in);
+String type = dis.readUTF();
+String message = dis.readUTF();
+```
 
 ---
 
@@ -82,6 +126,30 @@ DataOutputStream msgOut = new DataOutputStream(msgBytes);
 msgOut.writeUTF(modVersion);
 msgOut.writeUTF(modId);
 msgOut.writeInt(coreprotectProtocol);
+packetByteBuf.writeBytes(msgBytes.toByteArray());
+```
+
+### Input Packet
+Sends input to execute commands on server
+
+* Channel: `coreprotect:input`
+* Command Arguments: `UTF`
+* Total pages to send for lookup: `Int`
+* Amount of Rows for lookup: `Int`
+
+Example of Command Arguments:
+```
+lookup r:world r:15 t:33d #silentchat rows:20
+```
+
+Example (Fabric):
+```
+PacketByteBuf packetByteBuf = new PacketByteBuf(Unpooled.buffer());
+ByteArrayOutputStream msgBytes = new ByteArrayOutputStream();
+DataOutputStream msgOut = new DataOutputStream(msgBytes);
+msgOut.writeUTF(coreProtectSearch.getSearchData());
+msgOut.writeInt(pages);
+msgOut.writeInt(amountRows);
 packetByteBuf.writeBytes(msgBytes.toByteArray());
 ```
 

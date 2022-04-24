@@ -1098,6 +1098,7 @@ public class LookupCommand {
                                     else {
                                         Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.USER_NOT_FOUND, baduser), typeLookupPacket, finalSilent);
                                     }
+                                    Chat.sendPluginChatResponseMessage(player2, Phrase.build(Phrase.LOOKUP_FINISHED), typeLookupPacket);
                                     statement.close();
                                 }
                                 else {

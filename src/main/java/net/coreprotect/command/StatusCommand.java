@@ -1,5 +1,6 @@
 package net.coreprotect.command;
 
+import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.command.CommandSender;
@@ -65,12 +66,9 @@ public class StatusCommand {
                     if (firstVersion.length() > 0) {
                         firstVersion = " (" + Phrase.build(Phrase.FIRST_VERSION, firstVersion) + ")";
                     }
-                    if (Config.getGlobal().MYSQL) {
-                        Chat.sendMessage(player, Color.DARK_AQUA + Phrase.build(Phrase.STATUS_DATABASE, Color.WHITE, "MySQL") + firstVersion);
-                    }
-                    else {
-                        Chat.sendMessage(player, Color.DARK_AQUA + Phrase.build(Phrase.STATUS_DATABASE, Color.WHITE, "SQLite") + firstVersion);
-                    }
+
+                    String typeDatabase = Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT);
+                    Chat.sendMessage(player, Color.DARK_AQUA + Phrase.build(Phrase.STATUS_DATABASE, Color.WHITE, typeDatabase) + firstVersion);
 
                     if (ConfigHandler.worldeditEnabled) {
                         Chat.sendMessage(player, Color.DARK_AQUA + Phrase.build(Phrase.STATUS_INTEGRATION, Color.WHITE, "WorldEdit", Selector.FIRST));

@@ -151,7 +151,7 @@ public class Patch {
         int result = -1;
         patching = true;
 
-        try (Connection connection = Database.getConnection(true, 0)) {
+        try (Connection connection = Database.getConnection(true)) {
             boolean patched = false;
             boolean allPatches = true;
             Statement statement = connection.createStatement();

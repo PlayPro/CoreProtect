@@ -3,6 +3,7 @@ package net.coreprotect.patch.script;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.Locale;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
@@ -12,7 +13,7 @@ public class __2_15_0 {
 
     protected static boolean patch(Statement statement) {
         try {
-            if (Config.getGlobal().MYSQL) {
+            if (!Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
                 statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "chat MODIFY message VARCHAR(1000)");
                 statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "command MODIFY message VARCHAR(1000)");
                 statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "user MODIFY user VARCHAR(100)");
@@ -39,7 +40,7 @@ public class __2_15_0 {
             Database.commitTransaction(statement);
 
             try {
-                if (Config.getGlobal().MYSQL) {
+                if (!Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
                     statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "block MODIFY COLUMN rowid bigint NOT NULL AUTO_INCREMENT, ADD COLUMN blockdata BLOB");
                 }
                 else {

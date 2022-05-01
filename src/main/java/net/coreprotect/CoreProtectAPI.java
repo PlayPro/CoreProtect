@@ -481,7 +481,7 @@ public class CoreProtectAPI extends Queue {
             return null;
         }
 
-        try (Connection connection = Database.getConnection(false, 1000)) {
+        try (Connection connection = Database.getConnection(false)) {
             if (connection != null) {
                 Statement statement = connection.createStatement();
                 boolean restrictWorld = false;

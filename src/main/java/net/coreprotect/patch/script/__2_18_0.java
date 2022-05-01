@@ -3,6 +3,7 @@ package net.coreprotect.patch.script;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.Locale;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -25,7 +26,7 @@ public class __2_18_0 {
         try {
 
             try {
-                if (Config.getGlobal().MYSQL) {
+                if (!Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
                     statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "block ADD COLUMN blockdata BLOB");
                 }
             }
@@ -178,7 +179,7 @@ public class __2_18_0 {
 
             if (createIndexes) {
                 try {
-                    if (Config.getGlobal().MYSQL) {
+                    if (!Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
                         statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "art_map ADD INDEX(id)");
                         statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "entity_map ADD INDEX(id)");
                         statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "material_map ADD INDEX(id)");

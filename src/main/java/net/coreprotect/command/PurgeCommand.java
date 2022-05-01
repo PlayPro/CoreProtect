@@ -8,6 +8,7 @@ import java.sql.ResultSetMetaData;
 import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
@@ -104,7 +105,7 @@ public class PurgeCommand extends Consumer {
 
                     Connection connection = null;
                     for (int i = 0; i <= 5; i++) {
-                        connection = Database.getConnection(false, 500);
+                        connection = Database.getConnection(false);
                         if (connection != null) {
                             break;
                         }
@@ -136,8 +137,9 @@ public class PurgeCommand extends Consumer {
                     PreparedStatement preparedStmt = null;
                     boolean abort = false;
                     String purgePrefix = "tmp_" + ConfigHandler.prefix;
+                    boolean isSqlite = Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite");
 
-                    if (!Config.getGlobal().MYSQL) {
+                    if (isSqlite) {
                         query = "ATTACH DATABASE '" + ConfigHandler.path + ConfigHandler.sqlite + ".tmp' AS tmp_db";
                         preparedStmt = connection.prepareStatement(query);
                         preparedStmt.execute();
@@ -154,7 +156,7 @@ public class PurgeCommand extends Consumer {
                         return;
                     }
 
-                    if (!Config.getGlobal().MYSQL) {
+                    if (isSqlite) {
                         for (String table : ConfigHandler.databaseTables) {
                             try {
                                 query = "DROP TABLE IF EXISTS " + purgePrefix + table + "";
@@ -177,7 +179,7 @@ public class PurgeCommand extends Consumer {
                         String tableName = table.replaceAll("_", " ");
                         Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_PROCESSING, tableName));
 
-                        if (!Config.getGlobal().MYSQL) {
+                        if (isSqlite) {
                             String columns = "";
                             ResultSet rs = connection.createStatement().executeQuery("SELECT * FROM " + purgePrefix + table);
                             ResultSetMetaData resultSetMetaData = rs.getMetaData();
@@ -311,7 +313,7 @@ public class PurgeCommand extends Consumer {
                             }
                         }
 
-                        if (Config.getGlobal().MYSQL) {
+                        if (!isSqlite) {
                             try {
                                 boolean purge = purgeTables.contains(table);
 
@@ -342,7 +344,7 @@ public class PurgeCommand extends Consumer {
                         }
                     }
 
-                    if (Config.getGlobal().MYSQL && optimize) {
+                    if (!isSqlite && optimize) {
                         Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_OPTIMIZING));
                         for (String table : ConfigHandler.databaseTables) {
                             query = "OPTIMIZE LOCAL TABLE " + ConfigHandler.prefix + table + "";
@@ -355,7 +357,7 @@ public class PurgeCommand extends Consumer {
                     connection.close();
 
                     if (abort) {
-                        if (!Config.getGlobal().MYSQL) {
+                        if (isSqlite) {
                             (new File(ConfigHandler.path + ConfigHandler.sqlite + ".tmp")).delete();
                         }
                         ConfigHandler.loadDatabase();
@@ -365,7 +367,7 @@ public class PurgeCommand extends Consumer {
                         return;
                     }
 
-                    if (!Config.getGlobal().MYSQL) {
+                    if (isSqlite) {
                         (new File(ConfigHandler.path + ConfigHandler.sqlite)).delete();
                         (new File(ConfigHandler.path + ConfigHandler.sqlite + ".tmp")).renameTo(new File(ConfigHandler.path + ConfigHandler.sqlite));
                     }

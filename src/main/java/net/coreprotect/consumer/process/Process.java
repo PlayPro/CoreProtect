@@ -68,7 +68,7 @@ public class Process {
     }
 
     protected static void processConsumer(int processId, boolean lastRun) {
-        try (Connection connection = Database.getConnection(false, 500)) {
+        try (Connection connection = Database.getConnection(false)) {
             if (connection == null) {
                 return;
             }

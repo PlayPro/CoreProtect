@@ -51,7 +51,7 @@ public class UserStatement {
 
         try {
             String collate = "";
-            if (!Config.getGlobal().MYSQL) {
+            if (Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
                 collate = " COLLATE NOCASE";
             }
 

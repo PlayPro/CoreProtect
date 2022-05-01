@@ -41,6 +41,7 @@ public class Config extends Language {
     public String MYSQL_USERNAME;
     public String MYSQL_PASSWORD;
     public String LANGUAGE;
+    public String TYPE_DATABASE;
     public boolean ENABLE_AWE;
     public boolean DISABLE_WAL;
     public boolean HOVER_EVENTS;
@@ -85,6 +86,7 @@ public class Config extends Language {
     public boolean PLAYER_COMMANDS;
     public boolean PLAYER_SESSIONS;
     public boolean USERNAME_CHANGES;
+    public boolean USE_SSL;
     public boolean WORLDEDIT;
     public int MYSQL_PORT;
     public int DEFAULT_RADIUS;
@@ -93,12 +95,14 @@ public class Config extends Language {
     static {
         DEFAULT_VALUES.put("donation-key", "");
         DEFAULT_VALUES.put("use-mysql", "false");
+        DEFAULT_VALUES.put("type-database", "sqlite");
         DEFAULT_VALUES.put("table-prefix", "co_");
         DEFAULT_VALUES.put("mysql-host", "127.0.0.1");
         DEFAULT_VALUES.put("mysql-port", "3306");
         DEFAULT_VALUES.put("mysql-database", "database");
         DEFAULT_VALUES.put("mysql-username", "root");
         DEFAULT_VALUES.put("mysql-password", "");
+        DEFAULT_VALUES.put("use-ssl", "false");
         DEFAULT_VALUES.put("language", "en");
         DEFAULT_VALUES.put("check-updates", "true");
         DEFAULT_VALUES.put("api-enabled", "true");
@@ -192,13 +196,14 @@ public class Config extends Language {
         this.EXCLUDE_TNT = this.getBoolean("exclude-tnt", false);
         this.NETWORK_DEBUG = this.getBoolean("network-debug", false);
         this.DONATION_KEY = this.getString("donation-key");
-        this.MYSQL = this.getBoolean("use-mysql");
+        this.TYPE_DATABASE = this.getString("type-database");
         this.PREFIX = this.getString("table-prefix");
         this.MYSQL_HOST = this.getString("mysql-host");
         this.MYSQL_PORT = this.getInt("mysql-port");
         this.MYSQL_DATABASE = this.getString("mysql-database");
         this.MYSQL_USERNAME = this.getString("mysql-username");
         this.MYSQL_PASSWORD = this.getString("mysql-password");
+        this.USE_SSL = this.getBoolean("use-ssl");
         this.LANGUAGE = this.getString("language");
         this.CHECK_UPDATES = this.getBoolean("check-updates");
         this.API_ENABLED = this.getBoolean("api-enabled");

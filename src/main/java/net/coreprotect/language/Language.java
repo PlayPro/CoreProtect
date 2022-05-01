@@ -50,6 +50,7 @@ public class Language {
         phrases.put(Phrase.DATABASE_LOCKED_2, "Database is already in use. Please try again.");
         phrases.put(Phrase.DATABASE_LOCKED_3, "To disable database locking, set \"database-lock: false\".");
         phrases.put(Phrase.DATABASE_LOCKED_4, "Disabling database locking can result in data corruption.");
+        phrases.put(Phrase.DATABASE_UNAVAILABLE, "Unable to connect to {0} server.");
         phrases.put(Phrase.DATABASE_UNREACHABLE, "Database is unreachable. Discarding data and shutting down.");
         phrases.put(Phrase.DEVELOPMENT_BRANCH, "Development branch detected, skipping patch scripts.");
         phrases.put(Phrase.DIRT_BLOCK, "Placed a dirt block under you.");
@@ -153,7 +154,6 @@ public class Language {
         phrases.put(Phrase.MISSING_PARAMETERS, "Please use \"{0}\".");
         phrases.put(Phrase.MISSING_ROLLBACK_RADIUS, "You did not specify a {rollback|restore} radius.");
         phrases.put(Phrase.MISSING_ROLLBACK_USER, "You did not specify a {rollback|restore} user.");
-        phrases.put(Phrase.MYSQL_UNAVAILABLE, "Unable to connect to MySQL server.");
         phrases.put(Phrase.NETWORK_CONNECTION, "Connection by {0} {successful|failed}. Using {1} {2}.");
         phrases.put(Phrase.NETWORK_TEST, "Network test data has been successful sent.");
         phrases.put(Phrase.NO_DATA, "No data found at {0}.");
@@ -224,8 +224,7 @@ public class Language {
         phrases.put(Phrase.UPGRADE_IN_PROGRESS, "Upgrade in progress. Please try again later.");
         phrases.put(Phrase.USER_NOT_FOUND, "User \"{0}\" not found.");
         phrases.put(Phrase.USER_OFFLINE, "The user \"{0}\" is not online.");
-        phrases.put(Phrase.USING_MYSQL, "Using MySQL for data storage.");
-        phrases.put(Phrase.USING_SQLITE, "Using SQLite for data storage.");
+        phrases.put(Phrase.USING_DATABASE, "Using {0} for data storage.");
         phrases.put(Phrase.VALID_DONATION_KEY, "Valid donation key.");
         phrases.put(Phrase.VERSION_NOTICE, "Version {0} is now available.");
         phrases.put(Phrase.VERSION_REQUIRED, "{0} {1} or higher is required.");

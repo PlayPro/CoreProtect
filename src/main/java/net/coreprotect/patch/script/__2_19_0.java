@@ -5,6 +5,7 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import org.bukkit.Material;
 import org.bukkit.Tag;
@@ -22,7 +23,7 @@ public class __2_19_0 {
 
     protected static boolean patch(Statement statement) {
         try {
-            if (Config.getGlobal().MYSQL) {
+            if (!Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
                 try {
                     statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign ADD COLUMN action int");
                     statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign DROP INDEX wid");

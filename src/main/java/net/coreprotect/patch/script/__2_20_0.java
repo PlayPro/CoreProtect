@@ -3,6 +3,7 @@ package net.coreprotect.patch.script;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.Locale;
 
 import org.bukkit.entity.EntityType;
 
@@ -19,7 +20,7 @@ public class __2_20_0 {
 
     protected static boolean patch(Statement statement) {
         try {
-            if (Config.getGlobal().MYSQL) {
+            if (!Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
                 try {
                     statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "command MODIFY message VARCHAR(16000), CONVERT TO CHARACTER SET utf8mb4");
                 }

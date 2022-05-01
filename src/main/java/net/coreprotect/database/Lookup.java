@@ -660,7 +660,7 @@ public class Lookup extends Queue {
             }
 
             String unionSelect = "SELECT * FROM (";
-            if (Config.getGlobal().MYSQL) {
+            if (!Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
                 if (queryTable.equals("block")) {
                     if (includeBlock.length() > 0 || includeEntity.length() > 0) {
                         index = "USE INDEX(type) IGNORE INDEX(user,wid) ";

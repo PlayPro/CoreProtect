@@ -14,7 +14,7 @@ public class __2_11_0 {
 
     protected static boolean patch(Statement statement) {
         try {
-            if (Config.getGlobal().MYSQL) {
+            if (!Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
                 statement.executeUpdate("START TRANSACTION");
             }
             else {
@@ -54,7 +54,7 @@ public class __2_11_0 {
                 }
             }
 
-            if (Config.getGlobal().MYSQL) {
+            if (!Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
                 statement.executeUpdate("COMMIT");
             }
             else {

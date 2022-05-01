@@ -1,6 +1,7 @@
 package net.coreprotect;
 
 import java.io.File;
+import java.util.Locale;
 
 import org.bstats.bukkit.MetricsLite;
 import org.bukkit.Bukkit;
@@ -82,12 +83,8 @@ public final class CoreProtect extends JavaPlugin {
         if (start) {
             PluginDescriptionFile pluginDescription = this.getDescription();
             Util.sendConsoleComponentStartup(Bukkit.getServer().getConsoleSender(), Phrase.build(Phrase.ENABLE_SUCCESS, ConfigHandler.EDITION_NAME));
-            if (Config.getGlobal().MYSQL) {
-                Chat.console(Phrase.build(Phrase.USING_MYSQL));
-            }
-            else {
-                Chat.console(Phrase.build(Phrase.USING_SQLITE));
-            }
+            String typeDatabase = Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT);
+            Chat.console(Phrase.build(Phrase.USING_DATABASE, typeDatabase));
 
             Chat.console("--------------------");
             Chat.console(Phrase.build(Phrase.ENJOY_COREPROTECT, pluginDescription.getName()));

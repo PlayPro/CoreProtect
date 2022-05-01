@@ -1,7 +1,6 @@
 package net.coreprotect.database;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -47,7 +46,7 @@ public class Database extends Queue {
         Consumer.transacting = true;
 
         try {
-            if (Config.getGlobal().MYSQL) {
+            if (!Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
                 statement.executeUpdate("START TRANSACTION");
             }
             else {
@@ -64,7 +63,7 @@ public class Database extends Queue {
 
         while (true) {
             try {
-                if (Config.getGlobal().MYSQL) {
+                if (!Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
                     statement.executeUpdate("COMMIT");
                 }
                 else {
@@ -90,7 +89,7 @@ public class Database extends Queue {
     }
 
     public static void performCheckpoint(Statement statement) throws SQLException {
-        if (!Config.getGlobal().MYSQL) {
+        if (Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
             statement.executeUpdate("PRAGMA wal_checkpoint(TRUNCATE)");
         }
     }
@@ -127,52 +126,21 @@ public class Database extends Queue {
         }
     }
 
-    public static Connection getConnection(boolean onlyCheckTransacting) {
-        // Previously 250ms; long consumer commit time may be due to batching
-        // TODO: Investigate, potentially remove batching for SQLite connections
-        return getConnection(false, false, onlyCheckTransacting, 1000);
-    }
-
-    public static Connection getConnection(boolean force, int waitTime) {
-        return getConnection(force, false, false, waitTime);
-    }
-
-    public static Connection getConnection(boolean force, boolean startup, boolean onlyCheckTransacting, int waitTime) {
+    public static Connection getConnection(boolean force) {
         Connection connection = null;
         try {
             if (!force && (ConfigHandler.converterRunning || ConfigHandler.purgeRunning)) {
                 return connection;
             }
-            if (Config.getGlobal().MYSQL) {
-                try {
-                    connection = ConfigHandler.hikariDataSource.getConnection();
-                    ConfigHandler.databaseReachable = true;
-                }
-                catch (Exception e) {
-                    ConfigHandler.databaseReachable = false;
-                    Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.MYSQL_UNAVAILABLE));
-                    e.printStackTrace();
-                }
-            }
-            else {
-                if (Consumer.transacting && onlyCheckTransacting) {
-                    Consumer.interrupt = true;
-                }
-
-                long startTime = System.nanoTime();
-                while (Consumer.isPaused && !force && (Consumer.transacting || !onlyCheckTransacting)) {
-                    Thread.sleep(1);
-                    long pauseTime = (System.nanoTime() - startTime) / 1000000;
-
-                    if (pauseTime >= waitTime) {
-                        return connection;
-                    }
-                }
-
-                String database = "jdbc:sqlite:" + ConfigHandler.path + ConfigHandler.sqlite + "";
-                connection = DriverManager.getConnection(database);
-
+            try {
+                connection = ConfigHandler.hikariDataSource.getConnection();
                 ConfigHandler.databaseReachable = true;
+            }
+            catch (Exception e) {
+                ConfigHandler.databaseReachable = false;
+                String databaseType = Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT);
+                Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.DATABASE_UNAVAILABLE, databaseType));
+                e.printStackTrace();
             }
         }
         catch (Exception e) {
@@ -301,7 +269,7 @@ public class Database extends Queue {
 
     private static void initializeTables(String prefix, Statement statement) {
         try {
-            if (!Config.getGlobal().MYSQL) {
+            if (Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
                 if (!Config.getGlobal().DISABLE_WAL) {
                     statement.executeUpdate("PRAGMA journal_mode=WAL;");
                 }
@@ -333,11 +301,11 @@ public class Database extends Queue {
         ConfigHandler.databaseTables.clear();
         ConfigHandler.databaseTables.addAll(Arrays.asList("art_map", "block", "chat", "command", "container", "item", "database_lock", "entity", "entity_map", "material_map", "blockdata_map", "session", "sign", "skull", "user", "username_log", "version", "world"));
 
-        if (Config.getGlobal().MYSQL) {
+        if (!Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
             boolean success = false;
-            try (Connection connection = Database.getConnection(true, true, true, 0)) {
+            try (Connection connection = Database.getConnection(true)) {
                 if (connection != null) {
-                    String index = "";
+                    String index;
                     Statement statement = connection.createStatement();
                     index = ", INDEX(id)";
                     statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "art_map(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,art varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
@@ -382,11 +350,11 @@ public class Database extends Queue {
                 e.printStackTrace();
             }
             if (!success) {
-                Config.getGlobal().MYSQL = false;
+                Config.getGlobal().TYPE_DATABASE = "sqlite";
             }
         }
-        if (!Config.getGlobal().MYSQL) {
-            try (Connection connection = Database.getConnection(true, 0)) {
+        if (Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
+            try (Connection connection = Database.getConnection(true)) {
                 Statement statement = connection.createStatement();
                 List<String> tableData = new ArrayList<>();
                 List<String> indexData = new ArrayList<>();

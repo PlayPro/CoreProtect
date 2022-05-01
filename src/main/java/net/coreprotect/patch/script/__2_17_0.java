@@ -1,6 +1,7 @@
 package net.coreprotect.patch.script;
 
 import java.sql.Statement;
+import java.util.Locale;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
@@ -9,7 +10,7 @@ public class __2_17_0 {
 
     protected static boolean patch(Statement statement) {
         try {
-            if (Config.getGlobal().MYSQL) {
+            if (!Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
                 statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign ADD COLUMN color int");
             }
             else {

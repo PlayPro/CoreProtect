@@ -26,7 +26,7 @@ public class SessionLookup {
             return result;
         }
 
-        try (Connection connection = Database.getConnection(false, 1000)) {
+        try (Connection connection = Database.getConnection(false)) {
             if (connection == null || user == null) {
                 return result;
             }

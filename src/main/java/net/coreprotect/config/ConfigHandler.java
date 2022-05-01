@@ -164,7 +164,7 @@ public class ConfigHandler extends Queue {
             ConfigFile.init(ConfigFile.LANGUAGE_CACHE); // load translation cache
 
             // Enforce "co_" table prefix if using SQLite.
-            if (!Config.getGlobal().MYSQL) {
+            if (Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
                 Config.getGlobal().PREFIX = "co_";
             }
 
@@ -186,67 +186,53 @@ public class ConfigHandler extends Queue {
         // close old pool when we reload the database, e.g. in purge command
         Database.closeConnection();
 
-        if (!Config.getGlobal().MYSQL) {
-            try {
-                File tempFile = File.createTempFile("CoreProtect_" + System.currentTimeMillis(), ".tmp");
-                tempFile.setExecutable(true);
-
-                boolean canExecute = false;
-                try {
-                    canExecute = tempFile.canExecute();
-                }
-                catch (Exception exception) {
-                    // execute access denied by security manager
-                }
-
-                if (!canExecute) {
-                    File tempFolder = new File("cache");
-                    boolean exists = tempFolder.exists();
-                    if (!exists) {
-                        tempFolder.mkdir();
-                    }
-                    System.setProperty("java.io.tmpdir", "cache");
-                }
-
-                tempFile.delete();
-
-                Class.forName("org.sqlite.JDBC");
-            }
-            catch (Exception e) {
-                e.printStackTrace();
-            }
+        HikariConfig config = new HikariConfig();
+        String driver = "";
+        String url = "";
+        String typeDatabase = Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT);
+        switch (typeDatabase) {
+            case "mysql":
+                driver = "com.mysql.jdbc.Driver";
+                url = "//" + ConfigHandler.host + ":" + ConfigHandler.port + "/" + ConfigHandler.database;
+                config.setUsername(ConfigHandler.username);
+                config.setPassword(ConfigHandler.password);
+                break;
+            case "postgresql":
+                driver = "org.postgresql.ds.PGSimpleDataSource";
+                config.setUsername(ConfigHandler.username);
+                config.setPassword(ConfigHandler.password);
+                break;
+            default:
+                driver = "org.sqlite.JDBC";
+                url = ConfigHandler.path + ConfigHandler.sqlite;
+                break;
         }
-        else {
-            HikariConfig config = new HikariConfig();
-            try {
-                Class.forName("com.mysql.cj.jdbc.Driver");
-                config.setDriverClassName("com.mysql.cj.jdbc.Driver");
-            }
-            catch (Exception e) {
-                config.setDriverClassName("com.mysql.jdbc.Driver");
-            }
-
-            config.setJdbcUrl("jdbc:mysql://" + ConfigHandler.host + ":" + ConfigHandler.port + "/" + ConfigHandler.database);
-            config.setUsername(ConfigHandler.username);
-            config.setPassword(ConfigHandler.password);
-            config.addDataSourceProperty("characterEncoding", "UTF-8");
-            config.addDataSourceProperty("connectionTimeout", "10000");
-            /* https://github.com/brettwooldridge/HikariCP/wiki/MySQL-Configuration */
-            /* https://cdn.oreillystatic.com/en/assets/1/event/21/Connector_J%20Performance%20Gems%20Presentation.pdf */
-            config.addDataSourceProperty("cachePrepStmts", "true");
-            config.addDataSourceProperty("prepStmtCacheSize", "250");
-            config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
-            config.addDataSourceProperty("useServerPrepStmts", "true");
-            config.addDataSourceProperty("useLocalSessionState", "true");
-            config.addDataSourceProperty("rewriteBatchedStatements", "true");
-            config.addDataSourceProperty("cacheServerConfiguration", "true");
-            config.addDataSourceProperty("maintainTimeStats", "false");
-            /* Disable SSL to suppress the unverified server identity warning */
-            config.addDataSourceProperty("allowPublicKeyRetrieval", "true");
-            config.addDataSourceProperty("useSSL", "false");
-
-            ConfigHandler.hikariDataSource = new HikariDataSource(config);
+        try {
+            Class.forName(driver);
+            config.setDriverClassName(driver);
         }
+        catch (Exception e) {
+            config.setDriverClassName(driver);
+        }
+
+        config.setJdbcUrl("jdbc:" + typeDatabase + ":" + url);
+        config.addDataSourceProperty("characterEncoding", "UTF-8");
+        config.addDataSourceProperty("connectionTimeout", "10000");
+        /* https://github.com/brettwooldridge/HikariCP/wiki/MySQL-Configuration */
+        /* https://cdn.oreillystatic.com/en/assets/1/event/21/Connector_J%20Performance%20Gems%20Presentation.pdf */
+        config.addDataSourceProperty("cachePrepStmts", "true");
+        config.addDataSourceProperty("prepStmtCacheSize", "250");
+        config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+        config.addDataSourceProperty("useServerPrepStmts", "true");
+        config.addDataSourceProperty("useLocalSessionState", "true");
+        config.addDataSourceProperty("rewriteBatchedStatements", "true");
+        config.addDataSourceProperty("cacheServerConfiguration", "true");
+        config.addDataSourceProperty("maintainTimeStats", "false");
+        /* Disable SSL to suppress the unverified server identity warning */
+        config.addDataSourceProperty("allowPublicKeyRetrieval", "true");
+        config.addDataSourceProperty("useSSL", Config.getGlobal().USE_SSL);
+
+        ConfigHandler.hikariDataSource = new HikariDataSource(config);
 
         Database.createDatabaseTables(ConfigHandler.prefix, false);
     }
@@ -418,7 +404,7 @@ public class ConfigHandler extends Queue {
             e.printStackTrace();
         }
 
-        try (Connection connection = Database.getConnection(true, 0)) {
+        try (Connection connection = Database.getConnection(true)) {
             Statement statement = connection.createStatement();
 
             ConfigHandler.checkPlayers(connection);

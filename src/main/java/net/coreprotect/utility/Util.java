@@ -1494,8 +1494,8 @@ public class Util extends Queue {
 
     public static String getWidIndex(String queryTable) {
         String index = "";
-        boolean isMySQL = Config.getGlobal().MYSQL;
-        if (isMySQL) {
+        boolean isSqlite = Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite");
+        if (!isSqlite) {
             index = "USE INDEX(wid) ";
         }
         else {

@@ -18,7 +18,7 @@ public class BlockAPI {
     public static List<String[]> performLookup(Block block, int offset) {
         List<String[]> result = new ArrayList<>();
 
-        try (Connection connection = Database.getConnection(false, 1000)) {
+        try (Connection connection = Database.getConnection(false)) {
             if (block == null) {
                 return result;
             }

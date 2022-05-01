@@ -346,7 +346,7 @@ public class RollbackRestoreCommand {
                         class BasicThread2 implements Runnable {
                             @Override
                             public void run() {
-                                try (Connection connection = Database.getConnection(false, 1000)) {
+                                try (Connection connection = Database.getConnection(false)) {
                                     ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
                                     int action = finalAction;
                                     Location location = locationFinal;

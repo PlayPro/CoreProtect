@@ -183,15 +183,15 @@ public class Database extends Queue {
     public static PreparedStatement prepareStatement(Connection connection, int type, boolean keys) {
         PreparedStatement preparedStatement = null;
         try {
-            String signInsert = "INSERT INTO " + ConfigHandler.prefix + "sign (time, user, wid, x, y, z, action, color, data, line_1, line_2, line_3, line_4) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            String blockInsert = "INSERT INTO " + ConfigHandler.prefix + "block (time, user, wid, x, y, z, type, data, meta, blockdata, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            String signInsert = "INSERT INTO " + ConfigHandler.prefix + "sign (time, `user`, wid, x, y, z, action, color, data, line_1, line_2, line_3, line_4) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            String blockInsert = "INSERT INTO " + ConfigHandler.prefix + "block (time, `user`, wid, x, y, z, type, data, meta, blockdata, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             String skullInsert = "INSERT INTO " + ConfigHandler.prefix + "skull (time, owner) VALUES (?, ?)";
-            String containerInsert = "INSERT INTO " + ConfigHandler.prefix + "container (time, user, wid, x, y, z, type, data, amount, metadata, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            String itemInsert = "INSERT INTO " + ConfigHandler.prefix + "item (time, user, wid, x, y, z, type, data, amount, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            String containerInsert = "INSERT INTO " + ConfigHandler.prefix + "container (time, `user`, wid, x, y, z, type, data, amount, metadata, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            String itemInsert = "INSERT INTO " + ConfigHandler.prefix + "item (time, `user`, wid, x, y, z, type, data, amount, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             String worldInsert = "INSERT INTO " + ConfigHandler.prefix + "world (id, world) VALUES (?, ?)";
-            String chatInsert = "INSERT INTO " + ConfigHandler.prefix + "chat (time, user, wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)";
-            String commandInsert = "INSERT INTO " + ConfigHandler.prefix + "command (time, user, wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)";
-            String sessionInsert = "INSERT INTO " + ConfigHandler.prefix + "session (time, user, wid, x, y, z, action) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            String chatInsert = "INSERT INTO " + ConfigHandler.prefix + "chat (time, `user`, wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            String commandInsert = "INSERT INTO " + ConfigHandler.prefix + "command (time, `user`, wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            String sessionInsert = "INSERT INTO " + ConfigHandler.prefix + "session (time, `user`, wid, x, y, z, action) VALUES (?, ?, ?, ?, ?, ?, ?)";
             String entityInsert = "INSERT INTO " + ConfigHandler.prefix + "entity (time, data) VALUES (?, ?)";
             String materialInsert = "INSERT INTO " + ConfigHandler.prefix + "material_map (id, material) VALUES (?, ?)";
             String artInsert = "INSERT INTO " + ConfigHandler.prefix + "art_map (id, art) VALUES (?, ?)";
@@ -252,6 +252,7 @@ public class Database extends Queue {
 
     private static PreparedStatement prepareStatement(Connection connection, String query, boolean keys) {
         PreparedStatement preparedStatement = null;
+        query = setCorrectQueryFormat(query);
         try {
             if (keys) {
                 preparedStatement = connection.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);
@@ -265,6 +266,72 @@ public class Database extends Queue {
         }
 
         return preparedStatement;
+    }
+
+    public static String getAutoIncrement(boolean isBigInt) {
+        boolean isMysql = Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("mysql");
+        if (isMysql)
+        {
+            String autoincrement = isBigInt ? "bigint" : "int";
+            autoincrement += " NOT NULL AUTO_INCREMENT";
+            return autoincrement;
+        }
+
+        return isBigInt ? "BIGSERIAL" : "SERIAL";
+    }
+
+    public static void sendQueryWithIndex(Statement statement, String query, String tableName, String index, String extraTableInfo) throws SQLException
+    {
+        boolean isMysql = Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("mysql");
+        String tempIndex = isMysql ? index : "";
+
+        String executeQuery = String.format(query, tableName, tempIndex);
+        Chat.console(executeQuery);
+        executeQuery = executeQuery.replace("extrainfo", "%s");
+        sendQueryWithoutIndex(statement, executeQuery, extraTableInfo, false);
+        if (!isMysql) {
+            index = index.replaceFirst(", ", "");
+            String[] indexes = index.split(", ");
+            for (String actualIndex : indexes) {
+                String indexName = actualIndex.replaceAll("\\(", "_");
+                indexName = indexName.replaceAll("`", "");
+                indexName = indexName.replaceAll(",", "_");
+                indexName = indexName.replace(")", "");
+                indexName = indexName + "_" + tableName;
+                actualIndex = actualIndex.replace("INDEX", "");
+                actualIndex = actualIndex.replaceAll("`", "\"");
+                String indexQuery = "CREATE INDEX IF NOT EXISTS " + indexName + " ON " + tableName + " " + actualIndex;
+                Chat.console(indexQuery);
+                statement.executeUpdate(indexQuery);
+            }
+        }
+    }
+
+    public static ResultSet sendQueryWithoutIndex(Statement statement, String query, String extraInfo, boolean isQuery) throws SQLException
+    {
+        boolean isPostGres = Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("postgresql");
+        query = setCorrectQueryFormat(query);
+        if (!extraInfo.isEmpty()) {
+            query = String.format(query, !isPostGres ? extraInfo : "");
+        }
+        Chat.console(query);
+        if (isQuery) {
+            return statement.executeQuery(query);
+        }
+        statement.executeUpdate(query);
+        return null;
+    }
+
+    public static String setCorrectQueryFormat(String query) {
+        boolean isPostGres = Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("postgresql");
+        if (!isPostGres) {
+            return query;
+        }
+        query = query.replaceAll("`", "\"");
+        query = query.replaceAll("mediumblob|blob|BLOB", "BYTEA");
+        query = query.replaceAll("tinyint|TINYINT", "SMALLINT");
+        query = query.replaceAll("int\\(\\d+\\)", "int");
+        return query;
     }
 
     private static void initializeTables(String prefix, Statement statement) {
@@ -301,44 +368,59 @@ public class Database extends Queue {
         ConfigHandler.databaseTables.clear();
         ConfigHandler.databaseTables.addAll(Arrays.asList("art_map", "block", "chat", "command", "container", "item", "database_lock", "entity", "entity_map", "material_map", "blockdata_map", "session", "sign", "skull", "user", "username_log", "version", "world"));
 
-        if (!Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
+        String databaseType = Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT);
+        if (!databaseType.equals("sqlite")) {
             boolean success = false;
             try (Connection connection = Database.getConnection(true)) {
                 if (connection != null) {
                     String index;
                     Statement statement = connection.createStatement();
                     index = ", INDEX(id)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "art_map(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,art varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(type,time)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "block(rowid bigint NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, wid int, x int, y int, z int, type int, data int, meta mediumblob, blockdata blob, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    index = ", INDEX(time), INDEX(user,time), INDEX(wid,x,z,time)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "chat(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int (3), z int, message varchar(16000)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    index = ", INDEX(time), INDEX(user,time), INDEX(wid,x,z,time)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "command(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int (3), z int, message varchar(16000)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(type,time)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "container(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, wid int, x int, y int, z int, type int, data int, amount int, metadata blob, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(type,time)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "item(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, wid int, x int, y int, z int, type int, data blob, amount int, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "database_lock(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),status tinyint,time int) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, data blob) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+                    String query = "CREATE TABLE IF NOT EXISTS %s(rowid " + getAutoIncrement(false) + ",PRIMARY KEY(rowid),id int,art varchar(255)%s)extrainfo";
+                    sendQueryWithIndex(statement, query,prefix + "art_map", index, " ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+                    index = ", INDEX(wid,x,z,time), INDEX(`user`,time), INDEX(type,time)";
+                    query = "CREATE TABLE IF NOT EXISTS %s(rowid " + getAutoIncrement(true) + ",PRIMARY KEY(rowid), time int, `user` int, wid int, x int, y int, z int, type int, data int, meta mediumblob, blockdata blob, action tinyint, rolled_back tinyint%s)extrainfo";
+                    sendQueryWithIndex(statement, query, prefix + "block", index, " ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+                    index = ", INDEX(time), INDEX(`user`,time), INDEX(wid,x,z,time)";
+                    query = "CREATE TABLE IF NOT EXISTS %s(rowid " + getAutoIncrement(false) + ",PRIMARY KEY(rowid),time int, `user` int, wid int, x int, y int(3), z int, message varchar(16000)%s)extrainfo";
+                    sendQueryWithIndex(statement, query, prefix + "chat", index, " ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+                    index = ", INDEX(time), INDEX(`user`,time), INDEX(wid,x,z,time)";
+                    query = "CREATE TABLE IF NOT EXISTS %s(rowid " + getAutoIncrement(false) + ",PRIMARY KEY(rowid),time int, `user` int, wid int, x int, y int(3), z int, message varchar(16000)%s)extrainfo";
+                    sendQueryWithIndex(statement, query, prefix + "command", index, " ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+                    index = ", INDEX(wid,x,z,time), INDEX(`user`,time), INDEX(type,time)";
+                    query = "CREATE TABLE IF NOT EXISTS %s(rowid " + getAutoIncrement(false) + ",PRIMARY KEY(rowid), time int, `user` int, wid int, x int, y int, z int, type int, data int, amount int, metadata blob, action tinyint, rolled_back tinyint%s)extrainfo";
+                    sendQueryWithIndex(statement, query, prefix + "container", index, " ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+                    index = ", INDEX(wid,x,z,time), INDEX(`user`,time), INDEX(type,time)";
+                    query = "CREATE TABLE IF NOT EXISTS %s(rowid " + getAutoIncrement(false) + ",PRIMARY KEY(rowid), time int, `user` int, wid int, x int, y int, z int, type int, data blob, amount int, action tinyint, rolled_back tinyint%s)extrainfo";
+                    sendQueryWithIndex(statement, query, prefix + "item", index, " ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+                    sendQueryWithoutIndex(statement, "CREATE TABLE IF NOT EXISTS " + prefix + "database_lock(rowid " + getAutoIncrement(false) + ",PRIMARY KEY(rowid),status tinyint,time int)", " ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4", false);
+                    sendQueryWithoutIndex(statement, "CREATE TABLE IF NOT EXISTS " + prefix + "entity(rowid " + getAutoIncrement(false) + ",PRIMARY KEY(rowid), time int, data blob)", " ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4", false);
                     index = ", INDEX(id)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_map(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,entity varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+                    query = "CREATE TABLE IF NOT EXISTS %s(rowid " + getAutoIncrement(false) + ",PRIMARY KEY(rowid),id int,entity varchar(255)%s)extrainfo";
+                    sendQueryWithIndex(statement, query, prefix + "entity_map", index, " ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
                     index = ", INDEX(id)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "material_map(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,material varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+                    query = "CREATE TABLE IF NOT EXISTS %s(rowid " + getAutoIncrement(false) + ",PRIMARY KEY(rowid),id int,material varchar(255)%s)extrainfo";
+                    sendQueryWithIndex(statement, query, prefix + "material_map", index, " ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
                     index = ", INDEX(id)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "blockdata_map(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,data varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    index = ", INDEX(wid,x,z,time), INDEX(action,time), INDEX(user,time), INDEX(time)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "session(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int (3), z int, action tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(time)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "sign(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int, z int, action tinyint, color int, data tinyint, line_1 varchar(100), line_2 varchar(100), line_3 varchar(100), line_4 varchar(100)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "skull(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, owner varchar(64)) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    index = ", INDEX(user), INDEX(uuid)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "user(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int,user varchar(100),uuid varchar(64)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    index = ", INDEX(uuid,user)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "username_log(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int,uuid varchar(64),user varchar(100)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "version(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int,version varchar(16)) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+                    query = "CREATE TABLE IF NOT EXISTS %s(rowid " + getAutoIncrement(false) + ",PRIMARY KEY(rowid),id int,data varchar(255)%s)extrainfo";
+                    sendQueryWithIndex(statement, query, prefix + "blockdata_map", index, " ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+                    index = ", INDEX(wid,x,z,time), INDEX(action,time), INDEX(`user`,time), INDEX(time)";
+                    query = "CREATE TABLE IF NOT EXISTS %s(rowid " + getAutoIncrement(false) + ",PRIMARY KEY(rowid),time int, `user` int, wid int, x int, y int(3), z int, action tinyint%s)extrainfo";
+                    sendQueryWithIndex(statement, query, prefix + "session", index, " ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+                    index = ", INDEX(wid,x,z,time), INDEX(`user`,time), INDEX(time)";
+                    query = "CREATE TABLE IF NOT EXISTS %s(rowid " + getAutoIncrement(false) + ",PRIMARY KEY(rowid),time int, `user` int, wid int, x int, y int, z int, action tinyint, color int, data tinyint, line_1 varchar(100), line_2 varchar(100), line_3 varchar(100), line_4 varchar(100)%s)extrainfo";
+                    sendQueryWithIndex(statement, query, prefix + "sign", index, " ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+                    sendQueryWithoutIndex(statement, "CREATE TABLE IF NOT EXISTS " + prefix + "skull(rowid " + getAutoIncrement(false) + ",PRIMARY KEY(rowid), time int, owner varchar(64))", " ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4", false);
+                    index = ", INDEX(`user`), INDEX(uuid)";
+                    query = "CREATE TABLE IF NOT EXISTS %s(rowid " + getAutoIncrement(false) + ",PRIMARY KEY(rowid),time int,`user` varchar(100),uuid varchar(64)%s)extrainfo";
+                    sendQueryWithIndex(statement, query, prefix + "user", index, " ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+                    index = ", INDEX(uuid,`user`)";
+                    query = "CREATE TABLE IF NOT EXISTS %s(rowid " + getAutoIncrement(false) + ",PRIMARY KEY(rowid),time int,uuid varchar(64),`user` varchar(100)%s)extrainfo";
+                    sendQueryWithIndex(statement, query, prefix + "username_log", index, " ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+                    sendQueryWithoutIndex(statement, "CREATE TABLE IF NOT EXISTS " + prefix + "version(rowid " + getAutoIncrement(false) + ",PRIMARY KEY(rowid),time int,version varchar(16))", " ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4", false);
                     index = ", INDEX(id)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "world(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,world varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+                    query = "CREATE TABLE IF NOT EXISTS %s(rowid " + getAutoIncrement(false) + ",PRIMARY KEY(rowid),id int,world varchar(255)%s)extrainfo";
+                    sendQueryWithIndex(statement, query, prefix + "world", index, " ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
                     if (!purge) {
                         initializeTables(prefix, statement);
                     }
@@ -351,6 +433,8 @@ public class Database extends Queue {
             }
             if (!success) {
                 Config.getGlobal().TYPE_DATABASE = "sqlite";
+                Database.closeConnection();
+                ConfigHandler.loadDatabase(false);
             }
         }
         if (Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {

@@ -73,8 +73,10 @@ public class __2_16_0 {
                 return false;
             }
 
-            String query = "SELECT rowid as id, user FROM " + ConfigHandler.prefix + "user WHERE uuid IS NULL";
-            String preparedQuerySelect = "SELECT EXISTS (SELECT user FROM " + ConfigHandler.prefix + "session WHERE user = ?) OR EXISTS (SELECT user FROM " + ConfigHandler.prefix + "container WHERE user = ?) OR EXISTS (SELECT user FROM " + ConfigHandler.prefix + "command WHERE user = ?) OR EXISTS (SELECT user FROM " + ConfigHandler.prefix + "chat WHERE user = ?) OR EXISTS (SELECT user FROM " + ConfigHandler.prefix + "block WHERE user = ?) as userExists";
+            String query = "SELECT rowid as id, `user` FROM " + ConfigHandler.prefix + "user WHERE uuid IS NULL";
+            query = Database.setCorrectQueryFormat(query);
+            String preparedQuerySelect = "SELECT EXISTS (SELECT `user` FROM " + ConfigHandler.prefix + "session WHERE `user` = ?) OR EXISTS (SELECT `user` FROM " + ConfigHandler.prefix + "container WHERE `user` = ?) OR EXISTS (SELECT `user` FROM " + ConfigHandler.prefix + "command WHERE `user` = ?) OR EXISTS (SELECT `user` FROM " + ConfigHandler.prefix + "chat WHERE `user` = ?) OR EXISTS (SELECT user `FROM` " + ConfigHandler.prefix + "block WHERE `user` = ?) as userExists";
+            preparedQuerySelect = Database.setCorrectQueryFormat(preparedQuerySelect);
             String preparedQueryDelete = "DELETE FROM " + ConfigHandler.prefix + "user WHERE rowid = ?";
             PreparedStatement preparedStatementSelect = statement.getConnection().prepareStatement(preparedQuerySelect);
             PreparedStatement preparedStatementDelete = statement.getConnection().prepareStatement(preparedQueryDelete);

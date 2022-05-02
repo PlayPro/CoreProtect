@@ -182,14 +182,20 @@ public class ConfigHandler extends Queue {
         }
     }
 
-    public static void loadDatabase() {
+    public static void loadDatabase(boolean purge) {
         // close old pool when we reload the database, e.g. in purge command
         Database.closeConnection();
+
+        String typeDatabase = Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT);
+        if (purge && typeDatabase.equals("sqlite")) {
+            (new File(ConfigHandler.path + ConfigHandler.sqlite)).delete();
+            (new File(ConfigHandler.path + ConfigHandler.sqlite + ".tmp")).renameTo(new File(ConfigHandler.path + ConfigHandler.sqlite));
+        }
 
         HikariConfig config = new HikariConfig();
         String driver = "";
         String url = "";
-        String typeDatabase = Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT);
+
         switch (typeDatabase) {
             case "mysql":
                 driver = "com.mysql.jdbc.Driver";
@@ -198,7 +204,8 @@ public class ConfigHandler extends Queue {
                 config.setPassword(ConfigHandler.password);
                 break;
             case "postgresql":
-                driver = "org.postgresql.ds.PGSimpleDataSource";
+                driver = "org.postgresql.Driver";
+                url = "//" + ConfigHandler.host + ":" + ConfigHandler.port + "/" + ConfigHandler.database;
                 config.setUsername(ConfigHandler.username);
                 config.setPassword(ConfigHandler.password);
                 break;
@@ -232,7 +239,14 @@ public class ConfigHandler extends Queue {
         config.addDataSourceProperty("allowPublicKeyRetrieval", "true");
         config.addDataSourceProperty("useSSL", Config.getGlobal().USE_SSL);
 
-        ConfigHandler.hikariDataSource = new HikariDataSource(config);
+        try
+        {
+            ConfigHandler.hikariDataSource = new HikariDataSource(config);
+        } catch (Exception e) {
+            e.printStackTrace();
+            Config.getGlobal().TYPE_DATABASE = "sqlite";
+            loadDatabase(false);
+        }
 
         Database.createDatabaseTables(ConfigHandler.prefix, false);
     }
@@ -397,7 +411,7 @@ public class ConfigHandler extends Queue {
             BlockGroup.initialize();
 
             ConfigHandler.loadConfig(); // Load (or create) the configuration file.
-            ConfigHandler.loadDatabase(); // Initialize MySQL and create tables if necessary.
+            ConfigHandler.loadDatabase(false); // Initialize MySQL and create tables if necessary.
             ListenerHandler.registerNetworking(); // Register channels for networking API
         }
         catch (Exception e) {

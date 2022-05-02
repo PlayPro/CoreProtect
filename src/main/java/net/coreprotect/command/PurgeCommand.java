@@ -281,7 +281,7 @@ public class PurgeCommand extends Consumer {
                             if (purgeTables.contains(table)) {
                                 int oldCount = 0;
                                 try {
-                                    query = "SELECT COUNT(*) as count FROM " + ConfigHandler.prefix + table + " LIMIT 0, 1";
+                                    query = "SELECT COUNT(*) as count FROM " + ConfigHandler.prefix + table + " OFFSET 0 LIMIT 1";
                                     preparedStmt = connection.prepareStatement(query);
                                     ResultSet resultSet = preparedStmt.executeQuery();
                                     while (resultSet.next()) {
@@ -296,7 +296,7 @@ public class PurgeCommand extends Consumer {
 
                                 int new_count = 0;
                                 try {
-                                    query = "SELECT COUNT(*) as count FROM " + purgePrefix + table + " LIMIT 0, 1";
+                                    query = "SELECT COUNT(*) as count FROM " + purgePrefix + table + " OFFSET 0 LIMIT 1";
                                     preparedStmt = connection.prepareStatement(query);
                                     ResultSet resultSet = preparedStmt.executeQuery();
                                     while (resultSet.next()) {
@@ -360,19 +360,14 @@ public class PurgeCommand extends Consumer {
                         if (isSqlite) {
                             (new File(ConfigHandler.path + ConfigHandler.sqlite + ".tmp")).delete();
                         }
-                        ConfigHandler.loadDatabase();
+                        ConfigHandler.loadDatabase(false);
                         Chat.sendGlobalMessage(player, Color.RED + Phrase.build(Phrase.PURGE_ABORTED));
                         Consumer.isPaused = false;
                         ConfigHandler.purgeRunning = false;
                         return;
                     }
 
-                    if (isSqlite) {
-                        (new File(ConfigHandler.path + ConfigHandler.sqlite)).delete();
-                        (new File(ConfigHandler.path + ConfigHandler.sqlite + ".tmp")).renameTo(new File(ConfigHandler.path + ConfigHandler.sqlite));
-                    }
-
-                    ConfigHandler.loadDatabase();
+                    ConfigHandler.loadDatabase(true);
 
                     Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_SUCCESS));
                     Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_ROWS, NumberFormat.getInstance().format(removed), (removed == 1 ? Selector.FIRST : Selector.SECOND)));

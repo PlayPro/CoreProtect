@@ -13,7 +13,7 @@ class EntityInsertProcess {
 
     static void process(PreparedStatement preparedStmt, Statement statement, int batchCount, Object name, int materialId) {
         if (name instanceof String) {
-            String query = "SELECT id FROM " + ConfigHandler.prefix + "entity_map WHERE id = '" + materialId + "' LIMIT 0, 1";
+            String query = "SELECT id FROM " + ConfigHandler.prefix + "entity_map WHERE id = '" + materialId + "' OFFSET 0 LIMIT 1";
             boolean hasMaterial = MaterialStatement.hasMaterial(statement, query);
             if (!hasMaterial) {
                 MaterialStatement.insert(preparedStmt, batchCount, materialId, (String) name);

@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import net.coreprotect.utility.Chat;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -576,11 +577,11 @@ public class Lookup extends Queue {
             }
 
             if (users.length() > 0) {
-                queryBlock = queryBlock + " user IN(" + users + ") AND";
+                queryBlock = queryBlock + " `user` IN(" + users + ") AND";
             }
 
             if (excludeUsers.length() > 0) {
-                queryBlock = queryBlock + " user NOT IN(" + excludeUsers + ") AND";
+                queryBlock = queryBlock + " `user` NOT IN(" + excludeUsers + ") AND";
             }
 
             if (startTime > 0) {
@@ -613,20 +614,20 @@ public class Lookup extends Queue {
 
             String baseQuery = ((!includeEntity.isEmpty() || !excludeEntity.isEmpty()) ? queryEntity : queryBlock);
             if (limitOffset > -1 && limitCount > -1) {
-                queryLimit = " LIMIT " + limitOffset + ", " + limitCount + "";
+                queryLimit = " OFFSET " + limitOffset + " LIMIT " + limitCount + "";
                 unionLimit = " ORDER BY time DESC, id DESC LIMIT " + (limitOffset + limitCount) + "";
             }
 
-            String rows = "rowid as id,time,user,wid,x,y,z,action,type,data,meta,blockdata,rolled_back";
+            String rows = "rowid as id,time,`user`,wid,x,y,z,action,type,data,meta,blockdata,rolled_back";
             String queryOrder = " ORDER BY rowid DESC";
 
             if (actionList.contains(4) || actionList.contains(5)) {
                 queryTable = "container";
-                rows = "rowid as id,time,user,wid,x,y,z,action,type,data,rolled_back,amount,metadata";
+                rows = "rowid as id,time,`user`,wid,x,y,z,action,type,data,rolled_back,amount,metadata";
             }
             else if (actionList.contains(6) || actionList.contains(7)) {
                 queryTable = "chat";
-                rows = "rowid as id,time,user,message";
+                rows = "rowid as id,time,`user`,message";
                 if (PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(user)) {
                     rows += ",wid,x,y,z";
                 }
@@ -637,30 +638,30 @@ public class Lookup extends Queue {
             }
             else if (actionList.contains(8)) {
                 queryTable = "session";
-                rows = "rowid as id,time,user,wid,x,y,z,action";
+                rows = "rowid as id,time,`user`,wid,x,y,z,action";
             }
             else if (actionList.contains(9)) {
                 queryTable = "username_log";
-                rows = "rowid as id,time,uuid,user";
+                rows = "rowid as id,time,uuid,`user`";
             }
             else if (actionList.contains(10)) {
                 queryTable = "sign";
-                rows = "rowid as id,time,user,wid,x,y,z,line_1,line_2,line_3,line_4";
+                rows = "rowid as id,time,`user`,wid,x,y,z,line_1,line_2,line_3,line_4";
             }
             else if (actionList.contains(11)) {
                 queryTable = "item";
-                rows = "rowid as id,time,user,wid,x,y,z,type,data as metadata,0 as data,amount,action,0 as rolled_back";
+                rows = "rowid as id,time,`user`,wid,x,y,z,type,data as metadata,0 as data,amount,action,0 as rolled_back";
             }
 
             if (count) {
                 rows = "COUNT(*) as count";
-                queryLimit = " LIMIT 0, 3";
+                queryLimit = " OFFSET 0 LIMIT 3";
                 queryOrder = "";
                 unionLimit = "";
             }
 
             String unionSelect = "SELECT * FROM (";
-            if (!Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
+            if (Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("mysql")) {
                 if (queryTable.equals("block")) {
                     if (includeBlock.length() > 0 || includeEntity.length() > 0) {
                         index = "USE INDEX(type) IGNORE INDEX(user,wid) ";
@@ -693,12 +694,15 @@ public class Lookup extends Queue {
                         index = "";
                     }
                 }
+                if (Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("postgresql")) {
+                    index = "";
+                }
             }
 
             boolean itemLookup = inventoryQuery;
             if ((lookup && actionList.size() == 0) || (itemLookup && !actionList.contains(0))) {
                 if (!count) {
-                    rows = "rowid as id,time,user,wid,x,y,z,type,meta as metadata,data,-1 as amount,action,rolled_back";
+                    rows = "rowid as id,time,`user`,wid,x,y,z,type,meta as metadata,data,-1 as amount,action,rolled_back";
                 }
 
                 if (inventoryQuery) {
@@ -710,7 +714,7 @@ public class Lookup extends Queue {
                     }
 
                     if (!count) {
-                        rows = "rowid as id,time,user,wid,x,y,z,type,meta as metadata,data,1 as amount,action,rolled_back";
+                        rows = "rowid as id,time,`user`,wid,x,y,z,type,meta as metadata,data,1 as amount,action,rolled_back";
                     }
                 }
 
@@ -718,18 +722,18 @@ public class Lookup extends Queue {
                     baseQuery = baseQuery.replace("action NOT IN(-1)", "action NOT IN(3)"); // if block specified for include/exclude, filter out entity data
                 }
 
-                query = unionSelect + "SELECT " + "'0' as tbl," + rows + " FROM " + ConfigHandler.prefix + "block " + index + "WHERE" + baseQuery + unionLimit + ") UNION ALL ";
+                query = unionSelect + "SELECT " + "'0' as tbl," + rows + " FROM " + ConfigHandler.prefix + "block " + index + "WHERE" + baseQuery + unionLimit + ") as blockLookup UNION ALL ";
                 itemLookup = true;
             }
 
             if (itemLookup) {
                 if (!count) {
-                    rows = "rowid as id,time,user,wid,x,y,z,type,metadata,data,amount,action,rolled_back";
+                    rows = "rowid as id,time,`user`,wid,x,y,z,type,metadata,data,amount,action,rolled_back";
                 }
-                query = query + unionSelect + "SELECT " + "'1' as tbl," + rows + " FROM " + ConfigHandler.prefix + "container WHERE" + queryBlock + unionLimit + ") UNION ALL ";
+                query = query + unionSelect + "SELECT " + "'1' as tbl," + rows + " FROM " + ConfigHandler.prefix + "container WHERE" + queryBlock + unionLimit + ") as containerLookup UNION ALL ";
 
                 if (!count) {
-                    rows = "rowid as id,time,user,wid,x,y,z,type,data as metadata,0 as data,amount,action,rolled_back";
+                    rows = "rowid as id,time,`user`,wid,x,y,z,type,data as metadata,0 as data,amount,action,rolled_back";
                     queryOrder = " ORDER BY time DESC, tbl DESC, id DESC";
                 }
 
@@ -737,7 +741,7 @@ public class Lookup extends Queue {
                     queryBlock = queryBlock.replace("action NOT IN(-1)", "action NOT IN(" + actionExclude + ")");
                 }
 
-                query = query + unionSelect + "SELECT " + "'2' as tbl," + rows + " FROM " + ConfigHandler.prefix + "item WHERE" + queryBlock + unionLimit + ")";
+                query = query + unionSelect + "SELECT " + "'2' as tbl," + rows + " FROM " + ConfigHandler.prefix + "item WHERE" + queryBlock + unionLimit + ") as itemLookup";
             }
 
             if (query.length() == 0) {
@@ -749,6 +753,8 @@ public class Lookup extends Queue {
             }
 
             query = query + queryOrder + queryLimit + "";
+            query = Database.setCorrectQueryFormat(query);
+            Chat.console(query);
             results = statement.executeQuery(query);
         }
         catch (Exception e) {
@@ -786,7 +792,7 @@ public class Lookup extends Queue {
             int z = block.getZ();
             int time = (int) (System.currentTimeMillis() / 1000L);
             int worldId = Util.getWorldId(block.getWorld().getName());
-            String query = "SELECT user,type FROM " + ConfigHandler.prefix + "block " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND rolled_back IN(0,2) AND action='1' ORDER BY rowid DESC LIMIT 0, 1";
+            String query = "SELECT `user`,type FROM " + ConfigHandler.prefix + "block " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND rolled_back IN(0,2) AND action='1' ORDER BY rowid DESC OFFSET 0 LIMIT 1";
 
             ResultSet results = statement.executeQuery(query);
             while (results.next()) {

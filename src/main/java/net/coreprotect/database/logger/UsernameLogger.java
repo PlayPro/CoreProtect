@@ -6,6 +6,7 @@ import java.sql.ResultSet;
 import java.util.Locale;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
 
 public class UsernameLogger {
 
@@ -21,7 +22,8 @@ public class UsernameLogger {
 
             int idRow = -1;
             String userRow = null;
-            String query = "SELECT rowid as id, user FROM " + ConfigHandler.prefix + "user WHERE uuid = ? LIMIT 0, 1";
+            String query = "SELECT rowid as id, `user` FROM " + ConfigHandler.prefix + "user WHERE uuid = ? OFFSET 0 LIMIT 1";
+            query = Database.setCorrectQueryFormat(query);
             PreparedStatement preparedStmt = connection.prepareStatement(query);
             preparedStmt.setString(1, uuid);
             ResultSet rs = preparedStmt.executeQuery();
@@ -42,7 +44,9 @@ public class UsernameLogger {
             }
 
             if (update) {
-                preparedStmt = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "user SET user = ?, uuid = ? WHERE rowid = ?");
+                query = "UPDATE " + ConfigHandler.prefix + "user SET `user` = ?, uuid = ? WHERE rowid = ?";
+                query = Database.setCorrectQueryFormat(query);
+                preparedStmt = connection.prepareStatement(query);
                 preparedStmt.setString(1, user);
                 preparedStmt.setString(2, uuid);
                 preparedStmt.setInt(3, idRow);
@@ -61,7 +65,8 @@ public class UsernameLogger {
             }
             else {
                 boolean foundUUID = false;
-                query = "SELECT rowid as id FROM " + ConfigHandler.prefix + "username_log WHERE uuid = ? AND user = ? LIMIT 0, 1";
+                query = "SELECT rowid as id FROM " + ConfigHandler.prefix + "username_log WHERE uuid = ? AND `user` = ? OFFSET 0 LIMIT 1";
+                query = Database.setCorrectQueryFormat(query);
                 PreparedStatement preparedStatement = connection.prepareStatement(query);
                 preparedStatement.setString(1, uuid);
                 preparedStatement.setString(2, user);
@@ -78,7 +83,9 @@ public class UsernameLogger {
             }
 
             if (update && configUsernames == 1) {
-                preparedStmt = connection.prepareStatement("INSERT INTO " + ConfigHandler.prefix + "username_log (time, uuid, user) VALUES (?, ?, ?)");
+                query = "INSERT INTO " + ConfigHandler.prefix + "username_log (time, uuid, `user`) VALUES (?, ?, ?)";
+                query = Database.setCorrectQueryFormat(query);
+                preparedStmt = connection.prepareStatement(query);
                 preparedStmt.setInt(1, time);
                 preparedStmt.setString(2, uuid);
                 preparedStmt.setString(3, user);

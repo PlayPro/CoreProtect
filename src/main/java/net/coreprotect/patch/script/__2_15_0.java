@@ -16,8 +16,8 @@ public class __2_15_0 {
             if (!Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
                 statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "chat MODIFY message VARCHAR(1000)");
                 statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "command MODIFY message VARCHAR(1000)");
-                statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "user MODIFY user VARCHAR(100)");
-                statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "username_log MODIFY user VARCHAR(100)");
+                statement.executeUpdate(Database.setCorrectQueryFormat("ALTER TABLE " + ConfigHandler.prefix + "user MODIFY `user` VARCHAR(100)"));
+                statement.executeUpdate(Database.setCorrectQueryFormat("ALTER TABLE " + ConfigHandler.prefix + "username_log MODIFY `user` VARCHAR(100)"));
             }
 
             String query = "SELECT rowid as id, material FROM " + ConfigHandler.prefix + "material_map";
@@ -40,8 +40,10 @@ public class __2_15_0 {
             Database.commitTransaction(statement);
 
             try {
-                if (!Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
-                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "block MODIFY COLUMN rowid bigint NOT NULL AUTO_INCREMENT, ADD COLUMN blockdata BLOB");
+                String databaseType = Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT);
+                if (!databaseType.equals("sqlite")) {
+                    query = "ALTER TABLE " + ConfigHandler.prefix + "block MODIFY COLUMN rowid " + Database.getAutoIncrement(true) + ", ADD COLUMN blockdata BLOB";
+                    Database.sendQueryWithoutIndex(statement, query, "", false);
                 }
                 else {
                     statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "block ADD COLUMN blockdata BLOB");

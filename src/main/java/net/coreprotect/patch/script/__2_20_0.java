@@ -33,14 +33,17 @@ public class __2_20_0 {
                 }
 
                 try {
-                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "chat MODIFY message VARCHAR(16000), CONVERT TO CHARACTER SET utf8mb4");
+                    String extraInfo = ", CONVERT TO CHARACTER SET utf8mb4";
+                    String query = "ALTER TABLE %s MODIFY message VARCHAR(16000)%sextrainfo";
+                    Database.sendQueryWithIndex(statement, query, ConfigHandler.prefix + "chat", "", extraInfo);
                 }
                 catch (Exception e) {
                     Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, ConfigHandler.prefix + "chat", Selector.FIRST, Selector.FIRST));
                 }
 
                 try {
-                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign ADD COLUMN data TINYINT");
+                    String query = "ALTER TABLE " + ConfigHandler.prefix + "sign ADD COLUMN data TINYINT";
+                    Database.sendQueryWithoutIndex(statement, query, "", false);
                 }
                 catch (Exception e) {
                     Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, ConfigHandler.prefix + "sign", Selector.FIRST, Selector.FIRST));

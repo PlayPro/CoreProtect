@@ -60,6 +60,10 @@
                   <pattern>com.zaxxer</pattern>
                   <shadedPattern>net.coreprotect</shadedPattern>
                 </relocation>
+                <relocation>
+                  <pattern>org.postgresql</pattern>
+                  <shadedPattern>net.coreprotect</shadedPattern>
+                </relocation>
               </relocations>
             </configuration>
           </execution>
@@ -119,6 +123,11 @@
       <groupId>com.zaxxer</groupId>
       <artifactId>HikariCP</artifactId>
       <version>4.0.3</version>
+    </dependency>
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>42.3.4</version>
     </dependency>
   </dependencies>
 </project>

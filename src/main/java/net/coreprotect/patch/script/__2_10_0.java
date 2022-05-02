@@ -10,7 +10,7 @@ public class __2_10_0 {
 
     protected static boolean patch(Statement statement) {
         try {
-            if (!Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
+            if (Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("mysql")) {
                 statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "user ADD COLUMN uuid varchar(64), ADD INDEX(uuid)");
             }
             else {

@@ -14,7 +14,7 @@ class WorldInsertProcess {
 
     static void process(PreparedStatement preparedStmt, int batchCount, Statement statement, Object world, int worldId) {
         if (world instanceof String) {
-            String query = "SELECT id FROM " + ConfigHandler.prefix + "world WHERE id = '" + worldId + "' LIMIT 0, 1";
+            String query = "SELECT id FROM " + ConfigHandler.prefix + "world WHERE id = '" + worldId + "' OFFSET 0 LIMIT 1";
             boolean hasMaterial = MaterialStatement.hasMaterial(statement, query);
             if (!hasMaterial) {
                 WorldStatement.insert(preparedStmt, batchCount, worldId, (String) world);

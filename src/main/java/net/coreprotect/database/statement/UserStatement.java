@@ -9,6 +9,7 @@ import java.util.Locale;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
 
 public class UserStatement {
 
@@ -21,7 +22,9 @@ public class UserStatement {
 
         try {
             int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
-            PreparedStatement preparedStmt = connection.prepareStatement("INSERT INTO " + ConfigHandler.prefix + "user (time, user) VALUES (?, ?)", Statement.RETURN_GENERATED_KEYS);
+            String query = "INSERT INTO " + ConfigHandler.prefix + "user (time, `user`) VALUES (?, ?)";
+            query = Database.setCorrectQueryFormat(query);
+            PreparedStatement preparedStmt = connection.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);
             preparedStmt.setInt(1, unixtimestamp);
             preparedStmt.setString(2, user);
             preparedStmt.executeUpdate();
@@ -60,7 +63,7 @@ public class UserStatement {
                 where = where + " OR uuid = ?";
             }
 
-            String query = "SELECT rowid as id, uuid FROM " + ConfigHandler.prefix + "user WHERE " + where + " ORDER BY rowid ASC LIMIT 0, 1";
+            String query = "SELECT rowid as id, uuid FROM " + ConfigHandler.prefix + "user WHERE " + where + " ORDER BY rowid ASC OFFSET 0 LIMIT 1";
             PreparedStatement preparedStmt = connection.prepareStatement(query);
             preparedStmt.setString(1, user);
 
@@ -101,9 +104,9 @@ public class UserStatement {
 
         try {
             Statement statement = connection.createStatement();
-            String query = "SELECT user, uuid FROM " + ConfigHandler.prefix + "user WHERE rowid='" + id + "' LIMIT 0, 1";
+            String query = "SELECT `user`, uuid FROM " + ConfigHandler.prefix + "user WHERE rowid='" + id + "' OFFSET 0 LIMIT 1";
 
-            ResultSet resultSet = statement.executeQuery(query);
+            ResultSet resultSet = Database.sendQueryWithoutIndex(statement, query, "", true);
             while (resultSet.next()) {
                 user = resultSet.getString("user");
                 uuid = resultSet.getString("uuid");

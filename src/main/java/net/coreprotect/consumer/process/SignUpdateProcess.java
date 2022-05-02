@@ -3,6 +3,7 @@ package net.coreprotect.consumer.process;
 import java.sql.Statement;
 import java.util.Locale;
 
+import net.coreprotect.database.Database;
 import org.bukkit.block.BlockState;
 
 import net.coreprotect.config.ConfigHandler;
@@ -26,11 +27,12 @@ class SignUpdateProcess {
             int userid = ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT));
             String query = "";
             if (action == 0) {
-                query = "SELECT color, data, line_1, line_2, line_3, line_4 FROM " + ConfigHandler.prefix + "sign WHERE user='" + userid + "' AND wid='" + wid + "' AND x='" + x + "' AND z='" + z + "' AND y='" + y + "' AND time < '" + time + "' ORDER BY rowid DESC LIMIT 0, 1";
+                query = "SELECT color, data, line_1, line_2, line_3, line_4 FROM " + ConfigHandler.prefix + "sign WHERE `user`='" + userid + "' AND wid='" + wid + "' AND x='" + x + "' AND z='" + z + "' AND y='" + y + "' AND time < '" + time + "' ORDER BY rowid DESC OFFSET 0 LIMIT 1";
             }
             else {
-                query = "SELECT color, data, line_1, line_2, line_3, line_4 FROM " + ConfigHandler.prefix + "sign WHERE user='" + userid + "' AND wid='" + wid + "' AND x='" + x + "' AND z='" + z + "' AND y='" + y + "' AND time >= '" + time + "' ORDER BY rowid ASC LIMIT 0, 1";
+                query = "SELECT color, data, line_1, line_2, line_3, line_4 FROM " + ConfigHandler.prefix + "sign WHERE `user`='" + userid + "' AND wid='" + wid + "' AND x='" + x + "' AND z='" + z + "' AND y='" + y + "' AND time >= '" + time + "' ORDER BY rowid ASC OFFSET 0 LIMIT 1";
             }
+            query = Database.setCorrectQueryFormat(query);
             SignStatement.getData(statement, block, query);
             Util.updateBlock(block);
         }

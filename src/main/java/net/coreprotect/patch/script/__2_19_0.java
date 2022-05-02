@@ -27,7 +27,8 @@ public class __2_19_0 {
                 try {
                     statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign ADD COLUMN action int");
                     statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign DROP INDEX wid");
-                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign ADD INDEX(wid,x,z,time), ADD INDEX(user,time), ADD INDEX(time)");
+                    String query = "ALTER TABLE " + ConfigHandler.prefix + "sign ADD INDEX(wid,x,z,time), ADD INDEX(`user`,time), ADD INDEX(time)";
+                    Database.sendQueryWithoutIndex(statement, query, "", false);
                 }
                 catch (Exception e) {
                     Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, ConfigHandler.prefix + "sign", Selector.FIRST, Selector.FIRST));
@@ -139,8 +140,10 @@ public class __2_19_0 {
                 }
             }
 
-            String blockQuery = "SELECT time, user, wid, x, y, z FROM " + ConfigHandler.prefix + "block WHERE type IN(" + signData.toString() + ") AND action='1' ORDER BY rowid ASC";
-            String preparedSignQuery = "SELECT rowid as id FROM " + ConfigHandler.prefix + "sign WHERE user = ? AND wid = ? AND x = ? AND y = ? AND z = ? AND time >= ? ORDER BY rowid ASC LIMIT 0, 1";
+            String blockQuery = "SELECT time, `user`, wid, x, y, z FROM " + ConfigHandler.prefix + "block WHERE type IN(" + signData.toString() + ") AND action='1' ORDER BY rowid ASC";
+            blockQuery = Database.setCorrectQueryFormat(blockQuery);
+            String preparedSignQuery = "SELECT rowid as id FROM " + ConfigHandler.prefix + "sign WHERE `user` = ? AND wid = ? AND x = ? AND y = ? AND z = ? AND time >= ? ORDER BY rowid ASC OFFSET 0 LIMIT 1";
+            preparedSignQuery = Database.setCorrectQueryFormat(preparedSignQuery);
             String preparedQueryUpdate = "UPDATE " + ConfigHandler.prefix + "sign SET action = 1 WHERE rowid = ?";
             PreparedStatement preparedSignStatement = statement.getConnection().prepareStatement(preparedSignQuery);
             PreparedStatement preparedStatementUpdate = statement.getConnection().prepareStatement(preparedQueryUpdate);

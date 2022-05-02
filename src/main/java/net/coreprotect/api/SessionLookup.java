@@ -44,8 +44,8 @@ public class SessionLookup {
             int userId = ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT));
 
             try (Statement statement = connection.createStatement()) {
-                String query = "SELECT time,user,wid,x,y,z,action FROM " + ConfigHandler.prefix + "session WHERE user = '" + userId + "' AND time > '" + checkTime + "' ORDER BY rowid DESC";
-                ResultSet results = statement.executeQuery(query);
+                String query = "SELECT time,`user`,wid,x,y,z,action FROM " + ConfigHandler.prefix + "session WHERE `user` = '" + userId + "' AND time > '" + checkTime + "' ORDER BY rowid DESC";
+                ResultSet results = Database.sendQueryWithoutIndex(statement, query, "", true);
                 while (results.next()) {
                     String resultTime = results.getString("time");
                     int resultUserId = results.getInt("user");

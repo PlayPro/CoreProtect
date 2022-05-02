@@ -38,8 +38,8 @@ public class BlockAPI {
             }
 
             Statement statement = connection.createStatement();
-            String query = "SELECT time,user,action,type,data,blockdata,rolled_back FROM " + ConfigHandler.prefix + "block " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND time > '" + checkTime + "' ORDER BY rowid DESC";
-            ResultSet results = statement.executeQuery(query);
+            String query = "SELECT time,`user`,action,type,data,blockdata,rolled_back FROM " + ConfigHandler.prefix + "block " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND time > '" + checkTime + "' ORDER BY rowid DESC";
+            ResultSet results = Database.sendQueryWithoutIndex(statement, query, "", true);
 
             while (results.next()) {
                 String resultTime = results.getString("time");

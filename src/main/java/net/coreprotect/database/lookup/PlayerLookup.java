@@ -7,6 +7,7 @@ import java.util.Locale;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
 
 public class PlayerLookup {
 
@@ -24,7 +25,8 @@ public class PlayerLookup {
                 collate = " COLLATE NOCASE";
             }
 
-            String query = "SELECT rowid as id, uuid FROM " + ConfigHandler.prefix + "user WHERE user = ?" + collate + " LIMIT 0, 1";
+            String query = "SELECT rowid as id, uuid FROM " + ConfigHandler.prefix + "user WHERE `user` = ?" + collate + " OFFSET 0 LIMIT 1";
+            query = Database.setCorrectQueryFormat(query);
             PreparedStatement preparedStmt = connection.prepareStatement(query);
             preparedStmt.setString(1, user);
 

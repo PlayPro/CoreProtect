@@ -52,7 +52,7 @@ public class Patch {
     public static Integer[] getDatabaseVersion(Connection connection, boolean lastVersion) {
         Integer[] last_version = new Integer[] { 0, 0, 0 };
         try {
-            String query = "SELECT version FROM " + ConfigHandler.prefix + "version ORDER BY rowid " + (lastVersion ? "DESC" : "ASC") + " LIMIT 0, 1";
+            String query = "SELECT version FROM " + ConfigHandler.prefix + "version ORDER BY rowid " + (lastVersion ? "DESC" : "ASC") + " OFFSET 0 LIMIT 1";
             Statement statement = connection.createStatement();
             ResultSet rs = statement.executeQuery(query);
             while (rs.next()) {

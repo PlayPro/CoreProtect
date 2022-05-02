@@ -6,6 +6,7 @@ import java.util.Locale;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigFile;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.patch.Patch;
@@ -17,7 +18,8 @@ public class __2_21_0 {
         try {
             if (!Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("sqlite")) {
                 try {
-                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "item ADD COLUMN rolled_back TINYINT DEFAULT 0;");
+                    String query = "ALTER TABLE " + ConfigHandler.prefix + "item ADD COLUMN rolled_back TINYINT DEFAULT 0;";
+                    statement.executeUpdate(Database.setCorrectQueryFormat(query));
                 }
                 catch (Exception e) {
                     Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, ConfigHandler.prefix + "item", Selector.FIRST, Selector.FIRST));

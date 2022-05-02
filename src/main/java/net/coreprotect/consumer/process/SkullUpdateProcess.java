@@ -2,6 +2,7 @@ package net.coreprotect.consumer.process;
 
 import java.sql.Statement;
 
+import net.coreprotect.database.Database;
 import org.bukkit.block.BlockState;
 
 import net.coreprotect.database.statement.SkullStatement;
@@ -18,7 +19,7 @@ class SkullUpdateProcess {
          */
         if (object instanceof BlockState) {
             BlockState block = (BlockState) object;
-            String query = "SELECT owner FROM " + ConfigHandler.prefix + "skull WHERE rowid='" + rowId + "' OFFSET 0 LIMIT 1";
+            String query = "SELECT owner FROM " + ConfigHandler.prefix + "skull WHERE rowid='" + rowId + "'" + Database.getOffsetLimit(0, 1);
             SkullStatement.getData(statement, block, query);
             Util.updateBlock(block);
         }

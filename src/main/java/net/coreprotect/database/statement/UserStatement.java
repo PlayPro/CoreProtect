@@ -63,7 +63,7 @@ public class UserStatement {
                 where = where + " OR uuid = ?";
             }
 
-            String query = "SELECT rowid as id, uuid FROM " + ConfigHandler.prefix + "user WHERE " + where + " ORDER BY rowid ASC OFFSET 0 LIMIT 1";
+            String query = "SELECT rowid as id, uuid FROM " + ConfigHandler.prefix + "user WHERE " + where + " ORDER BY rowid ASC" + Database.getOffsetLimit(0, 1);
             PreparedStatement preparedStmt = connection.prepareStatement(query);
             preparedStmt.setString(1, user);
 
@@ -104,7 +104,7 @@ public class UserStatement {
 
         try {
             Statement statement = connection.createStatement();
-            String query = "SELECT `user`, uuid FROM " + ConfigHandler.prefix + "user WHERE rowid='" + id + "' OFFSET 0 LIMIT 1";
+            String query = "SELECT `user`, uuid FROM " + ConfigHandler.prefix + "user WHERE rowid='" + id + "'" + Database.getOffsetLimit(0, 1);
 
             ResultSet resultSet = Database.sendQueryWithoutIndex(statement, query, "", true);
             while (resultSet.next()) {

@@ -281,7 +281,7 @@ public class PurgeCommand extends Consumer {
                             if (purgeTables.contains(table)) {
                                 int oldCount = 0;
                                 try {
-                                    query = "SELECT COUNT(*) as count FROM " + ConfigHandler.prefix + table + " OFFSET 0 LIMIT 1";
+                                    query = "SELECT COUNT(*) as count FROM " + ConfigHandler.prefix + table + Database.getOffsetLimit(0, 1);
                                     preparedStmt = connection.prepareStatement(query);
                                     ResultSet resultSet = preparedStmt.executeQuery();
                                     while (resultSet.next()) {
@@ -296,7 +296,7 @@ public class PurgeCommand extends Consumer {
 
                                 int new_count = 0;
                                 try {
-                                    query = "SELECT COUNT(*) as count FROM " + purgePrefix + table + " OFFSET 0 LIMIT 1";
+                                    query = "SELECT COUNT(*) as count FROM " + purgePrefix + table + Database.getOffsetLimit(0, 1);
                                     preparedStmt = connection.prepareStatement(query);
                                     ResultSet resultSet = preparedStmt.executeQuery();
                                     while (resultSet.next()) {

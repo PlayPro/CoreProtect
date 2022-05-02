@@ -4,6 +4,7 @@ import java.sql.PreparedStatement;
 import java.sql.Statement;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.MaterialStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
@@ -13,7 +14,7 @@ class MaterialInsertProcess {
 
     static void process(PreparedStatement preparedStmt, Statement statement, int batchCount, Object name, int materialId) {
         if (name instanceof String) {
-            String query = "SELECT id FROM " + ConfigHandler.prefix + "material_map WHERE id = '" + materialId + "' OFFSET 0 LIMIT 1";
+            String query = "SELECT id FROM " + ConfigHandler.prefix + "material_map WHERE id = '" + materialId + "'" + Database.getOffsetLimit(0, 1);
             boolean hasMaterial = MaterialStatement.hasMaterial(statement, query);
             if (!hasMaterial) {
                 MaterialStatement.insert(preparedStmt, batchCount, materialId, (String) name);

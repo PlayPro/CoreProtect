@@ -269,8 +269,8 @@ public class Database extends Queue {
     }
 
     public static String getAutoIncrement(boolean isBigInt) {
-        boolean isMysql = Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("mysql");
-        if (isMysql)
+        boolean isPostgresql = Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("postgresql");
+        if (!isPostgresql)
         {
             String autoincrement = isBigInt ? "bigint" : "int";
             autoincrement += " NOT NULL AUTO_INCREMENT";
@@ -280,16 +280,20 @@ public class Database extends Queue {
         return isBigInt ? "BIGSERIAL" : "SERIAL";
     }
 
+    public static String getOffsetLimit(int offset, int limit) {
+        boolean isPostgresql = Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("postgresql");
+        return String.format(isPostgresql ? " OFFSET %d LIMIT %d" : " LIMIT %d,%d", offset, limit);
+    }
+
     public static void sendQueryWithIndex(Statement statement, String query, String tableName, String index, String extraTableInfo) throws SQLException
     {
-        boolean isMysql = Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("mysql");
-        String tempIndex = isMysql ? index : "";
+        boolean isPostgresql = Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("postgresql");
+        String tempIndex = isPostgresql ? "" : index;
 
         String executeQuery = String.format(query, tableName, tempIndex);
-        Chat.console(executeQuery);
         executeQuery = executeQuery.replace("extrainfo", "%s");
         sendQueryWithoutIndex(statement, executeQuery, extraTableInfo, false);
-        if (!isMysql) {
+        if (isPostgresql) {
             index = index.replaceFirst(", ", "");
             String[] indexes = index.split(", ");
             for (String actualIndex : indexes) {
@@ -301,7 +305,6 @@ public class Database extends Queue {
                 actualIndex = actualIndex.replace("INDEX", "");
                 actualIndex = actualIndex.replaceAll("`", "\"");
                 String indexQuery = "CREATE INDEX IF NOT EXISTS " + indexName + " ON " + tableName + " " + actualIndex;
-                Chat.console(indexQuery);
                 statement.executeUpdate(indexQuery);
             }
         }
@@ -314,7 +317,6 @@ public class Database extends Queue {
         if (!extraInfo.isEmpty()) {
             query = String.format(query, !isPostGres ? extraInfo : "");
         }
-        Chat.console(query);
         if (isQuery) {
             return statement.executeQuery(query);
         }

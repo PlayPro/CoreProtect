@@ -22,7 +22,7 @@ public class UsernameLogger {
 
             int idRow = -1;
             String userRow = null;
-            String query = "SELECT rowid as id, `user` FROM " + ConfigHandler.prefix + "user WHERE uuid = ? OFFSET 0 LIMIT 1";
+            String query = "SELECT rowid as id, `user` FROM " + ConfigHandler.prefix + "user WHERE uuid = ?" + Database.getOffsetLimit(0, 1);
             query = Database.setCorrectQueryFormat(query);
             PreparedStatement preparedStmt = connection.prepareStatement(query);
             preparedStmt.setString(1, uuid);
@@ -65,7 +65,7 @@ public class UsernameLogger {
             }
             else {
                 boolean foundUUID = false;
-                query = "SELECT rowid as id FROM " + ConfigHandler.prefix + "username_log WHERE uuid = ? AND `user` = ? OFFSET 0 LIMIT 1";
+                query = "SELECT rowid as id FROM " + ConfigHandler.prefix + "username_log WHERE uuid = ? AND `user` = ?" + Database.getOffsetLimit(0, 1);
                 query = Database.setCorrectQueryFormat(query);
                 PreparedStatement preparedStatement = connection.prepareStatement(query);
                 preparedStatement.setString(1, uuid);

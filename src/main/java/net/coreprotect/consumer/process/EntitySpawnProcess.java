@@ -3,6 +3,7 @@ package net.coreprotect.consumer.process;
 import java.sql.Statement;
 import java.util.List;
 
+import net.coreprotect.database.Database;
 import org.bukkit.block.BlockState;
 import org.bukkit.entity.EntityType;
 
@@ -16,7 +17,7 @@ class EntitySpawnProcess {
         if (object instanceof Object[]) {
             BlockState block = (BlockState) ((Object[]) object)[0];
             EntityType type = (EntityType) ((Object[]) object)[1];
-            String query = "SELECT data FROM " + ConfigHandler.prefix + "entity WHERE rowid='" + rowId + "' OFFSET 0 LIMIT 1";
+            String query = "SELECT data FROM " + ConfigHandler.prefix + "entity WHERE rowid='" + rowId + "'" + Database.getOffsetLimit(0, 1);
             List<Object> data = EntityStatement.getData(statement, block, query);
             EntityUtil.spawnEntity(block, type, data);
         }

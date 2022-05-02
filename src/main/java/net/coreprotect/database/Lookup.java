@@ -614,7 +614,7 @@ public class Lookup extends Queue {
 
             String baseQuery = ((!includeEntity.isEmpty() || !excludeEntity.isEmpty()) ? queryEntity : queryBlock);
             if (limitOffset > -1 && limitCount > -1) {
-                queryLimit = " OFFSET " + limitOffset + " LIMIT " + limitCount + "";
+                queryLimit = Database.getOffsetLimit(limitOffset, limitCount);
                 unionLimit = " ORDER BY time DESC, id DESC LIMIT " + (limitOffset + limitCount) + "";
             }
 
@@ -655,7 +655,7 @@ public class Lookup extends Queue {
 
             if (count) {
                 rows = "COUNT(*) as count";
-                queryLimit = " OFFSET 0 LIMIT 3";
+                queryLimit = Database.getOffsetLimit(0, 3);
                 queryOrder = "";
                 unionLimit = "";
             }
@@ -753,8 +753,10 @@ public class Lookup extends Queue {
             }
 
             query = query + queryOrder + queryLimit + "";
+            if (!Config.getGlobal().TYPE_DATABASE.toLowerCase(Locale.ROOT).equals("postgresql")) {
+                query = query.replaceAll(" as \\w+Lookup", "");
+            }
             query = Database.setCorrectQueryFormat(query);
-            Chat.console(query);
             results = statement.executeQuery(query);
         }
         catch (Exception e) {
@@ -792,7 +794,7 @@ public class Lookup extends Queue {
             int z = block.getZ();
             int time = (int) (System.currentTimeMillis() / 1000L);
             int worldId = Util.getWorldId(block.getWorld().getName());
-            String query = "SELECT `user`,type FROM " + ConfigHandler.prefix + "block " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND rolled_back IN(0,2) AND action='1' ORDER BY rowid DESC OFFSET 0 LIMIT 1";
+            String query = "SELECT `user`,type FROM " + ConfigHandler.prefix + "block " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND rolled_back IN(0,2) AND action='1' ORDER BY rowid DESC" + Database.getOffsetLimit(0, 1);
 
             ResultSet results = statement.executeQuery(query);
             while (results.next()) {

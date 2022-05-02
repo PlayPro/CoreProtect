@@ -4,12 +4,12 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Locale;
 
-import net.coreprotect.database.Database;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;

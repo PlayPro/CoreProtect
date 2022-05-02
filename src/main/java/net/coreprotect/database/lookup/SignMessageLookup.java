@@ -5,11 +5,11 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
-import net.coreprotect.database.Database;
 import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;

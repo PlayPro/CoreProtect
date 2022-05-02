@@ -2,9 +2,9 @@ package net.coreprotect.consumer.process;
 
 import java.sql.Statement;
 
-import net.coreprotect.database.Database;
 import org.bukkit.block.BlockState;
 
+import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.SkullStatement;
 import net.coreprotect.utility.Util;
 import net.coreprotect.config.ConfigHandler;

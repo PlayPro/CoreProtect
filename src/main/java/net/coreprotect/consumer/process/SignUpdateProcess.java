@@ -3,10 +3,10 @@ package net.coreprotect.consumer.process;
 import java.sql.Statement;
 import java.util.Locale;
 
-import net.coreprotect.database.Database;
 import org.bukkit.block.BlockState;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.SignStatement;
 import net.coreprotect.utility.Util;
 

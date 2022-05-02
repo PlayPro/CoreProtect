@@ -3,11 +3,11 @@ package net.coreprotect.consumer.process;
 import java.sql.Statement;
 import java.util.List;
 
-import net.coreprotect.database.Database;
 import org.bukkit.block.BlockState;
 import org.bukkit.entity.EntityType;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.EntityStatement;
 import net.coreprotect.utility.entity.EntityUtil;
 

@@ -1,20 +1,27 @@
 package net.coreprotect.database.lookup;
 
-import java.sql.ResultSet;
-import java.sql.Statement;
-import java.util.Locale;
-
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.command.CommandSender;
-
+import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.listener.channel.PluginChannelListener;
+import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.command.CommandSender;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.util.io.BukkitObjectInputStream;
+
+import java.io.ByteArrayInputStream;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 public class ChestTransactionLookup {
 
@@ -67,9 +74,9 @@ public class ChestTransactionLookup {
 
             int totalPages = (int) Math.ceil(count / (limit + 0.0));
 
-            query = "SELECT time,user,action,type,data,amount,rolled_back FROM " + ConfigHandler.prefix + "container " + Util.getWidIndex("container") + "WHERE wid = '" + worldId + "' AND (x = '" + x + "' OR x = '" + x2 + "') AND (z = '" + z + "' OR z = '" + z2 + "') AND y = '" + y + "' ORDER BY rowid DESC LIMIT " + pageStart + ", " + limit + "";
+            query = "SELECT time,user,action,type,data,amount,metadata,rolled_back FROM " + ConfigHandler.prefix + "container " + Util.getWidIndex("container") + "WHERE wid = '" + worldId + "' AND (x = '" + x + "' OR x = '" + x2 + "') AND (z = '" + z + "' OR z = '" + z2 + "') AND y = '" + y + "' ORDER BY rowid DESC LIMIT " + pageStart + ", " + limit + "";
             if (exact) {
-                query = "SELECT time,user,action,type,data,amount,rolled_back FROM " + ConfigHandler.prefix + "container " + Util.getWidIndex("container") + "WHERE wid = '" + worldId + "' AND (x = '" + l.getBlockX() + "') AND (z = '" + l.getBlockZ() + "') AND y = '" + y + "' ORDER BY rowid DESC LIMIT " + pageStart + ", " + limit + "";
+                query = "SELECT time,user,action,type,data,amount,metadata,rolled_back FROM " + ConfigHandler.prefix + "container " + Util.getWidIndex("container") + "WHERE wid = '" + worldId + "' AND (x = '" + l.getBlockX() + "') AND (z = '" + l.getBlockZ() + "') AND y = '" + y + "' ORDER BY rowid DESC LIMIT " + pageStart + ", " + limit + "";
             }
             results = statement.executeQuery(query);
 
@@ -81,6 +88,7 @@ public class ChestTransactionLookup {
                 int resultData = results.getInt("data");
                 long resultTime = results.getLong("time");
                 int resultAmount = results.getInt("amount");
+                byte[] resultMetadata = results.getBytes("metadata");
                 int resultRolledBack = results.getInt("rolled_back");
 
                 if (ConfigHandler.playerIdCacheReversed.get(resultUserId) == null) {
@@ -117,6 +125,29 @@ public class ChestTransactionLookup {
                     target = target.split(":")[1];
                 }
 
+                if (resultMetadata != null) {
+                    String popupText = "";
+
+                    BukkitObjectInputStream metaObjectStream = new BukkitObjectInputStream(new ByteArrayInputStream(resultMetadata));
+                    Object metaList = metaObjectStream.readObject();
+
+                    ItemMeta itemMeta = Util.deserializeItemMeta(new ItemStack(Util.getType(resultType)).getItemMeta().getClass(), ((List<List<Map<String, Object>>>) metaList).get(0).get(0));
+                    if (itemMeta.hasDisplayName()) {
+                        popupText = Color.WHITE + "customName" + Color.GREY + ": " + Color.DARK_AQUA + "\"" + itemMeta.getDisplayName() + "\"";
+                    }
+                    if (itemMeta.hasCustomModelData()) {
+                        if (!popupText.equals("")) {
+                            popupText += Color.GREY + " ";
+                        }
+                        popupText += Color.WHITE + "customModelData" + Color.GREY + ": " + Color.DARK_AQUA + itemMeta.getCustomModelData();
+                    }
+
+                    if (!popupText.equals("")) {
+                        target = Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_POPUP + "|" + popupText + "|" + Color.DARK_AQUA + rbFormat + target + Chat.COMPONENT_TAG_CLOSE;
+                    }
+                }
+
+                //                                                                                                                                          Keep these in case no hover and target is default    \/              \/
                 resultBuilder.append(timeAgo + " " + tag + " ").append(Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, "x" + resultAmount, Color.DARK_AQUA + rbFormat + target + Color.WHITE, selector)).append("\n");
                 PluginChannelListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_CONTAINER, selector, resultUser, target, resultAmount, x, y, z, worldId, rbFormat, true, tag.contains("+"));
             }

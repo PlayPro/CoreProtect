@@ -137,7 +137,7 @@ public class ChestTransactionLookup {
                     }
                     if (itemMeta.hasCustomModelData()) {
                         if (!popupText.equals("")) {
-                            popupText += Color.GREY + " ";
+                            popupText += "\\n";
                         }
                         popupText += Color.WHITE + "customModelData" + Color.GREY + ": " + Color.DARK_AQUA + itemMeta.getCustomModelData();
                     }

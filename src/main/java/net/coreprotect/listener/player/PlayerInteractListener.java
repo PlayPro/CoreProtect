@@ -307,10 +307,12 @@ public final class PlayerInteractListener extends Queue implements Listener {
 
                                         if (blockData.contains("\n")) {
                                             for (String splitData : blockData.split("\n")) {
+                                                splitData = splitData.replace("\\n", "\n");
                                                 Chat.sendComponent(player, splitData);
                                             }
                                         }
                                         else {
+                                            blockData = blockData.replace("\\n", "\n");
                                             Chat.sendComponent(player, blockData);
                                         }
 

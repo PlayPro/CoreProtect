@@ -1,7 +1,9 @@
 package net.coreprotect.database.lookup;
 
+import java.io.ByteArrayInputStream;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -9,6 +11,9 @@ import java.util.Map;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.util.io.BukkitObjectInputStream;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
@@ -16,16 +21,11 @@ import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.listener.channel.PluginChannelListener;
-
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
 
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.util.io.BukkitObjectInputStream;
 
-import java.io.ByteArrayInputStream;
 
 public class ChestTransactionLookup {
 
@@ -129,31 +129,33 @@ public class ChestTransactionLookup {
                     target = target.split(":")[1];
                 }
 
-                String displayName = "";
-                Integer customModelData = null;
                 String popupText = "";
+                HashMap<String, String> additionalData = new HashMap<>();
                 if (resultMetadata != null) {
                     BukkitObjectInputStream metaObjectStream = new BukkitObjectInputStream(new ByteArrayInputStream(resultMetadata));
                     Object metaList = metaObjectStream.readObject();
 
                     ItemMeta itemMeta = Util.deserializeItemMeta(new ItemStack(Util.getType(resultType)).getItemMeta().getClass(), ((List<List<Map<String, Object>>>) metaList).get(0).get(0));
                     if (itemMeta.hasDisplayName()) {
-                        popupText = Color.WHITE + "customName" + Color.GREY + ": " + Color.DARK_AQUA + "\"" + itemMeta.getDisplayName() + "\"";
+                        String displayName = itemMeta.getDisplayName();
+                        popupText = Color.WHITE + "customName" + Color.GREY + ": " + Color.DARK_AQUA + "\"" + displayName + "\"";
+                        additionalData.put("customName", displayName);
                     }
                     if (itemMeta.hasCustomModelData() && Config.getGlobal().SHOW_CUSTOM_MODEL_DATA) {
                         if (!popupText.equals("")) {
                             popupText += "\\n";
                         }
-                        popupText += Color.WHITE + "customModelData" + Color.GREY + ": " + Color.DARK_AQUA + itemMeta.getCustomModelData();
+                        int customModelData = itemMeta.getCustomModelData();
+                        popupText += Color.WHITE + "customModelData" + Color.GREY + ": " + Color.DARK_AQUA + customModelData;
+                        additionalData.put("customModelData", String.valueOf(customModelData));
                     }
                 }
 
-                PluginChannelListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_CONTAINER, selector, resultUser, target, resultAmount, x, y, z, worldId, rbFormat, true, tag.contains("+"), displayName, customModelData);
+                PluginChannelListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_CONTAINER, selector, resultUser, target, resultAmount, x, y, z, worldId, rbFormat, true, tag.contains("+"), additionalData);
                 if (!popupText.equals("")) {
                     target = Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_POPUP + "|" + popupText + "|" + Color.DARK_AQUA + rbFormat + target + Chat.COMPONENT_TAG_CLOSE;
                 }
                 resultBuilder.append(timeAgo + " " + tag + " ").append(Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, "x" + resultAmount, Color.DARK_AQUA + rbFormat + target + Color.WHITE, selector)).append("\n");
-
             }
             result = resultBuilder.toString();
             results.close();

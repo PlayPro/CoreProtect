@@ -3,7 +3,8 @@ package net.coreprotect.listener.channel;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 
 import org.bukkit.command.CommandSender;
@@ -32,10 +33,10 @@ public class PluginChannelListener implements Listener {
     }
 
     public void sendData(CommandSender commandSender, long timeAgo, Phrase phrase, String selector, String resultUser, String target, int amount, int x, int y, int z, int worldId, String rbFormat, boolean isContainer, boolean added) throws IOException {
-        sendData(commandSender, timeAgo, phrase, selector ,resultUser, target,amount, x, y, z, worldId, rbFormat, isContainer, added, null, null);
+        sendData(commandSender, timeAgo, phrase, selector ,resultUser, target,amount, x, y, z, worldId, rbFormat, isContainer, added, null);
     }
 
-    public void sendData(CommandSender commandSender, long timeAgo, Phrase phrase, String selector, String resultUser, String target, int amount, int x, int y, int z, int worldId, String rbFormat, boolean isContainer, boolean added, String displayName, Integer customModelData) throws IOException {
+    public void sendData(CommandSender commandSender, long timeAgo, Phrase phrase, String selector, String resultUser, String target, int amount, int x, int y, int z, int worldId, String rbFormat, boolean isContainer, boolean added, HashMap<String, String> additional) throws IOException {
         if (!PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(commandSender)) {
             return;
         }
@@ -58,8 +59,15 @@ public class PluginChannelListener implements Listener {
         msgOut.writeBoolean(!rbFormat.isEmpty());
         msgOut.writeBoolean(isContainer);
         msgOut.writeBoolean(added);
-        msgOut.writeUTF(displayName);
-        msgOut.writeInt(customModelData);
+        msgOut.writeInt(additional == null ? 0 : additional.size());
+        if (additional != null)
+        {
+            for (Map.Entry<String, String> additionalItem : additional.entrySet())
+            {
+                msgOut.writeUTF(additionalItem.getKey());
+                msgOut.writeUTF(additionalItem.getValue());
+            }
+        }
         if (Config.getGlobal().NETWORK_DEBUG) {
             Chat.console(String.valueOf(timeAgo * 1000));
             Chat.console(phraseSelector);
@@ -73,6 +81,15 @@ public class PluginChannelListener implements Listener {
             Chat.console(String.valueOf(!rbFormat.isEmpty()));
             Chat.console(String.valueOf(isContainer));
             Chat.console(String.valueOf(added));
+            Chat.console(String.valueOf(additional == null ? 0 : additional.size()));
+            if (additional != null)
+            {
+                for (Map.Entry<String, String> additionalItem : additional.entrySet())
+                {
+                    msgOut.writeUTF(additionalItem.getKey());
+                    msgOut.writeUTF(additionalItem.getValue());
+                }
+            }
             Chat.console("");
         }
 
@@ -188,8 +205,9 @@ public class PluginChannelListener implements Listener {
         String rbFormat = "test";
         String message = "This is a test";
         boolean sign = true;
-        String displayName = "testing";
-        Integer customModelData = 4;
+        HashMap<String, String> additional = new HashMap<>();
+        additional.put("displayName", "testing");
+        additional.put("customModelData", String.valueOf(4));
 
         switch (type) {
             case "2":
@@ -202,7 +220,7 @@ public class PluginChannelListener implements Listener {
                 sendUsernameData(commandSender, timeAgo, resultUser, "Arne");
                 break;
             default:
-                sendData(commandSender, timeAgo, Phrase.LOOKUP_CONTAINER, selector, resultUser, "clay_ball", amount, x, y, z, worldId, rbFormat, false, true, displayName, customModelData);
+                sendData(commandSender, timeAgo, Phrase.LOOKUP_CONTAINER, selector, resultUser, "clay_ball", amount, x, y, z, worldId, rbFormat, false, true, additional);
                 break;
         }
 

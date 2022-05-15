@@ -1,27 +1,30 @@
 package net.coreprotect.database.lookup;
 
-import net.coreprotect.config.Config;
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.database.statement.UserStatement;
-import net.coreprotect.language.Phrase;
-import net.coreprotect.language.Selector;
-import net.coreprotect.listener.channel.PluginChannelListener;
-import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.command.CommandSender;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.util.io.BukkitObjectInputStream;
-
-import java.io.ByteArrayInputStream;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.command.CommandSender;
+
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.statement.UserStatement;
+import net.coreprotect.language.Phrase;
+import net.coreprotect.language.Selector;
+import net.coreprotect.listener.channel.PluginChannelListener;
+
+import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.Color;
+import net.coreprotect.utility.Util;
+
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.util.io.BukkitObjectInputStream;
+
+import java.io.ByteArrayInputStream;
 
 public class ChestTransactionLookup {
 

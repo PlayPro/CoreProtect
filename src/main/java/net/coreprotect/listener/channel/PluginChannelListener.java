@@ -86,7 +86,7 @@ public class PluginChannelListener implements Listener {
             {
                 for (Map.Entry<String, String> additionalItem : additional.entrySet())
                 {
-                    msgOut.writeUTF(additionalItem.getKey());
+                    Chat.console(additionalItem.getKey());
                     msgOut.writeUTF(additionalItem.getValue());
                 }
             }

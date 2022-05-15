@@ -86,7 +86,7 @@ public class Config extends Language {
     public boolean PLAYER_SESSIONS;
     public boolean USERNAME_CHANGES;
     public boolean WORLDEDIT;
-    public boolean show_custom_model_data;
+    public boolean SHOW_CUSTOM_MODEL_DATA;
     public int MYSQL_PORT;
     public int DEFAULT_RADIUS;
     public int MAX_RADIUS;
@@ -241,7 +241,7 @@ public class Config extends Language {
         this.PLAYER_SESSIONS = this.getBoolean("player-sessions");
         this.USERNAME_CHANGES = this.getBoolean("username-changes");
         this.WORLDEDIT = this.getBoolean("worldedit");
-        this.show_custom_model_data = this.getBoolean("show-custom-model-data");
+        this.SHOW_CUSTOM_MODEL_DATA = this.getBoolean("show-custom-model-data");
     }
 
     public static void init() throws IOException {

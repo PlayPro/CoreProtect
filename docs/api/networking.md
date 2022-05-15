@@ -22,20 +22,35 @@ Sends data from the database.
 
 * Channel: `coreprotect:data`
 
-| Type: `Int` | 1                      | 2                      | 3                  | 4                  |
-|-------------|------------------------|------------------------|--------------------|--------------------|
-|             | Time: `long`           | Time: `long`           | Time: `long`       | Time: `long`       |
-|             | Phrase selector: `UTF` | Phrase selector: `UTF` | Result User: `UTF` | Result User: `UTF` |
-|             | Result User: `UTF`     | Result User: `UTF`     | Message: `UTF`     | Target: `UTF`      |
-|             | Target: `UTF`          | Amount: `Int`          | Sign: `Boolean`    |                    |
-|             | Amount: `Int`          | X: `Int`               | X: `Int`           |                    |
-|             | X: `Int`               | Y: `Int`               | Y: `Int`           |                    |
-|             | Y: `Int`               | Z: `Int`               | Z: `Int`           |                    |
-|             | Z: `Int`               | World name: `UTF`      | World name: `UTF`  |                    |
-|             | World name: `UTF`      |                        |                    |                    |
-|             | Rolledback: `Boolean`  |                        |                    |                    |
-|             | isContainer: `Boolean` |                        |                    |                    |
-|             | Added: `Boolean`       |                        |                    |                    |
+| Type: `Int` | 1                           | 2                      | 3                  | 4                  |
+|-------------|-----------------------------|------------------------|--------------------|--------------------|
+|             | Time: `long`                | Time: `long`           | Time: `long`       | Time: `long`       |
+|             | Phrase selector: `UTF`      | Phrase selector: `UTF` | Result User: `UTF` | Result User: `UTF` |
+|             | Result User: `UTF`          | Result User: `UTF`     | Message: `UTF`     | Target: `UTF`      |
+|             | Target: `UTF`               | Amount: `Int`          | Sign: `Boolean`    |                    |
+|             | Amount: `Int`               | X: `Int`               | X: `Int`           |                    |
+|             | X: `Int`                    | Y: `Int`               | Y: `Int`           |                    |
+|             | Y: `Int`                    | Z: `Int`               | Z: `Int`           |                    |
+|             | Z: `Int`                    | World name: `UTF`      | World name: `UTF`  |                    |
+|             | World name: `UTF`           |                        |                    |                    |
+|             | Rolledback: `Boolean`       |                        |                    |                    |
+|             | isContainer: `Boolean`      |                        |                    |                    |
+|             | Added: `Boolean`            |                        |                    |                    |
+|             | Additional Info: `Addition` |                        |                    |                    |
+
+Type Addition:
+If amount addition info is 0, it won't sent any Additional info Items
+
+| Info                                       | Required |
+|--------------------------------------------|----------|
+| Additional Info Hashmap size `Int`         | True     |
+| Additional Info Items, more info see below |          |
+The following info you will get per item:
+
+| Info                             |
+|----------------------------------|
+| Additional Info Item Key `UTF`   |
+| Additional Info Item Value `UTF` |
 
 Example (Fabric):
 ```
@@ -54,6 +69,37 @@ String worldName = dis.readUTF();
 boolean rolledback = dis.readBoolean();
 boolean isContainer = dis.readBoolean();
 boolean added = dis.readBoolean();
+int additionalItemSize = dis.readInt();
+```
+
+Example with additional Info (Fabric):
+```
+ByteArrayInputStream in = new ByteArrayInputStream(buf.getWrittenBytes());
+DataInputStream dis = new DataInputStream(in);
+HashMap<String, Object> addition = new HashMap<>();
+int type = dis.readInt();
+long time = dis.readLong();
+String selector = dis.readUTF();
+String  resultUser = dis.readUTF();
+String target = dis.readUTF();
+int amount = dis.readInt();
+int x = dis.readInt();
+int y = dis.readInt();
+int z = dis.readInt();
+String worldName = dis.readUTF();
+boolean rolledback = dis.readBoolean();
+boolean isContainer = dis.readBoolean();
+boolean added = dis.readBoolean();
+int additionalItemSize = dis.readInt();
+if (additionalItemSize != 0)
+{
+   for (int i = 0; i <= additionalItemSize; i++)
+   {
+      String key = dis.readUTF();
+      String value = dis.readUTF();
+      addition.put(key, value);
+   }
+}
 ```
 
 ### Handshake Packet

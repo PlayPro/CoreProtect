@@ -10,6 +10,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 
+import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
@@ -138,7 +139,7 @@ public class ChestTransactionLookup {
                     if (itemMeta.hasDisplayName()) {
                         popupText = Color.WHITE + "customName" + Color.GREY + ": " + Color.DARK_AQUA + "\"" + itemMeta.getDisplayName() + "\"";
                     }
-                    if (itemMeta.hasCustomModelData()) {
+                    if (itemMeta.hasCustomModelData() && Config.getGlobal().SHOW_CUSTOM_MODEL_DATA) {
                         if (!popupText.equals("")) {
                             popupText += "\\n";
                         }

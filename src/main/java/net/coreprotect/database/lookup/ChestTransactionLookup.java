@@ -129,9 +129,10 @@ public class ChestTransactionLookup {
                     target = target.split(":")[1];
                 }
 
+                String displayName = "";
+                Integer customModelData = null;
+                String popupText = "";
                 if (resultMetadata != null) {
-                    String popupText = "";
-
                     BukkitObjectInputStream metaObjectStream = new BukkitObjectInputStream(new ByteArrayInputStream(resultMetadata));
                     Object metaList = metaObjectStream.readObject();
 
@@ -145,14 +146,14 @@ public class ChestTransactionLookup {
                         }
                         popupText += Color.WHITE + "customModelData" + Color.GREY + ": " + Color.DARK_AQUA + itemMeta.getCustomModelData();
                     }
-
-                    if (!popupText.equals("")) {
-                        target = Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_POPUP + "|" + popupText + "|" + Color.DARK_AQUA + rbFormat + target + Chat.COMPONENT_TAG_CLOSE;
-                    }
                 }
 
+                PluginChannelListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_CONTAINER, selector, resultUser, target, resultAmount, x, y, z, worldId, rbFormat, true, tag.contains("+"), displayName, customModelData);
+                if (!popupText.equals("")) {
+                    target = Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_POPUP + "|" + popupText + "|" + Color.DARK_AQUA + rbFormat + target + Chat.COMPONENT_TAG_CLOSE;
+                }
                 resultBuilder.append(timeAgo + " " + tag + " ").append(Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, "x" + resultAmount, Color.DARK_AQUA + rbFormat + target + Color.WHITE, selector)).append("\n");
-                PluginChannelListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_CONTAINER, selector, resultUser, target, resultAmount, x, y, z, worldId, rbFormat, true, tag.contains("+"));
+
             }
             result = resultBuilder.toString();
             results.close();

@@ -151,7 +151,6 @@ public class ChestTransactionLookup {
                     }
                 }
 
-                //                                                                                                                                          Keep these in case no hover and target is default    \/              \/
                 resultBuilder.append(timeAgo + " " + tag + " ").append(Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, "x" + resultAmount, Color.DARK_AQUA + rbFormat + target + Color.WHITE, selector)).append("\n");
                 PluginChannelListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_CONTAINER, selector, resultUser, target, resultAmount, x, y, z, worldId, rbFormat, true, tag.contains("+"));
             }

@@ -165,6 +165,7 @@ public class ChestTransactionLookup {
                             popupText += Color.WHITE + "\\n - " + Color.DARK_AQUA + name + " " + Color.GREY + itemMeta.getEnchantLevel(enchant);
                             additionalData.put("enchantments", additionalData.get("enchantments") + name + "-" + itemMeta.getEnchantLevel(enchant) + "|");
                         }
+                        additionalData.put("enchantments", additionalData.get("enchantments").substring(0, additionalData.get("enchantments").length() - 1));
                     }
                 }
 

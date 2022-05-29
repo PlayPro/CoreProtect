@@ -138,7 +138,7 @@ public class ChestTransactionLookup {
                     ItemMeta itemMeta = Util.deserializeItemMeta(new ItemStack(Util.getType(resultType)).getItemMeta().getClass(), ((List<List<Map<String, Object>>>) metaList).get(0).get(0));
                     if (itemMeta.hasDisplayName()) {
                         String displayName = itemMeta.getDisplayName();
-                        popupText = Color.WHITE + "customName" + Color.GREY + ": " + Color.DARK_AQUA + "\"" + displayName + "\"";
+                        popupText = Color.WHITE + "customName" + Color.GREY + ": " + Color.DARK_AQUA + "\"" + displayName + Color.DARK_AQUA + "\"";
                         additionalData.put("customName", displayName);
                     }
                     if (itemMeta.hasCustomModelData() && Config.getGlobal().SHOW_CUSTOM_MODEL_DATA) {

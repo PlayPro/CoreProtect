@@ -154,6 +154,7 @@ public class ChestTransactionLookup {
                         if (!popupText.equals("")) {
                             popupText += "\\n";
                         }
+                        additionalData.put("enchantments", "");
                         popupText += Color.WHITE + "enchants" + Color.GREY + ":";
                         for (Enchantment enchant : itemMeta.getEnchants().keySet()) {
                             String name = enchant.getKey().toString();
@@ -162,6 +163,7 @@ public class ChestTransactionLookup {
                             }
 
                             popupText += Color.WHITE + "\\n - " + Color.DARK_AQUA + name + " " + Color.GREY + itemMeta.getEnchantLevel(enchant);
+                            additionalData.put("enchantments", additionalData.get("enchantments") + name + "-" + itemMeta.getEnchantLevel(enchant) + "|");
                         }
                     }
                 }

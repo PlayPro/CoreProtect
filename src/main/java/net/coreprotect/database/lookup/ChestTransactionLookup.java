@@ -11,6 +11,7 @@ import java.util.Map;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.util.io.BukkitObjectInputStream;
@@ -148,6 +149,20 @@ public class ChestTransactionLookup {
                         int customModelData = itemMeta.getCustomModelData();
                         popupText += Color.WHITE + "customModelData" + Color.GREY + ": " + Color.DARK_AQUA + customModelData;
                         additionalData.put("customModelData", String.valueOf(customModelData));
+                    }
+                    if (itemMeta.hasEnchants()) {
+                        if (!popupText.equals("")) {
+                            popupText += "\\n";
+                        }
+                        popupText += Color.WHITE + "enchants" + Color.GREY + ":";
+                        for (Enchantment enchant : itemMeta.getEnchants().keySet()) {
+                            String name = enchant.getKey().toString();
+                            if (name.startsWith("minecraft:")) {
+                                name = name.split(":")[1];
+                            }
+
+                            popupText += Color.WHITE + "\\n - " + Color.DARK_AQUA + name + " " + Color.GREY + itemMeta.getEnchantLevel(enchant);
+                        }
                     }
                 }
 

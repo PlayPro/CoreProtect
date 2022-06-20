@@ -1,6 +1,5 @@
 package net.coreprotect.paper;
 
-import com.destroystokyo.paper.entity.villager.Reputation;
 import org.bukkit.Server;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;

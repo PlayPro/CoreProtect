@@ -11,7 +11,7 @@ import java.util.List;
 public class Bukkit_v1_19 extends Bukkit_v1_18 implements BukkitInterface {
 
     public Bukkit_v1_19() {
-        BlockGroup.SCULK = new HashSet<>(Arrays.asList(Material.SCULK, Material.SCULK_VEIN));
+        BlockGroup.SCULK = new HashSet<>(Arrays.asList(Material.SCULK, Material.SCULK_VEIN, Material.SCULK_SENSOR, Material.SCULK_SHRIEKER));
     }
 
     @Override

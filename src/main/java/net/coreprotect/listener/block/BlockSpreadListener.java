@@ -78,7 +78,7 @@ public final class BlockSpreadListener extends Queue implements Listener {
                 return;
             }
 
-            queueBlockPlace("#sculkcatalyst", block.getState(), block.getType(), block.getState(), type, -1, 0, blockstate.getBlockData().getAsString());
+            queueBlockPlace("#sculk", block.getState(), block.getType(), block.getState(), type, -1, 0, blockstate.getBlockData().getAsString());
         }
     }
 

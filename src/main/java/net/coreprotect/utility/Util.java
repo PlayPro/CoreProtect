@@ -1019,7 +1019,7 @@ public class Util extends Queue {
                 if (version.contains("-beta-")) {
                     version = version.split(";")[0];
                     version = version.split("-beta-")[1];
-                    int value = Integer.parseInt(version.replaceAll("[^0-9]", ""));
+                    long value = Long.parseLong(version.replaceAll("[^0-9]", ""));
                     if (value < 6) {
                         validVersion = false;
                     }
@@ -1033,7 +1033,7 @@ public class Util extends Queue {
                     }
 
                     if (version.contains("-")) {
-                        int value = Integer.parseInt(((version.split("-"))[0]).replaceAll("[^0-9]", ""));
+                        long value = Long.parseLong(((version.split("-"))[0]).replaceAll("[^0-9]", ""));
                         if (value > 0 && value < 4268) {
                             validVersion = false;
                         }

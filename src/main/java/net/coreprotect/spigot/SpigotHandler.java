@@ -37,7 +37,7 @@ public class SpigotHandler extends SpigotAdapter implements SpigotInterface {
                     addBuilder(message, builder);
                 }
 
-                String[] data = value.split("\\|", 3);
+                String[] data = value.split("(?<=[^\\\\])\\|", 3);
                 if (data[0].equals(Chat.COMPONENT_COMMAND)) {
                     TextComponent component = new TextComponent(TextComponent.fromLegacyText(data[2]));
                     component.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, data[1]));

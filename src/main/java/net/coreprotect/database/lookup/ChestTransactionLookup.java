@@ -171,6 +171,7 @@ public class ChestTransactionLookup {
 
                 PluginChannelListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_CONTAINER, selector, resultUser, target, resultAmount, x, y, z, worldId, rbFormat, true, tag.contains("+"), additionalData);
                 if (!popupText.equals("")) {
+                    popupText = popupText.replace("|", "\\|"); // if the text has a pipe then it would break the popup
                     target = Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_POPUP + "|" + popupText + "|" + Color.DARK_AQUA + rbFormat + target + Chat.COMPONENT_TAG_CLOSE;
                 }
                 resultBuilder.append(timeAgo + " " + tag + " ").append(Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, "x" + resultAmount, Color.DARK_AQUA + rbFormat + target + Color.WHITE, selector)).append("\n");

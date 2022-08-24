@@ -18,8 +18,8 @@ public class Spigot_v1_16 extends SpigotHandler implements SpigotInterface {
     public void addHoverComponent(Object message, String[] data) {
         try {
             if (Config.getGlobal().HOVER_EVENTS) {
-                TextComponent component = new TextComponent(TextComponent.fromLegacyText(data[2]));
-                component.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new Text(TextComponent.fromLegacyText(data[1]))));
+                TextComponent component = new TextComponent(TextComponent.fromLegacyText(data[2].replace("\\|", "|")));
+                component.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new Text(TextComponent.fromLegacyText(data[1].replace("\\|", "|")))));
                 ((TextComponent) message).addExtra(component);
             }
             else {

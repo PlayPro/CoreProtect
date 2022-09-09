@@ -681,7 +681,7 @@ public class CommandHandler implements CommandExecutor {
                                     restricted.add(material);
                                 }
                                 else {
-                                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE, argument), "coreprotect:search", silent);
+                                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE, argument), "coreprotect:lookup", silent);
                                     // Functions.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co help include"));
                                     return null;
                                 }

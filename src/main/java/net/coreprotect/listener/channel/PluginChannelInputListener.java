@@ -92,7 +92,6 @@ public class PluginChannelInputListener implements PluginMessageListener, Listen
             Bukkit.getScheduler().runTask(CoreProtect.getInstance(), new sendLookupPages());
         }
         catch (Exception exception) {
-            Chat.console(exception.toString());
             exception.printStackTrace();
         }
     }

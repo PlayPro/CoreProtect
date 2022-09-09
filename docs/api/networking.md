@@ -139,7 +139,7 @@ Sends input to execute commands on server
 
 Example of Command Arguments:
 ```
-lookup r:world r:15 t:33d #silentchat rows:20
+lookup r:world r:15 t:33d rows:20
 ```
 
 Example (Fabric):

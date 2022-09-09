@@ -38,50 +38,49 @@ public class PurgeCommand extends Consumer {
         final List<Integer> supportedActions = Arrays.asList();
         long startTime = argTime[1] > 0 ? argTime[0] : 0;
         long endTime = argTime[1] > 0 ? argTime[1] : argTime[0];
-        final boolean silent = CommandHandler.parseSilentChat(player, args);
 
         if (ConfigHandler.converterRunning) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS), typePurgePacket, silent);
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS), typePurgePacket);
             return;
         }
         if (ConfigHandler.purgeRunning) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS), typePurgePacket, silent);
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS), typePurgePacket);
             return;
         }
         if (!permission) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typePurgePacket, silent);
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typePurgePacket);
             return;
         }
         if (resultc <= 1) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co purge t:<time>"), typePurgePacket, silent);
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co purge t:<time>"), typePurgePacket);
             return;
         }
         if (endTime <= 0) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co purge t:<time>"), typePurgePacket, silent);
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co purge t:<time>"), typePurgePacket);
             return;
         }
         if (argRadius != null) {
-            Chat.sendResponse(player, new ChatMessage(Phrase.build(Phrase.INVALID_WORLD)).build(), typePurgePacket, silent);
+            Chat.sendResponse(player, new ChatMessage(Phrase.build(Phrase.INVALID_WORLD)).build(), typePurgePacket);
             return;
         }
         if (argWid == -1) {
             String worldName = CommandHandler.parseWorldName(args, false);
-            Chat.sendResponse(player, new ChatMessage(Phrase.build(Phrase.WORLD_NOT_FOUND, worldName)).build(), typePurgePacket, silent);
+            Chat.sendResponse(player, new ChatMessage(Phrase.build(Phrase.WORLD_NOT_FOUND, worldName)).build(), typePurgePacket);
             return;
         }
         for (int action : argAction) {
             if (!supportedActions.contains(action)) {
-                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ACTION_NOT_SUPPORTED), typePurgePacket, silent);
+                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ACTION_NOT_SUPPORTED), typePurgePacket);
                 // Functions.sendMessage(player, new ChatMessage("Please specify a valid purge action.").build());
                 return;
             }
         }
         if (player instanceof Player && endTime < 2592000) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_MINIMUM_TIME, "30", Selector.FIRST), typePurgePacket, silent); // 30 days
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_MINIMUM_TIME, "30", Selector.FIRST), typePurgePacket); // 30 days
             return;
         }
         else if (endTime < 86400) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_MINIMUM_TIME, "24", Selector.SECOND), typePurgePacket, silent); // 24 hours
+            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_MINIMUM_TIME, "24", Selector.SECOND), typePurgePacket); // 24 hours
             return;
         }
 
@@ -114,19 +113,19 @@ public class PurgeCommand extends Consumer {
                     }
 
                     if (connection == null) {
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.DATABASE_BUSY), silent);
+                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.DATABASE_BUSY));
                         return;
                     }
 
                     if (argWid > 0) {
                         String worldName = CommandHandler.parseWorldName(args, false);
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_STARTED, worldName), silent);
+                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_STARTED, worldName));
                     }
                     else {
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_STARTED, "#global"), silent);
+                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_STARTED, "#global"));
                     }
-                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_NOTICE_1), silent);
-                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_NOTICE_2), silent);
+                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_NOTICE_1));
+                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_NOTICE_2));
 
                     ConfigHandler.purgeRunning = true;
                     while (!Consumer.pausedSuccess) {
@@ -150,7 +149,7 @@ public class PurgeCommand extends Consumer {
                     Integer[] lastVersion = Patch.getDatabaseVersion(connection, true);
                     boolean newVersion = Util.newVersion(lastVersion, Util.getInternalPluginVersion());
                     if (newVersion && !ConfigHandler.EDITION_BRANCH.contains("-dev")) {
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_FAILED), silent);
+                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_FAILED));
                         Consumer.isPaused = false;
                         ConfigHandler.purgeRunning = false;
                         return;
@@ -177,7 +176,7 @@ public class PurgeCommand extends Consumer {
                     List<String> excludeTables = Arrays.asList("database_lock"); // don't insert data into these tables
                     for (String table : ConfigHandler.databaseTables) {
                         String tableName = table.replaceAll("_", " ");
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_PROCESSING, tableName), silent);
+                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_PROCESSING, tableName));
 
                         if (!Config.getGlobal().MYSQL) {
                             String columns = "";
@@ -219,8 +218,8 @@ public class PurgeCommand extends Consumer {
                             }
 
                             if (error) {
-                                Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_ERROR, tableName), silent);
-                                Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_REPAIRING), silent);
+                                Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_ERROR, tableName));
+                                Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_REPAIRING));
 
                                 try {
                                     query = "DELETE FROM " + purgePrefix + table;
@@ -335,7 +334,7 @@ public class PurgeCommand extends Consumer {
                             }
                             catch (Exception e) {
                                 if (!ConfigHandler.serverRunning) {
-                                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_FAILED), silent);
+                                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_FAILED));
                                     return;
                                 }
 
@@ -345,7 +344,7 @@ public class PurgeCommand extends Consumer {
                     }
 
                     if (Config.getGlobal().MYSQL && optimize) {
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_OPTIMIZING), silent);
+                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_OPTIMIZING));
                         for (String table : ConfigHandler.databaseTables) {
                             query = "OPTIMIZE LOCAL TABLE " + ConfigHandler.prefix + table + "";
                             preparedStmt = connection.prepareStatement(query);
@@ -361,7 +360,7 @@ public class PurgeCommand extends Consumer {
                             (new File(ConfigHandler.path + ConfigHandler.sqlite + ".tmp")).delete();
                         }
                         ConfigHandler.loadDatabase();
-                        Chat.sendGlobalMessage(player, Color.RED + Phrase.build(Phrase.PURGE_ABORTED), silent);
+                        Chat.sendGlobalMessage(player, Color.RED + Phrase.build(Phrase.PURGE_ABORTED));
                         Consumer.isPaused = false;
                         ConfigHandler.purgeRunning = false;
                         return;
@@ -374,11 +373,11 @@ public class PurgeCommand extends Consumer {
 
                     ConfigHandler.loadDatabase();
 
-                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_SUCCESS), silent);
-                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_ROWS, NumberFormat.getInstance().format(removed), (removed == 1 ? Selector.FIRST : Selector.SECOND)), silent);
+                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_SUCCESS));
+                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_ROWS, NumberFormat.getInstance().format(removed), (removed == 1 ? Selector.FIRST : Selector.SECOND)));
                 }
                 catch (Exception e) {
-                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_FAILED), silent);
+                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_FAILED));
                     e.printStackTrace();
                 }
 

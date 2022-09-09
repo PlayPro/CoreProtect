@@ -628,7 +628,6 @@ public class CommandHandler implements CommandExecutor {
                     argument = argument.replaceAll("blocks:", "");
                     argument = argument.replaceAll("block:", "");
                     argument = argument.replaceAll("b:", "");
-                    boolean silent = parseSilentChat(player, inputArguments);
                     if (argument.contains(",")) {
                         String[] i2 = argument.split(",");
                         for (String i3 : i2) {
@@ -649,7 +648,7 @@ public class CommandHandler implements CommandExecutor {
                                         restricted.add(i3_material);
                                     }
                                     else {
-                                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE, i3), "coreprotect:search", silent);
+                                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE, i3), "coreprotect:lookup");
                                         // Functions.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co help include"));
                                         return null;
                                     }
@@ -681,7 +680,7 @@ public class CommandHandler implements CommandExecutor {
                                     restricted.add(material);
                                 }
                                 else {
-                                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE, argument), "coreprotect:lookup", silent);
+                                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE, argument), "coreprotect:lookup");
                                     // Functions.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co help include"));
                                     return null;
                                 }
@@ -697,28 +696,6 @@ public class CommandHandler implements CommandExecutor {
             count++;
         }
         return restricted;
-    }
-
-    protected static boolean parseSilentChat(CommandSender player, String[] inputArguments) {
-        if (!PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(player)) {
-            return false;
-        }
-        String[] argumentArray = inputArguments.clone();
-        boolean silentChat = false;
-        int count = 0;
-        for (String argument : argumentArray) {
-            if (count > 0) {
-                argument = argument.trim().toLowerCase(Locale.ROOT);
-                argument = argument.replaceAll("\\\\", "");
-                argument = argument.replaceAll("'", "");
-
-                if (argument.equals("#silentchat")) {
-                    silentChat = true;
-                }
-            }
-            count++;
-        }
-        return silentChat;
     }
 
     protected static long[] parseTime(String[] inputArguments) {
@@ -1162,7 +1139,7 @@ public class CommandHandler implements CommandExecutor {
     }
 
     private static void validUserCheck(List<String> users, String user) {
-        List<String> badUsers = Arrays.asList("n", "noisy", "v", "verbose", "#v", "#verbose", "#silent", "#preview", "#preview_cancel", "#count", "#sum", "#silentchat");
+        List<String> badUsers = Arrays.asList("n", "noisy", "v", "verbose", "#v", "#verbose", "#silent", "#preview", "#preview_cancel", "#count", "#sum");
         String check = user.replaceAll("[\\s'\"]", "");
         if (check.equals(user) && check.length() > 0) {
             if (user.equalsIgnoreCase("#global")) {

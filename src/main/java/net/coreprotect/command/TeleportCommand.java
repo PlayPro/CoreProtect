@@ -104,7 +104,7 @@ public class TeleportCommand {
         }
 
         // Teleport the player to a safe location
-        Teleport.performSafeTeleport(((Player) player), location, true, false);
+        Teleport.performSafeTeleport(((Player) player), location, true);
 
         ConfigHandler.teleportThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
     }

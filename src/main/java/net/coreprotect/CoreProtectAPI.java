@@ -518,7 +518,7 @@ public class CoreProtectAPI extends Queue {
                 else {
                     if (!Bukkit.isPrimaryThread()) {
                         boolean verbose = false;
-                        result = Rollback.performRollbackRestore(statement, null, uuids, restrictUsers, null, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, startTime, endTime, restrictWorld, false, verbose, false, action, 0);
+                        result = Rollback.performRollbackRestore(statement, null, uuids, restrictUsers, null, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, startTime, endTime, restrictWorld, false, verbose, action, 0);
                     }
                 }
 

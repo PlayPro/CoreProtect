@@ -1,5 +1,6 @@
 package net.coreprotect.command;
 
+import java.io.ByteArrayInputStream;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.text.NumberFormat;
@@ -7,6 +8,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.HashMap;
+import java.util.Base64;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -16,6 +19,7 @@ import org.bukkit.block.BlockState;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 
@@ -40,6 +44,9 @@ import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.ChatMessage;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.util.io.BukkitObjectInputStream;
 
 public class LookupCommand {
     protected static void runCommand(CommandSender player, Command command, boolean permission, String[] args) {
@@ -969,6 +976,10 @@ public class LookupCommand {
                                                     int wid = Integer.parseInt(data[9]);
                                                     int amount = Integer.parseInt(data[10]);
                                                     String tag = Color.WHITE + "-";
+                                                    byte[] metadata = null;
+                                                    if (data[11] != null) {
+                                                        metadata = Base64.getDecoder().decode(data[11]);
+                                                    }
 
                                                     String timeago = Util.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
                                                     int timeLength = 50 + (Util.getTimeSince(Integer.parseInt(time), unixtimestamp, false).replaceAll("[^0-9]", "").length() * 6);
@@ -1040,8 +1051,12 @@ public class LookupCommand {
                                                             action = "a:container";
                                                         }
 
-                                                        Chat.sendComponent(player2, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, "x" + amount, Color.DARK_AQUA + rbd + dname + Color.WHITE, selector));
-                                                        PluginChannelListener.getInstance().sendData(player2, Integer.parseInt(time), phrase, selector, dplayer, dname, (tag.contains("+") ? 1 : -1), x, y, z, wid, rbd, action.contains("container"), tag.contains("+"));
+
+                                                        String formattedName = Util.formatItemMetaPopup(Color.DARK_AQUA + rbd + dname + Color.WHITE, Util.getType(Integer.valueOf(dtype)), metadata);
+                                                        HashMap<String, String> additionalData = Util.convertItemMeta(Util.getType(Integer.valueOf(dtype)), metadata);
+
+                                                        Chat.sendComponent(player2, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, "x" + amount, formattedName, selector));
+                                                        PluginChannelListener.getInstance().sendData(player2, Integer.parseInt(time), phrase, selector, dplayer, dname, (tag.contains("+") ? 1 : -1), x, y, z, wid, rbd, action.contains("container"), tag.contains("+"), additionalData);
                                                     }
                                                     else {
                                                         if (daction == 2 || daction == 3) {

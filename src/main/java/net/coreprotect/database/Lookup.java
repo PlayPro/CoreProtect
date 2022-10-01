@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Base64;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -54,6 +55,9 @@ public class Lookup extends Queue {
                         else {
                             results[newId] = (String) map[i];
                         }
+                    }
+                    else if (i == 12 && map[i] instanceof byte[]) {
+                        results[newId] = Base64.getEncoder().encodeToString((byte[]) map[i]);
                     }
                     else if (i == 13 && map[i] instanceof Byte[]) {
                         results[newId] = Util.byteDataToString((byte[]) map[i], (int) map[6]);

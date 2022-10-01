@@ -1,6 +1,8 @@
 package net.coreprotect.utility;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
@@ -36,6 +38,7 @@ import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.configuration.serialization.ConfigurationSerialization;
 import org.bukkit.configuration.serialization.DelegateDeserialization;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.LivingEntity;
@@ -47,6 +50,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.util.io.BukkitObjectInputStream;
 import org.bukkit.util.io.BukkitObjectOutputStream;
 
 import net.coreprotect.CoreProtect;
@@ -1553,5 +1557,93 @@ public class Util extends Queue {
             default: // no rollbacks
                 return isInventory ? 2 : 1;
         }
+    }
+
+
+    public static String formatItemMetaPopup(String itemDisplayName, Material itemType, byte[] itemMetaBytes) throws IOException, ClassNotFoundException {
+        if (itemMetaBytes != null) {
+            BukkitObjectInputStream metaObjectStream = new BukkitObjectInputStream(new ByteArrayInputStream(itemMetaBytes));
+            Object metaList = metaObjectStream.readObject();
+
+            ItemMeta itemMeta = Util.deserializeItemMeta(new ItemStack(itemType).getItemMeta().getClass(), ((List<List<Map<String, Object>>>) metaList).get(0).get(0));
+            return formatItemMeta(itemDisplayName, itemMeta);
+        }
+
+        return itemDisplayName;
+    }
+
+    public static String formatItemMeta(String itemDisplayName, ItemMeta itemMeta) {
+        String popupText = "";
+        if (itemMeta != null) {
+            if (itemMeta.hasDisplayName()) {
+                String displayName = itemMeta.getDisplayName();
+                popupText = Color.WHITE + "customName" + Color.GREY + ": " + Color.DARK_AQUA + "\"" + displayName + Color.DARK_AQUA + "\"";
+            }
+            if (itemMeta.hasCustomModelData() && Config.getGlobal().SHOW_CUSTOM_MODEL_DATA) {
+                if (!popupText.equals("")) {
+                    popupText += "\n";
+                }
+                int customModelData = itemMeta.getCustomModelData();
+                popupText += Color.WHITE + "customModelData" + Color.GREY + ": " + Color.DARK_AQUA + customModelData;
+            }
+            if (itemMeta.hasEnchants()) {
+                if (!popupText.equals("")) {
+                    popupText += "\n";
+                }
+                popupText += Color.WHITE + "enchants" + Color.GREY + ":";
+                for (Enchantment enchant : itemMeta.getEnchants().keySet()) {
+                    String name = enchant.getKey().toString();
+                    if (name.startsWith("minecraft:")) {
+                        name = name.split(":")[1];
+                    }
+
+                    popupText += Color.WHITE + "\n - " + Color.DARK_AQUA + name + " " + Color.GREY + itemMeta.getEnchantLevel(enchant);
+                }
+            }
+        }
+
+        if (!popupText.equals("")) {
+            return Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_POPUP + "|" + popupText + "|" + itemDisplayName + Chat.COMPONENT_TAG_CLOSE;
+        }
+        return itemDisplayName;
+    }
+
+
+    public static HashMap<String, String> convertItemMeta(Material itemType, byte[] itemMetaBytes) throws IOException, ClassNotFoundException {
+        if (itemMetaBytes != null) {
+            BukkitObjectInputStream metaObjectStream = new BukkitObjectInputStream(new ByteArrayInputStream(itemMetaBytes));
+            Object metaList = metaObjectStream.readObject();
+
+            ItemMeta itemMeta = Util.deserializeItemMeta(new ItemStack(itemType).getItemMeta().getClass(), ((List<List<Map<String, Object>>>) metaList).get(0).get(0));
+            return convertItemMeta(itemMeta);
+        }
+
+        return new HashMap<String, String>();
+    }
+
+    public static HashMap<String, String> convertItemMeta(ItemMeta itemMeta) {
+        HashMap<String, String> additionalData = new HashMap<>();
+        if (itemMeta != null) {
+            if (itemMeta.hasDisplayName()) {
+                String displayName = itemMeta.getDisplayName();
+                additionalData.put("customName", displayName);
+            }
+            if (itemMeta.hasCustomModelData() && Config.getGlobal().SHOW_CUSTOM_MODEL_DATA) {
+                int customModelData = itemMeta.getCustomModelData();
+                additionalData.put("customModelData", String.valueOf(customModelData));
+            }
+            if (itemMeta.hasEnchants()) {
+                for (Enchantment enchant : itemMeta.getEnchants().keySet()) {
+                    String name = enchant.getKey().toString();
+                    if (name.startsWith("minecraft:")) {
+                        name = name.split(":")[1];
+                    }
+                additionalData.put("enchantments", additionalData.get("enchantments") + name + "-" + itemMeta.getEnchantLevel(enchant) + "|");
+            }
+            additionalData.put("enchantments", additionalData.get("enchantments").substring(0, additionalData.get("enchantments").length() - 1));
+            }
+        }
+
+        return additionalData;
     }
 }

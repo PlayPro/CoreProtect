@@ -130,47 +130,12 @@ public class ChestTransactionLookup {
                     target = target.split(":")[1];
                 }
 
-                String popupText = "";
-                HashMap<String, String> additionalData = new HashMap<>();
-                if (resultMetadata != null) {
-                    BukkitObjectInputStream metaObjectStream = new BukkitObjectInputStream(new ByteArrayInputStream(resultMetadata));
-                    Object metaList = metaObjectStream.readObject();
-
-                    ItemMeta itemMeta = Util.deserializeItemMeta(new ItemStack(Util.getType(resultType)).getItemMeta().getClass(), ((List<List<Map<String, Object>>>) metaList).get(0).get(0));
-                    if (itemMeta.hasDisplayName()) {
-                        String displayName = itemMeta.getDisplayName();
-                        popupText = Color.WHITE + "customName" + Color.GREY + ": " + Color.DARK_AQUA + "\"" + displayName + Color.DARK_AQUA + "\"";
-                        additionalData.put("customName", displayName);
-                    }
-                    if (itemMeta.hasCustomModelData() && Config.getGlobal().SHOW_CUSTOM_MODEL_DATA) {
-                        if (!popupText.equals("")) {
-                            popupText += "\\n";
-                        }
-                        int customModelData = itemMeta.getCustomModelData();
-                        popupText += Color.WHITE + "customModelData" + Color.GREY + ": " + Color.DARK_AQUA + customModelData;
-                        additionalData.put("customModelData", String.valueOf(customModelData));
-                    }
-                    if (itemMeta.hasEnchants()) {
-                        if (!popupText.equals("")) {
-                            popupText += "\\n";
-                        }
-                        popupText += Color.WHITE + "enchants" + Color.GREY + ":";
-                        for (Enchantment enchant : itemMeta.getEnchants().keySet()) {
-                            String name = enchant.getKey().toString();
-                            if (name.startsWith("minecraft:")) {
-                                name = name.split(":")[1];
-                            }
-
-                            popupText += Color.WHITE + "\\n - " + Color.DARK_AQUA + name + " " + Color.GREY + itemMeta.getEnchantLevel(enchant);
-                        }
-                    }
-                }
+                String formattedName = Util.formatItemMetaPopup(Color.DARK_AQUA + rbFormat + target + Color.WHITE, Util.getType(Integer.valueOf(resultType)), resultMetadata);
+                formattedName = formattedName.replace("\n", "\\n"); // To protect newlines inside of the popup
+                HashMap<String, String> additionalData = Util.convertItemMeta(Util.getType(Integer.valueOf(resultType)), resultMetadata);
 
                 PluginChannelListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_CONTAINER, selector, resultUser, target, resultAmount, x, y, z, worldId, rbFormat, true, tag.contains("+"), additionalData);
-                if (!popupText.equals("")) {
-                    target = Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_POPUP + "|" + popupText + "|" + Color.DARK_AQUA + rbFormat + target + Chat.COMPONENT_TAG_CLOSE;
-                }
-                resultBuilder.append(timeAgo + " " + tag + " ").append(Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, "x" + resultAmount, Color.DARK_AQUA + rbFormat + target + Color.WHITE, selector)).append("\n");
+                resultBuilder.append(timeAgo + " " + tag + " ").append(Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, "x" + resultAmount, formattedName, selector)).append("\n");
             }
             result = resultBuilder.toString();
             results.close();

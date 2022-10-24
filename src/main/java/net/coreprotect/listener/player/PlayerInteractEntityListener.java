@@ -84,7 +84,7 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
         int y = frameLocation.getBlockY();
         int z = frameLocation.getBlockZ();
 
-        String transactingChestId = frameLocation.getWorld().getUID().toString() + "." + x + "." + y + "." + z;
+        String transactingChestId = frameLocation.getWorld().getUID() + "." + x + "." + y + "." + z;
         String loggingChestId = user.toLowerCase(Locale.ROOT) + "." + x + "." + y + "." + z;
         int chestId = Queue.getChestId(loggingChestId);
         if (chestId > 0) {

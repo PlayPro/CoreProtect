@@ -105,7 +105,7 @@ public final class HopperPullListener {
                 }
 
                 if (!hopperTransactions) {
-                    List<Object> list = ConfigHandler.transactingChest.get(location.getWorld().getUID().toString() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ());
+                    List<Object> list = ConfigHandler.transactingChest.get(location.getWorld().getUID() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ());
                     if (list != null) {
                         list.add(movedItem);
                     }
@@ -113,7 +113,7 @@ public final class HopperPullListener {
                 }
 
                 Location destinationLocation = destinationHolder.getInventory().getLocation();
-                List<Object> list = ConfigHandler.transactingChest.get(destinationLocation.getWorld().getUID().toString() + "." + destinationLocation.getBlockX() + "." + destinationLocation.getBlockY() + "." + destinationLocation.getBlockZ());
+                List<Object> list = ConfigHandler.transactingChest.get(destinationLocation.getWorld().getUID() + "." + destinationLocation.getBlockX() + "." + destinationLocation.getBlockY() + "." + destinationLocation.getBlockZ());
                 if (list != null) {
                     list.add(new ItemStack[] { null, movedItem });
                 }

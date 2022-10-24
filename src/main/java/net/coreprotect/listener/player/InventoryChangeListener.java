@@ -110,7 +110,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
                     int y = playerLocation.getBlockY();
                     int z = playerLocation.getBlockZ();
 
-                    String transactingChestId = playerLocation.getWorld().getUID().toString() + "." + x + "." + y + "." + z;
+                    String transactingChestId = playerLocation.getWorld().getUID() + "." + x + "." + y + "." + z;
                     String loggingChestId = user.toLowerCase(Locale.ROOT) + "." + x + "." + y + "." + z;
                     for (String loggingChestIdViewer : ConfigHandler.oldContainer.keySet()) {
                         if (loggingChestIdViewer.equals(loggingChestId) || !loggingChestIdViewer.endsWith("." + x + "." + y + "." + z)) {
@@ -346,7 +346,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
             return;
         }
 
-        List<Object> list = ConfigHandler.transactingChest.get(location.getWorld().getUID().toString() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ());
+        List<Object> list = ConfigHandler.transactingChest.get(location.getWorld().getUID() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ());
         if (list == null) {
             return;
         }

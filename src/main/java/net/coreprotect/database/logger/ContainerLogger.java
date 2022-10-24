@@ -74,7 +74,7 @@ public class ContainerLogger extends Queue {
                 }
             }
             else {
-                String transactingChestId = location.getWorld().getUID().toString() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+                String transactingChestId = location.getWorld().getUID() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
                 if (ConfigHandler.transactingChest.get(transactingChestId) != null) {
                     List<Object> list = Collections.synchronizedList(new ArrayList<>(ConfigHandler.transactingChest.get(transactingChestId)));
                     if (list.size() > 0) {

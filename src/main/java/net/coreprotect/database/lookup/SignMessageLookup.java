@@ -109,7 +109,7 @@ public class SignMessageLookup {
                     result.add(new StringBuilder(Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.SIGN_HEADER) + Color.WHITE + " ----- " + Util.getCoordinates(command, worldId, x, y, z, false, false) + "").toString());
                 }
                 found = true;
-                result.add(timeAgo + Color.WHITE + " - " + Color.DARK_AQUA + resultUser + ": " + Color.WHITE + "\n" + message.toString() + Color.WHITE);
+                result.add(timeAgo + Color.WHITE + " - " + Color.DARK_AQUA + resultUser + ": " + Color.WHITE + "\n" + message  + Color.WHITE);
                 PluginChannelListener.getInstance().sendMessageData(commandSender, resultTime, resultUser, message.toString(), true, x, y, z, worldId);
             }
             results.close();

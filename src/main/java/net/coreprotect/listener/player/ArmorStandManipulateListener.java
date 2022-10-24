@@ -138,7 +138,7 @@ public final class ArmorStandManipulateListener extends Queue implements Listene
         int y = standLocation.getBlockY();
         int z = standLocation.getBlockZ();
 
-        String transactingChestId = standLocation.getWorld().getUID().toString() + "." + x + "." + y + "." + z;
+        String transactingChestId = standLocation.getWorld().getUID() + "." + x + "." + y + "." + z;
         String loggingChestId = player.getName().toLowerCase(Locale.ROOT) + "." + x + "." + y + "." + z;
         int chestId = Queue.getChestId(loggingChestId);
         if (chestId > 0) {

@@ -141,7 +141,7 @@ public class Config extends Language {
         DEFAULT_VALUES.put("username-changes", "true");
         DEFAULT_VALUES.put("worldedit", "true");
 
-        HEADERS.put("donation-key", new String[] { "# CoreProtect is donationware. For more information, visit our project page." });
+        HEADERS.put("donation-key", new String[] { "# CoreProtect is donationware. Obtain a donation key from coreprotect.net/donate/" });
         HEADERS.put("use-mysql", new String[] { "# MySQL is optional and not required.", "# If you prefer to use MySQL, enable the following and fill out the fields." });
         HEADERS.put("language", new String[] { "# If modified, will automatically attempt to translate languages phrases.", "# List of language codes: https://coreprotect.net/languages/" });
         HEADERS.put("check-updates", new String[] { "# If enabled, CoreProtect will check for updates when your server starts up.", "# If an update is available, you'll be notified via your server console.", });

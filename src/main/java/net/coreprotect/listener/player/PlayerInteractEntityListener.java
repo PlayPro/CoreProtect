@@ -7,6 +7,7 @@ import java.util.Locale;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.entity.Creature;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.Player;
@@ -21,6 +22,7 @@ import org.bukkit.inventory.ItemStack;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.Util;
 
@@ -72,6 +74,36 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
 
             if (frame.getItem().getType().equals(Material.AIR) && !handType.equals(Material.AIR)) {
                 queueFrameTransaction(player.getName(), frame, false);
+            }
+        }
+        else if (!event.isCancelled() && entity instanceof Creature && entity.getType().name().equals("ALLAY")) {
+            ItemStack handItem = new ItemStack(Material.AIR);
+            ItemStack mainHand = player.getInventory().getItemInMainHand();
+            ItemStack offHand = player.getInventory().getItemInOffHand();
+            if (event.getHand().equals(EquipmentSlot.HAND) && mainHand.getType() != Material.AIR) {
+                handItem = mainHand;
+            }
+            else if (event.getHand().equals(EquipmentSlot.OFF_HAND) && offHand.getType() != Material.AIR) {
+                handItem = offHand;
+            }
+            else if (event.getHand().equals(EquipmentSlot.OFF_HAND)) {
+                return;
+            }
+
+            ItemStack allayItem = ((Creature) entity).getEquipment().getItemInMainHand();
+            if (handItem.getType().equals(allayItem.getType())) {
+                return;
+            }
+
+            if (allayItem.getType().equals(Material.AIR)) {
+                ItemStack removedItem = handItem.clone();
+                removedItem.setAmount(1);
+                CraftItemListener.logCraftedItem(player.getLocation(), player.getName(), removedItem, ItemLogger.ITEM_SELL);
+            }
+            else if (handItem.getType().equals(Material.AIR)) {
+                ItemStack addItem = allayItem.clone();
+                addItem.setAmount(1);
+                CraftItemListener.logCraftedItem(player.getLocation(), player.getName(), addItem, ItemLogger.ITEM_BUY);
             }
         }
     }

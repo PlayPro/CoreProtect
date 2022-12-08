@@ -33,12 +33,10 @@ public final class BlockSpreadListener extends Queue implements Listener {
 
         BlockState blockstate = event.getNewState();
         Material type = blockstate.getType();
-        Block block = event.getBlock();
 
-        if (Config.getConfig(event.getBlock().getWorld()).VINE_GROWTH &&
-                (BlockGroup.VINES.contains(type) || BlockGroup.AMETHYST.contains(type)
-                        || type == Material.CHORUS_FLOWER || type == Material.BAMBOO)) {
-            if(checkCacheData(block, type)) {
+        if (Config.getConfig(event.getBlock().getWorld()).VINE_GROWTH && (BlockGroup.VINES.contains(type) || BlockGroup.AMETHYST.contains(type) || type == Material.CHORUS_FLOWER || type == Material.BAMBOO)) {
+            Block block = event.getBlock();
+            if (checkCacheData(block, type)) {
                 return;
             }
 
@@ -72,13 +70,13 @@ public final class BlockSpreadListener extends Queue implements Listener {
                 Queue.queueBlockPlaceDelayed("#bamboo", block.getLocation(), type, null, block.getState(), 0);
             }
         }
-
-        if(Config.getConfig(event.getBlock().getWorld()).SCULK_SPREAD && BlockGroup.SCULK.contains(type)) {
-            if(checkCacheData(block, type)) {
+        else if (Config.getConfig(event.getBlock().getWorld()).SCULK_SPREAD && BlockGroup.SCULK.contains(type)) {
+            Block block = event.getBlock();
+            if (checkCacheData(block, type)) {
                 return;
             }
 
-            queueBlockPlace("#sculk", block.getState(), block.getType(), block.getState(), type, -1, 0, blockstate.getBlockData().getAsString());
+            queueBlockPlace("#sculk_catalyst", block.getState(), block.getType(), block.getState(), type, -1, 0, blockstate.getBlockData().getAsString());
         }
     }
 

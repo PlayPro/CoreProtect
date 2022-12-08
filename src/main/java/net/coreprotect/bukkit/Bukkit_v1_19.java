@@ -1,12 +1,17 @@
 package net.coreprotect.bukkit;
 
-import net.coreprotect.model.BlockGroup;
-import org.bukkit.Material;
-import org.bukkit.entity.*;
-
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+
+import org.bukkit.Material;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Frog;
+import org.bukkit.entity.Goat;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Tadpole;
+
+import net.coreprotect.model.BlockGroup;
 
 public class Bukkit_v1_19 extends Bukkit_v1_18 implements BukkitInterface {
 
@@ -19,6 +24,10 @@ public class Bukkit_v1_19 extends Bukkit_v1_18 implements BukkitInterface {
         if (entity instanceof Frog) {
             Frog frog = (Frog) entity;
             info.add(frog.getVariant());
+        }
+        else if (entity instanceof Tadpole) {
+            Tadpole tadpole = (Tadpole) entity;
+            info.add(tadpole.getAge());
         }
         else if (entity instanceof Goat) {
             Goat goat = (Goat) entity;
@@ -43,6 +52,13 @@ public class Bukkit_v1_19 extends Bukkit_v1_18 implements BukkitInterface {
             if (count == 0) {
                 Frog.Variant set = (Frog.Variant) value;
                 frog.setVariant(set);
+            }
+        }
+        else if (entity instanceof Tadpole) {
+            Tadpole tadpole = (Tadpole) entity;
+            if (count == 0) {
+                int set = (int) value;
+                tadpole.setAge(set);
             }
         }
         else if (entity instanceof Goat) {

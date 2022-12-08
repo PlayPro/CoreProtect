@@ -26,6 +26,10 @@ public class CoreProtectEditSessionEvent {
         return initialized;
     }
 
+    public static boolean isFAWE() {
+        return isFAWE;
+    }
+
     public static void register() {
         if (isInitialized()) {
             return;

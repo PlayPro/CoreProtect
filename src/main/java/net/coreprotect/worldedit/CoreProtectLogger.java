@@ -46,7 +46,7 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
         // No clear way to get container content data from within the WorldEdit API
         // Data may be available by converting oldBlock.toBaseBlock().getNbtData()
         // e.g. BaseBlock block = eventWorld.getBlock(position);
-        ItemStack[] containerData = Util.getContainerContents(oldType, null, location);
+        ItemStack[] containerData = CoreProtectEditSessionEvent.isFAWE() ? null : Util.getContainerContents(oldType, null, location);
 
         if (eventExtent.setBlock(position, block)) {
             WorldEditLogger.postProcess(eventExtent, eventActor, position, location, block, baseBlock, oldType, oldBlock, containerData);

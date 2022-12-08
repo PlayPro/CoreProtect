@@ -24,6 +24,10 @@ public class PlayerKillLogger {
                 return;
             }
 
+            if (ConfigHandler.playerIdCache.get(player.toLowerCase(Locale.ROOT)) == null) {
+                UserStatement.loadId(preparedStmt.getConnection(), player, null);
+            }
+
             CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
             CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
 

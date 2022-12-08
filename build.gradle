@@ -34,7 +34,7 @@ dependencies {
     compileOnly('com.sk89q.worldedit:worldedit-bukkit:7.0.0-SNAPSHOT') {
         exclude group: 'org.bukkit'
     }
-    compileOnly 'io.papermc.paper:paper-api:1.18.1-R0.1-SNAPSHOT'
+    compileOnly 'io.papermc.paper:paper-api:1.19-R0.1-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit-lite:1.8'
     implementation 'com.zaxxer:HikariCP:4.0.3'
 }
@@ -85,4 +85,3 @@ processResources {
         }
     })
 }
-

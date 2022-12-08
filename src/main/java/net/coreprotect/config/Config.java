@@ -72,6 +72,7 @@ public class Config extends Language {
     public boolean TREE_GROWTH;
     public boolean MUSHROOM_GROWTH;
     public boolean VINE_GROWTH;
+    public boolean SCULK_SPREAD;
     public boolean PORTALS;
     public boolean WATER_FLOW;
     public boolean LAVA_FLOW;
@@ -124,6 +125,7 @@ public class Config extends Language {
         DEFAULT_VALUES.put("tree-growth", "true");
         DEFAULT_VALUES.put("mushroom-growth", "true");
         DEFAULT_VALUES.put("vine-growth", "true");
+        DEFAULT_VALUES.put("sculk-spread", "true");
         DEFAULT_VALUES.put("portals", "true");
         DEFAULT_VALUES.put("water-flow", "true");
         DEFAULT_VALUES.put("lava-flow", "true");
@@ -166,6 +168,7 @@ public class Config extends Language {
         HEADERS.put("tree-growth", new String[] { "# Logs tree growth. Trees are linked to the player who planted the sappling." });
         HEADERS.put("mushroom-growth", new String[] { "# Logs mushroom growth." });
         HEADERS.put("vine-growth", new String[] { "# Logs natural vine growth." });
+        HEADERS.put("sculk-spread", new String[] { "# Logs the spread of sculk blocks from sculk catalysts." });
         HEADERS.put("portals", new String[] { "# Logs when portals such as Nether portals generate naturally." });
         HEADERS.put("water-flow", new String[] { "# Logs water flow. If water destroys other blocks, such as torches,", "# this allows it to be properly rolled back." });
         HEADERS.put("lava-flow", new String[] { "# Logs lava flow. If lava destroys other blocks, such as torches,", "# this allows it to be properly rolled back." });
@@ -224,6 +227,7 @@ public class Config extends Language {
         this.TREE_GROWTH = this.getBoolean("tree-growth");
         this.MUSHROOM_GROWTH = this.getBoolean("mushroom-growth");
         this.VINE_GROWTH = this.getBoolean("vine-growth");
+        this.SCULK_SPREAD = this.getBoolean("sculk-spread");
         this.PORTALS = this.getBoolean("portals");
         this.WATER_FLOW = this.getBoolean("water-flow");
         this.LAVA_FLOW = this.getBoolean("lava-flow");

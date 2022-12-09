@@ -27,10 +27,10 @@ public class PaperAdapter implements PaperInterface {
 
         switch (paperVersion) {
             case PAPER_UNAVAILABLE:
-                PaperAdapter.ADAPTER = new PaperAdapter();
-                break;
             case PAPER_V1_13:
             case PAPER_V1_14:
+                PaperAdapter.ADAPTER = new PaperAdapter();
+                break;
             case PAPER_V1_15:
                 PaperAdapter.ADAPTER = new PaperHandler();
                 break;

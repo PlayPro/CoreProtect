@@ -141,11 +141,11 @@ public class TabHandler implements TabCompleter {
                 }
             }
 
-            if (lastArg.equals("a:") || lastArg.equals("action:")) {
+            if ((lastArg.equals("a:") || lastArg.equals("action:")) && (sender.hasPermission("coreprotect.lookup") || sender.hasPermission("coreprotect.rollback") || sender.hasPermission("coreprotect.restore"))) {
                 List<String> completions = new ArrayList<>(Arrays.asList(ACTIONS));
                 return StringUtil.copyPartialMatches(currentArg, completions, new ArrayList<>(completions.size()));
             }
-            else if (currentArg.startsWith("a:") || currentArg.startsWith("action:")) {
+            else if ((currentArg.startsWith("a:") || currentArg.startsWith("action:")) && (sender.hasPermission("coreprotect.lookup") || sender.hasPermission("coreprotect.rollback") || sender.hasPermission("coreprotect.restore"))) {
                 String arg = "";
                 String[] split = currentArg.split(":", 2);
                 String filter = split[0] + ":";
@@ -159,10 +159,10 @@ public class TabHandler implements TabCompleter {
                 }
                 return StringUtil.copyPartialMatches(filter + arg, completions, new ArrayList<>(completions.size()));
             }
-            else if (lastArg.equals("u:") || lastArg.equals("user:") || lastArg.equals("users:") || lastArg.equals("p:")) {
+            else if ((lastArg.equals("u:") || lastArg.equals("user:") || lastArg.equals("users:") || lastArg.equals("p:")) && (sender.hasPermission("coreprotect.lookup") || sender.hasPermission("coreprotect.rollback") || sender.hasPermission("coreprotect.restore"))) {
                 return null;
             }
-            else if (currentArg.startsWith("u:") || currentArg.startsWith("user:") || currentArg.startsWith("users:") || currentArg.startsWith("p:")) {
+            else if ((currentArg.startsWith("u:") || currentArg.startsWith("user:") || currentArg.startsWith("users:") || currentArg.startsWith("p:")) && (sender.hasPermission("coreprotect.lookup") || sender.hasPermission("coreprotect.rollback") || sender.hasPermission("coreprotect.restore"))) {
                 String arg = "";
                 String[] split = currentArg.split(":", 2);
                 String filter = split[0] + ":";
@@ -177,7 +177,7 @@ public class TabHandler implements TabCompleter {
 
                 return StringUtil.copyPartialMatches(filter + arg, completions, new ArrayList<>(completions.size()));
             }
-            else if (lastArg.equals("t:") || lastArg.equals("time:") || currentArg.startsWith("t:") || currentArg.startsWith("time:")) {
+            else if ((lastArg.equals("t:") || lastArg.equals("time:") || currentArg.startsWith("t:") || currentArg.startsWith("time:")) && (sender.hasPermission("coreprotect.lookup") || sender.hasPermission("coreprotect.rollback") || sender.hasPermission("coreprotect.restore") || sender.hasPermission("coreprotect.purge"))) {
                 String filter = lastArg;
                 String arg = "";
                 if (currentArg.contains(":")) {
@@ -215,7 +215,7 @@ public class TabHandler implements TabCompleter {
 
                 return StringUtil.copyPartialMatches(filter + arg, completions, new ArrayList<>(completions.size()));
             }
-            else if (lastArg.equals("page:") || currentArg.startsWith("page:")) {
+            else if ((lastArg.equals("page:") || currentArg.startsWith("page:")) && (sender.hasPermission("coreprotect.lookup") || sender.hasPermission("coreprotect.lookup.near") || sender.hasPermission("coreprotect.inspect"))) {
                 String filter = lastArg;
                 String arg = "";
                 if (currentArg.contains(":")) {
@@ -243,7 +243,7 @@ public class TabHandler implements TabCompleter {
                     return StringUtil.copyPartialMatches(filter + arg, completions, new ArrayList<>(completions.size()));
                 }
             }
-            else if (lastArg.equals("r:") || lastArg.equals("radius:") || currentArg.startsWith("r:") || currentArg.startsWith("radius:")) {
+            else if ((lastArg.equals("r:") || lastArg.equals("radius:") || currentArg.startsWith("r:") || currentArg.startsWith("radius:")) && (sender.hasPermission("coreprotect.lookup") || sender.hasPermission("coreprotect.rollback") || sender.hasPermission("coreprotect.restore") || sender.hasPermission("coreprotect.purge"))) {
                 String filter = lastArg;
                 String arg = "";
                 if (currentArg.contains(":")) {
@@ -284,7 +284,7 @@ public class TabHandler implements TabCompleter {
                     return StringUtil.copyPartialMatches(filter + arg, completions, new ArrayList<>(completions.size()));
                 }
             }
-            else if (lastArg.equals("i:") || lastArg.equals("include:") || lastArg.equals("item:") || lastArg.equals("items:") || lastArg.equals("b:") || lastArg.equals("block:") || lastArg.equals("blocks:") || currentArg.startsWith("i:") || currentArg.startsWith("include:") || currentArg.startsWith("item:") || currentArg.startsWith("items:") || currentArg.startsWith("b:") || currentArg.startsWith("block:") || currentArg.startsWith("blocks:") || lastArg.equals("e:") || lastArg.equals("exclude:") || currentArg.startsWith("e:") || currentArg.startsWith("exclude:")) {
+            else if ((sender.hasPermission("coreprotect.lookup") || sender.hasPermission("coreprotect.rollback") || sender.hasPermission("coreprotect.restore")) && (lastArg.equals("i:") || lastArg.equals("include:") || lastArg.equals("item:") || lastArg.equals("items:") || lastArg.equals("b:") || lastArg.equals("block:") || lastArg.equals("blocks:") || currentArg.startsWith("i:") || currentArg.startsWith("include:") || currentArg.startsWith("item:") || currentArg.startsWith("items:") || currentArg.startsWith("b:") || currentArg.startsWith("block:") || currentArg.startsWith("blocks:") || lastArg.equals("e:") || lastArg.equals("exclude:") || currentArg.startsWith("e:") || currentArg.startsWith("exclude:"))) {
                 String filter = lastArg;
                 String arg = "";
                 if (currentArg.contains(":")) {
@@ -328,21 +328,21 @@ public class TabHandler implements TabCompleter {
 
             }
             else if (args.length == 2) {
-                if (argument0.equals("help")) {
+                if (argument0.equals("help") && sender.hasPermission("coreprotect.help")) {
                     List<String> completions = new ArrayList<>(Arrays.asList(HELP));
                     return StringUtil.copyPartialMatches(argument1, completions, new ArrayList<>(completions.size()));
                 }
-                else if (argument0.equals("purge")) {
+                else if (argument0.equals("purge") && sender.hasPermission("coreprotect.purge")) {
                     List<String> completions = new ArrayList<>(Arrays.asList("t:", "r:"));
                     return StringUtil.copyPartialMatches(argument1, completions, new ArrayList<>(completions.size()));
                 }
-                else if (argument0.equals("l") || argument0.equals("lookup") || argument0.equals("rollback") || argument0.equals("rb") || argument0.equals("ro") || argument0.equals("restore") || argument0.equals("rs") || argument0.equals("re")) {
+                else if ((sender.hasPermission("coreprotect.lookup") && (argument0.equals("l") || argument0.equals("lookup"))) || (sender.hasPermission("coreprotect.rollback") && (argument0.equals("rollback") || argument0.equals("rb") || argument0.equals("ro"))) || (sender.hasPermission("coreprotect.restore") && (argument0.equals("restore") || argument0.equals("rs") || argument0.equals("re")))) {
                     List<String> completions = new ArrayList<>(filterParams(true, argument0, argument1, hasUser, hasAction, hasInclude, hasExclude, hasRadius, hasTime, hasContainer, hasCount, hasPreview, pageLookup, validContainer));
                     completions.addAll(Bukkit.getOnlinePlayers().stream().filter(player -> player.getName().toLowerCase(Locale.ROOT).startsWith(argument1)).map(Player::getName).collect(Collectors.toList()));
                     return StringUtil.copyPartialMatches(argument1, completions, new ArrayList<>(completions.size()));
                 }
             }
-            else if (args.length == 3 && argument0.equals("purge")) {
+            else if (args.length == 3 && argument0.equals("purge") && sender.hasPermission("coreprotect.purge")) {
                 if (argument1.startsWith("t:")) {
                     List<String> completions = new ArrayList<>(Arrays.asList("r:"));
                     return StringUtil.copyPartialMatches(args[2].toLowerCase(Locale.ROOT), completions, new ArrayList<>(completions.size()));
@@ -353,7 +353,7 @@ public class TabHandler implements TabCompleter {
                 }
                 return Arrays.asList("");
             }
-            else if (argument0.equals("l") || argument0.equals("lookup") || argument0.equals("rollback") || argument0.equals("rb") || argument0.equals("ro") || argument0.equals("restore") || argument0.equals("rs") || argument0.equals("re")) {
+            else if ((sender.hasPermission("coreprotect.lookup") && (argument0.equals("l") || argument0.equals("lookup"))) || (sender.hasPermission("coreprotect.rollback") && (argument0.equals("rollback") || argument0.equals("rb") || argument0.equals("ro"))) || (sender.hasPermission("coreprotect.restore") && (argument0.equals("restore") || argument0.equals("rs") || argument0.equals("re")))) {
                 if ((!argument0.equals("l") && !argument0.equals("lookup")) || !hasPage) {
                     ArrayList<String> params = filterParams(false, argument0, currentArg, hasUser, hasAction, hasInclude, hasExclude, hasRadius, hasTime, hasContainer, hasCount, hasPreview, pageLookup, validContainer);
                     List<String> completions = new ArrayList<>(params);

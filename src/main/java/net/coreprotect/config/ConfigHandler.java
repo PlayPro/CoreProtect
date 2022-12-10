@@ -414,7 +414,10 @@ public class ConfigHandler extends Queue {
 
             ConfigHandler.loadConfig(); // Load (or create) the configuration file.
             ConfigHandler.loadDatabase(); // Initialize MySQL and create tables if necessary.
-            ListenerHandler.registerNetworking(); // Register channels for networking API
+
+            if (startup) {
+                ListenerHandler.registerNetworking(); // Register channels for networking API
+            }
         }
         catch (Exception e) {
             e.printStackTrace();

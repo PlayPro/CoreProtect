@@ -11,14 +11,14 @@ CoreProtect
 
 CoreProtect is a blazing fast data logging and anti-griefing tool for Minecraft servers.
 
-For a detailed description of the plugin, please visit [spigotmc.org/resources/coreprotect.8631](https://www.spigotmc.org/resources/coreprotect.8631/).
+For a detailed description of the plugin, please visit [modrinth.com/plugin/coreprotect](https://modrinth.com/plugin/coreprotect).
 
 | Quick Links |  |
 | --- | --- |
 | CoreProtect Discord: | [discord.gg/b4DZ4jy](https://discord.gg/b4DZ4jy) |
 | CoreProtect Patreon: | [patreon.com/coreprotect](https://www.patreon.com/coreprotect) |
 | CoreProtect Documentation: | [docs.coreprotect.net](https://docs.coreprotect.net) |
-| Downloads for MC 1.14 - 1.18: | [spigotmc.org/resources/coreprotect.8631](https://www.spigotmc.org/resources/coreprotect.8631/) |
+| Downloads for MC 1.14 - 1.19: | [modrinth.com/plugin/coreprotect](https://modrinth.com/plugin/coreprotect) |
 | Downloads for MC 1.8 - 1.12: | [coreprotect.net/legacy](https://coreprotect.net/legacy/) |
 
 bStats
@@ -41,7 +41,7 @@ Maven
 <dependency>
     <groupId>net.coreprotect</groupId>
     <artifactId>coreprotect</artifactId>
-    <version>21.0</version>
+    <version>21.3</version>
     <scope>provided</scope>
 </dependency>
 ```

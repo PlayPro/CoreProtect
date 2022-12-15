@@ -23,6 +23,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.bukkit.inventory.meta.MapMeta;
 import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.inventory.meta.SuspiciousStewMeta;
 import org.bukkit.potion.PotionEffect;
 
 import net.coreprotect.bukkit.BukkitAdapter;
@@ -230,6 +231,21 @@ public class ItemMetaHandler {
                     list = new ArrayList<>();
                     list.add(subMeta.getColor().serialize());
                     metadata.add(list);
+                }
+            }
+            else if (itemMeta instanceof SuspiciousStewMeta) {
+                SuspiciousStewMeta meta = (SuspiciousStewMeta) itemMeta;
+                SuspiciousStewMeta subMeta = meta.clone();
+                meta.clearCustomEffects();
+                list.add(meta.serialize());
+                metadata.add(list);
+
+                if (subMeta.hasCustomEffects()) {
+                    for (PotionEffect effect : subMeta.getCustomEffects()) {
+                        list = new ArrayList<>();
+                        list.add(effect.serialize());
+                        metadata.add(list);
+                    }
                 }
             }
             else if (!BukkitAdapter.ADAPTER.getItemMeta(itemMeta, list, metadata, slot)) {

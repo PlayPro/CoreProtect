@@ -74,6 +74,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.bukkit.inventory.meta.MapMeta;
 import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.inventory.meta.SuspiciousStewMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.util.io.BukkitObjectInputStream;
 
@@ -1971,6 +1972,14 @@ public class Rollback extends Queue {
                             }
                             buildFireworkEffect(effectBuilder, rowType, itemstack);
                             itemCount = 0;
+                        }
+                    }
+                    else if ((rowType == Material.SUSPICIOUS_STEW)) {
+                        for (Map<String, Object> suspiciousStewData : map) {
+                            SuspiciousStewMeta meta = (SuspiciousStewMeta) itemstack.getItemMeta();
+                            PotionEffect effect = new PotionEffect(suspiciousStewData);
+                            meta.addCustomEffect(effect, true);
+                            itemstack.setItemMeta(meta);
                         }
                     }
                     else {

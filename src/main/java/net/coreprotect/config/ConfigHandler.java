@@ -43,7 +43,7 @@ public class ConfigHandler extends Queue {
     public static final String EDITION_BRANCH = Util.getBranch();
     public static final String EDITION_NAME = Util.getPluginName();
     public static final String JAVA_VERSION = "11.0";
-    public static final String SPIGOT_VERSION = "1.14";
+    public static final String SPIGOT_VERSION = "1.15";
     public static String path = "plugins/CoreProtect/";
     public static String sqlite = "database.db";
     public static String host = "127.0.0.1";

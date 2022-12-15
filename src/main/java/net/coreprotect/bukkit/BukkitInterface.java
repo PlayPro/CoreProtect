@@ -11,7 +11,6 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -51,8 +50,6 @@ public interface BukkitInterface {
     public int getMinHeight(World world);
 
     public int getLegacyBlockId(Material material);
-
-    public void sendSignChange(Player player, Sign sign);
 
     public void setGlowing(Sign sign, boolean b);
 

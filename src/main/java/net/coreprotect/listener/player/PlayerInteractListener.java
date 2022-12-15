@@ -140,7 +140,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             if (blockFinal instanceof Sign && player.getGameMode() != GameMode.CREATIVE) {
                                 Thread.sleep(1500);
                                 Sign sign = (Sign) blockFinal;
-                                BukkitAdapter.ADAPTER.sendSignChange(player, sign);
+                                player.sendSignChange(sign.getLocation(), sign.getLines(), sign.getColor());
                             }
                         }
                         else {

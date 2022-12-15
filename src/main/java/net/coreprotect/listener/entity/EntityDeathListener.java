@@ -20,6 +20,7 @@ import org.bukkit.entity.AbstractHorse;
 import org.bukkit.entity.AbstractVillager;
 import org.bukkit.entity.Ageable;
 import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Bee;
 import org.bukkit.entity.Cat;
 import org.bukkit.entity.ChestedHorse;
 import org.bukkit.entity.Creeper;
@@ -495,6 +496,12 @@ public final class EntityDeathListener extends Queue implements Listener {
                         info.add(llama.getColor());
                     }
                 }
+            }
+            if (entity instanceof Bee) {
+                Bee bee = (Bee) entity;
+                info.add(bee.getAnger());
+                info.add(bee.hasNectar());
+                info.add(bee.hasStung());
             }
             else {
                 BukkitAdapter.ADAPTER.getEntityMeta(entity, info);

@@ -13,7 +13,6 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -36,10 +35,8 @@ public class BukkitAdapter implements BukkitInterface {
         switch (ConfigHandler.SERVER_VERSION) {
             case BUKKIT_V1_13:
             case BUKKIT_V1_14:
-                BukkitAdapter.ADAPTER = new BukkitAdapter();
-                break;
             case BUKKIT_V1_15:
-                BukkitAdapter.ADAPTER = new Bukkit_v1_15();
+                BukkitAdapter.ADAPTER = new BukkitAdapter();
                 break;
             case BUKKIT_V1_16:
                 BukkitAdapter.ADAPTER = new Bukkit_v1_16();
@@ -98,11 +95,6 @@ public class BukkitAdapter implements BukkitInterface {
     @Override
     public boolean isWall(BlockData blockData) {
         return false;
-    }
-
-    @Override
-    public void sendSignChange(Player player, Sign sign) {
-        return;
     }
 
     @Override

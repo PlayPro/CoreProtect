@@ -4,6 +4,8 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
@@ -17,6 +19,8 @@ import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
 
 public class SignMessageLookup {
+
+    static Pattern pattern = Pattern.compile("§x(§[a-fA-F0-9]){6}");
 
     public static List<String> performLookup(String command, Statement statement, Location l, CommandSender commandSender, int page, int limit) {
         List<String> result = new ArrayList<>();
@@ -98,6 +102,14 @@ public class SignMessageLookup {
                     }
                 }
 
+                String parsedMessage = message.toString();
+                if (parsedMessage.contains("§x")) {
+                    for (Matcher matcher = pattern.matcher(parsedMessage); matcher.find(); matcher = pattern.matcher(parsedMessage)) {
+                        String color = parsedMessage.substring(matcher.start(), matcher.end());
+                        parsedMessage = parsedMessage.replace(color, "");
+                    }
+                }
+
                 if (ConfigHandler.playerIdCacheReversed.get(resultUserId) == null) {
                     UserStatement.loadName(statement.getConnection(), resultUserId);
                 }
@@ -109,7 +121,7 @@ public class SignMessageLookup {
                     result.add(new StringBuilder(Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.SIGN_HEADER) + Color.WHITE + " ----- " + Util.getCoordinates(command, worldId, x, y, z, false, false) + "").toString());
                 }
                 found = true;
-                result.add(timeAgo + Color.WHITE + " - " + Color.DARK_AQUA + resultUser + ": " + Color.WHITE + "\n" + message.toString() + Color.WHITE);
+                result.add(timeAgo + Color.WHITE + " - " + Color.DARK_AQUA + resultUser + ": " + Color.WHITE + "\n" + parsedMessage + Color.WHITE);
                 PluginChannelListener.getInstance().sendMessageData(commandSender, resultTime, resultUser, message.toString(), true, x, y, z, worldId);
             }
             results.close();

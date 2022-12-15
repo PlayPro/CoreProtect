@@ -624,11 +624,11 @@ public final class PlayerInteractListener extends Queue implements Listener {
 
                         isCake = type.name().endsWith(Material.CAKE.name());
                     }
-                    else if (type == Material.JUKEBOX && Config.getConfig(block.getWorld()).ITEM_TRANSACTIONS) {
+                    else if (type == Material.JUKEBOX) {
                         BlockState blockState = block.getState();
                         if (blockState instanceof Jukebox) {
                             Jukebox jukebox = (Jukebox) blockState;
-                            ItemStack jukeboxRecord = jukebox.getRecord();
+                            ItemStack jukeboxRecord = jukebox.isPlaying() ? jukebox.getRecord() : new ItemStack(Material.AIR);
                             ItemStack oldItemState = jukeboxRecord.clone();
                             ItemStack newItemState = new ItemStack(Material.AIR);
 
@@ -652,8 +652,14 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             }
 
                             if (!oldItemState.equals(newItemState)) {
-                                boolean logDrops = player.getGameMode() != GameMode.CREATIVE;
-                                PlayerInteractEntityListener.queueContainerSingleItem(player.getName(), Material.JUKEBOX, new ItemStack[] { oldItemState, newItemState }, jukebox.getLocation(), logDrops);
+                                if (Config.getConfig(player.getWorld()).PLAYER_INTERACTIONS) {
+                                    Queue.queuePlayerInteraction(player.getName(), blockState, type);
+                                }
+
+                                if (Config.getConfig(block.getWorld()).ITEM_TRANSACTIONS) {
+                                    boolean logDrops = player.getGameMode() != GameMode.CREATIVE;
+                                    PlayerInteractEntityListener.queueContainerSingleItem(player.getName(), Material.JUKEBOX, new ItemStack[] { oldItemState, newItemState }, jukebox.getLocation(), logDrops);
+                                }
                             }
                         }
                     }

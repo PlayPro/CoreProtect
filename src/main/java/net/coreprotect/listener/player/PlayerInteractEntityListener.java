@@ -73,7 +73,7 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
             }
 
             if (frame.getItem().getType().equals(Material.AIR) && !handType.equals(Material.AIR)) {
-                queueFrameTransaction(player.getName(), frame, false);
+                queueContainerSingleItem(player.getName(), Material.ITEM_FRAME, frame, frame.getLocation(), false);
             }
         }
         else if (!event.isCancelled() && entity instanceof Creature && entity.getType().name().equals("ALLAY")) {
@@ -108,15 +108,13 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
         }
     }
 
-    public static void queueFrameTransaction(String user, ItemFrame frame, boolean logDrop) {
-        ItemStack[] contents = Util.getItemFrameItem(frame);
-        Material type = Material.ITEM_FRAME;
-        Location frameLocation = frame.getLocation();
-        int x = frameLocation.getBlockX();
-        int y = frameLocation.getBlockY();
-        int z = frameLocation.getBlockZ();
+    public static void queueContainerSingleItem(String user, Material type, Object container, Location location, boolean logDrop) {
+        ItemStack[] contents = type == Material.ITEM_FRAME ? Util.getItemFrameItem((ItemFrame) container) : new ItemStack[] { ((ItemStack[]) container)[0] };
+        int x = location.getBlockX();
+        int y = location.getBlockY();
+        int z = location.getBlockZ();
 
-        String transactingChestId = frameLocation.getWorld().getUID().toString() + "." + x + "." + y + "." + z;
+        String transactingChestId = location.getWorld().getUID().toString() + "." + x + "." + y + "." + z;
         String loggingChestId = user.toLowerCase(Locale.ROOT) + "." + x + "." + y + "." + z;
         int chestId = Queue.getChestId(loggingChestId);
         if (chestId > 0) {
@@ -137,15 +135,15 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
         }
 
         ConfigHandler.transactingChest.computeIfAbsent(transactingChestId, k -> Collections.synchronizedList(new ArrayList<>()));
-        Queue.queueContainerTransaction(user, frameLocation, type, frame, chestId);
+        Queue.queueContainerTransaction(user, location, type, container, chestId);
 
         if (logDrop) {
-            ItemStack dropItem = frame.getItem();
+            ItemStack dropItem = contents[0];
             if (dropItem.getType() == Material.AIR) {
                 return;
             }
 
-            PlayerDropItemListener.playerDropItem(frame.getLocation(), user, dropItem);
+            PlayerDropItemListener.playerDropItem(location, user, dropItem);
         }
     }
 }

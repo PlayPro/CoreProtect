@@ -45,7 +45,7 @@ public final class EntityDamageByBlockListener extends Queue implements Listener
         if (entity instanceof ItemFrame && Config.getConfig(entity.getWorld()).ITEM_TRANSACTIONS) {
             ItemFrame frame = (ItemFrame) entity;
             if (frame.getItem().getType() != Material.AIR) {
-                PlayerInteractEntityListener.queueFrameTransaction(user, frame, false);
+                PlayerInteractEntityListener.queueContainerSingleItem(user, Material.ITEM_FRAME, frame, frame.getLocation(), false);
             }
         }
         else if (entity instanceof ArmorStand && Config.getConfig(entity.getWorld()).BLOCK_BREAK) {

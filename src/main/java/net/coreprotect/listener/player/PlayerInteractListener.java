@@ -19,6 +19,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Chest;
 import org.bukkit.block.DoubleChest;
+import org.bukkit.block.Jukebox;
 import org.bukkit.block.Sign;
 import org.bukkit.block.data.Bisected;
 import org.bukkit.block.data.Bisected.Half;
@@ -622,6 +623,39 @@ public final class PlayerInteractListener extends Queue implements Listener {
                         }
 
                         isCake = type.name().endsWith(Material.CAKE.name());
+                    }
+                    else if (type == Material.JUKEBOX && Config.getConfig(block.getWorld()).ITEM_TRANSACTIONS) {
+                        BlockState blockState = block.getState();
+                        if (blockState instanceof Jukebox) {
+                            Jukebox jukebox = (Jukebox) blockState;
+                            ItemStack jukeboxRecord = jukebox.getRecord();
+                            ItemStack oldItemState = jukeboxRecord.clone();
+                            ItemStack newItemState = new ItemStack(Material.AIR);
+
+                            if (jukeboxRecord.getType() == Material.AIR) {
+                                ItemStack handItem = null;
+                                ItemStack mainHand = player.getInventory().getItemInMainHand();
+                                ItemStack offHand = player.getInventory().getItemInOffHand();
+
+                                if (event.getHand().equals(EquipmentSlot.HAND) && mainHand != null && Tag.ITEMS_MUSIC_DISCS.isTagged(mainHand.getType())) {
+                                    handItem = mainHand;
+                                }
+                                else if (event.getHand().equals(EquipmentSlot.OFF_HAND) && offHand != null && Tag.ITEMS_MUSIC_DISCS.isTagged(offHand.getType())) {
+                                    handItem = offHand;
+                                }
+                                else {
+                                    return;
+                                }
+
+                                oldItemState = new ItemStack(Material.AIR);
+                                newItemState = handItem.clone();
+                            }
+
+                            if (!oldItemState.equals(newItemState)) {
+                                boolean logDrops = player.getGameMode() != GameMode.CREATIVE;
+                                PlayerInteractEntityListener.queueContainerSingleItem(player.getName(), Material.JUKEBOX, new ItemStack[] { oldItemState, newItemState }, jukebox.getLocation(), logDrops);
+                            }
+                        }
                     }
 
                     if (isCake || type == Material.CAKE) {

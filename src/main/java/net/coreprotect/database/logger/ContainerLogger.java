@@ -45,6 +45,9 @@ public class ContainerLogger extends Queue {
                 contents = Util.getItemFrameItem(itemFrame);
                 faceData = itemFrame.getFacing().name();
             }
+            else if (type == Material.JUKEBOX) {
+                contents = new ItemStack[] { ((ItemStack[]) container)[1] };
+            }
             else {
                 Inventory inventory = (Inventory) container;
                 if (inventory != null) {

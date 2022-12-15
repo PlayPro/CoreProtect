@@ -28,6 +28,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Chest;
 import org.bukkit.block.CommandBlock;
+import org.bukkit.block.Jukebox;
 import org.bukkit.block.ShulkerBox;
 import org.bukkit.block.banner.Pattern;
 import org.bukkit.block.data.BlockData;
@@ -719,6 +720,10 @@ public class Util extends Queue {
                     ItemFrame entity = (ItemFrame) container;
                     contents = Util.getItemFrameItem(entity);
                 }
+                else if (type == Material.JUKEBOX) {
+                    Jukebox blockState = (Jukebox) ((Block) container).getState();
+                    contents = Util.getJukeboxItem(blockState);
+                }
                 else {
                     Block block = (Block) container;
                     Inventory inventory = Util.getContainerInventory(block.getState(), true);
@@ -789,6 +794,17 @@ public class Util extends Queue {
         ItemStack[] contents = null;
         try {
             contents = new ItemStack[] { entity.getItem() };
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+        return contents;
+    }
+
+    public static ItemStack[] getJukeboxItem(Jukebox blockState) {
+        ItemStack[] contents = null;
+        try {
+            contents = new ItemStack[] { blockState.getRecord() };
         }
         catch (Exception e) {
             e.printStackTrace();

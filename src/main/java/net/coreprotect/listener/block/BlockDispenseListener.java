@@ -24,6 +24,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.paper.listener.BlockPreDispenseListener;
 import net.coreprotect.thread.CacheHandler;
 
 public final class BlockDispenseListener extends Queue implements Listener {
@@ -48,20 +49,22 @@ public final class BlockDispenseListener extends Queue implements Listener {
                 boolean dispenseSuccess = !event.getVelocity().equals(new Vector()); // true if velocity is set
                 boolean dispenseRelative = newBlock.getLocation().equals(velocityLocation); // true if velocity location matches relative location
 
-                if (dispenseRelative || material.equals(Material.FLINT_AND_STEEL) || material.equals(Material.SHEARS)) {
-                    forceItem = false;
-                }
+                if (!BlockPreDispenseListener.useBlockPreDispenseEvent) {
+                    if (dispenseRelative || material.equals(Material.FLINT_AND_STEEL) || material.equals(Material.SHEARS)) {
+                        forceItem = false;
+                    }
 
-                if (block.getType() == Material.DROPPER) {
-                    forceItem = true; // droppers always drop items
-                }
+                    if (block.getType() == Material.DROPPER) {
+                        forceItem = true; // droppers always drop items
+                    }
 
-                ItemStack[] inventory = ((InventoryHolder) block.getState()).getInventory().getStorageContents();
-                if (forceItem) {
-                    inventory = Arrays.copyOf(inventory, inventory.length + 1);
-                    inventory[inventory.length - 1] = item;
+                    ItemStack[] inventory = ((InventoryHolder) block.getState()).getInventory().getStorageContents();
+                    if (forceItem) {
+                        inventory = Arrays.copyOf(inventory, inventory.length + 1);
+                        inventory[inventory.length - 1] = item;
+                    }
+                    InventoryChangeListener.inventoryTransaction(user, block.getLocation(), inventory);
                 }
-                InventoryChangeListener.inventoryTransaction(user, block.getLocation(), inventory);
 
                 if (material.equals(Material.WATER_BUCKET)) {
                     type = Material.WATER;

@@ -528,13 +528,20 @@ public final class PlayerInteractListener extends Queue implements Listener {
         /* Logging for players punching out fire blocks. */
         if (event.getAction().equals(Action.LEFT_CLICK_BLOCK)) {
             World world = event.getClickedBlock().getWorld();
-            if (event.useInteractedBlock() != Event.Result.DENY && Config.getConfig(world).BLOCK_BREAK) {
-                Block relativeBlock = event.getClickedBlock().getRelative(event.getBlockFace());
+            if (event.useInteractedBlock() != Event.Result.DENY) {
+                Block block = event.getClickedBlock();
+                if (block.getType() == Material.DRAGON_EGG) {
+                    clickedDragonEgg(event.getPlayer(), block);
+                }
 
-                if (BlockGroup.FIRE.contains(relativeBlock.getType())) {
-                    Player player = event.getPlayer();
-                    Material type = relativeBlock.getType();
-                    Queue.queueBlockBreak(player.getName(), relativeBlock.getState(), type, relativeBlock.getBlockData().getAsString(), 0);
+                if (Config.getConfig(world).BLOCK_BREAK) {
+                    Block relativeBlock = event.getClickedBlock().getRelative(event.getBlockFace());
+
+                    if (BlockGroup.FIRE.contains(relativeBlock.getType())) {
+                        Player player = event.getPlayer();
+                        Material type = relativeBlock.getType();
+                        Queue.queueBlockBreak(player.getName(), relativeBlock.getState(), type, relativeBlock.getBlockData().getAsString(), 0);
+                    }
                 }
             }
         }
@@ -662,6 +669,9 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                 }
                             }
                         }
+                    }
+                    else if (type == Material.DRAGON_EGG) {
+                        clickedDragonEgg(player, block);
                     }
 
                     if (isCake || type == Material.CAKE) {
@@ -802,4 +812,16 @@ public final class PlayerInteractListener extends Queue implements Listener {
             }
         }
     }
+
+    private void clickedDragonEgg(Player player, Block block) {
+        Location location = block.getLocation();
+        long time = System.currentTimeMillis();
+        int wid = Util.getWorldId(location.getWorld().getName());
+        int x = location.getBlockX();
+        int y = location.getBlockY();
+        int z = location.getBlockZ();
+        String coordinates = x + "." + y + "." + z + "." + wid + "." + Material.DRAGON_EGG.name();
+        CacheHandler.interactCache.put(coordinates, new Object[] { time, Material.DRAGON_EGG, player.getName() });
+    }
+
 }

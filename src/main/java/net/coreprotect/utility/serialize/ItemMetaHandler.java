@@ -93,21 +93,18 @@ public class ItemMetaHandler {
         return itemMeta.getEnchants();
     }
 
-    public static String getEnchantments(ItemStack item) {
-        StringBuilder result = new StringBuilder();
+    public static List<String> getEnchantments(ItemStack item, String displayName) {
+        List<String> result = new ArrayList<>();
         Map<Enchantment, Integer> enchantments = getEnchantments(item.getItemMeta());
 
         for (Entry<Enchantment, Integer> entry : enchantments.entrySet()) {
             Enchantment enchantment = entry.getKey();
             Integer level = entry.getValue();
 
-            if (result.length() > 0) {
-                result.append("\n");
-            }
-            result.append(getEnchantmentName(enchantment, level));
+            result.add(getEnchantmentName(enchantment, level));
         }
 
-        return result.toString();
+        return result;
     }
 
     public static List<List<Map<String, Object>>> seralize(ItemStack item, Material type, String faceData, int slot) {

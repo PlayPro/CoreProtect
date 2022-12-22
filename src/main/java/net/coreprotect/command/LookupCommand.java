@@ -1,5 +1,6 @@
 package net.coreprotect.command;
 
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.text.NumberFormat;
@@ -356,14 +357,9 @@ public class LookupCommand {
                         ConfigHandler.lookupThrottle.put(player2.getName(), new Object[] { true, System.currentTimeMillis() });
                         if (connection != null) {
                             Statement statement = connection.createStatement();
-                            String blockdata = ChestTransactionLookup.performLookup(command.getName(), statement, location, player2, p2, finalLimit, false);
-                            if (blockdata.contains("\n")) {
-                                for (String b : blockdata.split("\n")) {
-                                    Chat.sendComponent(player2, b);
-                                }
-                            }
-                            else {
-                                Chat.sendComponent(player2, blockdata);
+                            List<String> blockData = ChestTransactionLookup.performLookup(command.getName(), statement, location, player2, p2, finalLimit, false);
+                            for (String data : blockData) {
+                                Chat.sendComponent(player2, data);
                             }
                             statement.close();
                         }
@@ -906,7 +902,7 @@ public class LookupCommand {
                                                 for (String[] data : lookupList) {
                                                     String time = data[0];
                                                     String dplayer = data[1];
-                                                    String dtype = data[5];
+                                                    int dtype = Integer.parseInt(data[5]);
                                                     int ddata = Integer.parseInt(data[6]);
                                                     int daction = Integer.parseInt(data[7]);
                                                     int amount = Integer.parseInt(data[10]);
@@ -916,8 +912,10 @@ public class LookupCommand {
                                                     int z = Integer.parseInt(data[4]);
                                                     String rbd = ((Integer.parseInt(data[8]) == 2 || Integer.parseInt(data[8]) == 3) ? Color.STRIKETHROUGH : "");
                                                     String timeago = Util.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
-                                                    Material blockType = Util.itemFilter(Util.getType(Integer.parseInt(dtype)), (Integer.parseInt(data[13]) == 0));
+                                                    Material blockType = Util.itemFilter(Util.getType(dtype), (Integer.parseInt(data[13]) == 0));
                                                     String dname = Util.nameFilter(blockType.name().toLowerCase(Locale.ROOT), ddata);
+                                                    byte[] metadata = data[11] == null ? null : data[11].getBytes(StandardCharsets.ISO_8859_1);
+                                                    String tooltip = Util.getEnchantments(metadata, dtype, amount);
 
                                                     String selector = Selector.FIRST;
                                                     String tag = Color.WHITE + "-";
@@ -946,7 +944,7 @@ public class LookupCommand {
                                                         tag = (daction == 0 ? Color.GREEN + "+" : Color.RED + "-");
                                                     }
 
-                                                    Chat.sendComponent(player2, timeago + " " + tag + " " + Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, "x" + amount, Color.DARK_AQUA + rbd + dname + Color.WHITE, selector));
+                                                    Chat.sendComponent(player2, timeago + " " + tag + " " + Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, "x" + amount, Util.createTooltip(Color.DARK_AQUA + rbd + dname, tooltip) + Color.WHITE, selector));
                                                     PluginChannelListener.getInstance().sendData(player2, Integer.parseInt(time), Phrase.LOOKUP_CONTAINER, selector, dplayer, dname, amount, x, y, z, wid, rbd, true, tag.contains("+"));
                                                 }
                                             }
@@ -963,7 +961,7 @@ public class LookupCommand {
                                                     int x = Integer.parseInt(data[2]);
                                                     int y = Integer.parseInt(data[3]);
                                                     int z = Integer.parseInt(data[4]);
-                                                    String dtype = data[5];
+                                                    int dtype = Integer.parseInt(data[5]);
                                                     int ddata = Integer.parseInt(data[6]);
                                                     int daction = Integer.parseInt(data[7]);
                                                     int wid = Integer.parseInt(data[9]);
@@ -983,8 +981,7 @@ public class LookupCommand {
                                                     String dname = "";
                                                     boolean isPlayer = false;
                                                     if (daction == 3 && !finalArgAction.contains(11) && amount == -1) {
-                                                        int dTypeInt = Integer.parseInt(dtype);
-                                                        if (dTypeInt == 0) {
+                                                        if (dtype == 0) {
                                                             if (ConfigHandler.playerIdCacheReversed.get(ddata) == null) {
                                                                 UserStatement.loadName(connection, ddata);
                                                             }
@@ -992,11 +989,11 @@ public class LookupCommand {
                                                             isPlayer = true;
                                                         }
                                                         else {
-                                                            dname = Util.getEntityType(dTypeInt).name();
+                                                            dname = Util.getEntityType(dtype).name();
                                                         }
                                                     }
                                                     else {
-                                                        dname = Util.getType(Integer.parseInt(dtype)).name().toLowerCase(Locale.ROOT);
+                                                        dname = Util.getType(dtype).name().toLowerCase(Locale.ROOT);
                                                         dname = Util.nameFilter(dname, ddata);
                                                     }
                                                     if (dname.length() > 0 && !isPlayer) {
@@ -1015,6 +1012,9 @@ public class LookupCommand {
                                                     String selector = Selector.FIRST;
                                                     String action = "a:block";
                                                     if (finalArgAction.contains(4) || finalArgAction.contains(5) || finalArgAction.contains(11) || amount > -1) {
+                                                        byte[] metadata = data[11] == null ? null : data[11].getBytes(StandardCharsets.ISO_8859_1);
+                                                        String tooltip = Util.getEnchantments(metadata, dtype, amount);
+
                                                         if (daction == 2 || daction == 3) {
                                                             phrase = Phrase.LOOKUP_ITEM; // {picked up|dropped}
                                                             selector = (daction != 2 ? Selector.FIRST : Selector.SECOND);
@@ -1040,7 +1040,7 @@ public class LookupCommand {
                                                             action = "a:container";
                                                         }
 
-                                                        Chat.sendComponent(player2, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, "x" + amount, Color.DARK_AQUA + rbd + dname + Color.WHITE, selector));
+                                                        Chat.sendComponent(player2, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, "x" + amount, Util.createTooltip(Color.DARK_AQUA + rbd + dname, tooltip) + Color.WHITE, selector));
                                                         PluginChannelListener.getInstance().sendData(player2, Integer.parseInt(time), phrase, selector, dplayer, dname, (tag.contains("+") ? 1 : -1), x, y, z, wid, rbd, action.contains("container"), tag.contains("+"));
                                                     }
                                                     else {

@@ -2,6 +2,8 @@ package net.coreprotect.database.lookup;
 
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 import org.bukkit.Location;
@@ -18,8 +20,8 @@ import net.coreprotect.utility.Util;
 
 public class ChestTransactionLookup {
 
-    public static String performLookup(String command, Statement statement, Location l, CommandSender commandSender, int page, int limit, boolean exact) {
-        String result = "";
+    public static List<String> performLookup(String command, Statement statement, Location l, CommandSender commandSender, int page, int limit, boolean exact) {
+        List<String> result = new ArrayList<>();
 
         try {
             if (l == null) {
@@ -67,13 +69,11 @@ public class ChestTransactionLookup {
 
             int totalPages = (int) Math.ceil(count / (limit + 0.0));
 
-            query = "SELECT time,user,action,type,data,amount,rolled_back FROM " + ConfigHandler.prefix + "container " + Util.getWidIndex("container") + "WHERE wid = '" + worldId + "' AND (x = '" + x + "' OR x = '" + x2 + "') AND (z = '" + z + "' OR z = '" + z2 + "') AND y = '" + y + "' ORDER BY rowid DESC LIMIT " + pageStart + ", " + limit + "";
+            query = "SELECT time,user,action,type,data,amount,metadata,rolled_back FROM " + ConfigHandler.prefix + "container " + Util.getWidIndex("container") + "WHERE wid = '" + worldId + "' AND (x = '" + x + "' OR x = '" + x2 + "') AND (z = '" + z + "' OR z = '" + z2 + "') AND y = '" + y + "' ORDER BY rowid DESC LIMIT " + pageStart + ", " + limit + "";
             if (exact) {
-                query = "SELECT time,user,action,type,data,amount,rolled_back FROM " + ConfigHandler.prefix + "container " + Util.getWidIndex("container") + "WHERE wid = '" + worldId + "' AND (x = '" + l.getBlockX() + "') AND (z = '" + l.getBlockZ() + "') AND y = '" + y + "' ORDER BY rowid DESC LIMIT " + pageStart + ", " + limit + "";
+                query = "SELECT time,user,action,type,data,amount,metadata,rolled_back FROM " + ConfigHandler.prefix + "container " + Util.getWidIndex("container") + "WHERE wid = '" + worldId + "' AND (x = '" + l.getBlockX() + "') AND (z = '" + l.getBlockZ() + "') AND y = '" + y + "' ORDER BY rowid DESC LIMIT " + pageStart + ", " + limit + "";
             }
             results = statement.executeQuery(query);
-
-            StringBuilder resultBuilder = new StringBuilder();
             while (results.next()) {
                 int resultUserId = results.getInt("user");
                 int resultAction = results.getInt("action");
@@ -82,6 +82,8 @@ public class ChestTransactionLookup {
                 long resultTime = results.getLong("time");
                 int resultAmount = results.getInt("amount");
                 int resultRolledBack = results.getInt("rolled_back");
+                byte[] resultMetadata = results.getBytes("metadata");
+                String tooltip = Util.getEnchantments(resultMetadata, resultType, resultAmount);
 
                 if (ConfigHandler.playerIdCacheReversed.get(resultUserId) == null) {
                     UserStatement.loadName(statement.getConnection(), resultUserId);
@@ -91,7 +93,7 @@ public class ChestTransactionLookup {
                 String timeAgo = Util.getTimeSince(resultTime, time, true);
 
                 if (!found) {
-                    resultBuilder = new StringBuilder(Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.CONTAINER_HEADER) + Color.WHITE + " ----- " + Util.getCoordinates(command, worldId, x, y, z, false, false) + "\n");
+                    result.add(new StringBuilder(Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.CONTAINER_HEADER) + Color.WHITE + " ----- " + Util.getCoordinates(command, worldId, x, y, z, false, false)).toString());
                 }
                 found = true;
 
@@ -117,25 +119,23 @@ public class ChestTransactionLookup {
                     target = target.split(":")[1];
                 }
 
-                resultBuilder.append(timeAgo + " " + tag + " ").append(Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, "x" + resultAmount, Color.DARK_AQUA + rbFormat + target + Color.WHITE, selector)).append("\n");
+                result.add(new StringBuilder(timeAgo + " " + tag + " " + Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, "x" + resultAmount, Util.createTooltip(Color.DARK_AQUA + rbFormat + target, tooltip) + Color.WHITE, selector)).toString());
                 PluginChannelListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_CONTAINER, selector, resultUser, target, resultAmount, x, y, z, worldId, rbFormat, true, tag.contains("+"));
             }
-            result = resultBuilder.toString();
             results.close();
 
             if (found) {
                 if (count > limit) {
-                    String pageInfo = Color.WHITE + "-----\n";
-                    pageInfo = pageInfo + Util.getPageNavigation(command, page, totalPages) + "\n";
-                    result = result + pageInfo;
+                    result.add(Color.WHITE + "-----");
+                    result.add(Util.getPageNavigation(command, page, totalPages));
                 }
             }
             else {
                 if (rowMax > count && count > 0) {
-                    result = Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS_PAGE, Selector.SECOND);
+                    result.add(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS_PAGE, Selector.SECOND));
                 }
                 else {
-                    result = Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_DATA_LOCATION, Selector.SECOND);
+                    result.add(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_DATA_LOCATION, Selector.SECOND));
                 }
             }
 

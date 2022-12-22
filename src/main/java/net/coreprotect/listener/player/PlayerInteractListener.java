@@ -304,15 +304,9 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                 try (Connection connection = Database.getConnection(true)) {
                                     if (connection != null) {
                                         Statement statement = connection.createStatement();
-                                        String blockData = ChestTransactionLookup.performLookup(null, statement, finalLocation, player, 1, 7, false);
-
-                                        if (blockData.contains("\n")) {
-                                            for (String splitData : blockData.split("\n")) {
-                                                Chat.sendComponent(player, splitData);
-                                            }
-                                        }
-                                        else {
-                                            Chat.sendComponent(player, blockData);
+                                        List<String> blockData = ChestTransactionLookup.performLookup(null, statement, finalLocation, player, 1, 7, false);
+                                        for (String data : blockData) {
+                                            Chat.sendComponent(player, data);
                                         }
 
                                         statement.close();

@@ -1,5 +1,6 @@
 package net.coreprotect.database;
 
+import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -64,6 +65,9 @@ public class Lookup extends Queue {
                         }
                         else if (map[i] instanceof String) {
                             results[newId] = (String) map[i];
+                        }
+                        else if (map[i] instanceof byte[]) {
+                            results[newId] = new String((byte[]) map[i], StandardCharsets.ISO_8859_1);
                         }
                     }
                 }

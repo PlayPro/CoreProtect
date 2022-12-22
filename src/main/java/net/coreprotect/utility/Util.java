@@ -266,6 +266,51 @@ public class Util extends Queue {
         return message.toString();
     }
 
+    public static String getEnchantments(byte[] metadata, int type, int amount) {
+        if (metadata == null) {
+            return "";
+        }
+
+        ItemStack item = new ItemStack(Util.getType(type), amount);
+        item = (ItemStack) Rollback.populateItemStack(item, metadata)[2];
+        String displayName = item.hasItemMeta() && item.getItemMeta().hasDisplayName() ? item.getItemMeta().getDisplayName() : "";
+        StringBuilder message = new StringBuilder(Color.ITALIC + displayName + Color.GREY);
+
+        List<String> enchantments = ItemMetaHandler.getEnchantments(item, displayName);
+        for (String enchantment : enchantments) {
+            if (message.length() > 0) {
+                message.append("\n");
+            }
+            message.append(enchantment);
+        }
+
+        if (!displayName.isEmpty()) {
+            message.insert(0, enchantments.isEmpty() ? Color.WHITE : Color.AQUA);
+        }
+        else if (!enchantments.isEmpty()) {
+            String name = Util.capitalize(item.getType().name().replace("_", " "), true);
+            message.insert(0, Color.AQUA + Color.ITALIC + name);
+        }
+
+        return message.toString();
+    }
+
+    public static String createTooltip(String phrase, String tooltip) {
+        if (tooltip.isEmpty()) {
+            return phrase;
+        }
+
+        StringBuilder message = new StringBuilder(Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_POPUP);
+
+        // tooltip
+        message.append("|" + tooltip + "|");
+
+        // chat output
+        message.append(phrase);
+
+        return message.append(Chat.COMPONENT_TAG_CLOSE).toString();
+    }
+
     public static String hoverCommandFilter(String string) {
         StringBuilder command = new StringBuilder();
 

@@ -52,6 +52,10 @@ shadowJar {
         // #toString because #getGroup technically returns an Object
         relocate('org.bstats', project.group.toString())
         relocate('com.zaxxer', project.group.toString())
+        exclude(dependency('com.google.code.gson:.*'))
+        exclude(dependency('org.intellij:.*'))
+        exclude(dependency('org.jetbrains:.*'))
+        exclude(dependency('org.slf4j:.*'))
     }
     archiveClassifier.set(null)
 }

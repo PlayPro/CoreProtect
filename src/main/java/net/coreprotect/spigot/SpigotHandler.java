@@ -2,6 +2,8 @@ package net.coreprotect.spigot;
 
 import java.util.regex.Matcher;
 
+import net.coreprotect.config.Config;
+import net.md_5.bungee.api.chat.HoverEvent;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 
@@ -17,7 +19,19 @@ public class SpigotHandler extends SpigotAdapter implements SpigotInterface {
 
     @Override
     public void addHoverComponent(Object message, String[] data) {
-        ((TextComponent) message).addExtra(data[2]);
+        try {
+            if (Config.getGlobal().HOVER_EVENTS) {
+                TextComponent component = new TextComponent(TextComponent.fromLegacyText(data[2]));
+                component.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, TextComponent.fromLegacyText(data[1])));
+                ((TextComponent) message).addExtra(component);
+            }
+            else {
+                super.addHoverComponent(message, data);
+            }
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Override

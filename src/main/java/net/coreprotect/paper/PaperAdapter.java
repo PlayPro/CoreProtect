@@ -1,6 +1,7 @@
 package net.coreprotect.paper;
 
 import org.bukkit.Server;
+import org.bukkit.block.Sign;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 
@@ -17,6 +18,7 @@ public class PaperAdapter implements PaperInterface {
     public static final int PAPER_V1_16 = BukkitAdapter.BUKKIT_V1_16;
     public static final int PAPER_V1_17 = BukkitAdapter.BUKKIT_V1_17;
     public static final int PAPER_V1_18 = BukkitAdapter.BUKKIT_V1_18;
+    public static final int PAPER_V1_19 = BukkitAdapter.BUKKIT_V1_19;
 
     public static void loadAdapter() {
         int paperVersion = ConfigHandler.SERVER_VERSION;
@@ -34,10 +36,13 @@ public class PaperAdapter implements PaperInterface {
                 PaperAdapter.ADAPTER = new PaperHandler();
                 break;
             case PAPER_V1_16:
+                PaperAdapter.ADAPTER = new Paper_v1_16();
+                break;
             case PAPER_V1_17:
             case PAPER_V1_18:
+            case PAPER_V1_19:
             default:
-                PaperAdapter.ADAPTER = new Paper_v1_16();
+                PaperAdapter.ADAPTER = new Paper_v1_17();
                 break;
         }
     }
@@ -50,6 +55,11 @@ public class PaperAdapter implements PaperInterface {
     @Override
     public boolean isStopping(Server server) {
         return false;
+    }
+
+    @Override
+    public String getLine(Sign sign, int line) {
+        return sign.getLine(line);
     }
 
 }

@@ -43,7 +43,7 @@ public class ConfigHandler extends Queue {
     public static final String EDITION_BRANCH = Util.getBranch();
     public static final String EDITION_NAME = Util.getPluginName();
     public static final String JAVA_VERSION = "11.0";
-    public static final String SPIGOT_VERSION = "1.14";
+    public static final String SPIGOT_VERSION = "1.15";
     public static String path = "plugins/CoreProtect/";
     public static String sqlite = "database.db";
     public static String host = "127.0.0.1";
@@ -229,6 +229,8 @@ public class ConfigHandler extends Queue {
             config.setJdbcUrl("jdbc:mysql://" + ConfigHandler.host + ":" + ConfigHandler.port + "/" + ConfigHandler.database);
             config.setUsername(ConfigHandler.username);
             config.setPassword(ConfigHandler.password);
+            config.setMaxLifetime(300000);
+            config.setKeepaliveTime(60000);
             config.addDataSourceProperty("characterEncoding", "UTF-8");
             config.addDataSourceProperty("connectionTimeout", "10000");
             /* https://github.com/brettwooldridge/HikariCP/wiki/MySQL-Configuration */
@@ -412,6 +414,7 @@ public class ConfigHandler extends Queue {
 
             ConfigHandler.loadConfig(); // Load (or create) the configuration file.
             ConfigHandler.loadDatabase(); // Initialize MySQL and create tables if necessary.
+
             if (startup) {
                 ListenerHandler.registerNetworking(); // Register channels for networking API
             }

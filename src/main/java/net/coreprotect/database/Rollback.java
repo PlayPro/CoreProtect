@@ -30,8 +30,10 @@ import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.block.Banner;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.CommandBlock;
 import org.bukkit.block.CreatureSpawner;
+import org.bukkit.block.Jukebox;
 import org.bukkit.block.ShulkerBox;
 import org.bukkit.block.banner.Pattern;
 import org.bukkit.block.data.Bisected;
@@ -72,6 +74,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.bukkit.inventory.meta.MapMeta;
 import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.inventory.meta.SuspiciousStewMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.util.io.BukkitObjectInputStream;
 
@@ -1143,7 +1146,14 @@ public class Rollback extends Queue {
                                         }
 
                                         if (BlockGroup.CONTAINERS.contains(block.getType())) {
-                                            container = Util.getContainerInventory(block.getState(), false);
+                                            BlockState blockState = block.getState();
+                                            if (blockState instanceof Jukebox) {
+                                                container = blockState;
+                                            }
+                                            else {
+                                                container = Util.getContainerInventory(blockState, false);
+                                            }
+
                                             containerType = block.getType();
                                         }
                                         else if (BlockGroup.CONTAINERS.contains(Material.ARMOR_STAND) || BlockGroup.CONTAINERS.contains(Material.ITEM_FRAME)) {
@@ -1632,6 +1642,21 @@ public class Rollback extends Queue {
                     frame.setItem(itemstack);
                 }
             }
+            else if (type != null && type.equals(Material.JUKEBOX)) {
+                Jukebox jukebox = (Jukebox) container;
+                if (jukebox != null) {
+                    if (action == 1 && Tag.ITEMS_MUSIC_DISCS.isTagged(itemstack.getType())) {
+                        itemstack.setAmount(1);
+                    }
+                    else {
+                        itemstack.setType(Material.AIR);
+                        itemstack.setAmount(0);
+                    }
+
+                    jukebox.setRecord(itemstack);
+                    jukebox.update();
+                }
+            }
             else {
                 Inventory inventory = (Inventory) container;
                 if (inventory != null) {
@@ -1948,6 +1973,14 @@ public class Rollback extends Queue {
                             }
                             buildFireworkEffect(effectBuilder, rowType, itemstack);
                             itemCount = 0;
+                        }
+                    }
+                    else if ((rowType == Material.SUSPICIOUS_STEW)) {
+                        for (Map<String, Object> suspiciousStewData : map) {
+                            SuspiciousStewMeta meta = (SuspiciousStewMeta) itemstack.getItemMeta();
+                            PotionEffect effect = new PotionEffect(suspiciousStewData);
+                            meta.addCustomEffect(effect, true);
+                            itemstack.setItemMeta(meta);
                         }
                     }
                     else {

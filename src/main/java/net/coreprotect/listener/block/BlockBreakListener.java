@@ -38,6 +38,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.utility.Util;
 
 public final class BlockBreakListener extends Queue implements Listener {
@@ -278,10 +279,10 @@ public final class BlockBreakListener extends Queue implements Listener {
                     try {
                         Location location = blockState.getLocation();
                         Sign sign = (Sign) blockLog.getState();
-                        String line1 = sign.getLine(0);
-                        String line2 = sign.getLine(1);
-                        String line3 = sign.getLine(2);
-                        String line4 = sign.getLine(3);
+                        String line1 = PaperAdapter.ADAPTER.getLine(sign, 0);
+                        String line2 = PaperAdapter.ADAPTER.getLine(sign, 1);
+                        String line3 = PaperAdapter.ADAPTER.getLine(sign, 2);
+                        String line4 = PaperAdapter.ADAPTER.getLine(sign, 3);
                         int color = sign.getColor().getColor().asRGB();
                         boolean isGlowing = BukkitAdapter.ADAPTER.isGlowing(sign);
                         Queue.queueSignText(user, location, 0, color, isGlowing, line1, line2, line3, line4, 5);

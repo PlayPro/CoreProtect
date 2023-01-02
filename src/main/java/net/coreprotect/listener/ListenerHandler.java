@@ -54,6 +54,7 @@ import net.coreprotect.listener.world.ChunkPopulateListener;
 import net.coreprotect.listener.world.LeavesDecayListener;
 import net.coreprotect.listener.world.PortalCreateListener;
 import net.coreprotect.listener.world.StructureGrowListener;
+import net.coreprotect.paper.listener.BlockPreDispenseListener;
 import net.coreprotect.paper.listener.PaperChatListener;
 
 public final class ListenerHandler {
@@ -61,6 +62,15 @@ public final class ListenerHandler {
     public ListenerHandler(CoreProtect plugin) {
 
         PluginManager pluginManager = plugin.getServer().getPluginManager();
+
+        // Paper Listeners / Fallbacks (Block Listeners)
+        try {
+            Class.forName("io.papermc.paper.event.block.BlockPreDispenseEvent"); // Paper 1.16+
+            pluginManager.registerEvents(new BlockPreDispenseListener(), plugin);
+        }
+        catch (Exception e) {
+            BlockPreDispenseListener.useBlockPreDispenseEvent = false;
+        }
 
         // Block Listeners
         pluginManager.registerEvents(new BlockBreakListener(), plugin);
@@ -90,6 +100,15 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new HangingBreakListener(), plugin);
         pluginManager.registerEvents(new HangingBreakByEntityListener(), plugin);
 
+        // Paper Listeners / Fallbacks (Player Listeners)
+        try {
+            Class.forName("net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer"); // Paper 1.16+
+            pluginManager.registerEvents(new PaperChatListener(), plugin);
+        }
+        catch (Exception e) {
+            pluginManager.registerEvents(new PlayerChatListener(), plugin);
+        }
+
         // Player Listeners
         pluginManager.registerEvents(new ArmorStandManipulateListener(), plugin);
         pluginManager.registerEvents(new CraftItemListener(), plugin);
@@ -116,15 +135,6 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new LeavesDecayListener(), plugin);
         pluginManager.registerEvents(new PortalCreateListener(), plugin);
         pluginManager.registerEvents(new StructureGrowListener(), plugin);
-
-        // Paper Listeners / Fallbacks
-        try {
-            Class.forName("net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer");
-            pluginManager.registerEvents(new PaperChatListener(), plugin);
-        }
-        catch (Exception e) {
-            pluginManager.registerEvents(new PlayerChatListener(), plugin);
-        }
     }
 
     public static void registerNetworking() {

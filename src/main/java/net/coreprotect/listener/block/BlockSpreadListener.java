@@ -27,20 +27,16 @@ public final class BlockSpreadListener extends Queue implements Listener {
          * block-change: true
          *
          */
+        if (event.isCancelled()) {
+            return;
+        }
 
-        if (!event.isCancelled() && Config.getConfig(event.getBlock().getWorld()).VINE_GROWTH) {
-            BlockState blockstate = event.getNewState();
-            Material type = blockstate.getType();
-            if (!BlockGroup.VINES.contains(type) && !BlockGroup.AMETHYST.contains(type) && type != Material.CHORUS_FLOWER && type != Material.BAMBOO) {
-                return;
-            }
+        BlockState blockstate = event.getNewState();
+        Material type = blockstate.getType();
 
+        if (Config.getConfig(event.getBlock().getWorld()).VINE_GROWTH && (BlockGroup.VINES.contains(type) || BlockGroup.AMETHYST.contains(type) || type == Material.CHORUS_FLOWER || type == Material.BAMBOO)) {
             Block block = event.getBlock();
-            Location location = block.getLocation();
-            int timestamp = (int) (System.currentTimeMillis() / 1000L);
-            Object[] cacheData = CacheHandler.spreadCache.get(location);
-            CacheHandler.spreadCache.put(location, new Object[] { timestamp, type });
-            if (cacheData != null && ((Material) cacheData[1]) == type) {
+            if (checkCacheData(block, type)) {
                 return;
             }
 
@@ -74,6 +70,25 @@ public final class BlockSpreadListener extends Queue implements Listener {
                 Queue.queueBlockPlaceDelayed("#bamboo", block.getLocation(), type, null, block.getState(), 0);
             }
         }
+        else if (Config.getConfig(event.getBlock().getWorld()).SCULK_SPREAD && BlockGroup.SCULK.contains(type)) {
+            Block block = event.getBlock();
+            if (checkCacheData(block, type)) {
+                return;
+            }
+
+            queueBlockPlace("#sculk_catalyst", block.getState(), block.getType(), block.getState(), type, -1, 0, blockstate.getBlockData().getAsString());
+        }
     }
 
+    private boolean checkCacheData(Block block, Material type) {
+        Location location = block.getLocation();
+        int timestamp = (int) (System.currentTimeMillis() / 1000L);
+        Object[] cacheData = CacheHandler.spreadCache.get(location);
+        CacheHandler.spreadCache.put(location, new Object[] { timestamp, type });
+        if (cacheData != null && ((Material) cacheData[1]) == type) {
+            return true;
+        }
+
+        return false;
+    }
 }

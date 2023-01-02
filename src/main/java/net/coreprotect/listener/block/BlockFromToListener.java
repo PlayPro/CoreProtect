@@ -87,6 +87,39 @@ public final class BlockFromToListener extends Queue implements Listener {
                 CacheHandler.lookupCache.put("" + x + "." + y + "." + z + "." + wid + "", new Object[] { unixtimestamp, f, type });
                 Queue.queueBlockPlace(f, toBlock.getState(), block.getType(), toBlockState, type, -1, 0, blockData.getAsString());
             }
+            else if (type.equals(Material.DRAGON_EGG)) {
+                Location location = block.getLocation();
+                int worldId = Util.getWorldId(location.getWorld().getName());
+                int x = location.getBlockX();
+                int y = location.getBlockY();
+                int z = location.getBlockZ();
+                String coordinates = x + "." + y + "." + z + "." + worldId + "." + type.name();
+                String user = "#entity";
+
+                Object[] data = CacheHandler.interactCache.get(coordinates);
+                if (data != null && data[1] == Material.DRAGON_EGG) {
+                    long newTime = System.currentTimeMillis();
+                    long oldTime = (long) data[0];
+
+                    if ((newTime - oldTime) < 20) { // 50ms = 1 tick
+                        user = (String) data[2];
+                    }
+                    CacheHandler.interactCache.remove(coordinates);
+                }
+
+                if (Config.getConfig(block.getWorld()).BLOCK_BREAK) {
+                    Queue.queueBlockBreak(user, block.getState(), block.getType(), block.getBlockData().getAsString(), 0);
+                }
+                if (Config.getConfig(block.getWorld()).BLOCK_PLACE) {
+                    Block toBlock = event.getToBlock();
+                    BlockState toBlockState = toBlock.getState();
+                    if (Config.getConfig(world).BLOCK_MOVEMENT) {
+                        toBlockState = BlockUtil.gravityScan(toBlock.getLocation(), type, user).getState();
+                    }
+
+                    Queue.queueBlockPlace(user, toBlockState, block.getType(), toBlockState, type, -1, 0, blockData.getAsString());
+                }
+            }
         }
     }
 

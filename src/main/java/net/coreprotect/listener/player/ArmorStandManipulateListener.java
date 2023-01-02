@@ -60,15 +60,9 @@ public final class ArmorStandManipulateListener extends Queue implements Listene
                 try (Connection connection = Database.getConnection(true)) {
                     if (connection != null) {
                         Statement statement = connection.createStatement();
-                        String blockData = ChestTransactionLookup.performLookup(null, statement, location, finalPlayer, 1, 7, true);
-
-                        if (blockData.contains("\n")) {
-                            for (String b : blockData.split("\n")) {
-                                Chat.sendComponent(finalPlayer, b);
-                            }
-                        }
-                        else {
-                            Chat.sendComponent(finalPlayer, blockData);
+                        List<String> blockData = ChestTransactionLookup.performLookup(null, statement, location, finalPlayer, 1, 7, true);
+                        for (String data : blockData) {
+                            Chat.sendComponent(finalPlayer, data);
                         }
                         statement.close();
                     }

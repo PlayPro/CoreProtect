@@ -19,6 +19,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Chest;
 import org.bukkit.block.DoubleChest;
+import org.bukkit.block.Jukebox;
 import org.bukkit.block.Sign;
 import org.bukkit.block.data.Bisected;
 import org.bukkit.block.data.Bisected.Half;
@@ -139,7 +140,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             if (blockFinal instanceof Sign && player.getGameMode() != GameMode.CREATIVE) {
                                 Thread.sleep(1500);
                                 Sign sign = (Sign) blockFinal;
-                                BukkitAdapter.ADAPTER.sendSignChange(player, sign);
+                                player.sendSignChange(sign.getLocation(), sign.getLines(), sign.getColor());
                             }
                         }
                         else {
@@ -303,15 +304,9 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                 try (Connection connection = Database.getConnection(true)) {
                                     if (connection != null) {
                                         Statement statement = connection.createStatement();
-                                        String blockData = ChestTransactionLookup.performLookup(null, statement, finalLocation, player, 1, 7, false);
-
-                                        if (blockData.contains("\n")) {
-                                            for (String splitData : blockData.split("\n")) {
-                                                Chat.sendComponent(player, splitData);
-                                            }
-                                        }
-                                        else {
-                                            Chat.sendComponent(player, blockData);
+                                        List<String> blockData = ChestTransactionLookup.performLookup(null, statement, finalLocation, player, 1, 7, false);
+                                        for (String data : blockData) {
+                                            Chat.sendComponent(player, data);
                                         }
 
                                         statement.close();
@@ -527,13 +522,20 @@ public final class PlayerInteractListener extends Queue implements Listener {
         /* Logging for players punching out fire blocks. */
         if (event.getAction().equals(Action.LEFT_CLICK_BLOCK)) {
             World world = event.getClickedBlock().getWorld();
-            if (event.useInteractedBlock() != Event.Result.DENY && Config.getConfig(world).BLOCK_BREAK) {
-                Block relativeBlock = event.getClickedBlock().getRelative(event.getBlockFace());
+            if (event.useInteractedBlock() != Event.Result.DENY) {
+                Block block = event.getClickedBlock();
+                if (block.getType() == Material.DRAGON_EGG) {
+                    clickedDragonEgg(event.getPlayer(), block);
+                }
 
-                if (BlockGroup.FIRE.contains(relativeBlock.getType())) {
-                    Player player = event.getPlayer();
-                    Material type = relativeBlock.getType();
-                    Queue.queueBlockBreak(player.getName(), relativeBlock.getState(), type, relativeBlock.getBlockData().getAsString(), 0);
+                if (Config.getConfig(world).BLOCK_BREAK) {
+                    Block relativeBlock = event.getClickedBlock().getRelative(event.getBlockFace());
+
+                    if (BlockGroup.FIRE.contains(relativeBlock.getType())) {
+                        Player player = event.getPlayer();
+                        Material type = relativeBlock.getType();
+                        Queue.queueBlockBreak(player.getName(), relativeBlock.getState(), type, relativeBlock.getBlockData().getAsString(), 0);
+                    }
                 }
             }
         }
@@ -622,6 +624,48 @@ public final class PlayerInteractListener extends Queue implements Listener {
                         }
 
                         isCake = type.name().endsWith(Material.CAKE.name());
+                    }
+                    else if (type == Material.JUKEBOX) {
+                        BlockState blockState = block.getState();
+                        if (blockState instanceof Jukebox) {
+                            Jukebox jukebox = (Jukebox) blockState;
+                            ItemStack jukeboxRecord = jukebox.isPlaying() ? jukebox.getRecord() : new ItemStack(Material.AIR);
+                            ItemStack oldItemState = jukeboxRecord.clone();
+                            ItemStack newItemState = new ItemStack(Material.AIR);
+
+                            if (jukeboxRecord.getType() == Material.AIR) {
+                                ItemStack handItem = null;
+                                ItemStack mainHand = player.getInventory().getItemInMainHand();
+                                ItemStack offHand = player.getInventory().getItemInOffHand();
+
+                                if (event.getHand().equals(EquipmentSlot.HAND) && mainHand != null && Tag.ITEMS_MUSIC_DISCS.isTagged(mainHand.getType())) {
+                                    handItem = mainHand;
+                                }
+                                else if (event.getHand().equals(EquipmentSlot.OFF_HAND) && offHand != null && Tag.ITEMS_MUSIC_DISCS.isTagged(offHand.getType())) {
+                                    handItem = offHand;
+                                }
+                                else {
+                                    return;
+                                }
+
+                                oldItemState = new ItemStack(Material.AIR);
+                                newItemState = handItem.clone();
+                            }
+
+                            if (!oldItemState.equals(newItemState)) {
+                                if (Config.getConfig(player.getWorld()).PLAYER_INTERACTIONS) {
+                                    Queue.queuePlayerInteraction(player.getName(), blockState, type);
+                                }
+
+                                if (Config.getConfig(block.getWorld()).ITEM_TRANSACTIONS) {
+                                    boolean logDrops = player.getGameMode() != GameMode.CREATIVE;
+                                    PlayerInteractEntityListener.queueContainerSingleItem(player.getName(), Material.JUKEBOX, new ItemStack[] { oldItemState, newItemState }, jukebox.getLocation(), logDrops);
+                                }
+                            }
+                        }
+                    }
+                    else if (type == Material.DRAGON_EGG) {
+                        clickedDragonEgg(player, block);
                     }
 
                     if (isCake || type == Material.CAKE) {
@@ -762,4 +806,16 @@ public final class PlayerInteractListener extends Queue implements Listener {
             }
         }
     }
+
+    private void clickedDragonEgg(Player player, Block block) {
+        Location location = block.getLocation();
+        long time = System.currentTimeMillis();
+        int wid = Util.getWorldId(location.getWorld().getName());
+        int x = location.getBlockX();
+        int y = location.getBlockY();
+        int z = location.getBlockZ();
+        String coordinates = x + "." + y + "." + z + "." + wid + "." + Material.DRAGON_EGG.name();
+        CacheHandler.interactCache.put(coordinates, new Object[] { time, Material.DRAGON_EGG, player.getName() });
+    }
+
 }

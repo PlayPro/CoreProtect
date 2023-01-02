@@ -13,7 +13,6 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -30,15 +29,14 @@ public class BukkitAdapter implements BukkitInterface {
     public static final int BUKKIT_V1_16 = 16;
     public static final int BUKKIT_V1_17 = 17;
     public static final int BUKKIT_V1_18 = 18;
+    public static final int BUKKIT_V1_19 = 19;
 
     public static void loadAdapter() {
         switch (ConfigHandler.SERVER_VERSION) {
             case BUKKIT_V1_13:
             case BUKKIT_V1_14:
-                BukkitAdapter.ADAPTER = new BukkitAdapter();
-                break;
             case BUKKIT_V1_15:
-                BukkitAdapter.ADAPTER = new Bukkit_v1_15();
+                BukkitAdapter.ADAPTER = new BukkitAdapter();
                 break;
             case BUKKIT_V1_16:
                 BukkitAdapter.ADAPTER = new Bukkit_v1_16();
@@ -47,9 +45,11 @@ public class BukkitAdapter implements BukkitInterface {
                 BukkitAdapter.ADAPTER = new Bukkit_v1_17();
                 break;
             case BUKKIT_V1_18:
-            default:
                 BukkitAdapter.ADAPTER = new Bukkit_v1_18();
                 break;
+            case BUKKIT_V1_19:
+            default:
+                BukkitAdapter.ADAPTER = new Bukkit_v1_19();
         }
     }
 
@@ -95,11 +95,6 @@ public class BukkitAdapter implements BukkitInterface {
     @Override
     public boolean isWall(BlockData blockData) {
         return false;
-    }
-
-    @Override
-    public void sendSignChange(Player player, Sign sign) {
-        return;
     }
 
     @Override

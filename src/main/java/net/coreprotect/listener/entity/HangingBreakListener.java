@@ -61,7 +61,7 @@ public final class HangingBreakListener extends Queue implements Listener {
 
                     if (!event.isCancelled() && Config.getConfig(entity.getWorld()).ITEM_TRANSACTIONS) {
                         if (itemframe.getItem().getType() != Material.AIR) {
-                            PlayerInteractEntityListener.queueFrameTransaction(causeName, itemframe, logDrops);
+                            PlayerInteractEntityListener.queueContainerSingleItem(causeName, Material.ITEM_FRAME, itemframe, itemframe.getLocation(), logDrops);
                         }
                     }
                 }

@@ -28,6 +28,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Chest;
 import org.bukkit.block.CommandBlock;
+import org.bukkit.block.Jukebox;
 import org.bukkit.block.ShulkerBox;
 import org.bukkit.block.banner.Pattern;
 import org.bukkit.block.data.BlockData;
@@ -263,6 +264,51 @@ public class Util extends Queue {
         }
 
         return message.toString();
+    }
+
+    public static String getEnchantments(byte[] metadata, int type, int amount) {
+        if (metadata == null) {
+            return "";
+        }
+
+        ItemStack item = new ItemStack(Util.getType(type), amount);
+        item = (ItemStack) Rollback.populateItemStack(item, metadata)[2];
+        String displayName = item.hasItemMeta() && item.getItemMeta().hasDisplayName() ? item.getItemMeta().getDisplayName() : "";
+        StringBuilder message = new StringBuilder(Color.ITALIC + displayName + Color.GREY);
+
+        List<String> enchantments = ItemMetaHandler.getEnchantments(item, displayName);
+        for (String enchantment : enchantments) {
+            if (message.length() > 0) {
+                message.append("\n");
+            }
+            message.append(enchantment);
+        }
+
+        if (!displayName.isEmpty()) {
+            message.insert(0, enchantments.isEmpty() ? Color.WHITE : Color.AQUA);
+        }
+        else if (!enchantments.isEmpty()) {
+            String name = Util.capitalize(item.getType().name().replace("_", " "), true);
+            message.insert(0, Color.AQUA + Color.ITALIC + name);
+        }
+
+        return message.toString();
+    }
+
+    public static String createTooltip(String phrase, String tooltip) {
+        if (tooltip.isEmpty()) {
+            return phrase;
+        }
+
+        StringBuilder message = new StringBuilder(Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_POPUP);
+
+        // tooltip
+        message.append("|" + tooltip + "|");
+
+        // chat output
+        message.append(phrase);
+
+        return message.append(Chat.COMPONENT_TAG_CLOSE).toString();
     }
 
     public static String hoverCommandFilter(String string) {
@@ -719,6 +765,10 @@ public class Util extends Queue {
                     ItemFrame entity = (ItemFrame) container;
                     contents = Util.getItemFrameItem(entity);
                 }
+                else if (type == Material.JUKEBOX) {
+                    Jukebox blockState = (Jukebox) ((Block) container).getState();
+                    contents = Util.getJukeboxItem(blockState);
+                }
                 else {
                     Block block = (Block) container;
                     Inventory inventory = Util.getContainerInventory(block.getState(), true);
@@ -789,6 +839,17 @@ public class Util extends Queue {
         ItemStack[] contents = null;
         try {
             contents = new ItemStack[] { entity.getItem() };
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+        return contents;
+    }
+
+    public static ItemStack[] getJukeboxItem(Jukebox blockState) {
+        ItemStack[] contents = null;
+        try {
+            contents = new ItemStack[] { blockState.getRecord() };
         }
         catch (Exception e) {
             e.printStackTrace();
@@ -1019,7 +1080,7 @@ public class Util extends Queue {
                 if (version.contains("-beta-")) {
                     version = version.split(";")[0];
                     version = version.split("-beta-")[1];
-                    int value = Integer.parseInt(version.replaceAll("[^0-9]", ""));
+                    long value = Long.parseLong(version.replaceAll("[^0-9]", ""));
                     if (value < 6) {
                         validVersion = false;
                     }
@@ -1033,7 +1094,7 @@ public class Util extends Queue {
                     }
 
                     if (version.contains("-")) {
-                        int value = Integer.parseInt(((version.split("-"))[0]).replaceAll("[^0-9]", ""));
+                        long value = Long.parseLong(((version.split("-"))[0]).replaceAll("[^0-9]", ""));
                         if (value > 0 && value < 4268) {
                             validVersion = false;
                         }

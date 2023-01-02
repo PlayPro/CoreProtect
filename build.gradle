@@ -7,7 +7,7 @@ plugins {
 }
 
 group = 'net.coreprotect'
-String projectVersion = '21.2'
+String projectVersion = '21.3'
 String projectBranch = ''
 version = projectVersion // `version` might be modified, we don't always want that (e.g. plugin.yml)
 description = 'Provides block protection for your server.'
@@ -34,7 +34,7 @@ dependencies {
     compileOnly('com.sk89q.worldedit:worldedit-bukkit:7.0.0-SNAPSHOT') {
         exclude group: 'org.bukkit'
     }
-    compileOnly 'io.papermc.paper:paper-api:1.18.1-R0.1-SNAPSHOT'
+    compileOnly 'io.papermc.paper:paper-api:1.19-R0.1-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit-lite:1.8'
     implementation 'com.zaxxer:HikariCP:4.0.3'
 }
@@ -52,6 +52,10 @@ shadowJar {
         // #toString because #getGroup technically returns an Object
         relocate('org.bstats', project.group.toString())
         relocate('com.zaxxer', project.group.toString())
+        exclude(dependency('com.google.code.gson:.*'))
+        exclude(dependency('org.intellij:.*'))
+        exclude(dependency('org.jetbrains:.*'))
+        exclude(dependency('org.slf4j:.*'))
     }
     archiveClassifier.set(null)
 }
@@ -85,4 +89,3 @@ processResources {
         }
     })
 }
-

@@ -23,6 +23,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.bukkit.inventory.meta.MapMeta;
 import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.inventory.meta.SuspiciousStewMeta;
 import org.bukkit.potion.PotionEffect;
 
 import net.coreprotect.bukkit.BukkitAdapter;
@@ -92,21 +93,18 @@ public class ItemMetaHandler {
         return itemMeta.getEnchants();
     }
 
-    public static String getEnchantments(ItemStack item) {
-        StringBuilder result = new StringBuilder();
+    public static List<String> getEnchantments(ItemStack item, String displayName) {
+        List<String> result = new ArrayList<>();
         Map<Enchantment, Integer> enchantments = getEnchantments(item.getItemMeta());
 
         for (Entry<Enchantment, Integer> entry : enchantments.entrySet()) {
             Enchantment enchantment = entry.getKey();
             Integer level = entry.getValue();
 
-            if (result.length() > 0) {
-                result.append("\n");
-            }
-            result.append(getEnchantmentName(enchantment, level));
+            result.add(getEnchantmentName(enchantment, level));
         }
 
-        return result.toString();
+        return result;
     }
 
     public static List<List<Map<String, Object>>> seralize(ItemStack item, Material type, String faceData, int slot) {
@@ -230,6 +228,21 @@ public class ItemMetaHandler {
                     list = new ArrayList<>();
                     list.add(subMeta.getColor().serialize());
                     metadata.add(list);
+                }
+            }
+            else if (itemMeta instanceof SuspiciousStewMeta) {
+                SuspiciousStewMeta meta = (SuspiciousStewMeta) itemMeta;
+                SuspiciousStewMeta subMeta = meta.clone();
+                meta.clearCustomEffects();
+                list.add(meta.serialize());
+                metadata.add(list);
+
+                if (subMeta.hasCustomEffects()) {
+                    for (PotionEffect effect : subMeta.getCustomEffects()) {
+                        list = new ArrayList<>();
+                        list.add(effect.serialize());
+                        metadata.add(list);
+                    }
                 }
             }
             else if (!BukkitAdapter.ADAPTER.getItemMeta(itemMeta, list, metadata, slot)) {

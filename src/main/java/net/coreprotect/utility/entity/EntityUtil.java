@@ -17,6 +17,7 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.AbstractHorse;
 import org.bukkit.entity.AbstractVillager;
 import org.bukkit.entity.Ageable;
+import org.bukkit.entity.Bee;
 import org.bukkit.entity.Cat;
 import org.bukkit.entity.ChestedHorse;
 import org.bukkit.entity.Creeper;
@@ -530,6 +531,21 @@ public class EntityUtil {
                                     llama.setColor(set);
                                 }
                             }
+                        }
+                    }
+                    else if (entity instanceof Bee) {
+                        Bee bee = (Bee) entity;
+                        if (count == 0) {
+                            int set = (int) value;
+                            bee.setAnger(set);
+                        }
+                        else if (count == 1) {
+                            boolean set = (Boolean) value;
+                            bee.setHasNectar(set);
+                        }
+                        else if (count == 2) {
+                            boolean set = (Boolean) value;
+                            bee.setHasStung(set);
                         }
                     }
                     else {

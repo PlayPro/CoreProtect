@@ -14,7 +14,6 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.Chest;
 import org.bukkit.command.BlockCommandSender;
-import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
@@ -33,7 +32,7 @@ import net.coreprotect.utility.Util;
 
 public class RollbackRestoreCommand {
     public static final String typeRollbackRestorePacket = "coreprotect:rollbackrestore";
-    protected static void runCommand(CommandSender player, Command command, boolean permission, String[] args, Location argLocation, long forceStart, long forceEnd) {
+    protected static void runCommand(CommandSender player, String commandName, boolean permission, String[] args, Location argLocation, long forceStart, long forceEnd) {
         Location lo = (argLocation != null ? argLocation : CommandHandler.parseLocation(player, args));
         List<String> argUuids = new ArrayList<>();
         List<String> argUsers = CommandHandler.parseUsers(args);
@@ -71,7 +70,7 @@ public class RollbackRestoreCommand {
                     argAction.add(3);
                 }
                 else if (!argAction.contains(3)) {
-                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE_COMBO), typeRollbackRestorePacket);
+                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE_COMBO), typeRollbackRestorePacket);
                     return;
                 }
             }
@@ -88,40 +87,40 @@ public class RollbackRestoreCommand {
                     argAction.add(3);
                 }
                 else if (!argAction.contains(3)) {
-                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE_COMBO), typeRollbackRestorePacket);
+                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE_COMBO), typeRollbackRestorePacket);
                     return;
                 }
             }
         }
 
         if (hasBlock && hasEntity) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE_COMBO), typeRollbackRestorePacket);
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE_COMBO), typeRollbackRestorePacket);
             return;
         }
 
         if (count) {
-            LookupCommand.runCommand(player, command, permission, args);
+            LookupCommand.runCommand(player, commandName, permission, args);
             return;
         }
         if (ConfigHandler.converterRunning) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS), typeRollbackRestorePacket);
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS), typeRollbackRestorePacket);
             return;
         }
         if (ConfigHandler.purgeRunning) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS), typeRollbackRestorePacket);
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS), typeRollbackRestorePacket);
             return;
         }
         if (argWid == -1) {
             String worldName = CommandHandler.parseWorldName(args, true);
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.WORLD_NOT_FOUND, worldName), typeRollbackRestorePacket);
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.WORLD_NOT_FOUND, worldName), typeRollbackRestorePacket);
             return;
         }
         if (preview > 0 && (!(player instanceof Player))) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PREVIEW_IN_GAME), typeRollbackRestorePacket);
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PREVIEW_IN_GAME), typeRollbackRestorePacket);
             return;
         }
         if (argAction.contains(-1)) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_ACTION), typeRollbackRestorePacket);
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_ACTION), typeRollbackRestorePacket);
             return;
         }
         if (worldedit && argRadius == null) {
@@ -129,17 +128,17 @@ public class RollbackRestoreCommand {
             return;
         }
         if (argRadius != null && argRadius[0] == -1) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_RADIUS), typeRollbackRestorePacket);
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_RADIUS), typeRollbackRestorePacket);
             return;
         }
         if (ConfigHandler.activeRollbacks.get(player.getName()) != null) {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_IN_PROGRESS), typeRollbackRestorePacket);
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_IN_PROGRESS), typeRollbackRestorePacket);
             return;
         }
         if (ConfigHandler.lookupThrottle.get(player.getName()) != null) {
             Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
             if ((boolean) lookupThrottle[0] || ((System.currentTimeMillis() - (long) lookupThrottle[1])) < 100) {
-                Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY), typeRollbackRestorePacket);
+                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY), typeRollbackRestorePacket);
                 return;
             }
         }
@@ -174,17 +173,17 @@ public class RollbackRestoreCommand {
 
             if (argUsers.size() == 0 && (argWid > 0 || forceglobal) && argRadius == null) {
                 if (finalAction == 0) {
-                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_ROLLBACK_USER, Selector.FIRST), typeRollbackRestorePacket);
+                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_ROLLBACK_USER, Selector.FIRST), typeRollbackRestorePacket);
                 }
                 else {
-                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_ROLLBACK_USER, Selector.SECOND), typeRollbackRestorePacket);
+                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_ROLLBACK_USER, Selector.SECOND), typeRollbackRestorePacket);
                 }
                 return;
             }
 
             if (argAction.contains(4) && argAction.contains(11)) { // a:inventory
                 if (argUsers.size() == 0) {
-                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_ACTION_USER), typeRollbackRestorePacket);
+                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_ACTION_USER), typeRollbackRestorePacket);
                     return;
                 }
 
@@ -202,28 +201,28 @@ public class RollbackRestoreCommand {
                 if (argRadius != null) {
                     int radiusValue = argRadius[0];
                     if (radiusValue > MAX_RADIUS && MAX_RADIUS > 0) {
-                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MAXIMUM_RADIUS, MAX_RADIUS.toString(), (finalAction == 0 ? Selector.SECOND : Selector.THIRD)), typeRollbackRestorePacket);
-                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.GLOBAL_ROLLBACK, "r:#global", (finalAction == 0 ? Selector.FIRST : Selector.SECOND)), typeRollbackRestorePacket);
+                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MAXIMUM_RADIUS, MAX_RADIUS.toString(), (finalAction == 0 ? Selector.SECOND : Selector.THIRD)), typeRollbackRestorePacket);
+                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.GLOBAL_ROLLBACK, "r:#global", (finalAction == 0 ? Selector.FIRST : Selector.SECOND)), typeRollbackRestorePacket);
                         return;
                     }
                 }
                 if (argAction.size() > 0) {
                     if (argAction.contains(4)) {
                         if (argUsers.contains("#global") || (argUsers.size() == 0 && argRadius == null)) {
-                            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_ACTION_USER), typeRollbackRestorePacket);
+                            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_ACTION_USER), typeRollbackRestorePacket);
                             return;
                         }
                         else if (preview > 0) {
-                            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PREVIEW_TRANSACTION, !argAction.contains(11) ? Selector.FIRST : Selector.SECOND), typeRollbackRestorePacket);
+                            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PREVIEW_TRANSACTION, !argAction.contains(11) ? Selector.FIRST : Selector.SECOND), typeRollbackRestorePacket);
                             return;
                         }
                     }
                     if (argAction.contains(8) || (argAction.contains(11) && !argAction.contains(4)) || (!argAction.contains(0) && !argAction.contains(1) && !argAction.contains(3) && !argAction.contains(4))) {
                         if (finalAction == 0) {
-                            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ACTION_NOT_SUPPORTED), typeRollbackRestorePacket);
+                            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ACTION_NOT_SUPPORTED), typeRollbackRestorePacket);
                         }
                         else {
-                            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ACTION_NOT_SUPPORTED), typeRollbackRestorePacket);
+                            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ACTION_NOT_SUPPORTED), typeRollbackRestorePacket);
                         }
                         return;
                     }
@@ -248,7 +247,7 @@ public class RollbackRestoreCommand {
                     if (argAction.contains(4) && argAction.contains(11)) {
                         Player onlineUser = Bukkit.getServer().getPlayer(ruser);
                         if (onlineUser == null || !onlineUser.isOnline()) {
-                            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.USER_OFFLINE, ruser), typeRollbackRestorePacket);
+                            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.USER_OFFLINE, ruser), typeRollbackRestorePacket);
                             return;
                         }
                     }
@@ -260,7 +259,7 @@ public class RollbackRestoreCommand {
                 int z = 0;
                 if (rollbackusers.contains("#container")) {
                     if (argAction.contains(11)) {
-                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_USERNAME, "#container"), typeRollbackRestorePacket);
+                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_USERNAME, "#container"), typeRollbackRestorePacket);
                         return;
                     }
 
@@ -278,7 +277,7 @@ public class RollbackRestoreCommand {
                     }
                     if (valid) {
                         if (preview > 0) {
-                            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PREVIEW_TRANSACTION, Selector.FIRST), typeRollbackRestorePacket);
+                            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PREVIEW_TRANSACTION, Selector.FIRST), typeRollbackRestorePacket);
                             return;
                         }
                         else {
@@ -311,7 +310,7 @@ public class RollbackRestoreCommand {
                         }
                     }
                     else {
-                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_CONTAINER), typeRollbackRestorePacket);
+                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_CONTAINER), typeRollbackRestorePacket);
                         return;
                     }
                 }
@@ -413,16 +412,16 @@ public class RollbackRestoreCommand {
                                                 users = "#" + location.getWorld().getName();
                                             }
                                             if (finalPreview == 2) {
-                                                Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PREVIEW_CANCELLING), typeRollbackRestorePacket);
+                                                Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PREVIEW_CANCELLING), typeRollbackRestorePacket);
                                             }
                                             else if (finalPreview == 1) {
-                                                Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_STARTED, users, Selector.THIRD), typeRollbackRestorePacket);
+                                                Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_STARTED, users, Selector.THIRD), typeRollbackRestorePacket);
                                             }
                                             else if (action == 0) {
-                                                Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_STARTED, users, Selector.FIRST), typeRollbackRestorePacket);
+                                                Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_STARTED, users, Selector.FIRST), typeRollbackRestorePacket);
                                             }
                                             else {
-                                                Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_STARTED, users, Selector.SECOND), typeRollbackRestorePacket);
+                                                Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_STARTED, users, Selector.SECOND), typeRollbackRestorePacket);
                                             }
 
                                             if (finalArgAction.contains(5)) {
@@ -441,12 +440,12 @@ public class RollbackRestoreCommand {
                                             }
                                         }
                                         else {
-                                            Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.USER_NOT_FOUND, baduser), typeRollbackRestorePacket);
+                                            Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.USER_NOT_FOUND, baduser), typeRollbackRestorePacket);
                                         }
                                         statement.close();
                                     }
                                     else {
-                                        Chat.sendResponse(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY), typeRollbackRestorePacket);
+                                        Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY), typeRollbackRestorePacket);
                                     }
                                 }
                                 catch (Exception e) {
@@ -468,24 +467,24 @@ public class RollbackRestoreCommand {
                 }
                 else {
                     if (finalAction == 0) {
-                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_LOOKUP_TIME, Selector.SECOND), typeRollbackRestorePacket);
+                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_LOOKUP_TIME, Selector.SECOND), typeRollbackRestorePacket);
                     }
                     else {
-                        Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_LOOKUP_TIME, Selector.THIRD), typeRollbackRestorePacket);
+                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_LOOKUP_TIME, Selector.THIRD), typeRollbackRestorePacket);
                     }
                 }
             }
             else {
                 if (finalAction == 0) {
-                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_ROLLBACK_RADIUS, Selector.FIRST), typeRollbackRestorePacket); // rollback
+                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_ROLLBACK_RADIUS, Selector.FIRST), typeRollbackRestorePacket); // rollback
                 }
                 else {
-                    Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_ROLLBACK_RADIUS, Selector.SECOND), typeRollbackRestorePacket); // restore
+                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_ROLLBACK_RADIUS, Selector.SECOND), typeRollbackRestorePacket); // restore
                 }
             }
         }
         else {
-            Chat.sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeRollbackRestorePacket);
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION), typeRollbackRestorePacket);
         }
     }
 }

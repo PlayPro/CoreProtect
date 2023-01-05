@@ -3,7 +3,6 @@ package net.coreprotect.command;
 import java.util.List;
 
 import org.bukkit.Location;
-import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 
 import net.coreprotect.config.ConfigHandler;
@@ -13,7 +12,7 @@ import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 
 public class UndoCommand {
-    protected static void runCommand(CommandSender user, Command command, boolean permission, String[] args) {
+    protected static void runCommand(CommandSender user, String commandName, boolean permission, String[] args) {
         try {
             if (ConfigHandler.lastRollback.get(user.getName()) != null) {
                 List<Object> list = ConfigHandler.lastRollback.get(user.getName());
@@ -23,7 +22,7 @@ public class UndoCommand {
                 Location location = (Location) list.get(3);
                 for (String arg : args) {
                     if (arg.equals("#preview")) {
-                        CancelCommand.runCommand(user, command, permission, args);
+                        CancelCommand.runCommand(user, commandName, permission, args);
                         return;
                     }
                 }
@@ -39,7 +38,7 @@ public class UndoCommand {
                 }
                 if (valid) {
                     ConfigHandler.lastRollback.remove(user.getName());
-                    RollbackRestoreCommand.runCommand(user, command, permission, args, location, startTime, endTime);
+                    RollbackRestoreCommand.runCommand(user, commandName, permission, args, location, startTime, endTime);
                 }
             }
             else {

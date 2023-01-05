@@ -57,7 +57,10 @@ public class PluginChannelHandshakeListener implements PluginMessageListener, Li
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        getPluginChannelPlayers().remove(event.getPlayer().getUniqueId());
+        UUID playerUuid = event.getPlayer().getUniqueId();
+        PluginChannelInputListener.getInstance().getSilentChatPlayers().remove(playerUuid);
+        PluginChannelInputListener.getInstance().getPlayersUsingInputChannel().remove(playerUuid);
+        getPluginChannelPlayers().remove(playerUuid);
     }
 
     @Override
@@ -86,6 +89,7 @@ public class PluginChannelHandshakeListener implements PluginMessageListener, Li
                 Chat.console(modVersion);
                 Chat.console(modId);
                 Chat.console(String.valueOf(protocolVersion));
+                Chat.console("");
             }
 
             if (protocolVersion != networkingProtocolVersion) {

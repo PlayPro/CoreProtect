@@ -2,6 +2,7 @@ package net.coreprotect.utility;
 
 import java.util.logging.Level;
 
+import net.coreprotect.listener.channel.PluginChannelInputListener;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Server;
@@ -33,11 +34,20 @@ public final class Chat {
     }
 
     public static void sendMessage(CommandSender sender, String message) {
+        sendMessage(sender, message, "");
+    }
+    public static void sendMessage(CommandSender sender, String message, String type) {
         if (sender instanceof ConsoleCommandSender) {
             message = message.replace(Color.DARK_AQUA, ChatColor.DARK_AQUA.toString());
         }
 
-        sender.sendMessage(message);
+        if (PluginChannelInputListener.getInstance().isNotSilentChatPlayer(sender)) {
+            sender.sendMessage(message);
+        }
+
+        if (!type.isEmpty()) {
+            sendPluginChatResponseMessage(sender, message, type);
+        }
     }
 
     public static void sendConsoleMessage(String string) {
@@ -63,19 +73,14 @@ public final class Chat {
         server.getConsoleSender().sendMessage("[CoreProtect] " + string);
         for (Player player : server.getOnlinePlayers()) {
             if (player.isOp() && !player.getName().equals(user.getName())) {
-                sendResponse(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + string, PurgeCommand.typePurgePacket);
+                sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + string, PurgeCommand.typePurgePacket);
             }
         }
         if (user instanceof Player) {
             if (((Player) user).isOnline()) {
-                sendResponse(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + string, PurgeCommand.typePurgePacket);
+                sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + string, PurgeCommand.typePurgePacket);
             }
         }
-    }
-
-    public static void sendResponse(CommandSender user, String message, String type) {
-        sendMessage(user, message);
-        sendPluginChatResponseMessage(user, message, type);
     }
 
     public static void sendPluginChatResponseMessage(CommandSender user, String message, String type) {

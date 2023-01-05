@@ -143,6 +143,14 @@ public class PluginChannelInputListener implements PluginMessageListener, Listen
         return player.hasPermission("coreprotect." + type);
     }
 
+    public boolean isPlayerUsingInputChannel(CommandSender commandSender) {
+        if (!(commandSender instanceof Player) || !PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(commandSender)) {
+            return false;
+        }
+
+        return true;
+    }
+
     public Set<UUID> getPlayersUsingInputChannel() {
         return playersUsingInputChannel;
     }

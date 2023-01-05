@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import net.coreprotect.listener.channel.PluginChannelInputListener;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -1071,7 +1072,7 @@ public class LookupCommand {
                                                     Chat.sendMessage(player2, "-----");
                                                 }
                                                 Chat.sendComponent(player2, Util.getPageNavigation(commandName, page, total_pages));
-                                                if (PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(player2)) {
+                                                if (PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(player2) && PluginChannelInputListener.getInstance().isPlayerUsingInputChannel(player2)) {
                                                     ConfigHandler.playerPages.put(((Player) player2).getUniqueId(), total_pages);
                                                 }
                                             }

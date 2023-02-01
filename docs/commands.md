@@ -133,6 +133,7 @@ ___
 
 * Example: `u:Notch`
 * Example: `u:Notch,Intelli`
+* Example: `u:#fire,#tnt,#creeper,#explosion`
 
 ---
 

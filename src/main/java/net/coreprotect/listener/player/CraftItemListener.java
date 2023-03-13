@@ -7,7 +7,7 @@ import java.util.Locale;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.entity.Player;
+import org.bukkit.entity.HumanEntity;
 import org.bukkit.event.Event.Result;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -71,7 +71,7 @@ public final class CraftItemListener extends Queue implements Listener {
             return;
         }
 
-        Player player = (Player) event.getWhoClicked();
+        HumanEntity player = event.getWhoClicked();
         if (event.getClick() == ClickType.NUMBER_KEY && player.getInventory().getItem(event.getHotbarButton()) != null) {
             return;
         }

@@ -20,6 +20,7 @@ import org.bukkit.World;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.language.Language;
+import net.coreprotect.thread.Scheduler;
 
 public class Config extends Language {
 
@@ -383,7 +384,7 @@ public class Config extends Language {
             // for now this solution is good enough to ensure we only modify on the main thread
             final CompletableFuture<Void> complete = new CompletableFuture<>();
 
-            Bukkit.getScheduler().runTask(CoreProtect.getInstance(), () -> {
+            Scheduler.runTask(CoreProtect.getInstance(), () -> {
                 try {
                     parseConfig(data);
                 }

@@ -55,6 +55,7 @@ public class ConfigHandler extends Queue {
     public static HikariDataSource hikariDataSource = null;
     public static final boolean isSpigot = Util.isSpigot();
     public static final boolean isPaper = Util.isPaper();
+    public static final boolean isFolia = Util.isFolia();
     public static volatile boolean serverRunning = false;
     public static volatile boolean converterRunning = false;
     public static volatile boolean purgeRunning = false;

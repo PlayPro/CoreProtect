@@ -67,6 +67,7 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 
 public final class EntityDeathListener extends Queue implements Listener {
@@ -96,13 +97,13 @@ public final class EntityDeathListener extends Queue implements Listener {
             }
         }
 
-        Bukkit.getScheduler().runTask(CoreProtect.getInstance(), () -> {
-            for (LivingEntity entity : entityList) {
+        for (LivingEntity entity : entityList) {
+            Scheduler.runTask(CoreProtect.getInstance(), () -> {
                 if (entity != null && entity.isDead()) {
                     logEntityDeath(entity, "#command");
                 }
-            }
-        });
+            }, entity);
+        }
     }
 
     protected static void logEntityDeath(LivingEntity entity, String e) {

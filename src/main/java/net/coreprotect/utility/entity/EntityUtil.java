@@ -59,6 +59,7 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.database.Rollback;
 import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Util;
 
 public class EntityUtil {
@@ -71,7 +72,7 @@ public class EntityUtil {
         if (type == null) {
             return;
         }
-        Bukkit.getServer().getScheduler().runTask(CoreProtect.getInstance(), () -> {
+        Scheduler.runTask(CoreProtect.getInstance(), () -> {
             try {
                 Location location = block.getLocation();
                 location.setX(location.getX() + 0.50);
@@ -557,7 +558,7 @@ public class EntityUtil {
             catch (Exception e) {
                 e.printStackTrace();
             }
-        });
+        }, block.getLocation());
     }
 
 }

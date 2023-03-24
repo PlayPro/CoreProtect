@@ -59,6 +59,7 @@ import net.coreprotect.database.Rollback;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 import net.coreprotect.worldedit.CoreProtectEditSessionEvent;
 
@@ -1281,6 +1282,17 @@ public class Util extends Queue {
         return true;
     }
 
+    public static boolean isFolia() {
+        try {
+            Class.forName("io.papermc.paper.threadedregions.scheduler.GlobalRegionScheduler");
+        }
+        catch (Exception e) {
+            return false;
+        }
+
+        return true;
+    }
+
     public static String getBranch() {
         String branch = "";
         try {
@@ -1521,7 +1533,7 @@ public class Util extends Queue {
     }
 
     public static void updateBlock(final BlockState block) {
-        Bukkit.getServer().getScheduler().runTask(CoreProtect.getInstance(), () -> {
+        Scheduler.runTask(CoreProtect.getInstance(), () -> {
             try {
                 if (block.getBlockData() instanceof Waterlogged) {
                     Block currentBlock = block.getBlock();
@@ -1534,7 +1546,7 @@ public class Util extends Queue {
             catch (Exception e) {
                 e.printStackTrace();
             }
-        });
+        }, block.getLocation());
     }
 
     public static void updateInventory(Player player) {

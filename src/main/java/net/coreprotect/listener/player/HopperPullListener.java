@@ -5,7 +5,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.inventory.BrewerInventory;
 import org.bukkit.inventory.FurnaceInventory;
@@ -16,6 +15,7 @@ import org.bukkit.inventory.ItemStack;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Util;
 
 public final class HopperPullListener {
@@ -38,7 +38,7 @@ public final class HopperPullListener {
         ItemStack movedItem = item.clone();
 
         final long taskStarted = InventoryChangeListener.tasksStarted.incrementAndGet();
-        Bukkit.getServer().getScheduler().runTaskAsynchronously(CoreProtect.getInstance(), () -> {
+        Scheduler.runTaskAsynchronously(CoreProtect.getInstance(), () -> {
             try {
                 if (sourceHolder == null || destinationHolder == null) {
                     return;

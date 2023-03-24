@@ -21,6 +21,7 @@ import net.coreprotect.listener.player.PlayerQuitListener;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.NetworkHandler;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
@@ -94,7 +95,7 @@ public final class CoreProtect extends JavaPlugin {
             Chat.console(Phrase.build(Phrase.LINK_DISCORD, "www.coreprotect.net/discord/"));
             Chat.console("--------------------");
 
-            getServer().getScheduler().scheduleSyncDelayedTask(this, () -> {
+            Scheduler.scheduleSyncDelayedTask(this, () -> {
                 try {
                     Thread networkHandler = new Thread(new NetworkHandler(true, true));
                     networkHandler.start();

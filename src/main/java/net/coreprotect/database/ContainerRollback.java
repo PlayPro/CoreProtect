@@ -6,7 +6,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -24,6 +23,7 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.consumer.process.Process;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Util;
 
@@ -46,9 +46,9 @@ public class ContainerRollback extends Queue {
             Queue.queueRollbackUpdate(userString, location, lookupList, Process.CONTAINER_ROLLBACK_UPDATE, rollbackType); // Perform update transaction in consumer
 
             final String finalUserString = userString;
-            ConfigHandler.rollbackHash.put(userString, new int[] { 0, 0, 0, 0 });
+            ConfigHandler.rollbackHash.put(userString, new int[] { 0, 0, 0, 0, 0 });
 
-            Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(CoreProtect.getInstance(), new Runnable() {
+            Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), new Runnable() {
                 @Override
                 public void run() {
                     try {
@@ -140,13 +140,13 @@ public class ContainerRollback extends Queue {
                         }
                         matchingFrames.clear();
 
-                        ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount, modifyCount, entityCount, 1 });
+                        ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount, modifyCount, entityCount, 1, 1 });
                     }
                     catch (Exception e) {
                         e.printStackTrace();
                     }
                 }
-            }, 0);
+            }, location, 0);
 
             int[] rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
             int next = rollbackHashData[3];

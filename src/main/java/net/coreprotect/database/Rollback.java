@@ -90,6 +90,7 @@ import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Chat;
@@ -650,7 +651,7 @@ public class Rollback extends Queue {
 
                                                 if (!exists) {
                                                     Entity entity = block.getLocation().getWorld().spawnEntity(location1, EntityType.ARMOR_STAND);
-                                                    entity.teleport(location1);
+                                                    PaperAdapter.ADAPTER.teleportAsync(entity, location1);
                                                 }
                                             }
                                             else if ((rowType == Material.END_CRYSTAL)) {
@@ -671,7 +672,7 @@ public class Rollback extends Queue {
                                                     Entity entity = block.getLocation().getWorld().spawnEntity(location1, EntityType.ENDER_CRYSTAL);
                                                     EnderCrystal enderCrystal = (EnderCrystal) entity;
                                                     enderCrystal.setShowingBottom((rowData != 0));
-                                                    entity.teleport(location1);
+                                                    PaperAdapter.ADAPTER.teleportAsync(entity, location1);
                                                 }
                                             }
                                             else if ((rowType == Material.AIR) && ((oldTypeMaterial == Material.WATER))) {
@@ -728,7 +729,7 @@ public class Rollback extends Queue {
                                                                         }
 
                                                                         entityLocation.setY(entityLocation.getY() - 1.99);
-                                                                        entity.teleport(entityLocation);
+                                                                        PaperAdapter.ADAPTER.teleportAsync(entity, entityLocation);
                                                                         entity.remove();
                                                                     }
                                                                 }

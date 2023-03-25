@@ -1,7 +1,9 @@
 package net.coreprotect.paper;
 
+import org.bukkit.Location;
 import org.bukkit.Server;
 import org.bukkit.block.Sign;
+import org.bukkit.entity.Entity;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 
@@ -60,6 +62,11 @@ public class PaperAdapter implements PaperInterface {
     @Override
     public String getLine(Sign sign, int line) {
         return sign.getLine(line);
+    }
+
+    @Override
+    public void teleportAsync(Entity entity, Location location) {
+        entity.teleport(location);
     }
 
 }

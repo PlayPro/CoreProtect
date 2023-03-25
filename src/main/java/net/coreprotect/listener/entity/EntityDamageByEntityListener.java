@@ -113,7 +113,9 @@ public final class EntityDamageByEntityListener extends Queue implements Listene
                     if (entity instanceof ItemFrame && Config.getConfig(entityLocation.getWorld()).ITEM_TRANSACTIONS) {
                         ItemFrame frame = (ItemFrame) entity;
                         if (frame.getItem().getType() != Material.AIR) {
-                            PlayerInteractEntityListener.queueContainerSingleItem(user, Material.ITEM_FRAME, frame, frame.getLocation(), logDrops);
+                            ItemStack[] oldState = new ItemStack[] { frame.getItem().clone() };
+                            ItemStack[] newState = new ItemStack[] { new ItemStack(Material.AIR) };
+                            PlayerInteractEntityListener.queueContainerSpecifiedItems(user, Material.ITEM_FRAME, new Object[] { oldState, newState, frame.getFacing() }, frame.getLocation(), logDrops);
                         }
                     }
                     else if (entity instanceof EnderCrystal && Config.getConfig(entity.getWorld()).BLOCK_BREAK) {

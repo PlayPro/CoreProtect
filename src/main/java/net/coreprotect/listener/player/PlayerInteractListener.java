@@ -659,7 +659,9 @@ public final class PlayerInteractListener extends Queue implements Listener {
 
                                 if (Config.getConfig(block.getWorld()).ITEM_TRANSACTIONS) {
                                     boolean logDrops = player.getGameMode() != GameMode.CREATIVE;
-                                    PlayerInteractEntityListener.queueContainerSingleItem(player.getName(), Material.JUKEBOX, new ItemStack[] { oldItemState, newItemState }, jukebox.getLocation(), logDrops);
+                                    ItemStack[] oldState = new ItemStack[] { oldItemState };
+                                    ItemStack[] newState = new ItemStack[] { newItemState };
+                                    PlayerInteractEntityListener.queueContainerSpecifiedItems(player.getName(), Material.JUKEBOX, new Object[] { oldState, newState }, jukebox.getLocation(), logDrops);
                                 }
                             }
                         }

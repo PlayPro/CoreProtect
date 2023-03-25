@@ -2,10 +2,7 @@ package net.coreprotect.listener.player;
 
 import java.sql.Connection;
 import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -87,7 +84,8 @@ public final class ArmorStandManipulateListener extends Queue implements Listene
         Player player = event.getPlayer();
         final ArmorStand armorStand = event.getRightClicked();
         EntityEquipment equipment = armorStand.getEquipment();
-        ItemStack[] contents = Util.getArmorStandContents(equipment);
+        ItemStack[] oldContents = Util.getArmorStandContents(equipment);
+        ItemStack[] newContents = oldContents.clone();
         ItemStack item = event.getArmorStandItem();
         ItemStack playerItem = event.getPlayerItem();
 
@@ -110,49 +108,45 @@ public final class ArmorStandManipulateListener extends Queue implements Listene
             return;
         }
 
-        if (item == null && playerItem == null) {
+        int slot = 0;
+        switch (event.getSlot()) {
+            case LEGS:
+                slot = 1;
+                break;
+            case CHEST:
+                slot = 2;
+                break;
+            case HEAD:
+                slot = 3;
+                break;
+            case HAND:
+                slot = 4;
+                break;
+            case OFF_HAND:
+                slot = 5;
+                break;
+            default:
+                slot = 0;
+        }
+        // 0: BOOTS, 1: LEGGINGS, 2: CHESTPLATE, 3: HELMET, 4: MAINHAND, 5: OFFHAND
+
+        if (item.getType() == playerItem.getType()) {
             return;
         }
-
-        /*
-            if (item!=null && playerItem==null){
-                //player gets item
-            }
-            if (item==null && playerItem!=null){
-                //players item placed on armor stands
-            }
-            if (item!=null && playerItem!=null){
-                //items are swapped
-            }
-         */
-
-        Material type = Material.ARMOR_STAND;
-        Location standLocation = armorStand.getLocation();
-        int x = standLocation.getBlockX();
-        int y = standLocation.getBlockY();
-        int z = standLocation.getBlockZ();
-
-        String transactingChestId = standLocation.getWorld().getUID().toString() + "." + x + "." + y + "." + z;
-        String loggingChestId = player.getName().toLowerCase(Locale.ROOT) + "." + x + "." + y + "." + z;
-        int chestId = Queue.getChestId(loggingChestId);
-        if (chestId > 0) {
-            if (ConfigHandler.forceContainer.get(loggingChestId) != null) {
-                int force_size = ConfigHandler.forceContainer.get(loggingChestId).size();
-                List<ItemStack[]> list = ConfigHandler.oldContainer.get(loggingChestId);
-
-                if (list.size() <= force_size) {
-                    list.add(Util.getContainerState(contents));
-                    ConfigHandler.oldContainer.put(loggingChestId, list);
-                }
-            }
+        else if (item.getType() != Material.AIR && playerItem.getType() == Material.AIR) {
+            oldContents[slot] = item.clone();
+            newContents[slot] = new ItemStack(Material.AIR);
+            PlayerInteractEntityListener.queueContainerSpecifiedItems(player.getName(), Material.ARMOR_STAND, new Object[] { oldContents, newContents }, armorStand.getLocation(), false);
         }
-        else {
-            List<ItemStack[]> list = new ArrayList<>();
-            list.add(Util.getContainerState(contents));
-            ConfigHandler.oldContainer.put(loggingChestId, list);
+        else if (item.getType() == Material.AIR && playerItem.getType() != Material.AIR) {
+            oldContents[slot] = new ItemStack(Material.AIR);
+            newContents[slot] = playerItem.clone();
+            PlayerInteractEntityListener.queueContainerSpecifiedItems(player.getName(), Material.ARMOR_STAND, new Object[] { oldContents, newContents }, armorStand.getLocation(), false);
         }
-
-        ConfigHandler.transactingChest.computeIfAbsent(transactingChestId, k -> Collections.synchronizedList(new ArrayList<>()));
-        Queue.queueContainerTransaction(player.getName(), standLocation, type, equipment, chestId);
+        else if (item.getType() != Material.AIR && playerItem.getType() != Material.AIR) {
+            oldContents[slot] = item.clone();
+            newContents[slot] = playerItem.clone();
+            PlayerInteractEntityListener.queueContainerSpecifiedItems(player.getName(), Material.ARMOR_STAND, new Object[] { oldContents, newContents }, armorStand.getLocation(), false);
+        }
     }
 }

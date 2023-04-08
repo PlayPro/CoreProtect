@@ -249,7 +249,13 @@ public final class InventoryChangeListener extends Queue implements Listener {
         boolean enderChest = false;
         if (inventoryAction != InventoryAction.MOVE_TO_OTHER_INVENTORY && inventoryAction != InventoryAction.COLLECT_TO_CURSOR && inventoryAction != InventoryAction.UNKNOWN) {
             // Perform this check to prevent triggering onInventoryInteractAsync when a user is just clicking items in their own inventory
-            Inventory inventory = event.getView().getInventory(event.getRawSlot());
+            Inventory inventory = null;
+            try {
+                inventory = event.getView().getInventory(event.getRawSlot());
+            }
+            catch (Exception e) {
+                return;
+            }
             if (inventory == null) {
                 return;
             }

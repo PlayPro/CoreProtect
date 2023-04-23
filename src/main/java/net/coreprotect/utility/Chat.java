@@ -26,7 +26,9 @@ public final class Chat {
     }
 
     public static void sendComponent(CommandSender sender, String string, String bypass) {
-        SpigotAdapter.ADAPTER.sendComponent(sender, string, bypass);
+        if (PluginChannelInputListener.getInstance().isNotSilentChatPlayer(sender)) {
+            SpigotAdapter.ADAPTER.sendComponent(sender, string, bypass);
+        }
     }
 
     public static void sendComponent(CommandSender sender, String string) {
@@ -34,7 +36,7 @@ public final class Chat {
     }
 
     public static void sendMessage(CommandSender sender, String message) {
-        sendMessage(sender, message, "");
+        sendMessage(sender, message, null);
     }
     public static void sendMessage(CommandSender sender, String message, String type) {
         if (sender instanceof ConsoleCommandSender) {

@@ -59,7 +59,6 @@ public class PluginChannelHandshakeListener implements PluginMessageListener, Li
     public void onPlayerQuit(PlayerQuitEvent event) {
         UUID playerUuid = event.getPlayer().getUniqueId();
         PluginChannelInputListener.getInstance().getSilentChatPlayers().remove(playerUuid);
-        PluginChannelInputListener.getInstance().getPlayersUsingInputChannel().remove(playerUuid);
         getPluginChannelPlayers().remove(playerUuid);
     }
 

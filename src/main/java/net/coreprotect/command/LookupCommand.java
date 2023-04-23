@@ -10,6 +10,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import net.coreprotect.listener.channel.PluginChannelInputListener;
+import net.coreprotect.listener.channel.PluginChannelResponseListener;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -43,7 +44,7 @@ import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
 
 public class LookupCommand {
-    private static final String typeLookupPacket = "coreprotect:lookup";
+    public static final String typeLookupPacket = "coreprotect:lookup";
 
     protected static void runCommand(CommandSender player, String commandName, boolean permission, String[] args) {
         int resultc = args.length;
@@ -372,6 +373,9 @@ public class LookupCommand {
                     catch (Exception e) {
                         e.printStackTrace();
                     }
+                    finally {
+                        PluginChannelInputListener.getInstance().getSilentChatPlayers().remove(((Player)player2).getUniqueId());
+                    }
 
                     ConfigHandler.lookupThrottle.put(player2.getName(), new Object[] { false, System.currentTimeMillis() });
                 }
@@ -491,6 +495,9 @@ public class LookupCommand {
                     }
                     catch (Exception e) {
                         e.printStackTrace();
+                    }
+                    finally {
+                        PluginChannelInputListener.getInstance().getSilentChatPlayers().remove(((Player)player2).getUniqueId());
                     }
 
                     ConfigHandler.lookupThrottle.put(player2.getName(), new Object[] { false, System.currentTimeMillis() });
@@ -1072,8 +1079,8 @@ public class LookupCommand {
                                                     Chat.sendMessage(player2, "-----");
                                                 }
                                                 Chat.sendComponent(player2, Util.getPageNavigation(commandName, page, total_pages));
-                                                if (PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(player2) && PluginChannelInputListener.getInstance().isPlayerUsingInputChannel(player2)) {
-                                                    ConfigHandler.playerPages.put(((Player) player2).getUniqueId(), total_pages);
+                                                if (page < total_pages) {
+                                                    PluginChannelResponseListener.getInstance().sendData(player2, (page + 1)+"/"+total_pages, typeLookupPacket + "Page");
                                                 }
                                             }
                                         }
@@ -1087,7 +1094,6 @@ public class LookupCommand {
                                     else {
                                         Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.USER_NOT_FOUND, baduser), typeLookupPacket);
                                     }
-                                    Chat.sendPluginChatResponseMessage(player2, Phrase.build(Phrase.LOOKUP_FINISHED), typeLookupPacket);
                                     statement.close();
                                 }
                                 else {
@@ -1107,6 +1113,9 @@ public class LookupCommand {
                 }
                 catch (Exception e) {
                     e.printStackTrace();
+                }
+                finally {
+                    PluginChannelInputListener.getInstance().getSilentChatPlayers().remove(((Player)player).getUniqueId());
                 }
             }
             else {

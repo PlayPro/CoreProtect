@@ -12,6 +12,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByBlockEvent;
+import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
@@ -45,7 +46,9 @@ public final class EntityDamageByBlockListener extends Queue implements Listener
         if (entity instanceof ItemFrame && Config.getConfig(entity.getWorld()).ITEM_TRANSACTIONS) {
             ItemFrame frame = (ItemFrame) entity;
             if (frame.getItem().getType() != Material.AIR) {
-                PlayerInteractEntityListener.queueContainerSingleItem(user, Material.ITEM_FRAME, frame, frame.getLocation(), false);
+                ItemStack[] oldState = new ItemStack[] { frame.getItem().clone() };
+                ItemStack[] newState = new ItemStack[] { new ItemStack(Material.AIR) };
+                PlayerInteractEntityListener.queueContainerSpecifiedItems(user, Material.ITEM_FRAME, new Object[] { oldState, newState, frame.getFacing() }, frame.getLocation(), false);
             }
         }
         else if (entity instanceof ArmorStand && Config.getConfig(entity.getWorld()).BLOCK_BREAK) {

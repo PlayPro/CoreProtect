@@ -15,6 +15,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.hanging.HangingBreakByEntityEvent;
+import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
@@ -133,7 +134,9 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
 
                 if (!event.isCancelled() && Config.getConfig(entity.getWorld()).ITEM_TRANSACTIONS && !inspecting) {
                     if (itemframe.getItem().getType() != Material.AIR) {
-                        PlayerInteractEntityListener.queueContainerSingleItem(culprit, Material.ITEM_FRAME, itemframe, itemframe.getLocation(), logDrops);
+                        ItemStack[] oldState = new ItemStack[] { itemframe.getItem().clone() };
+                        ItemStack[] newState = new ItemStack[] { new ItemStack(Material.AIR) };
+                        PlayerInteractEntityListener.queueContainerSpecifiedItems(culprit, Material.ITEM_FRAME, new Object[] { oldState, newState, itemframe.getFacing() }, itemframe.getLocation(), logDrops);
                     }
                 }
             }

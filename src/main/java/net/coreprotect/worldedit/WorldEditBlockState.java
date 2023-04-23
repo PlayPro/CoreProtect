@@ -1,5 +1,6 @@
 package net.coreprotect.worldedit;
 
+import java.util.Collection;
 import java.util.List;
 
 import org.bukkit.Chunk;
@@ -9,6 +10,8 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.entity.Entity;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.material.MaterialData;
 import org.bukkit.metadata.MetadataValue;
 import org.bukkit.plugin.Plugin;
@@ -182,6 +185,24 @@ public final class WorldEditBlockState implements BlockState {
     public boolean isCollidable() {
         // TODO Auto-generated method stub
         return false;
+    }
+
+    @Override
+    public Collection<ItemStack> getDrops() {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public Collection<ItemStack> getDrops(ItemStack tool) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public Collection<ItemStack> getDrops(ItemStack tool, Entity entity) {
+        // TODO Auto-generated method stub
+        return null;
     }
 
 }

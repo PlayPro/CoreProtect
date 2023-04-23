@@ -24,6 +24,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.process.Process;
 import net.coreprotect.listener.block.BlockUtil;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Util;
 
 public class Queue {
@@ -85,7 +86,7 @@ public class Queue {
     }
 
     protected static void queueBlockBreakValidate(final String user, final Block block, final BlockState blockState, final Material type, final String blockData, final int extraData, int ticks) {
-        Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
+        Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
             try {
                 if (!block.getType().equals(type)) {
                     queueBlockBreak(user, blockState, type, blockData, null, extraData, 0);
@@ -94,7 +95,7 @@ public class Queue {
             catch (Exception e) {
                 e.printStackTrace();
             }
-        }, ticks);
+        }, block.getLocation(), ticks);
     }
 
     protected static void queueBlockBreak(String user, BlockState block, Material type, String blockData, Material breakType, int extraData, int blockNumber) {
@@ -178,18 +179,18 @@ public class Queue {
     }
 
     protected static void queueBlockPlaceDelayed(final String user, final Location placed, final Material type, final String blockData, final BlockState replaced, int ticks) {
-        Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
+        Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
             try {
                 queueBlockPlace(user, placed.getBlock().getState(), type, replaced, null, -1, 0, blockData);
             }
             catch (Exception e) {
                 e.printStackTrace();
             }
-        }, ticks);
+        }, placed, ticks);
     }
 
     protected static void queueBlockPlaceValidate(final String user, final BlockState blockLocation, final Block block, final BlockState blockReplaced, final Material forceT, final int forceD, final int forceData, final String blockData, int ticks) {
-        Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
+        Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
             try {
                 Material blockType = block.getType();
                 if (blockType.equals(forceT)) {
@@ -204,11 +205,11 @@ public class Queue {
             catch (Exception e) {
                 e.printStackTrace();
             }
-        }, ticks);
+        }, blockLocation.getLocation(), ticks);
     }
 
     protected static void queueBlockGravityValidate(final String user, final Location location, final Block block, final Material blockType, int ticks) {
-        Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
+        Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
             try {
                 Block placementBlock = BlockUtil.gravityScan(location, blockType, user);
                 if (!block.equals(placementBlock)) {
@@ -218,7 +219,7 @@ public class Queue {
             catch (Exception e) {
                 e.printStackTrace();
             }
-        }, ticks);
+        }, location, ticks);
     }
 
     protected static void queueContainerBreak(String user, Location location, Material type, ItemStack[] oldInventory) {

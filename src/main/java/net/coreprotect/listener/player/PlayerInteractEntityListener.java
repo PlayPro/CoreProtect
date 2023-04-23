@@ -38,14 +38,14 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
         final Entity entity = event.getRightClicked(); // change item in ItemFrame, etc
         if (entity instanceof ItemFrame) {
             ItemFrame frame = (ItemFrame) entity;
-            Material handType = Material.AIR;
+            ItemStack handItem = new ItemStack(Material.AIR);
             ItemStack mainHand = player.getInventory().getItemInMainHand();
             ItemStack offHand = player.getInventory().getItemInOffHand();
             if (event.getHand().equals(EquipmentSlot.HAND) && mainHand.getType() != Material.AIR) {
-                handType = mainHand.getType();
+                handItem = mainHand;
             }
             else if (event.getHand().equals(EquipmentSlot.OFF_HAND) && offHand.getType() != Material.AIR) {
-                handType = offHand.getType();
+                handItem = offHand;
             }
             else if (event.getHand().equals(EquipmentSlot.OFF_HAND)) {
                 return;
@@ -72,8 +72,10 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
                 return;
             }
 
-            if (frame.getItem().getType().equals(Material.AIR) && !handType.equals(Material.AIR)) {
-                queueContainerSingleItem(player.getName(), Material.ITEM_FRAME, frame, frame.getLocation(), false);
+            if (frame.getItem().getType().equals(Material.AIR) && !handItem.getType().equals(Material.AIR)) { // add item to item frame
+                ItemStack[] oldState = new ItemStack[] { new ItemStack(Material.AIR) };
+                ItemStack[] newState = new ItemStack[] { handItem.clone() };
+                queueContainerSpecifiedItems(player.getName(), Material.ITEM_FRAME, new Object[] { oldState, newState, frame.getFacing() }, frame.getLocation(), false);
             }
         }
         else if (!event.isCancelled() && entity instanceof Creature && entity.getType().name().equals("ALLAY")) {
@@ -108,8 +110,8 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
         }
     }
 
-    public static void queueContainerSingleItem(String user, Material type, Object container, Location location, boolean logDrop) {
-        ItemStack[] contents = type == Material.ITEM_FRAME ? Util.getItemFrameItem((ItemFrame) container) : new ItemStack[] { ((ItemStack[]) container)[0] };
+    public static void queueContainerSpecifiedItems(String user, Material type, Object container, Location location, boolean logDrop) {
+        ItemStack[] contents = (ItemStack[]) ((Object[]) container)[0];
         int x = location.getBlockX();
         int y = location.getBlockY();
         int z = location.getBlockZ();

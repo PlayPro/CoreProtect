@@ -1,6 +1,5 @@
 package net.coreprotect.utility;
 
-import org.bukkit.Bukkit;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.BlockData;
@@ -9,6 +8,7 @@ import org.bukkit.block.data.type.Chest;
 import org.bukkit.block.data.type.Chest.Type;
 
 import net.coreprotect.CoreProtect;
+import net.coreprotect.thread.Scheduler;
 
 public class ChestTool {
 
@@ -75,7 +75,7 @@ public class ChestTool {
     }
 
     private static void validateContainer(BlockData blockData, Type newType, Block block, Block relativeBlock) {
-        Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
+        Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
             try {
                 BlockData relativeBlockData = relativeBlock.getBlockData();
                 if (!blockData.getAsString().equals(block.getBlockData().getAsString()) || !(relativeBlockData instanceof Chest) || ((Chest) relativeBlockData).getType() == newType) {
@@ -89,7 +89,7 @@ public class ChestTool {
             catch (Exception e) {
                 e.printStackTrace();
             }
-        }, 2);
+        }, relativeBlock.getLocation(), 2);
     }
 
 }

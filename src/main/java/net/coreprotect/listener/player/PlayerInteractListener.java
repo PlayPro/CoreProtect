@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.bukkit.Bukkit;
 import org.bukkit.DyeColor;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
@@ -55,6 +54,7 @@ import net.coreprotect.database.lookup.SignMessageLookup;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
@@ -659,7 +659,9 @@ public final class PlayerInteractListener extends Queue implements Listener {
 
                                 if (Config.getConfig(block.getWorld()).ITEM_TRANSACTIONS) {
                                     boolean logDrops = player.getGameMode() != GameMode.CREATIVE;
-                                    PlayerInteractEntityListener.queueContainerSingleItem(player.getName(), Material.JUKEBOX, new ItemStack[] { oldItemState, newItemState }, jukebox.getLocation(), logDrops);
+                                    ItemStack[] oldState = new ItemStack[] { oldItemState };
+                                    ItemStack[] newState = new ItemStack[] { newItemState };
+                                    PlayerInteractEntityListener.queueContainerSpecifiedItems(player.getName(), Material.JUKEBOX, new Object[] { oldState, newState }, jukebox.getLocation(), logDrops);
                                 }
                             }
                         }
@@ -735,7 +737,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                         if (!exists) {
                             final Player playerFinal = player;
                             final Location locationFinal = crystalLocation;
-                            Bukkit.getServer().getScheduler().runTask(CoreProtect.getInstance(), () -> {
+                            Scheduler.runTask(CoreProtect.getInstance(), () -> {
                                 try {
                                     boolean blockExists = false;
                                     int showingBottom = 0;
@@ -755,7 +757,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                 catch (Exception e) {
                                     e.printStackTrace();
                                 }
-                            });
+                            }, locationFinal);
                         }
                     }
                 }

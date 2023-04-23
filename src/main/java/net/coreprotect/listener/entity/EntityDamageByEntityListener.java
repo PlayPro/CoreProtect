@@ -2,7 +2,6 @@ package net.coreprotect.listener.entity;
 
 import java.util.Locale;
 
-import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -35,6 +34,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
 import net.coreprotect.listener.player.PlayerInteractEntityListener;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Util;
 
 public final class EntityDamageByEntityListener extends Queue implements Listener {
@@ -113,7 +113,9 @@ public final class EntityDamageByEntityListener extends Queue implements Listene
                     if (entity instanceof ItemFrame && Config.getConfig(entityLocation.getWorld()).ITEM_TRANSACTIONS) {
                         ItemFrame frame = (ItemFrame) entity;
                         if (frame.getItem().getType() != Material.AIR) {
-                            PlayerInteractEntityListener.queueContainerSingleItem(user, Material.ITEM_FRAME, frame, frame.getLocation(), logDrops);
+                            ItemStack[] oldState = new ItemStack[] { frame.getItem().clone() };
+                            ItemStack[] newState = new ItemStack[] { new ItemStack(Material.AIR) };
+                            PlayerInteractEntityListener.queueContainerSpecifiedItems(user, Material.ITEM_FRAME, new Object[] { oldState, newState, frame.getFacing() }, frame.getLocation(), logDrops);
                         }
                     }
                     else if (entity instanceof EnderCrystal && Config.getConfig(entity.getWorld()).BLOCK_BREAK) {
@@ -125,13 +127,13 @@ public final class EntityDamageByEntityListener extends Queue implements Listene
                         if (Config.getConfig(entityLocation.getWorld()).ITEM_TRANSACTIONS) {
                             String killer = user;
                             ItemStack[] contents = Util.getContainerContents(Material.ARMOR_STAND, entity, block.getLocation());
-                            Bukkit.getScheduler().runTask(CoreProtect.getInstance(), () -> {
+                            Scheduler.runTask(CoreProtect.getInstance(), () -> {
                                 if (entity != null && entity.isDead()) {
                                     entityLocation.setY(entityLocation.getY() + 0.99);
                                     Database.containerBreakCheck(killer, Material.ARMOR_STAND, entity, contents, block.getLocation());
                                     Queue.queueBlockBreak(killer, block.getState(), Material.ARMOR_STAND, null, (int) entityLocation.getYaw());
                                 }
-                            });
+                            }, entity);
                         }
                     }
                 }

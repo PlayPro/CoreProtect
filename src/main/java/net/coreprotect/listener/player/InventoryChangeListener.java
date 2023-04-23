@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -32,6 +31,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.paper.PaperAdapter;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Util;
 import net.coreprotect.utility.Validate;
 
@@ -227,7 +227,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
         ItemStack[] containerState = Util.getContainerState(inventory.getContents());
 
         final long taskStarted = InventoryChangeListener.tasksStarted.incrementAndGet();
-        Bukkit.getServer().getScheduler().runTaskAsynchronously(CoreProtect.getInstance(), () -> {
+        Scheduler.runTaskAsynchronously(CoreProtect.getInstance(), () -> {
             try {
                 Material containerType = (enderChest != true ? null : Material.ENDER_CHEST);
                 InventoryChangeListener.checkTasks(taskStarted);
@@ -249,7 +249,13 @@ public final class InventoryChangeListener extends Queue implements Listener {
         boolean enderChest = false;
         if (inventoryAction != InventoryAction.MOVE_TO_OTHER_INVENTORY && inventoryAction != InventoryAction.COLLECT_TO_CURSOR && inventoryAction != InventoryAction.UNKNOWN) {
             // Perform this check to prevent triggering onInventoryInteractAsync when a user is just clicking items in their own inventory
-            Inventory inventory = event.getView().getInventory(event.getRawSlot());
+            Inventory inventory = null;
+            try {
+                inventory = event.getView().getInventory(event.getRawSlot());
+            }
+            catch (Exception e) {
+                return;
+            }
             if (inventory == null) {
                 return;
             }

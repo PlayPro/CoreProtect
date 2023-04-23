@@ -1,6 +1,7 @@
 package net.coreprotect.listener.block;
 
 import java.util.List;
+import java.util.Locale;
 
 import org.bukkit.Location;
 import org.bukkit.Tag;
@@ -30,7 +31,10 @@ public final class BlockFertilizeListener extends Queue implements Listener {
 
         Location location = block.getLocation();
         List<BlockState> blocks = event.getBlocks();
-        if (blocks.size() == 1 && blocks.get(0).getLocation().equals(location) && Tag.SAPLINGS.isTagged(block.getType())) {
+        if (Tag.SAPLINGS.isTagged(block.getType()) && (!Config.getConfig(location.getWorld()).TREE_GROWTH || (blocks.size() == 1 && blocks.get(0).getLocation().equals(location)))) {
+            return;
+        }
+        if (block.getType().name().toLowerCase(Locale.ROOT).contains("mushroom") && (!Config.getConfig(location.getWorld()).MUSHROOM_GROWTH || (blocks.size() == 1 && blocks.get(0).getLocation().equals(location)))) {
             return;
         }
 

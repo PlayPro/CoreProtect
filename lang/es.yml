@@ -24,7 +24,7 @@ DATABASE_LOCKED_4: "Desactivando el bloqueo en la base de datos resultaría en u
 DATABASE_UNREACHABLE: "No se pudo alcanzar la base de datos. Descartando datos y apagando."
 DEVELOPMENT_BRANCH: "Rama de desarrollo detectada, saltando scripts de parche."
 DIRT_BLOCK: "Se ha colocado un bloque de tierra debajo de tí."
-DISABLE_SUCCESS: "¡Se ha desactivado extosamente {0}!"
+DISABLE_SUCCESS: "¡Se ha desactivado exitosamente {0}!"
 ENABLE_FAILED: "Imposible de iniciar {0}."
 ENABLE_SUCCESS: "¡{0} ha sido exitosamente activado!"
 ENJOY_COREPROTECT: "¿Disfrutando {0}? ¡Ingrese a nuestro Discord!"

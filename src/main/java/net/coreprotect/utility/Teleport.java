@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
+import net.coreprotect.config.ConfigHandler;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -79,7 +80,11 @@ public class Teleport {
 
                     double oldY = location.getY();
                     location.setY(checkY);
-                    player.teleport(location);
+                    if (ConfigHandler.isFolia) {
+                        player.teleportAsync(location);
+                    } else {
+                        player.teleport(location);
+                    }
 
                     if (!enforceTeleport) {
                         // Only send a message if the player was moved by at least 1 block

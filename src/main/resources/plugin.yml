@@ -142,5 +142,5 @@ permissions:
         description: Has permission to use the consumer command
         default: op
     coreprotect.networking:
-        description: Has permission to use the networking API
+        description: Has permission to use the networking API and view who is connected using it
         default: op

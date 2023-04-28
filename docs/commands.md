@@ -5,17 +5,18 @@ ___
 
 ## Command Overview
 
-| Command | Description |
-| --- | --- |
-| [/co help](#co-help) | Display a list of commands |
-| [/co inspect](#co-inspect) | Toggle the inspector |
-| [/co lookup](#co-lookup) | Lookup block data |
-| [/co rollback](#co-rollback) | Rollback block data |
-| [/co restore](#co-restore) | Restore block data |
-| [/co purge](#co-purge) | Delete old block data |
-| [/co reload](#co-reload) | Reload the configuration file |
-| [/co status](#co-status) | View the plugin status |
-| [/co consumer](#co-consumer) | Toggle consumer processing |
+| Command                          | Description                                    |
+|----------------------------------|------------------------------------------------|
+| [/co help](#co-help)             | Display a list of commands                     |
+| [/co inspect](#co-inspect)       | Toggle the inspector                           |
+| [/co lookup](#co-lookup)         | Lookup block data                              |
+| [/co rollback](#co-rollback)     | Rollback block data                            |
+| [/co restore](#co-restore)       | Restore block data                             |
+| [/co purge](#co-purge)           | Delete old block data                          |
+| [/co reload](#co-reload)         | Reload the configuration file                  |
+| [/co status](#co-status)         | View the plugin status                         |
+| [/co consumer](#co-consumer)     | Toggle consumer processing                     |
+| [/co networking](#co-networking) | Lists all connected users using Networking API |
 
 ### Alias Commands
 
@@ -122,6 +123,10 @@ ___
 
 ### /co consumer
 Console command to pause or resume consumer queue processing.
+___
+
+### /co networking
+Lists all connected users using Networking API.
 ___
 
 

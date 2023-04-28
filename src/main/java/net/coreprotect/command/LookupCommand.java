@@ -197,11 +197,12 @@ public class LookupCommand {
         }
         if (ConfigHandler.lookupThrottle.get(player.getName()) != null) {
             Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
-            if ((boolean) lookupThrottle[0] || ((System.currentTimeMillis() - (long) lookupThrottle[1])) < 50) {
+            if (((boolean) lookupThrottle[0] || ((System.currentTimeMillis() - (long) lookupThrottle[1])) < 50) && !PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(player)) {
                 Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY), typeLookupPacket);
                 return;
             }
         }
+        ConfigHandler.isNetworkCommand.putIfAbsent(player.getName(), false);
         boolean allPermission = false;
         if (args[0].equals("near") && player.hasPermission("coreprotect.lookup.near")) {
             allPermission = true;
@@ -375,6 +376,7 @@ public class LookupCommand {
                     }
                     finally {
                         PluginChannelInputListener.getInstance().getSilentChatPlayers().remove(((Player)player2).getUniqueId());
+                        ConfigHandler.isNetworkCommand.remove(player2.getName());
                     }
 
                     ConfigHandler.lookupThrottle.put(player2.getName(), new Object[] { false, System.currentTimeMillis() });
@@ -498,6 +500,7 @@ public class LookupCommand {
                     }
                     finally {
                         PluginChannelInputListener.getInstance().getSilentChatPlayers().remove(((Player)player2).getUniqueId());
+                        ConfigHandler.isNetworkCommand.remove(player2.getName());
                     }
 
                     ConfigHandler.lookupThrottle.put(player2.getName(), new Object[] { false, System.currentTimeMillis() });
@@ -954,7 +957,7 @@ public class LookupCommand {
                                                     }
 
                                                     Chat.sendComponent(player2, timeago + " " + tag + " " + Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, "x" + amount, Util.createTooltip(Color.DARK_AQUA + rbd + dname, tooltip) + Color.WHITE, selector));
-                                                    PluginChannelDataListener.getInstance().sendData(player2, Integer.parseInt(time), Phrase.LOOKUP_CONTAINER, selector, dplayer, dname, amount, x, y, z, wid, rbd, true, tag.contains("+"));
+                                                    PluginChannelDataListener.getInstance().sendData(player2, Integer.parseInt(time), Phrase.LOOKUP_CONTAINER, selector, dplayer, dname, amount, x, y, z, wid, rbd, true, tag.contains("+"), tooltip);
                                                 }
                                             }
                                             else {
@@ -1050,7 +1053,7 @@ public class LookupCommand {
                                                         }
 
                                                         Chat.sendComponent(player2, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, "x" + amount, Util.createTooltip(Color.DARK_AQUA + rbd + dname, tooltip) + Color.WHITE, selector));
-                                                        PluginChannelDataListener.getInstance().sendData(player2, Integer.parseInt(time), phrase, selector, dplayer, dname, (tag.contains("+") ? 1 : -1), x, y, z, wid, rbd, action.contains("container"), tag.contains("+"));
+                                                        PluginChannelDataListener.getInstance().sendData(player2, Integer.parseInt(time), phrase, selector, dplayer, dname, (tag.contains("+") ? 1 : -1), x, y, z, wid, rbd, action.contains("container"), tag.contains("+"), tooltip);
                                                     }
                                                     else {
                                                         if (daction == 2 || daction == 3) {
@@ -1066,7 +1069,7 @@ public class LookupCommand {
                                                         }
 
                                                         Chat.sendComponent(player2, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, Color.DARK_AQUA + rbd + dname + Color.WHITE, selector));
-                                                        PluginChannelDataListener.getInstance().sendData(player2, Integer.parseInt(time), phrase, selector, dplayer, dname, (tag.contains("+") ? 1 : -1), x, y, z, wid, rbd, false, tag.contains("+"));
+                                                        PluginChannelDataListener.getInstance().sendData(player2, Integer.parseInt(time), phrase, selector, dplayer, dname, (tag.contains("+") ? 1 : -1), x, y, z, wid, rbd, false, tag.contains("+"), "");
                                                     }
 
                                                     action = (finalArgAction.size() == 0 ? " (" + action + ")" : "");
@@ -1080,7 +1083,9 @@ public class LookupCommand {
                                                 }
                                                 Chat.sendComponent(player2, Util.getPageNavigation(commandName, page, total_pages));
                                                 if (page < total_pages) {
-                                                    PluginChannelResponseListener.getInstance().sendData(player2, (page + 1)+"/"+total_pages, typeLookupPacket + "Page");
+                                                    //ConfigHandler.lookupThrottle.put(player2.getName(), new Object[] { false, System.currentTimeMillis() });
+                                                    boolean isNetworkCommand = ConfigHandler.isNetworkCommand.get(player2.getName());
+                                                    PluginChannelResponseListener.getInstance().sendData(player2, (page + 1)+"/"+total_pages+"-"+isNetworkCommand, typeLookupPacket + "Page");
                                                 }
                                             }
                                         }
@@ -1103,6 +1108,10 @@ public class LookupCommand {
                             catch (Exception e) {
                                 e.printStackTrace();
                             }
+                            finally {
+                                PluginChannelInputListener.getInstance().getSilentChatPlayers().remove(((Player)player2).getUniqueId());
+                                ConfigHandler.isNetworkCommand.remove(player2.getName());
+                            }
 
                             ConfigHandler.lookupThrottle.put(player2.getName(), new Object[] { false, System.currentTimeMillis() });
                         }
@@ -1113,9 +1122,6 @@ public class LookupCommand {
                 }
                 catch (Exception e) {
                     e.printStackTrace();
-                }
-                finally {
-                    PluginChannelInputListener.getInstance().getSilentChatPlayers().remove(((Player)player).getUniqueId());
                 }
             }
             else {

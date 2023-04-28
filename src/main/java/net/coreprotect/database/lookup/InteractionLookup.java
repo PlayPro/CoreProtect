@@ -4,6 +4,8 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Locale;
 
+import net.coreprotect.command.LookupCommand;
+import net.coreprotect.listener.channel.PluginChannelResponseListener;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
@@ -109,7 +111,7 @@ public class InteractionLookup {
                 }
 
                 resultBuilder.append(timeAgo + " " + Color.WHITE + "- ").append(Phrase.build(Phrase.LOOKUP_INTERACTION, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, Color.DARK_AQUA + rbFormat + target + Color.WHITE, Selector.FIRST)).append("\n");
-                PluginChannelDataListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_INTERACTION, Selector.FIRST, resultUser, target, -1, x, y, z, worldId, rbFormat, false, false);
+                PluginChannelDataListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_INTERACTION, Selector.FIRST, resultUser, target, -1, x, y, z, worldId, rbFormat, false, false, "");
             }
             result = resultBuilder.toString();
             results.close();
@@ -118,6 +120,11 @@ public class InteractionLookup {
                 if (count > limit) {
                     String pageInfo = Color.WHITE + "-----\n";
                     pageInfo = pageInfo + Util.getPageNavigation(command, page, totalPages) + "\n";
+                    if (page < totalPages) {
+                        //ConfigHandler.lookupThrottle.put(commandSender.getName(), new Object[] { false, System.currentTimeMillis() });
+                        boolean isNetworkCommand = ConfigHandler.isNetworkCommand.get(commandSender.getName());
+                        PluginChannelResponseListener.getInstance().sendData(commandSender, (page + 1)+"/"+totalPages+"-"+isNetworkCommand, LookupCommand.typeLookupPacket + "Page");
+                    }
                     result = result + pageInfo;
                 }
             }

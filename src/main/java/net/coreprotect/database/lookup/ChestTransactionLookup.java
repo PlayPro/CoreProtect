@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import net.coreprotect.command.LookupCommand;
+import net.coreprotect.listener.channel.PluginChannelResponseListener;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
@@ -120,7 +122,7 @@ public class ChestTransactionLookup {
                 }
 
                 result.add(new StringBuilder(timeAgo + " " + tag + " " + Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, "x" + resultAmount, Util.createTooltip(Color.DARK_AQUA + rbFormat + target, tooltip) + Color.WHITE, selector)).toString());
-                PluginChannelDataListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_CONTAINER, selector, resultUser, target, resultAmount, x, y, z, worldId, rbFormat, true, tag.contains("+"));
+                PluginChannelDataListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_CONTAINER, selector, resultUser, target, resultAmount, x, y, z, worldId, rbFormat, true, tag.contains("+"), tooltip);
             }
             results.close();
 
@@ -128,6 +130,11 @@ public class ChestTransactionLookup {
                 if (count > limit) {
                     result.add(Color.WHITE + "-----");
                     result.add(Util.getPageNavigation(command, page, totalPages));
+                    if (page < totalPages) {
+                        //ConfigHandler.lookupThrottle.put(commandSender.getName(), new Object[] { false, System.currentTimeMillis() });
+                        boolean isNetworkCommand = ConfigHandler.isNetworkCommand.get(commandSender.getName());
+                        PluginChannelResponseListener.getInstance().sendData(commandSender, (page + 1)+"/"+totalPages+"-"+isNetworkCommand, LookupCommand.typeLookupPacket + "Page");
+                    }
                 }
             }
             else {

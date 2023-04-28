@@ -11,7 +11,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Bukkit;
@@ -88,7 +87,6 @@ public class ConfigHandler extends Queue {
     public static Map<String, Boolean> blacklist = syncMap();
     public static Map<String, Integer> loggingChest = syncMap();
     public static Map<String, Integer> loggingItem = syncMap();
-    public static Map<UUID, Integer> playerPages = syncMap();
     public static ConcurrentHashMap<String, List<Object>> transactingChest = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, List<ItemStack[]>> oldContainer = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, List<ItemStack>> itemsPickup = new ConcurrentHashMap<>();
@@ -121,6 +119,7 @@ public class ConfigHandler extends Queue {
     public static Map<Integer, String> playerIdCacheReversed = syncMap();
     public static Map<String, List<Object>> lastRollback = syncMap();
     public static Map<String, Boolean> activeRollbacks = syncMap();
+    public static Map<String, Boolean> isNetworkCommand = syncMap();
     public static Map<String, Object[]> entityBlockMapper = syncMap();
     public static ConcurrentHashMap<Long, Long> populatedChunks = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, String> language = new ConcurrentHashMap<>();

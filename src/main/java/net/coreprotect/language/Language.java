@@ -154,6 +154,7 @@ public class Language {
         phrases.put(Phrase.MISSING_ROLLBACK_RADIUS, "You did not specify a {rollback|restore} radius.");
         phrases.put(Phrase.MISSING_ROLLBACK_USER, "You did not specify a {rollback|restore} user.");
         phrases.put(Phrase.MYSQL_UNAVAILABLE, "Unable to connect to MySQL server.");
+        phrases.put(Phrase.NETWORK_CONNECTED_USERS, "Users connected using networking API: {0}");
         phrases.put(Phrase.NETWORK_CONNECTION, "Connection by {0} {successful|failed}. Using {1} {2}.");
         phrases.put(Phrase.NETWORK_TEST, "Network test data has been successful sent.");
         phrases.put(Phrase.NO_DATA, "No data found at {0}.");

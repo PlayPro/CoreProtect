@@ -1,6 +1,7 @@
 package net.coreprotect.command;
 
 import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
 import org.bukkit.entity.Player;
@@ -18,6 +19,7 @@ public class NetworkCommand extends Queue {
 
         switch (args[0]) {
             case "lookup":
+                ConfigHandler.isNetworkCommand.put(player.getName(), true);
                 LookupCommand.runCommand(player, command, permission, args);
                 break;
             case "rollback":
@@ -27,6 +29,8 @@ public class NetworkCommand extends Queue {
             case "purge":
                 PurgeCommand.runCommand(player, permission, args);
                 break;
+            default:
+                throw new IllegalStateException("Not implemented type: " + args[0]);
         }
     }
 }

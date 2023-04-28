@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import net.coreprotect.command.LookupCommand;
+import net.coreprotect.listener.channel.PluginChannelResponseListener;
 import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 
@@ -130,6 +132,11 @@ public class SignMessageLookup {
                 if (count > limit) {
                     result.add(Color.WHITE + "-----");
                     result.add(Util.getPageNavigation(command, page, totalPages));
+                    if (page < totalPages) {
+                        //ConfigHandler.lookupThrottle.put(commandSender.getName(), new Object[] { false, System.currentTimeMillis() });
+                        boolean isNetworkCommand = ConfigHandler.isNetworkCommand.get(commandSender.getName());
+                        PluginChannelResponseListener.getInstance().sendData(commandSender, (page + 1)+"/"+totalPages+"-"+isNetworkCommand, LookupCommand.typeLookupPacket + "Page");
+                    }
                 }
             }
             else {

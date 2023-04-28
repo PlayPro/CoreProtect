@@ -47,7 +47,7 @@ public final class Chat {
             sender.sendMessage(message);
         }
 
-        if (!type.isEmpty()) {
+        if (type != null && !type.isEmpty()) {
             sendPluginChatResponseMessage(sender, message, type);
         }
     }

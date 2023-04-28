@@ -36,6 +36,7 @@ Sends data from the database.
 |             | Rolledback: `Boolean`  |                        |                    |                    |
 |             | isContainer: `Boolean` |                        |                    |                    |
 |             | Added: `Boolean`       |                        |                    |                    |
+|             | Tooltip: `UTF`         |                        |                    |                    |
 
 Example (Fabric):
 ```
@@ -54,6 +55,7 @@ String worldName = dis.readUTF();
 boolean rolledback = dis.readBoolean();
 boolean isContainer = dis.readBoolean();
 boolean added = dis.readBoolean();
+String tooltip = dis.readUTF();
 ```
 
 ### Handshake Packet
@@ -152,6 +154,16 @@ msgOut.writeInt(pages);
 msgOut.writeInt(amountRows);
 packetByteBuf.writeBytes(msgBytes.toByteArray());
 ```
+
+---
+
+## Command Connected Users
+
+### /co networking
+Allows you to view who is connected using the networking API if you have the correct permissions.
+
+**Example**  
+`/co networking`
 
 ---
 

@@ -140,8 +140,7 @@ Sends input to execute commands on server
 
 * Channel: `coreprotect:input`
 * Command Arguments: `UTF`
-* Total pages to send for lookup: `Int`
-* Amount of Rows for lookup: `Int`
+* Silent chat: `Boolean`
 
 Example of Command Arguments:
 ```
@@ -154,8 +153,7 @@ PacketByteBuf packetByteBuf = new PacketByteBuf(Unpooled.buffer());
 ByteArrayOutputStream msgBytes = new ByteArrayOutputStream();
 DataOutputStream msgOut = new DataOutputStream(msgBytes);
 msgOut.writeUTF(coreProtectSearch.getSearchData());
-msgOut.writeInt(pages);
-msgOut.writeInt(amountRows);
+msgOut.writeBoolean(silentChat);
 packetByteBuf.writeBytes(msgBytes.toByteArray());
 ```
 

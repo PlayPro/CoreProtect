@@ -145,7 +145,7 @@ public class BlockLookup {
                     pageInfo = pageInfo + Util.getPageNavigation(command, page, totalPages) + "\n";
                     if (page < totalPages) {
                         boolean isNetworkCommand = ConfigHandler.isNetworkCommand.get(commandSender.getName());
-                        PluginChannelResponseListener.getInstance().sendData(commandSender, (page + 1)+"/"+totalPages+"-"+isNetworkCommand, LookupCommand.typeLookupPacket + "Page");
+                        PluginChannelResponseListener.getInstance().sendData(commandSender, (page + 1)+"/"+totalPages+","+isNetworkCommand, LookupCommand.typeLookupPacket + "Page");
                     }
                     resultText = resultText + pageInfo;
                 }

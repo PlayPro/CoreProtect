@@ -96,6 +96,10 @@ String version = dis.readUTF();
 ### Response Packet
 Sends Responses.
 
+When the type is coreprotect:lookupPage, the message will contain "<nextPageNumber>/<totalPages>,<isNetworkCommand>"
+When the type is coreprotect:lookupBusy, the message will contain the command that got sent previously that you can sent to try again.
+Other messages will be feedback messages.
+
 * Channel: `coreprotect:response`
 * Type: `UTF`
 * Message: `UTF`

@@ -134,7 +134,7 @@ public class SignMessageLookup {
                     result.add(Util.getPageNavigation(command, page, totalPages));
                     if (page < totalPages) {
                         boolean isNetworkCommand = ConfigHandler.isNetworkCommand.get(commandSender.getName());
-                        PluginChannelResponseListener.getInstance().sendData(commandSender, (page + 1)+"/"+totalPages+"-"+isNetworkCommand, LookupCommand.typeLookupPacket + "Page");
+                        PluginChannelResponseListener.getInstance().sendData(commandSender, (page + 1)+"/"+totalPages+","+isNetworkCommand, LookupCommand.typeLookupPacket + "Page");
                     }
                 }
             }

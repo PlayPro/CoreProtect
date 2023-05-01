@@ -121,7 +121,6 @@ public class InteractionLookup {
                     String pageInfo = Color.WHITE + "-----\n";
                     pageInfo = pageInfo + Util.getPageNavigation(command, page, totalPages) + "\n";
                     if (page < totalPages) {
-                        //ConfigHandler.lookupThrottle.put(commandSender.getName(), new Object[] { false, System.currentTimeMillis() });
                         boolean isNetworkCommand = ConfigHandler.isNetworkCommand.get(commandSender.getName());
                         PluginChannelResponseListener.getInstance().sendData(commandSender, (page + 1)+"/"+totalPages+"-"+isNetworkCommand, LookupCommand.typeLookupPacket + "Page");
                     }

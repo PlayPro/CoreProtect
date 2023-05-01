@@ -343,7 +343,7 @@ public class LookupCommand {
                 re = Integer.parseInt(data[7]);
             }
 
-            String bc = x + "." + y + "." + z + "." + wid + "." + x2 + "." + y2 + "." + z2 + "." + re + ".";
+            String bc = x + "." + y + "." + z + "." + wid + "." + x2 + "." + y2 + "." + z2 + "." + re;
             ConfigHandler.lookupCommand.put(player.getName(), bc);
 
             String world = Util.getWorldName(wid);
@@ -440,7 +440,7 @@ public class LookupCommand {
                 re = Integer.parseInt(data[5]);
             }
 
-            String bc = x + "." + y + "." + z + "." + wid + "." + lookupType + "." + re + ".";
+            String bc = x + "." + y + "." + z + "." + wid + "." + lookupType + "." + re;
             ConfigHandler.lookupCommand.put(player.getName(), bc);
 
             String world = Util.getWorldName(wid);
@@ -737,7 +737,7 @@ public class LookupCommand {
                                 List<String> uuidList = new ArrayList<>();
                                 Location location = finalLocation;
                                 boolean exists = false;
-                                String bc = finalX + "." + finalY + "." + finalZ + "." + finalWid + "." + finalTimeStart + "." + finalTimeEnd + "." + noisy + "." + excluded + "." + restricted + "." + finalArgWid + "." + displayResults + ".";
+                                String bc = finalX + "." + finalY + "." + finalZ + "." + finalWid + "." + finalTimeStart + "." + finalTimeEnd + "." + noisy + "." + excluded + "." + restricted + "." + finalArgWid + "." + displayResults;
                                 ConfigHandler.lookupCommand.put(player2.getName(), bc);
                                 ConfigHandler.lookupPage.put(player2.getName(), page);
                                 ConfigHandler.lookupTime.put(player2.getName(), rtime);
@@ -1084,7 +1084,6 @@ public class LookupCommand {
                                                 }
                                                 Chat.sendComponent(player2, Util.getPageNavigation(commandName, page, total_pages));
                                                 if (page < total_pages) {
-                                                    //ConfigHandler.lookupThrottle.put(player2.getName(), new Object[] { false, System.currentTimeMillis() });
                                                     boolean isNetworkCommand = ConfigHandler.isNetworkCommand.get(player2.getName());
                                                     PluginChannelResponseListener.getInstance().sendData(player2, (page + 1)+"/"+total_pages+","+isNetworkCommand, typeLookupPacket + "Page");
                                                 }

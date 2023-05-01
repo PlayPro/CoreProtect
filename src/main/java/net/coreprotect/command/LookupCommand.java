@@ -199,7 +199,7 @@ public class LookupCommand {
             Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
             if (((boolean) lookupThrottle[0] || ((System.currentTimeMillis() - (long) lookupThrottle[1])) < 50)) {
                 Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY), typeLookupPacket);
-                PluginChannelResponseListener.getInstance().sendData(player, String.join(" ", args), typeLookupPacket + "Busy");
+                Chat.sendPluginChatResponseMessage(player, String.join(" ", args), typeLookupPacket + "Busy");
                 return;
             }
         }
@@ -1085,7 +1085,7 @@ public class LookupCommand {
                                                 Chat.sendComponent(player2, Util.getPageNavigation(commandName, page, total_pages));
                                                 if (page < total_pages) {
                                                     boolean isNetworkCommand = ConfigHandler.isNetworkCommand.get(player2.getName());
-                                                    PluginChannelResponseListener.getInstance().sendData(player2, (page + 1)+"/"+total_pages+","+isNetworkCommand, typeLookupPacket + "Page");
+                                                    Chat.sendPluginChatResponseMessage(player2, (page + 1)+"/"+total_pages+","+isNetworkCommand, typeLookupPacket + "Page");
                                                 }
                                             }
                                         }

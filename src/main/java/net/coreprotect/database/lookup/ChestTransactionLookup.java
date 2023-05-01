@@ -6,17 +6,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-import net.coreprotect.command.LookupCommand;
-import net.coreprotect.listener.channel.PluginChannelResponseListener;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 
+import net.coreprotect.command.LookupCommand;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.listener.channel.PluginChannelDataListener;
+import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
 
@@ -132,7 +132,7 @@ public class ChestTransactionLookup {
                     result.add(Util.getPageNavigation(command, page, totalPages));
                     if (page < totalPages) {
                         boolean isNetworkCommand = ConfigHandler.isNetworkCommand.get(commandSender.getName());
-                        PluginChannelResponseListener.getInstance().sendData(commandSender, (page + 1)+"/"+totalPages+","+isNetworkCommand, LookupCommand.typeLookupPacket + "Page");
+                        Chat.sendPluginChatResponseMessage(commandSender, (page + 1)+"/"+totalPages+","+isNetworkCommand, LookupCommand.typeLookupPacket + "Page");
                     }
                 }
             }

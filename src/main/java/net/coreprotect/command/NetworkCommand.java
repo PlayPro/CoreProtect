@@ -3,7 +3,9 @@ package net.coreprotect.command;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
+import net.coreprotect.utility.Chat;
 import org.bukkit.entity.Player;
 
 public class NetworkCommand extends Queue {
@@ -30,7 +32,7 @@ public class NetworkCommand extends Queue {
                 PurgeCommand.runCommand(player, permission, args);
                 break;
             default:
-                throw new IllegalStateException("Not implemented type: " + args[0]);
+                Chat.sendPluginChatResponseMessage(player, Phrase.build(Phrase.ACTION_NOT_SUPPORTED) + " - " + args[0], "coreprotect:networking");
         }
     }
 }

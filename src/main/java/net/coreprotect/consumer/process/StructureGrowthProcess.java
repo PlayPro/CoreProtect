@@ -21,7 +21,7 @@ class StructureGrowthProcess {
             Map<Integer, List<BlockState>> blockLists = Consumer.consumerBlockList.get(processId);
             if (blockLists.get(id) != null) {
                 List<BlockState> blockStates = blockLists.get(id);
-                String resultData = Lookup.whoPlaced(statement, block);
+                String resultData = Lookup.whoPlacedCache(block);
                 if (resultData.length() > 0) {
                     user = resultData;
                 }

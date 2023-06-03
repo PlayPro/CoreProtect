@@ -30,7 +30,7 @@ import net.coreprotect.utility.Chat;
 public class PluginChannelHandshakeListener implements PluginMessageListener, Listener {
 
     public static final String pluginChannel = "coreprotect:handshake";
-    private final int networkingProtocolVersion = 1;
+    private final int networkingProtocolVersion = 2;
     private final Set<UUID> pluginChannelPlayers;
     private static PluginChannelHandshakeListener instance;
 

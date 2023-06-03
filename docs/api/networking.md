@@ -4,8 +4,8 @@ The CoreProtect Networking API allows clients to receive data using packets.
 
 | Networking Details      |        |
 |-------------------------|--------|
-| **Networking Version:** | 1      |
-| **Plugin Version:**     | v21.3+ |
+| **Networking Version:** | 2      |
+| **Plugin Version:**     | v22.0+ |
 
 ---
 

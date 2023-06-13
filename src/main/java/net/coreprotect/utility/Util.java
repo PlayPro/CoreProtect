@@ -859,9 +859,10 @@ public class Util extends Queue {
     }
 
     public static int getEntityId(EntityType type) {
-        if (type == null)
+        if (type == null) {
             return -1;
-
+        }
+        
         return getEntityId(type.name(), true);
     }
 

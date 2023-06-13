@@ -4,7 +4,7 @@
   <artifactId>CoreProtect</artifactId>
   <version>21.3</version>
   <properties>
-    <project.branch></project.branch>
+    <project.branch>1.0</project.branch>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
   <build>
@@ -92,6 +92,10 @@
       <id>enginehub-repo</id>
       <url>https://maven.enginehub.org/repo/</url>
     </repository>
+    <repository>
+      <id>jitpack.io</id>
+      <url>https://jitpack.io</url>
+    </repository>
   </repositories>
   <dependencies>
     <!--
@@ -127,6 +131,19 @@
       <groupId>com.zaxxer</groupId>
       <artifactId>HikariCP</artifactId>
       <version>5.0.1</version>
+    </dependency>
+    <dependency>
+      <groupId>com.github.DeadSilenceIV</groupId>
+      <artifactId>AdvancedChestsAPI</artifactId>
+      <version>3.2-BETA</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>plugin.chunkhoppers.chunkhoppers</groupId>
+      <artifactId>ChunkHoppersPlugin</artifactId>
+      <version>1.0</version>
+      <scope>system</scope>
+      <systemPath>${user.home}/IdeaProjects/ChunkHoppersPlugin_1/ChunkHoppersPlugin/target/ChunkHoppersPlugin-1.0-SNAPSHOT.jar</systemPath>
     </dependency>
   </dependencies>
 </project>

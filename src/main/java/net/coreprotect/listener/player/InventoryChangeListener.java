@@ -34,6 +34,8 @@ import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Util;
 import net.coreprotect.utility.Validate;
+import us.lynuxcraft.deadsilenceiv.advancedchests.AdvancedChestsAPI;
+import us.lynuxcraft.deadsilenceiv.advancedchests.chest.AdvancedChest;
 
 public final class InventoryChangeListener extends Queue implements Listener {
 
@@ -81,13 +83,16 @@ public final class InventoryChangeListener extends Queue implements Listener {
                     if (containerType != null) {
                         type = containerType;
                     }
-                }
-                else {
+                } else {
                     InventoryHolder inventoryHolder = inventory.getHolder();
+                    AdvancedChest<?,?> advancedChest = AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory);
                     if (inventoryHolder == null) {
-                        return false;
+                        if(advancedChest != null){
+                            playerLocation = advancedChest.getLocation();
+                        }else{
+                            return false;
+                        }
                     }
-
                     if (inventoryHolder instanceof BlockState) {
                         BlockState state = (BlockState) inventoryHolder;
                         type = state.getType();
@@ -216,13 +221,17 @@ public final class InventoryChangeListener extends Queue implements Listener {
             return;
         }
         if (location == null) {
-            return;
+            AdvancedChest<?,?> chest = AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory);
+            if(chest != null){
+                location = chest.getLocation();
+            }else{
+                return;
+            }
         }
 
         if (!Config.getConfig(location.getWorld()).ITEM_TRANSACTIONS) {
             return;
         }
-
         Location inventoryLocation = location;
         ItemStack[] containerState = Util.getContainerState(inventory.getContents());
 
@@ -262,7 +271,8 @@ public final class InventoryChangeListener extends Queue implements Listener {
 
             InventoryHolder inventoryHolder = inventory.getHolder();
             enderChest = inventory.equals(event.getWhoClicked().getEnderChest());
-            if ((inventoryHolder == null || !(inventoryHolder instanceof BlockInventoryHolder || inventoryHolder instanceof DoubleChest)) && !enderChest) {
+            boolean isAdvancedChest = AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory) != null;
+            if ((!(inventoryHolder instanceof BlockInventoryHolder || inventoryHolder instanceof DoubleChest)) && !enderChest && !isAdvancedChest) {
                 return;
             }
         }
@@ -275,7 +285,8 @@ public final class InventoryChangeListener extends Queue implements Listener {
 
             InventoryHolder inventoryHolder = inventory.getHolder();
             enderChest = inventory.equals(event.getWhoClicked().getEnderChest());
-            if ((inventoryHolder == null || !(inventoryHolder instanceof BlockInventoryHolder || inventoryHolder instanceof DoubleChest)) && !enderChest) {
+            boolean isAdvancedChest = AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory) != null;
+            if ((!(inventoryHolder instanceof BlockInventoryHolder || inventoryHolder instanceof DoubleChest)) && !enderChest && !isAdvancedChest) {
                 return;
             }
         }
@@ -297,7 +308,8 @@ public final class InventoryChangeListener extends Queue implements Listener {
 
             InventoryHolder inventoryHolder = inventory.getHolder();
             enderChest = inventory.equals(event.getWhoClicked().getEnderChest());
-            if ((inventoryHolder != null && (inventoryHolder instanceof BlockInventoryHolder || inventoryHolder instanceof DoubleChest)) || enderChest) {
+            boolean isAdvancedChest = AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory) != null;
+            if (((inventoryHolder instanceof BlockInventoryHolder || inventoryHolder instanceof DoubleChest)) || enderChest || isAdvancedChest) {
                 movedItem = true;
                 break;
             }

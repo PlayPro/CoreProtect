@@ -62,7 +62,6 @@ import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 import net.coreprotect.worldedit.CoreProtectEditSessionEvent;
-import org.jetbrains.annotations.Nullable;
 
 public class Util extends Queue {
 
@@ -859,7 +858,7 @@ public class Util extends Queue {
         return contents;
     }
 
-    public static int getEntityId(@Nullable EntityType type) {
+    public static int getEntityId(EntityType type) {
         if (type == null)
             return -1;
 

@@ -139,6 +139,13 @@
       <scope>provided</scope>
     </dependency>
     <dependency>
+      <groupId>me.lucko</groupId>
+      <artifactId>helper</artifactId>
+      <version>5.6.13</version>
+      <scope>system</scope>
+      <systemPath>${user.home}/IdeaProjects/ChunkHoppersPlugin_1/ChunkHoppersPlugin/lib/helper.jar</systemPath>
+    </dependency>
+    <dependency>
       <groupId>plugin.chunkhoppers.chunkhoppers</groupId>
       <artifactId>ChunkHoppersPlugin</artifactId>
       <version>1.0</version>

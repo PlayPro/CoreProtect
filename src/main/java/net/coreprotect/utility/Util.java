@@ -457,16 +457,20 @@ public class Util extends Queue {
         try {
             int c1 = 0;
             for (ItemStack o1 : items) {
-                int c2 = 0;
-                for (ItemStack o2 : items) {
-                    if (o1 != null && o2 != null && c2 > c1 && o1.isSimilar(o2) && !Util.isAir(o1.getType())) { // Ignores amount
-                        int namount = o1.getAmount() + o2.getAmount();
-                        o1.setAmount(namount);
-                        o2.setAmount(0);
+                if (o1 != null) {
+                    if (o1.getAmount() != 0) {
+                        int c2 = 0;
+                        for (ItemStack o2 : items) {
+                            if (o2 != null && c2 > c1 && o1.isSimilar(o2) && !Util.isAir(o1.getType())) { // Ignores amount
+                                int namount = o1.getAmount() + o2.getAmount();
+                                o1.setAmount(namount);
+                                o2.setAmount(0);
+                            }
+                            c2++;
+                        }
                     }
-                    c2++;
                 }
-                c1++;
+            c1++;
             }
         }
         catch (Exception e) {

@@ -24,7 +24,7 @@ import net.coreprotect.utility.Chat;
 
 public class PluginChannelHandshakeListener implements PluginMessageListener, Listener {
 
-    public static final String pluginChannel = "coreprotect:handshake";
+    public static final String pluginChannel = "cp:handshake";
     private final int networkingProtocolVersion = 1;
     private final Set<UUID> pluginChannelPlayers;
     private static PluginChannelHandshakeListener instance;

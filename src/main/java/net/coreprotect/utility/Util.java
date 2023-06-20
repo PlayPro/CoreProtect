@@ -1288,7 +1288,7 @@ public class Util extends Queue {
 
     public static boolean isFolia() {
         try {
-            Class.forName("io.papermc.paper.threadedregions.scheduler.GlobalRegionScheduler");
+            Class.forName("io.papermc.paper.threadedregions.ThreadedRegionizer");
         }
         catch (Exception e) {
             return false;

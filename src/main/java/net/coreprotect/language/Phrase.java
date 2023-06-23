@@ -216,7 +216,8 @@ public enum Phrase {
 
     final private static Set<Phrase> HEADERS = new HashSet<>(Arrays.asList(Phrase.CONTAINER_HEADER, Phrase.HELP_HEADER, Phrase.INTERACTIONS_HEADER, Phrase.LOOKUP_HEADER, Phrase.SIGN_HEADER, Phrase.UPDATE_HEADER));
     final private static Set<String> COLORS = new HashSet<>(Arrays.asList(Color.WHITE, Color.DARK_AQUA));
-    final private static String split = ":";
+    final private static String SPLIT = ":";
+    final private static String FULL_WIDTH_SPLIT = "：";
 
     public String getPhrase() {
         return Language.getPhrase(this);
@@ -265,7 +266,8 @@ public enum Phrase {
         }
 
         if (color.length() > 0) {
-            output = output.replaceFirst(split, split + color);
+            output = output.replaceFirst(SPLIT, SPLIT + color);
+            output = output.replaceFirst(FULL_WIDTH_SPLIT, FULL_WIDTH_SPLIT + color);
             output = ChatMessage.parseQuotes(output, color);
         }
 

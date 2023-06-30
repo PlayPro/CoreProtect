@@ -22,9 +22,9 @@ public final class BlockFormListener extends Queue implements Listener {
         // random form, snow/ice
         World world = event.getBlock().getWorld();
         BlockState newState = event.getNewState();
+        Block block = event.getBlock();
+        String player = Lookup.whoPlacedCache(block);
         if (Config.getConfig(world).LIQUID_TRACKING && (newState.getType().equals(Material.OBSIDIAN) || newState.getType().equals(Material.COBBLESTONE) || event.getBlock().getType().name().endsWith("_CONCRETE_POWDER"))) {
-            Block block = event.getBlock();
-            String player = Lookup.whoPlacedCache(block);
             int wid = Util.getWorldId(world.getName());
             if (!(player.length() > 0)) {
                 int x = block.getX();
@@ -77,6 +77,9 @@ public final class BlockFormListener extends Queue implements Listener {
                     Queue.queueBlockPlace(player, block.getLocation().getBlock().getState(), block.getType(), block.getState(), newState.getType(), -1, 0, newState.getBlockData().getAsString());
                 }
             }
+        }
+        if (player.length() == 0 && Config.getConfig(world).UNKNOWN_LOGGING) {
+            Queue.queueBlockPlace("#unknown", block.getLocation().getBlock().getState(), block.getType(), block.getState(), newState.getType(), -1, 0, newState.getBlockData().getAsString());
         }
     }
 

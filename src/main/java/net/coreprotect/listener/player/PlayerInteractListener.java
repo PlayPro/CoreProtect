@@ -37,6 +37,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.BlockInventoryHolder;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -664,6 +665,12 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                     PlayerInteractEntityListener.queueContainerSpecifiedItems(player.getName(), Material.JUKEBOX, new Object[] { oldState, newState }, jukebox.getLocation(), logDrops);
                                 }
                             }
+                        }
+                    }
+                    else if (type.name().equals("CHISELED_BOOKSHELF")) {
+                        BlockState blockState = block.getState();
+                        if (blockState instanceof BlockInventoryHolder) {
+                            InventoryChangeListener.inventoryTransaction(player.getName(), blockState.getLocation(), null);
                         }
                     }
                     else if (type == Material.DRAGON_EGG) {

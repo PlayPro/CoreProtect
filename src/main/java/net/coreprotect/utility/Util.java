@@ -862,7 +862,7 @@ public class Util extends Queue {
         if (type == null) {
             return -1;
         }
-        
+
         return getEntityId(type.name(), true);
     }
 

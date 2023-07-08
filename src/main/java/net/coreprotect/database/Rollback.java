@@ -1716,7 +1716,27 @@ public class Rollback extends Queue {
                                 modifiedArmor = addedItem ? setArmor : modifiedArmor;
                             }
                             if (!addedItem) {
-                                addedItem = (inventory.addItem(itemstack).size() == 0);
+                                if (type.name().equals("CHISELED_BOOKSHELF")) {
+                                    ItemStack[] inventoryContents = inventory.getStorageContents();
+                                    int i = 0;
+                                    for (ItemStack stack : inventoryContents) {
+                                        if (stack == null) {
+                                            inventoryContents[i] = itemstack;
+                                            addedItem = true;
+                                            break;
+                                        }
+                                        i++;
+                                    }
+                                    if (addedItem) {
+                                        inventory.setStorageContents(inventoryContents);
+                                    }
+                                    else {
+                                        addedItem = (inventory.addItem(itemstack).size() == 0);
+                                    }
+                                }
+                                else {
+                                    addedItem = (inventory.addItem(itemstack).size() == 0);
+                                }
                             }
                             if (!addedItem && isPlayerInventory) {
                                 PlayerInventory playerInventory = (PlayerInventory) inventory;

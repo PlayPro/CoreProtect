@@ -349,8 +349,8 @@ public class Rollback extends Queue {
                                 clearInventories = true;
                             }
 
-                            ArrayList<Object[]> data = finalBlockList.get(chunkKey);
-                            ArrayList<Object[]> itemData = finalItemList.get(chunkKey);
+                            ArrayList<Object[]> data = finalBlockList.getOrDefault(chunkKey, new ArrayList<>());
+                            ArrayList<Object[]> itemData = finalItemList.getOrDefault(chunkKey, new ArrayList<>());
                             Map<Block, BlockData> chunkChanges = new LinkedHashMap<>();
 
                             for (Object[] row : data) {

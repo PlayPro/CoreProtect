@@ -166,7 +166,7 @@ public class Config extends Language {
         HEADERS.put("sign-text", new String[] { "# Logs text on signs. If disabled, signs will be blank when rolled back." });
         HEADERS.put("buckets", new String[] { "# Logs lava and water sources placed/removed by players who are using buckets." });
         HEADERS.put("leaf-decay", new String[] { "# Logs natural tree leaf decay." });
-        HEADERS.put("tree-growth", new String[] { "# Logs tree growth. Trees are linked to the player who planted the sappling." });
+        HEADERS.put("tree-growth", new String[] { "# Logs tree growth. Trees are linked to the player who planted the sapling." });
         HEADERS.put("mushroom-growth", new String[] { "# Logs mushroom growth." });
         HEADERS.put("vine-growth", new String[] { "# Logs natural vine growth." });
         HEADERS.put("sculk-spread", new String[] { "# Logs the spread of sculk blocks from sculk catalysts." });

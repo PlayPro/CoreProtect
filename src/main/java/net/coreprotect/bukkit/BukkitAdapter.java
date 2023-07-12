@@ -3,6 +3,8 @@ package net.coreprotect.bukkit;
 import java.util.List;
 import java.util.Map;
 
+import org.bukkit.Color;
+import org.bukkit.DyeColor;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -131,13 +133,13 @@ public class BukkitAdapter implements BukkitInterface {
     }
 
     @Override
-    public boolean isGlowing(Sign sign) {
+    public boolean isGlowing(Sign sign, boolean isFront) {
         return false;
     }
 
     @Override
-    public void setGlowing(Sign sign, boolean set) {
-        return;
+    public boolean isWaxed(Sign sign) {
+        return false;
     }
 
     @Override
@@ -148,6 +150,34 @@ public class BukkitAdapter implements BukkitInterface {
     @Override
     public ItemStack adjustIngredient(MerchantRecipe recipe, ItemStack itemStack) {
         return null;
+    }
+
+    @Override
+    public void setGlowing(Sign sign, boolean isFront, boolean isGlowing) {
+        return;
+    }
+
+    @Override
+    public void setColor(Sign sign, boolean isFront, int color) {
+        if (!isFront) {
+            return;
+        }
+
+        sign.setColor(DyeColor.getByColor(Color.fromRGB(color)));
+    }
+
+    @Override
+    public void setWaxed(Sign sign, boolean isWaxed) {
+        return;
+    }
+
+    @Override
+    public int getColor(Sign sign, boolean isFront) {
+        if (isFront) {
+            return sign.getColor().getColor().asRGB();
+        }
+
+        return 0;
     }
 
 }

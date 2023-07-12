@@ -43,14 +43,22 @@ public interface BukkitInterface {
 
     public boolean isItemFrame(Material material);
 
-    public boolean isGlowing(Sign sign);
+    public boolean isGlowing(Sign sign, boolean isFront);
 
     public boolean isInvisible(Material material);
+
+    public boolean isWaxed(Sign sign);
 
     public int getMinHeight(World world);
 
     public int getLegacyBlockId(Material material);
 
-    public void setGlowing(Sign sign, boolean b);
+    public void setGlowing(Sign sign, boolean isFront, boolean isGlowing);
+
+    public void setColor(Sign sign, boolean isFront, int color);
+
+    public void setWaxed(Sign sign, boolean isWaxed);
+
+    public int getColor(Sign sign, boolean isFront);
 
 }

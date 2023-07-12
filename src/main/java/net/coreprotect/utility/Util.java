@@ -1631,4 +1631,23 @@ public class Util extends Queue {
                 return isInventory ? 2 : 1;
         }
     }
+
+    public static int getSignData(boolean frontGlowing, boolean backGlowing) {
+        if (frontGlowing && backGlowing) {
+            return 3;
+        }
+        else if (backGlowing) {
+            return 2;
+        }
+        else if (frontGlowing) {
+            return 1;
+        }
+
+        return 0;
+    }
+
+    public static boolean isSideGlowing(boolean isFront, int data) {
+        return ((isFront && (data == 1 || data == 3)) || (!isFront && (data == 2 || data == 3)));
+    }
+
 }

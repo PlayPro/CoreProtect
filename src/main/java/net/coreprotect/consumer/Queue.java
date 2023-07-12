@@ -352,7 +352,7 @@ public class Queue {
         queueStandardData(consumerId, currentConsumer, new String[] { user, null }, location);
     }
 
-    protected static void queueSignText(String user, Location location, int action, int color, boolean glowing, String line1, String line2, String line3, String line4, int offset) {
+    protected static void queueSignText(String user, Location location, int action, int color, int colorSecondary, boolean frontGlowing, boolean backGlowing, boolean isWaxed, boolean isFront, String line1, String line2, String line3, String line4, String line5, String line6, String line7, String line8, int offset) {
         /*
         if (line1.length() == 0 && line2.length() == 0 && line3.length() == 0 && line4.length() == 0) {
             return;
@@ -361,7 +361,7 @@ public class Queue {
         int currentConsumer = Consumer.currentConsumer;
         int consumerId = Consumer.newConsumerId(currentConsumer);
         addConsumer(currentConsumer, new Object[] { consumerId, Process.SIGN_TEXT, null, color, null, action, offset, null });
-        Consumer.consumerSigns.get(currentConsumer).put(consumerId, new Object[] { (glowing == true ? 1 : 0), line1, line2, line3, line4 });
+        Consumer.consumerSigns.get(currentConsumer).put(consumerId, new Object[] { colorSecondary, Util.getSignData(frontGlowing, backGlowing), isWaxed, isFront, line1, line2, line3, line4, line5, line6, line7, line8 });
         queueStandardData(consumerId, currentConsumer, new String[] { user, null }, location);
     }
 

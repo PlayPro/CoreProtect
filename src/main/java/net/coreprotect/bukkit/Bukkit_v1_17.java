@@ -218,13 +218,21 @@ public class Bukkit_v1_17 extends Bukkit_v1_16 implements BukkitInterface {
     }
 
     @Override
-    public boolean isGlowing(Sign sign) {
+    public boolean isGlowing(Sign sign, boolean isFront) {
+        if (!isFront) {
+            return false;
+        }
+
         return sign.isGlowingText();
     }
 
     @Override
-    public void setGlowing(Sign sign, boolean set) {
-        sign.setGlowingText(set);
+    public void setGlowing(Sign sign, boolean isFront, boolean isGlowing) {
+        if (!isFront) {
+            return;
+        }
+
+        sign.setGlowingText(isGlowing);
     }
 
     @Override

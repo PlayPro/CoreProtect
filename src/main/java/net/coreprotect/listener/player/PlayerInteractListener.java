@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.bukkit.DyeColor;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -54,6 +53,7 @@ import net.coreprotect.database.lookup.InteractionLookup;
 import net.coreprotect.database.lookup.SignMessageLookup;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Chat;
@@ -560,30 +560,47 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             handType = mainHand.getType();
                         }
 
-                        if (handType != null && (dyeSet.contains(handType) || handType.name().endsWith("INK_SAC")) && Config.getConfig(block.getWorld()).SIGN_TEXT) {
+                        if (handType != null && (dyeSet.contains(handType) || handType.name().endsWith("INK_SAC") || handType == Material.HONEYCOMB) && Config.getConfig(block.getWorld()).SIGN_TEXT) {
                             BlockState blockState = block.getState();
                             Sign sign = (Sign) blockState;
-                            String line1 = sign.getLine(0);
-                            String line2 = sign.getLine(1);
-                            String line3 = sign.getLine(2);
-                            String line4 = sign.getLine(3);
-                            int oldColor = sign.getColor().getColor().asRGB();
-                            int newColor = oldColor;
-                            boolean oldGlowing = BukkitAdapter.ADAPTER.isGlowing(sign);
-                            boolean newGlowing = oldGlowing;
+                            String line1 = PaperAdapter.ADAPTER.getLine(sign, 0);
+                            String line2 = PaperAdapter.ADAPTER.getLine(sign, 1);
+                            String line3 = PaperAdapter.ADAPTER.getLine(sign, 2);
+                            String line4 = PaperAdapter.ADAPTER.getLine(sign, 3);
+                            String line5 = PaperAdapter.ADAPTER.getLine(sign, 4);
+                            String line6 = PaperAdapter.ADAPTER.getLine(sign, 5);
+                            String line7 = PaperAdapter.ADAPTER.getLine(sign, 6);
+                            String line8 = PaperAdapter.ADAPTER.getLine(sign, 7);
 
-                            if (dyeSet.contains(handType)) {
-                                newColor = (DyeColor.valueOf(handType.name().replaceFirst("_DYE", ""))).getColor().asRGB();
-                            }
-                            else {
-                                newGlowing = (handType != Material.INK_SAC);
-                            }
+                            boolean isFront = true;
+                            int oldColor = BukkitAdapter.ADAPTER.getColor(sign, isFront);
+                            int oldColorSecondary = BukkitAdapter.ADAPTER.getColor(sign, !isFront);
+                            boolean oldFrontGlowing = BukkitAdapter.ADAPTER.isGlowing(sign, isFront);
+                            boolean oldBackGlowing = BukkitAdapter.ADAPTER.isGlowing(sign, !isFront);
+                            boolean oldIsWaxed = BukkitAdapter.ADAPTER.isWaxed(sign);
 
-                            if (oldGlowing != newGlowing || oldColor != newColor) {
-                                Location location = blockState.getLocation();
-                                Queue.queueSignText(player.getName(), location, 0, oldColor, oldGlowing, line1, line2, line3, line4, 1); // 1 second timeOffset
-                                Queue.queueBlockPlace(player.getName(), block.getState(), block.getType(), blockState, block.getType(), -1, 0, blockState.getBlockData().getAsString());
-                                Queue.queueSignText(player.getName(), location, 2, newColor, newGlowing, line1, line2, line3, line4, 0);
+                            if (!oldIsWaxed) {
+                                Scheduler.runTask(CoreProtect.getInstance(), () -> {
+                                    BlockState newState = block.getState();
+                                    if (newState instanceof Sign) {
+                                        Sign newSign = (Sign) newState;
+                                        int newColor = BukkitAdapter.ADAPTER.getColor(newSign, isFront);
+                                        int newColorSecondary = BukkitAdapter.ADAPTER.getColor(newSign, !isFront);
+                                        boolean newFrontGlowing = BukkitAdapter.ADAPTER.isGlowing(newSign, isFront);
+                                        boolean newBackGlowing = BukkitAdapter.ADAPTER.isGlowing(newSign, !isFront);
+                                        boolean newIsWaxed = BukkitAdapter.ADAPTER.isWaxed(newSign);
+
+                                        boolean modifyingFront = oldBackGlowing == newBackGlowing && oldColorSecondary == newColorSecondary;
+                                        if (oldColor != newColor || oldColorSecondary != newColorSecondary || oldFrontGlowing != newFrontGlowing || oldBackGlowing != newBackGlowing || oldIsWaxed != newIsWaxed) {
+                                            Location location = blockState.getLocation();
+                                            Queue.queueSignText(player.getName(), location, 0, oldColor, oldColorSecondary, oldFrontGlowing, oldBackGlowing, oldIsWaxed, modifyingFront, line1, line2, line3, line4, line5, line6, line7, line8, 1); // 1 second timeOffset
+                                            Queue.queueBlockPlace(player.getName(), blockState, block.getType(), blockState, block.getType(), -1, 0, blockState.getBlockData().getAsString());
+                                            Queue.queueSignText(player.getName(), location, 2, newColor, newColorSecondary, newFrontGlowing, newBackGlowing, newIsWaxed, modifyingFront, line1, line2, line3, line4, line5, line6, line7, line8, 0);
+                                        }
+
+                                    }
+
+                                }, block.getLocation());
                             }
                         }
                     }

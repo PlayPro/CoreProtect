@@ -2,7 +2,9 @@ package net.coreprotect.spigot;
 
 import java.util.regex.Matcher;
 
+import org.bukkit.block.Sign;
 import org.bukkit.command.CommandSender;
+import org.bukkit.event.block.SignChangeEvent;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
@@ -20,6 +22,7 @@ public class SpigotAdapter implements SpigotInterface {
     public static final int SPIGOT_V1_17 = BukkitAdapter.BUKKIT_V1_17;
     public static final int SPIGOT_V1_18 = BukkitAdapter.BUKKIT_V1_18;
     public static final int SPIGOT_V1_19 = BukkitAdapter.BUKKIT_V1_19;
+    public static final int SPIGOT_V1_20 = BukkitAdapter.BUKKIT_V1_20;
 
     public static void loadAdapter() {
         int spigotVersion = ConfigHandler.SERVER_VERSION;
@@ -40,8 +43,11 @@ public class SpigotAdapter implements SpigotInterface {
             case SPIGOT_V1_17:
             case SPIGOT_V1_18:
             case SPIGOT_V1_19:
-            default:
                 SpigotAdapter.ADAPTER = new Spigot_v1_16();
+                break;
+            case SPIGOT_V1_20:
+            default:
+                SpigotAdapter.ADAPTER = new Spigot_v1_20();
                 break;
         }
     }
@@ -79,6 +85,32 @@ public class SpigotAdapter implements SpigotInterface {
         }
 
         Chat.sendMessage(sender, message.toString());
+    }
+
+    @Override
+    public String getLine(Sign sign, int line) {
+        if (line < 4) {
+            return sign.getLine(line);
+        }
+        else {
+            return "";
+        }
+    }
+
+    @Override
+    public void setLine(Sign sign, int line, String string) {
+        if (string == null) {
+            string = "";
+        }
+
+        if (line < 4) {
+            sign.setLine(line, string);
+        }
+    }
+
+    @Override
+    public boolean isSignFront(SignChangeEvent event) {
+        return true;
     }
 
 }

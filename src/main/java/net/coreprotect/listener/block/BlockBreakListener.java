@@ -283,9 +283,19 @@ public final class BlockBreakListener extends Queue implements Listener {
                         String line2 = PaperAdapter.ADAPTER.getLine(sign, 1);
                         String line3 = PaperAdapter.ADAPTER.getLine(sign, 2);
                         String line4 = PaperAdapter.ADAPTER.getLine(sign, 3);
-                        int color = sign.getColor().getColor().asRGB();
-                        boolean isGlowing = BukkitAdapter.ADAPTER.isGlowing(sign);
-                        Queue.queueSignText(user, location, 0, color, isGlowing, line1, line2, line3, line4, 5);
+                        String line5 = PaperAdapter.ADAPTER.getLine(sign, 4);
+                        String line6 = PaperAdapter.ADAPTER.getLine(sign, 5);
+                        String line7 = PaperAdapter.ADAPTER.getLine(sign, 6);
+                        String line8 = PaperAdapter.ADAPTER.getLine(sign, 7);
+
+                        boolean isFront = true;
+                        int color = BukkitAdapter.ADAPTER.getColor(sign, isFront);
+                        int colorSecondary = BukkitAdapter.ADAPTER.getColor(sign, !isFront);
+                        boolean frontGlowing = BukkitAdapter.ADAPTER.isGlowing(sign, isFront);
+                        boolean backGlowing = BukkitAdapter.ADAPTER.isGlowing(sign, !isFront);
+                        boolean isWaxed = BukkitAdapter.ADAPTER.isWaxed(sign);
+
+                        Queue.queueSignText(user, location, 0, color, colorSecondary, frontGlowing, backGlowing, isWaxed, isFront, line1, line2, line3, line4, line5, line6, line7, line8, 5);
                     }
                     catch (Exception e) {
                         e.printStackTrace();

@@ -201,4 +201,9 @@ public class BukkitAdapter implements BukkitInterface {
         return material;
     }
 
+    @Override
+    public boolean hasGravity(Material scanType) {
+        return scanType.hasGravity();
+    }
+
 }

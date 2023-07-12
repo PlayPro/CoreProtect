@@ -63,4 +63,6 @@ public interface BukkitInterface {
 
     public Material getPlantSeeds(Material material);
 
+    public boolean hasGravity(Material scanType);
+
 }

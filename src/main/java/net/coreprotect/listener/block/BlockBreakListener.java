@@ -126,7 +126,7 @@ public final class BlockBreakListener extends Queue implements Listener {
                 Block scanBlock = world.getBlockAt(scanLocation);
                 Material scanType = scanBlock.getType();
                 if (scanMin == 5) {
-                    if (scanType.hasGravity()) {
+                    if (BukkitAdapter.ADAPTER.hasGravity(scanType)) {
                         if (Config.getConfig(world).BLOCK_MOVEMENT) {
                             // log the top-most sand/gravel block as being removed
                             int scanY = y + 2;
@@ -134,7 +134,7 @@ public final class BlockBreakListener extends Queue implements Listener {
                             while (!topFound) {
                                 Block topBlock = world.getBlockAt(x, scanY, z);
                                 Material topMaterial = topBlock.getType();
-                                if (!topMaterial.hasGravity()) {
+                                if (!BukkitAdapter.ADAPTER.hasGravity(topMaterial)) {
                                     scanLocation = new Location(world, x, (scanY - 1), z);
                                     topFound = true;
                                 }
@@ -210,7 +210,7 @@ public final class BlockBreakListener extends Queue implements Listener {
                             }
                         }
                         else if (scanMin == 5) {
-                            if (scanType.hasGravity()) {
+                            if (BukkitAdapter.ADAPTER.hasGravity(scanType)) {
                                 log = true;
                             }
                         }
@@ -326,7 +326,10 @@ public final class BlockBreakListener extends Queue implements Listener {
         }
 
         for (Block placementBlock : placementMap) {
-            queueBlockPlace(user, block.getState(), placementBlock.getType(), null, null, -1, 0, placementBlock.getBlockData().getAsString());
+            Material placementType = placementBlock.getType();
+            if (placementType.hasGravity()) {
+                queueBlockPlace(user, block.getState(), placementType, null, null, -1, 0, placementBlock.getBlockData().getAsString());
+            }
         }
     }
 

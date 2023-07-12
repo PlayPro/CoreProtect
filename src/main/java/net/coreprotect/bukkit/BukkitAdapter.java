@@ -180,4 +180,25 @@ public class BukkitAdapter implements BukkitInterface {
         return 0;
     }
 
+    @Override
+    public Material getPlantSeeds(Material material) {
+        switch (material) {
+            case WHEAT:
+                material = Material.WHEAT_SEEDS;
+                break;
+            case PUMPKIN_STEM:
+                material = Material.PUMPKIN_SEEDS;
+                break;
+            case MELON_STEM:
+                material = Material.MELON_SEEDS;
+                break;
+            case BEETROOTS:
+                material = Material.BEETROOT_SEEDS;
+                break;
+            default:
+        }
+
+        return material;
+    }
+
 }

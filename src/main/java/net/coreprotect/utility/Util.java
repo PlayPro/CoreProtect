@@ -1207,22 +1207,7 @@ public class Util extends Queue {
             return material;
         }
 
-        switch (material) {
-            case WHEAT:
-                material = Material.WHEAT_SEEDS;
-                break;
-            case PUMPKIN_STEM:
-                material = Material.PUMPKIN_SEEDS;
-                break;
-            case MELON_STEM:
-                material = Material.MELON_SEEDS;
-                break;
-            case BEETROOTS:
-                material = Material.BEETROOT_SEEDS;
-                break;
-            default:
-        }
-
+        material = BukkitAdapter.ADAPTER.getPlantSeeds(material);
         if (material.name().contains("WALL_")) {
             material = Material.valueOf(material.name().replace("WALL_", ""));
         }

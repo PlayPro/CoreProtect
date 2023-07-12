@@ -61,4 +61,6 @@ public interface BukkitInterface {
 
     public int getColor(Sign sign, boolean isFront);
 
+    public Material getPlantSeeds(Material material);
+
 }

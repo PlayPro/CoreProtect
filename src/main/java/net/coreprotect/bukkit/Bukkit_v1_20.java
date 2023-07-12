@@ -68,4 +68,28 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 implements BukkitInterface {
         return sign.isWaxed();
     }
 
+    @Override
+    public Material getPlantSeeds(Material material) {
+        switch (material) {
+            case WHEAT:
+                material = Material.WHEAT_SEEDS;
+                break;
+            case PUMPKIN_STEM:
+                material = Material.PUMPKIN_SEEDS;
+                break;
+            case MELON_STEM:
+                material = Material.MELON_SEEDS;
+                break;
+            case BEETROOTS:
+                material = Material.BEETROOT_SEEDS;
+                break;
+            case TORCHFLOWER_CROP:
+                material = Material.TORCHFLOWER_SEEDS;
+                break;
+            default:
+        }
+
+        return material;
+    }
+
 }

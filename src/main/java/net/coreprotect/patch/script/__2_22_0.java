@@ -161,27 +161,6 @@ public class __2_22_0 {
                     Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, ConfigHandler.prefix + "sign", Selector.FIRST, Selector.FIRST));
                 }
             }
-
-            if (!Patch.continuePatch()) {
-                return false;
-            }
-
-            if (Config.getGlobal().MYSQL) {
-                try {
-                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "container ADD COLUMN slot TINYINT DEFAULT 0;");
-                }
-                catch (Exception e) {
-                    Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, ConfigHandler.prefix + "container", Selector.FIRST, Selector.FIRST));
-                }
-            }
-            else {
-                try {
-                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "container ADD COLUMN slot INTEGER DEFAULT 0;");
-                }
-                catch (Exception e) {
-                    Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, ConfigHandler.prefix + "container", Selector.FIRST, Selector.FIRST));
-                }
-            }
         }
         catch (Exception e) {
             e.printStackTrace();

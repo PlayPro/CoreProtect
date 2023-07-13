@@ -684,7 +684,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             }
                         }
                     }
-                    else if (type.name().equals("CHISELED_BOOKSHELF")) {
+                    else if (BukkitAdapter.ADAPTER.isChiseledBookshelf(type)) {
                         BlockState blockState = block.getState();
                         if (blockState instanceof BlockInventoryHolder) {
                             InventoryChangeListener.inventoryTransaction(player.getName(), blockState.getLocation(), null);

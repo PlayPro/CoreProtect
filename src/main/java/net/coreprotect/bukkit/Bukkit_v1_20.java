@@ -104,4 +104,9 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 implements BukkitInterface {
         return Tag.ALL_SIGNS.isTagged(material);
     }
 
+    @Override
+    public boolean isChiseledBookshelf(Material material) {
+        return material == Material.CHISELED_BOOKSHELF;
+    }
+
 }

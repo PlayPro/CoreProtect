@@ -67,4 +67,6 @@ public interface BukkitInterface {
 
     public boolean isSign(Material material);
 
+    public boolean isChiseledBookshelf(Material material);
+
 }

@@ -212,4 +212,9 @@ public class BukkitAdapter implements BukkitInterface {
         return Tag.SIGNS.isTagged(material);
     }
 
+    @Override
+    public boolean isChiseledBookshelf(Material material) {
+        return false;
+    }
+
 }

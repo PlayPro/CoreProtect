@@ -1716,7 +1716,7 @@ public class Rollback extends Queue {
                                 modifiedArmor = addedItem ? setArmor : modifiedArmor;
                             }
                             if (!addedItem) {
-                                if (type.name().equals("CHISELED_BOOKSHELF")) {
+                                if (BukkitAdapter.ADAPTER.isChiseledBookshelf(type)) {
                                     ItemStack[] inventoryContents = inventory.getStorageContents();
                                     int i = 0;
                                     for (ItemStack stack : inventoryContents) {

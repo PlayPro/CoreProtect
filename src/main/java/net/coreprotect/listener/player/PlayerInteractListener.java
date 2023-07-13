@@ -687,7 +687,41 @@ public final class PlayerInteractListener extends Queue implements Listener {
                     else if (BukkitAdapter.ADAPTER.isChiseledBookshelf(type)) {
                         BlockState blockState = block.getState();
                         if (blockState instanceof BlockInventoryHolder) {
-                            InventoryChangeListener.inventoryTransaction(player.getName(), blockState.getLocation(), null);
+                            ItemStack book = BukkitAdapter.ADAPTER.getChiseledBookshelfBook(blockState, event);
+                            if (book != null) {
+                                ItemStack oldItemState = book.clone();
+                                ItemStack newItemState = new ItemStack(Material.AIR);
+
+                                if (book.getType() == Material.AIR) {
+                                    ItemStack handItem = null;
+                                    ItemStack mainHand = player.getInventory().getItemInMainHand();
+                                    ItemStack offHand = player.getInventory().getItemInOffHand();
+
+                                    if (event.getHand().equals(EquipmentSlot.HAND) && mainHand != null && BukkitAdapter.ADAPTER.isBookshelfBook(mainHand.getType())) {
+                                        handItem = mainHand;
+                                    }
+                                    else if (event.getHand().equals(EquipmentSlot.OFF_HAND) && offHand != null && BukkitAdapter.ADAPTER.isBookshelfBook(offHand.getType())) {
+                                        handItem = offHand;
+                                    }
+                                    else {
+                                        return;
+                                    }
+
+                                    oldItemState = new ItemStack(Material.AIR);
+                                    newItemState = handItem.clone();
+                                }
+
+                                if (!oldItemState.equals(newItemState)) {
+                                    if (Config.getConfig(player.getWorld()).PLAYER_INTERACTIONS) {
+                                        Queue.queuePlayerInteraction(player.getName(), blockState, type);
+                                    }
+
+                                    InventoryChangeListener.inventoryTransaction(player.getName(), blockState.getLocation(), null);
+                                }
+                            }
+                            else { // fallback if unable to determine bookshelf slot
+                                InventoryChangeListener.inventoryTransaction(player.getName(), blockState.getLocation(), null);
+                            }
                         }
                     }
                     else if (type == Material.DRAGON_EGG) {

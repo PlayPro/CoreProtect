@@ -7,12 +7,18 @@ import org.bukkit.Color;
 import org.bukkit.DyeColor;
 import org.bukkit.Material;
 import org.bukkit.Tag;
+import org.bukkit.block.BlockState;
+import org.bukkit.block.ChiseledBookshelf;
 import org.bukkit.block.Sign;
 import org.bukkit.block.sign.Side;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.model.BlockGroup;
 
 public class Bukkit_v1_20 extends Bukkit_v1_19 implements BukkitInterface {
+
+    private Boolean hasClickedPosition = null;
 
     public Bukkit_v1_20() {
         BlockGroup.CONTAINERS = new HashSet<>(Arrays.asList(Material.JUKEBOX, Material.DISPENSER, Material.CHEST, Material.FURNACE, Material.BREWING_STAND, Material.TRAPPED_CHEST, Material.HOPPER, Material.DROPPER, Material.ARMOR_STAND, Material.ITEM_FRAME, Material.SHULKER_BOX, Material.BLACK_SHULKER_BOX, Material.BLUE_SHULKER_BOX, Material.BROWN_SHULKER_BOX, Material.CYAN_SHULKER_BOX, Material.GRAY_SHULKER_BOX, Material.GREEN_SHULKER_BOX, Material.LIGHT_BLUE_SHULKER_BOX, Material.LIME_SHULKER_BOX, Material.MAGENTA_SHULKER_BOX, Material.ORANGE_SHULKER_BOX, Material.PINK_SHULKER_BOX, Material.PURPLE_SHULKER_BOX, Material.RED_SHULKER_BOX, Material.LIGHT_GRAY_SHULKER_BOX, Material.WHITE_SHULKER_BOX, Material.YELLOW_SHULKER_BOX, Material.BARREL, Material.BLAST_FURNACE, Material.SMOKER, Material.LECTERN, Material.CHISELED_BOOKSHELF));
@@ -107,6 +113,32 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 implements BukkitInterface {
     @Override
     public boolean isChiseledBookshelf(Material material) {
         return material == Material.CHISELED_BOOKSHELF;
+    }
+
+    @Override
+    public boolean isBookshelfBook(Material material) {
+        return Tag.ITEMS_BOOKSHELF_BOOKS.isTagged(material);
+    }
+
+    @Override
+    public ItemStack getChiseledBookshelfBook(BlockState blockState, PlayerInteractEvent event) {
+        try {
+            if (hasClickedPosition == null) {
+                hasClickedPosition = true;
+                PlayerInteractEvent.class.getMethod("getClickedPosition"); // Bukkit 1.20.1+
+            }
+            else if (Boolean.FALSE.equals(hasClickedPosition)) {
+                return null;
+            }
+
+            ChiseledBookshelf chiseledBookshelf = (ChiseledBookshelf) blockState;
+            ItemStack book = chiseledBookshelf.getInventory().getItem(chiseledBookshelf.getSlot(event.getClickedPosition()));
+            return book == null ? new ItemStack(Material.AIR) : book;
+        }
+        catch (Exception e) {
+            hasClickedPosition = false;
+            return null;
+        }
     }
 
 }

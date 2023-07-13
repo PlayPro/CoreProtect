@@ -6,11 +6,13 @@ import java.util.Map;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -68,5 +70,9 @@ public interface BukkitInterface {
     public boolean isSign(Material material);
 
     public boolean isChiseledBookshelf(Material material);
+
+    public boolean isBookshelfBook(Material material);
+
+    public ItemStack getChiseledBookshelfBook(BlockState blockState, PlayerInteractEvent event);
 
 }

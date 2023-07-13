@@ -15,7 +15,73 @@ public class __2_22_0 {
         try {
             if (Config.getGlobal().MYSQL) {
                 try {
-                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign ADD COLUMN line_5 VARCHAR(100), ADD COLUMN line_6 VARCHAR(100), ADD COLUMN line_7 VARCHAR(100), ADD COLUMN line_8 VARCHAR(100), ADD COLUMN color_secondary INT, ADD COLUMN waxed TINYINT DEFAULT 0, ADD COLUMN face TINYINT DEFAULT 0;");
+                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign ADD COLUMN line_5 VARCHAR(100);");
+                }
+                catch (Exception e) {
+                    Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, ConfigHandler.prefix + "sign", Selector.FIRST, Selector.FIRST));
+                }
+
+                if (!Patch.continuePatch()) {
+                    return false;
+                }
+
+                try {
+                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign ADD COLUMN line_6 VARCHAR(100);");
+                }
+                catch (Exception e) {
+                    Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, ConfigHandler.prefix + "sign", Selector.FIRST, Selector.FIRST));
+                }
+
+                if (!Patch.continuePatch()) {
+                    return false;
+                }
+
+                try {
+                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign ADD COLUMN line_7 VARCHAR(100);");
+                }
+                catch (Exception e) {
+                    Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, ConfigHandler.prefix + "sign", Selector.FIRST, Selector.FIRST));
+                }
+
+                if (!Patch.continuePatch()) {
+                    return false;
+                }
+
+                try {
+                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign ADD COLUMN line_8 VARCHAR(100);");
+                }
+                catch (Exception e) {
+                    Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, ConfigHandler.prefix + "sign", Selector.FIRST, Selector.FIRST));
+                }
+
+                if (!Patch.continuePatch()) {
+                    return false;
+                }
+
+                try {
+                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign ADD COLUMN color_secondary INT;");
+                }
+                catch (Exception e) {
+                    Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, ConfigHandler.prefix + "sign", Selector.FIRST, Selector.FIRST));
+                }
+
+                if (!Patch.continuePatch()) {
+                    return false;
+                }
+
+                try {
+                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign ADD COLUMN waxed TINYINT DEFAULT 0;");
+                }
+                catch (Exception e) {
+                    Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, ConfigHandler.prefix + "sign", Selector.FIRST, Selector.FIRST));
+                }
+
+                if (!Patch.continuePatch()) {
+                    return false;
+                }
+
+                try {
+                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign ADD COLUMN face TINYINT DEFAULT 0;");
                 }
                 catch (Exception e) {
                     Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, ConfigHandler.prefix + "sign", Selector.FIRST, Selector.FIRST));

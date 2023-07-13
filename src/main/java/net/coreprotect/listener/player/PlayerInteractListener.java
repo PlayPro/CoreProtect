@@ -640,6 +640,32 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             });
                             */
                         }
+                        else if (type == Material.CAMPFIRE || type == Material.SOUL_CAMPFIRE) {
+                            ItemStack handItem = null;
+                            ItemStack mainHand = player.getInventory().getItemInMainHand();
+                            ItemStack offHand = player.getInventory().getItemInOffHand();
+
+                            if (event.getHand().equals(EquipmentSlot.HAND) && mainHand != null && mainHand.getType() != Material.BUCKET) {
+                                handItem = mainHand;
+                            }
+                            else if (event.getHand().equals(EquipmentSlot.OFF_HAND) && offHand != null) {
+                                handItem = offHand;
+                            }
+                            else {
+                                return;
+                            }
+
+                            if (player.getGameMode() != GameMode.CREATIVE) {
+                                Location location = block.getLocation();
+                                long time = System.currentTimeMillis();
+                                int wid = Util.getWorldId(location.getWorld().getName());
+                                int x = location.getBlockX();
+                                int y = location.getBlockY();
+                                int z = location.getBlockZ();
+                                String coordinates = x + "." + y + "." + z + "." + wid + "." + type.name();
+                                CacheHandler.interactCache.put(coordinates, new Object[] { time, handItem, player.getName() });
+                            }
+                        }
 
                         isCake = type.name().endsWith(Material.CAKE.name());
                     }

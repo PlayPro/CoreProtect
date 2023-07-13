@@ -6,6 +6,7 @@ import org.bukkit.event.HandlerList;
 public class CoreProtectPreLogEvent extends Event {
 
     private static final HandlerList handlers = new HandlerList();
+    private boolean cancelled = false;
     private String user;
 
     public CoreProtectPreLogEvent(String user) {
@@ -15,6 +16,14 @@ public class CoreProtectPreLogEvent extends Event {
 
     public String getUser() {
         return user;
+    }
+
+    public boolean isCancelled() {
+        return cancelled;
+    }
+
+    public void setCancelled(boolean cancel) {
+        this.cancelled = cancel;
     }
 
     public void setUser(String newUser) {

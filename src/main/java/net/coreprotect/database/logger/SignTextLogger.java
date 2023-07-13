@@ -6,6 +6,7 @@ import java.util.Locale;
 import org.bukkit.Location;
 
 import net.coreprotect.CoreProtect;
+import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.SignStatement;
 import net.coreprotect.database.statement.UserStatement;
@@ -25,7 +26,13 @@ public class SignTextLogger {
             }
 
             CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
-            CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+            if (Config.getGlobal().API_ENABLED) {
+                CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+            }
+
+            if (event.isCancelled()) {
+                return;
+            }
 
             int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
             int wid = Util.getWorldId(location.getWorld().getName());

@@ -9,6 +9,7 @@ import org.bukkit.block.BlockState;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.BlockStatement;
 import net.coreprotect.database.statement.UserStatement;
@@ -79,7 +80,9 @@ public class BlockPlaceLogger {
             }
 
             CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
-            CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+            if (Config.getGlobal().API_ENABLED) {
+                CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+            }
 
             int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
             int wid = Util.getWorldId(block.getWorld().getName());
@@ -89,8 +92,11 @@ public class BlockPlaceLogger {
                 CacheHandler.lookupCache.put("" + x + "." + y + "." + z + "." + wid + "", new Object[] { time, event.getUser(), type });
             }
 
-            int internalType = Util.getBlockId(type.name(), true);
+            if (event.isCancelled()) {
+                return;
+            }
 
+            int internalType = Util.getBlockId(type.name(), true);
             if (replacedType > 0 && Util.getType(replacedType) != Material.AIR && Util.getType(replacedType) != Material.CAVE_AIR) {
                 BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, replacedType, replacedData, null, replaceBlockData, 0, 0);
             }

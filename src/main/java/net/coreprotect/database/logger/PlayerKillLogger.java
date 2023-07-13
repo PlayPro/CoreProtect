@@ -6,6 +6,7 @@ import java.util.Locale;
 import org.bukkit.block.BlockState;
 
 import net.coreprotect.CoreProtect;
+import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.BlockStatement;
 import net.coreprotect.database.statement.UserStatement;
@@ -29,7 +30,13 @@ public class PlayerKillLogger {
             }
 
             CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
-            CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+            if (Config.getGlobal().API_ENABLED) {
+                CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+            }
+
+            if (event.isCancelled()) {
+                return;
+            }
 
             int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
             int playerId = ConfigHandler.playerIdCache.get(player.toLowerCase(Locale.ROOT));

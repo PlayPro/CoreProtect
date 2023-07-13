@@ -6,6 +6,7 @@ import java.util.Map;
 import org.bukkit.Color;
 import org.bukkit.DyeColor;
 import org.bukkit.Material;
+import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.Sign;
@@ -204,6 +205,11 @@ public class BukkitAdapter implements BukkitInterface {
     @Override
     public boolean hasGravity(Material scanType) {
         return scanType.hasGravity();
+    }
+
+    @Override
+    public boolean isSign(Material material) {
+        return Tag.SIGNS.isTagged(material);
     }
 
 }

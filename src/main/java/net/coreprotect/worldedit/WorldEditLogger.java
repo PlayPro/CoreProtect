@@ -6,7 +6,6 @@ import org.bukkit.DyeColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Server;
-import org.bukkit.Tag;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.Bisected;
 import org.bukkit.block.data.Bisected.Half;
@@ -44,7 +43,7 @@ public class WorldEditLogger extends Queue {
     }
 
     protected static BaseBlock getBaseBlock(Extent extent, BlockVector3 position, Location location, Material oldType, com.sk89q.worldedit.world.block.BlockState oldBlock) {
-        if (oldType == Material.SPAWNER || (Config.getConfig(location.getWorld()).SIGN_TEXT && Tag.SIGNS.isTagged(oldType))) {
+        if (oldType == Material.SPAWNER || (Config.getConfig(location.getWorld()).SIGN_TEXT && net.coreprotect.bukkit.BukkitAdapter.ADAPTER.isSign(oldType))) {
             return extent.getFullBlock(position);
         }
 
@@ -67,7 +66,7 @@ public class WorldEditLogger extends Queue {
         if (!oldType.equals(newType) || !oldBlockDataString.equals(newBlockDataString)) {
             try {
                 if (baseBlock != null && baseBlock.hasNbtData()) {
-                    if (Config.getConfig(location.getWorld()).SIGN_TEXT && Tag.SIGNS.isTagged(oldType)) {
+                    if (Config.getConfig(location.getWorld()).SIGN_TEXT && net.coreprotect.bukkit.BukkitAdapter.ADAPTER.isSign(oldType)) {
                         CompoundTag compoundTag = baseBlock.getNbtData();
                         if (!compoundTag.containsKey("front_text")) {
                             String line1 = getSignText(compoundTag.getString("Text1"));

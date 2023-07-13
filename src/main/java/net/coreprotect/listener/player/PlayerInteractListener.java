@@ -188,7 +188,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                 final Material type = block.getType();
                 boolean isInteractBlock = BlockGroup.INTERACT_BLOCKS.contains(type);
                 boolean isContainerBlock = BlockGroup.CONTAINERS.contains(type);
-                boolean isSignBlock = Tag.SIGNS.isTagged(type);
+                boolean isSignBlock = BukkitAdapter.ADAPTER.isSign(type);
 
                 if (isInteractBlock || isContainerBlock || isSignBlock) {
                     final Block clickedBlock = event.getClickedBlock();
@@ -550,7 +550,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                 if (event.useInteractedBlock() != Event.Result.DENY) {
                     boolean isCake = false;
 
-                    if (Tag.SIGNS.isTagged(type)) {
+                    if (BukkitAdapter.ADAPTER.isSign(type)) {
                         // check if right clicked sign with dye
                         Set<Material> dyeSet = EnumSet.of(Material.BLACK_DYE, Material.BLUE_DYE, Material.BROWN_DYE, Material.CYAN_DYE, Material.GRAY_DYE, Material.GREEN_DYE, Material.LIGHT_BLUE_DYE, Material.LIGHT_GRAY_DYE, Material.LIME_DYE, Material.MAGENTA_DYE, Material.ORANGE_DYE, Material.PINK_DYE, Material.PURPLE_DYE, Material.RED_DYE, Material.WHITE_DYE, Material.YELLOW_DYE);
                         Material handType = null;

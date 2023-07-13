@@ -823,7 +823,7 @@ public class Rollback extends Queue {
                                                     blockCount1++;
                                                 }
                                             }
-                                            else if (Tag.SIGNS.isTagged(rowType)) {// sign
+                                            else if (BukkitAdapter.ADAPTER.isSign(rowType)) {// sign
                                                 Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                                                 Queue.queueSignUpdate(rowUser, block.getState(), rollbackType, rowTime);
 

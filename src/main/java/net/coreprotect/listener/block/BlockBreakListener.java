@@ -7,7 +7,6 @@ import java.util.Locale;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.block.Banner;
 import org.bukkit.block.Block;
@@ -274,7 +273,7 @@ public final class BlockBreakListener extends Queue implements Listener {
                     e.printStackTrace();
                 }
             }
-            if (log && Tag.SIGNS.isTagged(blockType)) {
+            if (log && BukkitAdapter.ADAPTER.isSign(blockType)) {
                 if (Config.getConfig(world).SIGN_TEXT) {
                     try {
                         Location location = blockState.getLocation();

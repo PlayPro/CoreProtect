@@ -4,7 +4,6 @@ import java.util.Locale;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -107,7 +106,7 @@ public final class BlockPlaceListener extends Queue implements Listener {
 
                 Queue.queueBlockPlace(player.getName(), blockState, blockPlaced.getType(), blockReplaced, forceType, forceData, 0, bBlockData);
 
-                if (Tag.SIGNS.isTagged(blockType)) {
+                if (BukkitAdapter.ADAPTER.isSign(blockType)) {
                     if (Config.getConfig(world).SIGN_TEXT) {
                         try {
                             Location location = blockState.getLocation();

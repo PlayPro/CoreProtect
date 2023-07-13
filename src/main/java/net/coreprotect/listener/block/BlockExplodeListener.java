@@ -8,7 +8,6 @@ import java.util.Map;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -115,7 +114,7 @@ public final class BlockExplodeListener extends Queue implements Listener {
             Block block = entry.getValue();
             Material blockType = block.getType();
             BlockState blockState = block.getState();
-            if (Tag.SIGNS.isTagged(blockType) && Config.getConfig(world).SIGN_TEXT) {
+            if (BukkitAdapter.ADAPTER.isSign(blockType) && Config.getConfig(world).SIGN_TEXT) {
                 try {
                     Location location = blockState.getLocation();
                     Sign sign = (Sign) blockState;

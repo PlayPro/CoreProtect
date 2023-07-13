@@ -65,4 +65,6 @@ public interface BukkitInterface {
 
     public boolean hasGravity(Material scanType);
 
+    public boolean isSign(Material material);
+
 }

@@ -56,9 +56,11 @@ public class BukkitAdapter implements BukkitInterface {
                 break;
             case BUKKIT_V1_19:
                 BukkitAdapter.ADAPTER = new Bukkit_v1_19();
+                break;
             case BUKKIT_V1_20:
             default:
                 BukkitAdapter.ADAPTER = new Bukkit_v1_20();
+                break;
         }
     }
 

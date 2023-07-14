@@ -208,8 +208,8 @@ public class BukkitAdapter implements BukkitInterface {
     }
 
     @Override
-    public boolean hasGravity(Material scanType) {
-        return scanType.hasGravity();
+    public boolean isSuspiciousBlock(Material material) {
+        return false;
     }
 
     @Override

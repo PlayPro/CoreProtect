@@ -751,6 +751,17 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             }
                         }
                     }
+                    else if (BukkitAdapter.ADAPTER.isSuspiciousBlock(type)) {
+                        BlockState blockState = block.getState();
+                        Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
+                            Material newType = block.getType();
+                            if (type == newType || (type != Material.SAND && type != Material.GRAVEL)) {
+                                return;
+                            }
+
+                            Queue.queueBlockPlace(player.getName(), blockState, newType, blockState, newType, -1, 0, null);
+                        }, block.getLocation(), 100);
+                    }
                     else if (type == Material.DRAGON_EGG) {
                         clickedDragonEgg(player, block);
                     }

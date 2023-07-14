@@ -125,7 +125,7 @@ public final class BlockBreakListener extends Queue implements Listener {
                 Block scanBlock = world.getBlockAt(scanLocation);
                 Material scanType = scanBlock.getType();
                 if (scanMin == 5) {
-                    if (BukkitAdapter.ADAPTER.hasGravity(scanType)) {
+                    if (scanType.hasGravity() || BukkitAdapter.ADAPTER.isSuspiciousBlock(scanType)) {
                         if (Config.getConfig(world).BLOCK_MOVEMENT) {
                             // log the top-most sand/gravel block as being removed
                             int scanY = y + 2;
@@ -133,7 +133,7 @@ public final class BlockBreakListener extends Queue implements Listener {
                             while (!topFound) {
                                 Block topBlock = world.getBlockAt(x, scanY, z);
                                 Material topMaterial = topBlock.getType();
-                                if (!BukkitAdapter.ADAPTER.hasGravity(topMaterial)) {
+                                if (!topMaterial.hasGravity() && !BukkitAdapter.ADAPTER.isSuspiciousBlock(topMaterial)) {
                                     scanLocation = new Location(world, x, (scanY - 1), z);
                                     topFound = true;
                                 }
@@ -209,7 +209,7 @@ public final class BlockBreakListener extends Queue implements Listener {
                             }
                         }
                         else if (scanMin == 5) {
-                            if (BukkitAdapter.ADAPTER.hasGravity(scanType)) {
+                            if (scanType.hasGravity() || BukkitAdapter.ADAPTER.isSuspiciousBlock(scanType)) {
                                 log = true;
                             }
                         }

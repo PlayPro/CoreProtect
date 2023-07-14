@@ -112,8 +112,8 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 implements BukkitInterface {
     }
 
     @Override
-    public boolean hasGravity(Material scanType) {
-        return scanType.hasGravity() || scanType == Material.SUSPICIOUS_GRAVEL || scanType == Material.SUSPICIOUS_SAND;
+    public boolean isSuspiciousBlock(Material material) {
+        return material == Material.SUSPICIOUS_GRAVEL || material == Material.SUSPICIOUS_SAND;
     }
 
     @Override

@@ -66,7 +66,7 @@ public interface BukkitInterface {
 
     public Material getPlantSeeds(Material material);
 
-    public boolean hasGravity(Material scanType);
+    public boolean isSuspiciousBlock(Material material);
 
     public boolean isSign(Material material);
 

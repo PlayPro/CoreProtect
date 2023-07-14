@@ -9,7 +9,6 @@ import org.bukkit.inventory.InventoryHolder;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.spigot.SpigotAdapter;
 
 public class PaperAdapter implements PaperInterface {
 
@@ -66,7 +65,7 @@ public class PaperAdapter implements PaperInterface {
 
     @Override
     public String getLine(Sign sign, int line) {
-        return SpigotAdapter.ADAPTER.getLine(sign, line);
+        return BukkitAdapter.ADAPTER.getLine(sign, line);
     }
 
     @Override

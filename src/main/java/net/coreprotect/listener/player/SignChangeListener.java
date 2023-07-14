@@ -13,7 +13,6 @@ import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.paper.PaperAdapter;
-import net.coreprotect.spigot.SpigotAdapter;
 
 public final class SignChangeListener extends Queue implements Listener {
 
@@ -41,7 +40,7 @@ public final class SignChangeListener extends Queue implements Listener {
         boolean frontGlowing = false;
         boolean backGlowing = false;
         boolean isWaxed = false;
-        boolean isFront = SpigotAdapter.ADAPTER.isSignFront(event);
+        boolean isFront = BukkitAdapter.ADAPTER.isSignFront(event);
         boolean existingText = false;
 
         if (blockState instanceof Sign) {

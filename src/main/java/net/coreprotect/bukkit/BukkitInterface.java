@@ -12,6 +12,7 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
@@ -74,5 +75,11 @@ public interface BukkitInterface {
     public boolean isBookshelfBook(Material material);
 
     public ItemStack getChiseledBookshelfBook(BlockState blockState, PlayerInteractEvent event);
+
+    public String getLine(Sign sign, int line);
+
+    public void setLine(Sign sign, int line, String string);
+
+    public boolean isSignFront(SignChangeEvent event);
 
 }

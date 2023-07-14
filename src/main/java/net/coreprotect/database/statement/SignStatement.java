@@ -8,7 +8,6 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 
 import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.spigot.SpigotAdapter;
 import net.coreprotect.utility.Util;
 
 public class SignStatement {
@@ -85,14 +84,14 @@ public class SignStatement {
                 boolean backGlowing = Util.isSideGlowing(false, data);
                 BukkitAdapter.ADAPTER.setGlowing(sign, true, frontGlowing);
                 BukkitAdapter.ADAPTER.setGlowing(sign, false, backGlowing);
-                SpigotAdapter.ADAPTER.setLine(sign, 0, line1);
-                SpigotAdapter.ADAPTER.setLine(sign, 1, line2);
-                SpigotAdapter.ADAPTER.setLine(sign, 2, line3);
-                SpigotAdapter.ADAPTER.setLine(sign, 3, line4);
-                SpigotAdapter.ADAPTER.setLine(sign, 4, line5);
-                SpigotAdapter.ADAPTER.setLine(sign, 5, line6);
-                SpigotAdapter.ADAPTER.setLine(sign, 6, line7);
-                SpigotAdapter.ADAPTER.setLine(sign, 7, line8);
+                BukkitAdapter.ADAPTER.setLine(sign, 0, line1);
+                BukkitAdapter.ADAPTER.setLine(sign, 1, line2);
+                BukkitAdapter.ADAPTER.setLine(sign, 2, line3);
+                BukkitAdapter.ADAPTER.setLine(sign, 3, line4);
+                BukkitAdapter.ADAPTER.setLine(sign, 4, line5);
+                BukkitAdapter.ADAPTER.setLine(sign, 5, line6);
+                BukkitAdapter.ADAPTER.setLine(sign, 6, line7);
+                BukkitAdapter.ADAPTER.setLine(sign, 7, line8);
                 BukkitAdapter.ADAPTER.setWaxed(sign, isWaxed);
             }
 

@@ -17,6 +17,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
@@ -227,6 +228,32 @@ public class BukkitAdapter implements BukkitInterface {
     @Override
     public ItemStack getChiseledBookshelfBook(BlockState blockState, PlayerInteractEvent event) {
         return null;
+    }
+
+    @Override
+    public String getLine(Sign sign, int line) {
+        if (line < 4) {
+            return sign.getLine(line);
+        }
+        else {
+            return "";
+        }
+    }
+
+    @Override
+    public void setLine(Sign sign, int line, String string) {
+        if (string == null) {
+            string = "";
+        }
+
+        if (line < 4) {
+            sign.setLine(line, string);
+        }
+    }
+
+    @Override
+    public boolean isSignFront(SignChangeEvent event) {
+        return true;
     }
 
 }

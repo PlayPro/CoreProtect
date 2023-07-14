@@ -6,8 +6,10 @@ import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.ChatMessage;
 import net.coreprotect.utility.Color;
@@ -99,12 +101,14 @@ public class TeleportCommand {
 
         int chunkX = location.getBlockX() >> 4;
         int chunkZ = location.getBlockZ() >> 4;
-        if (location.getWorld().isChunkLoaded(chunkX, chunkZ) == false) {
-            location.getWorld().getChunkAt(location);
-        }
+        Scheduler.runTask(CoreProtect.getInstance(), () -> {
+            if (!location.getWorld().isChunkLoaded(chunkX, chunkZ)) {
+                location.getWorld().getChunkAt(location);
+            }
 
-        // Teleport the player to a safe location
-        Teleport.performSafeTeleport(((Player) player), location, true);
+            // Teleport the player to a safe location
+            Teleport.performSafeTeleport(((Player) player), location, true);
+        }, location);
 
         ConfigHandler.teleportThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
     }

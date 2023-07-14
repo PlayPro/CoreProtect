@@ -4,15 +4,16 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
-import net.coreprotect.config.ConfigHandler;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 
+import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.paper.PaperAdapter;
 
 public class Teleport {
 
@@ -80,8 +81,9 @@ public class Teleport {
                     double oldY = location.getY();
                     location.setY(checkY);
                     if (ConfigHandler.isFolia) {
-                        player.teleportAsync(location);
-                    } else {
+                        PaperAdapter.ADAPTER.teleportAsync(player, location);
+                    }
+                    else {
                         player.teleport(location);
                     }
 

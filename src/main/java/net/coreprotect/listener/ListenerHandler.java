@@ -3,8 +3,6 @@ package net.coreprotect.listener;
 import org.bukkit.plugin.PluginManager;
 
 import net.coreprotect.CoreProtect;
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.listener.block.BlockBreakListener;
 import net.coreprotect.listener.block.BlockBurnListener;
 import net.coreprotect.listener.block.BlockDispenseListener;
@@ -86,8 +84,12 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new BlockPistonListener(), plugin);
         pluginManager.registerEvents(new BlockPlaceListener(), plugin);
         pluginManager.registerEvents(new BlockSpreadListener(), plugin);
-        if (ConfigHandler.SERVER_VERSION >= BukkitAdapter.BUKKIT_V1_20) {
+        try {
+            Class.forName("org.bukkit.event.block.CampfireStartEvent"); // Bukkit 1.20+
             pluginManager.registerEvents(new CampfireStartListener(), plugin);
+        }
+        catch (Exception e) {
+            CampfireStartListener.useCampfireStartEvent = false;
         }
 
         // Entity Listeners

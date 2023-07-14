@@ -52,6 +52,7 @@ import net.coreprotect.database.lookup.ChestTransactionLookup;
 import net.coreprotect.database.lookup.InteractionLookup;
 import net.coreprotect.database.lookup.SignMessageLookup;
 import net.coreprotect.language.Phrase;
+import net.coreprotect.listener.block.CampfireStartListener;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.CacheHandler;
@@ -640,7 +641,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             });
                             */
                         }
-                        else if (type == Material.CAMPFIRE || type == Material.SOUL_CAMPFIRE) {
+                        else if ((type == Material.CAMPFIRE || type == Material.SOUL_CAMPFIRE) && CampfireStartListener.useCampfireStartEvent) {
                             ItemStack handItem = null;
                             ItemStack mainHand = player.getInventory().getItemInMainHand();
                             ItemStack offHand = player.getInventory().getItemInOffHand();

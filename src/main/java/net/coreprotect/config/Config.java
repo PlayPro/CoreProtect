@@ -41,6 +41,7 @@ public class Config extends Language {
     public String MYSQL_DATABASE;
     public String MYSQL_USERNAME;
     public String MYSQL_PASSWORD;
+    public int MYSQL_MAXIMUM_POOL_SIZE;
     public String LANGUAGE;
     public boolean ENABLE_AWE;
     public boolean DISABLE_WAL;
@@ -101,6 +102,7 @@ public class Config extends Language {
         DEFAULT_VALUES.put("mysql-database", "database");
         DEFAULT_VALUES.put("mysql-username", "root");
         DEFAULT_VALUES.put("mysql-password", "");
+        DEFAULT_VALUES.put("mysql-maximum-pool-size", "10");
         DEFAULT_VALUES.put("language", "en");
         DEFAULT_VALUES.put("check-updates", "true");
         DEFAULT_VALUES.put("api-enabled", "true");
@@ -203,6 +205,7 @@ public class Config extends Language {
         this.MYSQL_DATABASE = this.getString("mysql-database");
         this.MYSQL_USERNAME = this.getString("mysql-username");
         this.MYSQL_PASSWORD = this.getString("mysql-password");
+        this.MYSQL_MAXIMUM_POOL_SIZE = this.getInt("mysql-maximum-pool-size");
         this.LANGUAGE = this.getString("language");
         this.CHECK_UPDATES = this.getBoolean("check-updates");
         this.API_ENABLED = this.getBoolean("api-enabled");

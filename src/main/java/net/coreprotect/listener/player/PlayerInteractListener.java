@@ -64,6 +64,7 @@ import net.coreprotect.utility.Util;
 public final class PlayerInteractListener extends Queue implements Listener {
 
     public static ConcurrentHashMap<String, Object[]> lastInspectorEvent = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> suspiciousBlockEvent = new ConcurrentHashMap<>();
 
     @EventHandler(priority = EventPriority.LOWEST)
     protected void onPlayerInspect(PlayerInteractEvent event) {
@@ -752,15 +753,43 @@ public final class PlayerInteractListener extends Queue implements Listener {
                         }
                     }
                     else if (BukkitAdapter.ADAPTER.isSuspiciousBlock(type)) {
-                        BlockState blockState = block.getState();
-                        Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
-                            Material newType = block.getType();
-                            if (type == newType || (type != Material.SAND && type != Material.GRAVEL)) {
-                                return;
-                            }
+                        ItemStack handItem = null;
+                        ItemStack mainHand = player.getInventory().getItemInMainHand();
+                        ItemStack offHand = player.getInventory().getItemInOffHand();
+                        if (event.getHand().equals(EquipmentSlot.HAND) && mainHand != null) {
+                            handItem = mainHand;
+                        }
+                        else if (event.getHand().equals(EquipmentSlot.OFF_HAND) && offHand != null) {
+                            handItem = offHand;
+                        }
 
-                            Queue.queueBlockPlace(player.getName(), blockState, newType, blockState, newType, -1, 0, null);
-                        }, block.getLocation(), 100);
+                        if (handItem.getType() == Material.BRUSH) {
+                            BlockState blockState = block.getState();
+                            Location blockLocation = block.getLocation();
+                            Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
+                                Material newType = block.getType();
+                                if (type == newType || (newType != Material.SAND && newType != Material.GRAVEL)) {
+                                    return;
+                                }
+
+                                long systemTime = System.currentTimeMillis();
+                                boolean logChange = true;
+                                if (suspiciousBlockEvent.get(player.getName()) != null) {
+                                    Object[] lastEvent = suspiciousBlockEvent.get(player.getName());
+                                    long lastTime = (long) lastEvent[0];
+                                    long timeSince = systemTime - lastTime;
+                                    Location lastLocation = (Location) lastEvent[1];
+                                    if (timeSince < 5000 && blockLocation.equals(lastLocation)) {
+                                        logChange = false;
+                                    }
+                                }
+
+                                if (logChange) {
+                                    Queue.queueBlockPlace(player.getName(), blockState, newType, blockState, newType, -1, 0, null);
+                                    suspiciousBlockEvent.put(player.getName(), new Object[] { systemTime, blockLocation });
+                                }
+                            }, blockLocation, 100);
+                        }
                     }
                     else if (type == Material.DRAGON_EGG) {
                         clickedDragonEgg(player, block);

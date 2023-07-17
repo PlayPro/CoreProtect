@@ -52,6 +52,8 @@ public class ConfigHandler extends Queue {
     public static String username = "root";
     public static String password = "";
     public static String prefix = "co_";
+    public static int maximumPoolSize = 10;
+
     public static HikariDataSource hikariDataSource = null;
     public static final boolean isSpigot = Util.isSpigot();
     public static final boolean isPaper = Util.isPaper();
@@ -174,6 +176,7 @@ public class ConfigHandler extends Queue {
             ConfigHandler.database = Config.getGlobal().MYSQL_DATABASE;
             ConfigHandler.username = Config.getGlobal().MYSQL_USERNAME;
             ConfigHandler.password = Config.getGlobal().MYSQL_PASSWORD;
+            ConfigHandler.maximumPoolSize = Config.getGlobal().MYSQL_MAXIMUM_POOL_SIZE;
             ConfigHandler.prefix = Config.getGlobal().PREFIX;
 
             ConfigHandler.loadBlacklist(); // Load the blacklist file if it exists.
@@ -230,6 +233,7 @@ public class ConfigHandler extends Queue {
             config.setJdbcUrl("jdbc:mysql://" + ConfigHandler.host + ":" + ConfigHandler.port + "/" + ConfigHandler.database);
             config.setUsername(ConfigHandler.username);
             config.setPassword(ConfigHandler.password);
+            config.setMaximumPoolSize(ConfigHandler.maximumPoolSize);
             config.setMaxLifetime(60000);
             config.addDataSourceProperty("characterEncoding", "UTF-8");
             config.addDataSourceProperty("connectionTimeout", "10000");

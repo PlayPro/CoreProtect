@@ -88,6 +88,7 @@ public class Config extends Language {
     public boolean PLAYER_SESSIONS;
     public boolean USERNAME_CHANGES;
     public boolean WORLDEDIT;
+    public int MYSQL_MAXIMUM_POOL_SIZE;
     public int MYSQL_PORT;
     public int DEFAULT_RADIUS;
     public int MAX_RADIUS;
@@ -203,6 +204,7 @@ public class Config extends Language {
         this.MYSQL_DATABASE = this.getString("mysql-database");
         this.MYSQL_USERNAME = this.getString("mysql-username");
         this.MYSQL_PASSWORD = this.getString("mysql-password");
+        this.MYSQL_MAXIMUM_POOL_SIZE = this.getInt("mysql-maximum-pool-size", 10);
         this.LANGUAGE = this.getString("language");
         this.CHECK_UPDATES = this.getBoolean("check-updates");
         this.API_ENABLED = this.getBoolean("api-enabled");

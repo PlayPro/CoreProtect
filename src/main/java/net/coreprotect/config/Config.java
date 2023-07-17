@@ -141,7 +141,6 @@ public class Config extends Language {
         DEFAULT_VALUES.put("player-commands", "true");
         DEFAULT_VALUES.put("player-sessions", "true");
         DEFAULT_VALUES.put("username-changes", "true");
-        DEFAULT_VALUES.put("unknown-logging", "false");
         DEFAULT_VALUES.put("worldedit", "true");
 
         HEADERS.put("donation-key", new String[] { "# CoreProtect is donationware. Obtain a donation key from coreprotect.net/donate/" });
@@ -184,7 +183,6 @@ public class Config extends Language {
         HEADERS.put("player-messages", new String[] { "# Logs messages that players send in the chat." });
         HEADERS.put("player-commands", new String[] { "# Logs all commands used by players." });
         HEADERS.put("player-sessions", new String[] { "# Logs the logins and logouts of players." });
-        HEADERS.put("unknown-logging", new String[] { "# Log any changes that do not have an user set. Use this *only* if you have issues rolling back." });
         HEADERS.put("username-changes", new String[] { "# Logs when a player changes their Minecraft username." });
         HEADERS.put("worldedit", new String[] { "# Logs changes made via the plugin \"WorldEdit\" if it's in use on your server." });
     }
@@ -198,6 +196,7 @@ public class Config extends Language {
         this.HOPPER_FILTER_META = this.getBoolean("hopper-filter-meta", false);
         this.EXCLUDE_TNT = this.getBoolean("exclude-tnt", false);
         this.NETWORK_DEBUG = this.getBoolean("network-debug", false);
+        this.UNKNOWN_LOGGING = this.getBoolean("unknown-logging", false);
         this.DONATION_KEY = this.getString("donation-key");
         this.MYSQL = this.getBoolean("use-mysql");
         this.PREFIX = this.getString("table-prefix");
@@ -244,7 +243,6 @@ public class Config extends Language {
         this.PLAYER_MESSAGES = this.getBoolean("player-messages");
         this.PLAYER_COMMANDS = this.getBoolean("player-commands");
         this.PLAYER_SESSIONS = this.getBoolean("player-sessions");
-        this.UNKNOWN_LOGGING = this.getBoolean("unknown-logging");
         this.USERNAME_CHANGES = this.getBoolean("username-changes");
         this.WORLDEDIT = this.getBoolean("worldedit");
     }

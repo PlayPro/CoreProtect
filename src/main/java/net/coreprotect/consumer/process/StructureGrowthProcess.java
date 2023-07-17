@@ -22,6 +22,9 @@ class StructureGrowthProcess {
             if (blockLists.get(id) != null) {
                 List<BlockState> blockStates = blockLists.get(id);
                 String resultData = Lookup.whoPlacedCache(block);
+                if (resultData.isEmpty()) {
+                    resultData = Lookup.whoPlaced(statement, block);
+                }
                 if (resultData.length() > 0) {
                     user = resultData;
                 }

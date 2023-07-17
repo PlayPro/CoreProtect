@@ -86,6 +86,7 @@ public class Config extends Language {
     public boolean PLAYER_MESSAGES;
     public boolean PLAYER_COMMANDS;
     public boolean PLAYER_SESSIONS;
+    public boolean UNKNOWN_LOGGING;
     public boolean USERNAME_CHANGES;
     public boolean WORLDEDIT;
     public int MYSQL_MAXIMUM_POOL_SIZE;
@@ -196,6 +197,7 @@ public class Config extends Language {
         this.HOPPER_FILTER_META = this.getBoolean("hopper-filter-meta", false);
         this.EXCLUDE_TNT = this.getBoolean("exclude-tnt", false);
         this.NETWORK_DEBUG = this.getBoolean("network-debug", false);
+        this.UNKNOWN_LOGGING = this.getBoolean("unknown-logging", false);
         this.DONATION_KEY = this.getString("donation-key");
         this.MYSQL = this.getBoolean("use-mysql");
         this.PREFIX = this.getString("table-prefix");

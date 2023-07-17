@@ -311,7 +311,7 @@ public class Config extends Language {
 
         configured = configured.replaceAll("[^0-9]", "");
 
-        return configured.isEmpty() ? 0 : Integer.parseInt(configured);
+        return configured.isEmpty() ? dfl : Integer.parseInt(configured);
     }
 
     private String getString(final String key) {

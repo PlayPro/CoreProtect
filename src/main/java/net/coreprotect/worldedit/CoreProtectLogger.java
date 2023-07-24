@@ -56,4 +56,8 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
         return false;
     }
 
+    public <T extends BlockStateHolder<T>> boolean setBlock(int x, int y, int z, T block) throws WorldEditException {
+        return setBlock(BlockVector3.at(x,y,z), block);
+    }
+
 }

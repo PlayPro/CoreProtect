@@ -7,7 +7,7 @@ plugins {
 }
 
 group = 'net.coreprotect'
-String projectVersion = '21.3'
+String projectVersion = '22.0'
 String projectBranch = ''
 version = projectVersion // `version` might be modified, we don't always want that (e.g. plugin.yml)
 description = 'Provides block protection for your server.'
@@ -34,9 +34,9 @@ dependencies {
     compileOnly('com.sk89q.worldedit:worldedit-bukkit:7.0.0-SNAPSHOT') {
         exclude group: 'org.bukkit'
     }
-    compileOnly 'io.papermc.paper:paper-api:1.19-R0.1-SNAPSHOT'
+    compileOnly 'dev.folia:folia-api:1.20.1-R0.1-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit-lite:1.8'
-    implementation 'com.zaxxer:HikariCP:4.0.3'
+    implementation 'com.zaxxer:HikariCP:5.0.1'
 }
 
 jar {

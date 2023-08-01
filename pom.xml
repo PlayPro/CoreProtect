@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>net.coreprotect</groupId>
   <artifactId>CoreProtect</artifactId>
-  <version>21.3</version>
+  <version>22.0</version>
   <properties>
     <project.branch></project.branch>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -95,6 +95,7 @@
   </repositories>
   <dependencies>
     <!--
+    paper-api: io.papermc.paper
     paper-api (<= 1.16): com.destroystokyo.paper
     spigot-api: org.spigotmc
     bukkit: org.bukkit

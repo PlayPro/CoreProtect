@@ -49,7 +49,7 @@ public final class BlockDispenseListener extends Queue implements Listener {
                 boolean dispenseSuccess = !event.getVelocity().equals(new Vector()); // true if velocity is set
                 boolean dispenseRelative = newBlock.getLocation().equals(velocityLocation); // true if velocity location matches relative location
 
-                if (!BlockPreDispenseListener.useBlockPreDispenseEvent) {
+                if (!BlockPreDispenseListener.useBlockPreDispenseEvent || (!BlockPreDispenseListener.useForDroppers && block.getType() == Material.DROPPER)) {
                     if (dispenseRelative || material.equals(Material.FLINT_AND_STEEL) || material.equals(Material.SHEARS)) {
                         forceItem = false;
                     }

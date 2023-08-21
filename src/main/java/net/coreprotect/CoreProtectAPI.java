@@ -191,8 +191,8 @@ public class CoreProtectAPI extends Queue {
         boolean match = false;
 
         if (Config.getGlobal().API_ENABLED) {
-            long timestamp = System.currentTimeMillis() / 1000L;
-            long offsetTime = timestamp - offset;
+            long timestamp = System.currentTimeMillis();
+            long offsetTime = timestamp - offset * 1000L;
             List<String[]> check = blockLookup(block, time);
 
             for (String[] value : check) {
@@ -212,8 +212,8 @@ public class CoreProtectAPI extends Queue {
         boolean match = false;
 
         if (Config.getGlobal().API_ENABLED) {
-            long timestamp = System.currentTimeMillis() / 1000L;
-            long offsetTime = timestamp - offset;
+            long timestamp = System.currentTimeMillis();
+            long offsetTime = timestamp - offset * 1000L;
             List<String[]> check = blockLookup(block, time);
 
             for (String[] value : check) {

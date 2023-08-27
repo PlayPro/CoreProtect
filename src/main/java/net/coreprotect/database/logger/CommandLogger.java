@@ -3,6 +3,7 @@ package net.coreprotect.database.logger;
 import java.sql.PreparedStatement;
 import java.util.Locale;
 
+import net.coreprotect.event.CoreProtectPreCommandLogEvent;
 import org.bukkit.Location;
 
 import net.coreprotect.CoreProtect;
@@ -29,11 +30,13 @@ public class CommandLogger {
             }
 
             CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
+            CoreProtectPreCommandLogEvent commandEvent = new CoreProtectPreCommandLogEvent(user, message);
             if (Config.getGlobal().API_ENABLED) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+                CoreProtect.getInstance().getServer().getPluginManager().callEvent(commandEvent);
             }
 
-            if (event.isCancelled()) {
+            if (event.isCancelled() || commandEvent.isCancelled()) {
                 return;
             }
 

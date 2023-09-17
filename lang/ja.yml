@@ -32,7 +32,7 @@ FINISHING_CONVERSION: "データ変換を終了します。お待ちください
 FINISHING_LOGGING: "データ・ロギングを終了します。お待ちください..."
 FIRST_VERSION: "初期データベース: {0}"
 GLOBAL_LOOKUP: "グローバルにおいてルックアップを行うには半径を指定しないでください。"
-GLOBAL_ROLLBACK: "グローバルにおいて{ロールバック|リストア}を行うには「{0}」を使用してください"
+GLOBAL_ROLLBACK: "グローバルにおいて{ロールバック|リストア}を行うには「{0}」を使用してください。"
 HELP_ACTION_1: "ルックアップを特定の行為に制限します。"
 HELP_ACTION_2: "例: [a:block], [a:+block], [a:-block] [a:click], [a:container], [a:inventory], [a:item], [a:kill], [a:chat], [a:command], [a:sign], [a:session], [a:username]"
 HELP_COMMAND: "このコマンドについて追加情報を表示します。"

@@ -1258,10 +1258,11 @@ public class Rollback extends Queue {
                             if (preview == 0) {
                                 for (Player player : Bukkit.getOnlinePlayers()) {
                                     Location playerLocation = player.getLocation();
+                                    String playerWorld = playerLocation.getWorld().getName();
                                     int chunkX = playerLocation.getBlockX() >> 4;
                                     int chunkZ = playerLocation.getBlockZ() >> 4;
 
-                                    if (chunkX == finalChunkX && chunkZ == finalChunkZ) {
+                                    if (bukkitRollbackWorld.getName().equals(playerWorld) && chunkX == finalChunkX && chunkZ == finalChunkZ) {
                                         Teleport.performSafeTeleport(player, playerLocation, false);
                                     }
                                 }

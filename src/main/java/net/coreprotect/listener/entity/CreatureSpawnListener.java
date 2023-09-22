@@ -40,9 +40,9 @@ public final class CreatureSpawnListener extends Queue implements Listener {
             Map.Entry<String, Object[]> pair = it.next();
             String name = pair.getKey();
             Object[] data = pair.getValue();
-            if ((data[0].equals(key) || data[1].equals(key)) && Util.getEntityMaterial(event.getEntityType()) == ((ItemStack) data[2]).getType()) {
+            if ((data[1].equals(key) || data[2].equals(key)) && Util.getEntityMaterial(event.getEntityType()) == ((ItemStack) data[3]).getType()) {
                 Block gravityLocation = BlockUtil.gravityScan(location, Material.ARMOR_STAND, name);
-                Queue.queueBlockPlace(name, gravityLocation.getState(), location.getBlock().getType(), location.getBlock().getState(), ((ItemStack) data[2]).getType(), (int) event.getEntity().getLocation().getYaw(), 1, null);
+                Queue.queueBlockPlace(name, gravityLocation.getState(), location.getBlock().getType(), location.getBlock().getState(), ((ItemStack) data[3]).getType(), (int) event.getEntity().getLocation().getYaw(), 1, null);
                 it.remove();
             }
         }

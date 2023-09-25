@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>net.coreprotect</groupId>
   <artifactId>CoreProtect</artifactId>
-  <version>22.1</version>
+  <version>22.2</version>
   <properties>
     <project.branch></project.branch>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -101,9 +101,9 @@
     bukkit: org.bukkit
     -->
     <dependency>
-      <groupId>dev.folia</groupId>
-      <artifactId>folia-api</artifactId>
-      <version>1.20.1-R0.1-SNAPSHOT</version>
+      <groupId>io.papermc.paper</groupId>
+      <artifactId>paper-api</artifactId>
+      <version>1.20.2-R0.1-SNAPSHOT</version>
       <scope>provided</scope>
     </dependency>
     <dependency>

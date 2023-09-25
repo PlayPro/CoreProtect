@@ -82,4 +82,8 @@ public class SpigotAdapter implements SpigotInterface {
 
         Chat.sendMessage(sender, message.toString());
     }
+
+    public String processComponent(String component) {
+        return component.replace(Chat.COMPONENT_PIPE, "|");
+    }
 }

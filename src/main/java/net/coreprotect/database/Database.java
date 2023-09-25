@@ -106,6 +106,10 @@ public class Database extends Queue {
         }
     }
 
+    public static boolean hasReturningKeys() {
+        return (!Config.getGlobal().MYSQL && ConfigHandler.SERVER_VERSION >= 20);
+    }
+
     public static void containerBreakCheck(String user, Material type, Object container, ItemStack[] contents, Location location) {
         if (BlockGroup.CONTAINERS.contains(type) && !BlockGroup.SHULKER_BOXES.contains(type)) {
             if (Config.getConfig(location.getWorld()).ITEM_TRANSACTIONS) {
@@ -286,7 +290,12 @@ public class Database extends Queue {
         PreparedStatement preparedStatement = null;
         try {
             if (keys) {
-                preparedStatement = connection.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);
+                if (hasReturningKeys()) {
+                    preparedStatement = connection.prepareStatement(query + " RETURNING rowid");
+                }
+                else {
+                    preparedStatement = connection.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);
+                }
             }
             else {
                 preparedStatement = connection.prepareStatement(query);

@@ -10,6 +10,7 @@ import org.bukkit.block.BlockState;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.BlockStatement;
 import net.coreprotect.database.statement.EntityStatement;
 import net.coreprotect.database.statement.UserStatement;
@@ -43,11 +44,21 @@ public class EntityKillLogger {
             int x = block.getX();
             int y = block.getY();
             int z = block.getZ();
-            EntityStatement.insert(preparedStmt2, time, data);
-            ResultSet keys = preparedStmt2.getGeneratedKeys();
-            keys.next();
-            int entity_key = keys.getInt(1);
-            keys.close();
+            int entity_key = 0;
+
+            ResultSet resultSet = EntityStatement.insert(preparedStmt2, time, data);
+            if (Database.hasReturningKeys()) {
+                resultSet.next();
+                entity_key = resultSet.getInt(1);
+                resultSet.close();
+            }
+            else {
+                ResultSet keys = preparedStmt2.getGeneratedKeys();
+                keys.next();
+                entity_key = keys.getInt(1);
+                keys.close();
+            }
+
             BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, type, entity_key, null, null, 3, 0);
         }
         catch (Exception e) {

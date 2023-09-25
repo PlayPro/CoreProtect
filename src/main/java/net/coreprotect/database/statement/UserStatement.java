@@ -9,6 +9,7 @@ import java.util.Locale;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
 
 public class UserStatement {
 
@@ -21,14 +22,32 @@ public class UserStatement {
 
         try {
             int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
-            PreparedStatement preparedStmt = connection.prepareStatement("INSERT INTO " + ConfigHandler.prefix + "user (time, user) VALUES (?, ?)", Statement.RETURN_GENERATED_KEYS);
+
+            PreparedStatement preparedStmt = null;
+            if (Database.hasReturningKeys()) {
+                preparedStmt = connection.prepareStatement("INSERT INTO " + ConfigHandler.prefix + "user (time, user) VALUES (?, ?) RETURNING rowid");
+            }
+            else {
+                preparedStmt = connection.prepareStatement("INSERT INTO " + ConfigHandler.prefix + "user (time, user) VALUES (?, ?)", Statement.RETURN_GENERATED_KEYS);
+            }
+
             preparedStmt.setInt(1, unixtimestamp);
             preparedStmt.setString(2, user);
-            preparedStmt.executeUpdate();
-            ResultSet keys = preparedStmt.getGeneratedKeys();
-            keys.next();
-            id = keys.getInt(1);
-            keys.close();
+
+            if (Database.hasReturningKeys()) {
+                ResultSet resultSet = preparedStmt.executeQuery();
+                resultSet.next();
+                id = resultSet.getInt(1);
+                resultSet.close();
+            }
+            else {
+                preparedStmt.executeUpdate();
+                ResultSet keys = preparedStmt.getGeneratedKeys();
+                keys.next();
+                id = keys.getInt(1);
+                keys.close();
+            }
+
             preparedStmt.close();
         }
         catch (Exception e) {

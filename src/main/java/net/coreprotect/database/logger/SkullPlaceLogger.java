@@ -9,6 +9,7 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.Skull;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.SkullStatement;
 
 public class SkullPlaceLogger {
@@ -31,11 +32,18 @@ public class SkullPlaceLogger {
                 String skullOwner = "";
                 if (skull.hasOwner()) {
                     skullOwner = skull.getOwningPlayer().getUniqueId().toString();
-                    SkullStatement.insert(preparedStmt2, time, skullOwner);
-                    ResultSet keys = preparedStmt2.getGeneratedKeys();
-                    keys.next();
-                    skullKey = keys.getInt(1);
-                    keys.close();
+                    ResultSet resultSet = SkullStatement.insert(preparedStmt2, time, skullOwner);
+                    if (Database.hasReturningKeys()) {
+                        resultSet.next();
+                        skullKey = resultSet.getInt(1);
+                        resultSet.close();
+                    }
+                    else {
+                        ResultSet keys = preparedStmt2.getGeneratedKeys();
+                        keys.next();
+                        skullKey = keys.getInt(1);
+                        keys.close();
+                    }
                 }
             }
 

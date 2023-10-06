@@ -121,6 +121,7 @@ public class Rollback extends Queue {
             List<Object> itemRestrictList = new ArrayList<>(restrictList);
             Map<Object, Boolean> itemExcludeList = new HashMap<>(excludeList);
 
+            // Action 1: Place block / container add / player login / BUG?: inv remove
             if (actionList.contains(1)) {
                 for (Object target : restrictList) {
                     if (target instanceof Material) {
@@ -715,7 +716,7 @@ public class Rollback extends Queue {
                                                             inventory.clear();
                                                         }
                                                     }
-                                                    else if (BlockGroup.CONTAINERS.contains(Material.ARMOR_STAND)) {
+                                                    else if (BlockGroup.CONTAINERS.contains(Material.ARMOR_STAND)) { // TODO: THIS IS ALWAYS TRUE
                                                         if ((oldTypeMaterial == Material.ARMOR_STAND)) {
                                                             for (Entity entity : block.getChunk().getEntities()) {
                                                                 if (entity instanceof ArmorStand) {
@@ -1461,7 +1462,7 @@ public class Rollback extends Queue {
                     }
 
                     if (targetCount == 0) {
-                        restrictTargets = restrictTargets.append("" + targetName + "");
+                        restrictTargets = restrictTargets.append("" + targetName + ""); // TODO: Are these "" + x + "" necessary? If the intent is toString, targetName is already always a string.
                     }
                     else {
                         restrictTargets.append(", ").append(targetName);

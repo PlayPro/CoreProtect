@@ -459,7 +459,7 @@ public class CoreProtectAPI extends Queue {
             actionList.add(1);
         }
 
-        // What on earth was this meant to solve?
+        // What on earth was this meant to solve? - @bdotsamir
 //        actionList.removeIf(actionListItem -> actionListItem > 3);
 
         if (restrictUsers.size() == 0) {

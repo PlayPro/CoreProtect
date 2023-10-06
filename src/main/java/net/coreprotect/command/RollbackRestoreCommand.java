@@ -258,7 +258,9 @@ public class RollbackRestoreCommand {
                 int y = 0;
                 int z = 0;
                 if (rollbackusers.contains("#container")) {
+                    // If the users we want to roll back includes "#container" and we're rolling back player inventories ...
                     if (argAction.contains(11)) {
+                        // ... fail out.
                         Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_USERNAME, "#container"));
                         return;
                     }
@@ -275,44 +277,49 @@ public class RollbackRestoreCommand {
                             }
                         }
                     }
-                    if (valid) {
-                        if (preview > 0) {
-                            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PREVIEW_TRANSACTION, Selector.FIRST));
-                            return;
-                        }
-                        else {
-                            String lcommand = ConfigHandler.lookupCommand.get(player.getName());
-                            String[] data = lcommand.split("\\.");
-                            x = Integer.parseInt(data[0]);
-                            y = Integer.parseInt(data[1]);
-                            z = Integer.parseInt(data[2]);
-                            wid = Integer.parseInt(data[3]);
-                            argAction.add(5);
-                            argRadius = null;
-                            argWid = 0;
-                            lo = new Location(Bukkit.getServer().getWorld(Util.getWorldName(wid)), x, y, z);
-                            Block block = lo.getBlock();
-                            if (block.getState() instanceof Chest) {
-                                BlockFace[] blockFaces = new BlockFace[] { BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST };
-                                for (BlockFace face : blockFaces) {
-                                    if (block.getRelative(face, 1).getState() instanceof Chest) {
-                                        Block relative = block.getRelative(face, 1);
-                                        int x2 = relative.getX();
-                                        int z2 = relative.getZ();
-                                        double newX = (x + x2) / 2.0;
-                                        double newZ = (z + z2) / 2.0;
-                                        lo.setX(newX);
-                                        lo.setZ(newZ);
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    else {
+
+                    // @bdotsamir: swap logic to reduce indentation
+                    if (!valid) {
                         Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_CONTAINER));
                         return;
                     }
+
+                    if (preview > 0) {
+                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PREVIEW_TRANSACTION, Selector.FIRST));
+                        return;
+                    }
+
+                    // @bdotsamir: remove else to reduce indentation
+                    String lcommand = ConfigHandler.lookupCommand.get(player.getName());
+                    String[] data = lcommand.split("\\.");
+                    x = Integer.parseInt(data[0]);
+                    y = Integer.parseInt(data[1]);
+                    z = Integer.parseInt(data[2]);
+                    wid = Integer.parseInt(data[3]);
+                    // This is the only instance where 5 is added to the argAction list.
+                    // This only ever happens when the rollbackUsers includes "#container"
+                    // So far, it's unclear what action 5 does.
+                    argAction.add(5);
+                    argRadius = null;
+                    argWid = 0;
+                    lo = new Location(Bukkit.getServer().getWorld(Util.getWorldName(wid)), x, y, z);
+                    Block block = lo.getBlock();
+                    if (block.getState() instanceof Chest) {
+                        BlockFace[] blockFaces = new BlockFace[]{BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST};
+                        for (BlockFace face : blockFaces) {
+                            if (block.getRelative(face, 1).getState() instanceof Chest) {
+                                Block relative = block.getRelative(face, 1);
+                                int x2 = relative.getX();
+                                int z2 = relative.getZ();
+                                double newX = (x + x2) / 2.0;
+                                double newZ = (z + z2) / 2.0;
+                                lo.setX(newX);
+                                lo.setZ(newZ);
+                                break;
+                            }
+                        }
+                    }
+
                 }
 
                 final List<String> rollbackusers2 = rollbackusers;

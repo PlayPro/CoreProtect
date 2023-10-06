@@ -55,7 +55,7 @@ public class CommandHandler implements CommandExecutor {
         String[] argumentArray = inputArguments.clone();
         List<Integer> result = new ArrayList<>();
         int count = 0;
-        int next = 0;
+        int next = 0; // TODO: Only ever 1 or 0. Boolean?
         for (String argument : argumentArray) {
             if (count > 0) {
                 argument = argument.trim().toLowerCase(Locale.ROOT);
@@ -129,12 +129,12 @@ public class CommandHandler implements CommandExecutor {
                     else if (argument.equals("-inv") || argument.equals("inv-") || argument.equals("-inventory") || argument.equals("inventory-") || argument.equals("-inventories")) {
                         result.add(4);
                         result.add(11);
-                        result.add(1);
+                        result.add(1); // FIXME: I think this is supposed to be 0. Removed from inv
                     }
                     else if (argument.equals("+inv") || argument.equals("inv+") || argument.equals("+inventory") || argument.equals("inventory+") || argument.equals("+inventories")) {
                         result.add(4);
                         result.add(11);
-                        result.add(0);
+                        result.add(0); // FIXME: above, this should be 1? Added to inv
                     }
                     else if (argument.equals("item") || argument.equals("items")) {
                         result.add(11);

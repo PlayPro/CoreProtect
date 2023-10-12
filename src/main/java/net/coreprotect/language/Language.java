@@ -52,7 +52,7 @@ public class Language {
         phrases.put(Phrase.DATABASE_LOCKED_4, "Disabling database locking can result in data corruption.");
         phrases.put(Phrase.DATABASE_UNREACHABLE, "Database is unreachable. Discarding data and shutting down.");
         phrases.put(Phrase.DEVELOPMENT_BRANCH, "Development branch detected, skipping patch scripts.");
-        phrases.put(Phrase.DIRT_BLOCK, "Placed a dirt block under you.");
+        phrases.put(Phrase.DIRT_BLOCK, "Placed a temporary safety block under you.");
         phrases.put(Phrase.DISABLE_SUCCESS, "Success! Disabled {0}");
         phrases.put(Phrase.ENABLE_FAILED, "{0} was unable to start.");
         phrases.put(Phrase.ENABLE_SUCCESS, "{0} has been successfully enabled!");

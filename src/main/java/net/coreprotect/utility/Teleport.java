@@ -3,23 +3,29 @@ package net.coreprotect.utility;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 
+import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.paper.PaperAdapter;
+import net.coreprotect.thread.Scheduler;
 
 public class Teleport {
 
     private Teleport() {
         throw new IllegalStateException("Utility class");
     }
+
+    public static ConcurrentHashMap<Location, BlockData> revertBlocks = new ConcurrentHashMap<>();
 
     public static void performSafeTeleport(Player player, Location location, boolean enforceTeleport) {
         try {
@@ -46,20 +52,33 @@ public class Teleport {
                 Material type1 = block1.getType();
                 Material type2 = block2.getType();
 
-                if (!Util.solidBlock(type1) && !Util.solidBlock(type2)) {
+                if (Util.passableBlock(block1) && Util.passableBlock(block2)) {
                     if (unsafeBlocks.contains(type1)) {
                         placeSafe = true;
                     }
                     else {
                         safeBlock = true;
-                        if (placeSafe) {
+                        if (placeSafe && player.getGameMode() == GameMode.SURVIVAL) {
                             int below = checkY - 1;
                             Block blockBelow = location.getWorld().getBlockAt(playerX, below, playerZ);
 
                             if (checkY < worldHeight && unsafeBlocks.contains(blockBelow.getType())) {
                                 alert = true;
-                                block1.setType(Material.DIRT);
+                                Location revertLocation = block1.getLocation();
+                                BlockData revertBlockData = block1.getBlockData();
+                                revertBlocks.put(revertLocation, revertBlockData);
+                                if (!ConfigHandler.isFolia) {
+                                    block1.setType(Material.BARRIER);
+                                }
+                                else {
+                                    block1.setType(Material.DIRT);
+                                }
                                 checkY++;
+
+                                Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
+                                    block1.setBlockData(revertBlockData);
+                                    revertBlocks.remove(revertLocation);
+                                }, revertLocation, 1200);
                             }
                         }
                     }

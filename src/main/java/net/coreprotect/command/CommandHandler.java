@@ -1,25 +1,5 @@
 package net.coreprotect.command;
 
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.command.BlockCommandSender;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
-import org.bukkit.command.CommandSender;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Player;
-
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
@@ -30,6 +10,19 @@ import net.coreprotect.thread.NetworkHandler;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.command.BlockCommandSender;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
+
+import java.math.BigDecimal;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class CommandHandler implements CommandExecutor {
     private static CommandHandler instance;
@@ -1269,7 +1262,7 @@ public class CommandHandler implements CommandExecutor {
                             }
                         }
                     }
-                    (new Thread(new updateAlert())).start();
+                    (Util.THREAD_FACTORY.newThread(new updateAlert())).start();
                 }
             }
 

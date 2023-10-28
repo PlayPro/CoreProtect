@@ -1,5 +1,14 @@
 package net.coreprotect.patch;
 
+import net.coreprotect.CoreProtect;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Consumer;
+import net.coreprotect.database.Database;
+import net.coreprotect.language.Phrase;
+import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.Color;
+import net.coreprotect.utility.Util;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.lang.reflect.Method;
@@ -12,15 +21,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.jar.JarEntry;
 import java.util.jar.JarInputStream;
-
-import net.coreprotect.CoreProtect;
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.Consumer;
-import net.coreprotect.database.Database;
-import net.coreprotect.language.Phrase;
-import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
 
 public class Patch {
 
@@ -302,8 +302,8 @@ public class Patch {
                         }
                     }
                 }
-                (new Thread(new runPatch())).start();
-                (new Thread(new patchStatus())).start();
+                (Util.THREAD_FACTORY.newThread(new runPatch())).start();
+                (Util.THREAD_FACTORY.newThread(new patchStatus())).start();
             }
             else if (lastVersion[0] == 0) {
                 int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);

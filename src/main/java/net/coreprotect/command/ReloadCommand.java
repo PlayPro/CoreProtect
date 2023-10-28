@@ -1,13 +1,13 @@
 package net.coreprotect.command;
 
-import org.bukkit.command.CommandSender;
-
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.thread.NetworkHandler;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
+import net.coreprotect.utility.Util;
+import org.bukkit.command.CommandSender;
 
 public class ReloadCommand {
     protected static void runCommand(final CommandSender player, boolean permission, String[] args) {
@@ -44,7 +44,7 @@ public class ReloadCommand {
                         ConfigHandler.performInitialization(false);
                         Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.RELOAD_SUCCESS));
 
-                        Thread networkHandler = new Thread(new NetworkHandler(false, false));
+                        Thread networkHandler = Util.THREAD_FACTORY.newThread(new NetworkHandler(false, false));
                         networkHandler.start();
                     }
                     catch (Exception e) {
@@ -56,7 +56,7 @@ public class ReloadCommand {
                 }
             }
             Runnable runnable = new BasicThread();
-            Thread thread = new Thread(runnable);
+            Thread thread = Util.THREAD_FACTORY.newThread(runnable);
             thread.start();
         }
         else {

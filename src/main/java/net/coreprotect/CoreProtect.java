@@ -1,17 +1,5 @@
 package net.coreprotect;
 
-import java.io.File;
-import java.util.Iterator;
-import java.util.Map.Entry;
-
-import org.bstats.bukkit.MetricsLite;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.block.data.BlockData;
-import org.bukkit.entity.Player;
-import org.bukkit.plugin.PluginDescriptionFile;
-import org.bukkit.plugin.java.JavaPlugin;
-
 import net.coreprotect.command.CommandHandler;
 import net.coreprotect.command.TabHandler;
 import net.coreprotect.config.Config;
@@ -30,6 +18,17 @@ import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Teleport;
 import net.coreprotect.utility.Util;
+import org.bstats.bukkit.MetricsLite;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.PluginDescriptionFile;
+import org.bukkit.plugin.java.JavaPlugin;
+
+import java.io.File;
+import java.util.Iterator;
+import java.util.Map.Entry;
 
 public final class CoreProtect extends JavaPlugin {
 
@@ -102,7 +101,7 @@ public final class CoreProtect extends JavaPlugin {
 
             Scheduler.scheduleSyncDelayedTask(this, () -> {
                 try {
-                    Thread networkHandler = new Thread(new NetworkHandler(true, true));
+                    Thread networkHandler = Util.THREAD_FACTORY.newThread(new NetworkHandler(true, true));
                     networkHandler.start();
                 }
                 catch (Exception e) {
@@ -110,7 +109,7 @@ public final class CoreProtect extends JavaPlugin {
                 }
             }, 0);
 
-            Thread cacheCleanUpThread = new Thread(new CacheHandler());
+            Thread cacheCleanUpThread = Util.THREAD_FACTORY.newThread(new CacheHandler());
             cacheCleanUpThread.start();
 
             Consumer.startConsumer();

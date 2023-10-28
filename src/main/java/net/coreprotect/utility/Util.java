@@ -1,55 +1,6 @@
 package net.coreprotect.utility;
 
-import java.io.ByteArrayOutputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.text.DecimalFormat;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
-
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.World;
-import org.bukkit.block.Banner;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockState;
-import org.bukkit.block.Chest;
-import org.bukkit.block.CommandBlock;
-import org.bukkit.block.Jukebox;
-import org.bukkit.block.ShulkerBox;
-import org.bukkit.block.banner.Pattern;
-import org.bukkit.block.data.BlockData;
-import org.bukkit.block.data.Waterlogged;
-import org.bukkit.command.ConsoleCommandSender;
-import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.configuration.serialization.ConfigurationSerialization;
-import org.bukkit.configuration.serialization.DelegateDeserialization;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.ItemFrame;
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Player;
-import org.bukkit.inventory.BlockInventoryHolder;
-import org.bukkit.inventory.EntityEquipment;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.PlayerInventory;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.plugin.Plugin;
-import org.bukkit.util.io.BukkitObjectOutputStream;
-
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
@@ -62,11 +13,46 @@ import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 import net.coreprotect.worldedit.CoreProtectEditSessionEvent;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.World;
+import org.bukkit.block.*;
+import org.bukkit.block.banner.Pattern;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.Waterlogged;
+import org.bukkit.command.ConsoleCommandSender;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.configuration.serialization.ConfigurationSerialization;
+import org.bukkit.configuration.serialization.DelegateDeserialization;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.ItemFrame;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.*;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.util.io.BukkitObjectOutputStream;
+
+import java.io.ByteArrayOutputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.concurrent.ThreadFactory;
 
 public class Util extends Queue {
 
     public static final java.util.regex.Pattern tagParser = java.util.regex.Pattern.compile(Chat.COMPONENT_TAG_OPEN + "(.+?)" + Chat.COMPONENT_TAG_CLOSE + "|(.+?)", java.util.regex.Pattern.DOTALL);
     private static final String NAMESPACE = "minecraft:";
+
+    public static final ThreadFactory THREAD_FACTORY = new ThreadFactoryBuilder()
+            .setNameFormat("CoreProtect-%d")
+            .build();
 
     private Util() {
         throw new IllegalStateException("Utility class");

@@ -1,9 +1,15 @@
 package net.coreprotect.listener.player;
 
-import java.sql.Connection;
-import java.sql.Statement;
-import java.util.List;
-
+import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.Database;
+import net.coreprotect.database.lookup.ChestTransactionLookup;
+import net.coreprotect.language.Phrase;
+import net.coreprotect.model.BlockGroup;
+import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.Color;
+import net.coreprotect.utility.Util;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.ArmorStand;
@@ -15,16 +21,9 @@ import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.ItemStack;
 
-import net.coreprotect.config.Config;
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.database.Database;
-import net.coreprotect.database.lookup.ChestTransactionLookup;
-import net.coreprotect.language.Phrase;
-import net.coreprotect.model.BlockGroup;
-import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import java.sql.Connection;
+import java.sql.Statement;
+import java.util.List;
 
 public final class ArmorStandManipulateListener extends Queue implements Listener {
 
@@ -75,7 +74,7 @@ public final class ArmorStandManipulateListener extends Queue implements Listene
             }
         }
         Runnable runnable = new BasicThread();
-        Thread thread = new Thread(runnable);
+        Thread thread = Util.THREAD_FACTORY.newThread(runnable);
         thread.start();
     }
 

@@ -1,19 +1,15 @@
 package net.coreprotect.consumer;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
+import net.coreprotect.CoreProtect;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.process.Process;
+import net.coreprotect.utility.Util;
 import org.bukkit.Bukkit;
 import org.bukkit.block.BlockState;
 import org.bukkit.inventory.ItemStack;
 
-import net.coreprotect.CoreProtect;
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.process.Process;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Consumer extends Process implements Runnable, Thread.UncaughtExceptionHandler {
 
@@ -147,7 +143,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
 
     public static void startConsumer() {
         if (!isRunning()) {
-            consumerThread = new Thread(new Consumer());
+            consumerThread = Util.THREAD_FACTORY.newThread(new Consumer());
             consumerThread.setUncaughtExceptionHandler(new Consumer());
             consumerThread.start();
         }

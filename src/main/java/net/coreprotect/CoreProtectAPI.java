@@ -1,5 +1,6 @@
 package net.coreprotect;
 
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -17,8 +18,12 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.BlockStateMeta;
+import org.bukkit.inventory.meta.ItemMeta;
 
 import net.coreprotect.api.BlockAPI;
+import net.coreprotect.api.ContainerTransactionsAPI;
 import net.coreprotect.api.QueueLookup;
 import net.coreprotect.api.SessionLookup;
 import net.coreprotect.config.Config;
@@ -117,9 +122,21 @@ public class CoreProtectAPI extends Queue {
                 return null;
             }
 
+            final ItemMeta itemMeta = getItemMeta();
+            if (itemMeta instanceof BlockStateMeta) {
+                return ((BlockStateMeta) itemMeta).getBlockState().getBlockData();
+            }
+
             String blockData = parse[12];
             if (blockData == null || blockData.length() == 0) {
-                return getType().createBlockData();
+                final Material type = getType();
+                if (type.isBlock()) {
+                    return type.createBlockData();
+                }
+                else {
+                    return null;
+
+                }
             }
             return Bukkit.getServer().createBlockData(blockData);
         }
@@ -146,6 +163,27 @@ public class CoreProtectAPI extends Queue {
 
         public String worldName() {
             return Util.getWorldName(Integer.parseInt(parse.length < 13 ? parse[5] : parse[9]));
+        }
+
+        public int getAmount() {
+            if (parse.length < 13) {
+                return 0;
+            }
+
+            return Integer.parseInt(parse[10]);
+        }
+
+        public ItemMeta getItemMeta() {
+            if (parse.length < 13) {
+                return null;
+            }
+
+            if (parse[11] == null || parse[11].isEmpty()) {
+                return null;
+            }
+            final byte[] metadata = parse[11].getBytes(StandardCharsets.ISO_8859_1);
+            final ItemStack item = (ItemStack) Rollback.populateItemStack(new ItemStack(getType(), getAmount()), metadata)[2];
+            return item.getItemMeta();
         }
     }
 
@@ -174,6 +212,13 @@ public class CoreProtectAPI extends Queue {
     public List<String[]> blockLookup(Block block, int time) {
         if (Config.getGlobal().API_ENABLED) {
             return BlockAPI.performLookup(block, time);
+        }
+        return null;
+    }
+
+    public List<String[]> containerTransactionsLookup(Block block, int time) {
+        if (Config.getGlobal().API_ENABLED) {
+            return ContainerTransactionsAPI.performLookup(block, time);
         }
         return null;
     }

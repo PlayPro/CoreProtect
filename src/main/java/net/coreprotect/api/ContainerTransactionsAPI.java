@@ -1,12 +1,5 @@
 package net.coreprotect.api;
 
-import net.coreprotect.CoreProtect;
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.database.Database;
-import net.coreprotect.database.statement.UserStatement;
-import net.coreprotect.utility.Util;
-import org.bukkit.block.Block;
-
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -16,6 +9,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 
+import org.bukkit.Location;
+
+import net.coreprotect.CoreProtect;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
+import net.coreprotect.database.statement.UserStatement;
+import net.coreprotect.utility.Util;
+
 public final class ContainerTransactionsAPI {
 
     private static final int CONNECTION_WAIT_TIME = 1000;
@@ -24,19 +25,19 @@ public final class ContainerTransactionsAPI {
         throw new AssertionError();
     }
 
-    public static List<String[]> performLookup(Block block, int offset) {
+    public static List<String[]> performLookup(Location location, int offset) {
         List<String[]> result = new ArrayList<>();
 
-        if (block == null) {
+        if (location == null) {
             return result;
         }
 
         try (Connection connection = Database.getConnection(false, CONNECTION_WAIT_TIME)) {
-            final int x = block.getX();
-            final int y = block.getY();
-            final int z = block.getZ();
+            final int x = (int) location.getX();
+            final int y = (int) location.getY();
+            final int z = (int) location.getZ();
             final int now = (int) (System.currentTimeMillis() / 1000L);
-            final int worldId = Util.getWorldId(block.getWorld().getName());
+            final int worldId = Util.getWorldId(location.getWorld().getName());
             final int timeFrom = offset > 0 ? now - offset : 0;
 
             if (connection == null) {

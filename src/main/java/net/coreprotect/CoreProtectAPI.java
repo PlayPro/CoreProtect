@@ -216,9 +216,9 @@ public class CoreProtectAPI extends Queue {
         return null;
     }
 
-    public List<String[]> containerTransactionsLookup(Block block, int time) {
+    public List<String[]> containerTransactionsLookup(Location location, int time) {
         if (Config.getGlobal().API_ENABLED) {
-            return ContainerTransactionsAPI.performLookup(block, time);
+            return ContainerTransactionsAPI.performLookup(location, time);
         }
         return null;
     }

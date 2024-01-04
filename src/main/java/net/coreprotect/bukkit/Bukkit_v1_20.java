@@ -95,6 +95,27 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 implements BukkitInterface {
     }
 
     @Override
+    public String parseLegacyName(String name) {
+        switch (name) {
+            case "GRASS_PATH":
+                name = "DIRT_PATH";
+                break;
+            case "GRASS":
+                name = "SHORT_GRASS";
+                break;
+            default:
+                break;
+        }
+
+        // fallback until this method is moved up into v1_21
+        if (name.equals("SHORT_GRASS") && Material.getMaterial(name) == null) {
+            name = "GRASS";
+        }
+
+        return name;
+    }
+
+    @Override
     public void setColor(Sign sign, boolean isFront, int color) {
         if (isFront) {
             sign.getSide(Side.FRONT).setColor(DyeColor.getByColor(Color.fromRGB(color)));

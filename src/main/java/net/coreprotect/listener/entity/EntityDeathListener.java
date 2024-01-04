@@ -527,6 +527,16 @@ public final class EntityDeathListener extends Queue implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEntityDeath(EntityDeathEvent event) {
+        /*
+        System.out.println("ENTITY DEATH - " + event.getEntity().getName());
+        if (event.getEntity().getKiller() != null) {
+            System.out.println("^ (killer): " + event.getEntity().getKiller().getName());
+        }
+        else if (event.getEntity().getLastDamageCause() != null) {
+            System.out.println("^ (damage cause): " + event.getEntity().getLastDamageCause().getEntity().getName());
+        }
+        */
+
         LivingEntity entity = event.getEntity();
         if (entity == null) {
             return;

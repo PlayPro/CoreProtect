@@ -301,7 +301,7 @@ public class TabHandler implements TabCompleter {
 
                 if (materials == null) {
                     List<Material> addList = Arrays.asList(Material.ARMOR_STAND);
-                    List<Material> excludeList = Arrays.asList(Material.GRASS);
+                    List<Material> excludeList = Arrays.asList();
                     Set<String> materialList = new HashSet<>();
 
                     Material[] materialValues = Material.values();

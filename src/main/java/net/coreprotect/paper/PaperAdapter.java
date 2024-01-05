@@ -3,6 +3,7 @@ package net.coreprotect.paper;
 import org.bukkit.Location;
 import org.bukkit.Server;
 import org.bukkit.block.Sign;
+import org.bukkit.block.Skull;
 import org.bukkit.entity.Entity;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
@@ -71,6 +72,16 @@ public class PaperAdapter implements PaperInterface {
     @Override
     public void teleportAsync(Entity entity, Location location) {
         entity.teleport(location);
+    }
+
+    @Override
+    public String getSkullOwner(Skull skull) {
+        return skull.getOwningPlayer().getUniqueId().toString();
+    }
+
+    @Override
+    public void setSkullOwner(Skull skull, String owner) {
+        return;
     }
 
 }

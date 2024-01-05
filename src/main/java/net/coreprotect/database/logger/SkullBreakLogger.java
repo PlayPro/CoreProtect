@@ -10,6 +10,7 @@ import org.bukkit.block.Skull;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.SkullStatement;
+import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.utility.Util;
 
 public class SkullBreakLogger {
@@ -29,7 +30,7 @@ public class SkullBreakLogger {
             String skullOwner = "";
             int skullKey = 0;
             if (skull.hasOwner()) {
-                skullOwner = skull.getOwningPlayer().getUniqueId().toString();
+                skullOwner = PaperAdapter.ADAPTER.getSkullOwner(skull);
                 ResultSet resultSet = SkullStatement.insert(preparedStmt2, time, skullOwner);
                 if (Database.hasReturningKeys()) {
                     resultSet.next();

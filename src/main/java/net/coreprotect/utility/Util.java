@@ -126,7 +126,7 @@ public class Util extends Queue {
         }
 
         // command
-        message.append("|/" + command + " teleport wid:" + worldId + " " + (x + 0.50) + " " + y + " " + (z + 0.50) + "|");
+        message.append("|/" + command + " teleport wid:" + worldId + " " + String.format("%.2f", (x + 0.50)) + " " + y + " " + String.format("%.2f", (z + 0.50)) + "|");
 
         // chat output
         message.append(Color.GREY + (italic ? Color.ITALIC : "") + "(x" + x + "/y" + y + "/z" + z + worldDisplay.toString() + ")");

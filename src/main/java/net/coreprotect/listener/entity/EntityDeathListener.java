@@ -195,6 +195,9 @@ public final class EntityDeathListener extends Queue implements Listener {
             else if (cause.equals(EntityDamageEvent.DamageCause.WITHER)) {
                 e = "#wither_effect";
             }
+            else if (!cause.name().contains("_")) {
+                e = "#" + cause.name().toLowerCase(Locale.ROOT);
+            }
         }
 
         if (entity instanceof ArmorStand) {

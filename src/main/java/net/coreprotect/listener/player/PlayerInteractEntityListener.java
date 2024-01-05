@@ -75,6 +75,9 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
             if (frame.getItem().getType().equals(Material.AIR) && !handItem.getType().equals(Material.AIR)) { // add item to item frame
                 ItemStack[] oldState = new ItemStack[] { new ItemStack(Material.AIR) };
                 ItemStack[] newState = new ItemStack[] { handItem.clone() };
+                if (newState[0].getAmount() > 1) {
+                    newState[0].setAmount(1); // never add more than 1 item to an item frame at once
+                }
                 queueContainerSpecifiedItems(player.getName(), Material.ITEM_FRAME, new Object[] { oldState, newState, frame.getFacing() }, frame.getLocation(), false);
             }
         }

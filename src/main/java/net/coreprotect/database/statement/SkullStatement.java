@@ -10,6 +10,7 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.Skull;
 
 import net.coreprotect.database.Database;
+import net.coreprotect.paper.PaperAdapter;
 
 public class SkullStatement {
 
@@ -46,8 +47,11 @@ public class SkullStatement {
 
             while (resultSet.next()) {
                 String owner = resultSet.getString("owner");
-                if (owner != null && owner.length() >= 32) {
+                if (owner != null && owner.length() >= 32 && owner.contains("-")) {
                     skull.setOwningPlayer(Bukkit.getOfflinePlayer(UUID.fromString(owner)));
+                }
+                else if (owner != null && owner.length() > 1) {
+                    PaperAdapter.ADAPTER.setSkullOwner(skull, owner);
                 }
             }
 

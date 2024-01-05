@@ -208,6 +208,11 @@ public class BukkitAdapter implements BukkitInterface {
     }
 
     @Override
+    public boolean isDecoratedPot(Material material) {
+        return false;
+    }
+
+    @Override
     public boolean isSuspiciousBlock(Material material) {
         return false;
     }

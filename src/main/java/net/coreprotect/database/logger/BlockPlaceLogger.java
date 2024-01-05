@@ -55,6 +55,10 @@ public class BlockPlaceLogger {
                 return;
             }
 
+            if (ConfigHandler.blacklist.get(type.getKey().toString()) != null) {
+                return;
+            }
+
             int x = block.getX();
             int y = block.getY();
             int z = block.getZ();

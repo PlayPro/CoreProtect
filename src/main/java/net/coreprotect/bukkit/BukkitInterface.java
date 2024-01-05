@@ -66,6 +66,8 @@ public interface BukkitInterface {
 
     public Material getPlantSeeds(Material material);
 
+    public boolean isDecoratedPot(Material material);
+
     public boolean isSuspiciousBlock(Material material);
 
     public boolean isSign(Material material);

@@ -680,6 +680,30 @@ public class Util extends Queue {
         return false;
     }
 
+    /* return true if item can be added to container */
+    public static boolean canAddContainer(ItemStack[] container, ItemStack item, int forceMaxStack) {
+        for (ItemStack containerItem : container) {
+            if (containerItem == null || containerItem.getType() == Material.AIR) {
+                return true;
+            }
+
+            int maxStackSize = containerItem.getMaxStackSize();
+            if (forceMaxStack > 0 && (forceMaxStack < maxStackSize || maxStackSize == -1)) {
+                maxStackSize = forceMaxStack;
+            }
+
+            if (maxStackSize == -1) {
+                maxStackSize = 1;
+            }
+
+            if (containerItem.isSimilar(item) && containerItem.getAmount() < maxStackSize) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static int getArtId(String name, boolean internal) {
         int id = -1;
         name = name.toLowerCase(Locale.ROOT).trim();

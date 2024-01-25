@@ -6,8 +6,6 @@ import java.util.List;
 import java.util.Set;
 
 import org.bukkit.Location;
-import org.bukkit.inventory.BrewerInventory;
-import org.bukkit.inventory.FurnaceInventory;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -30,11 +28,7 @@ public final class HopperPushListener {
             }
         }
 
-        ItemStack[] containerState = null;
-        if (!ConfigHandler.isPaper) {
-            containerState = Util.getContainerState(destinationHolder.getInventory().getContents());
-        }
-        ItemStack[] destinationContainer = containerState;
+        ItemStack[] destinationContainer = Util.getContainerState(destinationHolder.getInventory().getContents());
         ItemStack movedItem = item.clone();
 
         final long taskStarted = InventoryChangeListener.tasksStarted.incrementAndGet();
@@ -44,26 +38,10 @@ public final class HopperPushListener {
                     return;
                 }
 
-                int itemHash = Util.getItemStackHashCode(item);
                 boolean abort = false;
-
-                if (ConfigHandler.isPaper) {
-                    for (ItemStack itemStack : sourceHolder.getInventory().getContents()) {
-                        if (itemStack != null && Util.getItemStackHashCode(itemStack) == itemHash) {
-                            if (itemHash != Util.getItemStackHashCode(movedItem) || destinationHolder.getInventory().firstEmpty() == -1 || destinationHolder.getInventory() instanceof BrewerInventory || destinationHolder.getInventory() instanceof FurnaceInventory) {
-                                abort = true;
-                            }
-
-                            break;
-                        }
-                    }
-                }
-                else {
-                    ItemStack[] destinationContents = destinationHolder.getInventory().getContents();
-                    boolean addedInventory = Util.addedContainer(destinationContainer, destinationContents);
-                    if (!addedInventory) {
-                        abort = true;
-                    }
+                boolean addedInventory = Util.canAddContainer(destinationContainer, movedItem, destinationHolder.getInventory().getMaxStackSize());
+                if (!addedInventory) {
+                    abort = true;
                 }
 
                 if (abort) {

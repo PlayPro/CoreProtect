@@ -203,7 +203,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
         return false;
     }
 
-    private static void onInventoryInteractAsync(Player player, Inventory inventory, boolean enderChest) {
+    static void onInventoryInteractAsync(Player player, Inventory inventory, boolean enderChest) {
         if (inventory == null) {
             return;
         }

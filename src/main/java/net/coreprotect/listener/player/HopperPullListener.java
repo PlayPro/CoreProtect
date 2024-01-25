@@ -6,8 +6,6 @@ import java.util.List;
 import java.util.Set;
 
 import org.bukkit.Location;
-import org.bukkit.inventory.BrewerInventory;
-import org.bukkit.inventory.FurnaceInventory;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -30,11 +28,7 @@ public final class HopperPullListener {
             }
         }
 
-        ItemStack[] containerState = null;
-        if (!ConfigHandler.isPaper) {
-            containerState = Util.getContainerState(sourceHolder.getInventory().getContents());
-        }
-        ItemStack[] sourceContainer = containerState;
+        ItemStack[] sourceContainer = Util.getContainerState(sourceHolder.getInventory().getContents());
         ItemStack movedItem = item.clone();
 
         final long taskStarted = InventoryChangeListener.tasksStarted.incrementAndGet();
@@ -44,48 +38,10 @@ public final class HopperPullListener {
                     return;
                 }
 
-                boolean hopperTransactions = Config.getConfig(location.getWorld()).HOPPER_TRANSACTIONS;
-                int itemHash = Util.getItemStackHashCode(item);
                 boolean abort = false;
-
-                if (ConfigHandler.isPaper) {
-                    for (ItemStack itemStack : sourceHolder.getInventory().getContents()) {
-                        if (itemStack != null && Util.getItemStackHashCode(itemStack) == itemHash) {
-                            if (itemHash != Util.getItemStackHashCode(movedItem) || destinationHolder.getInventory().firstEmpty() == -1 || destinationHolder.getInventory() instanceof BrewerInventory || destinationHolder.getInventory() instanceof FurnaceInventory) {
-                                abort = true;
-                            }
-
-                            break;
-                        }
-                    }
-
-                    /*
-                    for (ItemStack itemStack : sourceHolder.getInventory().getContents()) {
-                        if (itemStack != null && Util.getItemStackHashCode(itemStack) == itemHash) {
-                            abort = true;
-                            break;
-                        }
-                    }
-
-                    if (abort) {
-                        for (ItemStack itemStack : destinationHolder.getInventory().getContents()) {
-                            if (itemStack != null && Util.getItemStackHashCode(itemStack) == Util.getItemStackHashCode(movedItem)) {
-                                if (itemHash == Util.getItemStackHashCode(itemStack) && destinationHolder.getInventory().firstEmpty() > -1) {
-                                    abort = false;
-                                }
-                    
-                                break;
-                            }
-                        }
-                    }
-                    */
-                }
-                else {
-                    ItemStack[] sourceContents = sourceHolder.getInventory().getContents();
-                    boolean addedInventory = Util.addedContainer(sourceContainer, sourceContents);
-                    if (addedInventory) {
-                        abort = true;
-                    }
+                boolean addedInventory = Util.canAddContainer(sourceContainer, movedItem, sourceHolder.getInventory().getMaxStackSize());
+                if (!addedInventory) {
+                    abort = true;
                 }
 
                 if (abort) {
@@ -104,6 +60,7 @@ public final class HopperPullListener {
                     ConfigHandler.hopperAbort.remove(loggingChestId);
                 }
 
+                boolean hopperTransactions = Config.getConfig(location.getWorld()).HOPPER_TRANSACTIONS;
                 if (!hopperTransactions) {
                     List<Object> list = ConfigHandler.transactingChest.get(location.getWorld().getUID().toString() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ());
                     if (list != null) {

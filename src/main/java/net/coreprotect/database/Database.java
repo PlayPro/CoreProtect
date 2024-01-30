@@ -373,7 +373,7 @@ public class Database extends Queue {
                     statement.executeUpdate("create index if not exists \"" + prefix + "container_user_time_index\" on \"" + prefix + "container\" (\"user\", \"time\")");
                     statement.executeUpdate("create index if not exists \"" + prefix + "container_type_time_index\" on \"" + prefix + "container\" (\"type\", \"time\")");
 
-                    statement.executeUpdate("create table if not exists \"" + prefix + "item\" (\"rowid\" bigserial primary key not null, \"time\" integer not null, \"user\" integer not null, \"wid\" integer not null, \"x\" integer not null, \"y\" smallint not null, \"z\" integer not null, \"type\" integer not null, \"data\" bytea not null, \"amount\" integer not null, \"action\" smallint not null, \"rolled_back\" smallint not null)");
+                    statement.executeUpdate("create table if not exists \"" + prefix + "item\" (\"rowid\" bigserial primary key not null, \"time\" integer not null, \"user\" integer not null, \"wid\" integer not null, \"x\" integer not null, \"y\" smallint not null, \"z\" integer not null, \"type\" integer not null, \"data\" bytea null, \"amount\" integer not null, \"action\" smallint not null, \"rolled_back\" smallint not null)");
                     statement.executeUpdate("create index if not exists \"" + prefix + "item_wid_x_z_time_index\" on \"" + prefix + "item\" (\"wid\", \"x\", \"z\", \"time\")");
                     statement.executeUpdate("create index if not exists \"" + prefix + "item_user_time_index\" on \"" + prefix + "item\" (\"user\", \"time\")");
                     statement.executeUpdate("create index if not exists \"" + prefix + "item_type_time_index\" on \"" + prefix + "item\" (\"type\", \"time\")");

@@ -308,7 +308,7 @@ public class ConfigHandler extends Queue {
             }
             rs.close();
 
-            query = "SELECT id,art FROM " + StatementUtils.getTableName("art_map");
+            query = "SELECT id, art FROM " + StatementUtils.getTableName("art_map");
             rs = statement.executeQuery(query);
             ConfigHandler.art.clear();
             ConfigHandler.artReversed.clear();

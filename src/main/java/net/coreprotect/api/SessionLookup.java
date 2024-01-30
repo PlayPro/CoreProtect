@@ -1,6 +1,7 @@
 package net.coreprotect.api;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -44,9 +45,10 @@ public class SessionLookup {
             }
             int userId = ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT));
 
-            try (Statement statement = connection.createStatement()) {
-                String query = "SELECT time,\"user\",wid,x,y,z,action FROM " + StatementUtils.getTableName("session") + " WHERE user = '" + userId + "' AND time > '" + checkTime + "' ORDER BY rowid DESC";
-                ResultSet results = statement.executeQuery(query);
+            try (PreparedStatement statement = connection.prepareStatement("SELECT time, \"user\", wid, x, y, z, action FROM " + StatementUtils.getTableName("session") + " WHERE user = ? AND time > ? ORDER BY rowid DESC")) {
+                statement.setInt(1, userId);
+                statement.setInt(2, checkTime);
+                ResultSet results = statement.executeQuery();
                 while (results.next()) {
                     String resultTime = results.getString("time");
                     int resultUserId = results.getInt("user");

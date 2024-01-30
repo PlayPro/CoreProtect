@@ -4,6 +4,7 @@ import java.sql.PreparedStatement;
 import java.sql.Statement;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.StatementUtils;
 import net.coreprotect.database.statement.MaterialStatement;
 import net.coreprotect.database.statement.WorldStatement;
 import net.coreprotect.language.Phrase;
@@ -14,7 +15,7 @@ class WorldInsertProcess {
 
     static void process(PreparedStatement preparedStmt, int batchCount, Statement statement, Object world, int worldId) {
         if (world instanceof String) {
-            String query = "SELECT id FROM " + ConfigHandler.prefix + "world WHERE id = '" + worldId + "' LIMIT 1";
+            String query = "SELECT id FROM " + StatementUtils.getTableName("world") + " WHERE id = '" + worldId + "' LIMIT 1";
             boolean hasMaterial = MaterialStatement.hasMaterial(statement, query);
             if (!hasMaterial) {
                 WorldStatement.insert(preparedStmt, batchCount, worldId, (String) world);

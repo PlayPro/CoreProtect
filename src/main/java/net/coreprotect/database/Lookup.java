@@ -752,18 +752,18 @@ public class Lookup extends Queue {
                     baseQuery = baseQuery.replace("action NOT IN(-1)", "action NOT IN(3)"); // if block specified for include/exclude, filter out entity data
                 }
 
-                query = unionSelect + "SELECT " + "'0' as tbl," + rows + " FROM " + ConfigHandler.prefix + "block " + index + "WHERE" + baseQuery + unionLimit + ") UNION ALL ";
+                query = unionSelect + "SELECT " + "'0' as tbl," + rows + " FROM " + StatementUtils.getTableName("block") + " " + index + "WHERE" + baseQuery + unionLimit + ") UNION ALL ";
                 itemLookup = true;
             }
 
             if (itemLookup) {
                 if (!count) {
-                    rows = "rowid as id,time,user,wid,x,y,z,type,metadata,data,amount,action,rolled_back";
+                    rows = "rowid as id,time,\"user\",wid,x,y,z,type,metadata,data,amount,action,rolled_back";
                 }
-                query = query + unionSelect + "SELECT " + "'1' as tbl," + rows + " FROM " + ConfigHandler.prefix + "container WHERE" + queryBlock + unionLimit + ") UNION ALL ";
+                query = query + unionSelect + "SELECT " + "'1' as tbl," + rows + " FROM " + StatementUtils.getTableName("container") + " WHERE" + queryBlock + unionLimit + ") UNION ALL ";
 
                 if (!count) {
-                    rows = "rowid as id,time,user,wid,x,y,z,type,data as metadata,0 as data,amount,action,rolled_back";
+                    rows = "rowid as id,time,\"user\",wid,x,y,z,type,data as metadata,0 as data,amount,action,rolled_back";
                     queryOrder = " ORDER BY time DESC, tbl DESC, id DESC";
                 }
 
@@ -771,7 +771,7 @@ public class Lookup extends Queue {
                     queryBlock = queryBlock.replace("action NOT IN(-1)", "action NOT IN(" + actionExclude + ")");
                 }
 
-                query = query + unionSelect + "SELECT " + "'2' as tbl," + rows + " FROM " + ConfigHandler.prefix + "item WHERE" + queryBlock + unionLimit + ")";
+                query = query + unionSelect + "SELECT " + "'2' as tbl," + rows + " FROM " + StatementUtils.getTableName("item") + " WHERE" + queryBlock + unionLimit + ")";
             }
 
             if (query.length() == 0) {
@@ -779,7 +779,7 @@ public class Lookup extends Queue {
                     baseQuery = baseQuery.replace("action NOT IN(-1)", "action NOT IN(" + actionExclude + ")");
                 }
 
-                query = "SELECT " + "'0' as tbl," + rows + " FROM " + ConfigHandler.prefix + queryTable + " " + index + "WHERE" + baseQuery;
+                query = "SELECT " + "'0' as tbl," + rows + " FROM " + StatementUtils.getTableName(queryTable) + " " + index + "WHERE" + baseQuery;
             }
 
             query = query + queryOrder + queryLimit + "";
@@ -820,7 +820,7 @@ public class Lookup extends Queue {
             int z = block.getZ();
             int time = (int) (System.currentTimeMillis() / 1000L);
             int worldId = Util.getWorldId(block.getWorld().getName());
-            String query = "SELECT user,type FROM " + ConfigHandler.prefix + "block " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND rolled_back IN(0,2) AND action='1' ORDER BY rowid DESC LIMIT 1";
+            String query = "SELECT \"user\", type FROM " + StatementUtils.getTableName("block") + " " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND rolled_back IN(0,2) AND action='1' ORDER BY rowid DESC LIMIT 1";
 
             ResultSet results = statement.executeQuery(query);
             while (results.next()) {

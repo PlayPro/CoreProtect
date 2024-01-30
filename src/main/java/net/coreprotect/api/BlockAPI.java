@@ -1,8 +1,8 @@
 package net.coreprotect.api;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,10 +38,13 @@ public class BlockAPI {
                 return result;
             }
 
-            Statement statement = connection.createStatement();
-            
-            String query = "SELECT time,\"user\",action,type,data,blockdata,rolled_back FROM " + StatementUtils.getTableName("block") + " " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND time > '" + checkTime + "' ORDER BY rowid DESC";
-            ResultSet results = statement.executeQuery(query);
+            PreparedStatement ps = connection.prepareStatement("SELECT time, \"user\", action, type, data, blockdata, rolled_back FROM " + StatementUtils.getTableName("block") + " " + Util.getWidIndex("block") + "WHERE wid = ? AND x = ? AND z = ? AND y = ? AND time > ? ORDER BY rowid DESC");
+            ps.setInt(1, worldId);
+            ps.setInt(2, x);
+            ps.setInt(3, z);
+            ps.setInt(4, y);
+            ps.setInt(5, checkTime);
+            ResultSet results = ps.executeQuery();
 
             while (results.next()) {
                 String resultTime = results.getString("time");
@@ -62,7 +65,7 @@ public class BlockAPI {
                 result.add(lineData);
             }
             results.close();
-            statement.close();
+            ps.close();
         }
         catch (Exception e) {
             e.printStackTrace();

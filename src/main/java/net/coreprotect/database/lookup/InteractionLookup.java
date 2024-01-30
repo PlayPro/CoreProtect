@@ -9,6 +9,7 @@ import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.StatementUtils;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
@@ -55,7 +56,7 @@ public class InteractionLookup {
                 checkTime = time - offset;
             }
 
-            String query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "block " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action='2' AND time >= '" + checkTime + "' LIMIT 1";
+            String query = "SELECT COUNT(*) as count from " + StatementUtils.getTableName("block") + " " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action='2' AND time >= '" + checkTime + "' LIMIT 1";
             ResultSet results = statement.executeQuery(query);
 
             while (results.next()) {
@@ -64,7 +65,7 @@ public class InteractionLookup {
             results.close();
             int totalPages = (int) Math.ceil(count / (limit + 0.0));
 
-            query = "SELECT time,user,action,type,data,rolled_back FROM " + ConfigHandler.prefix + "block " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action='2' AND time >= '" + checkTime + "' ORDER BY rowid DESC LIMIT " + limit + " OFFSET " + pageStart;
+            query = "SELECT time, \"user\", action, type, data, rolled_back FROM " + StatementUtils.getTableName("block") + " " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action='2' AND time >= '" + checkTime + "' ORDER BY rowid DESC LIMIT " + limit + " OFFSET " + pageStart;
             results = statement.executeQuery(query);
 
             StringBuilder resultBuilder = new StringBuilder();

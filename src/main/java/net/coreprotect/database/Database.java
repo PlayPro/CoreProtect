@@ -205,13 +205,13 @@ public class Database extends Queue {
         try {
             int rolledBack = Util.toggleRolledBack(rb, (table == 2 || table == 3 || table == 4)); // co_item, co_container, co_block
             if (table == 1 || table == 3) {
-                statement.executeUpdate("UPDATE " + ConfigHandler.prefix + "container SET rolled_back='" + rolledBack + "' WHERE rowid='" + id + "'");
+                statement.executeUpdate("UPDATE " + StatementUtils.getTableName("container") + " SET rolled_back='" + rolledBack + "' WHERE rowid='" + id + "'");
             }
             else if (table == 2) {
-                statement.executeUpdate("UPDATE " + ConfigHandler.prefix + "item SET rolled_back='" + rolledBack + "' WHERE rowid='" + id + "'");
+                statement.executeUpdate("UPDATE " + StatementUtils.getTableName("item") + " SET rolled_back='" + rolledBack + "' WHERE rowid='" + id + "'");
             }
             else {
-                statement.executeUpdate("UPDATE " + ConfigHandler.prefix + "block SET rolled_back='" + rolledBack + "' WHERE rowid='" + id + "'");
+                statement.executeUpdate("UPDATE " + StatementUtils.getTableName("block") + " SET rolled_back='" + rolledBack + "' WHERE rowid='" + id + "'");
             }
         }
         catch (Exception e) {

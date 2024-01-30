@@ -26,7 +26,7 @@ public class PlayerLookup {
                 collate = " COLLATE NOCASE";
             }
 
-            String query = "SELECT rowid as id, uuid FROM " + StatementUtils.getTableName("user") + " WHERE user = ?" + collate + " LIMIT 1";
+            String query = "SELECT rowid as id, uuid FROM " + StatementUtils.getTableName("user") + " WHERE \"user\" = ?" + collate + " LIMIT 1";
             PreparedStatement preparedStmt = connection.prepareStatement(query);
             preparedStmt.setString(1, user);
 

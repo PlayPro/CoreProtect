@@ -651,16 +651,16 @@ public class Lookup extends Queue {
                 unionLimit = " ORDER BY time DESC, id DESC LIMIT " + (limitOffset + limitCount) + "";
             }
 
-            String rows = "rowid as id,time,user,wid,x,y,z,action,type,data,meta,blockdata,rolled_back";
+            String rows = "rowid as id,time,\"user\",wid,x,y,z,action,type,data,meta,blockdata,rolled_back";
             String queryOrder = " ORDER BY rowid DESC";
 
             if (actionList.contains(4) || actionList.contains(5)) {
                 queryTable = "container";
-                rows = "rowid as id,time,user,wid,x,y,z,action,type,data,rolled_back,amount,metadata";
+                rows = "rowid as id,time,\"user\",wid,x,y,z,action,type,data,rolled_back,amount,metadata";
             }
             else if (actionList.contains(6) || actionList.contains(7)) {
                 queryTable = "chat";
-                rows = "rowid as id,time,user,message";
+                rows = "rowid as id,time,\"user\",message";
                 if (PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(user)) {
                     rows += ",wid,x,y,z";
                 }
@@ -671,19 +671,19 @@ public class Lookup extends Queue {
             }
             else if (actionList.contains(8)) {
                 queryTable = "session";
-                rows = "rowid as id,time,user,wid,x,y,z,action";
+                rows = "rowid as id,time,\"user\",wid,x,y,z,action";
             }
             else if (actionList.contains(9)) {
                 queryTable = "username_log";
-                rows = "rowid as id,time,uuid,user";
+                rows = "rowid as id,time,uuid,\"user\"";
             }
             else if (actionList.contains(10)) {
                 queryTable = "sign";
-                rows = "rowid as id,time,user,wid,x,y,z,face,line_1,line_2,line_3,line_4,line_5,line_6,line_7,line_8";
+                rows = "rowid as id,time,\"user\",wid,x,y,z,face,line_1,line_2,line_3,line_4,line_5,line_6,line_7,line_8";
             }
             else if (actionList.contains(11)) {
                 queryTable = "item";
-                rows = "rowid as id,time,user,wid,x,y,z,type,data as metadata,0 as data,amount,action,0 as rolled_back";
+                rows = "rowid as id,time,\"user\",wid,x,y,z,type,data as metadata,0 as data,amount,action,0 as rolled_back";
             }
 
             if (count) {
@@ -732,7 +732,7 @@ public class Lookup extends Queue {
             boolean itemLookup = inventoryQuery;
             if ((lookup && actionList.size() == 0) || (itemLookup && !actionList.contains(0))) {
                 if (!count) {
-                    rows = "rowid as id,time,user,wid,x,y,z,type,meta as metadata,data,-1 as amount,action,rolled_back";
+                    rows = "rowid as id,time,\"user\",wid,x,y,z,type,meta as metadata,data,-1 as amount,action,rolled_back";
                 }
 
                 if (inventoryQuery) {
@@ -744,7 +744,7 @@ public class Lookup extends Queue {
                     }
 
                     if (!count) {
-                        rows = "rowid as id,time,user,wid,x,y,z,type,meta as metadata,data,1 as amount,action,rolled_back";
+                        rows = "rowid as id,time,\"user\",wid,x,y,z,type,meta as metadata,data,1 as amount,action,rolled_back";
                     }
                 }
 

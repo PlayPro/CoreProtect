@@ -26,7 +26,7 @@ public class UsernameLogger {
             DatabaseType dbType = Config.getGlobal().DB_TYPE;
             int idRow = -1;
             String userRow = null;
-            String query = "SELECT rowid as id, user FROM " + StatementUtils.getTableName("user") + " WHERE uuid = ? LIMIT 1";
+            String query = "SELECT rowid as id, \"user\" FROM " + StatementUtils.getTableName("user") + " WHERE uuid = ? LIMIT 1";
             try (PreparedStatement preparedStmt = connection.prepareStatement(query)) {
                 if (dbType == DatabaseType.PGSQL) {
                     preparedStmt.setObject(1, UUID.fromString(uuid), Types.OTHER);

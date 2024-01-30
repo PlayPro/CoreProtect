@@ -73,7 +73,7 @@ public class UserStatement {
                 collate = " COLLATE NOCASE";
             }
 
-            String where = "user = ?" + collate;
+            String where = "\"user\" = ?" + collate;
             if (uuid != null) {
                 where += " OR uuid = ?";
             }

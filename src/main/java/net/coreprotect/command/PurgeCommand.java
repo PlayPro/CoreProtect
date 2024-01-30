@@ -134,16 +134,13 @@ public class PurgeCommand extends Consumer {
                     }
                     Consumer.isPaused = true;
 
-                    String query = "";
-                    PreparedStatement preparedStmt = null;
                     boolean abort = false;
                     String purgePrefix = "tmp_" + ConfigHandler.prefix;
 
                     if (Config.getGlobal().DB_TYPE == DatabaseType.SQLITE) {
-                        query = "ATTACH DATABASE '" + ConfigHandler.path + ConfigHandler.sqlite + ".tmp' AS tmp_db";
-                        preparedStmt = connection.prepareStatement(query);
-                        preparedStmt.execute();
-                        preparedStmt.close();
+                        try (PreparedStatement ps = connection.prepareStatement("ATTACH DATABASE '" + ConfigHandler.path + ConfigHandler.sqlite + ".tmp' AS tmp_db")) {
+                            ps.execute();
+                        }
                         purgePrefix = "tmp_db." + ConfigHandler.prefix;
                     }
 
@@ -158,13 +155,9 @@ public class PurgeCommand extends Consumer {
 
                     if (Config.getGlobal().DB_TYPE == DatabaseType.SQLITE) {
                         for (String table : ConfigHandler.databaseTables) {
-                            try {
-                                query = "DROP TABLE IF EXISTS " + purgePrefix + table + "";
-                                preparedStmt = connection.prepareStatement(query);
-                                preparedStmt.execute();
-                                preparedStmt.close();
-                            }
-                            catch (Exception e) {
+                            try (PreparedStatement ps = connection.prepareStatement("DROP TABLE IF EXISTS " + purgePrefix + table)) {
+                                ps.execute();
+                            } catch (Exception e) {
                                 e.printStackTrace();
                             }
                         }
@@ -181,19 +174,20 @@ public class PurgeCommand extends Consumer {
 
                         if (Config.getGlobal().DB_TYPE == DatabaseType.SQLITE) {
                             String columns = "";
-                            ResultSet rs = connection.createStatement().executeQuery("SELECT * FROM " + purgePrefix + table);
-                            ResultSetMetaData resultSetMetaData = rs.getMetaData();
-                            int columnCount = resultSetMetaData.getColumnCount();
-                            for (int i = 1; i <= columnCount; i++) {
-                                String name = resultSetMetaData.getColumnName(i);
-                                if (columns.length() == 0) {
-                                    columns = name;
-                                }
-                                else {
-                                    columns = columns + "," + name;
+                            try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM " + purgePrefix + table);
+                                    ResultSet rs = ps.executeQuery();) {
+                                ResultSetMetaData resultSetMetaData = rs.getMetaData();
+                                int columnCount = resultSetMetaData.getColumnCount();
+                                for (int i = 1; i <= columnCount; i++) {
+                                    String name = resultSetMetaData.getColumnName(i);
+                                    if (columns.length() == 0) {
+                                        columns = name;
+                                    }
+                                    else {
+                                        columns = columns + "," + name;
+                                    }
                                 }
                             }
-                            rs.close();
 
                             boolean error = false;
                             if (!excludeTables.contains(table)) {
@@ -207,10 +201,9 @@ public class PurgeCommand extends Consumer {
                                             timeLimit = " WHERE (time >= '" + timeEnd + "' OR time < '" + timeStart + "')";
                                         }
                                     }
-                                    query = "INSERT INTO " + purgePrefix + table + " SELECT " + columns + " FROM " + StatementUtils.getTableName(table) + timeLimit;
-                                    preparedStmt = connection.prepareStatement(query);
-                                    preparedStmt.execute();
-                                    preparedStmt.close();
+                                    try (PreparedStatement ps = connection.prepareStatement("INSERT INTO " + purgePrefix + table + " SELECT " + columns + " FROM " + StatementUtils.getTableName(table) + timeLimit)) {
+                                        ps.execute();
+                                    }
                                 }
                                 catch (Exception e) {
                                     error = true;
@@ -222,21 +215,15 @@ public class PurgeCommand extends Consumer {
                                 Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_ERROR, tableName));
                                 Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_REPAIRING));
 
-                                try {
-                                    query = "DELETE FROM " + purgePrefix + table;
-                                    preparedStmt = connection.prepareStatement(query);
-                                    preparedStmt.execute();
-                                    preparedStmt.close();
+                                try (PreparedStatement ps = connection.prepareStatement("DELETE FROM " + purgePrefix + table)) {
+                                    ps.execute();
                                 }
                                 catch (Exception e) {
                                     e.printStackTrace();
                                 }
 
-                                try {
-                                    query = "REINDEX " + StatementUtils.getTableName(table);
-                                    preparedStmt = connection.prepareStatement(query);
-                                    preparedStmt.execute();
-                                    preparedStmt.close();
+                                try (PreparedStatement ps = connection.prepareStatement("REINDEX " + StatementUtils.getTableName(table))) {
+                                    ps.execute();
                                 }
                                 catch (Exception e) {
                                     e.printStackTrace();
@@ -244,10 +231,9 @@ public class PurgeCommand extends Consumer {
 
                                 try {
                                     String index = " NOT INDEXED";
-                                    query = "INSERT INTO " + purgePrefix + table + " SELECT " + columns + " FROM " + StatementUtils.getTableName(table) + index;
-                                    preparedStmt = connection.prepareStatement(query);
-                                    preparedStmt.execute();
-                                    preparedStmt.close();
+                                    try (PreparedStatement ps = connection.prepareStatement("INSERT INTO " + purgePrefix + table + " SELECT " + columns + " FROM " + StatementUtils.getTableName(table) + index)) {
+                                        ps.execute();
+                                    }
                                 }
                                 catch (Exception e) {
                                     e.printStackTrace();
@@ -267,10 +253,9 @@ public class PurgeCommand extends Consumer {
                                     }
 
                                     if (purge) {
-                                        query = "DELETE FROM " + purgePrefix + table + " WHERE time < '" + timeEnd + "' AND time >= '" + timeStart + "'" + worldRestriction;
-                                        preparedStmt = connection.prepareStatement(query);
-                                        preparedStmt.execute();
-                                        preparedStmt.close();
+                                        try (PreparedStatement ps = connection.prepareStatement("DELETE FROM " + purgePrefix + table + " WHERE time < '" + timeEnd + "' AND time >= '" + timeStart + "'" + worldRestriction)) {
+                                            ps.execute();
+                                        }
                                     }
                                 }
                                 catch (Exception e) {
@@ -280,32 +265,22 @@ public class PurgeCommand extends Consumer {
 
                             if (purgeTables.contains(table)) {
                                 int oldCount = 0;
-                                try {
-                                    query = "SELECT COUNT(*) as count FROM " + StatementUtils.getTableName(table) + " LIMIT 1";
-                                    preparedStmt = connection.prepareStatement(query);
-                                    ResultSet resultSet = preparedStmt.executeQuery();
+                                try (PreparedStatement ps = connection.prepareStatement("SELECT COUNT(*) as count FROM " + StatementUtils.getTableName(table) + " LIMIT 1");
+                                        ResultSet resultSet = ps.executeQuery();) {
                                     while (resultSet.next()) {
                                         oldCount = resultSet.getInt("count");
                                     }
-                                    resultSet.close();
-                                    preparedStmt.close();
-                                }
-                                catch (Exception e) {
+                                } catch (Exception e) {
                                     e.printStackTrace();
                                 }
 
                                 int new_count = 0;
-                                try {
-                                    query = "SELECT COUNT(*) as count FROM " + purgePrefix + table + " LIMIT 1";
-                                    preparedStmt = connection.prepareStatement(query);
-                                    ResultSet resultSet = preparedStmt.executeQuery();
+                                try (PreparedStatement ps = connection.prepareStatement("SELECT COUNT(*) as count FROM " + purgePrefix + table + " LIMIT 1");
+                                        ResultSet resultSet = ps.executeQuery();) {
                                     while (resultSet.next()) {
                                         new_count = resultSet.getInt("count");
                                     }
-                                    resultSet.close();
-                                    preparedStmt.close();
-                                }
-                                catch (Exception e) {
+                                } catch (Exception e) {
                                     e.printStackTrace();
                                 }
 
@@ -319,18 +294,22 @@ public class PurgeCommand extends Consumer {
 
                                 String worldRestriction = "";
                                 if (argWid > 0 && worldTables.contains(table)) {
-                                    worldRestriction = " AND wid = '" + argWid + "'";
+                                    worldRestriction = " AND wid = ?";
                                 }
                                 else if (argWid > 0) {
                                     purge = false;
                                 }
 
                                 if (purge) {
-                                    query = "DELETE FROM " + StatementUtils.getTableName(table) + " WHERE time < '" + timeEnd + "' AND time >= '" + timeStart + "'" + worldRestriction;
-                                    preparedStmt = connection.prepareStatement(query);
-                                    preparedStmt.execute();
-                                    removed = removed + preparedStmt.getUpdateCount();
-                                    preparedStmt.close();
+                                    try (PreparedStatement preparedStmt = connection.prepareStatement("DELETE FROM " + StatementUtils.getTableName(table) + " WHERE time < ? AND time >= ?" + worldRestriction)) {
+                                        preparedStmt.setLong(1, timeEnd);
+                                        preparedStmt.setLong(2, timeStart);
+                                        if (!worldRestriction.isEmpty()) {
+                                            preparedStmt.setInt(3, argWid);
+                                        }
+                                        preparedStmt.execute();
+                                        removed = removed + preparedStmt.getUpdateCount();
+                                    }
                                 }
                             }
                             catch (Exception e) {
@@ -349,20 +328,18 @@ public class PurgeCommand extends Consumer {
                             case MYSQL: {
                                 Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_OPTIMIZING));
                                 for (String table : ConfigHandler.databaseTables) {
-                                    query = "OPTIMIZE LOCAL TABLE " + StatementUtils.getTableName(table) + "";
-                                    preparedStmt = connection.prepareStatement(query);
-                                    preparedStmt.execute();
-                                    preparedStmt.close();
+                                    try (PreparedStatement preparedStmt = connection.prepareStatement("OPTIMIZE LOCAL TABLE " + StatementUtils.getTableName(table))) {
+                                        preparedStmt.execute();
+                                    }
                                 }
                                 break;
                             }
                             case PGSQL: {
                                 Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_OPTIMIZING));
                                 for (String table : ConfigHandler.databaseTables) {
-                                    query = "VACUUM ANALYZE " + StatementUtils.getTableName(table);
-                                    preparedStmt = connection.prepareStatement(query);
-                                    preparedStmt.execute();
-                                    preparedStmt.close();
+                                    try (PreparedStatement preparedStmt = connection.prepareStatement("VACUUM ANALYZE " + StatementUtils.getTableName(table))) {
+                                        preparedStmt.execute();
+                                    }
                                 }
                                 break;
                             }

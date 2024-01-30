@@ -1589,12 +1589,12 @@ public class Util extends Queue {
     }
 
     public static String getWidIndex(String queryTable) {
-        String index = "";
-        boolean isRDB = Config.getGlobal().DB_TYPE != DatabaseType.SQLITE;
-        if (isRDB) {
+        DatabaseType dbType = Config.getGlobal().DB_TYPE;
+        String index;
+        if (dbType == DatabaseType.MYSQL) {
+            // mysql has the use index hint
             index = "USE INDEX(wid) ";
-        }
-        else {
+        } else if (dbType == DatabaseType.SQLITE) {
             switch (queryTable) {
                 case "block":
                     index = "INDEXED BY block_index ";
@@ -1618,8 +1618,11 @@ public class Util extends Queue {
                     index = "INDEXED BY session_index ";
                     break;
                 default:
+                    index = "";
                     break;
             }
+        } else {
+            index = "";
         }
 
         return index;

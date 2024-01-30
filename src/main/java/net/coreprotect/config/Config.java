@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.concurrent.CompletableFuture;
@@ -36,11 +37,13 @@ public class Config extends Language {
     private Config defaults;
 
     public String DONATION_KEY;
-    public String PREFIX;
-    public String MYSQL_HOST;
-    public String MYSQL_DATABASE;
-    public String MYSQL_USERNAME;
-    public String MYSQL_PASSWORD;
+    public DatabaseType DB_TYPE;
+    public String DB_PREFIX;
+    public String DB_HOST;
+    public int DB_PORT;
+    public String DB_DATABASE;
+    public String DB_USERNAME;
+    public String DB_PASSWORD;
     public String LANGUAGE;
     public boolean ENABLE_AWE;
     public boolean ENABLE_SSL;
@@ -51,7 +54,6 @@ public class Config extends Language {
     public boolean HOPPER_FILTER_META;
     public boolean EXCLUDE_TNT;
     public boolean NETWORK_DEBUG;
-    public boolean MYSQL;
     public boolean CHECK_UPDATES;
     public boolean API_ENABLED;
     public boolean VERBOSE;
@@ -91,19 +93,18 @@ public class Config extends Language {
     public boolean USERNAME_CHANGES;
     public boolean WORLDEDIT;
     public int MAXIMUM_POOL_SIZE;
-    public int MYSQL_PORT;
     public int DEFAULT_RADIUS;
     public int MAX_RADIUS;
 
     static {
         DEFAULT_VALUES.put("donation-key", "");
-        DEFAULT_VALUES.put("use-mysql", "false");
+        DEFAULT_VALUES.put("db-type", "sqlite");
         DEFAULT_VALUES.put("table-prefix", "co_");
-        DEFAULT_VALUES.put("mysql-host", "127.0.0.1");
-        DEFAULT_VALUES.put("mysql-port", "3306");
-        DEFAULT_VALUES.put("mysql-database", "database");
-        DEFAULT_VALUES.put("mysql-username", "root");
-        DEFAULT_VALUES.put("mysql-password", "");
+        DEFAULT_VALUES.put("db-host", "127.0.0.1");
+        DEFAULT_VALUES.put("db-port", "3306");
+        DEFAULT_VALUES.put("db-database", "database");
+        DEFAULT_VALUES.put("db-username", "root");
+        DEFAULT_VALUES.put("db-password", "");
         DEFAULT_VALUES.put("language", "en");
         DEFAULT_VALUES.put("check-updates", "true");
         DEFAULT_VALUES.put("api-enabled", "true");
@@ -146,7 +147,6 @@ public class Config extends Language {
         DEFAULT_VALUES.put("worldedit", "true");
 
         HEADERS.put("donation-key", new String[] { "# CoreProtect is donationware. Obtain a donation key from coreprotect.net/donate/" });
-        HEADERS.put("use-mysql", new String[] { "# MySQL is optional and not required.", "# If you prefer to use MySQL, enable the following and fill out the fields." });
         HEADERS.put("language", new String[] { "# If modified, will automatically attempt to translate languages phrases.", "# List of language codes: https://coreprotect.net/languages/" });
         HEADERS.put("check-updates", new String[] { "# If enabled, CoreProtect will check for updates when your server starts up.", "# If an update is available, you'll be notified via your server console.", });
         HEADERS.put("api-enabled", new String[] { "# If enabled, other plugins will be able to utilize the CoreProtect API.", });
@@ -202,13 +202,13 @@ public class Config extends Language {
         this.UNKNOWN_LOGGING = this.getBoolean("unknown-logging", false);
         this.MAXIMUM_POOL_SIZE = this.getInt("maximum-pool-size", 10);
         this.DONATION_KEY = this.getString("donation-key");
-        this.MYSQL = this.getBoolean("use-mysql");
-        this.PREFIX = this.getString("table-prefix");
-        this.MYSQL_HOST = this.getString("mysql-host");
-        this.MYSQL_PORT = this.getInt("mysql-port");
-        this.MYSQL_DATABASE = this.getString("mysql-database");
-        this.MYSQL_USERNAME = this.getString("mysql-username");
-        this.MYSQL_PASSWORD = this.getString("mysql-password");
+        this.DB_TYPE = DatabaseType.valueOf(DatabaseType.class, this.getString("db-type").toUpperCase(Locale.US));
+        this.DB_PREFIX = this.getString("table-prefix");
+        this.DB_HOST = this.getString("db-host");
+        this.DB_PORT = this.getInt("db-port");
+        this.DB_DATABASE = this.getString("db-database");
+        this.DB_USERNAME = this.getString("db-username");
+        this.DB_PASSWORD = this.getString("db-password");
         this.LANGUAGE = this.getString("language");
         this.CHECK_UPDATES = this.getBoolean("check-updates");
         this.API_ENABLED = this.getBoolean("api-enabled");

@@ -54,6 +54,7 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.config.DatabaseType;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Rollback;
 import net.coreprotect.language.Phrase;
@@ -1589,8 +1590,8 @@ public class Util extends Queue {
 
     public static String getWidIndex(String queryTable) {
         String index = "";
-        boolean isMySQL = Config.getGlobal().MYSQL;
-        if (isMySQL) {
+        boolean isRDB = Config.getGlobal().DB_TYPE != DatabaseType.SQLITE;
+        if (isRDB) {
             index = "USE INDEX(wid) ";
         }
         else {

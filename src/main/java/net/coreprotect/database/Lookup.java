@@ -19,6 +19,7 @@ import org.bukkit.entity.EntityType;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.config.DatabaseType;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.logger.ItemLogger;
@@ -646,7 +647,7 @@ public class Lookup extends Queue {
 
             String baseQuery = ((!includeEntity.isEmpty() || !excludeEntity.isEmpty()) ? queryEntity : queryBlock);
             if (limitOffset > -1 && limitCount > -1) {
-                queryLimit = " LIMIT " + limitOffset + ", " + limitCount + "";
+                queryLimit = " LIMIT " + limitCount + " OFFSET " + limitOffset;
                 unionLimit = " ORDER BY time DESC, id DESC LIMIT " + (limitOffset + limitCount) + "";
             }
 
@@ -687,13 +688,13 @@ public class Lookup extends Queue {
 
             if (count) {
                 rows = "COUNT(*) as count";
-                queryLimit = " LIMIT 0, 3";
+                queryLimit = " LIMIT 3";
                 queryOrder = "";
                 unionLimit = "";
             }
 
             String unionSelect = "SELECT * FROM (";
-            if (Config.getGlobal().MYSQL) {
+            if (Config.getGlobal().DB_TYPE != DatabaseType.SQLITE) {
                 if (queryTable.equals("block")) {
                     if (includeBlock.length() > 0 || includeEntity.length() > 0) {
                         index = "USE INDEX(type) IGNORE INDEX(user,wid) ";
@@ -819,7 +820,7 @@ public class Lookup extends Queue {
             int z = block.getZ();
             int time = (int) (System.currentTimeMillis() / 1000L);
             int worldId = Util.getWorldId(block.getWorld().getName());
-            String query = "SELECT user,type FROM " + ConfigHandler.prefix + "block " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND rolled_back IN(0,2) AND action='1' ORDER BY rowid DESC LIMIT 0, 1";
+            String query = "SELECT user,type FROM " + ConfigHandler.prefix + "block " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND rolled_back IN(0,2) AND action='1' ORDER BY rowid DESC LIMIT 1";
 
             ResultSet results = statement.executeQuery(query);
             while (results.next()) {

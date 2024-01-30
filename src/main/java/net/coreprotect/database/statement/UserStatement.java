@@ -5,11 +5,15 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
 import java.util.Locale;
+import java.util.UUID;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.config.DatabaseType;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.StatementUtils;
 
 public class UserStatement {
 
@@ -25,10 +29,10 @@ public class UserStatement {
 
             PreparedStatement preparedStmt = null;
             if (Database.hasReturningKeys()) {
-                preparedStmt = connection.prepareStatement("INSERT INTO " + ConfigHandler.prefix + "user (time, user) VALUES (?, ?) RETURNING rowid");
+                preparedStmt = connection.prepareStatement("INSERT INTO " + StatementUtils.getTableName("user") + " (time, \"user\") VALUES (?, ?) RETURNING rowid");
             }
             else {
-                preparedStmt = connection.prepareStatement("INSERT INTO " + ConfigHandler.prefix + "user (time, user) VALUES (?, ?)", Statement.RETURN_GENERATED_KEYS);
+                preparedStmt = connection.prepareStatement("INSERT INTO " + StatementUtils.getTableName("user") + " (time, \"user\") VALUES (?, ?)", Statement.RETURN_GENERATED_KEYS);
             }
 
             preparedStmt.setInt(1, unixtimestamp);
@@ -67,24 +71,29 @@ public class UserStatement {
     public static int loadId(Connection connection, String user, String uuid) {
         // generate if doesn't exist
         int id = -1;
+        DatabaseType dbType = Config.getGlobal().DB_TYPE;
 
         try {
             String collate = "";
-            if (!Config.getGlobal().MYSQL) {
+            if (dbType == DatabaseType.SQLITE) {
                 collate = " COLLATE NOCASE";
             }
 
             String where = "user = ?" + collate;
             if (uuid != null) {
-                where = where + " OR uuid = ?";
+                where += " OR uuid = ?";
             }
 
-            String query = "SELECT rowid as id, uuid FROM " + ConfigHandler.prefix + "user WHERE " + where + " ORDER BY rowid ASC LIMIT 0, 1";
+            String query = "SELECT rowid as id, uuid FROM " + StatementUtils.getTableName("user") + " WHERE " + where + " ORDER BY rowid ASC LIMIT 1";
             PreparedStatement preparedStmt = connection.prepareStatement(query);
             preparedStmt.setString(1, user);
 
             if (uuid != null) {
-                preparedStmt.setString(2, uuid);
+                if (dbType == DatabaseType.PGSQL) {
+                    preparedStmt.setObject(2, UUID.fromString(uuid), Types.OTHER);
+                } else {
+                    preparedStmt.setString(2, uuid);
+                }
             }
 
             ResultSet resultSet = preparedStmt.executeQuery();
@@ -120,7 +129,7 @@ public class UserStatement {
 
         try {
             Statement statement = connection.createStatement();
-            String query = "SELECT user, uuid FROM " + ConfigHandler.prefix + "user WHERE rowid='" + id + "' LIMIT 0, 1";
+            String query = "SELECT user, uuid FROM " + StatementUtils.getTableName("user") + " WHERE rowid='" + id + "' LIMIT 1";
 
             ResultSet resultSet = statement.executeQuery(query);
             while (resultSet.next()) {

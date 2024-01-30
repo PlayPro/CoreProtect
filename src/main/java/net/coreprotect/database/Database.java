@@ -17,6 +17,7 @@ import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.config.DatabaseType;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.consumer.process.Process;
@@ -47,11 +48,10 @@ public class Database extends Queue {
         Consumer.transacting = true;
 
         try {
-            if (Config.getGlobal().MYSQL) {
-                statement.executeUpdate("START TRANSACTION");
-            }
-            else {
+            if (Config.getGlobal().DB_TYPE == DatabaseType.SQLITE) {
                 statement.executeUpdate("BEGIN TRANSACTION");
+            } else {
+                statement.executeUpdate("START TRANSACTION");
             }
         }
         catch (Exception e) {
@@ -64,11 +64,10 @@ public class Database extends Queue {
 
         while (true) {
             try {
-                if (Config.getGlobal().MYSQL) {
-                    statement.executeUpdate("COMMIT");
-                }
-                else {
+                if (Config.getGlobal().DB_TYPE == DatabaseType.SQLITE) {
                     statement.executeUpdate("COMMIT TRANSACTION");
+                } else {
+                    statement.executeUpdate("COMMIT");
                 }
             }
             catch (Exception e) {
@@ -90,7 +89,7 @@ public class Database extends Queue {
     }
 
     public static void performCheckpoint(Statement statement) throws SQLException {
-        if (!Config.getGlobal().MYSQL) {
+        if (Config.getGlobal().DB_TYPE == DatabaseType.SQLITE) {
             statement.executeUpdate("PRAGMA wal_checkpoint(TRUNCATE)");
         }
     }
@@ -107,7 +106,7 @@ public class Database extends Queue {
     }
 
     public static boolean hasReturningKeys() {
-        return (!Config.getGlobal().MYSQL && ConfigHandler.SERVER_VERSION >= 20);
+        return (Config.getGlobal().DB_TYPE == DatabaseType.SQLITE && ConfigHandler.SERVER_VERSION >= 20);
     }
 
     public static void containerBreakCheck(String user, Material type, Object container, ItemStack[] contents, Location location) {
@@ -147,18 +146,22 @@ public class Database extends Queue {
             if (!force && (ConfigHandler.converterRunning || ConfigHandler.purgeRunning)) {
                 return connection;
             }
-            if (Config.getGlobal().MYSQL) {
+            DatabaseType dbType = Config.getGlobal().DB_TYPE;
+            if (dbType != DatabaseType.SQLITE) {
                 try {
                     connection = ConfigHandler.hikariDataSource.getConnection();
                     ConfigHandler.databaseReachable = true;
                 }
                 catch (Exception e) {
                     ConfigHandler.databaseReachable = false;
-                    Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.MYSQL_UNAVAILABLE));
+                    if (dbType == DatabaseType.MYSQL) {
+                        Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.MYSQL_UNAVAILABLE));
+                    } else if (dbType == DatabaseType.PGSQL){
+                        Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.PGSQL_UNAVAILABLE));
+                    }
                     e.printStackTrace();
                 }
-            }
-            else {
+            } else {
                 if (Consumer.transacting && onlyCheckTransacting) {
                     Consumer.interrupt = true;
                 }
@@ -219,20 +222,20 @@ public class Database extends Queue {
     public static PreparedStatement prepareStatement(Connection connection, int type, boolean keys) {
         PreparedStatement preparedStatement = null;
         try {
-            String signInsert = "INSERT INTO " + ConfigHandler.prefix + "sign (time, user, wid, x, y, z, action, color, color_secondary, data, waxed, face, line_1, line_2, line_3, line_4, line_5, line_6, line_7, line_8) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            String blockInsert = "INSERT INTO " + ConfigHandler.prefix + "block (time, user, wid, x, y, z, type, data, meta, blockdata, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            String skullInsert = "INSERT INTO " + ConfigHandler.prefix + "skull (time, owner) VALUES (?, ?)";
-            String containerInsert = "INSERT INTO " + ConfigHandler.prefix + "container (time, user, wid, x, y, z, type, data, amount, metadata, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            String itemInsert = "INSERT INTO " + ConfigHandler.prefix + "item (time, user, wid, x, y, z, type, data, amount, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            String worldInsert = "INSERT INTO " + ConfigHandler.prefix + "world (id, world) VALUES (?, ?)";
-            String chatInsert = "INSERT INTO " + ConfigHandler.prefix + "chat (time, user, wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)";
-            String commandInsert = "INSERT INTO " + ConfigHandler.prefix + "command (time, user, wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)";
-            String sessionInsert = "INSERT INTO " + ConfigHandler.prefix + "session (time, user, wid, x, y, z, action) VALUES (?, ?, ?, ?, ?, ?, ?)";
-            String entityInsert = "INSERT INTO " + ConfigHandler.prefix + "entity (time, data) VALUES (?, ?)";
-            String materialInsert = "INSERT INTO " + ConfigHandler.prefix + "material_map (id, material) VALUES (?, ?)";
-            String artInsert = "INSERT INTO " + ConfigHandler.prefix + "art_map (id, art) VALUES (?, ?)";
-            String entityMapInsert = "INSERT INTO " + ConfigHandler.prefix + "entity_map (id, entity) VALUES (?, ?)";
-            String blockdataInsert = "INSERT INTO " + ConfigHandler.prefix + "blockdata_map (id, data) VALUES (?, ?)";
+            String signInsert = "INSERT INTO " + StatementUtils.getTableName("sign") + " (time, \"user\", wid, x, y, z, action, color, color_secondary, data, waxed, face, line_1, line_2, line_3, line_4, line_5, line_6, line_7, line_8) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            String blockInsert = "INSERT INTO " + StatementUtils.getTableName("block") + " (time, \"user\", wid, x, y, z, type, data, meta, blockdata, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            String skullInsert = "INSERT INTO " + StatementUtils.getTableName("skull") + " (time, owner) VALUES (?, ?)";
+            String containerInsert = "INSERT INTO " + StatementUtils.getTableName("container") + " (time, \"user\", wid, x, y, z, type, data, amount, metadata, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            String itemInsert = "INSERT INTO " + StatementUtils.getTableName("item") + " (time, \"user\", wid, x, y, z, type, data, amount, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            String worldInsert = "INSERT INTO " + StatementUtils.getTableName("world") + " (id, world) VALUES (?, ?)";
+            String chatInsert = "INSERT INTO " + StatementUtils.getTableName("chat") + " (time, \"user\", wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            String commandInsert = "INSERT INTO " + StatementUtils.getTableName("command") + " (time, \"user\", wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            String sessionInsert = "INSERT INTO " + StatementUtils.getTableName("session") + " (time, \"user\", wid, x, y, z, action) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            String entityInsert = "INSERT INTO " + StatementUtils.getTableName("entity") + " (time, data) VALUES (?, ?)";
+            String materialInsert = "INSERT INTO " + StatementUtils.getTableName("material_map") + " (id, material) VALUES (?, ?)";
+            String artInsert = "INSERT INTO " + StatementUtils.getTableName("art_map") + " (id, art) VALUES (?, ?)";
+            String entityMapInsert = "INSERT INTO " + StatementUtils.getTableName("entity_map") + " (id, entity) VALUES (?, ?)";
+            String blockdataInsert = "INSERT INTO " + StatementUtils.getTableName("blockdata_map") + " (id, data) VALUES (?, ?)";
 
             switch (type) {
                 case SIGN:
@@ -310,7 +313,7 @@ public class Database extends Queue {
 
     private static void initializeTables(String prefix, Statement statement) {
         try {
-            if (!Config.getGlobal().MYSQL) {
+            if (Config.getGlobal().DB_TYPE == DatabaseType.SQLITE) {
                 if (!Config.getGlobal().DISABLE_WAL) {
                     statement.executeUpdate("PRAGMA journal_mode=WAL;");
                 }
@@ -341,8 +344,90 @@ public class Database extends Queue {
     public static void createDatabaseTables(String prefix, boolean purge) {
         ConfigHandler.databaseTables.clear();
         ConfigHandler.databaseTables.addAll(Arrays.asList("art_map", "block", "chat", "command", "container", "item", "database_lock", "entity", "entity_map", "material_map", "blockdata_map", "session", "sign", "skull", "user", "username_log", "version", "world"));
+        DatabaseType dbType = Config.getGlobal().DB_TYPE;
+        if (dbType == DatabaseType.PGSQL) {
+            boolean success = false;
+            try (Connection connection = Database.getConnection(true, true, true, 0)) {
+                if (connection != null) {
+                    Statement statement = connection.createStatement();
+                    statement.executeUpdate("create table if not exists \"" + prefix + "art_map\" (\"rowid\" bigserial primary key not null, \"id\" integer not null, \"art\" varchar(255) not null)");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "art_map_id_index\" on \"" + prefix + "art_map\" (\"id\")");
 
-        if (Config.getGlobal().MYSQL) {
+                    statement.executeUpdate("create table if not exists \"" + prefix + "block\" (\"rowid\" bigserial primary key not null, \"time\" integer not null, \"user\" integer not null, \"wid\" integer not null, \"x\" integer not null, \"y\" smallint not null, \"z\" integer not null, \"type\" integer not null, \"data\" integer not null, \"meta\" bytea null, \"blockdata\" bytea null, \"action\" smallint not null, \"rolled_back\" smallint not null)");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "block_wid_x_z_time_index\" on \"" + prefix + "block\" (\"wid\", \"x\", \"z\", \"time\")");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "block_user_time_index\" on \"" + prefix + "block\" (\"user\", \"time\")");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "block_type_time_index\" on \"" + prefix + "block\" (\"type\", \"time\")");
+
+                    statement.executeUpdate("create table if not exists \"" + prefix + "chat\" (\"rowid\" bigserial primary key not null, \"time\" integer not null, \"user\" integer not null, \"wid\" integer not null, \"x\" integer not null, \"y\" smallint not null, \"z\" integer not null, \"message\" text not null)");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "chat_time_index\" on \"" + prefix + "chat\" (\"time\")");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "chat_user_time_index\" on \"" + prefix + "chat\" (\"user\", \"time\")");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "chat_wid_x_z_time_index\" on \"" + prefix + "chat\" (\"wid\", \"x\", \"z\", \"time\")");
+
+                    statement.executeUpdate("create table if not exists \"" + prefix + "command\" (\"rowid\" bigserial primary key not null, \"time\" integer not null, \"user\" integer not null, \"wid\" integer not null, \"x\" integer not null, \"y\" smallint not null, \"z\" integer not null, \"message\" text not null)");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "command_time_index\" on \"" + prefix + "command\" (\"time\")");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "command_user_time_index\" on \"" + prefix + "command\" (\"user\", \"time\")");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "command_wid_x_z_time_index\" on \"" + prefix + "command\" (\"wid\", \"x\", \"z\", \"time\")");
+
+                    statement.executeUpdate("create table if not exists \"" + prefix + "container\" (\"rowid\" bigserial primary key not null, \"time\" integer not null, \"user\" integer not null, \"wid\" integer not null, \"x\" integer not null, \"y\" smallint not null, \"z\" integer not null, \"type\" integer not null, \"data\" integer not null, \"amount\" integer not null, \"metadata\" bytea null, \"action\" smallint not null, \"rolled_back\" smallint not null)");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "container_wid_x_z_time_index\" on \"" + prefix + "container\" (\"wid\", \"x\", \"z\", \"time\")");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "container_user_time_index\" on \"" + prefix + "container\" (\"user\", \"time\")");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "container_type_time_index\" on \"" + prefix + "container\" (\"type\", \"time\")");
+
+                    statement.executeUpdate("create table if not exists \"" + prefix + "item\" (\"rowid\" bigserial primary key not null, \"time\" integer not null, \"user\" integer not null, \"wid\" integer not null, \"x\" integer not null, \"y\" smallint not null, \"z\" integer not null, \"type\" integer not null, \"data\" bytea not null, \"amount\" integer not null, \"action\" smallint not null, \"rolled_back\" smallint not null)");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "item_wid_x_z_time_index\" on \"" + prefix + "item\" (\"wid\", \"x\", \"z\", \"time\")");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "item_user_time_index\" on \"" + prefix + "item\" (\"user\", \"time\")");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "item_type_time_index\" on \"" + prefix + "item\" (\"type\", \"time\")");
+
+                    statement.executeUpdate("create table if not exists \"" + prefix + "database_lock\" (\"rowid\" bigserial primary key not null, \"status\" smallint not null, \"time\" integer not null)");
+                    statement.executeUpdate("create table if not exists \"" + prefix + "entity\" (\"rowid\" bigserial primary key not null, \"time\" integer not null, \"data\" bytea not null)");
+
+                    statement.executeUpdate("create table if not exists \"" + prefix + "entity_map\" (\"rowid\" bigserial primary key not null, \"id\" integer not null, \"entity\" varchar(255) not null)");
+
+                    statement.executeUpdate("create index if not exists \"" + prefix + "entity_map_id_index\" on \"" + prefix + "entity_map\" (\"id\")");
+
+                    statement.executeUpdate("create table if not exists \"" + prefix + "material_map\" (\"rowid\" bigserial primary key not null, \"id\" integer not null, \"material\" varchar(255) not null)");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "material_map_id_index\" on \"" + prefix + "material_map\" (\"id\")");
+
+                    statement.executeUpdate("create table if not exists \"" + prefix + "blockdata_map\" (\"rowid\" bigserial primary key not null, \"id\" integer not null, \"data\" varchar(255) not null)");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "blockdata_map_id_index\" on \"" + prefix + "blockdata_map\" (\"id\")");
+
+                    statement.executeUpdate("create table if not exists \"" + prefix + "session\" (\"rowid\" bigserial primary key not null, \"time\" integer not null, \"user\" integer not null, \"wid\" integer not null, \"x\" integer not null, \"y\" smallint not null, \"z\" integer not null, \"action\" smallint not null)");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "session_wid_x_y_time_index\" on \"" + prefix + "session\" (\"wid\", \"x\", \"y\", \"time\")");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "session_action_time_index\" on \"" + prefix + "session\" (\"action\", \"time\")");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "session_user_time_index\" on \"" + prefix + "session\" (\"user\", \"time\")");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "session_time_index\" on \"" + prefix + "session\" (\"time\")");
+
+                    statement.executeUpdate("create table if not exists \"" + prefix + "sign\" (\"rowid\" bigserial primary key not null, \"time\" integer not null, \"user\" integer not null, \"wid\" integer not null, \"x\" integer not null, \"y\" smallint not null, \"z\" integer not null, \"action\" smallint not null, \"color\" integer not null, \"color_secondary\" integer not null, \"data\" smallint not null, \"waxed\" smallint not null, \"face\" smallint not null, \"line_1\" varchar(100) not null, \"line_2\" varchar(100) not null, \"line_3\" varchar(100) not null, \"line_4\" varchar(100) not null, \"line_5\" varchar(100) not null, \"line_6\" varchar(100) not null, \"line_7\" varchar(100) not null, \"line_8\" varchar(100) not null)");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "sign_wid_x_z_time_index\" on \"" + prefix + "sign\" (\"wid\", \"x\", \"z\", \"time\")");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "sign_user_time_index\" on \"" + prefix + "sign\" (\"user\", \"time\")");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "sign_time_index\" on \"" + prefix + "sign\" (\"time\")");
+
+                    statement.executeUpdate("create table if not exists \"" + prefix + "skull\" (\"rowid\" bigserial primary key not null, \"time\" integer not null, \"owner\" varchar(64) not null)");
+
+                    statement.executeUpdate("create table if not exists \"" + prefix + "user\" (\"rowid\" bigserial primary key not null, \"time\" integer not null, \"user\" varchar(255) not null, \"uuid\" uuid null)");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "user_user_index\" on \"" + prefix + "user\" (\"user\")");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "user_uuid_index\" on \"" + prefix + "user\" (\"uuid\")");
+
+                    statement.executeUpdate("create table if not exists \"" + prefix + "username_log\" (\"rowid\" bigserial primary key not null, \"time\" integer not null, \"uuid\" uuid not null, \"user\" varchar(100) not null)");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "username_log_uuid_user_index\" on \"username_log\" (\"uuid\", \"user\")");
+
+                    statement.executeUpdate("create table if not exists \"" + prefix + "version\" (\"rowid\" bigserial primary key not null, \"time\" integer not null, \"version\" varchar(16) not null)");
+
+                    statement.executeUpdate("create table if not exists \"" + prefix + "world\" (\"rowid\" bigserial primary key not null, \"id\" integer not null, \"world\" varchar(255) not null)");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "world_id_index\" on \"" + prefix + "world\" (\"id\")");
+                    if (!purge) {
+                        initializeTables(prefix, statement);
+                    }
+                    statement.close();
+                    success = true;
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            if (!success) {
+                Config.getGlobal().DB_TYPE = DatabaseType.SQLITE;
+            }
+        } else if (dbType == DatabaseType.MYSQL) {
             boolean success = false;
             try (Connection connection = Database.getConnection(true, true, true, 0)) {
                 if (connection != null) {
@@ -391,10 +476,9 @@ public class Database extends Queue {
                 e.printStackTrace();
             }
             if (!success) {
-                Config.getGlobal().MYSQL = false;
+                Config.getGlobal().DB_TYPE = DatabaseType.SQLITE;
             }
-        }
-        if (!Config.getGlobal().MYSQL) {
+        } else {
             try (Connection connection = Database.getConnection(true, 0)) {
                 Statement statement = connection.createStatement();
                 List<String> tableData = new ArrayList<>();

@@ -26,6 +26,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.StatementUtils;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.ListenerHandler;
@@ -167,17 +168,17 @@ public class ConfigHandler extends Queue {
             ConfigFile.init(ConfigFile.LANGUAGE_CACHE); // load translation cache
 
             // Enforce "co_" table prefix if using SQLite.
-            if (!Config.getGlobal().MYSQL) {
-                Config.getGlobal().PREFIX = "co_";
+            if (Config.getGlobal().DB_TYPE == DatabaseType.SQLITE) {
+                Config.getGlobal().DB_PREFIX = "co_";
             }
 
-            ConfigHandler.host = Config.getGlobal().MYSQL_HOST;
-            ConfigHandler.port = Config.getGlobal().MYSQL_PORT;
-            ConfigHandler.database = Config.getGlobal().MYSQL_DATABASE;
-            ConfigHandler.username = Config.getGlobal().MYSQL_USERNAME;
-            ConfigHandler.password = Config.getGlobal().MYSQL_PASSWORD;
+            ConfigHandler.host = Config.getGlobal().DB_HOST;
+            ConfigHandler.port = Config.getGlobal().DB_PORT;
+            ConfigHandler.database = Config.getGlobal().DB_DATABASE;
+            ConfigHandler.username = Config.getGlobal().DB_USERNAME;
+            ConfigHandler.password = Config.getGlobal().DB_PASSWORD;
             ConfigHandler.maximumPoolSize = Config.getGlobal().MAXIMUM_POOL_SIZE;
-            ConfigHandler.prefix = Config.getGlobal().PREFIX;
+            ConfigHandler.prefix = Config.getGlobal().DB_PREFIX;
 
             ConfigHandler.loadBlacklist(); // Load the blacklist file if it exists.
         }
@@ -190,7 +191,7 @@ public class ConfigHandler extends Queue {
         // close old pool when we reload the database, e.g. in purge command
         Database.closeConnection();
 
-        if (!Config.getGlobal().MYSQL) {
+        if (Config.getGlobal().DB_TYPE == DatabaseType.SQLITE) {
             try {
                 File tempFile = File.createTempFile("CoreProtect_" + System.currentTimeMillis(), ".tmp");
                 tempFile.setExecutable(true);
@@ -219,8 +220,7 @@ public class ConfigHandler extends Queue {
             catch (Exception e) {
                 e.printStackTrace();
             }
-        }
-        else {
+        } else if (Config.getGlobal().DB_TYPE == DatabaseType.MYSQL){
             HikariConfig config = new HikariConfig();
             try {
                 Class.forName("com.mysql.cj.jdbc.Driver");
@@ -252,6 +252,21 @@ public class ConfigHandler extends Queue {
             config.addDataSourceProperty("useSSL", Config.getGlobal().ENABLE_SSL);
 
             ConfigHandler.hikariDataSource = new HikariDataSource(config);
+        } else if (Config.getGlobal().DB_TYPE == DatabaseType.PGSQL) {
+            HikariConfig config = new HikariConfig();
+            try {
+                Class.forName("org.postgresql.Driver");
+                config.setDriverClassName("org.postgresql.Driver");
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            config.setJdbcUrl("jdbc:postgresql://" + ConfigHandler.host + ":" + ConfigHandler.port + "/" + ConfigHandler.database);
+            config.setUsername(ConfigHandler.username);
+            config.setPassword(ConfigHandler.password);
+            config.setMaxLifetime(300000);
+            config.setKeepaliveTime(60000);
+
+            ConfigHandler.hikariDataSource = new HikariDataSource(config);
         }
 
         Database.createDatabaseTables(ConfigHandler.prefix, false);
@@ -259,7 +274,7 @@ public class ConfigHandler extends Queue {
 
     public static void loadTypes(Statement statement) {
         try {
-            String query = "SELECT id,material FROM " + ConfigHandler.prefix + "material_map";
+            String query = "SELECT id,material FROM " + StatementUtils.getTableName("material_map");
             ResultSet rs = statement.executeQuery(query);
             ConfigHandler.materials.clear();
             ConfigHandler.materialsReversed.clear();
@@ -276,7 +291,7 @@ public class ConfigHandler extends Queue {
             }
             rs.close();
 
-            query = "SELECT id,data FROM " + ConfigHandler.prefix + "blockdata_map";
+            query = "SELECT id,data FROM " + StatementUtils.getTableName("blockdata_map");
             rs = statement.executeQuery(query);
             ConfigHandler.blockdata.clear();
             ConfigHandler.blockdataReversed.clear();
@@ -293,7 +308,7 @@ public class ConfigHandler extends Queue {
             }
             rs.close();
 
-            query = "SELECT id,art FROM " + ConfigHandler.prefix + "art_map";
+            query = "SELECT id,art FROM " + StatementUtils.getTableName("art_map");
             rs = statement.executeQuery(query);
             ConfigHandler.art.clear();
             ConfigHandler.artReversed.clear();
@@ -310,7 +325,7 @@ public class ConfigHandler extends Queue {
             }
             rs.close();
 
-            query = "SELECT id,entity FROM " + ConfigHandler.prefix + "entity_map";
+            query = "SELECT id,entity FROM " + StatementUtils.getTableName("entity_map");
             rs = statement.executeQuery(query);
             ConfigHandler.entities.clear();
             ConfigHandler.entitiesReversed.clear();
@@ -334,7 +349,7 @@ public class ConfigHandler extends Queue {
 
     public static void loadWorlds(Statement statement) {
         try {
-            String query = "SELECT id,world FROM " + ConfigHandler.prefix + "world";
+            String query = "SELECT id,world FROM " + StatementUtils.getTableName("world");
             ResultSet rs = statement.executeQuery(query);
             ConfigHandler.worlds.clear();
             ConfigHandler.worldsReversed.clear();
@@ -379,7 +394,7 @@ public class ConfigHandler extends Queue {
                     locked = false;
                     unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
                     int checkTime = unixtimestamp - 15;
-                    String query = "SELECT * FROM " + ConfigHandler.prefix + "database_lock WHERE rowid='1' AND status='1' AND time >= '" + checkTime + "' LIMIT 1";
+                    String query = "SELECT * FROM " + StatementUtils.getTableName("database_lock") + " WHERE rowid='1' AND status='1' AND time >= '" + checkTime + "' LIMIT 1";
                     ResultSet rs = statement.executeQuery(query);
                     while (rs.next()) {
                         if (unixtimestamp < waitTime) {

@@ -10,6 +10,7 @@ import java.util.Locale;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.StatementUtils;
 import net.coreprotect.database.statement.UserStatement;
 
 public class SessionLookup {
@@ -44,7 +45,7 @@ public class SessionLookup {
             int userId = ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT));
 
             try (Statement statement = connection.createStatement()) {
-                String query = "SELECT time,user,wid,x,y,z,action FROM " + ConfigHandler.prefix + "session WHERE user = '" + userId + "' AND time > '" + checkTime + "' ORDER BY rowid DESC";
+                String query = "SELECT time,\"user\",wid,x,y,z,action FROM " + StatementUtils.getTableName("session") + " WHERE user = '" + userId + "' AND time > '" + checkTime + "' ORDER BY rowid DESC";
                 ResultSet results = statement.executeQuery(query);
                 while (results.next()) {
                     String resultTime = results.getString("time");

@@ -10,6 +10,7 @@ import org.bukkit.block.Block;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.StatementUtils;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.utility.Util;
 
@@ -38,7 +39,8 @@ public class BlockAPI {
             }
 
             Statement statement = connection.createStatement();
-            String query = "SELECT time,user,action,type,data,blockdata,rolled_back FROM " + ConfigHandler.prefix + "block " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND time > '" + checkTime + "' ORDER BY rowid DESC";
+            
+            String query = "SELECT time,\"user\",action,type,data,blockdata,rolled_back FROM " + StatementUtils.getTableName("block") + " " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND time > '" + checkTime + "' ORDER BY rowid DESC";
             ResultSet results = statement.executeQuery(query);
 
             while (results.next()) {

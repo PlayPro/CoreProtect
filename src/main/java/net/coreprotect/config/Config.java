@@ -202,7 +202,7 @@ public class Config extends Language {
         this.UNKNOWN_LOGGING = this.getBoolean("unknown-logging", false);
         this.MAXIMUM_POOL_SIZE = this.getInt("maximum-pool-size", 10);
         this.DONATION_KEY = this.getString("donation-key");
-        this.DB_TYPE = DatabaseType.valueOf(DatabaseType.class, this.getString("db-type").toUpperCase(Locale.US));
+        this.DB_TYPE = DatabaseType.valueOf(DatabaseType.class, this.getString("db-type").toUpperCase(Locale.ROOT));
         this.DB_PREFIX = this.getString("table-prefix");
         this.DB_HOST = this.getString("db-host");
         this.DB_PORT = this.getInt("db-port");

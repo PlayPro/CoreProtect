@@ -27,19 +27,19 @@ public class UsernameLogger {
             int idRow = -1;
             String userRow = null;
             String query = "SELECT rowid as id, user FROM " + StatementUtils.getTableName("user") + " WHERE uuid = ? LIMIT 1";
-            PreparedStatement preparedStmt = connection.prepareStatement(query);
-            if (dbType == DatabaseType.PGSQL) {
-                preparedStmt.setObject(1, UUID.fromString(uuid), Types.OTHER);
-            } else {
-                preparedStmt.setString(1, uuid);
+            try (PreparedStatement preparedStmt = connection.prepareStatement(query)) {
+                if (dbType == DatabaseType.PGSQL) {
+                    preparedStmt.setObject(1, UUID.fromString(uuid), Types.OTHER);
+                } else {
+                    preparedStmt.setString(1, uuid);
+                }
+                try (ResultSet rs = preparedStmt.executeQuery()) {
+                    while (rs.next()) {
+                        idRow = rs.getInt("id");
+                        userRow = rs.getString("user").toLowerCase(Locale.ROOT);
+                    }
+                }
             }
-            ResultSet rs = preparedStmt.executeQuery();
-            while (rs.next()) {
-                idRow = rs.getInt("id");
-                userRow = rs.getString("user").toLowerCase(Locale.ROOT);
-            }
-            rs.close();
-            preparedStmt.close();
 
             boolean update = false;
             if (userRow == null) {
@@ -51,16 +51,16 @@ public class UsernameLogger {
             }
 
             if (update) {
-                preparedStmt = connection.prepareStatement("UPDATE " + StatementUtils.getTableName("user") + " SET \"user\" = ?, uuid = ? WHERE rowid = ?");
-                preparedStmt.setString(1, user);
-                if (dbType == DatabaseType.PGSQL) {
-                    preparedStmt.setObject(2, UUID.fromString(uuid), Types.OTHER);
-                } else {
-                    preparedStmt.setString(2, uuid);
+                try (PreparedStatement preparedStmt = connection.prepareStatement("UPDATE " + StatementUtils.getTableName("user") + " SET \"user\" = ?, uuid = ? WHERE rowid = ?")) {
+                    preparedStmt.setString(1, user);
+                    if (dbType == DatabaseType.PGSQL) {
+                        preparedStmt.setObject(2, UUID.fromString(uuid), Types.OTHER);
+                    } else {
+                        preparedStmt.setString(2, uuid);
+                    }
+                    preparedStmt.setInt(3, idRow);
+                    preparedStmt.executeUpdate();
                 }
-                preparedStmt.setInt(3, idRow);
-                preparedStmt.executeUpdate();
-                preparedStmt.close();
 
                 /*
                     //Commented out to prevent potential issues if player manages to stay logged in with old username
@@ -75,19 +75,19 @@ public class UsernameLogger {
             else {
                 boolean foundUUID = false;
                 query = "SELECT rowid as id FROM " + StatementUtils.getTableName("username_log") + " WHERE uuid = ? AND \"user\" = ? LIMIT 1";
-                PreparedStatement preparedStatement = connection.prepareStatement(query);
-                if (dbType == DatabaseType.PGSQL) {
-                    preparedStmt.setObject(1, UUID.fromString(uuid), Types.OTHER);
-                } else {
-                    preparedStmt.setString(1, uuid);
+                try (PreparedStatement preparedStmt = connection.prepareStatement(query)) {
+                    if (dbType == DatabaseType.PGSQL) {
+                        preparedStmt.setObject(1, UUID.fromString(uuid), Types.OTHER);
+                    } else {
+                        preparedStmt.setString(1, uuid);
+                    }
+                    preparedStmt.setString(2, user);
+                    try (ResultSet rs = preparedStmt.executeQuery()) {
+                        while (rs.next()) {
+                            foundUUID = true;
+                        }
+                    }
                 }
-                preparedStatement.setString(2, user);
-                rs = preparedStatement.executeQuery();
-                while (rs.next()) {
-                    foundUUID = true;
-                }
-                rs.close();
-                preparedStatement.close();
 
                 if (!foundUUID) {
                     update = true;
@@ -95,16 +95,16 @@ public class UsernameLogger {
             }
 
             if (update && configUsernames == 1) {
-                preparedStmt = connection.prepareStatement("INSERT INTO " + StatementUtils.getTableName("username_log") + " (time, uuid, \"user\") VALUES (?, ?, ?)");
-                preparedStmt.setInt(1, time);
-                if (dbType == DatabaseType.PGSQL) {
-                    preparedStmt.setObject(2, UUID.fromString(uuid), Types.OTHER);
-                } else {
-                    preparedStmt.setString(2, uuid);
+                try (PreparedStatement preparedStmt = connection.prepareStatement("INSERT INTO " + StatementUtils.getTableName("username_log") + " (time, uuid, \"user\") VALUES (?, ?, ?)")) {
+                    preparedStmt.setInt(1, time);
+                    if (dbType == DatabaseType.PGSQL) {
+                        preparedStmt.setObject(2, UUID.fromString(uuid), Types.OTHER);
+                    } else {
+                        preparedStmt.setString(2, uuid);
+                    }
+                    preparedStmt.setString(3, user);
+                    preparedStmt.executeUpdate();
                 }
-                preparedStmt.setString(3, user);
-                preparedStmt.executeUpdate();
-                preparedStmt.close();
             }
 
             ConfigHandler.playerIdCache.put(user.toLowerCase(Locale.ROOT), idRow);

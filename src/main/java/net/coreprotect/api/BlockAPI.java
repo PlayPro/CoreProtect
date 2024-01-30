@@ -38,36 +38,34 @@ public class BlockAPI {
                 return result;
             }
 
-            PreparedStatement ps = connection.prepareStatement("SELECT time, \"user\", action, type, data, blockdata, rolled_back FROM " + StatementUtils.getTableName("block") + " " + Util.getWidIndex("block") + "WHERE wid = ? AND x = ? AND z = ? AND y = ? AND time > ? ORDER BY rowid DESC");
-            ps.setInt(1, worldId);
-            ps.setInt(2, x);
-            ps.setInt(3, z);
-            ps.setInt(4, y);
-            ps.setInt(5, checkTime);
-            ResultSet results = ps.executeQuery();
+            try (PreparedStatement ps = connection.prepareStatement("SELECT time, \"user\", action, type, data, blockdata, rolled_back FROM " + StatementUtils.getTableName("block") + " " + Util.getWidIndex("block") + "WHERE wid = ? AND x = ? AND z = ? AND y = ? AND time > ? ORDER BY rowid DESC")) {
+                ps.setInt(1, worldId);
+                ps.setInt(2, x);
+                ps.setInt(3, z);
+                ps.setInt(4, y);
+                ps.setInt(5, checkTime);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        String resultTime = rs.getString("time");
+                        int resultUserId = rs.getInt("user");
+                        String resultAction = rs.getString("action");
+                        int resultType = rs.getInt("type");
+                        String resultData = rs.getString("data");
+                        byte[] resultBlockData = rs.getBytes("blockdata");
+                        String resultRolledBack = rs.getString("rolled_back");
+                        if (ConfigHandler.playerIdCacheReversed.get(resultUserId) == null) {
+                            UserStatement.loadName(connection, resultUserId);
+                        }
+                        String resultUser = ConfigHandler.playerIdCacheReversed.get(resultUserId);
+                        String blockData = Util.byteDataToString(resultBlockData, resultType);
 
-            while (results.next()) {
-                String resultTime = results.getString("time");
-                int resultUserId = results.getInt("user");
-                String resultAction = results.getString("action");
-                int resultType = results.getInt("type");
-                String resultData = results.getString("data");
-                byte[] resultBlockData = results.getBytes("blockdata");
-                String resultRolledBack = results.getString("rolled_back");
-                if (ConfigHandler.playerIdCacheReversed.get(resultUserId) == null) {
-                    UserStatement.loadName(connection, resultUserId);
+                        String[] lookupData = new String[] { resultTime, resultUser, String.valueOf(x), String.valueOf(y), String.valueOf(z), String.valueOf(resultType), resultData, resultAction, resultRolledBack, String.valueOf(worldId), blockData };
+                        String[] lineData = Util.toStringArray(lookupData);
+                        result.add(lineData);
+                    }
                 }
-                String resultUser = ConfigHandler.playerIdCacheReversed.get(resultUserId);
-                String blockData = Util.byteDataToString(resultBlockData, resultType);
-
-                String[] lookupData = new String[] { resultTime, resultUser, String.valueOf(x), String.valueOf(y), String.valueOf(z), String.valueOf(resultType), resultData, resultAction, resultRolledBack, String.valueOf(worldId), blockData };
-                String[] lineData = Util.toStringArray(lookupData);
-                result.add(lineData);
             }
-            results.close();
-            ps.close();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
 

@@ -27,32 +27,26 @@ public class UserStatement {
         try {
             int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
 
-            PreparedStatement preparedStmt = null;
             if (Database.hasReturningKeys()) {
-                preparedStmt = connection.prepareStatement("INSERT INTO " + StatementUtils.getTableName("user") + " (time, \"user\") VALUES (?, ?) RETURNING rowid");
+                try (PreparedStatement preparedStmt = connection.prepareStatement("INSERT INTO " + StatementUtils.getTableName("user") + " (time, \"user\") VALUES (?, ?) RETURNING rowid")) {
+                    preparedStmt.setInt(1, unixtimestamp);
+                    preparedStmt.setString(2, user);
+                    try (ResultSet resultSet = preparedStmt.executeQuery()) {
+                        resultSet.next();
+                        id = resultSet.getInt(1);
+                    }
+                }
+            } else {
+                try (PreparedStatement preparedStmt = connection.prepareStatement("INSERT INTO " + StatementUtils.getTableName("user") + " (time, \"user\") VALUES (?, ?)", Statement.RETURN_GENERATED_KEYS)) {
+                    preparedStmt.setInt(1, unixtimestamp);
+                    preparedStmt.setString(2, user);
+                    preparedStmt.executeUpdate();
+                    try (ResultSet keys = preparedStmt.getGeneratedKeys()) {
+                        keys.next();
+                        id = keys.getInt(1);
+                    }
+                }
             }
-            else {
-                preparedStmt = connection.prepareStatement("INSERT INTO " + StatementUtils.getTableName("user") + " (time, \"user\") VALUES (?, ?)", Statement.RETURN_GENERATED_KEYS);
-            }
-
-            preparedStmt.setInt(1, unixtimestamp);
-            preparedStmt.setString(2, user);
-
-            if (Database.hasReturningKeys()) {
-                ResultSet resultSet = preparedStmt.executeQuery();
-                resultSet.next();
-                id = resultSet.getInt(1);
-                resultSet.close();
-            }
-            else {
-                preparedStmt.executeUpdate();
-                ResultSet keys = preparedStmt.getGeneratedKeys();
-                keys.next();
-                id = keys.getInt(1);
-                keys.close();
-            }
-
-            preparedStmt.close();
         }
         catch (Exception e) {
             e.printStackTrace();

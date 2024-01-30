@@ -123,7 +123,7 @@ public class UserStatement {
 
         try {
             Statement statement = connection.createStatement();
-            String query = "SELECT user, uuid FROM " + StatementUtils.getTableName("user") + " WHERE rowid='" + id + "' LIMIT 1";
+            String query = "SELECT \"user\", uuid FROM " + StatementUtils.getTableName("user") + " WHERE rowid='" + id + "' LIMIT 1";
 
             ResultSet resultSet = statement.executeQuery(query);
             while (resultSet.next()) {

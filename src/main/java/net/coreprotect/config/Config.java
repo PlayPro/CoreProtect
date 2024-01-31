@@ -207,6 +207,7 @@ public class Config extends Language {
         if (this.has("use-mysql") && this.getBoolean("use-mysql")) {
             // legacy configuration has mysql enabled
             this.DB_TYPE = DatabaseType.MYSQL;
+            DEFAULT_VALUES.put("db-type", DatabaseType.MYSQL.toString().toLowerCase(Locale.ROOT));
         }
         this.DB_PREFIX = this.getString("table-prefix");
         this.DB_HOST = this.getString("db-host");

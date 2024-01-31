@@ -203,13 +203,32 @@ public class Config extends Language {
         this.UNKNOWN_LOGGING = this.getBoolean("unknown-logging", false);
         this.MAXIMUM_POOL_SIZE = this.getInt("maximum-pool-size", 10);
         this.DONATION_KEY = this.getString("donation-key");
-        this.DB_TYPE = DatabaseType.valueOf(DatabaseType.class, this.getString("db-type").toUpperCase(Locale.ROOT));
+        this.DB_TYPE = DatabaseType.valueOf(DatabaseType.class, this.getString("db-type", "sqlite").toUpperCase(Locale.ROOT));
+        if (this.has("use-mysql") && this.getBoolean("use-mysql")) {
+            // legacy configuration has mysql enabled
+            this.DB_TYPE = DatabaseType.MYSQL;
+        }
         this.DB_PREFIX = this.getString("table-prefix");
         this.DB_HOST = this.getString("db-host");
+        if (this.DB_HOST == null && this.has("mysql-host")) {
+            this.DB_HOST = this.getString("mysql-host");
+        }
         this.DB_PORT = this.getInt("db-port");
+        if (this.DB_PORT == 0 && this.has("mysql-port")) {
+            this.DB_PORT = this.getInt("mysql-port");
+        }
         this.DB_DATABASE = this.getString("db-database");
+        if (this.DB_DATABASE == null && this.has("mysql-database")) {
+            this.DB_DATABASE = this.getString("mysql-database");
+        }
         this.DB_USERNAME = this.getString("db-username");
+        if (this.DB_USERNAME == null && this.has("mysql-username")) {
+            this.DB_USERNAME = this.getString("mysql-username");
+        }
         this.DB_PASSWORD = this.getString("db-password");
+        if (this.DB_PASSWORD == null && this.has("mysql-password")) {
+            this.DB_PASSWORD = this.getString("mysql-password");
+        }
         this.LANGUAGE = this.getString("language");
         this.CHECK_UPDATES = this.getBoolean("check-updates");
         this.API_ENABLED = this.getBoolean("api-enabled");
@@ -279,6 +298,10 @@ public class Config extends Language {
         this.defaults = defaults;
     }
 
+    private boolean has(final String key) {
+        return this.config.containsKey(key);
+    }
+
     private String get(final String key, final String dfl) {
         String configured = this.config.get(key);
         if (configured == null) {
@@ -323,6 +346,11 @@ public class Config extends Language {
 
     private String getString(final String key) {
         final String configured = this.get(key, null);
+        return configured == null ? "" : configured;
+    }
+
+    private String getString(final String key, final String dfl) {
+        final String configured = this.get(key, dfl);
         return configured == null ? "" : configured;
     }
 

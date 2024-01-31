@@ -56,7 +56,7 @@ public final class BlockGroup {
         TRACK_ANY.addAll(BUTTONS);
         TRACK_TOP.addAll(DOORS);
         TRACK_TOP.addAll(PRESSURE_PLATES);
-        TRACK_TOP.addAll(Tag.WOOL_CARPETS.getValues());
+        TRACK_TOP.addAll(Tag.CARPETS.getValues());
         TRACK_TOP_BOTTOM.addAll(LANTERNS);
         LIGHTABLES.addAll(CANDLES);
         INTERACT_BLOCKS.addAll(DOORS);

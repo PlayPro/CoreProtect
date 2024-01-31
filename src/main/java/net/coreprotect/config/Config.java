@@ -147,6 +147,7 @@ public class Config extends Language {
         DEFAULT_VALUES.put("worldedit", "true");
 
         HEADERS.put("donation-key", new String[] { "# CoreProtect is donationware. Obtain a donation key from coreprotect.net/donate/" });
+        HEADERS.put("db-type", new String[] { "# The database type to use. By default this is \"sqlite\"", "# Available options: sqlite, mysql, pgsql" });
         HEADERS.put("language", new String[] { "# If modified, will automatically attempt to translate languages phrases.", "# List of language codes: https://coreprotect.net/languages/" });
         HEADERS.put("check-updates", new String[] { "# If enabled, CoreProtect will check for updates when your server starts up.", "# If an update is available, you'll be notified via your server console.", });
         HEADERS.put("api-enabled", new String[] { "# If enabled, other plugins will be able to utilize the CoreProtect API.", });

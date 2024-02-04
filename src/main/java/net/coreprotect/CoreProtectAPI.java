@@ -302,6 +302,30 @@ public class CoreProtectAPI extends Queue {
         return false;
     }
 
+    public boolean logDropItem(String user, Location location, ItemStack itemStack) {
+        if (Config.getGlobal().API_ENABLED) {
+            if (user != null && location != null && itemStack != null) {
+                if (user.length() > 0) {
+                    PlayerDropItemListener.playerDropItem(location, user, itemStack);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public boolean logPickupItem(String user, Location location, ItemStack itemStack) {
+        if (Config.getGlobal().API_ENABLED) {
+            if (user != null && location != null && itemStack != null) {
+                if (user.length() > 0) {
+                    EntityPickupItemListener.onItemPickup(Bukkit.getPlayer(user), location, itemStack);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     @Deprecated
     public boolean logPlacement(String user, Location location, Material type, byte data) {
         if (Config.getGlobal().API_ENABLED) {

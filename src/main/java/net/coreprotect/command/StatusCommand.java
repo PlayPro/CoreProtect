@@ -65,11 +65,19 @@ public class StatusCommand {
                     if (firstVersion.length() > 0) {
                         firstVersion = " (" + Phrase.build(Phrase.FIRST_VERSION, firstVersion) + ")";
                     }
-                    if (Config.getGlobal().MYSQL) {
-                        Chat.sendMessage(player, Color.DARK_AQUA + Phrase.build(Phrase.STATUS_DATABASE, Color.WHITE, "MySQL") + firstVersion);
-                    }
-                    else {
-                        Chat.sendMessage(player, Color.DARK_AQUA + Phrase.build(Phrase.STATUS_DATABASE, Color.WHITE, "SQLite") + firstVersion);
+                    switch (Config.getGlobal().DB_TYPE) {
+                        case MYSQL: {
+                            Chat.sendMessage(player, Color.DARK_AQUA + Phrase.build(Phrase.STATUS_DATABASE, Color.WHITE, "MySQL") + firstVersion);
+                            break;
+                        }
+                        case PGSQL: {
+                            Chat.sendMessage(player, Color.DARK_AQUA + Phrase.build(Phrase.STATUS_DATABASE, Color.WHITE, "PostgreSQL") + firstVersion);
+                            break;
+                        }
+                        case SQLITE: {
+                            Chat.sendMessage(player, Color.DARK_AQUA + Phrase.build(Phrase.STATUS_DATABASE, Color.WHITE, "SQLite") + firstVersion);
+                            break;
+                        }
                     }
 
                     if (ConfigHandler.worldeditEnabled) {

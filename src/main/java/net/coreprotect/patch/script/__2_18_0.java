@@ -13,6 +13,7 @@ import org.bukkit.block.data.Rotatable;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.config.DatabaseType;
 import net.coreprotect.database.Database;
 import net.coreprotect.patch.Patch;
 import net.coreprotect.utility.Util;
@@ -25,7 +26,7 @@ public class __2_18_0 {
         try {
 
             try {
-                if (Config.getGlobal().MYSQL) {
+                if (Config.getGlobal().DB_TYPE != DatabaseType.SQLITE) {
                     statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "block ADD COLUMN blockdata BLOB");
                 }
             }
@@ -41,7 +42,7 @@ public class __2_18_0 {
                 return false;
             }
 
-            String query = "SELECT rowid, id, material FROM " + ConfigHandler.prefix + "material_map WHERE material LIKE 'minecraft:legacy_%' LIMIT 0, 1";
+            String query = "SELECT rowid, id, material FROM " + ConfigHandler.prefix + "material_map WHERE material LIKE 'minecraft:legacy_%' LIMIT 1";
             String preparedBlockQuery = "SELECT rowid as id, data, blockdata FROM " + ConfigHandler.prefix + "block WHERE type = ? AND action < '3'";
             String preparedContainerQuery = "SELECT rowid as id FROM " + ConfigHandler.prefix + "container WHERE type = ?";
             String preparedBlockUpdateQuery = "UPDATE " + ConfigHandler.prefix + "block SET type = ?, blockdata = ? WHERE rowid = ?";
@@ -178,7 +179,7 @@ public class __2_18_0 {
 
             if (createIndexes) {
                 try {
-                    if (Config.getGlobal().MYSQL) {
+                    if (Config.getGlobal().DB_TYPE != DatabaseType.SQLITE) {
                         statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "art_map ADD INDEX(id)");
                         statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "entity_map ADD INDEX(id)");
                         statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "material_map ADD INDEX(id)");

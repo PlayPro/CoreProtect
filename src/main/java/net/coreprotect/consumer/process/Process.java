@@ -13,6 +13,7 @@ import org.bukkit.Material;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.StatementUtils;
 import net.coreprotect.database.statement.UserStatement;
 
 public class Process {
@@ -58,7 +59,7 @@ public class Process {
             int unixTimestamp = (int) (System.currentTimeMillis() / 1000L);
             int timeSinceLastUpdate = unixTimestamp - lastLockUpdate;
             if (timeSinceLastUpdate >= 15 || locked == 0) {
-                statement.executeUpdate("UPDATE " + ConfigHandler.prefix + "database_lock SET status = '" + locked + "', time = '" + unixTimestamp + "' WHERE rowid = '1'");
+                statement.executeUpdate("UPDATE " + StatementUtils.getTableName("database_lock") + " SET status = '" + locked + "', time = '" + unixTimestamp + "' WHERE rowid = '1'");
                 lastLockUpdate = unixTimestamp;
             }
         }

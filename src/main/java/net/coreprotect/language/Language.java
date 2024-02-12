@@ -154,6 +154,7 @@ public class Language {
         phrases.put(Phrase.MISSING_ROLLBACK_RADIUS, "You did not specify a {rollback|restore} radius.");
         phrases.put(Phrase.MISSING_ROLLBACK_USER, "You did not specify a {rollback|restore} user.");
         phrases.put(Phrase.MYSQL_UNAVAILABLE, "Unable to connect to MySQL server.");
+        phrases.put(Phrase.PGSQL_UNAVAILABLE, "Unable to connect to PostgreSQL server.");
         phrases.put(Phrase.NETWORK_CONNECTION, "Connection by {0} {successful|failed}. Using {1} {2}.");
         phrases.put(Phrase.NETWORK_TEST, "Network test data has been successful sent.");
         phrases.put(Phrase.NO_DATA, "No data found at {0}.");
@@ -225,6 +226,7 @@ public class Language {
         phrases.put(Phrase.USER_NOT_FOUND, "User \"{0}\" not found.");
         phrases.put(Phrase.USER_OFFLINE, "The user \"{0}\" is not online.");
         phrases.put(Phrase.USING_MYSQL, "Using MySQL for data storage.");
+        phrases.put(Phrase.USING_PGSQL, "Using PostgreSQL for data storage.");
         phrases.put(Phrase.USING_SQLITE, "Using SQLite for data storage.");
         phrases.put(Phrase.VALID_DONATION_KEY, "Valid donation key.");
         phrases.put(Phrase.VERSION_NOTICE, "Version {0} is now available.");

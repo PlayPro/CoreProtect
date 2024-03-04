@@ -1,15 +1,15 @@
 package net.coreprotect.paper;
 
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.ConfigHandler;
 import org.bukkit.Location;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.Server;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 import org.bukkit.entity.Entity;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
-
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.config.ConfigHandler;
 
 public class PaperAdapter implements PaperInterface {
 
@@ -76,7 +76,12 @@ public class PaperAdapter implements PaperInterface {
 
     @Override
     public String getSkullOwner(Skull skull) {
-        return skull.getOwningPlayer().getUniqueId().toString();
+        OfflinePlayer owner = skull.getOwningPlayer();
+        if (owner != null) {
+            return owner.getUniqueId().toString();
+        } else {
+            return "";
+        }
     }
 
     @Override

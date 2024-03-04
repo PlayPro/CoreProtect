@@ -1,11 +1,11 @@
 package net.coreprotect.paper;
 
+import com.destroystokyo.paper.profile.PlayerProfile;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 import org.bukkit.block.sign.Side;
-
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 public class Paper_v1_20 extends Paper_v1_17 implements PaperInterface {
 
@@ -22,7 +22,12 @@ public class Paper_v1_20 extends Paper_v1_17 implements PaperInterface {
 
     @Override
     public String getSkullOwner(Skull skull) {
-        return skull.getPlayerProfile().getName();
+        PlayerProfile profile = skull.getPlayerProfile();
+        if (profile == null) {
+            return "";
+        } else {
+            return profile.getName();
+        }
     }
 
     @Override

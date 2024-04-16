@@ -44,7 +44,7 @@ public class Config extends Language {
     public String DB_DATABASE;
     public String DB_USERNAME;
     public String DB_PASSWORD;
-	public String DB_JDBC_PARAMETERS;
+    public String DB_JDBC_PARAMETERS;
     public String LANGUAGE;
     public boolean ENABLE_AWE;
     public boolean ENABLE_SSL;
@@ -233,7 +233,7 @@ public class Config extends Language {
         if (this.DB_PASSWORD == null && this.has("mysql-password")) {
             this.DB_PASSWORD = this.getString("mysql-password");
         }
-		this.DB_JDBC_PARAMETERS = this.getString("db-jdbc-parameters");
+        this.DB_JDBC_PARAMETERS = this.getString("db-jdbc-parameters");
         this.LANGUAGE = this.getString("language");
         this.CHECK_UPDATES = this.getBoolean("check-updates");
         this.API_ENABLED = this.getBoolean("api-enabled");

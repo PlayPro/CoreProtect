@@ -52,7 +52,7 @@ public class ConfigHandler extends Queue {
     public static String database = "database";
     public static String username = "root";
     public static String password = "";
-	public static String jdbcParameters = "";
+    public static String jdbcParameters = "";
     public static String prefix = "co_";
     public static int maximumPoolSize = 10;
 

@@ -356,7 +356,7 @@ public class Lookup extends Queue {
             String unionLimit = "";
             String index = "";
             String query = "";
-			String alias = "";
+            String alias = "";
 
             if (checkUuids.size() > 0) {
                 String list = "";

@@ -356,6 +356,7 @@ public class Lookup extends Queue {
             String unionLimit = "";
             String index = "";
             String query = "";
+			String alias = "";
 
             if (checkUuids.size() > 0) {
                 String list = "";
@@ -694,7 +695,7 @@ public class Lookup extends Queue {
             }
 
             String unionSelect = "SELECT * FROM (";
-            if (Config.getGlobal().DB_TYPE != DatabaseType.SQLITE) {
+            if (Config.getGlobal().DB_TYPE == DatabaseType.MYSQL) {
                 if (queryTable.equals("block")) {
                     if (includeBlock.length() > 0 || includeEntity.length() > 0) {
                         index = "USE INDEX(type) IGNORE INDEX(user,wid) ";
@@ -712,7 +713,7 @@ public class Lookup extends Queue {
 
                 unionSelect = "(";
             }
-            else {
+            else if (Config.getGlobal().DB_TYPE == DatabaseType.SQLITE) {
                 if (queryTable.equals("block")) {
                     if (includeBlock.length() > 0 || includeEntity.length() > 0) {
                         index = "INDEXED BY block_type_index ";
@@ -752,7 +753,11 @@ public class Lookup extends Queue {
                     baseQuery = baseQuery.replace("action NOT IN(-1)", "action NOT IN(3)"); // if block specified for include/exclude, filter out entity data
                 }
 
-                query = unionSelect + "SELECT " + "'0' as tbl," + rows + " FROM " + StatementUtils.getTableName("block") + " " + index + "WHERE" + baseQuery + unionLimit + ") UNION ALL ";
+                if (Config.getGlobal().DB_TYPE == DatabaseType.PGSQL) {
+                    alias = " AS union1";
+                }
+
+                query = unionSelect + "SELECT " + "'0' as tbl," + rows + " FROM " + StatementUtils.getTableName("block") + " " + index + "WHERE" + baseQuery + unionLimit + ")" + alias + " UNION ALL ";
                 itemLookup = true;
             }
 
@@ -760,7 +765,11 @@ public class Lookup extends Queue {
                 if (!count) {
                     rows = "rowid as id,time,\"user\",wid,x,y,z,type,metadata,data,amount,action,rolled_back";
                 }
-                query = query + unionSelect + "SELECT " + "'1' as tbl," + rows + " FROM " + StatementUtils.getTableName("container") + " WHERE" + queryBlock + unionLimit + ") UNION ALL ";
+
+                if (Config.getGlobal().DB_TYPE == DatabaseType.PGSQL) {
+                    alias = " AS union2";
+                }
+                query = query + unionSelect + "SELECT " + "'1' as tbl," + rows + " FROM " + StatementUtils.getTableName("container") + " WHERE" + queryBlock + unionLimit + ")" + alias + " UNION ALL ";
 
                 if (!count) {
                     rows = "rowid as id,time,\"user\",wid,x,y,z,type,data as metadata,0 as data,amount,action,rolled_back";
@@ -771,7 +780,10 @@ public class Lookup extends Queue {
                     queryBlock = queryBlock.replace("action NOT IN(-1)", "action NOT IN(" + actionExclude + ")");
                 }
 
-                query = query + unionSelect + "SELECT " + "'2' as tbl," + rows + " FROM " + StatementUtils.getTableName("item") + " WHERE" + queryBlock + unionLimit + ")";
+                if (Config.getGlobal().DB_TYPE == DatabaseType.PGSQL) {
+                    alias = " AS union3";
+                }
+                query = query + unionSelect + "SELECT " + "'2' as tbl," + rows + " FROM " + StatementUtils.getTableName("item") + " WHERE" + queryBlock + unionLimit + ")" + alias;
             }
 
             if (query.length() == 0) {

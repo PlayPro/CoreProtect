@@ -44,6 +44,7 @@ public class Config extends Language {
     public String DB_DATABASE;
     public String DB_USERNAME;
     public String DB_PASSWORD;
+	public String DB_JDBC_PARAMETERS;
     public String LANGUAGE;
     public boolean ENABLE_AWE;
     public boolean ENABLE_SSL;
@@ -105,6 +106,7 @@ public class Config extends Language {
         DEFAULT_VALUES.put("db-database", "database");
         DEFAULT_VALUES.put("db-username", "root");
         DEFAULT_VALUES.put("db-password", "");
+        DEFAULT_VALUES.put("db-jdbc-parameters", "");
         DEFAULT_VALUES.put("language", "en");
         DEFAULT_VALUES.put("check-updates", "true");
         DEFAULT_VALUES.put("api-enabled", "true");
@@ -148,6 +150,7 @@ public class Config extends Language {
 
         HEADERS.put("donation-key", new String[] { "# CoreProtect is donationware. Obtain a donation key from coreprotect.net/donate/" });
         HEADERS.put("db-type", new String[] { "# The database type to use. By default this is \"sqlite\"", "# Available options: sqlite, mysql, pgsql" });
+        HEADERS.put("db-jdbc-parameters", new String[] { "# Extra parameters to append to the JDBC connection string. Only needed for advanced cases." });
         HEADERS.put("language", new String[] { "# If modified, will automatically attempt to translate languages phrases.", "# List of language codes: https://coreprotect.net/languages/" });
         HEADERS.put("check-updates", new String[] { "# If enabled, CoreProtect will check for updates when your server starts up.", "# If an update is available, you'll be notified via your server console.", });
         HEADERS.put("api-enabled", new String[] { "# If enabled, other plugins will be able to utilize the CoreProtect API.", });
@@ -230,6 +233,7 @@ public class Config extends Language {
         if (this.DB_PASSWORD == null && this.has("mysql-password")) {
             this.DB_PASSWORD = this.getString("mysql-password");
         }
+		this.DB_JDBC_PARAMETERS = this.getString("db-jdbc-parameters");
         this.LANGUAGE = this.getString("language");
         this.CHECK_UPDATES = this.getBoolean("check-updates");
         this.API_ENABLED = this.getBoolean("api-enabled");

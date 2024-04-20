@@ -23,6 +23,10 @@ public class CoreProtectBlockBreakPreLogEvent extends Event implements Cancellab
         return handlers;
     }
 
+    public static HandlerList getHandlerList() {
+        return handlers;
+    }
+
     @Override
     public boolean isCancelled() {
         return cancelled;

@@ -18,7 +18,7 @@ public class CacheHandler implements Runnable {
     public static Map<String, Object[]> interactCache = Collections.synchronizedMap(new HashMap<>());
     public static Map<String, Object[]> entityCache = Collections.synchronizedMap(new HashMap<>());
     public static ConcurrentHashMap<String, Object[]> pistonCache = new ConcurrentHashMap<>(16, 0.75f, 2);
-    public static ConcurrentHashMap<Location, Object[]> spreadCache = new ConcurrentHashMap<>(16, 0.75f, 2);
+    public static ConcurrentHashMap<String, Object[]> spreadCache = new ConcurrentHashMap<>(16, 0.75f, 2);
     public static ConcurrentHashMap<Location, Object[]> redstoneCache = new ConcurrentHashMap<>(16, 0.75f, 2);
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
@@ -41,7 +41,7 @@ public class CacheHandler implements Runnable {
                             break;
                         case 3:
                             cache = CacheHandler.spreadCache;
-                            scanTime = 900; // 15 minutes
+                            scanTime = 1800; // 30 minutes
                             break;
                         case 4:
                             cache = CacheHandler.interactCache;

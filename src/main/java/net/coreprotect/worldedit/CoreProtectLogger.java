@@ -36,7 +36,11 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
     public <T extends BlockStateHolder<T>> boolean setBlock(BlockVector3 position, T block) throws WorldEditException {
         org.bukkit.World world = BukkitAdapter.adapt(eventWorld);
         if (!Config.getConfig(world).WORLDEDIT) {
-            return eventExtent.setBlock(position.getX(), position.getY(), position.getZ(), block);
+            if (CoreProtectEditSessionEvent.isFAWE()) {
+                return eventExtent.setBlock(position.getX(), position.getY(), position.getZ(), block);
+            } else {
+                return eventExtent.setBlock(position, block);
+            }
         }
 
         BlockState oldBlock = eventExtent.getBlock(position);
@@ -49,9 +53,16 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
         // e.g. BaseBlock block = eventWorld.getBlock(position);
         ItemStack[] containerData = CoreProtectEditSessionEvent.isFAWE() ? null : Util.getContainerContents(oldType, null, location);
 
-        if (eventExtent.setBlock(position.getX(), position.getY(), position.getZ(), block)) {
-            WorldEditLogger.postProcess(eventExtent, eventActor, position, location, block, baseBlock, oldType, oldBlock, containerData);
-            return true;
+        if (CoreProtectEditSessionEvent.isFAWE()) {
+            if (eventExtent.setBlock(position.getX(), position.getY(), position.getZ(), block)) {
+                WorldEditLogger.postProcess(eventExtent, eventActor, position, location, block, baseBlock, oldType, oldBlock, containerData);
+                return true;
+            }
+        } else {
+            if (eventExtent.setBlock(position, block)) {
+                WorldEditLogger.postProcess(eventExtent, eventActor, position, location, block, baseBlock, oldType, oldBlock, containerData);
+                return true;
+            }
         }
 
         return false;

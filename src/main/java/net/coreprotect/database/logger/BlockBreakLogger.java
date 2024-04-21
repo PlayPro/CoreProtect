@@ -38,7 +38,8 @@ public class BlockBreakLogger {
             }
 
             if (!user.startsWith("#")) {
-                CacheHandler.spreadCache.remove(location);
+                String cacheId = location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ() + "." + Util.getWorldId(location.getWorld().getName());
+                CacheHandler.spreadCache.remove(cacheId);
             }
 
             if (checkType == Material.LECTERN) {

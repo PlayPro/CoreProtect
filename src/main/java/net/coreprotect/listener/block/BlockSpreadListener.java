@@ -82,14 +82,15 @@ public final class BlockSpreadListener extends Queue implements Listener {
     }
 
     private boolean checkCacheData(Block block, Material type) {
-        int log = 0;
-        String cacheId = block.getX() + "." + block.getY() + "." + block.getZ() + "." + Util.getWorldId(block.getWorld().getName()) + "." + type.name();
-        if (CacheHandler.spreadCache.get(cacheId) == null) {
-            log = 1;
-        }
+        String cacheId = block.getX() + "." + block.getY() + "." + block.getZ() + "." + Util.getWorldId(block.getWorld().getName());
+        Location location = block.getLocation();
         int timestamp = (int) (System.currentTimeMillis() / 1000L);
-        CacheHandler.spreadCache.put(cacheId, new Object[] { timestamp });
+        Object[] cacheData = CacheHandler.spreadCache.get(cacheId);
+        CacheHandler.spreadCache.put(cacheId, new Object[] { timestamp, type });
+        if (cacheData != null && ((Material) cacheData[1]) == type) {
+            return true;
+        }
 
-        return (log == 0);
+        return false;
     }
 }

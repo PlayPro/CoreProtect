@@ -73,6 +73,7 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
         return setBlock(BlockVector3.at(x, y, z), block);
     }
 
+    @Override
     public int setBlocks(Region region, Pattern pattern) throws MaxChangedBlocksException {
         org.bukkit.World world = BukkitAdapter.adapt(eventWorld);
         if (!Config.getConfig(world).WORLDEDIT) {

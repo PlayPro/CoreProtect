@@ -23,7 +23,6 @@ if (System.getenv("BUILD_NUMBER") != null) {
 logger.info("Building version $version")
 
 repositories {
-    jcenter()
     maven { url = 'https://hub.spigotmc.org/nexus/content/groups/public/' }
     maven { url = 'https://repo.papermc.io/repository/maven-public/' }
     maven { url = 'https://repo.codemc.org/repository/maven-public/' }

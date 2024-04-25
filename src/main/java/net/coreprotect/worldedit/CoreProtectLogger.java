@@ -22,7 +22,6 @@ import org.bukkit.inventory.ItemStack;
 
 public class CoreProtectLogger extends AbstractDelegateExtent
 {
-
     private final Actor eventActor;
     private final World eventWorld;
     private final Extent eventExtent;

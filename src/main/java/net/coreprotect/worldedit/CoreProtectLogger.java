@@ -89,7 +89,13 @@ public class CoreProtectLogger extends AbstractDelegateExtent
     @Override
     public int replaceBlocks(final Region region, final Mask mask, final Pattern pattern) throws MaxChangedBlocksException
     {
-        return this.setBlocks(region, pattern);
+        org.bukkit.World world = BukkitAdapter.adapt(eventWorld);
+        if (!Config.getConfig(world).WORLDEDIT)
+        {
+            return eventExtent.replaceBlocks(region, mask, pattern);
+        }
+        processPatternToBlocks(world, region, pattern);
+        return eventExtent.replaceBlocks(region, mask, pattern);
     }
 
     @Override
@@ -100,7 +106,12 @@ public class CoreProtectLogger extends AbstractDelegateExtent
         {
             return eventExtent.setBlocks(region, pattern);
         }
+        processPatternToBlocks(world, region, pattern);
+        return eventExtent.setBlocks(region, pattern);
+    }
 
+    private void processPatternToBlocks(org.bukkit.World world, Region region, Pattern pattern)
+    {
         for (BlockVector3 position : region.clone())
         {
             BlockState oldBlock = eventExtent.getBlock(position);
@@ -114,6 +125,5 @@ public class CoreProtectLogger extends AbstractDelegateExtent
             ItemStack[] containerData = CoreProtectEditSessionEvent.isFAWE() ? null : Util.getContainerContents(oldType, null, location);
             WorldEditLogger.postProcess(eventExtent, eventActor, position, location, pattern.applyBlock(position), baseBlock, oldType, oldBlock, containerData);
         }
-        return eventExtent.setBlocks(region, pattern);
     }
 }

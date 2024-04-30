@@ -409,7 +409,7 @@ public class Database extends Queue {
                     statement.executeUpdate("create index if not exists \"" + prefix + "user_uuid_index\" on \"" + prefix + "user\" (\"uuid\")");
 
                     statement.executeUpdate("create table if not exists \"" + prefix + "username_log\" (\"rowid\" bigserial primary key not null, \"time\" integer not null, \"uuid\" uuid not null, \"user\" varchar(100) not null)");
-                    statement.executeUpdate("create index if not exists \"" + prefix + "username_log_uuid_user_index\" on \"username_log\" (\"uuid\", \"user\")");
+                    statement.executeUpdate("create index if not exists \"" + prefix + "username_log_uuid_user_index\" on \"" + prefix + "username_log\" (\"uuid\", \"user\")");
 
                     statement.executeUpdate("create table if not exists \"" + prefix + "version\" (\"rowid\" bigserial primary key not null, \"time\" integer not null, \"version\" varchar(16) not null)");
 

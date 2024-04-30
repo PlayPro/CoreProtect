@@ -52,6 +52,7 @@ public class ConfigHandler extends Queue {
     public static String database = "database";
     public static String username = "root";
     public static String password = "";
+    public static String jdbcParameters = "";
     public static String prefix = "co_";
     public static int maximumPoolSize = 10;
 
@@ -177,6 +178,7 @@ public class ConfigHandler extends Queue {
             ConfigHandler.database = Config.getGlobal().DB_DATABASE;
             ConfigHandler.username = Config.getGlobal().DB_USERNAME;
             ConfigHandler.password = Config.getGlobal().DB_PASSWORD;
+            ConfigHandler.jdbcParameters = Config.getGlobal().DB_JDBC_PARAMETERS;
             ConfigHandler.maximumPoolSize = Config.getGlobal().MAXIMUM_POOL_SIZE;
             ConfigHandler.prefix = Config.getGlobal().DB_PREFIX;
 
@@ -230,7 +232,7 @@ public class ConfigHandler extends Queue {
                 config.setDriverClassName("com.mysql.jdbc.Driver");
             }
 
-            config.setJdbcUrl("jdbc:mysql://" + ConfigHandler.host + ":" + ConfigHandler.port + "/" + ConfigHandler.database);
+            config.setJdbcUrl("jdbc:mysql://" + ConfigHandler.host + ":" + ConfigHandler.port + "/" + ConfigHandler.database + ConfigHandler.jdbcParameters);
             config.setUsername(ConfigHandler.username);
             config.setPassword(ConfigHandler.password);
             config.setMaximumPoolSize(ConfigHandler.maximumPoolSize);
@@ -260,7 +262,7 @@ public class ConfigHandler extends Queue {
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-            config.setJdbcUrl("jdbc:postgresql://" + ConfigHandler.host + ":" + ConfigHandler.port + "/" + ConfigHandler.database);
+            config.setJdbcUrl("jdbc:postgresql://" + ConfigHandler.host + ":" + ConfigHandler.port + "/" + ConfigHandler.database + ConfigHandler.jdbcParameters);
             config.setUsername(ConfigHandler.username);
             config.setPassword(ConfigHandler.password);
             config.setMaxLifetime(300000);

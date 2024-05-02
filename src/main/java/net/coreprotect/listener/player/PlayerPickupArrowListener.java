@@ -1,4 +1,4 @@
-package net.coreprotect.listener;
+package net.coreprotect.listener.player;
 
 import org.bukkit.Material;
 import org.bukkit.entity.AbstractArrow;
@@ -8,11 +8,8 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerPickupArrowEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.PotionMeta;
-import org.bukkit.potion.PotionData;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionType;
 
+import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.entity.EntityPickupItemListener;
 
@@ -31,16 +28,7 @@ public final class PlayerPickupArrowListener extends Queue implements Listener {
 
         if (arrow instanceof Arrow) {
             Arrow arrowEntity = (Arrow) arrow;
-            PotionData data = arrowEntity.getBasePotionData();
-            if (data.getType() != PotionType.UNCRAFTABLE) {
-                itemStack = new ItemStack(Material.TIPPED_ARROW);
-                PotionMeta meta = (PotionMeta) itemStack.getItemMeta();
-                meta.setBasePotionData(data);
-                for (PotionEffect effect : arrowEntity.getCustomEffects()) {
-                    meta.addCustomEffect(effect, false);
-                }
-                itemStack.setItemMeta(meta);
-            }
+            itemStack = BukkitAdapter.ADAPTER.getArrowMeta(arrowEntity, itemStack);
         }
 
         return itemStack;

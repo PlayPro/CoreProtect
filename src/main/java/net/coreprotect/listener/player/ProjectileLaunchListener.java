@@ -24,7 +24,6 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.logger.ItemLogger;
-import net.coreprotect.listener.PlayerPickupArrowListener;
 import net.coreprotect.utility.Util;
 
 public final class ProjectileLaunchListener extends Queue implements Listener {

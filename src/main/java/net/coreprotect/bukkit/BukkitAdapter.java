@@ -13,6 +13,7 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Directional;
+import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemFrame;
@@ -22,6 +23,10 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.potion.PotionData;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionType;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.utility.Util;
@@ -261,6 +266,22 @@ public class BukkitAdapter implements BukkitInterface {
     @Override
     public boolean isSignFront(SignChangeEvent event) {
         return true;
+    }
+
+    @Override
+    public ItemStack getArrowMeta(Arrow arrow, ItemStack itemStack) {
+        PotionData data = arrow.getBasePotionData();
+        if (data.getType() != PotionType.UNCRAFTABLE) {
+            itemStack = new ItemStack(Material.TIPPED_ARROW);
+            PotionMeta meta = (PotionMeta) itemStack.getItemMeta();
+            meta.setBasePotionData(data);
+            for (PotionEffect effect : arrow.getCustomEffects()) {
+                meta.addCustomEffect(effect, false);
+            }
+            itemStack.setItemMeta(meta);
+        }
+
+        return itemStack;
     }
 
 }

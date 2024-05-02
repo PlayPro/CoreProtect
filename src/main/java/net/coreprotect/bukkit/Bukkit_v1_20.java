@@ -11,9 +11,13 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.ChiseledBookshelf;
 import org.bukkit.block.Sign;
 import org.bukkit.block.sign.Side;
+import org.bukkit.entity.Arrow;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionType;
 
 import net.coreprotect.model.BlockGroup;
 
@@ -247,6 +251,24 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 implements BukkitInterface {
     @Override
     public boolean isSignFront(SignChangeEvent event) {
         return event.getSide().equals(Side.FRONT);
+    }
+
+    @Override
+    public ItemStack getArrowMeta(Arrow arrow, ItemStack itemStack) {
+        PotionType potionType = arrow.getBasePotionType();
+        Color color = arrow.getColor();
+        if (potionType != null || color != null) {
+            itemStack = new ItemStack(Material.TIPPED_ARROW);
+            PotionMeta meta = (PotionMeta) itemStack.getItemMeta();
+            meta.setBasePotionType(potionType);
+            meta.setColor(color);
+            for (PotionEffect effect : arrow.getCustomEffects()) {
+                meta.addCustomEffect(effect, false);
+            }
+            itemStack.setItemMeta(meta);
+        }
+
+        return itemStack;
     }
 
 }

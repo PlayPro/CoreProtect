@@ -168,7 +168,7 @@ public class CoreProtectAPI extends Queue {
     }
 
     public int APIVersion() {
-        return 9;
+        return 10;
     }
 
     public List<String[]> blockLookup(Block block, int time) {
@@ -282,6 +282,19 @@ public class CoreProtectAPI extends Queue {
         return false;
     }
 
+    public boolean logPlacement(String user, BlockState blockState) {
+        if (!Config.getGlobal().API_ENABLED) {
+            return false;
+        }
+
+        if (blockState == null || user == null || user.length() == 0) {
+            return false;
+        }
+
+        Queue.queueBlockPlace(user, blockState, blockState.getType(), null, blockState.getType(), -1, 0, blockState.getBlockData().getAsString());
+        return true;
+    }
+
     public boolean logPlacement(String user, Location location, Material type, BlockData blockData) {
         if (Config.getGlobal().API_ENABLED) {
             if (user != null && location != null) {
@@ -314,6 +327,19 @@ public class CoreProtectAPI extends Queue {
         }
 
         return false;
+    }
+
+    public boolean logRemoval(String user, BlockState blockState) {
+        if (!Config.getGlobal().API_ENABLED) {
+            return false;
+        }
+
+        if (blockState == null || user == null || user.length() == 0) {
+            return false;
+        }
+
+        Queue.queueBlockBreak(user, blockState, blockState.getType(), blockState.getBlockData().getAsString(), 0);
+        return true;
     }
 
     public boolean logRemoval(String user, Location location, Material type, BlockData blockData) {

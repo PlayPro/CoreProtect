@@ -28,7 +28,7 @@ public final class HopperPullListener {
             }
         }
 
-        ItemStack[] sourceContainer = Util.getContainerState(sourceHolder.getInventory().getContents());
+        ItemStack[] destinationContainer = Util.getContainerState(destinationHolder.getInventory().getContents());
         ItemStack movedItem = item.clone();
 
         final long taskStarted = InventoryChangeListener.tasksStarted.incrementAndGet();
@@ -39,7 +39,7 @@ public final class HopperPullListener {
                 }
 
                 boolean abort = false;
-                boolean addedInventory = Util.canAddContainer(sourceContainer, movedItem, sourceHolder.getInventory().getMaxStackSize());
+                boolean addedInventory = Util.canAddContainer(destinationContainer, movedItem, destinationHolder.getInventory().getMaxStackSize());
                 if (!addedInventory) {
                     abort = true;
                 }

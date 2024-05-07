@@ -19,7 +19,8 @@ import net.coreprotect.utility.Util;
 public final class HopperPushListener {
 
     static void processHopperPush(Location location, InventoryHolder sourceHolder, InventoryHolder destinationHolder, ItemStack item) {
-        String loggingChestId = "#hopper-push." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+        Location destinationLocation = destinationHolder.getInventory().getLocation();
+        String loggingChestId = "#hopper-push." + destinationLocation.getBlockX() + "." + destinationLocation.getBlockY() + "." + destinationLocation.getBlockZ();
         Object[] lastAbort = ConfigHandler.hopperAbort.get(loggingChestId);
         if (lastAbort != null) {
             ItemStack[] destinationContents = destinationHolder.getInventory().getContents();
@@ -54,6 +55,9 @@ public final class HopperPushListener {
 
                     ConfigHandler.hopperAbort.put(loggingChestId, new Object[] { movedItems, Util.getContainerState(destinationContents) });
                     return;
+                }
+                else {
+                    ConfigHandler.hopperSuccess.put(loggingChestId, new Object[] { destinationContainer, movedItem });
                 }
 
                 List<Object> list = ConfigHandler.transactingChest.get(location.getWorld().getUID().toString() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ());

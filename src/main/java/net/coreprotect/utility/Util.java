@@ -1039,6 +1039,10 @@ public class Util extends Queue {
 
             name = BukkitAdapter.ADAPTER.parseLegacyName(name);
             material = Material.getMaterial(name);
+
+            if (material == null) {
+                material = Material.getMaterial(name, true);
+            }
         }
 
         return material;

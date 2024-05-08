@@ -1,7 +1,9 @@
 package net.coreprotect.consumer.process;
 
 import java.sql.PreparedStatement;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -46,8 +48,9 @@ class ContainerTransactionProcess {
                         }
                     }
                     else if (loggingChestId.startsWith("#hopper")) {
-                        if (force_size == 0 && ConfigHandler.oldContainer.get(loggingChestId).size() == 1 && ConfigHandler.transactingChest.get(transactingChestId).isEmpty()) {
-                            int loopCount = ConfigHandler.loggingChest.get(loggingChestId);
+                        List<Object> transactingChest = ConfigHandler.transactingChest.get(transactingChestId);
+                        if (force_size == 0 && ConfigHandler.oldContainer.getOrDefault(loggingChestId, Collections.synchronizedList(new ArrayList<>())).size() == 1 && transactingChest != null && transactingChest.isEmpty()) {
+                            int loopCount = ConfigHandler.loggingChest.getOrDefault(loggingChestId, 0);
                             int maxInventorySize = (99 * 54);
                             try {
                                 Inventory checkInventory = (Inventory) inventory;

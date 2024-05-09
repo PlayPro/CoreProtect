@@ -22,7 +22,7 @@ Log your own block changes, perform lookups, rollbacks, restores, and more.
 A list of plugins and tools that are compatible with CoreProtect.  
 
 [**Per-World Configuration Files**](/config/#per-world-configuration)  
-Log your own block changes, perform lookups, rollbacks, restores, and more.  
+Modify the logging settings for a specific world on your server.  
 
-[**Disable Logging for Specific Users or Commands**](/config/#disabling-logging)  
-Log your own block changes, perform lookups, rollbacks, restores, and more.  
+[**Disable Logging With a Blacklist**](/config/#disabling-logging)  
+Disable logging for specific users, blocks or commands.  

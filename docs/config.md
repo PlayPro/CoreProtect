@@ -32,4 +32,4 @@ Notch
 minecraft:stone
 ```
 
-*Please note that to disable logging for blocks, you must include the namespace. For example, to disable logging for dirt, you must add it as "minecraft:dirt".*
+*Please note that to disable logging for blocks, CoreProtect v23+ is required, and you must include the namespace. For example, to disable logging for dirt, you must add it as "minecraft:dirt".*

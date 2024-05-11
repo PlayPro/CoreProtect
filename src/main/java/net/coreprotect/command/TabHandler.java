@@ -317,6 +317,10 @@ public class TabHandler implements TabCompleter {
                         materialList.add(add.name().toLowerCase(Locale.ROOT));
                     }
 
+                    // add custom tags
+                    materialList.add("#natural");
+                    materialList.add("#shulker_box");
+
                     materials = new ArrayList<>(materialList);
                 }
 

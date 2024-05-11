@@ -35,6 +35,7 @@ public class CommandHandler implements CommandExecutor {
     private static CommandHandler instance;
     private static ConcurrentHashMap<String, Boolean> versionAlert = new ConcurrentHashMap<>();
     protected static Set<Material> naturalBlocks = BlockGroup.NATURAL_BLOCKS;
+    protected static Set<Material> shulkerBlocks = BlockGroup.SHULKER_BOXES;
 
     public static CommandHandler getInstance() {
         if (instance == null) {
@@ -282,6 +283,11 @@ public class CommandHandler implements CommandExecutor {
                                     excluded.put(block, false);
                                 }
                             }
+                            else if (i3.equals("#shulker_box")) {
+                                for (Material block : shulkerBlocks) {
+                                    excluded.put(block, false);
+                                }
+                            }
                             else {
                                 Material i3_material = Util.getType(i3);
                                 if (i3_material != null && (i3_material.isBlock() || argAction.contains(4))) {
@@ -308,6 +314,11 @@ public class CommandHandler implements CommandExecutor {
                     else {
                         if (argument.equals("#natural")) {
                             for (Material block : naturalBlocks) {
+                                excluded.put(block, false);
+                            }
+                        }
+                        else if (argument.equals("#shulker_box")) {
+                            for (Material block : shulkerBlocks) {
                                 excluded.put(block, false);
                             }
                         }
@@ -359,7 +370,7 @@ public class CommandHandler implements CommandExecutor {
                         String[] i2 = argument.split(",");
                         for (String i3 : i2) {
                             boolean isBlock = false;
-                            if (i3.equals("#natural")) {
+                            if (i3.equals("#natural") || i3.equals("#shulker_box")) {
                                 isBlock = true;
                             }
                             else {
@@ -387,7 +398,7 @@ public class CommandHandler implements CommandExecutor {
                     }
                     else {
                         boolean isBlock = false;
-                        if (argument.equals("#natural")) {
+                        if (argument.equals("#natural") || argument.equals("#shulker_box")) {
                             isBlock = true;
                         }
                         else {
@@ -633,6 +644,9 @@ public class CommandHandler implements CommandExecutor {
                             if (i3.equals("#natural")) {
                                 restricted.addAll(naturalBlocks);
                             }
+                            else if (i3.equals("#shulker_box")) {
+                                restricted.addAll(shulkerBlocks);
+                            }
                             else {
                                 Material i3_material = Util.getType(i3);
                                 if (i3_material != null && (i3_material.isBlock() || argAction.contains(4))) {
@@ -664,6 +678,9 @@ public class CommandHandler implements CommandExecutor {
                     else {
                         if (argument.equals("#natural")) {
                             restricted.addAll(naturalBlocks);
+                        }
+                        else if (argument.equals("#shulker_box")) {
+                            restricted.addAll(shulkerBlocks);
                         }
                         else {
                             Material material = Util.getType(argument);

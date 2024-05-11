@@ -45,6 +45,7 @@ import net.coreprotect.listener.player.PlayerInteractEntityListener;
 import net.coreprotect.listener.player.PlayerInteractListener;
 import net.coreprotect.listener.player.PlayerItemBreakListener;
 import net.coreprotect.listener.player.PlayerJoinListener;
+import net.coreprotect.listener.player.PlayerPickupArrowListener;
 import net.coreprotect.listener.player.PlayerQuitListener;
 import net.coreprotect.listener.player.PlayerTakeLecternBookListener;
 import net.coreprotect.listener.player.ProjectileLaunchListener;

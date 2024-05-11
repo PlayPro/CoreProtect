@@ -5,6 +5,7 @@ import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 import org.bukkit.block.sign.Side;
 
+import net.coreprotect.config.Config;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 public class Paper_v1_20 extends Paper_v1_17 implements PaperInterface {
@@ -23,11 +24,13 @@ public class Paper_v1_20 extends Paper_v1_17 implements PaperInterface {
     @Override
     public String getSkullOwner(Skull skull) {
         String owner = skull.getPlayerProfile().getName();
-        if (owner.length() > 255 && skull.getPlayerProfile().getId() != null) {
-            return skull.getPlayerProfile().getId().toString();
-        }
-        else if (owner.length() > 255) {
-            return owner.substring(0, 255);
+        if (Config.getGlobal().MYSQL) {
+            if (owner.length() > 255 && skull.getPlayerProfile().getId() != null) {
+                return skull.getPlayerProfile().getId().toString();
+            }
+            else if (owner.length() > 255) {
+                return owner.substring(0, 255);
+            }
         }
 
         return owner;

@@ -22,7 +22,15 @@ public class Paper_v1_20 extends Paper_v1_17 implements PaperInterface {
 
     @Override
     public String getSkullOwner(Skull skull) {
-        return skull.getPlayerProfile().getName();
+        String owner = skull.getPlayerProfile().getName();
+        if (owner.length() > 255 && skull.getPlayerProfile().getId() != null) {
+            return skull.getPlayerProfile().getId().toString();
+        }
+        else if (owner.length() > 255) {
+            return owner.substring(0, 255);
+        }
+
+        return owner;
     }
 
     @Override

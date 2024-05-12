@@ -41,7 +41,6 @@ public class Config extends Language {
     public String MYSQL_USERNAME;
     public String MYSQL_PASSWORD;
     public String LANGUAGE;
-    public boolean ENABLE_AWE;
     public boolean ENABLE_SSL;
     public boolean DISABLE_WAL;
     public boolean HOVER_EVENTS;
@@ -189,7 +188,6 @@ public class Config extends Language {
     }
 
     private void readValues() {
-        this.ENABLE_AWE = this.getBoolean("enable-awe", false);
         this.ENABLE_SSL = this.getBoolean("enable-ssl", false);
         this.DISABLE_WAL = this.getBoolean("disable-wal", false);
         this.HOVER_EVENTS = this.getBoolean("hover-events", true);

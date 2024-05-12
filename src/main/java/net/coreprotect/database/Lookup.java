@@ -29,7 +29,7 @@ import net.coreprotect.utility.Util;
 
 public class Lookup extends Queue {
 
-    static List<String[]> convertRawLookup(Statement statement, List<Object[]> list) {
+    protected static List<String[]> convertRawLookup(Statement statement, List<Object[]> list) {
         List<String[]> newList = new ArrayList<>();
 
         if (list == null) {
@@ -122,7 +122,7 @@ public class Lookup extends Queue {
         return newList;
     }
 
-    static List<Object[]> performLookupRaw(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup) {
+    protected static List<Object[]> performLookupRaw(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup) {
         List<Object[]> list = new ArrayList<>();
         List<Integer> invalidRollbackActions = new ArrayList<>();
         invalidRollbackActions.add(2);

@@ -1,8 +1,8 @@
 package net.coreprotect.api;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -10,6 +10,7 @@ import java.util.Locale;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.StatementUtils;
 import net.coreprotect.database.statement.UserStatement;
 
 public class SessionLookup {
@@ -43,27 +44,28 @@ public class SessionLookup {
             }
             int userId = ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT));
 
-            try (Statement statement = connection.createStatement()) {
-                String query = "SELECT time,user,wid,x,y,z,action FROM " + ConfigHandler.prefix + "session WHERE user = '" + userId + "' AND time > '" + checkTime + "' ORDER BY rowid DESC";
-                ResultSet results = statement.executeQuery(query);
-                while (results.next()) {
-                    String resultTime = results.getString("time");
-                    int resultUserId = results.getInt("user");
-                    String resultWorldId = results.getString("wid");
-                    String resultX = results.getString("x");
-                    String resultY = results.getString("y");
-                    String resultZ = results.getString("z");
-                    String resultAction = results.getString("action");
+            try (PreparedStatement statement = connection.prepareStatement("SELECT time, \"user\", wid, x, y, z, action FROM " + StatementUtils.getTableName("session") + " WHERE \"user\" = ? AND time > ? ORDER BY rowid DESC")) {
+                statement.setInt(1, userId);
+                statement.setInt(2, checkTime);
+                try (ResultSet results = statement.executeQuery()) {
+                    while (results.next()) {
+                        String resultTime = results.getString("time");
+                        int resultUserId = results.getInt("user");
+                        String resultWorldId = results.getString("wid");
+                        String resultX = results.getString("x");
+                        String resultY = results.getString("y");
+                        String resultZ = results.getString("z");
+                        String resultAction = results.getString("action");
 
-                    if (ConfigHandler.playerIdCacheReversed.get(resultUserId) == null) {
-                        UserStatement.loadName(connection, resultUserId);
+                        if (ConfigHandler.playerIdCacheReversed.get(resultUserId) == null) {
+                            UserStatement.loadName(connection, resultUserId);
+                        }
+                        String resultUser = ConfigHandler.playerIdCacheReversed.get(resultUserId);
+
+                        String[] lookupData = new String[] { resultTime, resultUser, resultX, resultY, resultZ, resultWorldId, type, resultAction };
+                        result.add(lookupData);
                     }
-                    String resultUser = ConfigHandler.playerIdCacheReversed.get(resultUserId);
-
-                    String[] lookupData = new String[] { resultTime, resultUser, resultX, resultY, resultZ, resultWorldId, type, resultAction };
-                    result.add(lookupData);
                 }
-                results.close();
             }
         }
         catch (Exception e) {

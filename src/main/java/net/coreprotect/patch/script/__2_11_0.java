@@ -9,12 +9,13 @@ import org.bukkit.entity.EntityType;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.config.DatabaseType;
 
 public class __2_11_0 {
 
     protected static boolean patch(Statement statement) {
         try {
-            if (Config.getGlobal().MYSQL) {
+            if (Config.getGlobal().DB_TYPE != DatabaseType.SQLITE) {
                 statement.executeUpdate("START TRANSACTION");
             }
             else {
@@ -54,7 +55,7 @@ public class __2_11_0 {
                 }
             }
 
-            if (Config.getGlobal().MYSQL) {
+            if (Config.getGlobal().DB_TYPE != DatabaseType.SQLITE) {
                 statement.executeUpdate("COMMIT");
             }
             else {

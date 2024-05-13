@@ -55,6 +55,7 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.config.DatabaseType;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.rollback.Rollback;
 import net.coreprotect.language.Phrase;
@@ -1594,12 +1595,12 @@ public class Util extends Queue {
     }
 
     public static String getWidIndex(String queryTable) {
-        String index = "";
-        boolean isMySQL = Config.getGlobal().MYSQL;
-        if (isMySQL) {
+        DatabaseType dbType = Config.getGlobal().DB_TYPE;
+        String index;
+        if (dbType == DatabaseType.MYSQL) {
+            // mysql has the use index hint
             index = "USE INDEX(wid) ";
-        }
-        else {
+        } else if (dbType == DatabaseType.SQLITE) {
             switch (queryTable) {
                 case "block":
                     index = "INDEXED BY block_index ";
@@ -1623,8 +1624,11 @@ public class Util extends Queue {
                     index = "INDEXED BY session_index ";
                     break;
                 default:
+                    index = "";
                     break;
             }
+        } else {
+            index = "";
         }
 
         return index;

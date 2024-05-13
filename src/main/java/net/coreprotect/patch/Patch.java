@@ -17,6 +17,7 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.StatementUtils;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
@@ -52,7 +53,7 @@ public class Patch {
     public static Integer[] getDatabaseVersion(Connection connection, boolean lastVersion) {
         Integer[] last_version = new Integer[] { 0, 0, 0 };
         try {
-            String query = "SELECT version FROM " + ConfigHandler.prefix + "version ORDER BY rowid " + (lastVersion ? "DESC" : "ASC") + " LIMIT 0, 1";
+            String query = "SELECT version FROM " + StatementUtils.getTableName("version") + " ORDER BY rowid " + (lastVersion ? "DESC" : "ASC") + " LIMIT 1";
             Statement statement = connection.createStatement();
             ResultSet rs = statement.executeQuery(query);
             while (rs.next()) {
@@ -213,10 +214,10 @@ public class Patch {
             // mark as being up to date
             int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
             if (result >= 0) {
-                statement.executeUpdate("INSERT INTO " + ConfigHandler.prefix + "version (time,version) VALUES ('" + unixtimestamp + "', '" + version[0] + "." + version[1] + "." + version[2] + "')");
+                statement.executeUpdate("INSERT INTO " + StatementUtils.getTableName("version") + " (time,version) VALUES ('" + unixtimestamp + "', '" + version[0] + "." + version[1] + "." + version[2] + "')");
             }
             else if (patched) {
-                statement.executeUpdate("INSERT INTO " + ConfigHandler.prefix + "version (time,version) VALUES ('" + unixtimestamp + "', '" + newVersion[0] + "." + newVersion[1] + "." + newVersion[2] + "')");
+                statement.executeUpdate("INSERT INTO " + StatementUtils.getTableName("version") + " (time,version) VALUES ('" + unixtimestamp + "', '" + newVersion[0] + "." + newVersion[1] + "." + newVersion[2] + "')");
             }
 
             statement.close();
@@ -307,7 +308,7 @@ public class Patch {
             }
             else if (lastVersion[0] == 0) {
                 int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
-                statement.executeUpdate("INSERT INTO " + ConfigHandler.prefix + "version (time,version) VALUES ('" + unixtimestamp + "', '" + currentVersion[0] + "." + (ConfigHandler.EDITION_BRANCH.contains("-dev") ? (currentVersion[1] - 1) : currentVersion[1]) + "." + currentVersion[2] + "')");
+                statement.executeUpdate("INSERT INTO " + StatementUtils.getTableName("version") + " (time,version) VALUES ('" + unixtimestamp + "', '" + currentVersion[0] + "." + (ConfigHandler.EDITION_BRANCH.contains("-dev") ? (currentVersion[1] - 1) : currentVersion[1]) + "." + currentVersion[2] + "')");
             }
             else {
                 currentVersion[2] = 0;

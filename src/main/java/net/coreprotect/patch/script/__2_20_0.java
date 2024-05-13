@@ -8,6 +8,7 @@ import org.bukkit.entity.EntityType;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.config.DatabaseType;
 import net.coreprotect.database.Database;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
@@ -19,7 +20,7 @@ public class __2_20_0 {
 
     protected static boolean patch(Statement statement) {
         try {
-            if (Config.getGlobal().MYSQL) {
+            if (Config.getGlobal().DB_TYPE != DatabaseType.SQLITE) {
                 try {
                     statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "command MODIFY message VARCHAR(16000), CONVERT TO CHARACTER SET utf8mb4");
                 }

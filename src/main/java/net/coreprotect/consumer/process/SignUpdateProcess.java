@@ -6,6 +6,7 @@ import java.util.Locale;
 import org.bukkit.block.BlockState;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.StatementUtils;
 import net.coreprotect.database.statement.SignStatement;
 import net.coreprotect.utility.Util;
 
@@ -24,12 +25,11 @@ class SignUpdateProcess {
             int z = block.getZ();
             int wid = Util.getWorldId(block.getWorld().getName());
             int userid = ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT));
-            String query = "";
+            String query;
             if (action == 0) {
-                query = "SELECT color, color_secondary, data, waxed, face, line_1, line_2, line_3, line_4, line_5, line_6, line_7, line_8 FROM " + ConfigHandler.prefix + "sign WHERE user='" + userid + "' AND wid='" + wid + "' AND x='" + x + "' AND z='" + z + "' AND y='" + y + "' AND time < '" + time + "' ORDER BY rowid DESC LIMIT 0, 1";
-            }
-            else {
-                query = "SELECT color, color_secondary, data, waxed, face, line_1, line_2, line_3, line_4, line_5, line_6, line_7, line_8 FROM " + ConfigHandler.prefix + "sign WHERE user='" + userid + "' AND wid='" + wid + "' AND x='" + x + "' AND z='" + z + "' AND y='" + y + "' AND time >= '" + time + "' ORDER BY rowid ASC LIMIT 0, 1";
+                query = "SELECT color, color_secondary, data, waxed, face, line_1, line_2, line_3, line_4, line_5, line_6, line_7, line_8 FROM " + StatementUtils.getTableName("sign") + " WHERE \"user\"='" + userid + "' AND wid='" + wid + "' AND x='" + x + "' AND z='" + z + "' AND y='" + y + "' AND time < '" + time + "' ORDER BY rowid DESC LIMIT 1";
+            } else {
+                query = "SELECT color, color_secondary, data, waxed, face, line_1, line_2, line_3, line_4, line_5, line_6, line_7, line_8 FROM " + StatementUtils.getTableName("sign") + " WHERE \"user\"='" + userid + "' AND wid='" + wid + "' AND x='" + x + "' AND z='" + z + "' AND y='" + y + "' AND time >= '" + time + "' ORDER BY rowid ASC LIMIT 1";
             }
             SignStatement.getData(statement, block, query);
             Util.updateBlock(block);

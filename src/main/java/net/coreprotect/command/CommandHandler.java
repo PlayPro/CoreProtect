@@ -1121,9 +1121,13 @@ public class CommandHandler implements CommandExecutor {
         return worldName;
     }
 
-    private static Map<String, Set<Material>> getTags() {
+    protected static Map<String, Set<Material>> getTags() {
         Map<String, Set<Material>> tagMap = new HashMap<>();
+        tagMap.put("#button", BlockGroup.BUTTONS);
+        tagMap.put("#container", BlockGroup.CONTAINERS);
+        tagMap.put("#door", BlockGroup.DOORS);
         tagMap.put("#natural", BlockGroup.NATURAL_BLOCKS);
+        tagMap.put("#pressure_plate", BlockGroup.PRESSURE_PLATES);
         tagMap.put("#shulker_box", BlockGroup.SHULKER_BOXES);
         return tagMap;
     }

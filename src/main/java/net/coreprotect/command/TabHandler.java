@@ -318,8 +318,9 @@ public class TabHandler implements TabCompleter {
                     }
 
                     // add custom tags
-                    materialList.add("#natural");
-                    materialList.add("#shulker_box");
+                    for (String tag : CommandHandler.getTags().keySet()) {
+                        materialList.add(tag);
+                    }
 
                     materials = new ArrayList<>(materialList);
                 }

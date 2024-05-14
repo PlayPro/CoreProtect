@@ -20,6 +20,10 @@ public final class HopperPushListener {
 
     static void processHopperPush(Location location, InventoryHolder sourceHolder, InventoryHolder destinationHolder, ItemStack item) {
         Location destinationLocation = destinationHolder.getInventory().getLocation();
+        if (destinationLocation == null) {
+            return;
+        }
+
         String loggingChestId = "#hopper-push." + destinationLocation.getBlockX() + "." + destinationLocation.getBlockY() + "." + destinationLocation.getBlockZ();
         Object[] lastAbort = ConfigHandler.hopperAbort.get(loggingChestId);
         if (lastAbort != null) {

@@ -1415,7 +1415,7 @@ public class Util extends Queue {
         Map<String, Object> itemMap = new HashMap<>();
         if (itemStack != null && !itemStack.getType().equals(Material.AIR)) {
             ItemStack item = itemStack.clone();
-            List<List<Map<String, Object>>> metadata = ItemMetaHandler.seralize(item, null, faceData, slot);
+            List<List<Map<String, Object>>> metadata = ItemMetaHandler.serialize(item, null, faceData, slot);
             item.setItemMeta(null);
             itemMap.put("0", item.serialize());
             itemMap.put("1", metadata);

@@ -46,7 +46,7 @@ public final class EntityExplodeListener extends Queue implements Listener {
             user = "#wither";
         }
         else if (entity instanceof EnderCrystal) {
-            user = "#endercrystal";
+            user = "#ender_crystal";
         }
 
         boolean log = false;

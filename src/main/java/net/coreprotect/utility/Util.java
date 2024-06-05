@@ -1312,7 +1312,7 @@ public class Util extends Queue {
 
     public static boolean isFolia() {
         try {
-            Class.forName("io.papermc.paper.threadedregions.ThreadedRegionizer");
+            Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
         }
         catch (Exception e) {
             return false;

@@ -344,10 +344,16 @@ public final class InventoryChangeListener extends Queue implements Listener {
 
         if (hopperTransactions) {
             if (Validate.isHopper(destinationHolder) && (Validate.isContainer(sourceHolder) && !Validate.isHopper(sourceHolder))) {
-                HopperPullListener.processHopperPull(location, sourceHolder, destinationHolder, event.getItem());
+                HopperPullListener.processHopperPull(location, "#hopper", sourceHolder, destinationHolder, event.getItem());
             }
             else if (Validate.isHopper(sourceHolder) && (Validate.isContainer(destinationHolder) && !Validate.isHopper(destinationHolder))) {
-                HopperPushListener.processHopperPush(location, sourceHolder, destinationHolder, event.getItem());
+                HopperPushListener.processHopperPush(location, "#hopper", sourceHolder, destinationHolder, event.getItem());
+            }
+            else if (Validate.isDropper(sourceHolder) && (Validate.isContainer(destinationHolder))) {
+                HopperPullListener.processHopperPull(location, "#dropper", sourceHolder, destinationHolder, event.getItem());
+                if (!Validate.isHopper(destinationHolder)) {
+                    HopperPushListener.processHopperPush(location, "#dropper", sourceHolder, destinationHolder, event.getItem());
+                }
             }
 
             return;
@@ -362,6 +368,6 @@ public final class InventoryChangeListener extends Queue implements Listener {
             return;
         }
 
-        HopperPullListener.processHopperPull(location, sourceHolder, destinationHolder, event.getItem());
+        HopperPullListener.processHopperPull(location, "#hopper", sourceHolder, destinationHolder, event.getItem());
     }
 }

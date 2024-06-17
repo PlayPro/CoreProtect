@@ -917,26 +917,30 @@ public class Util extends Queue {
     }
 
     public static Material getEntityMaterial(EntityType type) {
-        switch (type) {
-            case ARMOR_STAND:
+        switch (type.name()) {
+            case "ARMOR_STAND":
                 return Material.ARMOR_STAND;
-            case ITEM_FRAME:
+            case "ITEM_FRAME":
                 return Material.ITEM_FRAME;
-            case ENDER_CRYSTAL:
+            case "END_CRYSTAL":
+            case "ENDER_CRYSTAL":
                 return Material.END_CRYSTAL;
-            case ENDER_PEARL:
+            case "ENDER_PEARL":
                 return Material.ENDER_PEARL;
-            case SPLASH_POTION:
+            case "POTION":
+            case "SPLASH_POTION":
                 return Material.SPLASH_POTION;
-            case THROWN_EXP_BOTTLE:
+            case "EXPERIENCE_BOTTLE":
+            case "THROWN_EXP_BOTTLE":
                 return Material.EXPERIENCE_BOTTLE;
-            case TRIDENT:
+            case "TRIDENT":
                 return Material.TRIDENT;
-            case FIREWORK:
+            case "FIREWORK_ROCKET":
+            case "FIREWORK":
                 return Material.FIREWORK_ROCKET;
-            case EGG:
+            case "EGG":
                 return Material.EGG;
-            case SNOWBALL:
+            case "SNOWBALL":
                 return Material.SNOWBALL;
             default:
                 return BukkitAdapter.ADAPTER.getFrameType(type);

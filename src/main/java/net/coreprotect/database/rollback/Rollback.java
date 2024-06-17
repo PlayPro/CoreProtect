@@ -649,7 +649,14 @@ public class Rollback extends RollbackUtil {
                                                 }
 
                                                 if (!exists) {
-                                                    Entity entity = block.getLocation().getWorld().spawnEntity(location1, EntityType.ENDER_CRYSTAL);
+                                                    EntityType END_CRYSTAL = null;
+                                                    try {
+                                                        END_CRYSTAL = EntityType.valueOf("END_CRYSTAL"); // 1.21+
+                                                    }
+                                                    catch (Exception e) {
+                                                        END_CRYSTAL = EntityType.valueOf("ENDER_CRYSTAL"); // <= 1.20
+                                                    }
+                                                    Entity entity = block.getLocation().getWorld().spawnEntity(location1, END_CRYSTAL);
                                                     EnderCrystal enderCrystal = (EnderCrystal) entity;
                                                     enderCrystal.setShowingBottom((rowData != 0));
                                                     PaperAdapter.ADAPTER.teleportAsync(entity, location1);

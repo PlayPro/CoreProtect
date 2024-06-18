@@ -586,7 +586,7 @@ public class Util extends Queue {
         return result;
     }
 
-    public static ItemMeta deserializeItemMetax(Class<? extends ItemMeta> itemMetaClass, Map<String, Object> args) {
+    public static ItemMeta deserializeItemMeta(Class<? extends ItemMeta> itemMetaClass, Map<String, Object> args) {
         try {
             DelegateDeserialization delegate = itemMetaClass.getAnnotation(DelegateDeserialization.class);
             return (ItemMeta) ConfigurationSerialization.deserializeObject(args, delegate.value());

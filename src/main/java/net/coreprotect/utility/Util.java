@@ -586,9 +586,18 @@ public class Util extends Queue {
         return result;
     }
 
-    public static ItemMeta deserializeItemMeta(Class<? extends ItemMeta> itemMetaClass, Map<String, Object> args) {
-        DelegateDeserialization delegate = itemMetaClass.getAnnotation(DelegateDeserialization.class);
-        return (ItemMeta) ConfigurationSerialization.deserializeObject(args, delegate.value());
+    public static ItemMeta deserializeItemMetax(Class<? extends ItemMeta> itemMetaClass, Map<String, Object> args) {
+        try {
+            DelegateDeserialization delegate = itemMetaClass.getAnnotation(DelegateDeserialization.class);
+            return (ItemMeta) ConfigurationSerialization.deserializeObject(args, delegate.value());
+        }
+        catch (Exception e) { // only display exception on development branch
+            if (!ConfigHandler.EDITION_BRANCH.contains("-dev")) {
+                e.printStackTrace();
+            }
+        }
+
+        return null;
     }
 
     public static <K, V extends Comparable<? super V>> SortedSet<Map.Entry<K, V>> entriesSortedByValues(Map<K, V> map) {

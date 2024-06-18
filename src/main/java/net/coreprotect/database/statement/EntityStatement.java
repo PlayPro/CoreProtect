@@ -65,7 +65,7 @@ public class EntityStatement {
 
             resultSet.close();
         }
-        catch (Exception e) { // only display this exception on development branch
+        catch (Exception e) { // only display exception on development branch
             if (!ConfigHandler.EDITION_BRANCH.contains("-dev")) {
                 e.printStackTrace();
             }

@@ -288,4 +288,14 @@ public class BukkitAdapter implements BukkitInterface {
         return itemStack;
     }
 
+    @Override
+    public EntityType getEntityType(Material material) {
+        switch (material) {
+            case END_CRYSTAL:
+                return EntityType.valueOf("ENDER_CRYSTAL");
+            default:
+                return EntityType.UNKNOWN;
+        }
+    }
+
 }

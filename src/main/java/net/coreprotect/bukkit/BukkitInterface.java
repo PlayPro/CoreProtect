@@ -87,4 +87,6 @@ public interface BukkitInterface {
 
     public ItemStack getArrowMeta(Arrow arrow, ItemStack itemStack);
 
+    public EntityType getEntityType(Material material);
+
 }

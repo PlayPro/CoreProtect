@@ -42,6 +42,7 @@ public class BukkitAdapter implements BukkitInterface {
     public static final int BUKKIT_V1_18 = 18;
     public static final int BUKKIT_V1_19 = 19;
     public static final int BUKKIT_V1_20 = 20;
+    public static final int BUKKIT_V1_21 = 21;
 
     public static void loadAdapter() {
         switch (ConfigHandler.SERVER_VERSION) {
@@ -63,8 +64,11 @@ public class BukkitAdapter implements BukkitInterface {
                 BukkitAdapter.ADAPTER = new Bukkit_v1_19();
                 break;
             case BUKKIT_V1_20:
-            default:
                 BukkitAdapter.ADAPTER = new Bukkit_v1_20();
+                break;
+            case BUKKIT_V1_21:
+            default:
+                BukkitAdapter.ADAPTER = new Bukkit_v1_21();
                 break;
         }
     }

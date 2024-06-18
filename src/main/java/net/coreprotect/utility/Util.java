@@ -942,6 +942,8 @@ public class Util extends Queue {
                 return Material.EGG;
             case "SNOWBALL":
                 return Material.SNOWBALL;
+            case "WIND_CHARGE":
+                return Material.valueOf("WIND_CHARGE");
             default:
                 return BukkitAdapter.ADAPTER.getFrameType(type);
         }

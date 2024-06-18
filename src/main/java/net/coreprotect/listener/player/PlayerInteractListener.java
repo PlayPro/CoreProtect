@@ -835,6 +835,12 @@ public final class PlayerInteractListener extends Queue implements Listener {
 
             if (event.useItemInHand() != Event.Result.DENY) {
                 List<Material> entityBlockTypes = Arrays.asList(Material.ARMOR_STAND, Material.END_CRYSTAL, Material.BOW, Material.CROSSBOW, Material.TRIDENT, Material.EXPERIENCE_BOTTLE, Material.SPLASH_POTION, Material.LINGERING_POTION, Material.ENDER_PEARL, Material.FIREWORK_ROCKET, Material.EGG, Material.SNOWBALL);
+                try {
+                    entityBlockTypes.add(Material.valueOf("WIND_CHARGE"));
+                }
+                catch (Exception e) {
+                    // not running MC 1.21+
+                }
                 ItemStack handItem = null;
                 ItemStack mainHand = player.getInventory().getItemInMainHand();
                 ItemStack offHand = player.getInventory().getItemInOffHand();

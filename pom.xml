@@ -106,7 +106,7 @@
       <dependency>
         <groupId>com.intellectualsites.bom</groupId>
         <artifactId>bom-newest</artifactId> <!--  Ref: https://github.com/IntellectualSites/bom -->
-        <version>1.44</version>
+        <version>1.45</version>
         <scope>import</scope>
         <type>pom</type>
       </dependency>
@@ -122,7 +122,7 @@
     <dependency>
       <groupId>io.papermc.paper</groupId>
       <artifactId>paper-api</artifactId>
-      <version>1.20.4-R0.1-SNAPSHOT</version>
+      <version>1.21-R0.1-SNAPSHOT</version>
       <scope>provided</scope>
     </dependency>
     <dependency>

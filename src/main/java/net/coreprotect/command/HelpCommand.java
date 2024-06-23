@@ -17,7 +17,7 @@ public class HelpCommand {
                 String helpcommand_original = args[1];
                 String helpcommand = args[1].toLowerCase(Locale.ROOT);
                 helpcommand = helpcommand.replaceAll("[^a-zA-Z]", "");
-                Chat.sendMessage(player, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.HELP_HEADER, "CoreProtect") + Color.WHITE + " -----");
+                Chat.sendMessage(player, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.HELP_HEADER, "方塊紀錄") + Color.WHITE + " -----");
                 if (helpcommand.equals("help")) {
                     Chat.sendMessage(player, Color.DARK_AQUA + "/co help " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_LIST));
                 }

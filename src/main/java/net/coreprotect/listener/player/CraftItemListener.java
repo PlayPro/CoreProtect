@@ -80,7 +80,7 @@ public final class CraftItemListener extends Queue implements Listener {
             return;
         }
 
-        Inventory bottomInventory = event.getView().getBottomInventory();
+        Inventory bottomInventory = player.getInventory();
         if (bottomInventory.getType() != InventoryType.PLAYER) {
             return;
         }

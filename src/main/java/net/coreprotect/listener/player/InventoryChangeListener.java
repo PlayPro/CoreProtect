@@ -22,7 +22,6 @@ import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.inventory.BlockInventoryHolder;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
-import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.CoreProtect;
@@ -251,7 +250,12 @@ public final class InventoryChangeListener extends Queue implements Listener {
             // Perform this check to prevent triggering onInventoryInteractAsync when a user is just clicking items in their own inventory
             Inventory inventory = null;
             try {
-                inventory = event.getView().getInventory(event.getRawSlot());
+                try {
+                    inventory = event.getView().getInventory(event.getRawSlot());
+                }
+                catch (IncompatibleClassChangeError e) {
+                    inventory = event.getClickedInventory();
+                }
             }
             catch (Exception e) {
                 return;
@@ -288,19 +292,16 @@ public final class InventoryChangeListener extends Queue implements Listener {
     protected void onInventoryDragEvent(InventoryDragEvent event) {
         boolean movedItem = false;
         boolean enderChest = false;
-        InventoryView inventoryView = event.getView();
-        for (Integer slot : event.getRawSlots()) {
-            Inventory inventory = inventoryView.getInventory(slot);
-            if (inventory == null) {
-                continue;
-            }
 
-            InventoryHolder inventoryHolder = inventory.getHolder();
-            enderChest = inventory.equals(event.getWhoClicked().getEnderChest());
-            if ((inventoryHolder != null && (inventoryHolder instanceof BlockInventoryHolder || inventoryHolder instanceof DoubleChest)) || enderChest) {
-                movedItem = true;
-                break;
-            }
+        Inventory inventory = event.getInventory();
+        if (inventory == null || inventory.equals(event.getWhoClicked().getInventory())) {
+            return;
+        }
+
+        InventoryHolder inventoryHolder = inventory.getHolder();
+        enderChest = inventory.equals(event.getWhoClicked().getEnderChest());
+        if ((inventoryHolder != null && (inventoryHolder instanceof BlockInventoryHolder || inventoryHolder instanceof DoubleChest)) || enderChest) {
+            movedItem = true;
         }
 
         if (!movedItem) {

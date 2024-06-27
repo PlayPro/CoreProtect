@@ -13,6 +13,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.BlockStatement;
 import net.coreprotect.database.statement.UserStatement;
+import net.coreprotect.event.CoreProtectBlockPlacePreLogEvent;
 import net.coreprotect.event.CoreProtectPreLogEvent;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.Util;
@@ -83,20 +84,28 @@ public class BlockPlaceLogger {
                 }
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
+            // call events and fetch changed username, all other properties are readonly for now
+            CoreProtectPreLogEvent coreProtectPreLogEvent = new CoreProtectPreLogEvent(user);
             if (Config.getGlobal().API_ENABLED) {
-                CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+                CoreProtect.getInstance().getServer().getPluginManager().callEvent(coreProtectPreLogEvent);
             }
+            user = coreProtectPreLogEvent.getUser();
 
-            int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
+            CoreProtectBlockPlacePreLogEvent coreProtectBlockPlacePreLogEvent = new CoreProtectBlockPlacePreLogEvent(user, block.getLocation(), block);
+            if (Config.getGlobal().API_ENABLED) {
+                CoreProtect.getInstance().getServer().getPluginManager().callEvent(coreProtectBlockPlacePreLogEvent);
+            }
+            user = coreProtectBlockPlacePreLogEvent.getUser();
+
+            int userId = UserStatement.getId(preparedStmt, user, true);
             int wid = Util.getWorldId(block.getWorld().getName());
             int time = (int) (System.currentTimeMillis() / 1000L);
 
-            if (event.getUser().length() > 0) {
-                CacheHandler.lookupCache.put("" + x + "." + y + "." + z + "." + wid + "", new Object[] { time, event.getUser(), type });
+            if (user.length() > 0) {
+                CacheHandler.lookupCache.put("" + x + "." + y + "." + z + "." + wid + "", new Object[]{time, user, type});
             }
 
-            if (event.isCancelled()) {
+            if (coreProtectPreLogEvent.isCancelled() || coreProtectBlockPlacePreLogEvent.isCancelled()) {
                 return;
             }
 

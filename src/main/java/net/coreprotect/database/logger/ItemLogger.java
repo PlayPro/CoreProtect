@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.inventory.ItemStack;
 
@@ -126,7 +127,7 @@ public class ItemLogger {
                     }
 
                     CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
-                    if (Config.getGlobal().API_ENABLED) {
+                    if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                         CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
                     }
 

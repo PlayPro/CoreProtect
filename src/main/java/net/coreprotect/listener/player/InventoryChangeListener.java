@@ -294,11 +294,11 @@ public final class InventoryChangeListener extends Queue implements Listener {
         boolean enderChest = false;
 
         Inventory inventory = event.getInventory();
-        if (inventory == null || inventory.equals(event.getWhoClicked().getInventory())) {
+        InventoryHolder inventoryHolder = inventory.getHolder();
+        if (inventory == null || inventoryHolder != null && inventoryHolder.equals(event.getWhoClicked())) {
             return;
         }
 
-        InventoryHolder inventoryHolder = inventory.getHolder();
         enderChest = inventory.equals(event.getWhoClicked().getEnderChest());
         if ((inventoryHolder != null && (inventoryHolder instanceof BlockInventoryHolder || inventoryHolder instanceof DoubleChest)) || enderChest) {
             movedItem = true;

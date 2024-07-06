@@ -579,8 +579,10 @@ public class Util extends Queue {
             bos.close();
             result = bos.toByteArray();
         }
-        catch (Exception e) {
-            e.printStackTrace();
+        catch (Exception e) { // only display exception on development branch
+            if (!ConfigHandler.EDITION_BRANCH.contains("-dev")) {
+                e.printStackTrace();
+            }
         }
 
         return result;

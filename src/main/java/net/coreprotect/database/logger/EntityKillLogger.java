@@ -5,6 +5,7 @@ import java.sql.ResultSet;
 import java.util.List;
 import java.util.Locale;
 
+import org.bukkit.Bukkit;
 import org.bukkit.block.BlockState;
 
 import net.coreprotect.CoreProtect;
@@ -30,7 +31,7 @@ public class EntityKillLogger {
             }
 
             CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
-            if (Config.getGlobal().API_ENABLED) {
+            if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
             }
 

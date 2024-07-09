@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.bukkit.Location;
@@ -38,6 +39,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
 
     protected static AtomicLong tasksStarted = new AtomicLong();
     protected static AtomicLong tasksCompleted = new AtomicLong();
+    private static ConcurrentHashMap<String, Boolean> inventoryProcessing = new ConcurrentHashMap<>();
 
     protected static void checkTasks(long taskStarted) {
         try {
@@ -225,11 +227,19 @@ public final class InventoryChangeListener extends Queue implements Listener {
         Location inventoryLocation = location;
         ItemStack[] containerState = Util.getContainerState(inventory.getContents());
 
+        String loggingChestId = player.getName() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+        Boolean lastTransaction = inventoryProcessing.get(loggingChestId);
+        if (lastTransaction != null) {
+            return;
+        }
+        inventoryProcessing.put(loggingChestId, true);
+
         final long taskStarted = InventoryChangeListener.tasksStarted.incrementAndGet();
         Scheduler.runTaskAsynchronously(CoreProtect.getInstance(), () -> {
             try {
                 Material containerType = (enderChest != true ? null : Material.ENDER_CHEST);
                 InventoryChangeListener.checkTasks(taskStarted);
+                inventoryProcessing.remove(loggingChestId);
                 onInventoryInteract(player.getName(), inventory, containerState, containerType, inventoryLocation, true);
             }
             catch (Exception e) {

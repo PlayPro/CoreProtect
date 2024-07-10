@@ -86,4 +86,14 @@ public class PaperAdapter implements PaperInterface {
         return;
     }
 
+    @Override
+    public String getSkullSkin(Skull skull) {
+        return null;
+    }
+
+    @Override
+    public void setSkullSkin(Skull skull, String skin) {
+        return;
+    }
+
 }

@@ -4,9 +4,9 @@ import java.sql.Statement;
 
 import org.bukkit.block.BlockState;
 
+import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.SkullStatement;
 import net.coreprotect.utility.Util;
-import net.coreprotect.config.ConfigHandler;
 
 class SkullUpdateProcess {
 

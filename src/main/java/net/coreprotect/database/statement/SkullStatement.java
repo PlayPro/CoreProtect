@@ -18,7 +18,7 @@ public class SkullStatement {
         throw new IllegalStateException("Database class");
     }
 
-    public static ResultSet insert(PreparedStatement preparedStmt, int time, String owner) {
+    public static ResultSet insert(PreparedStatement preparedStmt, int time, String owner, String skin) {
         try {
             preparedStmt.setInt(1, time);
             preparedStmt.setString(2, owner);

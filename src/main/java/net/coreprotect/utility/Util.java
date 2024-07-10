@@ -21,6 +21,8 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.core.config.Configurator;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -51,6 +53,8 @@ import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.util.io.BukkitObjectOutputStream;
+import org.jutils.jhardware.HardwareInfo;
+import org.jutils.jhardware.model.ProcessorInfo;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
@@ -110,6 +114,19 @@ public class Util extends Queue {
         }
 
         return name;
+    }
+
+    public static ProcessorInfo getProcessorInfo() {
+        ProcessorInfo result = null;
+        try {
+            Configurator.setLevel("com.profesorfalken.jsensors.manager.unix.UnixSensorsManager", Level.WARN);
+            result = HardwareInfo.getProcessorInfo();
+        }
+        catch (Exception e) {
+            // unable to read processor information
+        }
+
+        return result;
     }
 
     public static int getBlockId(Material material) {

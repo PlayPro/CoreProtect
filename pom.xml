@@ -69,6 +69,8 @@
                   <exclude>org.intellij:*</exclude>
                   <exclude>org.jetbrains:*</exclude>
                   <exclude>org.slf4j:*</exclude>
+                  <exclude>org.apache.logging.log4j:*</exclude>
+                  <exclude>net.java.dev.jna:*</exclude>
                 </excludes>
               </artifactSet>
               <relocations>
@@ -151,6 +153,16 @@
       <groupId>com.zaxxer</groupId>
       <artifactId>HikariCP</artifactId>
       <version>5.0.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.jhardware</groupId>
+      <artifactId>jHardware</artifactId>
+      <version>0.8.6</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-core</artifactId>
+      <version>2.23.1</version>
     </dependency>
   </dependencies>
 </project>

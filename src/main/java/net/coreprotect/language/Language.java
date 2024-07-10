@@ -176,6 +176,7 @@ public class Language {
         phrases.put(Phrase.PREVIEW_CANCELLING, "Cancelling preview...");
         phrases.put(Phrase.PREVIEW_IN_GAME, "You can only preview rollbacks in-game.");
         phrases.put(Phrase.PREVIEW_TRANSACTION, "You can't preview {container|inventory} transactions.");
+        phrases.put(Phrase.PRIMARY_THREAD_ERROR, "That API method can't be used on the primary thread.");
         phrases.put(Phrase.PURGE_ABORTED, "Purge failed. Database may be corrupt.");
         phrases.put(Phrase.PURGE_ERROR, "Unable to process {0} data!");
         phrases.put(Phrase.PURGE_FAILED, "Purge failed. Please try again later.");

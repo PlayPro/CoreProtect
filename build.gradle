@@ -7,7 +7,7 @@ plugins {
 }
 
 group = 'net.coreprotect'
-String projectVersion = '22.4'
+String projectVersion = '23.0'
 String projectBranch = ''
 version = projectVersion // `version` might be modified, we don't always want that (e.g. plugin.yml)
 description = 'Provides block protection for your server.'
@@ -26,6 +26,7 @@ repositories {
     maven { url = 'https://hub.spigotmc.org/nexus/content/groups/public/' }
     maven { url = 'https://repo.papermc.io/repository/maven-public/' }
     maven { url = 'https://repo.codemc.org/repository/maven-public/' }
+    mavenCentral() // Added for the new dependencies
 }
 
 dependencies {
@@ -35,6 +36,8 @@ dependencies {
     compileOnly 'io.papermc.paper:paper-api:1.21-R0.1-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit-lite:1.8'
     implementation 'com.zaxxer:HikariCP:5.0.1'
+    implementation 'org.jutils:jhardware:0.9.0' // New dependency
+    implementation 'org.apache.logging.log4j:log4j-core:2.20.0' // New dependency
 }
 
 jar {

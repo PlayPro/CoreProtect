@@ -27,6 +27,7 @@ repositories {
     maven { url = 'https://repo.papermc.io/repository/maven-public/' }
     maven { url = 'https://repo.codemc.org/repository/maven-public/' }
     mavenCentral() // Added for the new dependencies
+    maven { url = 'https://oss.sonatype.org/content/repositories/releases/' }
 }
 
 dependencies {

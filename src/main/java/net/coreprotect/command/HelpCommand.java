@@ -17,7 +17,7 @@ public class HelpCommand {
                 String helpcommand_original = args[1];
                 String helpcommand = args[1].toLowerCase(Locale.ROOT);
                 helpcommand = helpcommand.replaceAll("[^a-zA-Z]", "");
-                Chat.sendMessage(player, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.HELP_HEADER, "CEProtect") + Color.WHITE + " -----");
+                Chat.sendMessage(player, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.HELP_HEADER, "CoreProtect") + Color.WHITE + " -----");
                 if (helpcommand.equals("help")) {
                     Chat.sendMessage(player, Color.DARK_AQUA + "/co help " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_LIST));
                 }
@@ -111,7 +111,7 @@ public class HelpCommand {
                 }
             }
             else {
-                Chat.sendMessage(player, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.HELP_HEADER, "CEProtect") + Color.WHITE + " -----");
+                Chat.sendMessage(player, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.HELP_HEADER, "CoreProtect") + Color.WHITE + " -----");
                 Chat.sendMessage(player, Color.DARK_AQUA + "/co help " + Color.GREY + "<command> " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_COMMAND));
                 Chat.sendMessage(player, Color.DARK_AQUA + "/co " + Color.GREY + "inspect " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_INSPECT_COMMAND));
                 Chat.sendMessage(player, Color.DARK_AQUA + "/co " + Color.GREY + "rollback " + Color.DARK_AQUA + "<params> " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_ROLLBACK_COMMAND));

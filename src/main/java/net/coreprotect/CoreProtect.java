@@ -66,8 +66,8 @@ public final class CoreProtect extends JavaPlugin {
             try {
                 Consumer.initialize(); // Prepare consumer (keep this here)
                 new ListenerHandler(this);
-                getCommand("ceprotect").setExecutor(CommandHandler.getInstance());
-                getCommand("ceprotect").setTabCompleter(new TabHandler());
+                getCommand("coreprotect").setExecutor(CommandHandler.getInstance());
+                getCommand("coreprotect").setTabCompleter(new TabHandler());
                 getCommand("core").setExecutor(CommandHandler.getInstance());
                 getCommand("core").setTabCompleter(new TabHandler());
                 getCommand("co").setExecutor(CommandHandler.getInstance());

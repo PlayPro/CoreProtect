@@ -38,7 +38,7 @@ public class SignMessageLookup {
                     command = "core";
                 }
                 else if (commandSender.hasPermission("coreprotect.coreprotect")) {
-                    command = "ceprotect";
+                    command = "coreprotect";
                 }
                 else {
                     command = "co";

@@ -313,7 +313,7 @@ public class Patch {
                 currentVersion[2] = 0;
                 lastVersion[2] = 0;
                 if (Util.newVersion(currentVersion, lastVersion)) {
-                    Chat.sendConsoleMessage(Color.RED + "[CEProtect] " + Phrase.build(Phrase.VERSION_REQUIRED, "CEProtect", "v" + lastVersion[1] + "." + lastVersion[2]));
+                    Chat.sendConsoleMessage(Color.RED + "[CEProtect] " + Phrase.build(Phrase.VERSION_REQUIRED, "CoreProtect", "v" + lastVersion[1] + "." + lastVersion[2]));
                     return false;
                 }
             }

@@ -11,7 +11,7 @@ String projectVersion = '22.4'
 String projectBranch = ''
 version = projectVersion // `version` might be modified, we don't always want that (e.g. plugin.yml)
 description = 'Provides block protection for your server.'
-sourceCompatibility = '21'
+sourceCompatibility = '19'
 
 if (System.getenv("BUILD_NUMBER") != null) {
     // Being built in Jenkins, append Build ID

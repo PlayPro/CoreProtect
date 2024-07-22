@@ -5,7 +5,7 @@ branch: ${project.branch}
 api-version: 1.13
 folia-supported: true
 website: https://mc.thecerver.com
-author: The CErver Minecraft Development (Original- Intelli)
+author: The CErver Minecraft Development (Original - CoreProtect by Intelli)
 softdepend: [WorldEdit]
 description: >
              Provides block protection for your server.

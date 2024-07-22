@@ -96,6 +96,7 @@ public final class CoreProtect extends JavaPlugin {
             }
 
             Chat.console("--------------------");
+            Chat.console("CEProtect v23.0 based on CoreProtect v22.4 with Java 1.21 Edition upgrades.");
             Chat.console(Phrase.build(Phrase.ENJOY_COREPROTECT, pluginDescription.getName()));
             Chat.console(Phrase.build(Phrase.LINK_DISCORD, "www.coreprotect.net/discord/"));
             Chat.console("--------------------");

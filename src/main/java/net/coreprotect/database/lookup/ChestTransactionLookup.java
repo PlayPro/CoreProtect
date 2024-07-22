@@ -36,7 +36,7 @@ public class ChestTransactionLookup {
                     command = "core";
                 }
                 else if (commandSender.hasPermission("coreprotect.coreprotect")) {
-                    command = "coreprotect";
+                    command = "ceprotect";
                 }
                 else {
                     command = "co";

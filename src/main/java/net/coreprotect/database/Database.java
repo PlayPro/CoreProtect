@@ -154,7 +154,7 @@ public class Database extends Queue {
                 }
                 catch (Exception e) {
                     ConfigHandler.databaseReachable = false;
-                    Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.MYSQL_UNAVAILABLE));
+                    Chat.sendConsoleMessage(Color.RED + "[CEProtect] " + Phrase.build(Phrase.MYSQL_UNAVAILABLE));
                     e.printStackTrace();
                 }
             }

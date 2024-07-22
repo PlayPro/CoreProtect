@@ -1299,7 +1299,7 @@ public class Util extends Queue {
 
     // This theoretically initializes the component code, to prevent gson adapter errors
     public static void sendConsoleComponentStartup(ConsoleCommandSender consoleSender, String string) {
-        Chat.sendComponent(consoleSender, Color.RESET + "[CoreProtect] " + string + Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_POPUP + "| | " + Chat.COMPONENT_TAG_CLOSE);
+        Chat.sendComponent(consoleSender, Color.RESET + "[CEProtect] " + string + Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_POPUP + "| | " + Chat.COMPONENT_TAG_CLOSE);
     }
 
     // This filter is only used for a:inventory

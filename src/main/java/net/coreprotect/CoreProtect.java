@@ -148,9 +148,9 @@ public final class CoreProtect extends JavaPlugin {
             }
 
             if (ConfigHandler.EDITION_BRANCH.length() == 0) {
-                Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.INVALID_BRANCH_1));
-                Chat.sendConsoleMessage(Color.GREY + "[CoreProtect] " + Phrase.build(Phrase.INVALID_BRANCH_2));
-                Chat.sendConsoleMessage(Color.GREY + "[CoreProtect] " + Phrase.build(Phrase.INVALID_BRANCH_3));
+                Chat.sendConsoleMessage(Color.RED + "[CEProtect] " + Phrase.build(Phrase.INVALID_BRANCH_1));
+                Chat.sendConsoleMessage(Color.GREY + "[CEProtect] " + Phrase.build(Phrase.INVALID_BRANCH_2));
+                Chat.sendConsoleMessage(Color.GREY + "[CEProtect] " + Phrase.build(Phrase.INVALID_BRANCH_3));
                 return false;
             }
 

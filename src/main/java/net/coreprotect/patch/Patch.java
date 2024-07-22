@@ -239,13 +239,13 @@ public class Patch {
             if (newVersion && lastVersion[0] > 0 && !ConfigHandler.converterRunning) {
                 Integer[] minimumVersion = new Integer[] { 2, 0, 0 };
                 if (Util.newVersion(lastVersion, minimumVersion)) {
-                    Chat.sendConsoleMessage("§c[CoreProtect] " + Phrase.build(Phrase.PATCH_OUTDATED_1, "v" + minimumVersion[0] + "." + minimumVersion[1] + "." + minimumVersion[2]));
-                    Chat.sendConsoleMessage("§c[CoreProtect] " + Phrase.build(Phrase.PATCH_OUTDATED_2));
+                    Chat.sendConsoleMessage("§c[CEProtect] " + Phrase.build(Phrase.PATCH_OUTDATED_1, "v" + minimumVersion[0] + "." + minimumVersion[1] + "." + minimumVersion[2]));
+                    Chat.sendConsoleMessage("§c[CEProtect] " + Phrase.build(Phrase.PATCH_OUTDATED_2));
                     return false;
                 }
 
                 if (ConfigHandler.EDITION_BRANCH.contains("-dev")) {
-                    Chat.sendConsoleMessage("§e[CoreProtect] " + Phrase.build(Phrase.DEVELOPMENT_BRANCH));
+                    Chat.sendConsoleMessage("§e[CEProtect] " + Phrase.build(Phrase.DEVELOPMENT_BRANCH));
                     return true;
                 }
 
@@ -313,7 +313,7 @@ public class Patch {
                 currentVersion[2] = 0;
                 lastVersion[2] = 0;
                 if (Util.newVersion(currentVersion, lastVersion)) {
-                    Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.VERSION_REQUIRED, "CoreProtect", "v" + lastVersion[1] + "." + lastVersion[2]));
+                    Chat.sendConsoleMessage(Color.RED + "[CEProtect] " + Phrase.build(Phrase.VERSION_REQUIRED, "CoreProtect", "v" + lastVersion[1] + "." + lastVersion[2]));
                     return false;
                 }
             }

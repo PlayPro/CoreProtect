@@ -119,7 +119,7 @@ public class Util extends Queue {
     public static ProcessorInfo getProcessorInfo() {
         ProcessorInfo result = null;
         try {
-            Configurator.setLevel("com.profesorfalken.jsensors.manager.unix.UnixSensorsManager", Level.WARN);
+            Configurator.setLevel("com.profesorfalken.jsensors.manager.unix.UnixSensorsManager", Level.OFF);
             result = HardwareInfo.getProcessorInfo();
         }
         catch (Exception e) {

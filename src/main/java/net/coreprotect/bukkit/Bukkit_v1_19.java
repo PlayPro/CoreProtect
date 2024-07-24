@@ -4,9 +4,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Frog;
 import org.bukkit.entity.Goat;
@@ -33,7 +31,7 @@ public class Bukkit_v1_19 extends Bukkit_v1_18 implements BukkitInterface {
     public boolean getEntityMeta(LivingEntity entity, List<Object> info) {
         if (entity instanceof Frog) {
             Frog frog = (Frog) entity;
-            info.add(frog.getVariant().getKey().asString());
+            info.add(BukkitAdapter.ADAPTER.getRegistryKey(frog.getVariant()));
         }
         else if (entity instanceof Tadpole) {
             Tadpole tadpole = (Tadpole) entity;
@@ -61,8 +59,7 @@ public class Bukkit_v1_19 extends Bukkit_v1_18 implements BukkitInterface {
             Frog frog = (Frog) entity;
             if (count == 0) {
                 if (value instanceof String) {
-                    NamespacedKey namespacedKey = NamespacedKey.fromString((String) value);
-                    value = Bukkit.getRegistry(Frog.Variant.class).get(namespacedKey);
+                    value = BukkitAdapter.ADAPTER.getRegistryValue((String) value, Frog.Variant.class);
                 }
                 Frog.Variant set = (Frog.Variant) value;
                 frog.setVariant(set);

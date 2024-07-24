@@ -89,4 +89,8 @@ public interface BukkitInterface {
 
     public EntityType getEntityType(Material material);
 
+    public Object getRegistryKey(Object value);
+
+    public Object getRegistryValue(String key, Object tClass);
+
 }

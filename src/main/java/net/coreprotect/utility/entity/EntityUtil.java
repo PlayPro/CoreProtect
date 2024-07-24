@@ -7,7 +7,6 @@ import java.util.Map;
 import org.bukkit.Bukkit;
 import org.bukkit.DyeColor;
 import org.bukkit.Location;
-import org.bukkit.NamespacedKey;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.attribute.Attributable;
 import org.bukkit.attribute.Attribute;
@@ -233,9 +232,7 @@ public class EntityUtil {
                         Cat cat = (Cat) entity;
                         if (count == 0) {
                             if (value instanceof String) {
-                                NamespacedKey namespacedKey = NamespacedKey.fromString((String) value);
-                                value = Bukkit.getRegistry(Cat.Type.class).get(namespacedKey);
-                                // value = RegistryAccess.registryAccess().getRegistry(RegistryKey.CAT_VARIANT).get((NamespacedKey)value);
+                                value = BukkitAdapter.ADAPTER.getRegistryValue((String) value, Cat.Type.class);
                             }
                             Cat.Type set = (Cat.Type) value;
                             cat.setCatType(set);
@@ -334,8 +331,7 @@ public class EntityUtil {
                             if (abstractVillager instanceof Villager) {
                                 Villager villager = (Villager) abstractVillager;
                                 if (value instanceof String) {
-                                    NamespacedKey namespacedKey = NamespacedKey.fromString((String) value);
-                                    value = Bukkit.getRegistry(Profession.class).get(namespacedKey);
+                                    value = BukkitAdapter.ADAPTER.getRegistryValue((String) value, Profession.class);
                                 }
                                 Profession set = (Profession) value;
                                 villager.setProfession(set);
@@ -345,8 +341,7 @@ public class EntityUtil {
                             if (abstractVillager instanceof Villager && value instanceof Villager.Type) {
                                 Villager villager = (Villager) abstractVillager;
                                 if (value instanceof String) {
-                                    NamespacedKey namespacedKey = NamespacedKey.fromString((String) value);
-                                    value = Bukkit.getRegistry(Villager.Type.class).get(namespacedKey);
+                                    value = BukkitAdapter.ADAPTER.getRegistryValue((String) value, Villager.Type.class);
                                 }
                                 Villager.Type set = (Villager.Type) value;
                                 villager.setVillagerType(set);
@@ -442,8 +437,7 @@ public class EntityUtil {
                         }
                         else if (count == 1) {
                             if (value instanceof String) {
-                                NamespacedKey namespacedKey = NamespacedKey.fromString((String) value);
-                                value = Bukkit.getRegistry(Profession.class).get(namespacedKey);
+                                value = BukkitAdapter.ADAPTER.getRegistryValue((String) value, Profession.class);
                             }
                             Profession set = (Profession) value;
                             zombieVillager.setVillagerProfession(set);

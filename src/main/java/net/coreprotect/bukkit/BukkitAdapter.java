@@ -298,4 +298,14 @@ public class BukkitAdapter implements BukkitInterface {
         }
     }
 
+    @Override
+    public Object getRegistryKey(Object value) {
+        return value;
+    }
+
+    @Override
+    public Object getRegistryValue(String key, Object tClass) {
+        return null;
+    }
+
 }

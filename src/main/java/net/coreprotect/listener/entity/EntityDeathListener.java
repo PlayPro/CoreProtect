@@ -322,7 +322,7 @@ public final class EntityDeathListener extends Queue implements Listener {
             }
             else if (entity instanceof Cat) {
                 Cat cat = (Cat) entity;
-                info.add(cat.getCatType());
+                info.add(cat.getCatType().getKey().asString());
                 info.add(cat.getCollarColor());
             }
             else if (entity instanceof Fox) {
@@ -404,8 +404,8 @@ public final class EntityDeathListener extends Queue implements Listener {
 
                 if (abstractVillager instanceof Villager) {
                     Villager villager = (Villager) abstractVillager;
-                    info.add(villager.getProfession());
-                    info.add(villager.getVillagerType());
+                    info.add(villager.getProfession().getKey().asString());
+                    info.add(villager.getVillagerType().getKey().asString());
                     info.add(recipes);
                     info.add(villager.getVillagerLevel());
                     info.add(villager.getVillagerExperience());
@@ -433,7 +433,7 @@ public final class EntityDeathListener extends Queue implements Listener {
             else if (entity instanceof ZombieVillager) {
                 ZombieVillager zombieVillager = (ZombieVillager) entity;
                 info.add(zombieVillager.isBaby());
-                info.add(zombieVillager.getVillagerProfession());
+                info.add(zombieVillager.getVillagerProfession().getKey().asString());
             }
             else if (entity instanceof Zombie) {
                 Zombie zombie = (Zombie) entity;

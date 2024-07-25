@@ -338,7 +338,7 @@ public class EntityUtil {
                             }
                         }
                         else if (count == 1) {
-                            if (abstractVillager instanceof Villager && value instanceof Villager.Type) {
+                            if (abstractVillager instanceof Villager && (value instanceof Villager.Type || value instanceof String)) {
                                 Villager villager = (Villager) abstractVillager;
                                 if (value instanceof String) {
                                     value = BukkitAdapter.ADAPTER.getRegistryValue((String) value, Villager.Type.class);

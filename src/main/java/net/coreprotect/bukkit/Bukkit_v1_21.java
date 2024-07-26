@@ -3,7 +3,10 @@ package net.coreprotect.bukkit;
 import java.util.Arrays;
 import java.util.HashSet;
 
+import org.bukkit.Bukkit;
+import org.bukkit.Keyed;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.Tag;
 import org.bukkit.entity.EntityType;
 
@@ -38,6 +41,19 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 implements BukkitInterface {
             default:
                 return EntityType.UNKNOWN;
         }
+    }
+
+    @Override
+    public Object getRegistryKey(Object value) {
+        return ((Keyed) value).getKey().asString();
+    }
+
+    @Override
+    public Object getRegistryValue(String key, Object tClass) {
+        NamespacedKey namespacedKey = NamespacedKey.fromString(key);
+        // return RegistryAccess.registryAccess().getRegistry(RegistryKey.CAT_VARIANT).get((NamespacedKey)value);
+        return Bukkit.getRegistry((Class) tClass).get(namespacedKey);
+
     }
 
 }

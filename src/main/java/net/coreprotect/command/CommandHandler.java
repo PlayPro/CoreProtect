@@ -681,105 +681,97 @@ public class CommandHandler implements CommandExecutor {
         return restricted;
     }
 
-    protected static long[] parseTime(String[] inputArguments) {
-        String[] argumentArray = inputArguments.clone();
+    protected static long[] parseTime(String[] inputArguments, Boolean isRollbackCommand) {
+        Integer MAX_TIME_DAYS = Config.getGlobal().MAX_TIME_DAYS;
+        final long MAX_TIME_SECONDS = MAX_TIME_DAYS * 24 * 60 * 60; // MAX_TIME_DAYS days in seconds
         long timeStart = 0;
         long timeEnd = 0;
-        int count = 0;
-        int next = 0;
+        double w = 0, d = 0, h = 0, m = 0, s = 0;
         boolean range = false;
-        double w = 0;
-        double d = 0;
-        double h = 0;
-        double m = 0;
-        double s = 0;
-        for (String argument : argumentArray) {
-            if (count > 0) {
-                argument = argument.trim().toLowerCase(Locale.ROOT);
-                argument = argument.replaceAll("\\\\", "");
-                argument = argument.replaceAll("'", "");
-
-                if (argument.equals("t:") || argument.equals("time:")) {
-                    next = 1;
-                }
-                else if (next == 1 || argument.startsWith("t:") || argument.startsWith("time:")) {
-                    // time arguments
-                    argument = argument.replaceAll("time:", "");
-                    argument = argument.replaceAll("t:", "");
-                    argument = argument.replaceAll("y", "y:");
-                    argument = argument.replaceAll("m", "m:");
-                    argument = argument.replaceAll("w", "w:");
-                    argument = argument.replaceAll("d", "d:");
-                    argument = argument.replaceAll("h", "h:");
-                    argument = argument.replaceAll("s", "s:");
-                    range = argument.contains("-");
-
-                    int argCount = 0;
-                    String[] i2 = argument.split(":");
-                    for (String i3 : i2) {
-                        if (range && argCount > 0 && timeStart == 0 && i3.startsWith("-")) {
-                            timeStart = (long) (((w * 7 * 24 * 60 * 60) + (d * 24 * 60 * 60) + (h * 60 * 60) + (m * 60) + s));
-                            w = 0;
-                            d = 0;
-                            h = 0;
-                            m = 0;
-                            s = 0;
+        int next = 0;
+    
+        for (int count = 0; count < inputArguments.length; count++) {
+            String argument = inputArguments[count].trim().toLowerCase(Locale.ROOT)
+                                   .replaceAll("\\\\", "")
+                                   .replaceAll("'", "");
+    
+            if (argument.equals("t:") || argument.equals("time:")) {
+                next = 1;
+            } else if (next == 1 || argument.startsWith("t:") || argument.startsWith("time:")) {
+                // Process time arguments
+                argument = argument.replaceAll("time:", "")
+                                   .replaceAll("t:", "")
+                                   .replaceAll("y", "y:")
+                                   .replaceAll("m", "m:")
+                                   .replaceAll("w", "w:")
+                                   .replaceAll("d", "d:")
+                                   .replaceAll("h", "h:")
+                                   .replaceAll("s", "s:");
+                range = argument.contains("-");
+    
+                String[] timeUnits = argument.split(":");
+                for (int i = 0; i < timeUnits.length; i++) {
+                    String unit = timeUnits[i];
+                    if (range && i > 0 && timeStart == 0 && unit.startsWith("-")) {
+                        timeStart = convertToSeconds(w, d, h, m, s);
+                        if (timeStart > MAX_TIME_SECONDS && isRollbackCommand) {
+                            timeStart = MAX_TIME_SECONDS;
                         }
-
-                        if (i3.endsWith("w") && w == 0) {
-                            String i4 = i3.replaceAll("[^0-9.]", "");
-                            if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
-                                w = Double.parseDouble(i4);
-                            }
-                        }
-                        else if (i3.endsWith("d") && d == 0) {
-                            String i4 = i3.replaceAll("[^0-9.]", "");
-                            if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
-                                d = Double.parseDouble(i4);
-                            }
-                        }
-                        else if (i3.endsWith("h") && h == 0) {
-                            String i4 = i3.replaceAll("[^0-9.]", "");
-                            if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
-                                h = Double.parseDouble(i4);
-                            }
-                        }
-                        else if (i3.endsWith("m") && m == 0) {
-                            String i4 = i3.replaceAll("[^0-9.]", "");
-                            if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
-                                m = Double.parseDouble(i4);
-                            }
-                        }
-                        else if (i3.endsWith("s") && s == 0) {
-                            String i4 = i3.replaceAll("[^0-9.]", "");
-                            if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
-                                s = Double.parseDouble(i4);
-                            }
-                        }
-
-                        argCount++;
+                        w = d = h = m = s = 0;
                     }
-                    if (timeStart > 0) {
-                        timeEnd = (long) (((w * 7 * 24 * 60 * 60) + (d * 24 * 60 * 60) + (h * 60 * 60) + (m * 60) + s));
+    
+                    if (unit.endsWith("w") && w == 0) {
+                        w = parseTimeUnit(unit);
+                    } else if (unit.endsWith("d") && d == 0) {
+                        d = parseTimeUnit(unit);
+                    } else if (unit.endsWith("h") && h == 0) {
+                        h = parseTimeUnit(unit);
+                    } else if (unit.endsWith("m") && m == 0) {
+                        m = parseTimeUnit(unit);
+                    } else if (unit.endsWith("s") && s == 0) {
+                        s = parseTimeUnit(unit);
                     }
-                    else {
-                        timeStart = (long) (((w * 7 * 24 * 60 * 60) + (d * 24 * 60 * 60) + (h * 60 * 60) + (m * 60) + s));
+                }
+    
+                if (timeStart > 0) {
+                    timeEnd = convertToSeconds(w, d, h, m, s);
+                    if (timeEnd > MAX_TIME_SECONDS && isRollbackCommand) {
+                        timeEnd = MAX_TIME_SECONDS;
                     }
-                    next = 0;
+                } else {
+                    timeStart = convertToSeconds(w, d, h, m, s);
+                    if (timeStart > MAX_TIME_SECONDS && isRollbackCommand) {
+                        timeStart = MAX_TIME_SECONDS;
+                    }
                 }
-                else {
-                    next = 0;
-                }
+                next = 0;
+            } else {
+                next = 0;
             }
-            count++;
         }
-
+    
+        if (timeEnd > MAX_TIME_SECONDS && isRollbackCommand) {
+            timeEnd = MAX_TIME_SECONDS;
+        }
+    
+        if (timeStart > MAX_TIME_SECONDS && isRollbackCommand) {
+            timeStart = MAX_TIME_SECONDS;
+        }
+    
         if (timeEnd >= timeStart) {
             return new long[] { timeEnd, timeStart };
-        }
-        else {
+        } else {
             return new long[] { timeStart, timeEnd };
         }
+    }
+
+    private static double parseTimeUnit(String unit) {
+        String value = unit.replaceAll("[^0-9.]", "");
+        return value.isEmpty() ? 0 : Double.parseDouble(value);
+    }
+    
+    private static long convertToSeconds(double w, double d, double h, double m, double s) {
+        return (long) ((w * 7 * 24 * 60 * 60) + (d * 24 * 60 * 60) + (h * 60 * 60) + (m * 60) + s);
     }
 
     private static String timeString(BigDecimal input) {

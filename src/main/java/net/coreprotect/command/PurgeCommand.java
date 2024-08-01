@@ -40,7 +40,7 @@ public class PurgeCommand extends Consumer {
         final List<Object> argBlocks = CommandHandler.parseRestricted(player, args, argAction);
         final Map<Object, Boolean> argExclude = CommandHandler.parseExcluded(player, args, argAction);
         final List<String> argExcludeUsers = CommandHandler.parseExcludedUsers(player, args);
-        final long[] argTime = CommandHandler.parseTime(args);
+        final long[] argTime = CommandHandler.parseTime(args, false);
         final int argWid = CommandHandler.parseWorld(args, false, false);
         final List<Integer> supportedActions = Arrays.asList();
         long startTime = argTime[1] > 0 ? argTime[0] : 0;

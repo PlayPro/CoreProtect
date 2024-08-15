@@ -108,6 +108,9 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 implements BukkitInterface {
             case "GRASS":
                 name = "SHORT_GRASS";
                 break;
+            case "SCUTE":
+                name = "TURTLE_SCUTE";
+                break;
             default:
                 break;
         }

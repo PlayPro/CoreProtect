@@ -116,7 +116,7 @@ public class StatusCommand {
 
                             String cpuSpeed = String.valueOf(ConfigHandler.processorInfo.getMaxFreq());
                             cpuSpeed = String.format("%.2f", Long.valueOf(cpuSpeed) / 1000000000.0);
-                            cpuInfo = modelName + " " + Runtime.getRuntime().availableProcessors() + " x " + cpuSpeed + "GHz.";
+                            cpuInfo = "x" + Runtime.getRuntime().availableProcessors() + " " + cpuSpeed + "GHz " + modelName + ".";
                         }
                         else {
                             cpuInfo = "x" + Runtime.getRuntime().availableProcessors() + " " + Phrase.build(Phrase.CPU_CORES);

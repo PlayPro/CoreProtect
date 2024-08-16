@@ -119,6 +119,7 @@ public class Util extends Queue {
     public static CentralProcessor getProcessorInfo() {
         CentralProcessor result = null;
         try {
+            Class.forName("com.sun.jna.Platform");
             Configurator.setLevel("oshi.hardware.common.AbstractCentralProcessor", Level.OFF);
             SystemInfo systemInfo = new SystemInfo();
             result = systemInfo.getHardware().getProcessor();

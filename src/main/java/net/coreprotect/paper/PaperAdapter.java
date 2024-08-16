@@ -1,5 +1,8 @@
 package net.coreprotect.paper;
 
+import java.util.UUID;
+
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Server;
 import org.bukkit.block.Sign;
@@ -83,7 +86,9 @@ public class PaperAdapter implements PaperInterface {
 
     @Override
     public void setSkullOwner(Skull skull, String owner) {
-        return;
+        if (owner != null && owner.length() >= 32 && owner.contains("-")) {
+            skull.setOwningPlayer(Bukkit.getOfflinePlayer(UUID.fromString(owner)));
+        }
     }
 
     @Override

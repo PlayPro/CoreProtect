@@ -19,7 +19,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginManager;
-import org.jutils.jhardware.model.ProcessorInfo;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -37,6 +36,7 @@ import net.coreprotect.spigot.SpigotAdapter;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
+import oshi.hardware.CentralProcessor;
 
 public class ConfigHandler extends Queue {
     public static int SERVER_VERSION = 0;
@@ -56,7 +56,7 @@ public class ConfigHandler extends Queue {
     public static int maximumPoolSize = 10;
 
     public static HikariDataSource hikariDataSource = null;
-    public static final ProcessorInfo processorInfo = Util.getProcessorInfo();
+    public static final CentralProcessor processorInfo = Util.getProcessorInfo();
     public static final boolean isSpigot = Util.isSpigot();
     public static final boolean isPaper = Util.isPaper();
     public static final boolean isFolia = Util.isFolia();

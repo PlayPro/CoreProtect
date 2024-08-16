@@ -53,8 +53,6 @@ import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.util.io.BukkitObjectOutputStream;
-import org.jutils.jhardware.HardwareInfo;
-import org.jutils.jhardware.model.ProcessorInfo;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
@@ -68,6 +66,8 @@ import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 import net.coreprotect.worldedit.CoreProtectEditSessionEvent;
+import oshi.SystemInfo;
+import oshi.hardware.CentralProcessor;
 
 public class Util extends Queue {
 
@@ -116,11 +116,12 @@ public class Util extends Queue {
         return name;
     }
 
-    public static ProcessorInfo getProcessorInfo() {
-        ProcessorInfo result = null;
+    public static CentralProcessor getProcessorInfo() {
+        CentralProcessor result = null;
         try {
-            Configurator.setLevel("com.profesorfalken.jsensors.manager.unix.UnixSensorsManager", Level.OFF);
-            result = HardwareInfo.getProcessorInfo();
+            Configurator.setLevel("oshi.hardware.common.AbstractCentralProcessor", Level.OFF);
+            SystemInfo systemInfo = new SystemInfo();
+            result = systemInfo.getHardware().getProcessor();
         }
         catch (Exception e) {
             // unable to read processor information

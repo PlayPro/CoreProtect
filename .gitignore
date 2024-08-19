@@ -54,10 +54,6 @@ target
 dependency-reduced-pom.xml
 test/
 
-# Wrapper files
-mvnw
-mvnw.cmd
-
 #################
 ## Gradle
 #################

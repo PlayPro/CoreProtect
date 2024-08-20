@@ -55,6 +55,7 @@ public class Language {
         phrases.put(Phrase.DEVELOPMENT_BRANCH, "Development branch detected, skipping patch scripts.");
         phrases.put(Phrase.DIRT_BLOCK, "Placed a temporary safety block under you.");
         phrases.put(Phrase.DISABLE_SUCCESS, "Success! Disabled {0}");
+        phrases.put(Phrase.DONATION_KEY_REQUIRED, "A valid donation key is required for that command.");
         phrases.put(Phrase.ENABLE_FAILED, "{0} was unable to start.");
         phrases.put(Phrase.ENABLE_SUCCESS, "{0} has been successfully enabled!");
         phrases.put(Phrase.ENJOY_COREPROTECT, "Enjoy {0}? Join our Discord!");
@@ -232,6 +233,7 @@ public class Language {
         phrases.put(Phrase.USING_SQLITE, "Using SQLite for data storage.");
         phrases.put(Phrase.VALID_DONATION_KEY, "Valid donation key.");
         phrases.put(Phrase.VERSION_NOTICE, "Version {0} is now available.");
+        phrases.put(Phrase.VERSION_INCOMPATIBLE, "{0} {1} is not supported.");
         phrases.put(Phrase.VERSION_REQUIRED, "{0} {1} or higher is required.");
         phrases.put(Phrase.WORLD_NOT_FOUND, "World \"{0}\" not found.");
 

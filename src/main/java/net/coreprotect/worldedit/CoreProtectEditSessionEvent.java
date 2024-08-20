@@ -5,12 +5,9 @@ import org.bukkit.Bukkit;
 import com.sk89q.worldedit.EditSession.Stage;
 import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.event.extent.EditSessionEvent;
-import com.sk89q.worldedit.extension.platform.Actor;
 import com.sk89q.worldedit.util.eventbus.Subscribe;
-import com.sk89q.worldedit.world.World;
 
 import net.coreprotect.CoreProtect;
-import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
@@ -18,7 +15,6 @@ import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Chat;
 
 public class CoreProtectEditSessionEvent {
-
     private static boolean initialized = false;
     private static boolean isFAWE = false;
     private static CoreProtectEditSessionEvent event = new CoreProtectEditSessionEvent();
@@ -37,12 +33,17 @@ public class CoreProtectEditSessionEvent {
         }
 
         try {
-            if (Bukkit.getServer().getPluginManager().getPlugin("AsyncWorldEdit") == null || Config.getGlobal().ENABLE_AWE) {
-                WorldEdit.getInstance().getEventBus().register(event);
-                initialized = true;
-                ConfigHandler.worldeditEnabled = true;
-                isFAWE = (Bukkit.getServer().getPluginManager().getPlugin("FastAsyncWorldEdit") != null);
-            }
+            WorldEdit.getInstance().getEventBus().register(new Object() {
+                @Subscribe
+                public void onEditSessionEvent(EditSessionEvent event) {
+                    if (event.getActor() != null && event.getStage() == Stage.BEFORE_CHANGE) {
+                        event.setExtent(new CoreProtectLogger(event.getActor(), event.getWorld(), event.getExtent()));
+                    }
+                }
+            });
+            initialized = true;
+            ConfigHandler.worldeditEnabled = true;
+            isFAWE = (Bukkit.getServer().getPluginManager().getPlugin("FastAsyncWorldEdit") != null);
         }
         catch (Exception e) {
             // Failed to initialize WorldEdit logging
@@ -51,10 +52,10 @@ public class CoreProtectEditSessionEvent {
         Scheduler.runTask(CoreProtect.getInstance(), () -> {
             try {
                 if (isInitialized()) {
-                    Chat.console(Phrase.build(Phrase.INTEGRATION_SUCCESS, "WorldEdit", Selector.FIRST));
+                    Chat.console(Phrase.build(Phrase.INTEGRATION_SUCCESS, isFAWE() ? "FastAsyncWorldEdit" : "WorldEdit", Selector.FIRST));
                 }
                 else {
-                    Chat.console(Phrase.build(Phrase.INTEGRATION_ERROR, "WorldEdit", Selector.FIRST));
+                    Chat.console(Phrase.build(Phrase.INTEGRATION_ERROR, isFAWE() ? "FastAsyncWorldEdit" : "WorldEdit", Selector.FIRST));
                 }
             }
             catch (Exception e) {
@@ -72,19 +73,10 @@ public class CoreProtectEditSessionEvent {
             WorldEdit.getInstance().getEventBus().unregister(event);
             initialized = false;
             ConfigHandler.worldeditEnabled = false;
-            Chat.console(Phrase.build(Phrase.INTEGRATION_SUCCESS, "WorldEdit", Selector.SECOND));
+            Chat.console(Phrase.build(Phrase.INTEGRATION_SUCCESS, isFAWE() ? "FastAsyncWorldEdit" : "WorldEdit", Selector.SECOND));
         }
         catch (Exception e) {
-            Chat.console(Phrase.build(Phrase.INTEGRATION_ERROR, "WorldEdit", Selector.SECOND));
-        }
-    }
-
-    @Subscribe
-    public void wrapForLogging(EditSessionEvent event) {
-        Actor actor = event.getActor();
-        World world = event.getWorld();
-        if (actor != null && event.getStage() == (isFAWE ? Stage.BEFORE_HISTORY : Stage.BEFORE_CHANGE)) {
-            event.setExtent(new CoreProtectLogger(actor, world, event.getExtent()));
+            Chat.console(Phrase.build(Phrase.INTEGRATION_ERROR, isFAWE() ? "FastAsyncWorldEdit" : "WorldEdit", Selector.SECOND));
         }
     }
 }

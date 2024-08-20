@@ -3,9 +3,11 @@ package net.coreprotect.database.logger;
 import java.sql.PreparedStatement;
 import java.util.Locale;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 
 import net.coreprotect.CoreProtect;
+import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.CommandStatement;
 import net.coreprotect.database.statement.UserStatement;
@@ -28,7 +30,13 @@ public class CommandLogger {
             }
 
             CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
-            CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+            if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
+                CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+            }
+
+            if (event.isCancelled()) {
+                return;
+            }
 
             int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
             int wid = Util.getWorldId(location.getWorld().getName());

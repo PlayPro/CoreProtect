@@ -27,6 +27,7 @@ public enum Phrase {
     CONSUMER_ERROR,
     CONSUMER_TOGGLED,
     CONTAINER_HEADER,
+    CPU_CORES,
     DATABASE_BUSY,
     DATABASE_INDEX_ERROR,
     DATABASE_LOCKED_1,
@@ -158,6 +159,7 @@ public enum Phrase {
     PREVIEW_CANCELLING,
     PREVIEW_IN_GAME,
     PREVIEW_TRANSACTION,
+    PRIMARY_THREAD_ERROR,
     PURGE_ABORTED,
     PURGE_ERROR,
     PURGE_FAILED,
@@ -171,6 +173,7 @@ public enum Phrase {
     PURGE_ROWS,
     PURGE_STARTED,
     PURGE_SUCCESS,
+    RAM_STATS,
     RELOAD_STARTED,
     RELOAD_SUCCESS,
     ROLLBACK_ABORTED,
@@ -192,6 +195,7 @@ public enum Phrase {
     STATUS_DATABASE,
     STATUS_INTEGRATION,
     STATUS_LICENSE,
+    STATUS_SYSTEM,
     STATUS_VERSION,
     TELEPORTED,
     TELEPORTED_SAFETY,
@@ -216,7 +220,8 @@ public enum Phrase {
 
     final private static Set<Phrase> HEADERS = new HashSet<>(Arrays.asList(Phrase.CONTAINER_HEADER, Phrase.HELP_HEADER, Phrase.INTERACTIONS_HEADER, Phrase.LOOKUP_HEADER, Phrase.SIGN_HEADER, Phrase.UPDATE_HEADER));
     final private static Set<String> COLORS = new HashSet<>(Arrays.asList(Color.WHITE, Color.DARK_AQUA));
-    final private static String split = ":";
+    final private static String SPLIT = ":";
+    final private static String FULL_WIDTH_SPLIT = "：";
 
     public String getPhrase() {
         return Language.getPhrase(this);
@@ -265,7 +270,8 @@ public enum Phrase {
         }
 
         if (color.length() > 0) {
-            output = output.replaceFirst(split, split + color);
+            output = output.replaceFirst(SPLIT, SPLIT + color);
+            output = output.replaceFirst(FULL_WIDTH_SPLIT, FULL_WIDTH_SPLIT + color);
             output = ChatMessage.parseQuotes(output, color);
         }
 

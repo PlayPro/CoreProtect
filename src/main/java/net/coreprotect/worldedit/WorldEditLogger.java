@@ -6,7 +6,6 @@ import org.bukkit.DyeColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Server;
-import org.bukkit.Tag;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.Bisected;
 import org.bukkit.block.data.Bisected.Half;
@@ -44,7 +43,7 @@ public class WorldEditLogger extends Queue {
     }
 
     protected static BaseBlock getBaseBlock(Extent extent, BlockVector3 position, Location location, Material oldType, com.sk89q.worldedit.world.block.BlockState oldBlock) {
-        if (oldType == Material.SPAWNER || (Config.getConfig(location.getWorld()).SIGN_TEXT && Tag.SIGNS.isTagged(oldType))) {
+        if (oldType == Material.SPAWNER || (Config.getConfig(location.getWorld()).SIGN_TEXT && net.coreprotect.bukkit.BukkitAdapter.ADAPTER.isSign(oldType))) {
             return extent.getFullBlock(position);
         }
 
@@ -67,16 +66,22 @@ public class WorldEditLogger extends Queue {
         if (!oldType.equals(newType) || !oldBlockDataString.equals(newBlockDataString)) {
             try {
                 if (baseBlock != null && baseBlock.hasNbtData()) {
-                    if (Config.getConfig(location.getWorld()).SIGN_TEXT && Tag.SIGNS.isTagged(oldType)) {
+                    if (Config.getConfig(location.getWorld()).SIGN_TEXT && net.coreprotect.bukkit.BukkitAdapter.ADAPTER.isSign(oldType)) {
                         CompoundTag compoundTag = baseBlock.getNbtData();
-                        String line1 = getSignText(compoundTag.getString("Text1"));
-                        String line2 = getSignText(compoundTag.getString("Text2"));
-                        String line3 = getSignText(compoundTag.getString("Text3"));
-                        String line4 = getSignText(compoundTag.getString("Text4"));
-                        int color = DyeColor.valueOf(baseBlock.getNbtData().getString("Color").toUpperCase()).getColor().asRGB();
-                        boolean isGlowing = (compoundTag.getInt("GlowingText") == 1 ? true : false);
+                        if (!compoundTag.containsKey("front_text")) {
+                            String line1 = getSignText(compoundTag.getString("Text1"));
+                            String line2 = getSignText(compoundTag.getString("Text2"));
+                            String line3 = getSignText(compoundTag.getString("Text3"));
+                            String line4 = getSignText(compoundTag.getString("Text4"));
+                            int color = DyeColor.valueOf(baseBlock.getNbtData().getString("Color").toUpperCase()).getColor().asRGB();
+                            int colorSecondary = 0;
+                            boolean frontGlowing = (compoundTag.getInt("GlowingText") == 1 ? true : false);
+                            boolean backGlowing = false;
+                            boolean isWaxed = false;
+                            boolean isFront = true;
 
-                        Queue.queueSignText(actor.getName(), location, 0, color, isGlowing, line1, line2, line3, line4, 5);
+                            Queue.queueSignText(actor.getName(), location, 0, color, colorSecondary, frontGlowing, backGlowing, isWaxed, isFront, line1, line2, line3, line4, "", "", "", "", 5);
+                        }
                     }
                     if (oldType == Material.SPAWNER) {
                         String mobType = getMobType(baseBlock);

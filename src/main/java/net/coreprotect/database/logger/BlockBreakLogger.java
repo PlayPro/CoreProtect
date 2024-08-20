@@ -4,11 +4,13 @@ import java.sql.PreparedStatement;
 import java.util.List;
 import java.util.Locale;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.BlockStatement;
 import net.coreprotect.database.statement.UserStatement;
@@ -36,8 +38,13 @@ public class BlockBreakLogger {
                 return;
             }
 
+            if (ConfigHandler.blacklist.get(checkType.getKey().toString()) != null) {
+                return;
+            }
+
             if (!user.startsWith("#")) {
-                CacheHandler.spreadCache.remove(location);
+                String cacheId = location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ() + "." + Util.getWorldId(location.getWorld().getName());
+                CacheHandler.spreadCache.remove(cacheId);
             }
 
             if (checkType == Material.LECTERN) {
@@ -48,7 +55,9 @@ public class BlockBreakLogger {
             }
 
             CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
-            CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+            if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
+                CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+            }
 
             int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
             int wid = Util.getWorldId(location.getWorld().getName());
@@ -57,6 +66,11 @@ public class BlockBreakLogger {
             int y = location.getBlockY();
             int z = location.getBlockZ();
             CacheHandler.breakCache.put("" + x + "." + y + "." + z + "." + wid + "", new Object[] { time, event.getUser(), type });
+
+            if (event.isCancelled()) {
+                return;
+            }
+
             BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, type, data, meta, blockData, 0, 0);
         }
         catch (Exception e) {

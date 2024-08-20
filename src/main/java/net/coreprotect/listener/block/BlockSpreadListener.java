@@ -14,6 +14,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.utility.Util;
 
 public final class BlockSpreadListener extends Queue implements Listener {
 
@@ -81,10 +82,11 @@ public final class BlockSpreadListener extends Queue implements Listener {
     }
 
     private boolean checkCacheData(Block block, Material type) {
+        String cacheId = block.getX() + "." + block.getY() + "." + block.getZ() + "." + Util.getWorldId(block.getWorld().getName());
         Location location = block.getLocation();
         int timestamp = (int) (System.currentTimeMillis() / 1000L);
-        Object[] cacheData = CacheHandler.spreadCache.get(location);
-        CacheHandler.spreadCache.put(location, new Object[] { timestamp, type });
+        Object[] cacheData = CacheHandler.spreadCache.get(cacheId);
+        CacheHandler.spreadCache.put(cacheId, new Object[] { timestamp, type });
         if (cacheData != null && ((Material) cacheData[1]) == type) {
             return true;
         }

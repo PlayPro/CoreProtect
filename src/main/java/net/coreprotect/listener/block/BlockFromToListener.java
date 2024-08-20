@@ -75,10 +75,10 @@ public final class BlockFromToListener extends Queue implements Listener {
                 }
 
                 if (f.startsWith("#")) {
-                    Location location = toBlock.getLocation();
+                    String cacheId = toBlock.getX() + "." + toBlock.getY() + "." + toBlock.getZ() + "." + Util.getWorldId(toBlock.getWorld().getName());
                     int timestamp = (int) (System.currentTimeMillis() / 1000L);
-                    Object[] cacheData = CacheHandler.spreadCache.get(location);
-                    CacheHandler.spreadCache.put(location, new Object[] { timestamp, type });
+                    Object[] cacheData = CacheHandler.spreadCache.get(cacheId);
+                    CacheHandler.spreadCache.put(cacheId, new Object[] { timestamp, type });
                     if (toBlockState == null && cacheData != null && ((Material) cacheData[1]) == type) {
                         return;
                     }

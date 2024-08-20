@@ -2,9 +2,9 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>net.coreprotect</groupId>
   <artifactId>CoreProtect</artifactId>
-  <version>21.3</version>
+  <version>22.4</version>
   <properties>
-    <project.branch>1.0</project.branch>
+    <project.branch></project.branch>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
   <build>
@@ -27,6 +27,18 @@
         <configuration>
           <source>11</source>
           <target>11</target>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.3.0</version>
+        <configuration>
+          <archive>
+            <manifestEntries>
+              <paperweight-mappings-namespace>mojang</paperweight-mappings-namespace>
+            </manifestEntries>
+          </archive>
         </configuration>
       </plugin>
       <plugin>
@@ -57,6 +69,8 @@
                   <exclude>org.intellij:*</exclude>
                   <exclude>org.jetbrains:*</exclude>
                   <exclude>org.slf4j:*</exclude>
+                  <exclude>org.apache.logging.log4j:*</exclude>
+                  <exclude>net.java.dev.jna:*</exclude>
                 </excludes>
               </artifactSet>
               <relocations>
@@ -97,16 +111,28 @@
       <url>https://jitpack.io</url>
     </repository>
   </repositories>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.intellectualsites.bom</groupId>
+        <artifactId>bom-newest</artifactId> <!--  Ref: https://github.com/IntellectualSites/bom -->
+        <version>1.45</version>
+        <scope>import</scope>
+        <type>pom</type>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
   <dependencies>
     <!--
+    paper-api: io.papermc.paper
     paper-api (<= 1.16): com.destroystokyo.paper
     spigot-api: org.spigotmc
     bukkit: org.bukkit
     -->
     <dependency>
-      <groupId>dev.folia</groupId>
-      <artifactId>folia-api</artifactId>
-      <version>1.19.4-R0.1-SNAPSHOT</version>
+      <groupId>io.papermc.paper</groupId>
+      <artifactId>paper-api</artifactId>
+      <version>1.21-R0.1-SNAPSHOT</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
@@ -116,14 +142,18 @@
       <scope>compile</scope>
     </dependency>
     <dependency>
-      <groupId>com.sk89q.worldedit</groupId>
-      <artifactId>worldedit-bukkit</artifactId>
-      <version>7.0.0-SNAPSHOT</version>
+      <groupId>com.fastasyncworldedit</groupId>
+      <artifactId>FastAsyncWorldEdit-Core</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.fastasyncworldedit</groupId>
+      <artifactId>FastAsyncWorldEdit-Bukkit</artifactId>
       <scope>provided</scope>
       <exclusions>
         <exclusion>
-          <groupId>org.bukkit</groupId>
-          <artifactId>bukkit</artifactId>
+          <artifactId>FastAsyncWorldEdit-Core</artifactId>
+          <groupId>*</groupId>
         </exclusion>
       </exclusions>
     </dependency>
@@ -132,25 +162,35 @@
       <artifactId>HikariCP</artifactId>
       <version>5.0.1</version>
     </dependency>
-    <dependency>
-      <groupId>com.github.DeadSilenceIV</groupId>
-      <artifactId>AdvancedChestsAPI</artifactId>
-      <version>3.2-BETA</version>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>me.lucko</groupId>
-      <artifactId>helper</artifactId>
-      <version>5.6.13</version>
-      <scope>system</scope>
-      <systemPath>${user.home}/IdeaProjects/ChunkHoppersPlugin_1/ChunkHoppersPlugin/lib/helper.jar</systemPath>
-    </dependency>
-    <dependency>
-      <groupId>plugin.chunkhoppers.chunkhoppers</groupId>
-      <artifactId>ChunkHoppersPlugin</artifactId>
-      <version>1.0</version>
-      <scope>system</scope>
-      <systemPath>${user.home}/IdeaProjects/ChunkHoppersPlugin_1/ChunkHoppersPlugin/target/ChunkHoppersPlugin-1.0-SNAPSHOT.jar</systemPath>
-    </dependency>
+      <dependency>
+          <groupId>com.github.oshi</groupId>
+          <artifactId>oshi-core</artifactId>
+          <version>6.6.2</version>
+      </dependency>
+      <dependency>
+          <groupId>org.apache.logging.log4j</groupId>
+          <artifactId>log4j-core</artifactId>
+          <version>2.23.1</version>
+      </dependency>
+      <dependency>
+          <groupId>com.github.DeadSilenceIV</groupId>
+          <artifactId>AdvancedChestsAPI</artifactId>
+          <version>3.2-BETA</version>
+          <scope>provided</scope>
+      </dependency>
+      <dependency>
+          <groupId>me.lucko</groupId>
+          <artifactId>helper</artifactId>
+          <version>5.6.13</version>
+          <scope>system</scope>
+          <systemPath>${user.home}/Documents/Nandod/ChunkHoppersPlugin_1/ChunkHoppersPlugin/lib/helper.jar</systemPath>
+      </dependency>
+      <dependency>
+          <groupId>plugin.chunkhoppers.chunkhoppers</groupId>
+          <artifactId>ChunkHoppersPlugin</artifactId>
+          <version>1.0</version>
+          <scope>system</scope>
+          <systemPath>${user.home}/Documents/Nandod/ChunkHoppersPlugin_1/ChunkHoppersPlugin/target/ChunkHoppersPlugin-1.0-SNAPSHOT.jar</systemPath>
+      </dependency>
   </dependencies>
 </project>

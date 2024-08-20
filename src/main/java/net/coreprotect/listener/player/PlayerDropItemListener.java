@@ -18,7 +18,7 @@ import net.coreprotect.consumer.Queue;
 
 public final class PlayerDropItemListener extends Queue implements Listener {
 
-    protected static void playerDropItem(Location location, String user, ItemStack itemStack) {
+    public static void playerDropItem(Location location, String user, ItemStack itemStack) {
         if (!Config.getConfig(location.getWorld()).ITEM_DROPS || itemStack == null) {
             return;
         }

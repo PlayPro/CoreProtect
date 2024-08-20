@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.bukkit.Location;
@@ -19,11 +20,7 @@ import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
-import org.bukkit.inventory.BlockInventoryHolder;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
-import org.bukkit.inventory.InventoryView;
-import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.*;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
@@ -44,6 +41,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
 
     protected static AtomicLong tasksStarted = new AtomicLong();
     protected static AtomicLong tasksCompleted = new AtomicLong();
+    private static ConcurrentHashMap<String, Boolean> inventoryProcessing = new ConcurrentHashMap<>();
 
     protected static void checkTasks(long taskStarted) {
         try {
@@ -215,7 +213,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
         return false;
     }
 
-    private static void onInventoryInteractAsync(Player player, Inventory inventory, boolean enderChest) {
+    static void onInventoryInteractAsync(Player player, Inventory inventory, boolean enderChest) {
         if (inventory == null) {
             return;
         }
@@ -250,11 +248,19 @@ public final class InventoryChangeListener extends Queue implements Listener {
         Location inventoryLocation = location;
         ItemStack[] containerState = Util.getContainerState(inventory.getContents());
 
+        String loggingChestId = player.getName() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+        Boolean lastTransaction = inventoryProcessing.get(loggingChestId);
+        if (lastTransaction != null) {
+            return;
+        }
+        inventoryProcessing.put(loggingChestId, true);
+
         final long taskStarted = InventoryChangeListener.tasksStarted.incrementAndGet();
         Scheduler.runTaskAsynchronously(CoreProtect.getInstance(), () -> {
             try {
                 Material containerType = (enderChest != true ? null : Material.ENDER_CHEST);
                 InventoryChangeListener.checkTasks(taskStarted);
+                inventoryProcessing.remove(loggingChestId);
                 onInventoryInteract(player.getName(), inventory, containerState, containerType, inventoryLocation, true);
             }
             catch (Exception e) {
@@ -275,7 +281,12 @@ public final class InventoryChangeListener extends Queue implements Listener {
             // Perform this check to prevent triggering onInventoryInteractAsync when a user is just clicking items in their own inventory
             Inventory inventory = null;
             try {
-                inventory = event.getView().getInventory(event.getRawSlot());
+                try {
+                    inventory = event.getView().getInventory(event.getRawSlot());
+                }
+                catch (IncompatibleClassChangeError e) {
+                    inventory = event.getClickedInventory();
+                }
             }
             catch (Exception e) {
                 return;
@@ -350,7 +361,12 @@ public final class InventoryChangeListener extends Queue implements Listener {
             return;
         }
 
-        Location location = event.getSource().getLocation();
+        Inventory sourceInventory = event.getSource();
+        if (sourceInventory == null) {
+            return;
+        }
+
+        Location location = sourceInventory.getLocation();
         if (location == null) {
             return;
         }
@@ -360,7 +376,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
             return;
         }
 
-        InventoryHolder sourceHolder = PaperAdapter.ADAPTER.getHolder(event.getSource(), false);
+        InventoryHolder sourceHolder = PaperAdapter.ADAPTER.getHolder(sourceInventory, false);
         if (sourceHolder == null) {
             return;
         }
@@ -372,10 +388,16 @@ public final class InventoryChangeListener extends Queue implements Listener {
 
         if (hopperTransactions) {
             if (Validate.isHopper(destinationHolder) && (Validate.isContainer(sourceHolder) && !Validate.isHopper(sourceHolder))) {
-                HopperPullListener.processHopperPull(location, sourceHolder, destinationHolder, event.getItem());
+                HopperPullListener.processHopperPull(location, "#hopper", sourceHolder, destinationHolder, event.getItem());
             }
             else if (Validate.isHopper(sourceHolder) && (Validate.isContainer(destinationHolder) && !Validate.isHopper(destinationHolder))) {
-                HopperPushListener.processHopperPush(location, sourceHolder, destinationHolder, event.getItem());
+                HopperPushListener.processHopperPush(location, "#hopper", sourceHolder, destinationHolder, event.getItem());
+            }
+            else if (Validate.isDropper(sourceHolder) && (Validate.isContainer(destinationHolder))) {
+                HopperPullListener.processHopperPull(location, "#dropper", sourceHolder, destinationHolder, event.getItem());
+                if (!Validate.isHopper(destinationHolder)) {
+                    HopperPushListener.processHopperPush(location, "#dropper", sourceHolder, destinationHolder, event.getItem());
+                }
             }
 
             return;
@@ -390,7 +412,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
             return;
         }
 
-        HopperPullListener.processHopperPull(location, sourceHolder, destinationHolder, event.getItem());
+        HopperPullListener.processHopperPull(location, "#hopper", sourceHolder, destinationHolder, event.getItem());
     }
 
     public static boolean isAC(){

@@ -7,7 +7,6 @@ import java.util.Locale;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.block.Banner;
 import org.bukkit.block.Block;
@@ -126,7 +125,7 @@ public final class BlockBreakListener extends Queue implements Listener {
                 Block scanBlock = world.getBlockAt(scanLocation);
                 Material scanType = scanBlock.getType();
                 if (scanMin == 5) {
-                    if (scanType.hasGravity()) {
+                    if (scanType.hasGravity() || BukkitAdapter.ADAPTER.isSuspiciousBlock(scanType)) {
                         if (Config.getConfig(world).BLOCK_MOVEMENT) {
                             // log the top-most sand/gravel block as being removed
                             int scanY = y + 2;
@@ -134,7 +133,7 @@ public final class BlockBreakListener extends Queue implements Listener {
                             while (!topFound) {
                                 Block topBlock = world.getBlockAt(x, scanY, z);
                                 Material topMaterial = topBlock.getType();
-                                if (!topMaterial.hasGravity()) {
+                                if (!topMaterial.hasGravity() && !BukkitAdapter.ADAPTER.isSuspiciousBlock(topMaterial)) {
                                     scanLocation = new Location(world, x, (scanY - 1), z);
                                     topFound = true;
                                 }
@@ -210,7 +209,7 @@ public final class BlockBreakListener extends Queue implements Listener {
                             }
                         }
                         else if (scanMin == 5) {
-                            if (scanType.hasGravity()) {
+                            if (scanType.hasGravity() || BukkitAdapter.ADAPTER.isSuspiciousBlock(scanType)) {
                                 log = true;
                             }
                         }
@@ -274,7 +273,7 @@ public final class BlockBreakListener extends Queue implements Listener {
                     e.printStackTrace();
                 }
             }
-            if (log && Tag.SIGNS.isTagged(blockType)) {
+            if (log && BukkitAdapter.ADAPTER.isSign(blockType)) {
                 if (Config.getConfig(world).SIGN_TEXT) {
                     try {
                         Location location = blockState.getLocation();
@@ -283,9 +282,19 @@ public final class BlockBreakListener extends Queue implements Listener {
                         String line2 = PaperAdapter.ADAPTER.getLine(sign, 1);
                         String line3 = PaperAdapter.ADAPTER.getLine(sign, 2);
                         String line4 = PaperAdapter.ADAPTER.getLine(sign, 3);
-                        int color = sign.getColor().getColor().asRGB();
-                        boolean isGlowing = BukkitAdapter.ADAPTER.isGlowing(sign);
-                        Queue.queueSignText(user, location, 0, color, isGlowing, line1, line2, line3, line4, 5);
+                        String line5 = PaperAdapter.ADAPTER.getLine(sign, 4);
+                        String line6 = PaperAdapter.ADAPTER.getLine(sign, 5);
+                        String line7 = PaperAdapter.ADAPTER.getLine(sign, 6);
+                        String line8 = PaperAdapter.ADAPTER.getLine(sign, 7);
+
+                        boolean isFront = true;
+                        int color = BukkitAdapter.ADAPTER.getColor(sign, isFront);
+                        int colorSecondary = BukkitAdapter.ADAPTER.getColor(sign, !isFront);
+                        boolean frontGlowing = BukkitAdapter.ADAPTER.isGlowing(sign, isFront);
+                        boolean backGlowing = BukkitAdapter.ADAPTER.isGlowing(sign, !isFront);
+                        boolean isWaxed = BukkitAdapter.ADAPTER.isWaxed(sign);
+
+                        Queue.queueSignText(user, location, 0, color, colorSecondary, frontGlowing, backGlowing, isWaxed, isFront, line1, line2, line3, line4, line5, line6, line7, line8, 5);
                     }
                     catch (Exception e) {
                         e.printStackTrace();
@@ -316,7 +325,10 @@ public final class BlockBreakListener extends Queue implements Listener {
         }
 
         for (Block placementBlock : placementMap) {
-            queueBlockPlace(user, block.getState(), placementBlock.getType(), null, null, -1, 0, placementBlock.getBlockData().getAsString());
+            Material placementType = placementBlock.getType();
+            if (placementType.hasGravity()) {
+                queueBlockPlace(user, block.getState(), placementType, null, null, -1, 0, placementBlock.getBlockData().getAsString());
+            }
         }
     }
 

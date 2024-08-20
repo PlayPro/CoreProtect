@@ -8,7 +8,9 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.Skull;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.SkullStatement;
+import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.utility.Util;
 
 public class SkullBreakLogger {
@@ -26,14 +28,23 @@ public class SkullBreakLogger {
             int type = Util.getBlockId(block.getType().name(), true);
             Skull skull = (Skull) block;
             String skullOwner = "";
+            String skullSkin = null;
             int skullKey = 0;
             if (skull.hasOwner()) {
-                skullOwner = skull.getOwningPlayer().getUniqueId().toString();
-                SkullStatement.insert(preparedStmt2, time, skullOwner);
-                ResultSet keys = preparedStmt2.getGeneratedKeys();
-                keys.next();
-                skullKey = keys.getInt(1);
-                keys.close();
+                skullOwner = PaperAdapter.ADAPTER.getSkullOwner(skull);
+                skullSkin = PaperAdapter.ADAPTER.getSkullSkin(skull);
+                ResultSet resultSet = SkullStatement.insert(preparedStmt2, time, skullOwner, skullSkin);
+                if (Database.hasReturningKeys()) {
+                    resultSet.next();
+                    skullKey = resultSet.getInt(1);
+                    resultSet.close();
+                }
+                else {
+                    ResultSet keys = preparedStmt2.getGeneratedKeys();
+                    keys.next();
+                    skullKey = keys.getInt(1);
+                    keys.close();
+                }
             }
 
             BlockBreakLogger.log(preparedStmt, batchCount, user, block.getLocation(), type, skullKey, null, block.getBlockData().getAsString(), null);

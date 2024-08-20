@@ -4,9 +4,9 @@ import java.sql.Statement;
 
 import org.bukkit.block.BlockState;
 
+import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.SkullStatement;
 import net.coreprotect.utility.Util;
-import net.coreprotect.config.ConfigHandler;
 
 class SkullUpdateProcess {
 
@@ -18,7 +18,7 @@ class SkullUpdateProcess {
          */
         if (object instanceof BlockState) {
             BlockState block = (BlockState) object;
-            String query = "SELECT owner FROM " + ConfigHandler.prefix + "skull WHERE rowid='" + rowId + "' LIMIT 0, 1";
+            String query = "SELECT owner, skin FROM " + ConfigHandler.prefix + "skull WHERE rowid='" + rowId + "' LIMIT 0, 1";
             SkullStatement.getData(statement, block, query);
             Util.updateBlock(block);
         }

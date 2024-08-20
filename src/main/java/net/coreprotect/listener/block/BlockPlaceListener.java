@@ -4,7 +4,6 @@ import java.util.Locale;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -28,6 +27,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.utility.Util;
 
 public final class BlockPlaceListener extends Queue implements Listener {
@@ -106,19 +106,29 @@ public final class BlockPlaceListener extends Queue implements Listener {
 
                 Queue.queueBlockPlace(player.getName(), blockState, blockPlaced.getType(), blockReplaced, forceType, forceData, 0, bBlockData);
 
-                if (Tag.SIGNS.isTagged(blockType)) {
+                if (BukkitAdapter.ADAPTER.isSign(blockType)) {
                     if (Config.getConfig(world).SIGN_TEXT) {
                         try {
                             Location location = blockState.getLocation();
                             Sign sign = (Sign) blockState;
-                            String line1 = sign.getLine(0);
-                            String line2 = sign.getLine(1);
-                            String line3 = sign.getLine(2);
-                            String line4 = sign.getLine(3);
-                            int color = sign.getColor().getColor().asRGB();
-                            boolean isGlowing = BukkitAdapter.ADAPTER.isGlowing(sign);
-                            if (line1.length() > 0 || line2.length() > 0 || line3.length() > 0 || line4.length() > 0) {
-                                Queue.queueSignText(player.getName(), location, 1, color, isGlowing, line1, line2, line3, line4, 0);
+                            String line1 = PaperAdapter.ADAPTER.getLine(sign, 0);
+                            String line2 = PaperAdapter.ADAPTER.getLine(sign, 1);
+                            String line3 = PaperAdapter.ADAPTER.getLine(sign, 2);
+                            String line4 = PaperAdapter.ADAPTER.getLine(sign, 3);
+                            String line5 = PaperAdapter.ADAPTER.getLine(sign, 4);
+                            String line6 = PaperAdapter.ADAPTER.getLine(sign, 5);
+                            String line7 = PaperAdapter.ADAPTER.getLine(sign, 6);
+                            String line8 = PaperAdapter.ADAPTER.getLine(sign, 7);
+
+                            boolean isFront = true;
+                            int color = BukkitAdapter.ADAPTER.getColor(sign, isFront);
+                            int colorSecondary = BukkitAdapter.ADAPTER.getColor(sign, !isFront);
+                            boolean frontGlowing = BukkitAdapter.ADAPTER.isGlowing(sign, isFront);
+                            boolean backGlowing = BukkitAdapter.ADAPTER.isGlowing(sign, !isFront);
+                            boolean isWaxed = BukkitAdapter.ADAPTER.isWaxed(sign);
+
+                            if (line1.length() > 0 || line2.length() > 0 || line3.length() > 0 || line4.length() > 0 || line5.length() > 0 || line6.length() > 0 || line7.length() > 0 || line8.length() > 0) {
+                                Queue.queueSignText(player.getName(), location, 1, color, colorSecondary, frontGlowing, backGlowing, isWaxed, isFront, line1, line2, line3, line4, line5, line6, line7, line8, 0);
                             }
                         }
                         catch (Exception e) {

@@ -1,6 +1,7 @@
 package net.coreprotect.listener.entity;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -121,8 +122,11 @@ public final class EntityDeathListener extends Queue implements Listener {
             e = isCommand ? "#command" : "";
         }
 
+        List<DamageCause> validDamageCauses = Arrays.asList(DamageCause.SUICIDE, DamageCause.POISON, DamageCause.THORNS, DamageCause.MAGIC, DamageCause.WITHER);
+
         boolean skip = true;
-        if (!Config.getConfig(entity.getWorld()).SKIP_GENERIC_DATA || (!(entity instanceof Zombie) && !(entity instanceof Skeleton))) {
+        EntityDamageEvent.DamageCause cause = damage.getCause();
+        if (!Config.getConfig(entity.getWorld()).SKIP_GENERIC_DATA || (!(entity instanceof Zombie) && !(entity instanceof Skeleton)) || (validDamageCauses.contains(cause) || cause.name().equals("KILL"))) {
             skip = false;
         }
 
@@ -171,7 +175,6 @@ public final class EntityDeathListener extends Queue implements Listener {
             }
         }
         else {
-            EntityDamageEvent.DamageCause cause = damage.getCause();
             if (cause.equals(EntityDamageEvent.DamageCause.FIRE)) {
                 e = "#fire";
             }
@@ -188,6 +191,12 @@ public final class EntityDeathListener extends Queue implements Listener {
             }
             else if (cause.equals(EntityDamageEvent.DamageCause.MAGIC)) {
                 e = "#magic";
+            }
+            else if (cause.equals(EntityDamageEvent.DamageCause.WITHER)) {
+                e = "#wither_effect";
+            }
+            else if (!cause.name().contains("_")) {
+                e = "#" + cause.name().toLowerCase(Locale.ROOT);
             }
         }
 
@@ -224,7 +233,7 @@ public final class EntityDeathListener extends Queue implements Listener {
             }
         }
 
-        if (e.startsWith("#wither")) {
+        if (e.startsWith("#wither") && !e.equals("#wither_effect")) {
             e = "#wither";
         }
 
@@ -313,7 +322,7 @@ public final class EntityDeathListener extends Queue implements Listener {
             }
             else if (entity instanceof Cat) {
                 Cat cat = (Cat) entity;
-                info.add(cat.getCatType());
+                info.add(BukkitAdapter.ADAPTER.getRegistryKey(cat.getCatType()));
                 info.add(cat.getCollarColor());
             }
             else if (entity instanceof Fox) {
@@ -368,7 +377,7 @@ public final class EntityDeathListener extends Queue implements Listener {
                     List<Object> ingredients = new ArrayList<>();
                     List<Object> itemMap = new ArrayList<>();
                     ItemStack item = merchantRecipe.getResult().clone();
-                    List<List<Map<String, Object>>> metadata = ItemMetaHandler.seralize(item, item.getType(), null, 0);
+                    List<List<Map<String, Object>>> metadata = ItemMetaHandler.serialize(item, item.getType(), null, 0);
                     item.setItemMeta(null);
                     itemMap.add(item.serialize());
                     itemMap.add(metadata);
@@ -380,7 +389,7 @@ public final class EntityDeathListener extends Queue implements Listener {
                     for (ItemStack ingredient : merchantRecipe.getIngredients()) {
                         itemMap = new ArrayList<>();
                         item = ingredient.clone();
-                        metadata = ItemMetaHandler.seralize(item, item.getType(), null, 0);
+                        metadata = ItemMetaHandler.serialize(item, item.getType(), null, 0);
                         item.setItemMeta(null);
                         itemMap.add(item.serialize());
                         itemMap.add(metadata);
@@ -395,8 +404,8 @@ public final class EntityDeathListener extends Queue implements Listener {
 
                 if (abstractVillager instanceof Villager) {
                     Villager villager = (Villager) abstractVillager;
-                    info.add(villager.getProfession());
-                    info.add(villager.getVillagerType());
+                    info.add(BukkitAdapter.ADAPTER.getRegistryKey(villager.getProfession()));
+                    info.add(BukkitAdapter.ADAPTER.getRegistryKey(villager.getVillagerType()));
                     info.add(recipes);
                     info.add(villager.getVillagerLevel());
                     info.add(villager.getVillagerExperience());
@@ -424,7 +433,7 @@ public final class EntityDeathListener extends Queue implements Listener {
             else if (entity instanceof ZombieVillager) {
                 ZombieVillager zombieVillager = (ZombieVillager) entity;
                 info.add(zombieVillager.isBaby());
-                info.add(zombieVillager.getVillagerProfession());
+                info.add(BukkitAdapter.ADAPTER.getRegistryKey(zombieVillager.getVillagerProfession()));
             }
             else if (entity instanceof Zombie) {
                 Zombie zombie = (Zombie) entity;
@@ -527,6 +536,16 @@ public final class EntityDeathListener extends Queue implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEntityDeath(EntityDeathEvent event) {
+        /*
+        System.out.println("ENTITY DEATH - " + event.getEntity().getName());
+        if (event.getEntity().getKiller() != null) {
+            System.out.println("^ (killer): " + event.getEntity().getKiller().getName());
+        }
+        else if (event.getEntity().getLastDamageCause() != null) {
+            System.out.println("^ (damage cause): " + event.getEntity().getLastDamageCause().getEntity().getName());
+        }
+        */
+
         LivingEntity entity = event.getEntity();
         if (entity == null) {
             return;

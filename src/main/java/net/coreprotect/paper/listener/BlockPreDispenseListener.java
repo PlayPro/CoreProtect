@@ -1,5 +1,6 @@
 package net.coreprotect.paper.listener;
 
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
@@ -18,6 +19,7 @@ import net.coreprotect.listener.player.InventoryChangeListener;
 public final class BlockPreDispenseListener extends Queue implements Listener {
 
     public static boolean useBlockPreDispenseEvent = true;
+    public static boolean useForDroppers = false;
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockPreDispense(BlockPreDispenseEvent event) {
@@ -29,6 +31,10 @@ public final class BlockPreDispenseListener extends Queue implements Listener {
 
         BlockData blockData = block.getBlockData();
         if (blockData instanceof Dispenser) {
+            if (!useForDroppers && block.getType() == Material.DROPPER) {
+                useForDroppers = true;
+            }
+
             String user = "#dispenser";
             ItemStack[] inventory = ((InventoryHolder) block.getState()).getInventory().getStorageContents();
             InventoryChangeListener.inventoryTransaction(user, block.getLocation(), inventory);

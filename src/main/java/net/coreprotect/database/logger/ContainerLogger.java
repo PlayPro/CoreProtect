@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.BlockFace;
@@ -14,6 +15,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.CoreProtect;
+import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.statement.ContainerStatement;
@@ -56,6 +58,9 @@ public class ContainerLogger extends Queue {
             ItemStack[] oi1 = oldList.get(0);
             ItemStack[] oldInventory = Util.getContainerState(oi1);
             ItemStack[] newInventory = Util.getContainerState(contents);
+            if (oldInventory == null || newInventory == null) {
+                return;
+            }
 
             List<ItemStack[]> forceList = ConfigHandler.forceContainer.get(loggingContainerId);
             if (forceList != null) {
@@ -157,18 +162,25 @@ public class ContainerLogger extends Queue {
             if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {
                 return;
             }
+            boolean success = false;
             int slot = 0;
             for (ItemStack item : items) {
                 if (item != null) {
                     if (item.getAmount() > 0 && !Util.isAir(item.getType())) {
                         // Object[] metadata = new Object[] { slot, item.getItemMeta() };
-                        List<List<Map<String, Object>>> metadata = ItemMetaHandler.seralize(item, type, faceData, slot);
+                        List<List<Map<String, Object>>> metadata = ItemMetaHandler.serialize(item, type, faceData, slot);
                         if (metadata.size() == 0) {
                             metadata = null;
                         }
 
                         CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
-                        CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+                        if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
+                            CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+                        }
+
+                        if (event.isCancelled()) {
+                            return;
+                        }
 
                         int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
                         int wid = Util.getWorldId(location.getWorld().getName());
@@ -180,9 +192,16 @@ public class ContainerLogger extends Queue {
                         int data = 0;
                         int amount = item.getAmount();
                         ContainerStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, typeId, data, amount, metadata, action, 0);
+                        success = true;
                     }
                 }
                 slot++;
+            }
+
+            if (success && user.equals("#hopper")) {
+                String hopperPush = "#hopper-push." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+                ConfigHandler.hopperSuccess.remove(hopperPush);
+                ConfigHandler.hopperAbort.remove(hopperPush);
             }
         }
         catch (Exception e) {

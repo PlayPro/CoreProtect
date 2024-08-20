@@ -20,10 +20,11 @@ public final class BlockFormListener extends Queue implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onBlockForm(BlockFormEvent event) {
         // random form, snow/ice
-        World world = event.getBlock().getWorld();
+        Block block = event.getBlock();
+        World world = block.getWorld();
         BlockState newState = event.getNewState();
-        if (Config.getConfig(world).LIQUID_TRACKING && (newState.getType().equals(Material.OBSIDIAN) || newState.getType().equals(Material.COBBLESTONE) || event.getBlock().getType().name().endsWith("_CONCRETE_POWDER"))) {
-            Block block = event.getBlock();
+        boolean log = false;
+        if (Config.getConfig(world).LIQUID_TRACKING && (newState.getType().equals(Material.OBSIDIAN) || newState.getType().equals(Material.COBBLESTONE) || block.getType().name().endsWith("_CONCRETE_POWDER"))) {
             String player = Lookup.whoPlacedCache(block);
             int wid = Util.getWorldId(world.getName());
             if (!(player.length() > 0)) {
@@ -58,7 +59,7 @@ public final class BlockFormListener extends Queue implements Listener {
                 }
             }
             if (player.length() > 0) {
-                boolean log = true;
+                log = true;
                 /*
                 if (newState.getType().equals(Material.COBBLESTONE)) {
                     log = false;
@@ -77,6 +78,9 @@ public final class BlockFormListener extends Queue implements Listener {
                     Queue.queueBlockPlace(player, block.getLocation().getBlock().getState(), block.getType(), block.getState(), newState.getType(), -1, 0, newState.getBlockData().getAsString());
                 }
             }
+        }
+        if (!log && Config.getConfig(world).UNKNOWN_LOGGING && Lookup.whoPlacedCache(block).length() == 0) {
+            Queue.queueBlockPlace("#unknown", block.getLocation().getBlock().getState(), block.getType(), block.getState(), newState.getType(), -1, 0, newState.getBlockData().getAsString());
         }
     }
 

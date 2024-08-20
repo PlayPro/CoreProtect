@@ -18,7 +18,7 @@ public class CacheHandler implements Runnable {
     public static Map<String, Object[]> interactCache = Collections.synchronizedMap(new HashMap<>());
     public static Map<String, Object[]> entityCache = Collections.synchronizedMap(new HashMap<>());
     public static ConcurrentHashMap<String, Object[]> pistonCache = new ConcurrentHashMap<>(16, 0.75f, 2);
-    public static ConcurrentHashMap<Location, Object[]> spreadCache = new ConcurrentHashMap<>(16, 0.75f, 2);
+    public static ConcurrentHashMap<String, Object[]> spreadCache = new ConcurrentHashMap<>(16, 0.75f, 2);
     public static ConcurrentHashMap<Location, Object[]> redstoneCache = new ConcurrentHashMap<>(16, 0.75f, 2);
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
@@ -26,7 +26,7 @@ public class CacheHandler implements Runnable {
     public void run() {
         while (ConfigHandler.serverRunning) {
             try {
-                for (int id = 0; id < 7; id++) {
+                for (int id = 0; id < 8; id++) {
                     Thread.sleep(1000);
                     int scanTime = 30;
                     Map cache = CacheHandler.lookupCache;
@@ -41,7 +41,7 @@ public class CacheHandler implements Runnable {
                             break;
                         case 3:
                             cache = CacheHandler.spreadCache;
-                            scanTime = 900; // 15 minutes
+                            scanTime = 1800; // 30 minutes
                             break;
                         case 4:
                             cache = CacheHandler.interactCache;
@@ -54,6 +54,10 @@ public class CacheHandler implements Runnable {
                         case 6:
                             cache = CacheHandler.entityCache;
                             scanTime = 3600; // 60 minutes
+                            break;
+                        case 7:
+                            cache = ConfigHandler.entityBlockMapper;
+                            scanTime = 5;
                             break;
                     }
 

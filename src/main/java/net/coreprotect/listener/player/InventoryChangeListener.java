@@ -41,6 +41,7 @@ import us.lynuxcraft.deadsilenceiv.advancedchests.chest.AdvancedChest;
 
 public final class InventoryChangeListener extends Queue implements Listener {
 
+
     protected static AtomicLong tasksStarted = new AtomicLong();
     protected static AtomicLong tasksCompleted = new AtomicLong();
 
@@ -75,11 +76,9 @@ public final class InventoryChangeListener extends Queue implements Listener {
     static boolean onInventoryInteract(String user, final Inventory inventory, ItemStack[] inventoryData, Material containerType, Location location, boolean aSync) {
         if (inventory != null && location != null) {
             World world = location.getWorld();
-
             if (Config.getConfig(world).ITEM_TRANSACTIONS) {
                 Material type = Material.CHEST;
                 Location playerLocation = null;
-
                 if (aSync) {
                     playerLocation = location;
                     if (containerType != null) {
@@ -87,14 +86,18 @@ public final class InventoryChangeListener extends Queue implements Listener {
                     }
                 } else {
                     InventoryHolder inventoryHolder = inventory.getHolder();
-                    AdvancedChest<?,?> advancedChest = AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory);
-                    ChunkHopper cHopper = ChunkHoppersPlugin.getInstance().getHopperManager().getChunkHopper(inventory);
                     if (inventoryHolder == null) {
-                        if(advancedChest != null){
-                            playerLocation = advancedChest.getLocation();
-                        }else if(cHopper != null){
+                        ChunkHopper cHopper = ChunkHoppersPlugin.getInstance().getHopperManager().getChunkHopper(inventory);
+                        if (cHopper != null) {
                             playerLocation = cHopper.getBlock().getLocation();
-                        }else{
+                        } else if (CoreProtect.getInstance().isAdvancedChests()) {
+                            AdvancedChest<?, ?> advancedChest = AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory);
+                            if (advancedChest != null) {
+                                playerLocation = advancedChest.getLocation();
+                            } else {
+                                return false;
+                            }
+                        } else {
                             return false;
                         }
                     }
@@ -104,8 +107,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
                         if (BlockGroup.CONTAINERS.contains(type)) {
                             playerLocation = state.getLocation();
                         }
-                    }
-                    else if (inventoryHolder instanceof DoubleChest) {
+                    } else if (inventoryHolder instanceof DoubleChest) {
                         DoubleChest state = (DoubleChest) inventoryHolder;
                         playerLocation = state.getLocation();
                     }
@@ -218,23 +220,28 @@ public final class InventoryChangeListener extends Queue implements Listener {
             return;
         }
 
-        Location location = null;
+        Location location;
         try {
             location = inventory.getLocation();
         }
         catch (Exception e) {
             return;
         }
-        if (location == null) {
+        if (location == null && !isAC()) {
+            return;
+        }
+        ChunkHopper cHopper = ChunkHoppersPlugin.getInstance().getHopperManager().getChunkHopper(inventory);
+        if (cHopper != null) {
+            location = cHopper.getBlock().getLocation();
+        }if (isAC()) {
             AdvancedChest<?,?> chest = AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory);
-            ChunkHopper cHopper = ChunkHoppersPlugin.getInstance().getHopperManager().getChunkHopper(inventory);
-            if(chest != null){
+            if (chest != null) {
                 location = chest.getLocation();
-            }else if(cHopper != null){
-                location = cHopper.getBlock().getLocation();
-            }else{
-                return;
             }
+        }
+
+        if(location == null){
+            return;
         }
 
         if (!Config.getConfig(location.getWorld()).ITEM_TRANSACTIONS) {
@@ -279,7 +286,8 @@ public final class InventoryChangeListener extends Queue implements Listener {
 
             InventoryHolder inventoryHolder = inventory.getHolder();
             enderChest = inventory.equals(event.getWhoClicked().getEnderChest());
-            boolean isAdvancedChest = AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory) != null;
+            boolean isAdvancedChest = CoreProtect.getInstance().isAdvancedChests()
+                    && AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory) != null;
             boolean isChunkHopper = ChunkHoppersPlugin.getInstance().getHopperManager().getChunkHopper(inventory) != null;
             if ((!(inventoryHolder instanceof BlockInventoryHolder || inventoryHolder instanceof DoubleChest)) && !enderChest && !isAdvancedChest && !isChunkHopper) {
                 return;
@@ -294,7 +302,8 @@ public final class InventoryChangeListener extends Queue implements Listener {
 
             InventoryHolder inventoryHolder = inventory.getHolder();
             enderChest = inventory.equals(event.getWhoClicked().getEnderChest());
-            boolean isAdvancedChest = AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory) != null;
+            boolean isAdvancedChest = CoreProtect.getInstance().isAdvancedChests()
+                    && AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory) != null;
             boolean isChunkHopper = ChunkHoppersPlugin.getInstance().getHopperManager().getChunkHopper(inventory) != null;
             if ((!(inventoryHolder instanceof BlockInventoryHolder || inventoryHolder instanceof DoubleChest)) && !enderChest && !isAdvancedChest && !isChunkHopper) {
                 return;
@@ -318,7 +327,8 @@ public final class InventoryChangeListener extends Queue implements Listener {
 
             InventoryHolder inventoryHolder = inventory.getHolder();
             enderChest = inventory.equals(event.getWhoClicked().getEnderChest());
-            boolean isAdvancedChest = AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory) != null;
+            boolean isAdvancedChest = CoreProtect.getInstance().isAdvancedChests()
+                    && AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory) != null;
             boolean isChunkHopper = ChunkHoppersPlugin.getInstance().getHopperManager().getChunkHopper(inventory) != null;
             if (((inventoryHolder instanceof BlockInventoryHolder || inventoryHolder instanceof DoubleChest)) || enderChest || isAdvancedChest || isChunkHopper) {
                 movedItem = true;
@@ -382,4 +392,13 @@ public final class InventoryChangeListener extends Queue implements Listener {
 
         HopperPullListener.processHopperPull(location, sourceHolder, destinationHolder, event.getItem());
     }
+
+    public static boolean isAC(){
+        return CoreProtect.getInstance().isAdvancedChests();
+    }
+
+    public static boolean isCH(){
+        return CoreProtect.getInstance().isChunkHoppersEnabled();
+    }
+
 }

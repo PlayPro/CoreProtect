@@ -63,6 +63,7 @@ import net.coreprotect.database.rollback.Rollback;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.thread.NetworkHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 import net.coreprotect.worldedit.CoreProtectEditSessionEvent;
@@ -111,6 +112,9 @@ public class Util extends Queue {
 
         if (branch.startsWith("-edge")) {
             name = name + " " + branch.substring(1, 2).toUpperCase() + branch.substring(2, 5);
+        }
+        else if (isCommunityEdition()) {
+            name = name + " " + ConfigHandler.COMMUNITY_EDITION;
         }
 
         return name;
@@ -1383,6 +1387,18 @@ public class Util extends Queue {
         }
 
         return true;
+    }
+
+    public static boolean isCommunityEdition() {
+        return !isBranch("edge") && !isBranch("coreprotect") && !validDonationKey();
+    }
+
+    public static boolean isBranch(String branch) {
+        return ConfigHandler.EDITION_BRANCH.contains("-" + branch);
+    }
+
+    public static boolean validDonationKey() {
+        return NetworkHandler.donationKey() != null;
     }
 
     public static String getBranch() {

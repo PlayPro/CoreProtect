@@ -1290,7 +1290,7 @@ public class CommandHandler implements CommandExecutor {
                         public void run() {
                             try {
                                 Thread.sleep(5000);
-                                Chat.sendMessage(user, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.UPDATE_HEADER, "CoreProtect") + Color.WHITE + " -----");
+                                Chat.sendMessage(user, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.UPDATE_HEADER, "CoreProtect" + (Util.isCommunityEdition() ? " " + ConfigHandler.COMMUNITY_EDITION : "")) + Color.WHITE + " -----");
                                 Chat.sendMessage(user, Color.DARK_AQUA + Phrase.build(Phrase.UPDATE_NOTICE, Color.WHITE, "CoreProtect v" + latestVersion));
                                 Chat.sendMessage(user, Color.DARK_AQUA + Phrase.build(Phrase.LINK_DOWNLOAD, Color.WHITE, "www.coreprotect.net/download/"));
                             }

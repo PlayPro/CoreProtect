@@ -11,7 +11,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -684,10 +683,10 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                 ItemStack mainHand = player.getInventory().getItemInMainHand();
                                 ItemStack offHand = player.getInventory().getItemInOffHand();
 
-                                if (event.getHand().equals(EquipmentSlot.HAND) && mainHand != null && Tag.ITEMS_MUSIC_DISCS.isTagged(mainHand.getType())) {
+                                if (event.getHand().equals(EquipmentSlot.HAND) && mainHand != null && mainHand.getType().name().startsWith("MUSIC_DISC")) {
                                     handItem = mainHand;
                                 }
-                                else if (event.getHand().equals(EquipmentSlot.OFF_HAND) && offHand != null && Tag.ITEMS_MUSIC_DISCS.isTagged(offHand.getType())) {
+                                else if (event.getHand().equals(EquipmentSlot.OFF_HAND) && offHand != null && offHand.getType().name().startsWith("MUSIC_DISC")) {
                                     handItem = offHand;
                                 }
                                 else {
@@ -836,6 +835,12 @@ public final class PlayerInteractListener extends Queue implements Listener {
 
             if (event.useItemInHand() != Event.Result.DENY) {
                 List<Material> entityBlockTypes = Arrays.asList(Material.ARMOR_STAND, Material.END_CRYSTAL, Material.BOW, Material.CROSSBOW, Material.TRIDENT, Material.EXPERIENCE_BOTTLE, Material.SPLASH_POTION, Material.LINGERING_POTION, Material.ENDER_PEARL, Material.FIREWORK_ROCKET, Material.EGG, Material.SNOWBALL);
+                try {
+                    entityBlockTypes.add(Material.valueOf("WIND_CHARGE"));
+                }
+                catch (Exception e) {
+                    // not running MC 1.21+
+                }
                 ItemStack handItem = null;
                 ItemStack mainHand = player.getInventory().getItemInMainHand();
                 ItemStack offHand = player.getInventory().getItemInOffHand();

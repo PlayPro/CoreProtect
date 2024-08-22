@@ -57,7 +57,7 @@ import org.bukkit.inventory.meta.LeatherArmorMeta;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.database.Rollback;
+import net.coreprotect.database.rollback.Rollback;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Util;
@@ -231,6 +231,9 @@ public class EntityUtil {
                     else if (entity instanceof Cat) {
                         Cat cat = (Cat) entity;
                         if (count == 0) {
+                            if (value instanceof String) {
+                                value = BukkitAdapter.ADAPTER.getRegistryValue((String) value, Cat.Type.class);
+                            }
                             Cat.Type set = (Cat.Type) value;
                             cat.setCatType(set);
                         }
@@ -327,13 +330,19 @@ public class EntityUtil {
                         if (count == 0) {
                             if (abstractVillager instanceof Villager) {
                                 Villager villager = (Villager) abstractVillager;
+                                if (value instanceof String) {
+                                    value = BukkitAdapter.ADAPTER.getRegistryValue((String) value, Profession.class);
+                                }
                                 Profession set = (Profession) value;
                                 villager.setProfession(set);
                             }
                         }
                         else if (count == 1) {
-                            if (abstractVillager instanceof Villager && value instanceof Villager.Type) {
+                            if (abstractVillager instanceof Villager && (value instanceof Villager.Type || value instanceof String)) {
                                 Villager villager = (Villager) abstractVillager;
+                                if (value instanceof String) {
+                                    value = BukkitAdapter.ADAPTER.getRegistryValue((String) value, Villager.Type.class);
+                                }
                                 Villager.Type set = (Villager.Type) value;
                                 villager.setVillagerType(set);
                             }
@@ -427,6 +436,9 @@ public class EntityUtil {
                             zombieVillager.setBaby(set);
                         }
                         else if (count == 1) {
+                            if (value instanceof String) {
+                                value = BukkitAdapter.ADAPTER.getRegistryValue((String) value, Profession.class);
+                            }
                             Profession set = (Profession) value;
                             zombieVillager.setVillagerProfession(set);
                         }

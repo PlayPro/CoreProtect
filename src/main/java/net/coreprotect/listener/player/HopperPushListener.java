@@ -18,8 +18,13 @@ import net.coreprotect.utility.Util;
 
 public final class HopperPushListener {
 
-    static void processHopperPush(Location location, InventoryHolder sourceHolder, InventoryHolder destinationHolder, ItemStack item) {
-        String loggingChestId = "#hopper-push." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+    static void processHopperPush(Location location, String user, InventoryHolder sourceHolder, InventoryHolder destinationHolder, ItemStack item) {
+        Location destinationLocation = destinationHolder.getInventory().getLocation();
+        if (destinationLocation == null) {
+            return;
+        }
+
+        String loggingChestId = "#hopper-push." + destinationLocation.getBlockX() + "." + destinationLocation.getBlockY() + "." + destinationLocation.getBlockZ();
         Object[] lastAbort = ConfigHandler.hopperAbort.get(loggingChestId);
         if (lastAbort != null) {
             ItemStack[] destinationContents = destinationHolder.getInventory().getContents();
@@ -55,6 +60,9 @@ public final class HopperPushListener {
                     ConfigHandler.hopperAbort.put(loggingChestId, new Object[] { movedItems, Util.getContainerState(destinationContents) });
                     return;
                 }
+                else {
+                    ConfigHandler.hopperSuccess.put(loggingChestId, new Object[] { destinationContainer, movedItem });
+                }
 
                 List<Object> list = ConfigHandler.transactingChest.get(location.getWorld().getUID().toString() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ());
                 if (list != null) {
@@ -89,7 +97,7 @@ public final class HopperPushListener {
                 }
 
                 InventoryChangeListener.checkTasks(taskStarted);
-                InventoryChangeListener.onInventoryInteract("#hopper", destinationInventory, originalDestination, null, destinationInventory.getLocation(), true);
+                InventoryChangeListener.onInventoryInteract(user, destinationInventory, originalDestination, null, destinationInventory.getLocation(), true);
             }
             catch (Exception e) {
                 e.printStackTrace();

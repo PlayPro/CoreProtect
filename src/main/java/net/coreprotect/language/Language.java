@@ -44,6 +44,7 @@ public class Language {
         phrases.put(Phrase.CONSUMER_ERROR, "Consumer queue processing already {paused|resumed}.");
         phrases.put(Phrase.CONSUMER_TOGGLED, "Consumer queue processing has been {paused|resumed}.");
         phrases.put(Phrase.CONTAINER_HEADER, "Container Transactions");
+        phrases.put(Phrase.CPU_CORES, "CPU cores.");
         phrases.put(Phrase.DATABASE_BUSY, "Database busy. Please try again later.");
         phrases.put(Phrase.DATABASE_INDEX_ERROR, "Unable to validate database indexes.");
         phrases.put(Phrase.DATABASE_LOCKED_1, "Database locked. Waiting up to 15 seconds...");
@@ -54,6 +55,7 @@ public class Language {
         phrases.put(Phrase.DEVELOPMENT_BRANCH, "Development branch detected, skipping patch scripts.");
         phrases.put(Phrase.DIRT_BLOCK, "Placed a temporary safety block under you.");
         phrases.put(Phrase.DISABLE_SUCCESS, "Success! Disabled {0}");
+        phrases.put(Phrase.DONATION_KEY_REQUIRED, "A valid donation key is required for that command.");
         phrases.put(Phrase.ENABLE_FAILED, "{0} was unable to start.");
         phrases.put(Phrase.ENABLE_SUCCESS, "{0} has been successfully enabled!");
         phrases.put(Phrase.ENJOY_COREPROTECT, "Enjoy {0}? Join our Discord!");
@@ -175,6 +177,7 @@ public class Language {
         phrases.put(Phrase.PREVIEW_CANCELLING, "Cancelling preview...");
         phrases.put(Phrase.PREVIEW_IN_GAME, "You can only preview rollbacks in-game.");
         phrases.put(Phrase.PREVIEW_TRANSACTION, "You can't preview {container|inventory} transactions.");
+        phrases.put(Phrase.PRIMARY_THREAD_ERROR, "That API method can't be used on the primary thread.");
         phrases.put(Phrase.PURGE_ABORTED, "Purge failed. Database may be corrupt.");
         phrases.put(Phrase.PURGE_ERROR, "Unable to process {0} data!");
         phrases.put(Phrase.PURGE_FAILED, "Purge failed. Please try again later.");
@@ -188,6 +191,7 @@ public class Language {
         phrases.put(Phrase.PURGE_ROWS, "{0} {row|rows} of data deleted.");
         phrases.put(Phrase.PURGE_STARTED, "Data purge started on \"{0}\".");
         phrases.put(Phrase.PURGE_SUCCESS, "Data purge successful.");
+        phrases.put(Phrase.RAM_STATS, "{0}GB / {1}GB RAM");
         phrases.put(Phrase.RELOAD_STARTED, "Reloading configuration - please wait.");
         phrases.put(Phrase.RELOAD_SUCCESS, "Configuration successfully reloaded.");
         phrases.put(Phrase.ROLLBACK_ABORTED, "Rollback or restore aborted.");
@@ -209,6 +213,7 @@ public class Language {
         phrases.put(Phrase.STATUS_DATABASE, "Database: Using {0}.");
         phrases.put(Phrase.STATUS_INTEGRATION, "{0}: Integration {enabled|disabled}.");
         phrases.put(Phrase.STATUS_LICENSE, "License: {0}");
+        phrases.put(Phrase.STATUS_SYSTEM, "System: {0}");
         phrases.put(Phrase.STATUS_VERSION, "Version: {0}");
         phrases.put(Phrase.TELEPORTED, "Teleported to {0}.");
         phrases.put(Phrase.TELEPORTED_SAFETY, "Teleported you to safety.");
@@ -228,6 +233,7 @@ public class Language {
         phrases.put(Phrase.USING_SQLITE, "Using SQLite for data storage.");
         phrases.put(Phrase.VALID_DONATION_KEY, "Valid donation key.");
         phrases.put(Phrase.VERSION_NOTICE, "Version {0} is now available.");
+        phrases.put(Phrase.VERSION_INCOMPATIBLE, "{0} {1} is not supported.");
         phrases.put(Phrase.VERSION_REQUIRED, "{0} {1} or higher is required.");
         phrases.put(Phrase.WORLD_NOT_FOUND, "World \"{0}\" not found.");
 

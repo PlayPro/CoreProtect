@@ -2,16 +2,16 @@ import org.apache.tools.ant.filters.ReplaceTokens
 
 plugins {
     id 'java'
-    id 'com.github.johnrengelman.shadow' version '7.1.2'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
     id 'com.palantir.git-version' version '0.13.0'
 }
 
 group = 'net.coreprotect'
-String projectVersion = '22.2'
+String projectVersion = '22.4'
 String projectBranch = ''
 version = projectVersion // `version` might be modified, we don't always want that (e.g. plugin.yml)
 description = 'Provides block protection for your server.'
-sourceCompatibility = '17'
+sourceCompatibility = '21'
 
 if (System.getenv("BUILD_NUMBER") != null) {
     // Being built in Jenkins, append Build ID
@@ -23,18 +23,16 @@ if (System.getenv("BUILD_NUMBER") != null) {
 logger.info("Building version $version")
 
 repositories {
-    jcenter()
     maven { url = 'https://hub.spigotmc.org/nexus/content/groups/public/' }
-    maven { url = 'https://papermc.io/repo/repository/maven-public/' }
+    maven { url = 'https://repo.papermc.io/repository/maven-public/' }
     maven { url = 'https://repo.codemc.org/repository/maven-public/' }
-    maven { url = 'https://maven.enginehub.org/repo/' }
 }
 
 dependencies {
-    compileOnly('com.sk89q.worldedit:worldedit-bukkit:7.0.0-SNAPSHOT') {
-        exclude group: 'org.bukkit'
-    }
-    compileOnly 'io.papermc.paper:paper-api:1.20.4-R0.1-SNAPSHOT'
+    implementation(platform("com.intellectualsites.bom:bom-newest:1.45")) // Ref: https://github.com/IntellectualSites/bom
+    compileOnly("com.fastasyncworldedit:FastAsyncWorldEdit-Core")
+    compileOnly("com.fastasyncworldedit:FastAsyncWorldEdit-Bukkit")
+    compileOnly 'io.papermc.paper:paper-api:1.21-R0.1-SNAPSHOT'
     implementation 'org.bstats:bstats-bukkit-lite:1.8'
     implementation 'com.zaxxer:HikariCP:5.0.1'
 }

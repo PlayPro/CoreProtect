@@ -24,6 +24,10 @@ public final class EntityExplodeListener extends Queue implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onEntityExplode(EntityExplodeEvent event) {
         Entity entity = event.getEntity();
+        if (entity.getType().name().equals("WIND_CHARGE")) {
+            return;
+        }
+
         World world = event.getLocation().getWorld();
         String user = "#explosion";
 
@@ -46,7 +50,7 @@ public final class EntityExplodeListener extends Queue implements Listener {
             user = "#wither";
         }
         else if (entity instanceof EnderCrystal) {
-            user = "#endercrystal";
+            user = "#end_crystal";
         }
 
         boolean log = false;

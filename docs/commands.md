@@ -93,7 +93,7 @@ Purge old block data. Useful for freeing up space on your HDD if you don't need 
 
 | Command | Parameters |
 | --- | --- |
-| /co purge | `t:<time> r:<world>` |
+| /co purge | `t:<time> r:<world> i:<include>` |
 
 For example, `/co purge t:30d` will delete all data older than one month, and only keep the last 30 days of data.
 
@@ -101,8 +101,12 @@ For example, `/co purge t:30d` will delete all data older than one month, and on
 > If used from the console, only data older than 24 hours can be purged.
 
 **Purging Worlds**  
-You can also optionally specify a world in CoreProtect v19+.  
-For example, `/co purge t:30d r:#world_nether` will delete all data older than one month in the Nether, without deleting data in any other worlds.
+You can optionally specify a world in CoreProtect v19+.  
+For example, `/co purge t:30d r:#world_nether` will delete all data older than one month in the Nether, without removing data in any other worlds.
+
+**Purging Blocks**  
+You can optionally specify block types in CoreProtect v23+.  
+For example, `/co purge t:30d i:stone,dirt` will delete all stone and dirt data older than one month, without removing other block data.
 
 **MySQL Optimization**  
 In CoreProtect v2.15+, adding "#optimize" to the end of the command (e.g. `/co purge t:30d #optimize`) will also optimize your tables and reclaim disk space.

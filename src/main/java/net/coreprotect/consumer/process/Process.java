@@ -83,6 +83,14 @@ public class Process {
             int consumerDataSize = consumerData.size();
             currentConsumerSize = consumerDataSize;
 
+            if (currentConsumerSize == 0) { // No data, skip processing
+                updateLockTable(statement, (lastRun ? 0 : 1));
+                statement.close();
+                Consumer.consumer_id.put(processId, new Integer[] { 0, 0 });
+                Consumer.isPaused = false;
+                return;
+            }
+
             Database.beginTransaction(statement);
             // Scan through usernames, ensure everything is loaded in memory.
             for (Entry<Integer, String[]> entry : users.entrySet()) {
@@ -225,6 +233,7 @@ public class Process {
                                     consumerData.remove(index);
                                 }
                                 currentConsumerSize = 0;
+                                Consumer.consumer_id.put(processId, new Integer[] { 0, 0 });
                                 Consumer.isPaused = false;
                                 return;
                             }

@@ -25,7 +25,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.Lookup;
-import net.coreprotect.database.Rollback;
+import net.coreprotect.database.rollback.Rollback;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.utility.Chat;
@@ -168,7 +168,7 @@ public class CoreProtectAPI extends Queue {
     }
 
     public int APIVersion() {
-        return 9;
+        return 10;
     }
 
     public List<String[]> blockLookup(Block block, int time) {
@@ -282,6 +282,19 @@ public class CoreProtectAPI extends Queue {
         return false;
     }
 
+    public boolean logPlacement(String user, BlockState blockState) {
+        if (!Config.getGlobal().API_ENABLED) {
+            return false;
+        }
+
+        if (blockState == null || user == null || user.length() == 0) {
+            return false;
+        }
+
+        Queue.queueBlockPlace(user, blockState, blockState.getType(), null, blockState.getType(), -1, 0, blockState.getBlockData().getAsString());
+        return true;
+    }
+
     public boolean logPlacement(String user, Location location, Material type, BlockData blockData) {
         if (Config.getGlobal().API_ENABLED) {
             if (user != null && location != null) {
@@ -314,6 +327,19 @@ public class CoreProtectAPI extends Queue {
         }
 
         return false;
+    }
+
+    public boolean logRemoval(String user, BlockState blockState) {
+        if (!Config.getGlobal().API_ENABLED) {
+            return false;
+        }
+
+        if (blockState == null || user == null || user.length() == 0) {
+            return false;
+        }
+
+        Queue.queueBlockBreak(user, blockState, blockState.getType(), blockState.getBlockData().getAsString(), 0);
+        return true;
     }
 
     public boolean logRemoval(String user, Location location, Material type, BlockData blockData) {
@@ -519,6 +545,9 @@ public class CoreProtectAPI extends Queue {
                     if (!Bukkit.isPrimaryThread()) {
                         boolean verbose = false;
                         result = Rollback.performRollbackRestore(statement, null, uuids, restrictUsers, null, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, startTime, endTime, restrictWorld, false, verbose, action, 0);
+                    }
+                    else {
+                        Chat.console(Phrase.build(Phrase.PRIMARY_THREAD_ERROR));
                     }
                 }
 

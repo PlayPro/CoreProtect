@@ -4,6 +4,7 @@ import java.sql.PreparedStatement;
 import java.util.List;
 import java.util.Locale;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 
@@ -43,7 +44,8 @@ public class BlockBreakLogger {
             }
 
             if (!user.startsWith("#")) {
-                CacheHandler.spreadCache.remove(location);
+                String cacheId = location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ() + "." + Util.getWorldId(location.getWorld().getName());
+                CacheHandler.spreadCache.remove(cacheId);
             }
 
             if (checkType == Material.LECTERN) {
@@ -53,15 +55,16 @@ public class BlockBreakLogger {
                 blockData = overrideData;
             }
 
+
             // call events and fetch changed username, all other properties are readonly for now
             CoreProtectPreLogEvent coreProtectPreLogEvent = new CoreProtectPreLogEvent(user);
-            if (Config.getGlobal().API_ENABLED) {
+            if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(coreProtectPreLogEvent);
             }
             user = coreProtectPreLogEvent.getUser();
 
             CoreProtectBlockBreakPreLogEvent coreProtectBlockBreakPreLogEvent = new CoreProtectBlockBreakPreLogEvent(user, location);
-            if (Config.getGlobal().API_ENABLED) {
+            if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(coreProtectBlockBreakPreLogEvent);
             }
             user = coreProtectBlockBreakPreLogEvent.getUser();

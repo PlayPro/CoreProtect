@@ -11,15 +11,20 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.ChiseledBookshelf;
 import org.bukkit.block.Sign;
 import org.bukkit.block.sign.Side;
+import org.bukkit.entity.Arrow;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionType;
 
 import net.coreprotect.model.BlockGroup;
 
 public class Bukkit_v1_20 extends Bukkit_v1_19 implements BukkitInterface {
 
     private Boolean hasClickedPosition = null;
+    private Boolean hasBasePotionType = null;
 
     public Bukkit_v1_20() {
         BlockGroup.CONTAINERS = new HashSet<>(Arrays.asList(Material.JUKEBOX, Material.DISPENSER, Material.CHEST, Material.FURNACE, Material.BREWING_STAND, Material.TRAPPED_CHEST, Material.HOPPER, Material.DROPPER, Material.ARMOR_STAND, Material.ITEM_FRAME, Material.SHULKER_BOX, Material.BLACK_SHULKER_BOX, Material.BLUE_SHULKER_BOX, Material.BROWN_SHULKER_BOX, Material.CYAN_SHULKER_BOX, Material.GRAY_SHULKER_BOX, Material.GREEN_SHULKER_BOX, Material.LIGHT_BLUE_SHULKER_BOX, Material.LIME_SHULKER_BOX, Material.MAGENTA_SHULKER_BOX, Material.ORANGE_SHULKER_BOX, Material.PINK_SHULKER_BOX, Material.PURPLE_SHULKER_BOX, Material.RED_SHULKER_BOX, Material.LIGHT_GRAY_SHULKER_BOX, Material.WHITE_SHULKER_BOX, Material.YELLOW_SHULKER_BOX, Material.BARREL, Material.BLAST_FURNACE, Material.SMOKER, Material.LECTERN, Material.CHISELED_BOOKSHELF, Material.DECORATED_POT));
@@ -102,6 +107,9 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 implements BukkitInterface {
                 break;
             case "GRASS":
                 name = "SHORT_GRASS";
+                break;
+            case "SCUTE":
+                name = "TURTLE_SCUTE";
                 break;
             default:
                 break;
@@ -252,6 +260,38 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 implements BukkitInterface {
     @Override
     public boolean isSignFront(SignChangeEvent event) {
         return event.getSide().equals(Side.FRONT);
+    }
+
+    @Override
+    public ItemStack getArrowMeta(Arrow arrow, ItemStack itemStack) {
+        try {
+            if (hasBasePotionType == null) {
+                hasBasePotionType = true;
+                Arrow.class.getMethod("getBasePotionType"); // Bukkit 1.20.2+
+            }
+            else if (Boolean.FALSE.equals(hasBasePotionType)) {
+                return super.getArrowMeta(arrow, itemStack);
+            }
+
+            PotionType potionType = arrow.getBasePotionType();
+            Color color = arrow.getColor();
+            if (potionType != null || color != null) {
+                itemStack = new ItemStack(Material.TIPPED_ARROW);
+                PotionMeta meta = (PotionMeta) itemStack.getItemMeta();
+                meta.setBasePotionType(potionType);
+                meta.setColor(color);
+                for (PotionEffect effect : arrow.getCustomEffects()) {
+                    meta.addCustomEffect(effect, false);
+                }
+                itemStack.setItemMeta(meta);
+            }
+
+            return itemStack;
+        }
+        catch (Exception e) {
+            hasBasePotionType = false;
+            return super.getArrowMeta(arrow, itemStack);
+        }
     }
 
 }

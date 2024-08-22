@@ -122,11 +122,11 @@ public final class EntityDeathListener extends Queue implements Listener {
             e = isCommand ? "#command" : "";
         }
 
-        List<DamageCause> validDamageCauses = Arrays.asList(DamageCause.KILL, DamageCause.POISON, DamageCause.THORNS, DamageCause.MAGIC, DamageCause.WITHER);
+        List<DamageCause> validDamageCauses = Arrays.asList(DamageCause.SUICIDE, DamageCause.POISON, DamageCause.THORNS, DamageCause.MAGIC, DamageCause.WITHER);
 
         boolean skip = true;
         EntityDamageEvent.DamageCause cause = damage.getCause();
-        if (!Config.getConfig(entity.getWorld()).SKIP_GENERIC_DATA || (!(entity instanceof Zombie) && !(entity instanceof Skeleton)) || validDamageCauses.contains(cause)) {
+        if (!Config.getConfig(entity.getWorld()).SKIP_GENERIC_DATA || (!(entity instanceof Zombie) && !(entity instanceof Skeleton)) || (validDamageCauses.contains(cause) || cause.name().equals("KILL"))) {
             skip = false;
         }
 
@@ -322,7 +322,7 @@ public final class EntityDeathListener extends Queue implements Listener {
             }
             else if (entity instanceof Cat) {
                 Cat cat = (Cat) entity;
-                info.add(cat.getCatType());
+                info.add(BukkitAdapter.ADAPTER.getRegistryKey(cat.getCatType()));
                 info.add(cat.getCollarColor());
             }
             else if (entity instanceof Fox) {
@@ -377,7 +377,7 @@ public final class EntityDeathListener extends Queue implements Listener {
                     List<Object> ingredients = new ArrayList<>();
                     List<Object> itemMap = new ArrayList<>();
                     ItemStack item = merchantRecipe.getResult().clone();
-                    List<List<Map<String, Object>>> metadata = ItemMetaHandler.seralize(item, item.getType(), null, 0);
+                    List<List<Map<String, Object>>> metadata = ItemMetaHandler.serialize(item, item.getType(), null, 0);
                     item.setItemMeta(null);
                     itemMap.add(item.serialize());
                     itemMap.add(metadata);
@@ -389,7 +389,7 @@ public final class EntityDeathListener extends Queue implements Listener {
                     for (ItemStack ingredient : merchantRecipe.getIngredients()) {
                         itemMap = new ArrayList<>();
                         item = ingredient.clone();
-                        metadata = ItemMetaHandler.seralize(item, item.getType(), null, 0);
+                        metadata = ItemMetaHandler.serialize(item, item.getType(), null, 0);
                         item.setItemMeta(null);
                         itemMap.add(item.serialize());
                         itemMap.add(metadata);
@@ -404,8 +404,8 @@ public final class EntityDeathListener extends Queue implements Listener {
 
                 if (abstractVillager instanceof Villager) {
                     Villager villager = (Villager) abstractVillager;
-                    info.add(villager.getProfession());
-                    info.add(villager.getVillagerType());
+                    info.add(BukkitAdapter.ADAPTER.getRegistryKey(villager.getProfession()));
+                    info.add(BukkitAdapter.ADAPTER.getRegistryKey(villager.getVillagerType()));
                     info.add(recipes);
                     info.add(villager.getVillagerLevel());
                     info.add(villager.getVillagerExperience());
@@ -433,7 +433,7 @@ public final class EntityDeathListener extends Queue implements Listener {
             else if (entity instanceof ZombieVillager) {
                 ZombieVillager zombieVillager = (ZombieVillager) entity;
                 info.add(zombieVillager.isBaby());
-                info.add(zombieVillager.getVillagerProfession());
+                info.add(BukkitAdapter.ADAPTER.getRegistryKey(zombieVillager.getVillagerProfession()));
             }
             else if (entity instanceof Zombie) {
                 Zombie zombie = (Zombie) entity;

@@ -13,6 +13,7 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Directional;
+import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemFrame;
@@ -22,6 +23,10 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.potion.PotionData;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionType;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.utility.Util;
@@ -37,6 +42,7 @@ public class BukkitAdapter implements BukkitInterface {
     public static final int BUKKIT_V1_18 = 18;
     public static final int BUKKIT_V1_19 = 19;
     public static final int BUKKIT_V1_20 = 20;
+    public static final int BUKKIT_V1_21 = 21;
 
     public static void loadAdapter() {
         switch (ConfigHandler.SERVER_VERSION) {
@@ -58,8 +64,11 @@ public class BukkitAdapter implements BukkitInterface {
                 BukkitAdapter.ADAPTER = new Bukkit_v1_19();
                 break;
             case BUKKIT_V1_20:
-            default:
                 BukkitAdapter.ADAPTER = new Bukkit_v1_20();
+                break;
+            case BUKKIT_V1_21:
+            default:
+                BukkitAdapter.ADAPTER = new Bukkit_v1_21();
                 break;
         }
     }
@@ -261,6 +270,42 @@ public class BukkitAdapter implements BukkitInterface {
     @Override
     public boolean isSignFront(SignChangeEvent event) {
         return true;
+    }
+
+    @Override
+    public ItemStack getArrowMeta(Arrow arrow, ItemStack itemStack) {
+        PotionData data = arrow.getBasePotionData();
+        if (data.getType() != PotionType.valueOf("UNCRAFTABLE")) {
+            itemStack = new ItemStack(Material.TIPPED_ARROW);
+            PotionMeta meta = (PotionMeta) itemStack.getItemMeta();
+            meta.setBasePotionData(data);
+            for (PotionEffect effect : arrow.getCustomEffects()) {
+                meta.addCustomEffect(effect, false);
+            }
+            itemStack.setItemMeta(meta);
+        }
+
+        return itemStack;
+    }
+
+    @Override
+    public EntityType getEntityType(Material material) {
+        switch (material) {
+            case END_CRYSTAL:
+                return EntityType.valueOf("ENDER_CRYSTAL");
+            default:
+                return EntityType.UNKNOWN;
+        }
+    }
+
+    @Override
+    public Object getRegistryKey(Object value) {
+        return value;
+    }
+
+    @Override
+    public Object getRegistryValue(String key, Object tClass) {
+        return null;
     }
 
 }

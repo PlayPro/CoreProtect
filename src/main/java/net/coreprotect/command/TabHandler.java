@@ -317,6 +317,11 @@ public class TabHandler implements TabCompleter {
                         materialList.add(add.name().toLowerCase(Locale.ROOT));
                     }
 
+                    // add custom tags
+                    for (String tag : CommandHandler.getTags().keySet()) {
+                        materialList.add(tag);
+                    }
+
                     materials = new ArrayList<>(materialList);
                 }
 
@@ -333,7 +338,7 @@ public class TabHandler implements TabCompleter {
                     return StringUtil.copyPartialMatches(argument1, completions, new ArrayList<>(completions.size()));
                 }
                 else if (argument0.equals("purge") && sender.hasPermission("coreprotect.purge")) {
-                    List<String> completions = new ArrayList<>(Arrays.asList("t:", "r:"));
+                    List<String> completions = new ArrayList<>(Arrays.asList("t:", "r:", "i:"));
                     return StringUtil.copyPartialMatches(argument1, completions, new ArrayList<>(completions.size()));
                 }
                 else if ((sender.hasPermission("coreprotect.lookup") && (argument0.equals("l") || argument0.equals("lookup"))) || (sender.hasPermission("coreprotect.rollback") && (argument0.equals("rollback") || argument0.equals("rb") || argument0.equals("ro"))) || (sender.hasPermission("coreprotect.restore") && (argument0.equals("restore") || argument0.equals("rs") || argument0.equals("re")))) {
@@ -344,10 +349,10 @@ public class TabHandler implements TabCompleter {
             }
             else if (args.length == 3 && argument0.equals("purge") && sender.hasPermission("coreprotect.purge")) {
                 if (argument1.startsWith("t:")) {
-                    List<String> completions = new ArrayList<>(Arrays.asList("r:"));
+                    List<String> completions = new ArrayList<>(Arrays.asList("r:", "i:"));
                     return StringUtil.copyPartialMatches(args[2].toLowerCase(Locale.ROOT), completions, new ArrayList<>(completions.size()));
                 }
-                else if (argument1.startsWith("r:")) {
+                else if (argument1.startsWith("r:") || argument1.startsWith("i:")) {
                     List<String> completions = new ArrayList<>(Arrays.asList("t:"));
                     return StringUtil.copyPartialMatches(args[2].toLowerCase(Locale.ROOT), completions, new ArrayList<>(completions.size()));
                 }

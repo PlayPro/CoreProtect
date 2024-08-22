@@ -211,4 +211,10 @@ public final class WorldEditBlockState implements BlockState {
         return null;
     }
 
+    @Override
+    public BlockState copy(Location location) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
 }

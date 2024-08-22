@@ -36,14 +36,17 @@ import net.coreprotect.spigot.SpigotAdapter;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
+import oshi.hardware.CentralProcessor;
 
 public class ConfigHandler extends Queue {
     public static int SERVER_VERSION = 0;
     public static final int EDITION_VERSION = 2;
     public static final String EDITION_BRANCH = Util.getBranch();
     public static final String EDITION_NAME = Util.getPluginName();
+    public static final String COMMUNITY_EDITION = "Community Edition";
     public static final String JAVA_VERSION = "11.0";
-    public static final String SPIGOT_VERSION = "1.15";
+    public static final String MINECRAFT_VERSION = "1.15";
+    public static final String LATEST_VERSION = "1.21";
     public static String path = "plugins/CoreProtect/";
     public static String sqlite = "database.db";
     public static String host = "127.0.0.1";
@@ -55,6 +58,7 @@ public class ConfigHandler extends Queue {
     public static int maximumPoolSize = 10;
 
     public static HikariDataSource hikariDataSource = null;
+    public static final CentralProcessor processorInfo = Util.getProcessorInfo();
     public static final boolean isSpigot = Util.isSpigot();
     public static final boolean isPaper = Util.isPaper();
     public static final boolean isFolia = Util.isFolia();
@@ -101,6 +105,7 @@ public class ConfigHandler extends Queue {
     public static ConcurrentHashMap<String, List<ItemStack>> itemsSell = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, List<ItemStack>> itemsBuy = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, Object[]> hopperAbort = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> hopperSuccess = new ConcurrentHashMap<>();
     public static Map<String, List<ItemStack[]>> forceContainer = syncMap();
     public static Map<String, Integer> lookupType = syncMap();
     public static Map<String, Object[]> lookupThrottle = syncMap();

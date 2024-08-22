@@ -12,6 +12,7 @@ import org.bukkit.block.BlockState;
 import org.bukkit.util.io.BukkitObjectInputStream;
 import org.bukkit.util.io.BukkitObjectOutputStream;
 
+import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 
 public class EntityStatement {
@@ -64,8 +65,10 @@ public class EntityStatement {
 
             resultSet.close();
         }
-        catch (Exception e) {
-            e.printStackTrace();
+        catch (Exception e) { // only display exception on development branch
+            if (!ConfigHandler.EDITION_BRANCH.contains("-dev")) {
+                e.printStackTrace();
+            }
         }
 
         return result;

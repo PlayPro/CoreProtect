@@ -27,7 +27,6 @@ public class Config extends Language {
     private static final Map<String, String[]> HEADERS = new HashMap<>();
     private static final Map<String, String> DEFAULT_VALUES = new LinkedHashMap<>();
     private static final Map<String, Config> CONFIG_BY_WORLD_NAME = new HashMap<>();
-    private static final WeakHashMap<World, Config> CONFIG_BY_WORLD = new WeakHashMap<>();
     private static final String DEFAULT_FILE_HEADER = "# CoreProtect Config";
     public static final String LINE_SEPARATOR = "\n";
 
@@ -42,7 +41,6 @@ public class Config extends Language {
     public String MYSQL_USERNAME;
     public String MYSQL_PASSWORD;
     public String LANGUAGE;
-    public boolean ENABLE_AWE;
     public boolean ENABLE_SSL;
     public boolean DISABLE_WAL;
     public boolean HOVER_EVENTS;
@@ -190,7 +188,6 @@ public class Config extends Language {
     }
 
     private void readValues() {
-        this.ENABLE_AWE = this.getBoolean("enable-awe", false);
         this.ENABLE_SSL = this.getBoolean("enable-ssl", false);
         this.DISABLE_WAL = this.getBoolean("disable-wal", false);
         this.HOVER_EVENTS = this.getBoolean("hover-events", true);
@@ -262,10 +259,14 @@ public class Config extends Language {
 
     // returns a world specific config if it exists, otherwise the global config
     public static Config getConfig(final World world) {
-        Config ret = CONFIG_BY_WORLD.get(world);
+        return getConfig(world.getName());
+    }
+
+    public static Config getConfig(final String worldName) {
+        Config ret = CONFIG_BY_WORLD_NAME.get(worldName);
         if (ret == null) {
-            ret = CONFIG_BY_WORLD_NAME.getOrDefault(world.getName(), GLOBAL);
-            CONFIG_BY_WORLD.put(world, ret);
+            ret = CONFIG_BY_WORLD_NAME.getOrDefault(worldName, GLOBAL);
+            CONFIG_BY_WORLD_NAME.put(worldName, ret);
         }
         return ret;
     }
@@ -409,7 +410,6 @@ public class Config extends Language {
         }
 
         CONFIG_BY_WORLD_NAME.clear();
-        CONFIG_BY_WORLD.clear();
 
         // we need to load global first since it is used for config defaults
         final byte[] defaultData = data.get("config");

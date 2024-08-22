@@ -9,6 +9,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
@@ -83,5 +84,13 @@ public interface BukkitInterface {
     public void setLine(Sign sign, int line, String string);
 
     public boolean isSignFront(SignChangeEvent event);
+
+    public ItemStack getArrowMeta(Arrow arrow, ItemStack itemStack);
+
+    public EntityType getEntityType(Material material);
+
+    public Object getRegistryKey(Object value);
+
+    public Object getRegistryValue(String key, Object tClass);
 
 }

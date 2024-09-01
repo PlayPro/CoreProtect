@@ -104,6 +104,11 @@ public class PurgeCommand extends Consumer {
         int restrictCount = 0;
 
         if (argBlocks.size() > 0) {
+            if (!Util.validDonationKey()) {
+                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DONATION_KEY_REQUIRED));
+                return;
+            }
+
             StringBuilder includeListMaterial = new StringBuilder();
             StringBuilder includeListEntity = new StringBuilder();
 

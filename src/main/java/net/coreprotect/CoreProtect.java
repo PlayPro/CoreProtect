@@ -137,8 +137,12 @@ public final class CoreProtect extends JavaPlugin {
     private static boolean performVersionChecks() {
         try {
             String[] bukkitVersion = Bukkit.getServer().getBukkitVersion().split("[-.]");
-            if (Util.newVersion(bukkitVersion[0] + "." + bukkitVersion[1], ConfigHandler.SPIGOT_VERSION)) {
-                Chat.console(Phrase.build(Phrase.VERSION_REQUIRED, "Spigot", ConfigHandler.SPIGOT_VERSION));
+            if (Util.newVersion(bukkitVersion[0] + "." + bukkitVersion[1], ConfigHandler.MINECRAFT_VERSION)) {
+                Chat.console(Phrase.build(Phrase.VERSION_REQUIRED, "Minecraft", ConfigHandler.MINECRAFT_VERSION));
+                return false;
+            }
+            if (Util.newVersion(ConfigHandler.LATEST_VERSION, bukkitVersion[0] + "." + bukkitVersion[1]) && Util.isBranch("master")) {
+                Chat.console(Phrase.build(Phrase.VERSION_INCOMPATIBLE, "Minecraft", bukkitVersion[0] + "." + bukkitVersion[1]));
                 return false;
             }
             String[] javaVersion = (System.getProperty("java.version").replaceAll("[^0-9.]", "") + ".0").split("\\.");

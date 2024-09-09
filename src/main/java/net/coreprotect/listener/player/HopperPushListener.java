@@ -18,8 +18,12 @@ import net.coreprotect.utility.Util;
 
 public final class HopperPushListener {
 
-    static void processHopperPush(Location location, InventoryHolder sourceHolder, InventoryHolder destinationHolder, ItemStack item) {
+    static void processHopperPush(Location location, String user, InventoryHolder sourceHolder, InventoryHolder destinationHolder, ItemStack item) {
         Location destinationLocation = destinationHolder.getInventory().getLocation();
+        if (destinationLocation == null) {
+            return;
+        }
+
         String loggingChestId = "#hopper-push." + destinationLocation.getBlockX() + "." + destinationLocation.getBlockY() + "." + destinationLocation.getBlockZ();
         Object[] lastAbort = ConfigHandler.hopperAbort.get(loggingChestId);
         if (lastAbort != null) {
@@ -93,7 +97,7 @@ public final class HopperPushListener {
                 }
 
                 InventoryChangeListener.checkTasks(taskStarted);
-                InventoryChangeListener.onInventoryInteract("#hopper", destinationInventory, originalDestination, null, destinationInventory.getLocation(), true);
+                InventoryChangeListener.onInventoryInteract(user, destinationInventory, originalDestination, null, destinationInventory.getLocation(), true);
             }
             catch (Exception e) {
                 e.printStackTrace();

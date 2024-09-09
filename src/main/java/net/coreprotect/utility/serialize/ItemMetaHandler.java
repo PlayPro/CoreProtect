@@ -115,7 +115,7 @@ public class ItemMetaHandler {
         return result;
     }
 
-    public static List<List<Map<String, Object>>> seralize(ItemStack item, Material type, String faceData, int slot) {
+    public static List<List<Map<String, Object>>> serialize(ItemStack item, Material type, String faceData, int slot) {
         List<List<Map<String, Object>>> metadata = new ArrayList<>();
         List<Map<String, Object>> list = new ArrayList<>();
         List<Object> modifiers = new ArrayList<>();

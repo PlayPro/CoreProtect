@@ -649,7 +649,7 @@ public class Rollback extends RollbackUtil {
                                                 }
 
                                                 if (!exists) {
-                                                    Entity entity = block.getLocation().getWorld().spawnEntity(location1, EntityType.ENDER_CRYSTAL);
+                                                    Entity entity = block.getLocation().getWorld().spawnEntity(location1, BukkitAdapter.ADAPTER.getEntityType(Material.END_CRYSTAL));
                                                     EnderCrystal enderCrystal = (EnderCrystal) entity;
                                                     enderCrystal.setShowingBottom((rowData != 0));
                                                     PaperAdapter.ADAPTER.teleportAsync(entity, location1);

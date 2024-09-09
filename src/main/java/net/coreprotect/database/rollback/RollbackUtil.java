@@ -7,7 +7,6 @@ import java.util.Map;
 import org.bukkit.FireworkEffect;
 import org.bukkit.FireworkEffect.Builder;
 import org.bukkit.Material;
-import org.bukkit.Tag;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.block.Jukebox;
@@ -93,7 +92,7 @@ public class RollbackUtil extends Lookup {
             else if (type != null && type.equals(Material.JUKEBOX)) {
                 Jukebox jukebox = (Jukebox) container;
                 if (jukebox != null) {
-                    if (action == 1 && Tag.ITEMS_MUSIC_DISCS.isTagged(itemstack.getType())) {
+                    if (action == 1 && itemstack.getType().name().startsWith("MUSIC_DISC")) {
                         itemstack.setAmount(1);
                     }
                     else {

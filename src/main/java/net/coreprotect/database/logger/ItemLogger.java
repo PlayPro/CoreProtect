@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.inventory.ItemStack;
 
@@ -120,13 +121,13 @@ public class ItemLogger {
             for (ItemStack item : items) {
                 if (item != null && item.getAmount() > 0 && !Util.isAir(item.getType())) {
                     // Object[] metadata = new Object[] { slot, item.getItemMeta() };
-                    List<List<Map<String, Object>>> data = ItemMetaHandler.seralize(item, null, null, 0);
+                    List<List<Map<String, Object>>> data = ItemMetaHandler.serialize(item, null, null, 0);
                     if (data.size() == 0) {
                         data = null;
                     }
 
                     CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
-                    if (Config.getGlobal().API_ENABLED) {
+                    if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                         CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
                     }
 

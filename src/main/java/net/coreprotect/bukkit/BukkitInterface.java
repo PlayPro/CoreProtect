@@ -87,4 +87,10 @@ public interface BukkitInterface {
 
     public ItemStack getArrowMeta(Arrow arrow, ItemStack itemStack);
 
+    public EntityType getEntityType(Material material);
+
+    public Object getRegistryKey(Object value);
+
+    public Object getRegistryValue(String key, Object tClass);
+
 }

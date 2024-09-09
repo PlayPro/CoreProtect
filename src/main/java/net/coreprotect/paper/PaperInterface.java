@@ -20,6 +20,10 @@ public interface PaperInterface {
 
     public String getSkullOwner(Skull skull);
 
+    public String getSkullSkin(Skull skull);
+
     public void setSkullOwner(Skull skull, String owner);
+
+    public void setSkullSkin(Skull skull, String skin);
 
 }

@@ -1,10 +1,10 @@
 package net.coreprotect.listener.block;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -37,9 +37,7 @@ public final class BlockExplodeListener extends Queue implements Listener {
         }
 
         if (Config.getConfig(world).NATURAL_BREAK) {
-            Iterator<Map.Entry<Location, Block>> it = new HashMap<>(blockMap).entrySet().iterator();
-            while (it.hasNext()) {
-                Map.Entry<Location, Block> data = it.next();
+            for (Entry<Location, Block> data : new HashMap<>(blockMap).entrySet()) {
                 Block block = data.getValue();
                 int x = block.getX();
                 int y = block.getY();
@@ -158,7 +156,7 @@ public final class BlockExplodeListener extends Queue implements Listener {
             user = "#tnt";
         }
         else if (user.contains("end_crystal")) {
-            user = "#endercrystal";
+            user = "#end_crystal";
         }
         if (!user.startsWith("#")) {
             user = "#explosion";

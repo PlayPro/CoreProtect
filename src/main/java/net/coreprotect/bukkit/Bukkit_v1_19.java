@@ -31,7 +31,7 @@ public class Bukkit_v1_19 extends Bukkit_v1_18 implements BukkitInterface {
     public boolean getEntityMeta(LivingEntity entity, List<Object> info) {
         if (entity instanceof Frog) {
             Frog frog = (Frog) entity;
-            info.add(frog.getVariant());
+            info.add(BukkitAdapter.ADAPTER.getRegistryKey(frog.getVariant()));
         }
         else if (entity instanceof Tadpole) {
             Tadpole tadpole = (Tadpole) entity;
@@ -58,6 +58,9 @@ public class Bukkit_v1_19 extends Bukkit_v1_18 implements BukkitInterface {
         if (entity instanceof Frog) {
             Frog frog = (Frog) entity;
             if (count == 0) {
+                if (value instanceof String) {
+                    value = BukkitAdapter.ADAPTER.getRegistryValue((String) value, Frog.Variant.class);
+                }
                 Frog.Variant set = (Frog.Variant) value;
                 frog.setVariant(set);
             }

@@ -546,6 +546,9 @@ public class CoreProtectAPI extends Queue {
                         boolean verbose = false;
                         result = Rollback.performRollbackRestore(statement, null, uuids, restrictUsers, null, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, startTime, endTime, restrictWorld, false, verbose, action, 0);
                     }
+                    else {
+                        Chat.console(Phrase.build(Phrase.PRIMARY_THREAD_ERROR));
+                    }
                 }
 
                 statement.close();

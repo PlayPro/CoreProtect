@@ -6,21 +6,32 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
+import net.coreprotect.patch.Patch;
 import net.coreprotect.utility.Chat;
 
-public class __2_23_0 {
+public class __2_23_1 {
 
     protected static boolean patch(Statement statement) {
         try {
             if (Config.getGlobal().MYSQL) {
                 try {
-                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "skull MODIFY owner VARCHAR(255);");
+                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "skull ADD COLUMN skin VARCHAR(255);");
+                }
+                catch (Exception e) {
+                    Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, ConfigHandler.prefix + "skull", Selector.FIRST, Selector.FIRST));
+                }
+            }
+            else {
+                try {
+                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "skull ADD COLUMN skin TEXT;");
                 }
                 catch (Exception e) {
                     Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, ConfigHandler.prefix + "skull", Selector.FIRST, Selector.FIRST));
                 }
 
-                __2_23_1.patch(statement);
+                if (!Patch.continuePatch()) {
+                    return false;
+                }
             }
         }
         catch (Exception e) {

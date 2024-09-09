@@ -93,7 +93,7 @@ public final class BlockDispenseListener extends Queue implements Listener {
                     return;
                 }
 
-                if (!type.equals(Material.AIR)) {
+                if (!type.equals(Material.AIR) || !newBlock.getType().equals(Material.AIR)) {
                     if (type == Material.FIRE) { // lit a lightable block
                         type = newBlock.getType();
                         if (BlockGroup.LIGHTABLES.contains(type)) {
@@ -111,7 +111,12 @@ public final class BlockDispenseListener extends Queue implements Listener {
                             }
                         }
 
-                        queueBlockPlace(user, newBlock.getState(), newBlock.getType(), blockState, type, 1, 1, null);
+                        if (!type.equals(Material.AIR)) {
+                            queueBlockPlace(user, newBlock.getState(), newBlock.getType(), blockState, type, 1, 1, null);
+                        }
+                        else {
+                            Queue.queueBlockBreak(user, newBlock.getState(), newBlock.getType(), newBlock.getBlockData().getAsString(), 0);
+                        }
                     }
                 }
             }

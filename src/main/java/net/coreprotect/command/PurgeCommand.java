@@ -104,6 +104,11 @@ public class PurgeCommand extends Consumer {
         int restrictCount = 0;
 
         if (argBlocks.size() > 0) {
+            if (!Util.validDonationKey()) {
+                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DONATION_KEY_REQUIRED));
+                return;
+            }
+
             StringBuilder includeListMaterial = new StringBuilder();
             StringBuilder includeListEntity = new StringBuilder();
 
@@ -285,18 +290,22 @@ public class PurgeCommand extends Consumer {
                             boolean error = false;
                             if (!excludeTables.contains(table)) {
                                 try {
+                                    boolean purge = true;
                                     String timeLimit = "";
                                     if (purgeTables.contains(table)) {
-                                        String blockRestriction = "";
+                                        String blockRestriction = "(";
                                         if (hasBlockRestriction && restrictTables.contains(table)) {
-                                            blockRestriction = "type IN(" + includeBlockFinal + ") AND ";
+                                            blockRestriction = "type NOT IN(" + includeBlockFinal + ") OR (type IN(" + includeBlockFinal + ") AND ";
+                                        }
+                                        else if (hasBlockRestriction) {
+                                            purge = false;
                                         }
 
                                         if (argWid > 0 && worldTables.contains(table)) {
-                                            timeLimit = " WHERE (" + blockRestriction + "wid = '" + argWid + "' AND (time >= '" + timeEnd + "' OR time < '" + timeStart + "')) OR (" + blockRestriction + "wid != '" + argWid + "')";
+                                            timeLimit = " WHERE (" + blockRestriction + "wid = '" + argWid + "' AND (time >= '" + timeEnd + "' OR time < '" + timeStart + "'))) OR (wid != '" + argWid + "')";
                                         }
-                                        else if (argWid == 0) {
-                                            timeLimit = " WHERE " + blockRestriction + "(time >= '" + timeEnd + "' OR time < '" + timeStart + "')";
+                                        else if (argWid == 0 && purge) {
+                                            timeLimit = " WHERE " + blockRestriction + "(time >= '" + timeEnd + "' OR time < '" + timeStart + "'))";
                                         }
                                     }
                                     query = "INSERT INTO " + purgePrefix + table + " SELECT " + columns + " FROM " + ConfigHandler.prefix + table + timeLimit;

@@ -196,6 +196,9 @@ public final class CoreProtect extends JavaPlugin {
                 Chat.console(Phrase.build(Phrase.FINISHING_LOGGING));
             }
 
+            if (ConfigHandler.migrationRunning) {
+                ConfigHandler.purgeRunning = false;
+            }
             while ((Consumer.isRunning() || ConfigHandler.converterRunning) && !ConfigHandler.purgeRunning) {
                 long time = System.currentTimeMillis();
                 if (time >= alertTime) {

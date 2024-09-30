@@ -43,11 +43,11 @@ public class Database extends Queue {
     public static final int BLOCKDATA = 12;
     public static final int ITEM = 13;
 
-    public static void beginTransaction(Statement statement) {
+    public static void beginTransaction(Statement statement, boolean isMySQL) {
         Consumer.transacting = true;
 
         try {
-            if (Config.getGlobal().MYSQL) {
+            if (isMySQL) {
                 statement.executeUpdate("START TRANSACTION");
             }
             else {
@@ -59,12 +59,12 @@ public class Database extends Queue {
         }
     }
 
-    public static void commitTransaction(Statement statement) throws Exception {
+    public static void commitTransaction(Statement statement, boolean isMySQL) throws Exception {
         int count = 0;
 
         while (true) {
             try {
-                if (Config.getGlobal().MYSQL) {
+                if (isMySQL) {
                     statement.executeUpdate("COMMIT");
                 }
                 else {
@@ -89,8 +89,8 @@ public class Database extends Queue {
         }
     }
 
-    public static void performCheckpoint(Statement statement) throws SQLException {
-        if (!Config.getGlobal().MYSQL) {
+    public static void performCheckpoint(Statement statement, boolean isMySQL) throws SQLException {
+        if (!isMySQL) {
             statement.executeUpdate("PRAGMA wal_checkpoint(TRUNCATE)");
         }
     }
@@ -338,13 +338,13 @@ public class Database extends Queue {
         }
     }
 
-    public static void createDatabaseTables(String prefix, boolean purge) {
+    public static void createDatabaseTables(String prefix, Connection forceConnection, boolean mySQL, boolean purge) {
         ConfigHandler.databaseTables.clear();
         ConfigHandler.databaseTables.addAll(Arrays.asList("art_map", "block", "chat", "command", "container", "item", "database_lock", "entity", "entity_map", "material_map", "blockdata_map", "session", "sign", "skull", "user", "username_log", "version", "world"));
 
-        if (Config.getGlobal().MYSQL) {
+        if (mySQL) {
             boolean success = false;
-            try (Connection connection = Database.getConnection(true, true, true, 0)) {
+            try (Connection connection = (forceConnection != null ? forceConnection : Database.getConnection(true, true, true, 0))) {
                 if (connection != null) {
                     String index = "";
                     Statement statement = connection.createStatement();
@@ -380,7 +380,7 @@ public class Database extends Queue {
                     statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "version(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int,version varchar(16)) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
                     index = ", INDEX(id)";
                     statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "world(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,world varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    if (!purge) {
+                    if (!purge && forceConnection == null) {
                         initializeTables(prefix, statement);
                     }
                     statement.close();
@@ -390,18 +390,18 @@ public class Database extends Queue {
             catch (Exception e) {
                 e.printStackTrace();
             }
-            if (!success) {
+            if (!success && forceConnection == null) {
                 Config.getGlobal().MYSQL = false;
             }
         }
-        if (!Config.getGlobal().MYSQL) {
-            try (Connection connection = Database.getConnection(true, 0)) {
+        if (!mySQL) {
+            try (Connection connection = (forceConnection != null ? forceConnection : Database.getConnection(true, 0))) {
                 Statement statement = connection.createStatement();
                 List<String> tableData = new ArrayList<>();
                 List<String> indexData = new ArrayList<>();
                 String attachDatabase = "";
 
-                if (purge) {
+                if (purge && forceConnection == null) {
                     String query = "ATTACH DATABASE '" + ConfigHandler.path + ConfigHandler.sqlite + ".tmp' AS tmp_db";
                     PreparedStatement preparedStmt = connection.prepareStatement(query);
                     preparedStmt.execute();
@@ -478,94 +478,94 @@ public class Database extends Queue {
                 }
                 try {
                     if (!indexData.contains("art_map_id_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "art_map_id_index ON " + ConfigHandler.prefix + "art_map(id);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "art_map_id_index ON " + prefix + "art_map(id);");
                     }
                     if (!indexData.contains("block_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "block_index ON " + ConfigHandler.prefix + "block(wid,x,z,time);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "block_index ON " + prefix + "block(wid,x,z,time);");
                     }
                     if (!indexData.contains("block_user_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "block_user_index ON " + ConfigHandler.prefix + "block(user,time);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "block_user_index ON " + prefix + "block(user,time);");
                     }
                     if (!indexData.contains("block_type_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "block_type_index ON " + ConfigHandler.prefix + "block(type,time);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "block_type_index ON " + prefix + "block(type,time);");
                     }
                     if (!indexData.contains("blockdata_map_id_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "blockdata_map_id_index ON " + ConfigHandler.prefix + "blockdata_map(id);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "blockdata_map_id_index ON " + prefix + "blockdata_map(id);");
                     }
                     if (!indexData.contains("chat_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "chat_index ON " + ConfigHandler.prefix + "chat(time);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "chat_index ON " + prefix + "chat(time);");
                     }
                     if (!indexData.contains("chat_user_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "chat_user_index ON " + ConfigHandler.prefix + "chat(user,time);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "chat_user_index ON " + prefix + "chat(user,time);");
                     }
                     if (!indexData.contains("chat_wid_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "chat_wid_index ON " + ConfigHandler.prefix + "chat(wid,x,z,time);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "chat_wid_index ON " + prefix + "chat(wid,x,z,time);");
                     }
                     if (!indexData.contains("command_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "command_index ON " + ConfigHandler.prefix + "command(time);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "command_index ON " + prefix + "command(time);");
                     }
                     if (!indexData.contains("command_user_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "command_user_index ON " + ConfigHandler.prefix + "command(user,time);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "command_user_index ON " + prefix + "command(user,time);");
                     }
                     if (!indexData.contains("command_wid_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "command_wid_index ON " + ConfigHandler.prefix + "command(wid,x,z,time);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "command_wid_index ON " + prefix + "command(wid,x,z,time);");
                     }
                     if (!indexData.contains("container_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "container_index ON " + ConfigHandler.prefix + "container(wid,x,z,time);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "container_index ON " + prefix + "container(wid,x,z,time);");
                     }
                     if (!indexData.contains("container_user_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "container_user_index ON " + ConfigHandler.prefix + "container(user,time);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "container_user_index ON " + prefix + "container(user,time);");
                     }
                     if (!indexData.contains("container_type_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "container_type_index ON " + ConfigHandler.prefix + "container(type,time);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "container_type_index ON " + prefix + "container(type,time);");
                     }
                     if (!indexData.contains("item_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "item_index ON " + ConfigHandler.prefix + "item(wid,x,z,time);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "item_index ON " + prefix + "item(wid,x,z,time);");
                     }
                     if (!indexData.contains("item_user_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "item_user_index ON " + ConfigHandler.prefix + "item(user,time);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "item_user_index ON " + prefix + "item(user,time);");
                     }
                     if (!indexData.contains("item_type_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "item_type_index ON " + ConfigHandler.prefix + "item(type,time);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "item_type_index ON " + prefix + "item(type,time);");
                     }
                     if (!indexData.contains("entity_map_id_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "entity_map_id_index ON " + ConfigHandler.prefix + "entity_map(id);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "entity_map_id_index ON " + prefix + "entity_map(id);");
                     }
                     if (!indexData.contains("material_map_id_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "material_map_id_index ON " + ConfigHandler.prefix + "material_map(id);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "material_map_id_index ON " + prefix + "material_map(id);");
                     }
                     if (!indexData.contains("session_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "session_index ON " + ConfigHandler.prefix + "session(wid,x,z,time);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "session_index ON " + prefix + "session(wid,x,z,time);");
                     }
                     if (!indexData.contains("session_action_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "session_action_index ON " + ConfigHandler.prefix + "session(action,time);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "session_action_index ON " + prefix + "session(action,time);");
                     }
                     if (!indexData.contains("session_user_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "session_user_index ON " + ConfigHandler.prefix + "session(user,time);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "session_user_index ON " + prefix + "session(user,time);");
                     }
                     if (!indexData.contains("session_time_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "session_time_index ON " + ConfigHandler.prefix + "session(time);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "session_time_index ON " + prefix + "session(time);");
                     }
                     if (!indexData.contains("sign_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "sign_index ON " + ConfigHandler.prefix + "sign(wid,x,z,time);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "sign_index ON " + prefix + "sign(wid,x,z,time);");
                     }
                     if (!indexData.contains("sign_user_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "sign_user_index ON " + ConfigHandler.prefix + "sign(user,time);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "sign_user_index ON " + prefix + "sign(user,time);");
                     }
                     if (!indexData.contains("sign_time_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "sign_time_index ON " + ConfigHandler.prefix + "sign(time);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "sign_time_index ON " + prefix + "sign(time);");
                     }
                     if (!indexData.contains("user_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "user_index ON " + ConfigHandler.prefix + "user(user);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "user_index ON " + prefix + "user(user);");
                     }
                     if (!indexData.contains("uuid_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "uuid_index ON " + ConfigHandler.prefix + "user(uuid);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "uuid_index ON " + prefix + "user(uuid);");
                     }
                     if (!indexData.contains("username_log_uuid_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "username_log_uuid_index ON " + ConfigHandler.prefix + "username_log(uuid,user);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "username_log_uuid_index ON " + prefix + "username_log(uuid,user);");
                     }
                     if (!indexData.contains("world_id_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "world_id_index ON " + ConfigHandler.prefix + "world(id);");
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "world_id_index ON " + prefix + "world(id);");
                     }
                 }
                 catch (Exception e) {
@@ -574,7 +574,7 @@ public class Database extends Queue {
                         e.printStackTrace();
                     }
                 }
-                if (!purge) {
+                if (!purge && forceConnection == null) {
                     initializeTables(prefix, statement);
                 }
                 statement.close();

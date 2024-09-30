@@ -61,7 +61,7 @@ public class __2_20_0 {
             String entityQuery = "SELECT rowid, data FROM " + ConfigHandler.prefix + "block WHERE type = (SELECT id FROM " + ConfigHandler.prefix + "material_map WHERE material='minecraft:spawner' LIMIT 1) ORDER BY rowid ASC";
             String preparedQueryUpdate = "UPDATE " + ConfigHandler.prefix + "block SET data = ? WHERE rowid = ?";
             PreparedStatement preparedStatementUpdate = statement.getConnection().prepareStatement(preparedQueryUpdate);
-            Database.beginTransaction(statement);
+            Database.beginTransaction(statement, Config.getGlobal().MYSQL);
 
             ResultSet resultSet = statement.executeQuery(entityQuery);
             while (resultSet.next()) {
@@ -97,7 +97,7 @@ public class __2_20_0 {
             resultSet.close();
             preparedStatementUpdate.close();
 
-            Database.commitTransaction(statement);
+            Database.commitTransaction(statement, Config.getGlobal().MYSQL);
         }
         catch (Exception e) {
             e.printStackTrace();

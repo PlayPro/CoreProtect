@@ -1273,6 +1273,21 @@ public class CommandHandler implements CommandExecutor {
                 else if (corecommand.equals("network-debug")) {
                     NetworkDebugCommand.runCommand(user, permission, argumentArray);
                 }
+                else if (corecommand.equals("migrate-db")) {
+                    if (!Util.validDonationKey()) {
+                        Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DONATION_KEY_REQUIRED));
+                    }
+                    else {
+                        try {
+                            Class.forName("net.coreprotect.extensions.DatabaseMigration");
+                            net.coreprotect.extensions.DatabaseMigration.runCommand(user, argumentArray);
+                        }
+                        catch (Exception e) {
+                            // plugin not compiled with extension
+                            Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.COMMAND_NOT_FOUND, Color.WHITE, "/co " + corecommand));
+                        }
+                    }
+                }
                 else {
                     Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.COMMAND_NOT_FOUND, Color.WHITE, "/co " + corecommand));
                 }

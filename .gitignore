@@ -196,3 +196,6 @@ hs_err_pid*
 
 # Documentation dev folder
 docs/dev/
+
+# Extensions
+extensions/

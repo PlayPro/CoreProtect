@@ -198,4 +198,4 @@ hs_err_pid*
 docs/dev/
 
 # Extensions
-extensions/
+/src/main/java/net/coreprotect/extensions/*.java

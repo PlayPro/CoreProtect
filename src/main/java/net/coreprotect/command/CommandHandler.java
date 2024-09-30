@@ -1298,7 +1298,8 @@ public class CommandHandler implements CommandExecutor {
 
             if (user.isOp() && versionAlert.get(user.getName()) == null) {
                 String latestVersion = NetworkHandler.latestVersion();
-                if (latestVersion != null) {
+                String latestEdgeVersion = NetworkHandler.latestEdgeVersion();
+                if (latestVersion != null || latestEdgeVersion != null) {
                     versionAlert.put(user.getName(), true);
                     class updateAlert implements Runnable {
                         @Override
@@ -1306,8 +1307,14 @@ public class CommandHandler implements CommandExecutor {
                             try {
                                 Thread.sleep(5000);
                                 Chat.sendMessage(user, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.UPDATE_HEADER, "CoreProtect" + (Util.isCommunityEdition() ? " " + ConfigHandler.COMMUNITY_EDITION : "")) + Color.WHITE + " -----");
-                                Chat.sendMessage(user, Color.DARK_AQUA + Phrase.build(Phrase.UPDATE_NOTICE, Color.WHITE, "CoreProtect v" + latestVersion));
-                                Chat.sendMessage(user, Color.DARK_AQUA + Phrase.build(Phrase.LINK_DOWNLOAD, Color.WHITE, "www.coreprotect.net/download/"));
+                                if (latestVersion != null) {
+                                    Chat.sendMessage(user, Color.DARK_AQUA + Phrase.build(Phrase.UPDATE_NOTICE, Color.WHITE, "CoreProtect CE v" + latestVersion));
+                                    Chat.sendMessage(user, Color.DARK_AQUA + Phrase.build(Phrase.LINK_DOWNLOAD, Color.WHITE, "www.coreprotect.net/download/"));
+                                }
+                                else {
+                                    Chat.sendMessage(user, Color.DARK_AQUA + Phrase.build(Phrase.UPDATE_NOTICE, Color.WHITE, "CoreProtect v" + latestEdgeVersion));
+                                    Chat.sendMessage(user, Color.DARK_AQUA + Phrase.build(Phrase.LINK_DOWNLOAD, Color.WHITE, "www.coreprotect.net/latest/"));
+                                }
                             }
                             catch (Exception e) {
                                 e.printStackTrace();

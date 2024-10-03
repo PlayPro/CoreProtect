@@ -1279,14 +1279,7 @@ public class CommandHandler implements CommandExecutor {
                         Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DONATION_KEY_REQUIRED));
                     }
                     else {
-                        try {
-                            Class.forName("net.coreprotect.extensions.DatabaseMigration");
-                            Extensions.runDatabaseMigration(user, argumentArray);
-                        }
-                        catch (Exception e) {
-                            // plugin not compiled with extension
-                            Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.COMMAND_NOT_FOUND, Color.WHITE, "/co " + corecommand));
-                        }
+                        Extensions.runDatabaseMigration(corecommand, user, argumentArray);
                     }
                 }
                 else {

@@ -184,7 +184,7 @@ public class Config extends Language {
         HEADERS.put("player-commands", new String[] { "# Logs all commands used by players." });
         HEADERS.put("player-sessions", new String[] { "# Logs the logins and logouts of players." });
         HEADERS.put("username-changes", new String[] { "# Logs when a player changes their Minecraft username." });
-        HEADERS.put("worldedit", new String[] { "# Logs changes made via the plugin \"WorldEdit\" if it's in use on your server.", "# Note that, large WorldEdit actions can produce a lot of data in a short time!", "# (Does not work with FastAsyncWorldEdit.)" });
+        HEADERS.put("worldedit", new String[] { "# Logs changes made via the plugin \"WorldEdit\" if it's in use on your server.", "# Note that large WorldEdit actions can produce a lot of data in a short time!", "# (Does not work with FastAsyncWorldEdit.)" });
     }
 
     private void readValues() {

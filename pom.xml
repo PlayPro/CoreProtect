@@ -4,7 +4,7 @@
   <artifactId>CoreProtect</artifactId>
   <version>22.4</version>
   <properties>
-    <project.branch></project.branch>
+    <project.branch>development</project.branch>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
   <build>

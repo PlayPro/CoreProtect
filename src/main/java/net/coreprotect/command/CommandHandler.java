@@ -24,6 +24,7 @@ import org.bukkit.entity.Player;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.extensions.Extensions;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.model.BlockGroup;
@@ -1273,6 +1274,14 @@ public class CommandHandler implements CommandExecutor {
                 else if (corecommand.equals("network-debug")) {
                     NetworkDebugCommand.runCommand(user, permission, argumentArray);
                 }
+                else if (corecommand.equals("migrate-db")) {
+                    if (!Util.validDonationKey()) {
+                        Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DONATION_KEY_REQUIRED));
+                    }
+                    else {
+                        Extensions.runDatabaseMigration(corecommand, user, argumentArray);
+                    }
+                }
                 else {
                     Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.COMMAND_NOT_FOUND, Color.WHITE, "/co " + corecommand));
                 }
@@ -1283,7 +1292,8 @@ public class CommandHandler implements CommandExecutor {
 
             if (user.isOp() && versionAlert.get(user.getName()) == null) {
                 String latestVersion = NetworkHandler.latestVersion();
-                if (latestVersion != null) {
+                String latestEdgeVersion = NetworkHandler.latestEdgeVersion();
+                if (latestVersion != null || latestEdgeVersion != null) {
                     versionAlert.put(user.getName(), true);
                     class updateAlert implements Runnable {
                         @Override
@@ -1291,8 +1301,14 @@ public class CommandHandler implements CommandExecutor {
                             try {
                                 Thread.sleep(5000);
                                 Chat.sendMessage(user, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.UPDATE_HEADER, "CoreProtect" + (Util.isCommunityEdition() ? " " + ConfigHandler.COMMUNITY_EDITION : "")) + Color.WHITE + " -----");
-                                Chat.sendMessage(user, Color.DARK_AQUA + Phrase.build(Phrase.UPDATE_NOTICE, Color.WHITE, "CoreProtect v" + latestVersion));
-                                Chat.sendMessage(user, Color.DARK_AQUA + Phrase.build(Phrase.LINK_DOWNLOAD, Color.WHITE, "www.coreprotect.net/download/"));
+                                if (latestVersion != null) {
+                                    Chat.sendMessage(user, Color.DARK_AQUA + Phrase.build(Phrase.UPDATE_NOTICE, Color.WHITE, "CoreProtect CE v" + latestVersion));
+                                    Chat.sendMessage(user, Color.DARK_AQUA + Phrase.build(Phrase.LINK_DOWNLOAD, Color.WHITE, "www.coreprotect.net/download/"));
+                                }
+                                else {
+                                    Chat.sendMessage(user, Color.DARK_AQUA + Phrase.build(Phrase.UPDATE_NOTICE, Color.WHITE, "CoreProtect v" + latestEdgeVersion));
+                                    Chat.sendMessage(user, Color.DARK_AQUA + Phrase.build(Phrase.LINK_DOWNLOAD, Color.WHITE, "www.coreprotect.net/latest/"));
+                                }
                             }
                             catch (Exception e) {
                                 e.printStackTrace();

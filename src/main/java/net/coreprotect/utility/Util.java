@@ -124,6 +124,9 @@ public class Util extends Queue {
         CentralProcessor result = null;
         try {
             Class.forName("com.sun.jna.Platform");
+            if (System.getProperty("os.name").startsWith("Windows") && !System.getProperty("sun.arch.data.model").equals("64")) {
+                Class.forName("com.sun.jna.platform.win32.Win32Exception");
+            }
             Configurator.setLevel("oshi.hardware.common.AbstractCentralProcessor", Level.OFF);
             SystemInfo systemInfo = new SystemInfo();
             result = systemInfo.getHardware().getProcessor();

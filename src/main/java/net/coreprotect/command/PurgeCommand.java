@@ -50,7 +50,7 @@ public class PurgeCommand extends Consumer {
             return;
         }
 
-        if (ConfigHandler.converterRunning) {
+        if (ConfigHandler.converterRunning || ConfigHandler.migrationRunning) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
             return;
         }
@@ -104,11 +104,6 @@ public class PurgeCommand extends Consumer {
         int restrictCount = 0;
 
         if (argBlocks.size() > 0) {
-            if (!Util.validDonationKey()) {
-                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DONATION_KEY_REQUIRED));
-                return;
-            }
-
             StringBuilder includeListMaterial = new StringBuilder();
             StringBuilder includeListEntity = new StringBuilder();
 
@@ -260,7 +255,7 @@ public class PurgeCommand extends Consumer {
                             }
                         }
 
-                        Database.createDatabaseTables(purgePrefix, true);
+                        Database.createDatabaseTables(purgePrefix, null, Config.getGlobal().MYSQL, true);
                     }
 
                     List<String> purgeTables = Arrays.asList("sign", "container", "item", "skull", "session", "chat", "command", "entity", "block");

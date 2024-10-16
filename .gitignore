@@ -196,3 +196,7 @@ hs_err_pid*
 
 # Documentation dev folder
 docs/dev/
+
+# Extensions
+/src/main/java/net/coreprotect/extensions/*.java
+!/src/main/java/net/coreprotect/extensions/Extensions.java

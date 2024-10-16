@@ -43,11 +43,11 @@ public class Database extends Queue {
     public static final int BLOCKDATA = 12;
     public static final int ITEM = 13;
 
-    public static void beginTransaction(Statement statement) {
+    public static void beginTransaction(Statement statement, boolean isMySQL) {
         Consumer.transacting = true;
 
         try {
-            if (Config.getGlobal().MYSQL) {
+            if (isMySQL) {
                 statement.executeUpdate("START TRANSACTION");
             }
             else {
@@ -59,12 +59,12 @@ public class Database extends Queue {
         }
     }
 
-    public static void commitTransaction(Statement statement) throws Exception {
+    public static void commitTransaction(Statement statement, boolean isMySQL) throws Exception {
         int count = 0;
 
         while (true) {
             try {
-                if (Config.getGlobal().MYSQL) {
+                if (isMySQL) {
                     statement.executeUpdate("COMMIT");
                 }
                 else {
@@ -89,8 +89,8 @@ public class Database extends Queue {
         }
     }
 
-    public static void performCheckpoint(Statement statement) throws SQLException {
-        if (!Config.getGlobal().MYSQL) {
+    public static void performCheckpoint(Statement statement, boolean isMySQL) throws SQLException {
+        if (!isMySQL) {
             statement.executeUpdate("PRAGMA wal_checkpoint(TRUNCATE)");
         }
     }
@@ -338,13 +338,13 @@ public class Database extends Queue {
         }
     }
 
-    public static void createDatabaseTables(String prefix, boolean purge) {
+    public static void createDatabaseTables(String prefix, Connection forceConnection, boolean mySQL, boolean purge) {
         ConfigHandler.databaseTables.clear();
         ConfigHandler.databaseTables.addAll(Arrays.asList("art_map", "block", "chat", "command", "container", "item", "database_lock", "entity", "entity_map", "material_map", "blockdata_map", "session", "sign", "skull", "user", "username_log", "version", "world"));
 
-        if (Config.getGlobal().MYSQL) {
+        if (mySQL) {
             boolean success = false;
-            try (Connection connection = Database.getConnection(true, true, true, 0)) {
+            try (Connection connection = (forceConnection != null ? forceConnection : Database.getConnection(true, true, true, 0))) {
                 if (connection != null) {
                     String index = "";
                     Statement statement = connection.createStatement();
@@ -380,7 +380,7 @@ public class Database extends Queue {
                     statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "version(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int,version varchar(16)) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
                     index = ", INDEX(id)";
                     statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "world(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,world varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    if (!purge) {
+                    if (!purge && forceConnection == null) {
                         initializeTables(prefix, statement);
                     }
                     statement.close();
@@ -390,18 +390,18 @@ public class Database extends Queue {
             catch (Exception e) {
                 e.printStackTrace();
             }
-            if (!success) {
+            if (!success && forceConnection == null) {
                 Config.getGlobal().MYSQL = false;
             }
         }
-        if (!Config.getGlobal().MYSQL) {
-            try (Connection connection = Database.getConnection(true, 0)) {
+        if (!mySQL) {
+            try (Connection connection = (forceConnection != null ? forceConnection : Database.getConnection(true, 0))) {
                 Statement statement = connection.createStatement();
                 List<String> tableData = new ArrayList<>();
                 List<String> indexData = new ArrayList<>();
                 String attachDatabase = "";
 
-                if (purge) {
+                if (purge && forceConnection == null) {
                     String query = "ATTACH DATABASE '" + ConfigHandler.path + ConfigHandler.sqlite + ".tmp' AS tmp_db";
                     PreparedStatement preparedStmt = connection.prepareStatement(query);
                     preparedStmt.execute();
@@ -574,7 +574,7 @@ public class Database extends Queue {
                         e.printStackTrace();
                     }
                 }
-                if (!purge) {
+                if (!purge && forceConnection == null) {
                     initializeTables(prefix, statement);
                 }
                 statement.close();

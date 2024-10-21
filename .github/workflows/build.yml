@@ -3,8 +3,6 @@ on:
   push:
     branches:
       - master
-  pull_request:
-    types: [opened, synchronize, reopened]
 jobs:
   build:
     name: Build
@@ -26,3 +24,7 @@ jobs:
           restore-keys: ${{ runner.os }}-m2
       - name: Build
         run: mvn -B verify
+      - name: autojitpack
+        uses: badasintended/autojitpack@v1
+        with:
+          version: '${{ github.sha }}'

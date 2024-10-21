@@ -1,23 +1,5 @@
 package net.coreprotect;
 
-import java.sql.Connection;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.Server;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockState;
-import org.bukkit.block.data.BlockData;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Player;
-
 import net.coreprotect.api.BlockAPI;
 import net.coreprotect.api.QueueLookup;
 import net.coreprotect.api.SessionLookup;
@@ -30,6 +12,19 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Util;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.Server;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
+
+import java.sql.Connection;
+import java.sql.Statement;
+import java.util.*;
 
 public class CoreProtectAPI extends Queue {
 
@@ -60,14 +55,11 @@ public class CoreProtectAPI extends Queue {
             String result = "unknown";
             if (actionID == 0) {
                 result = "break";
-            }
-            else if (actionID == 1) {
+            } else if (actionID == 1) {
                 result = "place";
-            }
-            else if (actionID == 2) {
+            } else if (actionID == 2) {
                 result = "click";
-            }
-            else if (actionID == 3) {
+            } else if (actionID == 3) {
                 result = "kill";
             }
 
@@ -103,8 +95,7 @@ public class CoreProtectAPI extends Queue {
 
             if (actionID == 3) {
                 typeName = Util.getEntityType(type).name();
-            }
-            else {
+            } else {
                 typeName = Util.getType(type).name().toLowerCase(Locale.ROOT);
                 typeName = Util.nameFilter(typeName, this.getData());
             }
@@ -156,8 +147,7 @@ public class CoreProtectAPI extends Queue {
             for (Object value : list) {
                 if (value instanceof Material || value instanceof EntityType) {
                     result.put(value, false);
-                }
-                else if (value instanceof Integer) {
+                } else if (value instanceof Integer) {
                     Material material = Util.getType((Integer) value);
                     result.put(material, false);
                 }
@@ -254,6 +244,21 @@ public class CoreProtectAPI extends Queue {
                     long timestamp = System.currentTimeMillis() / 1000L;
 
                     Queue.queuePlayerCommand(player, command, timestamp);
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    public boolean logAbility(Player player, String ability) {
+        if (Config.getGlobal().API_ENABLED && player != null && Config.getConfig(player.getWorld()).PLAYER_COMMANDS) {
+            if (ability != null) {
+                if (!ability.isEmpty()) {
+                    long timestamp = System.currentTimeMillis() / 1000L;
+
+                    Queue.queuePlayerAbility(player, ability, timestamp);
                     return true;
                 }
             }
@@ -472,8 +477,7 @@ public class CoreProtectAPI extends Queue {
                     actionList.add(0);
                     actionList.add(1);
                     addedMaterial = true;
-                }
-                else if (argBlock instanceof EntityType && !addedEntity) {
+                } else if (argBlock instanceof EntityType && !addedEntity) {
                     actionList.add(3);
                     addedEntity = true;
                 }
@@ -526,7 +530,7 @@ public class CoreProtectAPI extends Queue {
                     int xMax = location.getBlockX() + radius;
                     int zMin = location.getBlockZ() - radius;
                     int zMax = location.getBlockZ() + radius;
-                    argRadius = new Integer[] { radius, xMin, xMax, null, null, zMin, zMax, 0 };
+                    argRadius = new Integer[]{radius, xMin, xMax, null, null, zMin, zMax, 0};
                 }
 
                 if (lookup == 1) {
@@ -536,25 +540,21 @@ public class CoreProtectAPI extends Queue {
 
                     if (useLimit) {
                         result = Lookup.performPartialLookup(statement, null, uuids, restrictUsers, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, null, startTime, endTime, offset, rowCount, restrictWorld, true);
-                    }
-                    else {
+                    } else {
                         result = Lookup.performLookup(statement, null, uuids, restrictUsers, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, startTime, endTime, restrictWorld, true);
                     }
-                }
-                else {
+                } else {
                     if (!Bukkit.isPrimaryThread()) {
                         boolean verbose = false;
                         result = Rollback.performRollbackRestore(statement, null, uuids, restrictUsers, null, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, startTime, endTime, restrictWorld, false, verbose, action, 0);
-                    }
-                    else {
+                    } else {
                         Chat.console(Phrase.build(Phrase.PRIMARY_THREAD_ERROR));
                     }
                 }
 
                 statement.close();
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
 

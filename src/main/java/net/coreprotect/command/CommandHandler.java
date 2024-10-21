@@ -106,6 +106,9 @@ public class CommandHandler implements CommandExecutor {
                     else if (argument.equals("command") || argument.equals("commands")) {
                         result.add(7);
                     }
+                    else if (argument.equals("ability") || argument.equals("abilities")) {
+                        result.add(12);
+                    }
                     else if (argument.equals("logins") || argument.equals("login") || argument.equals("+session") || argument.equals("+sessions") || argument.equals("session+") || argument.equals("+connection") || argument.equals("connection+")) {
                         result.add(8);
                         result.add(1);

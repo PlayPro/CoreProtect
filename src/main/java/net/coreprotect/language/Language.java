@@ -140,6 +140,7 @@ public class Language {
         phrases.put(Phrase.LOOKUP_HEADER, "{0} Lookup Results");
         phrases.put(Phrase.LOOKUP_INTERACTION, "{0} {clicked|killed} {1}.");
         phrases.put(Phrase.LOOKUP_ITEM, "{0} {picked up|dropped} {1} {2}.");
+        phrases.put(Phrase.ABILITY, "{0} used {1}.");
         phrases.put(Phrase.LOOKUP_LOGIN, "{0} logged {in|out}.");
         phrases.put(Phrase.LOOKUP_PAGE, "Page {0}");
         phrases.put(Phrase.LOOKUP_PROJECTILE, "{0} {threw|shot} {1} {2}.");

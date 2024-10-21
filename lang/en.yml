@@ -1,5 +1,6 @@
 # CoreProtect Language File (en)
 
+ABILITY: "{0} used {1}."
 ACTION_NOT_SUPPORTED: "That action is not supported by the command."
 AMOUNT_BLOCK: "{0} {block|blocks}"
 AMOUNT_CHUNK: "{0} {chunk|chunks}"

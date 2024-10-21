@@ -1,5 +1,12 @@
 package net.coreprotect.consumer.process;
 
+import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Consumer;
+import net.coreprotect.database.Database;
+import net.coreprotect.database.statement.UserStatement;
+import org.bukkit.Material;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
@@ -7,14 +14,6 @@ import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
-
-import org.bukkit.Material;
-
-import net.coreprotect.config.Config;
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.Consumer;
-import net.coreprotect.database.Database;
-import net.coreprotect.database.statement.UserStatement;
 
 public class Process {
 
@@ -46,6 +45,7 @@ public class Process {
     public static final int INVENTORY_ROLLBACK_UPDATE = 27;
     public static final int INVENTORY_CONTAINER_ROLLBACK_UPDATE = 28;
     public static final int BLOCK_INVENTORY_ROLLBACK_UPDATE = 29;
+    public static final int PLAYER_ABILITY = 30;
 
     public static int lastLockUpdate = 0;
     private static volatile int currentConsumerSize = 0;
@@ -62,8 +62,7 @@ public class Process {
                 statement.executeUpdate("UPDATE " + ConfigHandler.prefix + "database_lock SET status = '" + locked + "', time = '" + unixTimestamp + "' WHERE rowid = '1'");
                 lastLockUpdate = unixTimestamp;
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -87,7 +86,7 @@ public class Process {
             if (currentConsumerSize == 0) { // No data, skip processing
                 updateLockTable(statement, (lastRun ? 0 : 1));
                 statement.close();
-                Consumer.consumer_id.put(processId, new Integer[] { 0, 0 });
+                Consumer.consumer_id.put(processId, new Integer[]{0, 0});
                 Consumer.isPaused = false;
                 return;
             }
@@ -116,6 +115,7 @@ public class Process {
             PreparedStatement preparedStmtWorlds = Database.prepareStatement(connection, Database.WORLD, false);
             PreparedStatement preparedStmtChat = Database.prepareStatement(connection, Database.CHAT, false);
             PreparedStatement preparedStmtCommand = Database.prepareStatement(connection, Database.COMMAND, false);
+            PreparedStatement preparedStmtAbility = Database.prepareStatement(connection, Database.ABILITY, false);
             PreparedStatement preparedStmtSession = Database.prepareStatement(connection, Database.SESSION, false);
             PreparedStatement preparedStmtEntities = Database.prepareStatement(connection, Database.ENTITY, true);
             PreparedStatement preparedStmtMaterials = Database.prepareStatement(connection, Database.MATERIAL, false);
@@ -196,6 +196,9 @@ public class Process {
                                 case Process.PLAYER_COMMAND:
                                     PlayerCommandProcess.process(preparedStmtCommand, i, processId, id, object, user);
                                     break;
+                                case Process.PLAYER_ABILITY:
+                                    PlayerAbilityProcess.process(preparedStmtCommand, i, processId, id, object, user);
+                                    break;
                                 case Process.PLAYER_LOGIN:
                                     PlayerLoginProcess.process(connection, preparedStmtSession, i, processId, id, object, blockData, replaceData, forceData, user);
                                     break;
@@ -234,7 +237,7 @@ public class Process {
                                     consumerData.remove(index);
                                 }
                                 currentConsumerSize = 0;
-                                Consumer.consumer_id.put(processId, new Integer[] { 0, 0 });
+                                Consumer.consumer_id.put(processId, new Integer[]{0, 0});
                                 Consumer.isPaused = false;
                                 return;
                             }
@@ -245,8 +248,7 @@ public class Process {
                                 Thread.sleep(500);
                                 Database.beginTransaction(statement, Config.getGlobal().MYSQL);
                             }
-                        }
-                        catch (Exception e) {
+                        } catch (Exception e) {
                             e.printStackTrace();
                         }
                     }
@@ -278,12 +280,11 @@ public class Process {
             users.clear();
             consumerObject.clear();
             consumerData.clear();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
-        Consumer.consumer_id.put(processId, new Integer[] { 0, 0 });
+        Consumer.consumer_id.put(processId, new Integer[]{0, 0});
         Consumer.isPaused = false;
     }
 
@@ -304,8 +305,7 @@ public class Process {
             preparedStmtEntity.executeBatch();
             preparedStmtBlockdata.executeBatch();
             Database.commitTransaction(statement, Config.getGlobal().MYSQL);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }

@@ -109,7 +109,7 @@ public class Process {
             // Create prepared statements
             PreparedStatement preparedStmtSigns = Database.prepareStatement(connection, Database.SIGN, false);
             PreparedStatement preparedStmtBlocks = Database.prepareStatement(connection, Database.BLOCK, false);
-            PreparedStatement preparedStmtSkulls = Database.prepareStatement(connection, Database.SKULL, true);
+//            PreparedStatement preparedStmtSkulls = Database.prepareStatement(connection, Database.SKULL, true);
             PreparedStatement preparedStmtContainers = Database.prepareStatement(connection, Database.CONTAINER, false);
             PreparedStatement preparedStmtItems = Database.prepareStatement(connection, Database.ITEM, false);
             PreparedStatement preparedStmtWorlds = Database.prepareStatement(connection, Database.WORLD, false);
@@ -143,10 +143,10 @@ public class Process {
                         try {
                             switch (action) {
                                 case Process.BLOCK_BREAK:
-                                    BlockBreakProcess.process(preparedStmtBlocks, preparedStmtSkulls, i, processId, id, blockType, blockData, replaceType, forceData, user, object, (String) data[7]);
+//                                    BlockBreakProcess.process(preparedStmtBlocks, preparedStmtSkulls, i, processId, id, blockType, blockData, replaceType, forceData, user, object, (String) data[7]);
                                     break;
                                 case Process.BLOCK_PLACE:
-                                    BlockPlaceProcess.process(preparedStmtBlocks, preparedStmtSkulls, i, blockType, blockData, replaceType, replaceData, forceData, user, object, (String) data[7], (String) data[8]);
+//                                    BlockPlaceProcess.process(preparedStmtBlocks, preparedStmtSkulls, i, blockType, blockData, replaceType, replaceData, forceData, user, object, (String) data[7], (String) data[8]);
                                     break;
                                 case Process.SIGN_TEXT:
                                     SignTextProcess.process(preparedStmtSigns, i, processId, id, forceData, user, object, replaceData, blockData);
@@ -197,7 +197,7 @@ public class Process {
                                     PlayerCommandProcess.process(preparedStmtCommand, i, processId, id, object, user);
                                     break;
                                 case Process.PLAYER_ABILITY:
-                                    PlayerAbilityProcess.process(preparedStmtCommand, i, processId, id, object, user);
+                                    PlayerAbilityProcess.process(preparedStmtAbility, i, processId, id, object, user);
                                     break;
                                 case Process.PLAYER_LOGIN:
                                     PlayerLoginProcess.process(connection, preparedStmtSession, i, processId, id, object, blockData, replaceData, forceData, user);
@@ -244,7 +244,7 @@ public class Process {
 
                             // If interrupt requested, commit data, sleep, and resume processing
                             if (Consumer.interrupt) {
-                                commit(statement, preparedStmtSigns, preparedStmtBlocks, preparedStmtSkulls, preparedStmtContainers, preparedStmtItems, preparedStmtWorlds, preparedStmtChat, preparedStmtCommand, preparedStmtSession, preparedStmtEntities, preparedStmtMaterials, preparedStmtArt, preparedStmtEntity, preparedStmtBlockdata);
+                                commit(statement, preparedStmtSigns, preparedStmtBlocks, preparedStmtContainers, preparedStmtItems, preparedStmtWorlds, preparedStmtChat, preparedStmtCommand, preparedStmtAbility, preparedStmtSession, preparedStmtEntities, preparedStmtMaterials, preparedStmtArt, preparedStmtEntity, preparedStmtBlockdata);
                                 Thread.sleep(500);
                                 Database.beginTransaction(statement, Config.getGlobal().MYSQL);
                             }
@@ -257,12 +257,12 @@ public class Process {
             }
 
             // commit data to database
-            commit(statement, preparedStmtSigns, preparedStmtBlocks, preparedStmtSkulls, preparedStmtContainers, preparedStmtItems, preparedStmtWorlds, preparedStmtChat, preparedStmtCommand, preparedStmtSession, preparedStmtEntities, preparedStmtMaterials, preparedStmtArt, preparedStmtEntity, preparedStmtBlockdata);
+            commit(statement, preparedStmtSigns, preparedStmtBlocks, preparedStmtContainers, preparedStmtItems, preparedStmtWorlds, preparedStmtChat, preparedStmtCommand, preparedStmtAbility, preparedStmtSession, preparedStmtEntities, preparedStmtMaterials, preparedStmtArt, preparedStmtEntity, preparedStmtBlockdata);
 
             // close connections/statements
             preparedStmtSigns.close();
             preparedStmtBlocks.close();
-            preparedStmtSkulls.close();
+//            preparedStmtSkulls.close();
             preparedStmtContainers.close();
             preparedStmtItems.close();
             preparedStmtWorlds.close();
@@ -288,16 +288,17 @@ public class Process {
         Consumer.isPaused = false;
     }
 
-    private static void commit(Statement statement, PreparedStatement preparedStmtSigns, PreparedStatement preparedStmtBlocks, PreparedStatement preparedStmtSkulls, PreparedStatement preparedStmtContainers, PreparedStatement preparedStmtItems, PreparedStatement preparedStmtWorlds, PreparedStatement preparedStmtChat, PreparedStatement preparedStmtCommand, PreparedStatement preparedStmtSession, PreparedStatement preparedStmtEntities, PreparedStatement preparedStmtMaterials, PreparedStatement preparedStmtArt, PreparedStatement preparedStmtEntity, PreparedStatement preparedStmtBlockdata) {
+    private static void commit(Statement statement, PreparedStatement preparedStmtSigns, PreparedStatement preparedStmtBlocks, PreparedStatement preparedStmtContainers, PreparedStatement preparedStmtItems, PreparedStatement preparedStmtWorlds, PreparedStatement preparedStmtChat, PreparedStatement preparedStmtCommand, PreparedStatement preparedStatementAbilty, PreparedStatement preparedStmtSession, PreparedStatement preparedStmtEntities, PreparedStatement preparedStmtMaterials, PreparedStatement preparedStmtArt, PreparedStatement preparedStmtEntity, PreparedStatement preparedStmtBlockdata) {
         try {
             preparedStmtSigns.executeBatch();
             preparedStmtBlocks.executeBatch();
-            preparedStmtSkulls.executeBatch();
+//            preparedStmtSkulls.executeBatch();
             preparedStmtContainers.executeBatch();
             preparedStmtItems.executeBatch();
             preparedStmtWorlds.executeBatch();
             preparedStmtChat.executeBatch();
             preparedStmtCommand.executeBatch();
+            preparedStatementAbilty.executeBatch();
             preparedStmtSession.executeBatch();
             preparedStmtEntities.executeBatch();
             preparedStmtMaterials.executeBatch();

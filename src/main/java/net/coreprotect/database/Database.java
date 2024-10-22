@@ -208,7 +208,7 @@ public class Database extends Queue {
             String worldInsert = "INSERT INTO " + ConfigHandler.prefix + "world (id, world) VALUES (?, ?)";
             String chatInsert = "INSERT INTO " + ConfigHandler.prefix + "chat (time, user, wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)";
             String commandInsert = "INSERT INTO " + ConfigHandler.prefix + "command (time, user, wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)";
-            String abilityInsert = "INSERT INTO " + ConfigHandler.prefix + "ability (time, user, wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            String abilityInsert = "INSERT INTO " + ConfigHandler.prefix + "ability (time, user, wid, x, y, z, ability) VALUES (?, ?, ?, ?, ?, ?, ?)";
             String sessionInsert = "INSERT INTO " + ConfigHandler.prefix + "session (time, user, wid, x, y, z, action) VALUES (?, ?, ?, ?, ?, ?, ?)";
             String entityInsert = "INSERT INTO " + ConfigHandler.prefix + "entity (time, data) VALUES (?, ?)";
             String materialInsert = "INSERT INTO " + ConfigHandler.prefix + "material_map (id, material) VALUES (?, ?)";
@@ -319,7 +319,7 @@ public class Database extends Queue {
 
     public static void createDatabaseTables(String prefix, Connection forceConnection, boolean mySQL, boolean purge) {
         ConfigHandler.databaseTables.clear();
-        ConfigHandler.databaseTables.addAll(Arrays.asList("art_map", "block", "chat", "command", "container", "item", "database_lock", "entity", "entity_map", "material_map", "blockdata_map", "session", "sign", "skull", "user", "username_log", "version", "world"));
+        ConfigHandler.databaseTables.addAll(Arrays.asList("art_map", "block", "chat", "command", "ability", "container", "item", "database_lock", "entity", "entity_map", "material_map", "blockdata_map", "session", "sign", "skull", "user", "username_log", "version", "world"));
 
         if (mySQL) {
             boolean success = false;
@@ -335,6 +335,8 @@ public class Database extends Queue {
                     statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "chat(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int (3), z int, message varchar(16000)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
                     index = ", INDEX(time), INDEX(user,time), INDEX(wid,x,z,time)";
                     statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "command(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int (3), z int, message varchar(16000)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+                    index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(type,time)";
+                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "ability(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int (3), z int, ability varchar(16000)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
                     index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(type,time)";
                     statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "container(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, wid int, x int, y int, z int, type int, data int, amount int, metadata blob, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
                     index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(type,time)";
@@ -411,6 +413,9 @@ public class Database extends Queue {
                 if (!tableData.contains(prefix + "command")) {
                     statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "command (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, message TEXT);");
                 }
+                if (!tableData.contains(prefix + "ability")) {
+                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "ability (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, ability TEXT);");
+                }
                 if (!tableData.contains(prefix + "container")) {
                     statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "container (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, data INTEGER, amount INTEGER, metadata BLOB, action INTEGER, rolled_back INTEGER);");
                 }
@@ -486,6 +491,15 @@ public class Database extends Queue {
                     }
                     if (!indexData.contains("command_wid_index")) {
                         statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "command_wid_index ON " + ConfigHandler.prefix + "command(wid,x,z,time);");
+                    }
+                    if (!indexData.contains("ability_index")) {
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "ability_index ON " + ConfigHandler.prefix + "ability(time);");
+                    }
+                    if (!indexData.contains("ability_user_index")) {
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "ability_user_index ON " + ConfigHandler.prefix + "ability(user,time);");
+                    }
+                    if (!indexData.contains("ability_wid_index")) {
+                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "ability_wid_index ON " + ConfigHandler.prefix + "ability(wid,x,z,time);");
                     }
                     if (!indexData.contains("container_index")) {
                         statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "container_index ON " + ConfigHandler.prefix + "container(wid,x,z,time);");

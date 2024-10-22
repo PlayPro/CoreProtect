@@ -6,45 +6,39 @@
 [![CodeFactor](https://www.codefactor.io/repository/github/playpro/coreprotect/badge)](https://www.codefactor.io/repository/github/playpro/coreprotect)
 [![Join us on Discord](https://img.shields.io/discord/348680641560313868.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/b4DZ4jy)
 
-CoreProtect
-===========
+## Modification of CoreProtect for Circle of Imagination
 
-CoreProtect is a blazing fast data logging and anti-griefing tool for Minecraft servers.
-
-For a detailed description of the plugin, please visit [coreprotect.net](https://coreprotect.net).
-
-| Quick Links |  |
-| --- | --- |
-| CoreProtect Discord: | [discord.gg/b4DZ4jy](https://discord.gg/b4DZ4jy) |
-| CoreProtect Patreon: | [patreon.com/coreprotect](https://www.patreon.com/coreprotect) |
-| CoreProtect Documentation: | [docs.coreprotect.net](https://docs.coreprotect.net) |
-| Downloads for MC 1.14 - 1.20: | [coreprotect.net/latest](https://coreprotect.net/latest/) |
-| Downloads for MC 1.8 - 1.12: | [coreprotect.net/legacy](https://coreprotect.net/legacy/) |
-
-bStats
+Development
 ------
-[![bStats Graph Data](https://bstats.org/signatures/bukkit/CoreProtect.svg)](https://bstats.org/plugin/bukkit/CoreProtect)
 
-API
+1. Clone repository to your local machine
+2. Open, load both Gradle and Maven projects in your IDE
+3. Run `gradle build` to build the project. Probably will fail due to missing dependencies.
+4. Run `mvn clean install` to install to your local maven repository.
+5. Run `mvn package` to build the plugin jar file. Will be located in `target/CoreProtect-22.4.{version}.jar`
+6. Define local maven repository in your IDE to use the local maven repository for the dependencies: `~/.m2/repository`
+7. Add this to your build.gradle: `compileOnly('net.coreprotect:CoreProtect:22.4.{version}')`
+
+JitPack
 ------
-### [API Documentation](https://docs.coreprotect.net/api/)
 
-### Dependency Information
-Maven
-```xml
-<repository>
-    <id>playpro-repo</id>
-    <url>https://maven.playpro.com</url>
-</repository>
+1. Add the JitPack repository to your build.gradle:
+
+```gradle
+repositories {
+    maven { url 'https://jitpack.io' }
+}
 ```
-```xml
-<dependency>
-    <groupId>net.coreprotect</groupId>
-    <artifactId>coreprotect</artifactId>
-    <version>22.4</version>
-    <scope>provided</scope>
-</dependency>
+
+2. Add the dependency to your build.gradle:
+
+```gradle
+dependencies {
+    compileOnly 'com.github.mc-uaproject:uaproject-core-protect:v22.4.{version}'
+}
 ```
+
+3. Replace `{version}` with the version you want to use. Some versions may not be available as modifications are made to the project.
 
 Contributing
 ------

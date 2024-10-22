@@ -21,12 +21,16 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.Statement;
 import java.util.*;
 
 public class CoreProtectAPI extends Queue {
+
+    private static final Logger log = LoggerFactory.getLogger(CoreProtectAPI.class);
 
     public class ParseResult {
         String[] parse;
@@ -259,6 +263,9 @@ public class CoreProtectAPI extends Queue {
                     long timestamp = System.currentTimeMillis() / 1000L;
 
                     Queue.queuePlayerAbility(player, ability, timestamp);
+
+                    log.info("Player " + player.getName() + " used ability " + ability);
+                    log.info("Sending ability to queue...");
                     return true;
                 }
             }

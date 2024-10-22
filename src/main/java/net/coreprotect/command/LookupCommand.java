@@ -26,17 +26,18 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
 public class LookupCommand {
+    private static final Logger log = LoggerFactory.getLogger(LookupCommand.class);
+
     protected static void runCommand(CommandSender player, Command command, boolean permission, String[] args) {
         int resultc = args.length;
         args = CommandHandler.parsePage(args);
@@ -215,11 +216,7 @@ public class LookupCommand {
                 Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
                 return;
             }
-            if (argAction.contains(12) && !player.hasPermission("coreprotect.lookup.command")) {
-                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
-                return;
-            }
-            if (argAction.contains(7) && !player.hasPermission("coreprotect.lookup.ability")) {
+            if (argAction.contains(12) && !player.hasPermission("coreprotect.lookup.ability")) {
                 Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
                 return;
             }
@@ -616,7 +613,7 @@ public class LookupCommand {
                     }
 
                     if (rollbackusers.contains("#container")) {
-                        if (argAction.contains(6) || argAction.contains(7) || argAction.contains(12) || argAction.contains(8) || argAction.contains(9) || argAction.contains(10) || argAction.contains(11)) {
+                        if (argAction.contains(6) || argAction.contains(7) || argAction.contains(8) || argAction.contains(9) || argAction.contains(10) || argAction.contains(11)) {
                             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_USERNAME, "#container"));
                             return;
                         }
@@ -799,14 +796,17 @@ public class LookupCommand {
                                             List<String[]> lookupList = Lookup.performPartialLookup(statement, player2, uuidList, userList, blist, elist, euserlist, finalArgAction, location, radius, rowData, finalTimeStart, finalTimeEnd, (int) pageStart, displayResults, restrict_world, true);
 
                                             Chat.sendMessage(player2, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.LOOKUP_HEADER, "CoreProtect" + Color.WHITE + " | " + Color.DARK_AQUA) + Color.WHITE + " -----");
-                                            if (finalArgAction.contains(12)) { // Ability
+                                            if (finalArgAction.contains(12)) {
                                                 for (String[] data : lookupList) {
+                                                    log.info(Arrays.toString(data));
                                                     String time = data[0];
-                                                    String user = ConfigHandler.uuidCacheReversed.get(data[1]);
-                                                    String ability = data[2];
+                                                    String dplayer = data[1];
+                                                    String x = data[3];
+                                                    String y = data[4];
+                                                    String z = data[5];
+                                                    String message = data[6];
                                                     String timeago = Util.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
-                                                    Chat.sendComponent(player2, timeago + " " + Color.WHITE + "- " + Phrase.build(Phrase.ABILITY, Color.DARK_AQUA + user + Color.WHITE, Color.DARK_AQUA + ability + Color.WHITE));
-                                                    PluginChannelListener.getInstance().sendUsernameData(player2, Integer.parseInt(time), user, ability);
+                                                    Chat.sendComponent(player2, timeago + " " + Phrase.build(Phrase.ABILITY, Color.DARK_AQUA + dplayer + Color.WHITE, Color.LIGHT_PURPLE + message + Color.WHITE, Color.DARK_AQUA + x + " " + y + " " + z));
                                                 }
                                             } else if (finalArgAction.contains(6) || finalArgAction.contains(7)) { // Chat/command
                                                 for (String[] data : lookupList) {

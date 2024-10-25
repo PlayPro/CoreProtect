@@ -13,6 +13,8 @@ import net.coreprotect.utility.Util;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -37,6 +39,8 @@ public class Database extends Queue {
     public static final int BLOCKDATA = 12;
     public static final int ITEM = 13;
     public static final int ABILITY = 14;
+    public static final int ABILITY_BLOCK = 15;
+    private static final Logger log = LoggerFactory.getLogger(Database.class);
 
     public static void beginTransaction(Statement statement, boolean isMySQL) {
         Consumer.transacting = true;
@@ -184,13 +188,15 @@ public class Database extends Queue {
 
     public static void performUpdate(Statement statement, long id, int rb, int table) {
         try {
-            int rolledBack = Util.toggleRolledBack(rb, (table == 2 || table == 3 || table == 4)); // co_item, co_container, co_block
+            int rolledBack = Util.toggleRolledBack(rb, (table == 2 || table == 3 || table == 4 || table == 5)); // co_item, co_container, co_block, co_ability_block
             if (table == 1 || table == 3) {
                 statement.executeUpdate("UPDATE " + ConfigHandler.prefix + "container SET rolled_back='" + rolledBack + "' WHERE rowid='" + id + "'");
             } else if (table == 2) {
                 statement.executeUpdate("UPDATE " + ConfigHandler.prefix + "item SET rolled_back='" + rolledBack + "' WHERE rowid='" + id + "'");
-            } else {
+            } else if (table == 4) {
                 statement.executeUpdate("UPDATE " + ConfigHandler.prefix + "block SET rolled_back='" + rolledBack + "' WHERE rowid='" + id + "'");
+            } else if (table == 0 || table == 5) {
+                statement.executeUpdate("UPDATE " + ConfigHandler.prefix + "ability_block SET rolled_back='" + rolledBack + "' WHERE rowid='" + id + "'");
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -209,6 +215,7 @@ public class Database extends Queue {
             String chatInsert = "INSERT INTO " + ConfigHandler.prefix + "chat (time, user, wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)";
             String commandInsert = "INSERT INTO " + ConfigHandler.prefix + "command (time, user, wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)";
             String abilityInsert = "INSERT INTO " + ConfigHandler.prefix + "ability (time, user, wid, x, y, z, ability) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            String abilityBlockInsert = "INSERT INTO " + ConfigHandler.prefix + "ability_block (time, user, wid, x, y, z, type, data, meta, blockdata, action, rolled_back, player, ability) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             String sessionInsert = "INSERT INTO " + ConfigHandler.prefix + "session (time, user, wid, x, y, z, action) VALUES (?, ?, ?, ?, ?, ?, ?)";
             String entityInsert = "INSERT INTO " + ConfigHandler.prefix + "entity (time, data) VALUES (?, ?)";
             String materialInsert = "INSERT INTO " + ConfigHandler.prefix + "material_map (id, material) VALUES (?, ?)";
@@ -243,6 +250,9 @@ public class Database extends Queue {
                     break;
                 case ABILITY:
                     preparedStatement = prepareStatement(connection, abilityInsert, keys);
+                    break;
+                case ABILITY_BLOCK:
+                    preparedStatement = prepareStatement(connection, abilityBlockInsert, keys);
                     break;
                 case SESSION:
                     preparedStatement = prepareStatement(connection, sessionInsert, keys);
@@ -319,7 +329,7 @@ public class Database extends Queue {
 
     public static void createDatabaseTables(String prefix, Connection forceConnection, boolean mySQL, boolean purge) {
         ConfigHandler.databaseTables.clear();
-        ConfigHandler.databaseTables.addAll(Arrays.asList("art_map", "block", "chat", "command", "ability", "container", "item", "database_lock", "entity", "entity_map", "material_map", "blockdata_map", "session", "sign", "skull", "user", "username_log", "version", "world"));
+        ConfigHandler.databaseTables.addAll(Arrays.asList("art_map", "block", "chat", "command", "ability", "ability_block", "container", "item", "database_lock", "entity", "entity_map", "material_map", "blockdata_map", "session", "sign", "skull", "user", "username_log", "version", "world"));
 
         if (mySQL) {
             boolean success = false;
@@ -331,6 +341,8 @@ public class Database extends Queue {
                     statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "art_map(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,art varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
                     index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(type,time)";
                     statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "block(rowid bigint NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, wid int, x int, y int, z int, type int, data int, meta mediumblob, blockdata blob, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+                    index = ", INDEX(time), INDEX(user,time), INDEX(wid,x,z,time)";
+                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "ability_block(rowid bigint NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, wid int, x int, y int, z int, type int, data int, meta mediumblob, blockdata blob, action tinyint, rolled_back tinyint, player varchar(200), ability varchar(200)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
                     index = ", INDEX(time), INDEX(user,time), INDEX(wid,x,z,time)";
                     statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "chat(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int (3), z int, message varchar(16000)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
                     index = ", INDEX(time), INDEX(user,time), INDEX(wid,x,z,time)";
@@ -415,6 +427,9 @@ public class Database extends Queue {
                 }
                 if (!tableData.contains(prefix + "ability")) {
                     statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "ability (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, ability TEXT);");
+                }
+                if (!tableData.contains(prefix + "ability_block")) {
+                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "ability_block (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, data INTEGER, meta BLOB, blockdata BLOB, action INTEGER, rolled_back INTEGER, player TEXT, ability TEXT);");
                 }
                 if (!tableData.contains(prefix + "container")) {
                     statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "container (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, data INTEGER, amount INTEGER, metadata BLOB, action INTEGER, rolled_back INTEGER);");

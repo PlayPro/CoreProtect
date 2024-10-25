@@ -136,7 +136,55 @@ public class Lookup extends Queue {
             ResultSet results = rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, false);
 
             while (results.next()) {
-                if (actionList.contains(12)) {
+                if (actionList.contains(13) || actionList.contains(14)) {
+                    int resultData = 0;
+                    int resultAmount = -1;
+                    int resultTable = 0;
+                    byte[] resultMeta = null;
+                    byte[] resultBlockData = null;
+                    long resultId = results.getLong("id");
+                    int resultUserId = results.getInt("user");
+                    int resultAction = results.getInt("action");
+                    int resultRolledBack = results.getInt("rolled_back");
+                    int resultType = results.getInt("type");
+                    int resultTime = results.getInt("time");
+                    int resultX = results.getInt("x");
+                    int resultY = results.getInt("y");
+                    int resultZ = results.getInt("z");
+                    int resultWorldId = results.getInt("wid");
+                    String player = results.getString("player");
+                    String ability = results.getString("ability");
+
+                    boolean hasTbl = false;
+                    if ((lookup && actionList.size() == 0) || actionList.contains(4) || actionList.contains(5) || actionList.contains(11)) {
+                        resultData = results.getInt("data");
+                        resultAmount = results.getInt("amount");
+                        resultMeta = results.getBytes("metadata");
+                        resultTable = results.getInt("tbl");
+                        hasTbl = true;
+                    } else {
+                        resultData = results.getInt("data");
+                        resultMeta = results.getBytes("meta");
+                        resultBlockData = results.getBytes("blockdata");
+                    }
+
+                    boolean valid = true;
+                    if (!lookup) {
+                        if (invalidRollbackActions.contains(resultAction)) {
+                            valid = false;
+                        }
+                    }
+
+                    if (valid) {
+                        if (hasTbl) {
+                            Object[] dataArray = new Object[]{resultId, resultTime, resultUserId, resultX, resultY, resultZ, resultType, resultData, resultAction, resultRolledBack, resultWorldId, resultAmount, resultMeta, resultBlockData, resultTable, player, ability};
+                            list.add(dataArray);
+                        } else {
+                            Object[] dataArray = new Object[]{resultId, resultTime, resultUserId, resultX, resultY, resultZ, resultType, resultData, resultAction, resultRolledBack, resultWorldId, resultAmount, resultMeta, resultBlockData, player, ability};
+                            list.add(dataArray);
+                        }
+                    }
+                } else if (actionList.contains(12)) {
                     long resultId = results.getLong("id");
                     int resultTime = results.getInt("time");
                     int resultUserId = results.getInt("user");
@@ -322,6 +370,7 @@ public class Lookup extends Queue {
 
         return newList;
     }
+
 
     private static ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean count) {
         ResultSet results = null;
@@ -649,7 +698,10 @@ public class Lookup extends Queue {
                     queryTable = "command";
                 }
             }
-            if (actionList.contains(12)) {
+            if (actionList.contains(13) || actionList.contains(14)) {
+                queryTable = "ability_block";
+                rows = "rowid as id,time,user,wid,x,y,z,type,data, meta, blockdata,action,rolled_back,player,ability";
+            } else if (actionList.contains(12)) {
                 queryTable = "ability";
                 rows = "rowid as id,time,user,wid,x,y,z,ability";
             } else if (actionList.contains(8)) {

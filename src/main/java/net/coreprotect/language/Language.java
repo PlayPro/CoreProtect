@@ -136,11 +136,13 @@ public class Language {
         phrases.put(Phrase.LOGGING_ITEMS, "{0} items left to log. Please wait...");
         phrases.put(Phrase.LOGGING_TIME_LIMIT, "Logging time limit reached. Discarding data and shutting down.");
         phrases.put(Phrase.LOOKUP_BLOCK, "{0} {placed|broke} {1}.");
+        phrases.put(Phrase.LOOKUP_ABILITY_BLOCK, "{0} {placed|broke} {1} ");
         phrases.put(Phrase.LOOKUP_CONTAINER, "{0} {added|removed} {1} {2}.");
         phrases.put(Phrase.LOOKUP_HEADER, "{0} Lookup Results");
         phrases.put(Phrase.LOOKUP_INTERACTION, "{0} {clicked|killed} {1}.");
         phrases.put(Phrase.LOOKUP_ITEM, "{0} {picked up|dropped} {1} {2}.");
         phrases.put(Phrase.ABILITY, "{0} used {1} at {2}.");
+        phrases.put(Phrase.ABILITY_BLOCK, "{0} {1} {2} at {3}, using {4}.");
         phrases.put(Phrase.LOOKUP_LOGIN, "{0} logged {in|out}.");
         phrases.put(Phrase.LOOKUP_PAGE, "Page {0}");
         phrases.put(Phrase.LOOKUP_PROJECTILE, "{0} {threw|shot} {1} {2}.");

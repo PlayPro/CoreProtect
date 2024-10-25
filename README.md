@@ -19,6 +19,13 @@ Development
 6. Define local maven repository in your IDE to use the local maven repository for the dependencies: `~/.m2/repository`
 7. Add this to your build.gradle: `compileOnly('net.coreprotect:CoreProtect:22.4.{version}')`
 
+Modifications
+-----
+1. Custom method for abilities logging. Works well with `/co lookup action:ability`
+2. Custom method for logging block changes brought by abilities. Works well with `/co lookup action:ability-block`
+3. Custom changes by abilities have identifier and player name, as well as the ability name. 
+4. Custom changes by abilities are rollbackable. Batch size for saving is zero, each changes is saved separately.
+
 JitPack
 ------
 

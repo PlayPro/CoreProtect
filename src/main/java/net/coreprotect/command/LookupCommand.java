@@ -216,6 +216,10 @@ public class LookupCommand {
                 Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
                 return;
             }
+            if ((argAction.contains(13) || argAction.contains(14)) && !player.hasPermission("coreprotect.lookup.abilityblocks")) {
+                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
+                return;
+            }
             if (argAction.contains(12) && !player.hasPermission("coreprotect.lookup.ability")) {
                 Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
                 return;
@@ -796,9 +800,82 @@ public class LookupCommand {
                                             List<String[]> lookupList = Lookup.performPartialLookup(statement, player2, uuidList, userList, blist, elist, euserlist, finalArgAction, location, radius, rowData, finalTimeStart, finalTimeEnd, (int) pageStart, displayResults, restrict_world, true);
 
                                             Chat.sendMessage(player2, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.LOOKUP_HEADER, "CoreProtect" + Color.WHITE + " | " + Color.DARK_AQUA) + Color.WHITE + " -----");
-                                            if (finalArgAction.contains(12)) {
+
+                                            if (finalArgAction.contains(13) || finalArgAction.contains(14)) {
                                                 for (String[] data : lookupList) {
-                                                    log.info(Arrays.toString(data));
+                                                    int drb = Integer.parseInt(data[8]);
+                                                    String rbd = "";
+                                                    if (drb == 1 || drb == 3) {
+                                                        rbd = Color.STRIKETHROUGH;
+                                                    }
+
+                                                    String time = data[0];
+                                                    String dplayer = data[1];
+                                                    int x = Integer.parseInt(data[2]);
+                                                    int y = Integer.parseInt(data[3]);
+                                                    int z = Integer.parseInt(data[4]);
+                                                    int dtype = Integer.parseInt(data[5]);
+                                                    int ddata = Integer.parseInt(data[6]);
+                                                    int daction = Integer.parseInt(data[7]);
+                                                    int wid = Integer.parseInt(data[9]);
+                                                    int amount = Integer.parseInt(data[10]);
+                                                    String player = data[data.length - 2];
+                                                    String ability = data[data.length - 1];
+
+                                                    String tag = Color.WHITE + "-";
+
+                                                    String timeago = Util.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
+                                                    int timeLength = 50 + (Util.getTimeSince(Integer.parseInt(time), unixtimestamp, false).replaceAll("[^0-9]", "").length() * 6);
+                                                    String leftPadding = Color.BOLD + Strings.padStart("", 10, ' ');
+                                                    if (timeLength % 4 == 0) {
+                                                        leftPadding = Strings.padStart("", timeLength / 4, ' ');
+                                                    } else {
+                                                        leftPadding = leftPadding + Color.WHITE + Strings.padStart("", (timeLength - 50) / 4, ' ');
+                                                    }
+
+                                                    String dname = "";
+                                                    boolean isPlayer = false;
+                                                    if (daction == 3 && !finalArgAction.contains(11) && amount == -1) {
+                                                        if (dtype == 0) {
+                                                            if (ConfigHandler.playerIdCacheReversed.get(ddata) == null) {
+                                                                UserStatement.loadName(connection, ddata);
+                                                            }
+                                                            dname = ConfigHandler.playerIdCacheReversed.get(ddata);
+                                                            isPlayer = true;
+                                                        } else {
+                                                            dname = Util.getEntityType(dtype).name();
+                                                        }
+                                                    } else {
+                                                        dname = Util.getType(dtype).name().toLowerCase(Locale.ROOT);
+                                                        dname = Util.nameFilter(dname, ddata);
+                                                    }
+                                                    if (dname.length() > 0 && !isPlayer) {
+                                                        dname = "minecraft:" + dname.toLowerCase(Locale.ROOT) + "";
+                                                    }
+
+                                                    // Hide "minecraft:" for now.
+                                                    if (dname.contains("minecraft:")) {
+                                                        String[] blockNameSplit = dname.split(":");
+                                                        dname = blockNameSplit[1];
+                                                    }
+
+                                                    // Functions.sendMessage(player2, timeago+" " + ChatColors.WHITE + "- " + ChatColors.DARK_AQUA+rbd+""+dplayer+" " + ChatColors.WHITE+rbd+""+a+" " + ChatColors.DARK_AQUA+rbd+"#"+dtype+ChatColors.WHITE + ". " + ChatColors.GREY + "(x"+x+"/y"+y+"/z"+z+")");
+
+                                                    String selector = Selector.FIRST;
+                                                    String action = "a:block";
+
+                                                    Phrase phrase = Phrase.LOOKUP_ABILITY_BLOCK; // {placed|broke}
+                                                    selector = (daction != 0 ? Selector.FIRST : Selector.SECOND);
+                                                    tag = (daction != 0 ? Color.GREEN + "+" : Color.RED + "-");
+
+                                                    Chat.sendComponent(player2, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rbd + player + Color.WHITE + rbd, Color.DARK_AQUA + rbd + dname + Color.WHITE, selector) + Color.WHITE + "using " + Color.LIGHT_PURPLE + ability);
+                                                    PluginChannelListener.getInstance().sendData(player2, Integer.parseInt(time), phrase, selector, player, dname, (tag.contains("+") ? 1 : -1), x, y, z, wid, rbd, false, tag.contains("+"));
+
+                                                    action = (finalArgAction.size() == 0 ? " (" + action + ")" : "");
+                                                    Chat.sendComponent(player2, Color.WHITE + leftPadding + Color.GREY + "^ " + Util.getCoordinates(command.getName(), wid, x, y, z, true, true) + Color.GREY + Color.ITALIC + action);
+                                                }
+                                            } else if (finalArgAction.contains(12)) {
+                                                for (String[] data : lookupList) {
                                                     String time = data[0];
                                                     String dplayer = data[1];
                                                     String x = data[3];

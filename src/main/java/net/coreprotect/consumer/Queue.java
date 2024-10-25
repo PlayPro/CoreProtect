@@ -79,6 +79,10 @@ public class Queue {
         queueStandardData(consumerId, currentConsumer, new String[]{null, null}, name);
     }
 
+    protected static void queueAbilityBlockBreak(String user, BlockState block, Material type, String blockData, int extraData, String player, String ability) {
+        queueAbilityBlockBreak(user, ability, player, block, type, blockData, null, extraData, 0);
+    }
+
     protected static void queueBlockBreak(String user, BlockState block, Material type, String blockData, int extraData) {
         queueBlockBreak(user, block, type, blockData, null, extraData, 0);
     }
@@ -93,6 +97,84 @@ public class Queue {
                 e.printStackTrace();
             }
         }, block.getLocation(), ticks);
+    }
+
+    protected static void queueAbilityBlockBreak(String user, String ability, String player, BlockState block, Material type, String blockData, Material breakType, int extraData, int blockNumber) {
+        if (type == Material.SPAWNER && block instanceof CreatureSpawner) { // Mob spawner
+            CreatureSpawner mobSpawner = (CreatureSpawner) block;
+            extraData = Util.getSpawnerType(mobSpawner.getSpawnedType());
+        } else if (type == Material.IRON_DOOR || BlockGroup.DOORS.contains(type) || type.equals(Material.SUNFLOWER) || type.equals(Material.LILAC) || type.equals(Material.TALL_GRASS) || type.equals(Material.LARGE_FERN) || type.equals(Material.ROSE_BUSH) || type.equals(Material.PEONY)) { // Double plant
+            if (block.getBlockData() instanceof Bisected) {
+                if (((Bisected) block.getBlockData()).getHalf().equals(Half.TOP)) {
+                    if (blockNumber == 5) {
+                        return;
+                    }
+
+                    if (block.getY() > BukkitAdapter.ADAPTER.getMinHeight(block.getWorld())) {
+                        block = block.getWorld().getBlockAt(block.getX(), block.getY() - 1, block.getZ()).getState();
+                        if (type != block.getType()) {
+                            return;
+                        }
+
+                        blockData = block.getBlockData().getAsString();
+                    }
+                }
+            }
+        } else if (type.name().endsWith("_BED") && block.getBlockData() instanceof Bed) {
+            if (((Bed) block.getBlockData()).getPart().equals(Part.HEAD)) {
+                return;
+            }
+        }
+
+        int currentConsumer = Consumer.currentConsumer;
+        int consumerId = Consumer.newConsumerId(currentConsumer);
+        addConsumer(currentConsumer, new Object[]{consumerId, Process.ABILITY_BLOCK_BREAK, type, extraData, breakType, 0, blockNumber, blockData, player, ability});
+        queueStandardData(consumerId, currentConsumer, new String[]{user, null}, block);
+    }
+
+    protected static void queueAbilityBlockPlace(String user, String ability, String player, BlockState blockLocation, Material blockType, BlockState blockReplaced, Material forceType, int forceD, int forceData, String blockData) {
+        // If force_data equals "1", current block data will be used in consumer.
+        Material type = blockType;
+        int data = 0;
+        Material replaceType = null;
+        int replaceData = 0;
+
+        if (type == Material.SPAWNER && blockLocation instanceof CreatureSpawner) { // Mob spawner
+            CreatureSpawner mobSpawner = (CreatureSpawner) blockLocation;
+            data = Util.getSpawnerType(mobSpawner.getSpawnedType());
+            forceData = 1;
+        }
+
+        if (blockReplaced != null) {
+            replaceType = blockReplaced.getType();
+            replaceData = 0;
+
+            if ((replaceType == Material.IRON_DOOR || BlockGroup.DOORS.contains(replaceType) || replaceType.equals(Material.SUNFLOWER) || replaceType.equals(Material.LILAC) || replaceType.equals(Material.TALL_GRASS) || replaceType.equals(Material.LARGE_FERN) || replaceType.equals(Material.ROSE_BUSH) || replaceType.equals(Material.PEONY)) && replaceData >= 8) { // Double plant top half
+                BlockState blockBelow = blockReplaced.getWorld().getBlockAt(blockReplaced.getX(), blockReplaced.getY() - 1, blockReplaced.getZ()).getState();
+                Material belowType = blockBelow.getType();
+                Queue.queueBlockBreak(user, blockBelow, belowType, blockBelow.getBlockData().getAsString(), 0);
+            }
+        }
+
+        if (forceType != null) {
+            type = forceType;
+            forceData = 1;
+        }
+
+        if (forceD != -1) {
+            data = forceD;
+            forceData = 1;
+        }
+
+        String replacedBlockData = null;
+        if (blockReplaced != null) {
+            replacedBlockData = blockReplaced.getBlockData().getAsString();
+        }
+
+        int currentConsumer = Consumer.currentConsumer;
+        int consumerId = Consumer.newConsumerId(currentConsumer);
+        addConsumer(currentConsumer, new Object[]{consumerId, Process.ABILITY_BLOCK_PLACE, type, data, replaceType, replaceData, forceData, blockData, replacedBlockData, player, ability});
+        queueStandardData(consumerId, currentConsumer, new String[]{user, null}, blockLocation);
     }
 
     protected static void queueBlockBreak(String user, BlockState block, Material type, String blockData, Material breakType, int extraData, int blockNumber) {
@@ -302,11 +384,11 @@ public class Queue {
         queueStandardData(consumerId, currentConsumer, new String[]{player.getName(), null}, new Object[]{timestamp, player.getLocation().clone()});
     }
 
-    protected static void queuePlayerAbility(Player player, String message, long timestamp) {
+    protected static void queuePlayerAbility(Player player, String ability, long timestamp) {
         int currentConsumer = Consumer.currentConsumer;
         int consumerId = Consumer.newConsumerId(currentConsumer);
         addConsumer(currentConsumer, new Object[]{consumerId, Process.PLAYER_ABILITY, null, 0, null, 0, 0, null});
-        Consumer.consumerStrings.get(currentConsumer).put(consumerId, message);
+        Consumer.consumerStrings.get(currentConsumer).put(consumerId, ability);
         queueStandardData(consumerId, currentConsumer, new String[]{player.getName(), null}, new Object[]{timestamp, player.getLocation().clone()});
     }
 

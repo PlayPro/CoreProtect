@@ -263,9 +263,6 @@ public class CoreProtectAPI extends Queue {
                     long timestamp = System.currentTimeMillis() / 1000L;
 
                     Queue.queuePlayerAbility(player, ability, timestamp);
-
-                    log.info("Player " + player.getName() + " used ability " + ability);
-                    log.info("Sending ability to queue...");
                     return true;
                 }
             }
@@ -305,6 +302,26 @@ public class CoreProtectAPI extends Queue {
 
         Queue.queueBlockPlace(user, blockState, blockState.getType(), null, blockState.getType(), -1, 0, blockState.getBlockData().getAsString());
         return true;
+    }
+
+    public boolean logAbilityPlacement(String user, Location location, Material type, BlockData blockData, String player, String ability) {
+        if (Config.getGlobal().API_ENABLED) {
+            if (user != null && location != null) {
+                if (user.length() > 0) {
+                    Block block = location.getBlock();
+                    BlockState blockState = block.getState();
+                    String blockDataString = null;
+
+                    if (blockData != null) {
+                        blockDataString = blockData.getAsString();
+                    }
+
+                    Queue.queueAbilityBlockPlace(user, ability, player, blockState, block.getType(), null, type, -1, 0, blockDataString);
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     public boolean logPlacement(String user, Location location, Material type, BlockData blockData) {
@@ -373,6 +390,27 @@ public class CoreProtectAPI extends Queue {
         }
         return false;
     }
+
+    public boolean logAbilityRemoval(String user, Location location, Material type, BlockData blockData, String player, String ability) {
+        if (Config.getGlobal().API_ENABLED) {
+            if (user != null && location != null) {
+                if (user.length() > 0) {
+                    String blockDataString = null;
+
+                    if (blockData != null) {
+                        blockDataString = blockData.getAsString();
+                    }
+
+                    Block block = location.getBlock();
+                    Database.containerBreakCheck(user, block.getType(), block, null, location);
+                    Queue.queueAbilityBlockBreak(user, location.getBlock().getState(), type, blockDataString, 0, player, ability);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
 
     @Deprecated
     public boolean logRemoval(String user, Location location, Material type, byte data) {
@@ -494,9 +532,11 @@ public class CoreProtectAPI extends Queue {
         if (actionList.size() == 0) {
             actionList.add(0);
             actionList.add(1);
+            actionList.add(13);
+            actionList.add(14);
         }
 
-        actionList.removeIf(actionListItem -> actionListItem > 3);
+        actionList.removeIf(actionListItem -> actionListItem > 3 && actionListItem != 13 && actionListItem != 14);
 
         if (restrictUsers.size() == 0) {
             restrictUsers.add("#global");

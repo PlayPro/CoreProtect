@@ -6,11 +6,14 @@ import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.UserStatement;
 import org.bukkit.Material;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -46,6 +49,10 @@ public class Process {
     public static final int INVENTORY_CONTAINER_ROLLBACK_UPDATE = 28;
     public static final int BLOCK_INVENTORY_ROLLBACK_UPDATE = 29;
     public static final int PLAYER_ABILITY = 30;
+    public static final int ABILITY_BLOCK_BREAK = 31;
+    public static final int ABILITY_BLOCK_PLACE = 32;
+    public static final int ABILITY_BLOCK_ROLLBACK_UPDATE = 33;
+    private static final Logger log = LoggerFactory.getLogger(Process.class);
 
     public static int lastLockUpdate = 0;
     private static volatile int currentConsumerSize = 0;
@@ -116,6 +123,7 @@ public class Process {
             PreparedStatement preparedStmtChat = Database.prepareStatement(connection, Database.CHAT, false);
             PreparedStatement preparedStmtCommand = Database.prepareStatement(connection, Database.COMMAND, false);
             PreparedStatement preparedStmtAbility = Database.prepareStatement(connection, Database.ABILITY, false);
+            PreparedStatement preparedStmtAbilityBlock = Database.prepareStatement(connection, Database.ABILITY_BLOCK, false);
             PreparedStatement preparedStmtSession = Database.prepareStatement(connection, Database.SESSION, false);
             PreparedStatement preparedStmtEntities = Database.prepareStatement(connection, Database.ENTITY, true);
             PreparedStatement preparedStmtMaterials = Database.prepareStatement(connection, Database.MATERIAL, false);
@@ -128,6 +136,8 @@ public class Process {
             for (int i = 0; i < consumerDataSize; i++) {
                 Object[] data = consumerData.get(i);
                 if (data != null) {
+
+
                     int id = (int) data[0];
                     int action = (int) data[1];
                     Material blockType = (Material) data[2];
@@ -143,10 +153,16 @@ public class Process {
                         try {
                             switch (action) {
                                 case Process.BLOCK_BREAK:
-//                                    BlockBreakProcess.process(preparedStmtBlocks, preparedStmtSkulls, i, processId, id, blockType, blockData, replaceType, forceData, user, object, (String) data[7]);
+                                    BlockBreakProcess.process(preparedStmtBlocks, i, processId, id, blockType, blockData, replaceType, forceData, user, object, (String) data[7]);
                                     break;
                                 case Process.BLOCK_PLACE:
-//                                    BlockPlaceProcess.process(preparedStmtBlocks, preparedStmtSkulls, i, blockType, blockData, replaceType, replaceData, forceData, user, object, (String) data[7], (String) data[8]);
+                                    BlockPlaceProcess.process(preparedStmtBlocks, i, blockType, blockData, replaceType, replaceData, forceData, user, object, (String) data[7], (String) data[8]);
+                                    break;
+                                case Process.ABILITY_BLOCK_BREAK:
+                                    AbilityBlockBreakProcess.process(preparedStmtAbilityBlock, i, blockType, blockData, user, object, (String) data[7], (String) data[8], (String) data[9]);
+                                    break;
+                                case Process.ABILITY_BLOCK_PLACE:
+                                    AbilityBlockPlaceProcess.process(preparedStmtAbilityBlock, i, blockType, blockData, replaceType, replaceData, forceData, user, object, (String) data[7], (String) data[8], (String) data[9], (String) data[10]);
                                     break;
                                 case Process.SIGN_TEXT:
                                     SignTextProcess.process(preparedStmtSigns, i, processId, id, forceData, user, object, replaceData, blockData);
@@ -180,6 +196,9 @@ public class Process {
                                     break;
                                 case Process.BLOCK_INVENTORY_ROLLBACK_UPDATE:
                                     RollbackUpdateProcess.process(statement, processId, id, forceData, 4);
+                                    break;
+                                case Process.ABILITY_BLOCK_ROLLBACK_UPDATE:
+                                    RollbackUpdateProcess.process(statement, processId, id, forceData, 5);
                                     break;
                                 case Process.WORLD_INSERT:
                                     WorldInsertProcess.process(preparedStmtWorlds, i, statement, object, forceData);

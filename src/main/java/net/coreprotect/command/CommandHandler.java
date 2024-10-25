@@ -83,6 +83,10 @@ public class CommandHandler implements CommandExecutor {
                         result.add(0);
                         result.add(1);
                     }
+                    else if (argument.equals("ability-block") || argument.equals("ability-block-break") || argument.equals("ability-block-place")){
+                        result.add(13);
+                        result.add(14);
+                    }
                     else if (argument.equals("click") || argument.equals("clicks") || argument.equals("interact") || argument.equals("interaction") || argument.equals("player-interact") || argument.equals("player-interaction") || argument.equals("player-click")) {
                         result.add(2);
                     }

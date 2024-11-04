@@ -166,7 +166,13 @@ public class EntityUtil {
                     for (Object value : attributes) {
                         @SuppressWarnings("unchecked")
                         List<Object> attributeData = (List<Object>) value;
-                        Attribute attribute = (Attribute) attributeData.get(0);
+                        Attribute attribute = null;
+                        if (attributeData.get(0) instanceof Attribute) {
+                            attribute = (Attribute) attributeData.get(0);
+                        }
+                        else {
+                            attribute = (Attribute) BukkitAdapter.ADAPTER.getRegistryValue((String) attributeData.get(0), Attribute.class);
+                        }
                         Double baseValue = (Double) attributeData.get(1);
                         @SuppressWarnings("unchecked")
                         List<Object> attributeModifiers = (List<Object>) attributeData.get(2);

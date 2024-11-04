@@ -289,7 +289,7 @@ public final class EntityDeathListener extends Queue implements Listener {
                     if (attributeInstance != null) {
                         List<Object> attributeData = new ArrayList<>();
                         List<Object> attributeModifiers = new ArrayList<>();
-                        attributeData.add(attributeInstance.getAttribute());
+                        attributeData.add(BukkitAdapter.ADAPTER.getRegistryKey(attributeInstance.getAttribute()));
                         attributeData.add(attributeInstance.getBaseValue());
 
                         for (AttributeModifier modifier : attributeInstance.getModifiers()) {

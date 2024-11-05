@@ -72,12 +72,7 @@ public final class HangingBreakListener extends Queue implements Listener {
                     material = Material.PAINTING;
                     Painting painting = (Painting) entity;
                     blockData = "FACING=" + painting.getFacing().name();
-                    try {
-                        itemData = Util.getArtId(painting.getArt().toString(), true);
-                    }
-                    catch (IncompatibleClassChangeError e) {
-                        // 1.21.2+
-                    }
+                    itemData = Util.getArtId(painting.getArt().toString(), true);
                 }
 
                 if (!event.isCancelled() && Config.getConfig(blockEvent.getWorld()).NATURAL_BREAK) {

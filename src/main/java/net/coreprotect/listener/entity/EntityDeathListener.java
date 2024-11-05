@@ -39,6 +39,7 @@ import org.bukkit.entity.Panda;
 import org.bukkit.entity.Parrot;
 import org.bukkit.entity.Phantom;
 import org.bukkit.entity.Pig;
+import org.bukkit.entity.Piglin;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Raider;
 import org.bukkit.entity.Sheep;
@@ -50,6 +51,7 @@ import org.bukkit.entity.ThrownPotion;
 import org.bukkit.entity.TropicalFish;
 import org.bukkit.entity.Villager;
 import org.bukkit.entity.Wolf;
+import org.bukkit.entity.Zoglin;
 import org.bukkit.entity.Zombie;
 import org.bukkit.entity.ZombieVillager;
 import org.bukkit.event.EventHandler;
@@ -509,11 +511,19 @@ public final class EntityDeathListener extends Queue implements Listener {
                     }
                 }
             }
-            if (entity instanceof Bee) {
+            else if (entity instanceof Bee) {
                 Bee bee = (Bee) entity;
                 info.add(bee.getAnger());
                 info.add(bee.hasNectar());
                 info.add(bee.hasStung());
+            }
+            else if (entity instanceof Piglin) {
+                Piglin piglin = (Piglin) entity;
+                info.add(piglin.isBaby());
+            }
+            else if (entity instanceof Zoglin) {
+                Zoglin zoglin = (Zoglin) entity;
+                info.add(zoglin.isBaby());
             }
             else {
                 BukkitAdapter.ADAPTER.getEntityMeta(entity, info);

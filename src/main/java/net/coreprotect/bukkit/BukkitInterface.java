@@ -43,8 +43,6 @@ public interface BukkitInterface {
 
     public boolean isAttached(Block block, Block scanBlock, BlockData blockData, int scanMin);
 
-    public boolean isWall(BlockData blockData);
-
     public boolean isItemFrame(Material material);
 
     public boolean isGlowing(Sign sign, boolean isFront);

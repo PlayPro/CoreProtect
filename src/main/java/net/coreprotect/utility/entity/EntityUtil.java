@@ -37,6 +37,7 @@ import org.bukkit.entity.Parrot;
 import org.bukkit.entity.Parrot.Variant;
 import org.bukkit.entity.Phantom;
 import org.bukkit.entity.Pig;
+import org.bukkit.entity.Piglin;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Raider;
 import org.bukkit.entity.Sheep;
@@ -48,6 +49,7 @@ import org.bukkit.entity.TropicalFish;
 import org.bukkit.entity.Villager;
 import org.bukkit.entity.Villager.Profession;
 import org.bukkit.entity.Wolf;
+import org.bukkit.entity.Zoglin;
 import org.bukkit.entity.Zombie;
 import org.bukkit.entity.ZombieVillager;
 import org.bukkit.inventory.ItemStack;
@@ -166,7 +168,13 @@ public class EntityUtil {
                     for (Object value : attributes) {
                         @SuppressWarnings("unchecked")
                         List<Object> attributeData = (List<Object>) value;
-                        Attribute attribute = (Attribute) attributeData.get(0);
+                        Attribute attribute = null;
+                        if (attributeData.get(0) instanceof Attribute) {
+                            attribute = (Attribute) attributeData.get(0);
+                        }
+                        else {
+                            attribute = (Attribute) BukkitAdapter.ADAPTER.getRegistryValue((String) attributeData.get(0), Attribute.class);
+                        }
                         Double baseValue = (Double) attributeData.get(1);
                         @SuppressWarnings("unchecked")
                         List<Object> attributeModifiers = (List<Object>) attributeData.get(2);
@@ -559,6 +567,20 @@ public class EntityUtil {
                         else if (count == 2) {
                             boolean set = (Boolean) value;
                             bee.setHasStung(set);
+                        }
+                    }
+                    else if (entity instanceof Piglin) {
+                        Piglin piglin = (Piglin) entity;
+                        if (count == 0) {
+                            boolean set = (Boolean) value;
+                            piglin.setBaby(set);
+                        }
+                    }
+                    else if (entity instanceof Zoglin) {
+                        Zoglin zoglin = (Zoglin) entity;
+                        if (count == 0) {
+                            boolean set = (Boolean) value;
+                            zoglin.setBaby(set);
                         }
                     }
                     else {

@@ -27,7 +27,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.Util;
 
-public class Bukkit_v1_17 extends Bukkit_v1_16 implements BukkitInterface {
+public class Bukkit_v1_17 extends BukkitAdapter implements BukkitInterface {
 
     public Bukkit_v1_17() {
         BlockGroup.TRACK_ANY = new HashSet<>(Arrays.asList(Material.PISTON_HEAD, Material.LEVER, Material.BELL, Material.SMALL_AMETHYST_BUD, Material.MEDIUM_AMETHYST_BUD, Material.LARGE_AMETHYST_BUD, Material.AMETHYST_CLUSTER, Material.GLOW_LICHEN));

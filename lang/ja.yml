@@ -161,7 +161,7 @@ RELOAD_STARTED: "構成の再読み込みをしています。しばらくお待
 RELOAD_SUCCESS: "構成が正常に再読み込みされました。"
 ROLLBACK_ABORTED: "ロールバックまたは復元が中止されました。"
 ROLLBACK_CHUNKS_FOUND: "変更する{0}{チャンク|チャンク}が見つかりました。"
-ROLLBACK_CHUNKS_MODIFIED: "{0}/{1}{チャンク|チャンク} 変更"
+ROLLBACK_CHUNKS_MODIFIED: "変更中 {0}/{1}{チャンク|チャンク}"
 ROLLBACK_COMPLETED: "{ロールバック|復元|プレビュー} は\"{0}\"で完了しました。"
 ROLLBACK_EXCLUDED_USERS: "除外するユーザー: \"{0}\" "
 ROLLBACK_INCLUDE: "{含まれる|除外される}{ブロック|エンティティ|ターゲット} タイプ: \"{0}\""

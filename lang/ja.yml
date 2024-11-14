@@ -126,7 +126,7 @@ MISSING_ROLLBACK_RADIUS: "{ロールバック|復元}対象の半径を指定し
 MISSING_ROLLBACK_USER: "{ロールバック|復元}対象のユーザーを指定しませんでした。"
 MYSQL_UNAVAILABLE: "MySQLサーバーに接続できません"
 NO_DATA: "{0}でデータが見つかりません。"
-NO_DATA_LOCATION: "ここで{データ|入れ替え|相互作用|メッセージ}は見つかりませんでした。"
+NO_DATA_LOCATION: "{データ|トランザクション|相互作用|メッセージ}は見つかりませんでした。"
 NO_PERMISSION: "あなたにはそれをする許可がありません。"
 NO_RESULTS: "結果が見つかりません。"
 NO_RESULTS_PAGE: "このページには{結果|データ}は見つかりませんでした。"

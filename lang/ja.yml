@@ -174,7 +174,7 @@ ROLLBACK_STARTED: "{ロールバック|復元|プレビュー}が「{0}」で開
 ROLLBACK_TIME: "時間範囲: {0}"
 ROLLBACK_WORLD_ACTION: "{0}{世界|アクション}に制限があります。"
 SIGN_HEADER: "メッセージに署名"
-STATUS_CONSUMER: "消費者: {0}{アイテム|アイテム達}のキューを待っています"
+STATUS_CONSUMER: "{0}{アイテム|アイテム達}のキューを処理中"
 STATUS_DATABASE: "データベース: 使用する {0}"
 STATUS_INTEGRATION: "{0}: 統合 {有効|無効}"
 STATUS_LICENSE: "ライセンス: {0}"

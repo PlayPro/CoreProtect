@@ -1,7 +1,12 @@
 package net.coreprotect.listener.block;
 
-import java.util.Locale;
-
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.listener.player.InventoryChangeListener;
+import net.coreprotect.model.BlockGroup;
+import net.coreprotect.paper.PaperAdapter;
+import net.coreprotect.utility.Util;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -22,13 +27,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.inventory.ItemStack;
 
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.config.Config;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.listener.player.InventoryChangeListener;
-import net.coreprotect.model.BlockGroup;
-import net.coreprotect.paper.PaperAdapter;
-import net.coreprotect.utility.Util;
+import java.util.Locale;
 
 public final class BlockPlaceListener extends Queue implements Listener {
 

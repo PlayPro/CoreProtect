@@ -1,8 +1,8 @@
 package net.coreprotect.listener.block;
 
-import java.util.List;
-import java.util.Locale;
-
+import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.thread.CacheHandler;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Tag;
@@ -14,9 +14,8 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockFertilizeEvent;
 
-import net.coreprotect.config.Config;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.thread.CacheHandler;
+import java.util.List;
+import java.util.Locale;
 
 public final class BlockFertilizeListener extends Queue implements Listener {
 

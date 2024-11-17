@@ -1,9 +1,10 @@
 package net.coreprotect.listener.entity;
 
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Map.Entry;
-
+import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.listener.block.BlockUtil;
+import net.coreprotect.utility.Util;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -14,11 +15,9 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.inventory.ItemStack;
 
-import net.coreprotect.config.Config;
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.listener.block.BlockUtil;
-import net.coreprotect.utility.Util;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
 
 public final class CreatureSpawnListener extends Queue implements Listener {
 

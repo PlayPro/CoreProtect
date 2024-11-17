@@ -1,18 +1,16 @@
 package net.coreprotect.worldedit;
 
-import org.bukkit.Bukkit;
-
 import com.sk89q.worldedit.EditSession.Stage;
 import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.event.extent.EditSessionEvent;
 import com.sk89q.worldedit.util.eventbus.Subscribe;
-
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Chat;
+import org.bukkit.Bukkit;
 
 public class CoreProtectEditSessionEvent {
     private static boolean initialized = false;

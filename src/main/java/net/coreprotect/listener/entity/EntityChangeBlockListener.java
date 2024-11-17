@@ -1,23 +1,15 @@
 package net.coreprotect.listener.entity;
 
+import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Queue;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
-import org.bukkit.entity.EnderDragon;
-import org.bukkit.entity.Enderman;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.Fox;
-import org.bukkit.entity.Ravager;
-import org.bukkit.entity.Silverfish;
-import org.bukkit.entity.Turtle;
-import org.bukkit.entity.Wither;
+import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
-
-import net.coreprotect.config.Config;
-import net.coreprotect.consumer.Queue;
 
 public final class EntityChangeBlockListener extends Queue implements Listener {
 

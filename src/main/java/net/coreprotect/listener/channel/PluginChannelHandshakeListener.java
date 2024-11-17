@@ -1,14 +1,10 @@
 package net.coreprotect.listener.channel;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
-
+import net.coreprotect.CoreProtect;
+import net.coreprotect.config.Config;
+import net.coreprotect.language.Phrase;
+import net.coreprotect.language.Selector;
+import net.coreprotect.utility.Chat;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -16,11 +12,10 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 
-import net.coreprotect.CoreProtect;
-import net.coreprotect.config.Config;
-import net.coreprotect.language.Phrase;
-import net.coreprotect.language.Selector;
-import net.coreprotect.utility.Chat;
+import java.io.*;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 
 public class PluginChannelHandshakeListener implements PluginMessageListener, Listener {
 

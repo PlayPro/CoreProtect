@@ -1,20 +1,5 @@
 package net.coreprotect.database;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale;
-
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.inventory.ItemStack;
-
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
@@ -25,6 +10,15 @@ import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.inventory.ItemStack;
+
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
 
 public class Database extends Queue {
 

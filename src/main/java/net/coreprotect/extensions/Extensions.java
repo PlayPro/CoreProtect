@@ -1,12 +1,11 @@
 package net.coreprotect.extensions;
 
-import java.lang.reflect.Method;
-
-import org.bukkit.command.CommandSender;
-
 import net.coreprotect.language.Phrase;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
+import org.bukkit.command.CommandSender;
+
+import java.lang.reflect.Method;
 
 public class Extensions {
 

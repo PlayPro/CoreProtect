@@ -1,33 +1,5 @@
 package net.coreprotect.listener.entity;
 
-import java.util.Locale;
-
-import org.bukkit.GameMode;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.block.Block;
-import org.bukkit.entity.AbstractArrow;
-import org.bukkit.entity.ArmorStand;
-import org.bukkit.entity.Creeper;
-import org.bukkit.entity.EnderCrystal;
-import org.bukkit.entity.EnderDragon;
-import org.bukkit.entity.EnderDragonPart;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.ItemFrame;
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Minecart;
-import org.bukkit.entity.Player;
-import org.bukkit.entity.TNTPrimed;
-import org.bukkit.entity.Wither;
-import org.bukkit.entity.WitherSkull;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
-import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.projectiles.ProjectileSource;
-
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
@@ -36,6 +8,19 @@ import net.coreprotect.database.Database;
 import net.coreprotect.listener.player.PlayerInteractEntityListener;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Util;
+import org.bukkit.GameMode;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.block.Block;
+import org.bukkit.entity.*;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.projectiles.ProjectileSource;
+
+import java.util.Locale;
 
 public final class EntityDamageByEntityListener extends Queue implements Listener {
 

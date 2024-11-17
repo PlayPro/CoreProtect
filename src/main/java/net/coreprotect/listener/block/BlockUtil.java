@@ -1,15 +1,14 @@
 package net.coreprotect.listener.block;
 
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.model.BlockGroup;
+import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.utility.Util;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
-
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.model.BlockGroup;
-import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.Util;
 
 public class BlockUtil {
 

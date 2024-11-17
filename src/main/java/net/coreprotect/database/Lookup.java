@@ -1,21 +1,5 @@
 package net.coreprotect.database;
 
-import java.nio.charset.StandardCharsets;
-import java.sql.ResultSet;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockState;
-import org.bukkit.command.CommandSender;
-import org.bukkit.entity.EntityType;
-
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
@@ -26,6 +10,17 @@ import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.Util;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.EntityType;
+
+import java.nio.charset.StandardCharsets;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.*;
 
 public class Lookup extends Queue {
 

@@ -1,14 +1,13 @@
 package net.coreprotect.database.statement;
 
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.Statement;
-
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.utility.Util;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.utility.Util;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
 
 public class SignStatement {
 

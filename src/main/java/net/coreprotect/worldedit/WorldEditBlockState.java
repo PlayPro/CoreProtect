@@ -1,8 +1,5 @@
 package net.coreprotect.worldedit;
 
-import java.util.Collection;
-import java.util.List;
-
 import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -15,6 +12,9 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.material.MaterialData;
 import org.bukkit.metadata.MetadataValue;
 import org.bukkit.plugin.Plugin;
+
+import java.util.Collection;
+import java.util.List;
 
 public final class WorldEditBlockState implements BlockState {
 

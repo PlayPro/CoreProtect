@@ -1,5 +1,11 @@
 package net.coreprotect.database.statement;
 
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
+import org.bukkit.block.BlockState;
+import org.bukkit.util.io.BukkitObjectInputStream;
+import org.bukkit.util.io.BukkitObjectOutputStream;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.sql.PreparedStatement;
@@ -7,13 +13,6 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
-
-import org.bukkit.block.BlockState;
-import org.bukkit.util.io.BukkitObjectInputStream;
-import org.bukkit.util.io.BukkitObjectOutputStream;
-
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.database.Database;
 
 public class EntityStatement {
 

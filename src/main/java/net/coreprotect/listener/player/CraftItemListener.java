@@ -1,9 +1,10 @@
 package net.coreprotect.listener.player;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.logger.ItemLogger;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -17,19 +18,11 @@ import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.inventory.InventoryType.SlotType;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.MerchantInventory;
-import org.bukkit.inventory.MerchantRecipe;
-import org.bukkit.inventory.Recipe;
-import org.bukkit.inventory.ShapedRecipe;
-import org.bukkit.inventory.ShapelessRecipe;
+import org.bukkit.inventory.*;
 
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.config.Config;
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.database.logger.ItemLogger;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 public final class CraftItemListener extends Queue implements Listener {
 

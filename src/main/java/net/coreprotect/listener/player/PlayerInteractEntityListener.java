@@ -1,10 +1,11 @@
 package net.coreprotect.listener.player;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale;
-
+import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.logger.ItemLogger;
+import net.coreprotect.model.BlockGroup;
+import net.coreprotect.utility.Util;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Creature;
@@ -19,12 +20,10 @@ import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
-import net.coreprotect.config.Config;
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.database.logger.ItemLogger;
-import net.coreprotect.model.BlockGroup;
-import net.coreprotect.utility.Util;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
 
 public final class PlayerInteractEntityListener extends Queue implements Listener {
 

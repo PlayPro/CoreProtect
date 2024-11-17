@@ -1,8 +1,9 @@
 package net.coreprotect.listener.block;
 
-import java.util.ArrayList;
-import java.util.List;
-
+import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.utility.Util;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -15,10 +16,8 @@ import org.bukkit.event.block.BlockPistonEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 
-import net.coreprotect.config.Config;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.Util;
+import java.util.ArrayList;
+import java.util.List;
 
 public final class BlockPistonListener extends Queue implements Listener {
 

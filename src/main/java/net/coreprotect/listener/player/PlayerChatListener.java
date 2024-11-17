@@ -1,13 +1,12 @@
 package net.coreprotect.listener.player;
 
+import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Queue;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
-
-import net.coreprotect.config.Config;
-import net.coreprotect.consumer.Queue;
 
 public final class PlayerChatListener extends Queue implements Listener {
 

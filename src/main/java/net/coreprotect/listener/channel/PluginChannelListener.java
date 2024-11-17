@@ -1,14 +1,5 @@
 package net.coreprotect.listener.channel;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.util.Random;
-
-import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
-import org.bukkit.event.Listener;
-
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.language.Phrase;
@@ -16,6 +7,14 @@ import net.coreprotect.language.Selector;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.event.Listener;
+
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.util.Random;
 
 public class PluginChannelListener implements Listener {
 

@@ -1,10 +1,10 @@
 package net.coreprotect.language;
 
+import net.coreprotect.utility.Color;
+
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
-
-import net.coreprotect.utility.Color;
 
 public class Selector {
 

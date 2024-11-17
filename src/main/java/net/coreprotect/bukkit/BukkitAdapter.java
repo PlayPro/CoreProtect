@@ -8,6 +8,7 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Directional;
+import org.bukkit.block.data.FaceAttachable;
 import org.bukkit.entity.*;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -40,10 +41,8 @@ public class BukkitAdapter implements BukkitInterface {
             case BUKKIT_V1_13:
             case BUKKIT_V1_14:
             case BUKKIT_V1_15:
-                BukkitAdapter.ADAPTER = new BukkitAdapter();
-                break;
             case BUKKIT_V1_16:
-                BukkitAdapter.ADAPTER = new Bukkit_v1_16();
+                BukkitAdapter.ADAPTER = new BukkitAdapter();
                 break;
             case BUKKIT_V1_17:
                 BukkitAdapter.ADAPTER = new Bukkit_v1_17();
@@ -96,16 +95,29 @@ public class BukkitAdapter implements BukkitInterface {
 
     @Override
     public boolean isAttached(Block block, Block scanBlock, BlockData blockData, int scanMin) {
-        if (blockData instanceof Directional) {
-            return (scanMin < 5 && scanBlock.getRelative(((Directional) blockData).getFacing().getOppositeFace()).getLocation().equals(block.getLocation()));
+        if (blockData instanceof Directional && blockData instanceof FaceAttachable) {
+            Directional directional = (Directional) blockData;
+            FaceAttachable faceAttachable = (FaceAttachable) blockData;
+
+            boolean scanButton = false;
+            switch (faceAttachable.getAttachedFace()) {
+                case WALL:
+                    scanButton = (scanMin < 5 && scanBlock.getRelative(directional.getFacing().getOppositeFace()).getLocation().equals(block.getLocation()));
+                    break;
+                case FLOOR:
+                    scanButton = (scanMin == 5);
+                    break;
+                case CEILING:
+                    scanButton = (scanMin == 6);
+                    break;
+                default:
+                    break;
+            }
+
+            return scanButton;
         }
 
         return true; // unvalidated attachments default to true
-    }
-
-    @Override
-    public boolean isWall(BlockData blockData) {
-        return false;
     }
 
     @Override

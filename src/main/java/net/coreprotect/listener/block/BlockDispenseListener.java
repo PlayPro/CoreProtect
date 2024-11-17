@@ -1,7 +1,12 @@
 package net.coreprotect.listener.block;
 
-import java.util.Arrays;
-
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.listener.player.InventoryChangeListener;
+import net.coreprotect.model.BlockGroup;
+import net.coreprotect.paper.listener.BlockPreDispenseListener;
+import net.coreprotect.thread.CacheHandler;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -19,13 +24,7 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.config.Config;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.listener.player.InventoryChangeListener;
-import net.coreprotect.model.BlockGroup;
-import net.coreprotect.paper.listener.BlockPreDispenseListener;
-import net.coreprotect.thread.CacheHandler;
+import java.util.Arrays;
 
 public final class BlockDispenseListener extends Queue implements Listener {
 

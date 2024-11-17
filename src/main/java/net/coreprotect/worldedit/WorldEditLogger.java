@@ -1,7 +1,17 @@
 package net.coreprotect.worldedit;
 
-import java.util.Locale;
-
+import com.sk89q.jnbt.CompoundTag;
+import com.sk89q.jnbt.NBTUtils;
+import com.sk89q.worldedit.bukkit.BukkitAdapter;
+import com.sk89q.worldedit.bukkit.WorldEditPlugin;
+import com.sk89q.worldedit.extension.platform.Actor;
+import com.sk89q.worldedit.extent.Extent;
+import com.sk89q.worldedit.math.BlockVector3;
+import com.sk89q.worldedit.world.block.BaseBlock;
+import com.sk89q.worldedit.world.block.BlockStateHolder;
+import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.utility.Util;
 import org.bukkit.DyeColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -17,19 +27,7 @@ import org.bukkit.plugin.Plugin;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 
-import com.sk89q.jnbt.CompoundTag;
-import com.sk89q.jnbt.NBTUtils;
-import com.sk89q.worldedit.bukkit.BukkitAdapter;
-import com.sk89q.worldedit.bukkit.WorldEditPlugin;
-import com.sk89q.worldedit.extension.platform.Actor;
-import com.sk89q.worldedit.extent.Extent;
-import com.sk89q.worldedit.math.BlockVector3;
-import com.sk89q.worldedit.world.block.BaseBlock;
-import com.sk89q.worldedit.world.block.BlockStateHolder;
-
-import net.coreprotect.config.Config;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.utility.Util;
+import java.util.Locale;
 
 public class WorldEditLogger extends Queue {
 

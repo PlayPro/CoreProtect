@@ -1,5 +1,8 @@
 package net.coreprotect.listener.player;
 
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.listener.entity.EntityPickupItemListener;
 import org.bukkit.Material;
 import org.bukkit.entity.AbstractArrow;
 import org.bukkit.entity.Arrow;
@@ -8,10 +11,6 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerPickupArrowEvent;
 import org.bukkit.inventory.ItemStack;
-
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.listener.entity.EntityPickupItemListener;
 
 public final class PlayerPickupArrowListener extends Queue implements Listener {
 

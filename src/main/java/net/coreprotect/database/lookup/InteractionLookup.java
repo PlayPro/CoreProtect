@@ -1,13 +1,5 @@
 package net.coreprotect.database.lookup;
 
-import java.sql.ResultSet;
-import java.sql.Statement;
-import java.util.Locale;
-
-import org.bukkit.Material;
-import org.bukkit.block.Block;
-import org.bukkit.command.CommandSender;
-
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
@@ -15,6 +7,13 @@ import net.coreprotect.language.Selector;
 import net.coreprotect.listener.channel.PluginChannelListener;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
+import org.bukkit.Material;
+import org.bukkit.block.Block;
+import org.bukkit.command.CommandSender;
+
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.Locale;
 
 public class InteractionLookup {
 

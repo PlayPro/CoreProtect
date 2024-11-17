@@ -1,9 +1,9 @@
 package net.coreprotect.database.statement;
 
+import net.coreprotect.utility.Util;
+
 import java.sql.PreparedStatement;
 import java.util.List;
-
-import net.coreprotect.utility.Util;
 
 public class BlockStatement {
 

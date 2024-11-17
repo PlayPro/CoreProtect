@@ -1,5 +1,10 @@
 package net.coreprotect.listener.player;
 
+import net.coreprotect.CoreProtect;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.Util;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -10,12 +15,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
-
-import net.coreprotect.CoreProtect;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.thread.Scheduler;
-import net.coreprotect.utility.Util;
 
 public final class FoodLevelChangeListener extends Queue implements Listener {
 

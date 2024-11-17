@@ -1,7 +1,9 @@
 package net.coreprotect.listener.entity;
 
-import java.util.Locale;
-
+import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.Database;
+import net.coreprotect.listener.player.PlayerInteractEntityListener;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.ArmorStand;
@@ -14,10 +16,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByBlockEvent;
 import org.bukkit.inventory.ItemStack;
 
-import net.coreprotect.config.Config;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.database.Database;
-import net.coreprotect.listener.player.PlayerInteractEntityListener;
+import java.util.Locale;
 
 public final class EntityDamageByBlockListener extends Queue implements Listener {
 

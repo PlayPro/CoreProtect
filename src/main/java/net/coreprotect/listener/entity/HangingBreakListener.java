@@ -1,5 +1,11 @@
 package net.coreprotect.listener.entity;
 
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.Lookup;
+import net.coreprotect.listener.player.PlayerInteractEntityListener;
+import net.coreprotect.utility.Util;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -12,13 +18,6 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.hanging.HangingBreakEvent;
 import org.bukkit.inventory.ItemStack;
-
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.config.Config;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.database.Lookup;
-import net.coreprotect.listener.player.PlayerInteractEntityListener;
-import net.coreprotect.utility.Util;
 
 public final class HangingBreakListener extends Queue implements Listener {
 

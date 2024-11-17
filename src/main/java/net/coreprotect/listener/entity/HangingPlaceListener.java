@@ -1,5 +1,10 @@
 package net.coreprotect.listener.entity;
 
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.utility.Util;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
@@ -10,12 +15,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.hanging.HangingPlaceEvent;
-
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.config.Config;
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.utility.Util;
 
 public final class HangingPlaceListener extends Queue implements Listener {
 

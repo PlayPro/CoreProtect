@@ -1,9 +1,16 @@
 package net.coreprotect.listener.entity;
 
-import java.sql.Connection;
-import java.sql.Statement;
-import java.util.Locale;
-
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.Database;
+import net.coreprotect.database.lookup.BlockLookup;
+import net.coreprotect.language.Phrase;
+import net.coreprotect.listener.player.PlayerInteractEntityListener;
+import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.Color;
+import net.coreprotect.utility.Util;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.block.BlockState;
@@ -17,17 +24,9 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.hanging.HangingBreakByEntityEvent;
 import org.bukkit.inventory.ItemStack;
 
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.config.Config;
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.database.Database;
-import net.coreprotect.database.lookup.BlockLookup;
-import net.coreprotect.language.Phrase;
-import net.coreprotect.listener.player.PlayerInteractEntityListener;
-import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import java.sql.Connection;
+import java.sql.Statement;
+import java.util.Locale;
 
 public final class HangingBreakByEntityListener extends Queue implements Listener {
 

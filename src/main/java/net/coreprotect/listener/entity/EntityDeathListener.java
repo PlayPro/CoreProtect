@@ -1,56 +1,19 @@
 package net.coreprotect.listener.entity;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-
-import org.bukkit.Bukkit;
-import org.bukkit.Color;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.World;
+import com.google.common.collect.Lists;
+import net.coreprotect.CoreProtect;
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.serialize.ItemMetaHandler;
+import org.bukkit.*;
 import org.bukkit.attribute.Attributable;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.block.Block;
-import org.bukkit.entity.AbstractArrow;
-import org.bukkit.entity.AbstractHorse;
-import org.bukkit.entity.AbstractVillager;
-import org.bukkit.entity.Ageable;
-import org.bukkit.entity.ArmorStand;
-import org.bukkit.entity.Bee;
-import org.bukkit.entity.Cat;
-import org.bukkit.entity.ChestedHorse;
-import org.bukkit.entity.Creeper;
-import org.bukkit.entity.Enderman;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Fox;
-import org.bukkit.entity.Horse;
-import org.bukkit.entity.IronGolem;
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Llama;
-import org.bukkit.entity.MushroomCow;
-import org.bukkit.entity.Panda;
-import org.bukkit.entity.Parrot;
-import org.bukkit.entity.Phantom;
-import org.bukkit.entity.Pig;
-import org.bukkit.entity.Player;
-import org.bukkit.entity.Raider;
-import org.bukkit.entity.Sheep;
-import org.bukkit.entity.Skeleton;
-import org.bukkit.entity.Slime;
-import org.bukkit.entity.Spellcaster;
-import org.bukkit.entity.Tameable;
-import org.bukkit.entity.ThrownPotion;
-import org.bukkit.entity.TropicalFish;
-import org.bukkit.entity.Villager;
-import org.bukkit.entity.Wolf;
-import org.bukkit.entity.Zombie;
-import org.bukkit.entity.ZombieVillager;
+import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -64,12 +27,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.bukkit.projectiles.ProjectileSource;
 
-import net.coreprotect.CoreProtect;
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.config.Config;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.thread.Scheduler;
-import net.coreprotect.utility.serialize.ItemMetaHandler;
+import java.util.*;
 
 public final class EntityDeathListener extends Queue implements Listener {
 
@@ -283,13 +241,12 @@ public final class EntityDeathListener extends Queue implements Listener {
 
             if (entity instanceof Attributable) {
                 Attributable attributable = entity;
-
-                for (Attribute attribute : Attribute.values()) {
+                for (Attribute attribute : Lists.newArrayList(Registry.ATTRIBUTE)) {
                     AttributeInstance attributeInstance = attributable.getAttribute(attribute);
                     if (attributeInstance != null) {
                         List<Object> attributeData = new ArrayList<>();
                         List<Object> attributeModifiers = new ArrayList<>();
-                        attributeData.add(attributeInstance.getAttribute());
+                        attributeData.add(BukkitAdapter.ADAPTER.getRegistryKey(attributeInstance.getAttribute()));
                         attributeData.add(attributeInstance.getBaseValue());
 
                         for (AttributeModifier modifier : attributeInstance.getModifiers()) {
@@ -507,11 +464,19 @@ public final class EntityDeathListener extends Queue implements Listener {
                     }
                 }
             }
-            if (entity instanceof Bee) {
+            else if (entity instanceof Bee) {
                 Bee bee = (Bee) entity;
                 info.add(bee.getAnger());
                 info.add(bee.hasNectar());
                 info.add(bee.hasStung());
+            }
+            else if (entity instanceof Piglin) {
+                Piglin piglin = (Piglin) entity;
+                info.add(piglin.isBaby());
+            }
+            else if (entity instanceof Zoglin) {
+                Zoglin zoglin = (Zoglin) entity;
+                info.add(zoglin.isBaby());
             }
             else {
                 BukkitAdapter.ADAPTER.getEntityMeta(entity, info);

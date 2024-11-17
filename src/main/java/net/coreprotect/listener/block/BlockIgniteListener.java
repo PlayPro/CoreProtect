@@ -1,5 +1,13 @@
 package net.coreprotect.listener.block;
 
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.logger.ItemLogger;
+import net.coreprotect.listener.player.ProjectileLaunchListener;
+import net.coreprotect.model.BlockGroup;
+import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.utility.Util;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -15,15 +23,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.block.BlockIgniteEvent.IgniteCause;
 import org.bukkit.inventory.ItemStack;
-
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.config.Config;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.database.logger.ItemLogger;
-import net.coreprotect.listener.player.ProjectileLaunchListener;
-import net.coreprotect.model.BlockGroup;
-import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.Util;
 
 public final class BlockIgniteListener extends Queue implements Listener {
 

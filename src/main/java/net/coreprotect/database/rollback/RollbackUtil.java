@@ -1,9 +1,9 @@
 package net.coreprotect.database.rollback;
 
-import java.io.ByteArrayInputStream;
-import java.util.List;
-import java.util.Map;
-
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.database.Lookup;
+import net.coreprotect.model.BlockGroup;
+import net.coreprotect.utility.Util;
 import org.bukkit.FireworkEffect;
 import org.bukkit.FireworkEffect.Builder;
 import org.bukkit.Material;
@@ -18,23 +18,13 @@ import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
-import org.bukkit.inventory.meta.BannerMeta;
-import org.bukkit.inventory.meta.BlockStateMeta;
-import org.bukkit.inventory.meta.CrossbowMeta;
-import org.bukkit.inventory.meta.FireworkEffectMeta;
-import org.bukkit.inventory.meta.FireworkMeta;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.inventory.meta.LeatherArmorMeta;
-import org.bukkit.inventory.meta.MapMeta;
-import org.bukkit.inventory.meta.PotionMeta;
-import org.bukkit.inventory.meta.SuspiciousStewMeta;
+import org.bukkit.inventory.meta.*;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.util.io.BukkitObjectInputStream;
 
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.database.Lookup;
-import net.coreprotect.model.BlockGroup;
-import net.coreprotect.utility.Util;
+import java.io.ByteArrayInputStream;
+import java.util.List;
+import java.util.Map;
 
 public class RollbackUtil extends Lookup {
 

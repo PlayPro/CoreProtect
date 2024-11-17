@@ -1,13 +1,12 @@
 package net.coreprotect.database.logger;
 
-import java.sql.PreparedStatement;
-import java.util.Locale;
-
-import org.bukkit.Location;
-
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.SessionStatement;
 import net.coreprotect.utility.Util;
+import org.bukkit.Location;
+
+import java.sql.PreparedStatement;
+import java.util.Locale;
 
 public class PlayerSessionLogger {
 

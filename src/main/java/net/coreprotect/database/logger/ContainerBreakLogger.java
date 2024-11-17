@@ -1,14 +1,13 @@
 package net.coreprotect.database.logger;
 
-import java.sql.PreparedStatement;
-import java.util.Locale;
-
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.utility.Util;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.utility.Util;
+import java.sql.PreparedStatement;
+import java.util.Locale;
 
 public class ContainerBreakLogger {
 

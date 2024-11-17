@@ -1,26 +1,19 @@
 package net.coreprotect.listener.block;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.Database;
+import net.coreprotect.model.BlockGroup;
+import net.coreprotect.paper.PaperAdapter;
+import net.coreprotect.utility.Util;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.block.Banner;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
-import org.bukkit.block.BlockState;
-import org.bukkit.block.Sign;
-import org.bukkit.block.Skull;
-import org.bukkit.block.data.Bisected;
-import org.bukkit.block.data.BlockData;
-import org.bukkit.block.data.Directional;
-import org.bukkit.block.data.MultipleFacing;
-import org.bukkit.block.data.Rail;
+import org.bukkit.block.*;
+import org.bukkit.block.data.*;
 import org.bukkit.block.data.Rail.Shape;
-import org.bukkit.block.data.Waterlogged;
 import org.bukkit.block.data.type.Bed;
 import org.bukkit.block.data.type.Bell;
 import org.bukkit.block.data.type.Lantern;
@@ -32,13 +25,9 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.inventory.ItemStack;
 
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.config.Config;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.database.Database;
-import net.coreprotect.model.BlockGroup;
-import net.coreprotect.paper.PaperAdapter;
-import net.coreprotect.utility.Util;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 public final class BlockBreakListener extends Queue implements Listener {
 

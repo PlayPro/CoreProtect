@@ -1,5 +1,11 @@
 package net.coreprotect.listener.block;
 
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.model.BlockGroup;
+import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.utility.Util;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -8,13 +14,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockSpreadEvent;
-
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.config.Config;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.model.BlockGroup;
-import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.Util;
 
 public final class BlockSpreadListener extends Queue implements Listener {
 

@@ -1,21 +1,20 @@
 package net.coreprotect.database.rollback;
 
+import net.coreprotect.language.Phrase;
+import net.coreprotect.language.Selector;
+import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.Color;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.EntityType;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.NumberFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.command.CommandSender;
-import org.bukkit.entity.EntityType;
-
-import net.coreprotect.language.Phrase;
-import net.coreprotect.language.Selector;
-import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.Color;
 
 public class RollbackComplete {
 

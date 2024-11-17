@@ -1,8 +1,8 @@
 package net.coreprotect.database.statement;
 
-import java.sql.PreparedStatement;
-
 import net.coreprotect.utility.Util;
+
+import java.sql.PreparedStatement;
 
 public class ItemStatement {
 

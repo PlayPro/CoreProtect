@@ -1,23 +1,29 @@
 package net.coreprotect.listener.player;
 
-import java.sql.Connection;
-import java.sql.Statement;
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
+import net.coreprotect.CoreProtect;
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.Database;
+import net.coreprotect.database.lookup.BlockLookup;
+import net.coreprotect.database.lookup.ChestTransactionLookup;
+import net.coreprotect.database.lookup.InteractionLookup;
+import net.coreprotect.database.lookup.SignMessageLookup;
+import net.coreprotect.language.Phrase;
+import net.coreprotect.listener.block.CampfireStartListener;
+import net.coreprotect.model.BlockGroup;
+import net.coreprotect.paper.PaperAdapter;
+import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.Color;
+import net.coreprotect.utility.Util;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockState;
-import org.bukkit.block.Chest;
-import org.bukkit.block.DoubleChest;
-import org.bukkit.block.Jukebox;
-import org.bukkit.block.Sign;
+import org.bukkit.block.*;
 import org.bukkit.block.data.Bisected;
 import org.bukkit.block.data.Bisected.Half;
 import org.bukkit.block.data.BlockData;
@@ -40,25 +46,13 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
-import net.coreprotect.CoreProtect;
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.config.Config;
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.database.Database;
-import net.coreprotect.database.lookup.BlockLookup;
-import net.coreprotect.database.lookup.ChestTransactionLookup;
-import net.coreprotect.database.lookup.InteractionLookup;
-import net.coreprotect.database.lookup.SignMessageLookup;
-import net.coreprotect.language.Phrase;
-import net.coreprotect.listener.block.CampfireStartListener;
-import net.coreprotect.model.BlockGroup;
-import net.coreprotect.paper.PaperAdapter;
-import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.thread.Scheduler;
-import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import java.sql.Connection;
+import java.sql.Statement;
+import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class PlayerInteractListener extends Queue implements Listener {
 

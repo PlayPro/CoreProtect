@@ -1,23 +1,14 @@
 package net.coreprotect.listener.entity;
 
+import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.listener.block.BlockExplodeListener;
 import org.bukkit.World;
-import org.bukkit.entity.Creeper;
-import org.bukkit.entity.EnderCrystal;
-import org.bukkit.entity.EnderDragon;
-import org.bukkit.entity.EnderDragonPart;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.Minecart;
-import org.bukkit.entity.TNTPrimed;
-import org.bukkit.entity.Wither;
-import org.bukkit.entity.WitherSkull;
+import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityExplodeEvent;
-
-import net.coreprotect.config.Config;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.listener.block.BlockExplodeListener;
 
 public final class EntityExplodeListener extends Queue implements Listener {
 

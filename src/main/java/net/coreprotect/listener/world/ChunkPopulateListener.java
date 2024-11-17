@@ -1,12 +1,11 @@
 package net.coreprotect.listener.world;
 
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Queue;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.world.ChunkPopulateEvent;
-
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.Queue;
 
 public final class ChunkPopulateListener extends Queue implements Listener {
 

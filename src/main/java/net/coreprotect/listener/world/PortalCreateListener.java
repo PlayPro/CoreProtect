@@ -1,5 +1,9 @@
 package net.coreprotect.listener.world;
 
+import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.Lookup;
+import net.coreprotect.utility.Util;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.BlockState;
@@ -7,11 +11,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.world.PortalCreateEvent;
-
-import net.coreprotect.config.Config;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.database.Lookup;
-import net.coreprotect.utility.Util;
 
 public final class PortalCreateListener extends Queue implements Listener {
 

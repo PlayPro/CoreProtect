@@ -1,9 +1,5 @@
 package net.coreprotect.worldedit;
 
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.inventory.ItemStack;
-
 import com.sk89q.worldedit.MaxChangedBlocksException;
 import com.sk89q.worldedit.WorldEditException;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
@@ -18,9 +14,11 @@ import com.sk89q.worldedit.world.World;
 import com.sk89q.worldedit.world.block.BaseBlock;
 import com.sk89q.worldedit.world.block.BlockState;
 import com.sk89q.worldedit.world.block.BlockStateHolder;
-
 import net.coreprotect.config.Config;
 import net.coreprotect.utility.Util;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.inventory.ItemStack;
 
 public class CoreProtectLogger extends AbstractDelegateExtent {
     private final Actor eventActor;

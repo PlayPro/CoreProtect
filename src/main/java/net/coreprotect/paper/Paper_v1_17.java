@@ -3,7 +3,7 @@ package net.coreprotect.paper;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.block.Sign;
 
-public class Paper_v1_17 extends Paper_v1_16 implements PaperInterface {
+public class Paper_v1_17 extends PaperHandler implements PaperInterface {
 
     @Override
     public String getLine(Sign sign, int line) {

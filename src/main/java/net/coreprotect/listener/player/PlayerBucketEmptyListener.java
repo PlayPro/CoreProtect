@@ -1,5 +1,10 @@
 package net.coreprotect.listener.player;
 
+import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.utility.Util;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -9,12 +14,6 @@ import org.bukkit.block.data.Waterlogged;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-
-import net.coreprotect.config.Config;
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.Util;
 
 public final class PlayerBucketEmptyListener extends Queue implements Listener {
 

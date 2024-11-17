@@ -1,14 +1,8 @@
 package net.coreprotect.listener.world;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.Tag;
-import org.bukkit.TreeType;
-import org.bukkit.World;
+import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Queue;
+import org.bukkit.*;
 import org.bukkit.block.BlockState;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -16,8 +10,9 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.world.StructureGrowEvent;
 
-import net.coreprotect.config.Config;
-import net.coreprotect.consumer.Queue;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 public final class StructureGrowListener extends Queue implements Listener {
 

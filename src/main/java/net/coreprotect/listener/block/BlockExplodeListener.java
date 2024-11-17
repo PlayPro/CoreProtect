@@ -1,11 +1,11 @@
 package net.coreprotect.listener.block;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Map.Entry;
-
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.Database;
+import net.coreprotect.model.BlockGroup;
+import net.coreprotect.paper.PaperAdapter;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -20,12 +20,11 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockExplodeEvent;
 
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.config.Config;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.database.Database;
-import net.coreprotect.model.BlockGroup;
-import net.coreprotect.paper.PaperAdapter;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Map.Entry;
 
 public final class BlockExplodeListener extends Queue implements Listener {
 

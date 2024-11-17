@@ -38,7 +38,7 @@ public class ConfigHandler extends Queue {
     public static final String EDITION_NAME = Util.getPluginName();
     public static final String COMMUNITY_EDITION = "Community Edition";
     public static final String JAVA_VERSION = "11.0";
-    public static final String MINECRAFT_VERSION = "1.15";
+    public static final String MINECRAFT_VERSION = "1.16";
     public static final String LATEST_VERSION = "1.21";
     public static String path = "plugins/CoreProtect/";
     public static String sqlite = "database.db";

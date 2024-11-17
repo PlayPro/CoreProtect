@@ -1,14 +1,14 @@
 package net.coreprotect.language;
 
+import net.coreprotect.utility.ChatMessage;
+import net.coreprotect.utility.Color;
+import net.coreprotect.utility.Util;
+
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import net.coreprotect.utility.ChatMessage;
-import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
 
 public enum Phrase {
 

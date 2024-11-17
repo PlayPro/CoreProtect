@@ -1,5 +1,9 @@
 package net.coreprotect.listener.block;
 
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.listener.player.PlayerDropItemListener;
+import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.utility.Util;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.event.EventHandler;
@@ -7,11 +11,6 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.CampfireStartEvent;
 import org.bukkit.inventory.ItemStack;
-
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.listener.player.PlayerDropItemListener;
-import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.Util;
 
 public final class CampfireStartListener extends Queue implements Listener {
 

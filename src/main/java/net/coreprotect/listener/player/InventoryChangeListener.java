@@ -1,12 +1,14 @@
 package net.coreprotect.listener.player;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
-
+import net.coreprotect.CoreProtect;
+import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.model.BlockGroup;
+import net.coreprotect.paper.PaperAdapter;
+import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.Util;
+import net.coreprotect.utility.Validate;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -21,18 +23,15 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.inventory.*;
-
-import net.coreprotect.CoreProtect;
-import net.coreprotect.config.Config;
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.model.BlockGroup;
-import net.coreprotect.paper.PaperAdapter;
-import net.coreprotect.thread.Scheduler;
-import net.coreprotect.utility.Util;
-import net.coreprotect.utility.Validate;
 import us.lynuxcraft.deadsilenceiv.advancedchests.AdvancedChestsAPI;
 import us.lynuxcraft.deadsilenceiv.advancedchests.chest.AdvancedChest;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 public final class InventoryChangeListener extends Queue implements Listener {
 

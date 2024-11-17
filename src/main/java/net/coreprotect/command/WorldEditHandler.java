@@ -1,15 +1,13 @@
 package net.coreprotect.command;
 
-import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
-
 import com.sk89q.worldedit.LocalSession;
 import com.sk89q.worldedit.bukkit.WorldEditPlugin;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.regions.Region;
 import com.sk89q.worldedit.world.World;
-
 import net.coreprotect.worldedit.WorldEditLogger;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 
 public class WorldEditHandler {
 

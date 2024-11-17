@@ -1,14 +1,13 @@
 package net.coreprotect.paper.listener;
 
-import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
-import org.bukkit.event.Listener;
-
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
 
 public final class PaperChatListener extends Queue implements Listener {
 

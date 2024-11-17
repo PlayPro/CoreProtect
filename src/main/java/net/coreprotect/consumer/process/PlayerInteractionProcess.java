@@ -1,11 +1,10 @@
 package net.coreprotect.consumer.process;
 
-import java.sql.PreparedStatement;
-
+import net.coreprotect.database.logger.PlayerInteractLogger;
 import org.bukkit.Material;
 import org.bukkit.block.BlockState;
 
-import net.coreprotect.database.logger.PlayerInteractLogger;
+import java.sql.PreparedStatement;
 
 class PlayerInteractionProcess {
 

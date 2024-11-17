@@ -1,5 +1,9 @@
 package net.coreprotect.paper.listener;
 
+import io.papermc.paper.event.block.BlockPreDispenseEvent;
+import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.listener.player.InventoryChangeListener;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -10,11 +14,6 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
-
-import io.papermc.paper.event.block.BlockPreDispenseEvent;
-import net.coreprotect.config.Config;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.listener.player.InventoryChangeListener;
 
 public final class BlockPreDispenseListener extends Queue implements Listener {
 

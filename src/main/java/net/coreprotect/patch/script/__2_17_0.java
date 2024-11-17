@@ -1,9 +1,9 @@
 package net.coreprotect.patch.script;
 
-import java.sql.Statement;
-
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+
+import java.sql.Statement;
 
 public class __2_17_0 {
 

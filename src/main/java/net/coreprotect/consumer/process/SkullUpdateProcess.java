@@ -1,12 +1,11 @@
 package net.coreprotect.consumer.process;
 
-import java.sql.Statement;
-
-import org.bukkit.block.BlockState;
-
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.SkullStatement;
 import net.coreprotect.utility.Util;
+import org.bukkit.block.BlockState;
+
+import java.sql.Statement;
 
 class SkullUpdateProcess {
 

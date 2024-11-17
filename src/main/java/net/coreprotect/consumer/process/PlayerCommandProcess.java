@@ -1,12 +1,11 @@
 package net.coreprotect.consumer.process;
 
-import java.sql.PreparedStatement;
-import java.util.Map;
-
-import org.bukkit.Location;
-
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.logger.CommandLogger;
+import org.bukkit.Location;
+
+import java.sql.PreparedStatement;
+import java.util.Map;
 
 class PlayerCommandProcess {
 

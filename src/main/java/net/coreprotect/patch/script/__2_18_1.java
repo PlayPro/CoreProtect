@@ -1,8 +1,8 @@
 package net.coreprotect.patch.script;
 
-import java.sql.Statement;
-
 import net.coreprotect.patch.Patch;
+
+import java.sql.Statement;
 
 public class __2_18_1 {
 

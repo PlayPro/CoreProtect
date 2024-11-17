@@ -1,14 +1,13 @@
 package net.coreprotect.consumer.process;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.util.Map;
-
-import org.bukkit.Location;
-
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.logger.PlayerSessionLogger;
 import net.coreprotect.database.logger.UsernameLogger;
+import org.bukkit.Location;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.util.Map;
 
 class PlayerLoginProcess {
 

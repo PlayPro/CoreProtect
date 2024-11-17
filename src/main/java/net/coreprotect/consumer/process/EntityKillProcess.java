@@ -1,15 +1,14 @@
 package net.coreprotect.consumer.process;
 
-import java.sql.PreparedStatement;
-import java.util.List;
-import java.util.Map;
-
-import org.bukkit.block.BlockState;
-import org.bukkit.entity.EntityType;
-
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.logger.EntityKillLogger;
 import net.coreprotect.utility.Util;
+import org.bukkit.block.BlockState;
+import org.bukkit.entity.EntityType;
+
+import java.sql.PreparedStatement;
+import java.util.List;
+import java.util.Map;
 
 class EntityKillProcess {
 

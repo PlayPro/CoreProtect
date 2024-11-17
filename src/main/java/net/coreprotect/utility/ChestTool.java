@@ -1,14 +1,13 @@
 package net.coreprotect.utility;
 
+import net.coreprotect.CoreProtect;
+import net.coreprotect.thread.Scheduler;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.type.Chest;
 import org.bukkit.block.data.type.Chest.Type;
-
-import net.coreprotect.CoreProtect;
-import net.coreprotect.thread.Scheduler;
 
 public class ChestTool {
 

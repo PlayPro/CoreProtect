@@ -1,15 +1,14 @@
 package net.coreprotect.consumer.process;
 
-import java.sql.PreparedStatement;
-import java.util.List;
-
+import net.coreprotect.database.logger.BlockBreakLogger;
+import net.coreprotect.database.logger.SkullBreakLogger;
+import net.coreprotect.utility.Util;
 import org.bukkit.Material;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Skull;
 
-import net.coreprotect.database.logger.BlockBreakLogger;
-import net.coreprotect.database.logger.SkullBreakLogger;
-import net.coreprotect.utility.Util;
+import java.sql.PreparedStatement;
+import java.util.List;
 
 class BlockBreakProcess {
 

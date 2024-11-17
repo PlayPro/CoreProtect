@@ -1,15 +1,14 @@
 package net.coreprotect.spigot;
 
-import java.util.regex.Matcher;
-
-import org.bukkit.command.CommandSender;
-import org.bukkit.command.ConsoleCommandSender;
-
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Util;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.TextComponent;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.ConsoleCommandSender;
+
+import java.util.regex.Matcher;
 
 public class SpigotHandler extends SpigotAdapter implements SpigotInterface {
 

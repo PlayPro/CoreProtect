@@ -1,31 +1,17 @@
 package net.coreprotect.config;
 
-import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
+import net.coreprotect.CoreProtect;
+import net.coreprotect.language.Language;
+import net.coreprotect.language.Phrase;
+
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.TreeMap;
-
-import net.coreprotect.CoreProtect;
-import net.coreprotect.language.Language;
-import net.coreprotect.language.Phrase;
 
 public class ConfigFile extends Config {
 

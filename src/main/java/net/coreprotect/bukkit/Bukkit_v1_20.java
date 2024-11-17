@@ -1,8 +1,6 @@
 package net.coreprotect.bukkit;
 
-import java.util.Arrays;
-import java.util.HashSet;
-
+import net.coreprotect.model.BlockGroup;
 import org.bukkit.Color;
 import org.bukkit.DyeColor;
 import org.bukkit.Material;
@@ -19,7 +17,8 @@ import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionType;
 
-import net.coreprotect.model.BlockGroup;
+import java.util.Arrays;
+import java.util.HashSet;
 
 public class Bukkit_v1_20 extends Bukkit_v1_19 implements BukkitInterface {
 

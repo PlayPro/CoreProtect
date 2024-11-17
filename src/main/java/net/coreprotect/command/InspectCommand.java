@@ -1,12 +1,11 @@
 package net.coreprotect.command;
 
-import org.bukkit.command.CommandSender;
-
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
+import org.bukkit.command.CommandSender;
 
 public class InspectCommand {
     protected static void runCommand(CommandSender player, boolean permission, String[] args) {

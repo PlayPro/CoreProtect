@@ -1,19 +1,17 @@
 package net.coreprotect.paper;
 
-import java.net.URI;
-import java.net.URL;
-import java.util.UUID;
-
+import com.destroystokyo.paper.profile.PlayerProfile;
+import net.coreprotect.config.Config;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 import org.bukkit.block.sign.Side;
 import org.bukkit.profile.PlayerTextures;
 
-import com.destroystokyo.paper.profile.PlayerProfile;
-
-import net.coreprotect.config.Config;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import java.net.URI;
+import java.net.URL;
+import java.util.UUID;
 
 public class Paper_v1_20 extends Paper_v1_17 implements PaperInterface {
 

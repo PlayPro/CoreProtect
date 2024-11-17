@@ -4,7 +4,7 @@
   <artifactId>CoreProtect</artifactId>
   <version>22.4</version>
   <properties>
-    <project.branch></project.branch>
+    <project.branch>development</project.branch>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
   <build>
@@ -177,20 +177,6 @@
           <artifactId>AdvancedChestsAPI</artifactId>
           <version>3.2-BETA</version>
           <scope>provided</scope>
-      </dependency>
-      <dependency>
-          <groupId>me.lucko</groupId>
-          <artifactId>helper</artifactId>
-          <version>5.6.13</version>
-          <scope>system</scope>
-          <systemPath>${user.home}/Documents/Nandod/ChunkHoppersPlugin_1/ChunkHoppersPlugin/lib/helper.jar</systemPath>
-      </dependency>
-      <dependency>
-          <groupId>plugin.chunkhoppers.chunkhoppers</groupId>
-          <artifactId>ChunkHoppersPlugin</artifactId>
-          <version>1.0</version>
-          <scope>system</scope>
-          <systemPath>${user.home}/Documents/Nandod/ChunkHoppersPlugin_1/ChunkHoppersPlugin/target/ChunkHoppersPlugin-1.0-SNAPSHOT.jar</systemPath>
       </dependency>
   </dependencies>
 </project>

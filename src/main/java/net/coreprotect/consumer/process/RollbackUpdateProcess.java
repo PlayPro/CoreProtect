@@ -1,12 +1,12 @@
 package net.coreprotect.consumer.process;
 
-import java.sql.Statement;
-import java.util.List;
-import java.util.Map;
-
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.Database;
 import net.coreprotect.utility.Util;
+
+import java.sql.Statement;
+import java.util.List;
+import java.util.Map;
 
 class RollbackUpdateProcess {
 

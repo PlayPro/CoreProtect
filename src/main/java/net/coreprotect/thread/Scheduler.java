@@ -1,15 +1,14 @@
 package net.coreprotect.thread;
 
-import java.util.concurrent.TimeUnit;
-
+import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
+import net.coreprotect.CoreProtect;
+import net.coreprotect.config.ConfigHandler;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.scheduler.BukkitTask;
 
-import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
-import net.coreprotect.CoreProtect;
-import net.coreprotect.config.ConfigHandler;
+import java.util.concurrent.TimeUnit;
 
 public class Scheduler {
 

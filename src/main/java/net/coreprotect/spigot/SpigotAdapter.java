@@ -1,13 +1,12 @@
 package net.coreprotect.spigot;
 
-import java.util.regex.Matcher;
-
-import org.bukkit.command.CommandSender;
-
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Util;
+import org.bukkit.command.CommandSender;
+
+import java.util.regex.Matcher;
 
 public class SpigotAdapter implements SpigotInterface {
 

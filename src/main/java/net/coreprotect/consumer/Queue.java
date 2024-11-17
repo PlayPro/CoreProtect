@@ -1,8 +1,14 @@
 package net.coreprotect.consumer;
 
-import java.util.ArrayList;
-import java.util.List;
-
+import net.coreprotect.CoreProtect;
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.process.Process;
+import net.coreprotect.listener.block.BlockUtil;
+import net.coreprotect.model.BlockGroup;
+import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.Util;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -17,15 +23,8 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
-import net.coreprotect.CoreProtect;
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.config.Config;
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.process.Process;
-import net.coreprotect.listener.block.BlockUtil;
-import net.coreprotect.model.BlockGroup;
-import net.coreprotect.thread.Scheduler;
-import net.coreprotect.utility.Util;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Queue {
 

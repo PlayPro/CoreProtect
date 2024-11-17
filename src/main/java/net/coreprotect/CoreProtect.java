@@ -46,14 +46,8 @@ public final class CoreProtect extends JavaPlugin {
 
     private boolean advancedChestsEnabled = false;
 
-    private boolean chunkHoppersEnabled = false;
-
     public boolean isAdvancedChests(){
         return advancedChestsEnabled;
-    }
-
-    public boolean isChunkHoppersEnabled(){
-        return chunkHoppersEnabled;
     }
 
     private CoreProtectAPI api = new CoreProtectAPI();
@@ -76,7 +70,6 @@ public final class CoreProtect extends JavaPlugin {
         boolean start = performVersionChecks();
         if (start) {
             advancedChestsEnabled = getServer().getPluginManager().getPlugin("AdvancedChests") != null;
-            chunkHoppersEnabled = getServer().getPluginManager().getPlugin("ChunkHoppers") != null;
             try {
                 Consumer.initialize(); // Prepare consumer (keep this here)
                 new ListenerHandler(this);

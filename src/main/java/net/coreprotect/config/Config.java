@@ -1,26 +1,18 @@
 package net.coreprotect.config;
 
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStreamWriter;
+import net.coreprotect.CoreProtect;
+import net.coreprotect.language.Language;
+import net.coreprotect.thread.Scheduler;
+import org.bukkit.Bukkit;
+import org.bukkit.World;
+
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.WeakHashMap;
 import java.util.concurrent.CompletableFuture;
-
-import org.bukkit.Bukkit;
-import org.bukkit.World;
-
-import net.coreprotect.CoreProtect;
-import net.coreprotect.language.Language;
-import net.coreprotect.thread.Scheduler;
 
 public class Config extends Language {
 

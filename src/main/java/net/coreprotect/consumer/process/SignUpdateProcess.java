@@ -1,13 +1,12 @@
 package net.coreprotect.consumer.process;
 
-import java.sql.Statement;
-import java.util.Locale;
-
-import org.bukkit.block.BlockState;
-
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.SignStatement;
 import net.coreprotect.utility.Util;
+import org.bukkit.block.BlockState;
+
+import java.sql.Statement;
+import java.util.Locale;
 
 class SignUpdateProcess {
 

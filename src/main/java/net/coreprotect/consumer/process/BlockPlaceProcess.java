@@ -1,14 +1,13 @@
 package net.coreprotect.consumer.process;
 
-import java.sql.PreparedStatement;
-import java.util.List;
-
-import org.bukkit.Material;
-import org.bukkit.block.BlockState;
-
 import net.coreprotect.database.logger.BlockPlaceLogger;
 import net.coreprotect.database.logger.SkullPlaceLogger;
 import net.coreprotect.utility.Util;
+import org.bukkit.Material;
+import org.bukkit.block.BlockState;
+
+import java.sql.PreparedStatement;
+import java.util.List;
 
 class BlockPlaceProcess {
 

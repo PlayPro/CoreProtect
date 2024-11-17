@@ -1,7 +1,6 @@
 package net.coreprotect.utility;
 
-import java.util.logging.Level;
-
+import net.coreprotect.spigot.SpigotAdapter;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Server;
@@ -9,7 +8,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 
-import net.coreprotect.spigot.SpigotAdapter;
+import java.util.logging.Level;
 
 public final class Chat {
 

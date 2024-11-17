@@ -1,17 +1,16 @@
 package net.coreprotect.consumer.process;
 
-import java.sql.PreparedStatement;
-import java.sql.Statement;
-import java.util.List;
-import java.util.Map;
-
-import org.bukkit.Material;
-import org.bukkit.block.BlockState;
-
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.Lookup;
 import net.coreprotect.database.logger.BlockBreakLogger;
 import net.coreprotect.utility.Util;
+import org.bukkit.Material;
+import org.bukkit.block.BlockState;
+
+import java.sql.PreparedStatement;
+import java.sql.Statement;
+import java.util.List;
+import java.util.Map;
 
 class NaturalBlockBreakProcess {
 

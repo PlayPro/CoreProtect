@@ -1,13 +1,12 @@
 package net.coreprotect.command;
 
-import java.util.Locale;
-
-import org.bukkit.command.CommandSender;
-
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
+import org.bukkit.command.CommandSender;
+
+import java.util.Locale;
 
 public class HelpCommand {
     protected static void runCommand(CommandSender player, boolean permission, String[] args) {

@@ -1,10 +1,9 @@
 package net.coreprotect.consumer.process;
 
-import java.sql.PreparedStatement;
-
+import net.coreprotect.database.logger.PlayerKillLogger;
 import org.bukkit.block.BlockState;
 
-import net.coreprotect.database.logger.PlayerKillLogger;
+import java.sql.PreparedStatement;
 
 class PlayerKillProcess {
 

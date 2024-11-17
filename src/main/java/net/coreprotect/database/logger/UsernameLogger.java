@@ -1,11 +1,11 @@
 package net.coreprotect.database.logger;
 
+import net.coreprotect.config.ConfigHandler;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.Locale;
-
-import net.coreprotect.config.ConfigHandler;
 
 public class UsernameLogger {
 

@@ -1,17 +1,16 @@
 package net.coreprotect.database.logger;
 
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.util.Locale;
-
-import org.bukkit.block.BlockState;
-import org.bukkit.block.Skull;
-
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.SkullStatement;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.utility.Util;
+import org.bukkit.block.BlockState;
+import org.bukkit.block.Skull;
+
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.Locale;
 
 public class SkullBreakLogger {
 

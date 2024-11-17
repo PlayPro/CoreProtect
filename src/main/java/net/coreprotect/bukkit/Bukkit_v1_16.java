@@ -1,9 +1,6 @@
 package net.coreprotect.bukkit;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-
+import net.coreprotect.model.BlockGroup;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
@@ -15,7 +12,9 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Piglin;
 import org.bukkit.entity.Zoglin;
 
-import net.coreprotect.model.BlockGroup;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
 
 public class Bukkit_v1_16 extends BukkitAdapter implements BukkitInterface {
 

@@ -1,17 +1,12 @@
 package net.coreprotect.bukkit;
 
+import net.coreprotect.model.BlockGroup;
+import org.bukkit.Material;
+import org.bukkit.entity.*;
+
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
-
-import org.bukkit.Material;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.Frog;
-import org.bukkit.entity.Goat;
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Tadpole;
-
-import net.coreprotect.model.BlockGroup;
 
 public class Bukkit_v1_19 extends Bukkit_v1_18 implements BukkitInterface {
 

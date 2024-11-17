@@ -1,17 +1,16 @@
 package net.coreprotect.api;
 
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
+import net.coreprotect.database.statement.UserStatement;
+import net.coreprotect.utility.Util;
+import org.bukkit.block.Block;
+
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
-
-import org.bukkit.block.Block;
-
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.database.Database;
-import net.coreprotect.database.statement.UserStatement;
-import net.coreprotect.utility.Util;
 
 public class BlockAPI {
 

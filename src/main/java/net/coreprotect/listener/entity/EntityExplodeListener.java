@@ -1,6 +1,7 @@
 package net.coreprotect.listener.entity;
 
 import org.bukkit.World;
+import org.bukkit.entity.BreezeWindCharge;
 import org.bukkit.entity.Creeper;
 import org.bukkit.entity.EnderCrystal;
 import org.bukkit.entity.EnderDragon;
@@ -8,6 +9,7 @@ import org.bukkit.entity.EnderDragonPart;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Minecart;
 import org.bukkit.entity.TNTPrimed;
+import org.bukkit.entity.WindCharge;
 import org.bukkit.entity.Wither;
 import org.bukkit.entity.WitherSkull;
 import org.bukkit.event.EventHandler;
@@ -24,7 +26,7 @@ public final class EntityExplodeListener extends Queue implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onEntityExplode(EntityExplodeEvent event) {
         Entity entity = event.getEntity();
-        if (entity.getType().name().equals("WIND_CHARGE")) {
+        if (entity instanceof WindCharge || entity instanceof BreezeWindCharge) {
             return;
         }
 

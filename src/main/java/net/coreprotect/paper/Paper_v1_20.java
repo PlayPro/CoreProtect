@@ -34,7 +34,7 @@ public class Paper_v1_20 extends Paper_v1_17 implements PaperInterface {
         if (skull.getPlayerProfile().getId() != null) {
             owner = skull.getPlayerProfile().getId().toString();
         }
-        else if (Config.getGlobal().MYSQL && owner.length() > 255) {
+        else if (Config.getGlobal().MYSQL && owner != null && owner.length() > 255) {
             return owner.substring(0, 255);
         }
 

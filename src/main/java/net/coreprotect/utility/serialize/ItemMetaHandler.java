@@ -125,12 +125,12 @@ public class ItemMetaHandler {
 
             if (itemMeta.hasAttributeModifiers()) {
                 for (Map.Entry<Attribute, AttributeModifier> entry : itemMeta.getAttributeModifiers().entries()) {
-                    Map<Attribute, Map<String, Object>> attributeList = new HashMap<>();
+                    Map<Object, Map<String, Object>> attributeList = new HashMap<>();
                     Attribute attribute = entry.getKey();
                     AttributeModifier modifier = entry.getValue();
 
                     itemMeta.removeAttributeModifier(attribute, modifier);
-                    attributeList.put(attribute, modifier.serialize());
+                    attributeList.put(BukkitAdapter.ADAPTER.getRegistryKey(attribute), modifier.serialize());
                     modifiers.add(attributeList);
                 }
             }

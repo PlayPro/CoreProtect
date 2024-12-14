@@ -24,7 +24,6 @@ import org.bukkit.entity.Player;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.extensions.Extensions;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.model.BlockGroup;
@@ -635,8 +634,8 @@ public class CommandHandler implements CommandExecutor {
                                         restricted.add(i3_material);
                                     }
                                     else {
-                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE, i3));
-                                        // Functions.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co help include"));
+                                        Chat.sendMessage(player, Color.DARK_AQUA + "CEProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE, i3));
+                                        // Functions.sendMessage(player, Color.DARK_AQUA + "CEProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co help include"));
                                         return null;
                                     }
                                 }
@@ -664,8 +663,8 @@ public class CommandHandler implements CommandExecutor {
                                     restricted.add(material);
                                 }
                                 else {
-                                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE, argument));
-                                    // Functions.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co help include"));
+                                    Chat.sendMessage(player, Color.DARK_AQUA + "CEProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE, argument));
+                                    // Functions.sendMessage(player, Color.DARK_AQUA + "CEProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co help include"));
                                     return null;
                                 }
                             }
@@ -1185,7 +1184,7 @@ public class CommandHandler implements CommandExecutor {
     public boolean onCommand(CommandSender user, Command command, String commandLabel, String[] argumentArray) {
         String commandName = command.getName().toLowerCase(Locale.ROOT);
 
-        if (commandName.equals("core") || commandName.equals("coreprotect") || commandName.equals("co")) {
+        if (commandName.equals("core") || commandName.equals("ceprotect") || commandName.equals("co")) {
             int resultc = argumentArray.length;
             if (resultc > -1) {
                 String corecommand = "help";
@@ -1274,41 +1273,26 @@ public class CommandHandler implements CommandExecutor {
                 else if (corecommand.equals("network-debug")) {
                     NetworkDebugCommand.runCommand(user, permission, argumentArray);
                 }
-                else if (corecommand.equals("migrate-db")) {
-                    if (!Util.validDonationKey()) {
-                        Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DONATION_KEY_REQUIRED));
-                    }
-                    else {
-                        Extensions.runDatabaseMigration(corecommand, user, argumentArray);
-                    }
-                }
                 else {
-                    Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.COMMAND_NOT_FOUND, Color.WHITE, "/co " + corecommand));
+                    Chat.sendMessage(user, Color.DARK_AQUA + "CEProtect " + Color.WHITE + "- " + Phrase.build(Phrase.COMMAND_NOT_FOUND, Color.WHITE, "/co " + corecommand));
                 }
             }
             else {
-                Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, Color.WHITE, "/co <parameters>"));
+                Chat.sendMessage(user, Color.DARK_AQUA + "CEProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, Color.WHITE, "/co <parameters>"));
             }
 
             if (user.isOp() && versionAlert.get(user.getName()) == null) {
                 String latestVersion = NetworkHandler.latestVersion();
-                String latestEdgeVersion = NetworkHandler.latestEdgeVersion();
-                if (latestVersion != null || latestEdgeVersion != null) {
+                if (latestVersion != null) {
                     versionAlert.put(user.getName(), true);
                     class updateAlert implements Runnable {
                         @Override
                         public void run() {
                             try {
                                 Thread.sleep(5000);
-                                Chat.sendMessage(user, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.UPDATE_HEADER, "CoreProtect" + (Util.isCommunityEdition() ? " " + ConfigHandler.COMMUNITY_EDITION : "")) + Color.WHITE + " -----");
-                                if (latestVersion != null) {
-                                    Chat.sendMessage(user, Color.DARK_AQUA + Phrase.build(Phrase.UPDATE_NOTICE, Color.WHITE, "CoreProtect CE v" + latestVersion));
-                                    Chat.sendMessage(user, Color.DARK_AQUA + Phrase.build(Phrase.LINK_DOWNLOAD, Color.WHITE, "www.coreprotect.net/download/"));
-                                }
-                                else {
-                                    Chat.sendMessage(user, Color.DARK_AQUA + Phrase.build(Phrase.UPDATE_NOTICE, Color.WHITE, "CoreProtect v" + latestEdgeVersion));
-                                    Chat.sendMessage(user, Color.DARK_AQUA + Phrase.build(Phrase.LINK_DOWNLOAD, Color.WHITE, "www.coreprotect.net/latest/"));
-                                }
+                                Chat.sendMessage(user, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.UPDATE_HEADER, "CEProtect") + Color.WHITE + " -----");
+                                Chat.sendMessage(user, Color.DARK_AQUA + Phrase.build(Phrase.UPDATE_NOTICE, Color.WHITE, "CE v" + latestVersion));
+                                Chat.sendMessage(user, Color.DARK_AQUA + Phrase.build(Phrase.LINK_DOWNLOAD, Color.WHITE, "Pull the latest version from GitHub."));
                             }
                             catch (Exception e) {
                                 e.printStackTrace();

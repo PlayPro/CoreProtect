@@ -5,24 +5,40 @@ on:
       - master
   pull_request:
     types: [opened, synchronize, reopened]
+    
 jobs:
-  build:
-    name: Build
+  compile:
+    name: Maven compile and archive JAR
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-      - name: Cache Maven packages
-        uses: actions/cache@v1
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2
-      - name: Build
-        run: mvn -B verify
+
+    # 1. Check out the current working tree
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # 2. Set up Java 17 JDK (Adopt)
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+
+    # 3. Set up Maven package cache to speed up builds
+    - name: Cache Maven packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+
+    # 4. Build the project with Maven
+    - name: Build via Maven
+      run: mvn package -B --file pom.xml -DdisableXmlReport=true
+
+    # 5. Upload the resulting .jar artifact
+    - name: Upload JAR artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: CEProtect
+        path: target/CoreProtect*.jar
+

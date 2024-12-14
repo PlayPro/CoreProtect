@@ -124,7 +124,7 @@
     <dependency>
       <groupId>io.papermc.paper</groupId>
       <artifactId>paper-api</artifactId>
-      <version>1.21-R0.1-SNAPSHOT</version>
+      <version>1.21.1-R0.1-SNAPSHOT</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
@@ -155,9 +155,9 @@
       <version>5.0.1</version>
     </dependency>
     <dependency>
-      <groupId>org.jhardware</groupId>
-      <artifactId>jHardware</artifactId>
-      <version>0.8.6</version>
+      <groupId>com.github.oshi</groupId>
+      <artifactId>oshi-core</artifactId>
+      <version>6.6.2</version>
     </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>

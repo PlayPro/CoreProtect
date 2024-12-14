@@ -19,7 +19,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginManager;
-import org.jutils.jhardware.model.ProcessorInfo;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -37,14 +36,17 @@ import net.coreprotect.spigot.SpigotAdapter;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
+import oshi.hardware.CentralProcessor;
 
 public class ConfigHandler extends Queue {
     public static int SERVER_VERSION = 0;
     public static final int EDITION_VERSION = 2;
     public static final String EDITION_BRANCH = Util.getBranch();
     public static final String EDITION_NAME = Util.getPluginName();
+    public static final String COMMUNITY_EDITION = "Community Edition";
     public static final String JAVA_VERSION = "11.0";
-    public static final String SPIGOT_VERSION = "1.15";
+    public static final String MINECRAFT_VERSION = "1.16";
+    public static final String LATEST_VERSION = "1.21";
     public static String path = "plugins/CoreProtect/";
     public static String sqlite = "database.db";
     public static String host = "127.0.0.1";
@@ -53,16 +55,18 @@ public class ConfigHandler extends Queue {
     public static String username = "root";
     public static String password = "";
     public static String prefix = "co_";
+    public static String prefixConfig = "co_";
     public static int maximumPoolSize = 10;
 
     public static HikariDataSource hikariDataSource = null;
-    public static final ProcessorInfo processorInfo = Util.getProcessorInfo();
+    public static final CentralProcessor processorInfo = Util.getProcessorInfo();
     public static final boolean isSpigot = Util.isSpigot();
     public static final boolean isPaper = Util.isPaper();
     public static final boolean isFolia = Util.isFolia();
     public static volatile boolean serverRunning = false;
     public static volatile boolean converterRunning = false;
     public static volatile boolean purgeRunning = false;
+    public static volatile boolean migrationRunning = false;
     public static volatile boolean pauseConsumer = false;
     public static volatile boolean worldeditEnabled = false;
     public static volatile boolean databaseReachable = true;
@@ -171,6 +175,7 @@ public class ConfigHandler extends Queue {
 
             // Enforce "co_" table prefix if using SQLite.
             if (!Config.getGlobal().MYSQL) {
+                ConfigHandler.prefixConfig = Config.getGlobal().PREFIX;
                 Config.getGlobal().PREFIX = "co_";
             }
 
@@ -257,7 +262,7 @@ public class ConfigHandler extends Queue {
             ConfigHandler.hikariDataSource = new HikariDataSource(config);
         }
 
-        Database.createDatabaseTables(ConfigHandler.prefix, false);
+        Database.createDatabaseTables(ConfigHandler.prefix, null, Config.getGlobal().MYSQL, false);
     }
 
     public static void loadTypes(Statement statement) {

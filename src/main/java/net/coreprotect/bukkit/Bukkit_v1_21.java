@@ -45,7 +45,7 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 implements BukkitInterface {
 
     @Override
     public Object getRegistryKey(Object value) {
-        return ((Keyed) value).getKey().asString();
+        return ((Keyed) value).getKey().toString();
     }
 
     @Override

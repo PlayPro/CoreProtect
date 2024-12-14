@@ -100,7 +100,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
 
     private static void pauseConsumer(int process_id) {
         try {
-            while ((ConfigHandler.serverRunning || ConfigHandler.converterRunning) && (Consumer.isPaused || ConfigHandler.pauseConsumer || ConfigHandler.purgeRunning || Consumer.consumer_id.get(process_id)[1] == 1)) {
+            while ((ConfigHandler.serverRunning || ConfigHandler.converterRunning || ConfigHandler.migrationRunning) && (Consumer.isPaused || ConfigHandler.pauseConsumer || ConfigHandler.purgeRunning || Consumer.consumer_id.get(process_id)[1] == 1)) {
                 pausedSuccess = true;
                 Thread.sleep(100);
             }

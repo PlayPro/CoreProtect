@@ -53,8 +53,6 @@ import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.util.io.BukkitObjectOutputStream;
-import org.jutils.jhardware.HardwareInfo;
-import org.jutils.jhardware.model.ProcessorInfo;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
@@ -65,9 +63,12 @@ import net.coreprotect.database.rollback.Rollback;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.thread.NetworkHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 import net.coreprotect.worldedit.CoreProtectEditSessionEvent;
+import oshi.SystemInfo;
+import oshi.hardware.CentralProcessor;
 
 public class Util extends Queue {
 
@@ -112,15 +113,26 @@ public class Util extends Queue {
         if (branch.startsWith("-edge")) {
             name = name + " " + branch.substring(1, 2).toUpperCase() + branch.substring(2, 5);
         }
+        else if (isCommunityEdition()) {
+            name = name + " " + ConfigHandler.COMMUNITY_EDITION;
+        }
 
         return name;
     }
 
-    public static ProcessorInfo getProcessorInfo() {
-        ProcessorInfo result = null;
+    public static CentralProcessor getProcessorInfo() {
+        CentralProcessor result = null;
         try {
-            Configurator.setLevel("com.profesorfalken.jsensors.manager.unix.UnixSensorsManager", Level.OFF);
-            result = HardwareInfo.getProcessorInfo();
+            Class.forName("com.sun.jna.Platform");
+            if (System.getProperty("os.name").startsWith("Windows") && !System.getProperty("sun.arch.data.model").equals("64")) {
+                Class.forName("com.sun.jna.platform.win32.Win32Exception");
+            }
+            else if (System.getProperty("os.name").toLowerCase().contains("android") || System.getProperty("java.runtime.name").toLowerCase().contains("android")) {
+                return null;
+            }
+            Configurator.setLevel("oshi.hardware.common.AbstractCentralProcessor", Level.OFF);
+            SystemInfo systemInfo = new SystemInfo();
+            result = systemInfo.getHardware().getProcessor();
         }
         catch (Exception e) {
             // unable to read processor information
@@ -1381,6 +1393,18 @@ public class Util extends Queue {
         }
 
         return true;
+    }
+
+    public static boolean isCommunityEdition() {
+        return !isBranch("edge") && !isBranch("coreprotect") && !validDonationKey();
+    }
+
+    public static boolean isBranch(String branch) {
+        return ConfigHandler.EDITION_BRANCH.contains("-" + branch);
+    }
+
+    public static boolean validDonationKey() {
+        return NetworkHandler.donationKey() != null;
     }
 
     public static String getBranch() {

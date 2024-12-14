@@ -346,10 +346,17 @@ public class RollbackUtil extends Lookup {
                     List<Object> modifiers = (List<Object>) mapData.get("modifiers");
 
                     for (Object item : modifiers) {
-                        Map<Attribute, Map<String, Object>> modifiersMap = (Map<Attribute, Map<String, Object>>) item;
-                        for (Map.Entry<Attribute, Map<String, Object>> entry : modifiersMap.entrySet()) {
+                        Map<Object, Map<String, Object>> modifiersMap = (Map<Object, Map<String, Object>>) item;
+                        for (Map.Entry<Object, Map<String, Object>> entry : modifiersMap.entrySet()) {
                             try {
-                                Attribute attribute = entry.getKey();
+                                Attribute attribute = null;
+                                if (entry.getKey() instanceof Attribute) {
+                                    attribute = (Attribute) entry.getKey();
+                                }
+                                else {
+                                    attribute = (Attribute) BukkitAdapter.ADAPTER.getRegistryValue((String) entry.getKey(), Attribute.class);
+                                }
+
                                 AttributeModifier modifier = AttributeModifier.deserialize(entry.getValue());
                                 itemMeta.addAttributeModifier(attribute, modifier);
                             }

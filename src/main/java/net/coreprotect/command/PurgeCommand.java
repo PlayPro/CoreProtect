@@ -50,7 +50,7 @@ public class PurgeCommand extends Consumer {
             return;
         }
 
-        if (ConfigHandler.converterRunning) {
+        if (ConfigHandler.converterRunning || ConfigHandler.migrationRunning) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
             return;
         }
@@ -255,7 +255,7 @@ public class PurgeCommand extends Consumer {
                             }
                         }
 
-                        Database.createDatabaseTables(purgePrefix, true);
+                        Database.createDatabaseTables(purgePrefix, null, Config.getGlobal().MYSQL, true);
                     }
 
                     List<String> purgeTables = Arrays.asList("sign", "container", "item", "skull", "session", "chat", "command", "entity", "block");
@@ -285,18 +285,22 @@ public class PurgeCommand extends Consumer {
                             boolean error = false;
                             if (!excludeTables.contains(table)) {
                                 try {
+                                    boolean purge = true;
                                     String timeLimit = "";
                                     if (purgeTables.contains(table)) {
-                                        String blockRestriction = "";
+                                        String blockRestriction = "(";
                                         if (hasBlockRestriction && restrictTables.contains(table)) {
-                                            blockRestriction = "type IN(" + includeBlockFinal + ") AND ";
+                                            blockRestriction = "type NOT IN(" + includeBlockFinal + ") OR (type IN(" + includeBlockFinal + ") AND ";
+                                        }
+                                        else if (hasBlockRestriction) {
+                                            purge = false;
                                         }
 
                                         if (argWid > 0 && worldTables.contains(table)) {
-                                            timeLimit = " WHERE (" + blockRestriction + "wid = '" + argWid + "' AND (time >= '" + timeEnd + "' OR time < '" + timeStart + "')) OR (" + blockRestriction + "wid != '" + argWid + "')";
+                                            timeLimit = " WHERE (" + blockRestriction + "wid = '" + argWid + "' AND (time >= '" + timeEnd + "' OR time < '" + timeStart + "'))) OR (wid != '" + argWid + "')";
                                         }
-                                        else if (argWid == 0) {
-                                            timeLimit = " WHERE " + blockRestriction + "(time >= '" + timeEnd + "' OR time < '" + timeStart + "')";
+                                        else if (argWid == 0 && purge) {
+                                            timeLimit = " WHERE " + blockRestriction + "(time >= '" + timeEnd + "' OR time < '" + timeStart + "'))";
                                         }
                                     }
                                     query = "INSERT INTO " + purgePrefix + table + " SELECT " + columns + " FROM " + ConfigHandler.prefix + table + timeLimit;

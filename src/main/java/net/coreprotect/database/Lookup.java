@@ -705,7 +705,7 @@ public class Lookup extends Queue {
                         index = "USE INDEX(wid) IGNORE INDEX(type,user) ";
                     }
                     if ((restrictWorld && (users.length() > 0 || includeBlock.length() > 0 || includeEntity.length() > 0))) {
-                        index = "";
+                        index = "IGNORE INDEX(PRIMARY) ";
                     }
                 }
 

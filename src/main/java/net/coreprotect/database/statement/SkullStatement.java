@@ -3,9 +3,7 @@ package net.coreprotect.database.statement;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
-import java.util.UUID;
 
-import org.bukkit.Bukkit;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Skull;
 
@@ -48,10 +46,7 @@ public class SkullStatement {
 
             while (resultSet.next()) {
                 String owner = resultSet.getString("owner");
-                if (owner != null && owner.length() >= 32 && owner.contains("-")) {
-                    skull.setOwningPlayer(Bukkit.getOfflinePlayer(UUID.fromString(owner)));
-                }
-                else if (owner != null && owner.length() > 1) {
+                if (owner != null && owner.length() > 1) {
                     PaperAdapter.ADAPTER.setSkullOwner(skull, owner);
                 }
 

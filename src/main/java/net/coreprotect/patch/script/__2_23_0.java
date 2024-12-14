@@ -20,6 +20,8 @@ public class __2_23_0 {
                     Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, ConfigHandler.prefix + "skull", Selector.FIRST, Selector.FIRST));
                 }
             }
+
+            __2_23_1.patch(statement);
         }
         catch (Exception e) {
             e.printStackTrace();

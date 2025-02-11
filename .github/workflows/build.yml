@@ -24,5 +24,13 @@ jobs:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
-      - name: Build
+      - name: Verify
         run: mvn -B verify
+      - name: Build
+        run: mvn -B clean install
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coreprotect
+          compression-level: 0 # .jar files are already compressed anyway
+          path: target/CoreProtect-*.jar

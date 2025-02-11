@@ -28,6 +28,8 @@ jobs:
         run: mvn -B verify
       - name: Set project branch to development
         run: sed -i 's|<project.branch>\s*</project.branch>|<project.branch>development</project.branch>|g' pom.xml
+      - name: Build (Development)
+        run: mvn -B clean install
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

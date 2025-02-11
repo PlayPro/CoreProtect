@@ -24,10 +24,8 @@ jobs:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
-      - name: Verify
-        run: mvn -B verify
       - name: Build
-        run: mvn -B clean install
+        run: mvn -B verify
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

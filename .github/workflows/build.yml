@@ -26,6 +26,8 @@ jobs:
           restore-keys: ${{ runner.os }}-m2
       - name: Build
         run: mvn -B verify
+      - name: Set project branch to development
+        run: sed -i 's|<project.branch></project.branch>|<project.branch>development</project.branch>|g' pom.xml
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

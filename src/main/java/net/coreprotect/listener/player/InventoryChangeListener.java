@@ -82,7 +82,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
                 } else {
                     InventoryHolder inventoryHolder = inventory.getHolder();
                     if (inventoryHolder == null) {
-                        if (CoreProtect.getInstance().isAdvancedChests()) {
+                        if (isAC()) {
                             AdvancedChest<?, ?> advancedChest = AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory);
                             if (advancedChest != null) {
                                 playerLocation = advancedChest.getLocation();
@@ -288,7 +288,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
 
             InventoryHolder inventoryHolder = inventory.getHolder();
             enderChest = inventory.equals(event.getWhoClicked().getEnderChest());
-            boolean isAdvancedChest = CoreProtect.getInstance().isAdvancedChests()
+            boolean isAdvancedChest = isAC()
                     && AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory) != null;
             if ((!(inventoryHolder instanceof BlockInventoryHolder || inventoryHolder instanceof DoubleChest)) && !enderChest && !isAdvancedChest) {
                 return;
@@ -303,7 +303,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
 
             InventoryHolder inventoryHolder = inventory.getHolder();
             enderChest = inventory.equals(event.getWhoClicked().getEnderChest());
-            boolean isAdvancedChest = CoreProtect.getInstance().isAdvancedChests()
+            boolean isAdvancedChest = isAC()
                     && AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory) != null;
             if ((!(inventoryHolder instanceof BlockInventoryHolder || inventoryHolder instanceof DoubleChest)) && !enderChest && !isAdvancedChest) {
                 return;
@@ -318,21 +318,18 @@ public final class InventoryChangeListener extends Queue implements Listener {
     protected void onInventoryDragEvent(InventoryDragEvent event) {
         boolean movedItem = false;
         boolean enderChest = false;
-        InventoryView inventoryView = event.getView();
-        for (Integer slot : event.getRawSlots()) {
-            Inventory inventory = inventoryView.getInventory(slot);
-            if (inventory == null) {
-                continue;
-            }
 
-            InventoryHolder inventoryHolder = inventory.getHolder();
-            enderChest = inventory.equals(event.getWhoClicked().getEnderChest());
-            boolean isAdvancedChest = CoreProtect.getInstance().isAdvancedChests()
-                    && AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory) != null;
-            if (((inventoryHolder instanceof BlockInventoryHolder || inventoryHolder instanceof DoubleChest)) || enderChest || isAdvancedChest) {
-                movedItem = true;
-                break;
-            }
+        Inventory inventory = event.getInventory();
+        InventoryHolder inventoryHolder = inventory.getHolder();
+        if (inventory == null || inventoryHolder != null && inventoryHolder.equals(event.getWhoClicked())) {
+            return;
+        }
+
+        enderChest = inventory.equals(event.getWhoClicked().getEnderChest());
+        boolean isAdvancedChest = isAC()
+                && AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory) != null;
+        if (((inventoryHolder instanceof BlockInventoryHolder || inventoryHolder instanceof DoubleChest)) || enderChest || isAdvancedChest) {
+            movedItem = true;
         }
 
         if (!movedItem) {
@@ -403,7 +400,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
         HopperPullListener.processHopperPull(location, "#hopper", sourceHolder, destinationHolder, event.getItem());
     }
 
-    public static boolean isAC(){
+    private static boolean isAC(){
         return CoreProtect.getInstance().isAdvancedChests();
     }
 

@@ -26,3 +26,13 @@ jobs:
           restore-keys: ${{ runner.os }}-m2
       - name: Build
         run: mvn -B verify
+      - name: Build (Development)
+        run: |
+          sed -i 's|<project.branch>\s*</project.branch>|<project.branch>development</project.branch>|g' pom.xml
+          mvn -B clean install
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coreprotect
+          compression-level: 0 # .jar files are already compressed anyway
+          path: target/CoreProtect-*.jar

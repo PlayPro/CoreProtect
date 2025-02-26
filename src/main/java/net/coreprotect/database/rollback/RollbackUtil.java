@@ -9,10 +9,12 @@ import org.bukkit.FireworkEffect.Builder;
 import org.bukkit.Material;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.Jukebox;
 import org.bukkit.block.ShulkerBox;
 import org.bukkit.block.banner.Pattern;
 import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.Inventory;
@@ -32,6 +34,7 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.util.io.BukkitObjectInputStream;
 
 import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Lookup;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.ItemUtils;
@@ -490,4 +493,103 @@ public class RollbackUtil extends Lookup {
         return new Object[] { 0, "", itemstack };
     }
 
+    /**
+     * Deserializes metadata from a byte array into a list of objects.
+     *
+     * @param metadata
+     *            The byte array containing serialized metadata
+     * @return The deserialized list of objects or null if deserialization fails
+     */
+    public static List<Object> deserializeMetadata(byte[] metadata) {
+        if (metadata == null) {
+            return null;
+        }
+
+        try {
+            ByteArrayInputStream metaByteStream = new ByteArrayInputStream(metadata);
+            BukkitObjectInputStream metaObjectStream = new BukkitObjectInputStream(metaByteStream);
+            @SuppressWarnings("unchecked")
+            List<Object> metaList = (List<Object>) metaObjectStream.readObject();
+            metaObjectStream.close();
+            metaByteStream.close();
+            return metaList;
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * Queues an entity spawn operation for processing.
+     *
+     * @param user
+     *            The username of the player
+     * @param block
+     *            The block state where the entity should be spawned
+     * @param type
+     *            The type of entity to spawn
+     * @param data
+     *            Additional data for the entity
+     */
+    public static void queueEntitySpawn(String user, BlockState block, EntityType type, int data) {
+        if (Queue.class.getDeclaredMethods() != null) {
+            try {
+                java.lang.reflect.Method method = Queue.class.getDeclaredMethod("queueEntitySpawn", String.class, BlockState.class, EntityType.class, int.class);
+                method.setAccessible(true);
+                method.invoke(null, user, block, type, data);
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * Queues a skull update operation for processing.
+     *
+     * @param user
+     *            The username of the player
+     * @param block
+     *            The block state to update
+     * @param rowId
+     *            The row ID for the skull data
+     */
+    public static void queueSkullUpdate(String user, BlockState block, int rowId) {
+        if (Queue.class.getDeclaredMethods() != null) {
+            try {
+                java.lang.reflect.Method method = Queue.class.getDeclaredMethod("queueSkullUpdate", String.class, BlockState.class, int.class);
+                method.setAccessible(true);
+                method.invoke(null, user, block, rowId);
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * Queues a sign update operation for processing.
+     *
+     * @param user
+     *            The username of the player
+     * @param block
+     *            The block state to update
+     * @param action
+     *            The action type
+     * @param time
+     *            The time of the update
+     */
+    public static void queueSignUpdate(String user, BlockState block, int action, int time) {
+        if (Queue.class.getDeclaredMethods() != null) {
+            try {
+                java.lang.reflect.Method method = Queue.class.getDeclaredMethod("queueSignUpdate", String.class, BlockState.class, int.class, int.class);
+                method.setAccessible(true);
+                method.invoke(null, user, block, action, time);
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
 }

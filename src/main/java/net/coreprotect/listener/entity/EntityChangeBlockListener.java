@@ -10,6 +10,7 @@ import org.bukkit.entity.Fox;
 import org.bukkit.entity.Ravager;
 import org.bukkit.entity.Silverfish;
 import org.bukkit.entity.Turtle;
+import org.bukkit.entity.WindCharge;
 import org.bukkit.entity.Wither;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -52,6 +53,12 @@ public final class EntityChangeBlockListener extends Queue implements Listener {
                 if (newtype.equals(Material.AIR) || newtype.equals(Material.CAVE_AIR)) {
                     e = "#silverfish";
                 }
+            }
+            else if (entity instanceof WindCharge) {
+                e = "#windcharge";
+            }
+            else if (entity.getType().name().equals("BREEZE_WIND_CHARGE")) {
+                e = "#breezewindcharge";
             }
             if (e.length() > 0) {
                 if (newtype.equals(Material.AIR) || newtype.equals(Material.CAVE_AIR)) {

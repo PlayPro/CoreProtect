@@ -318,7 +318,7 @@ public class TabHandler implements TabCompleter {
                     }
 
                     // add custom tags
-                    for (String tag : CommandHandler.getTags().keySet()) {
+                    for (String tag : CommandParser.getTags().keySet()) {
                         materialList.add(tag);
                     }
 

@@ -10,8 +10,7 @@ import net.coreprotect.database.Lookup;
 import net.coreprotect.database.rollback.Rollback;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.player.InventoryChangeListener;
-import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.*;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -97,14 +96,14 @@ public class CoreProtectAPI extends Queue {
             String typeName;
 
             if (actionID == 3) {
-                typeName = Util.getEntityType(type).name();
+                typeName = EntityUtils.getEntityType(type).name();
             }
             else {
-                typeName = Util.getType(type).name().toLowerCase(Locale.ROOT);
-                typeName = Util.nameFilter(typeName, this.getData());
+                typeName = MaterialUtils.getType(type).name().toLowerCase(Locale.ROOT);
+                typeName = StringUtils.nameFilter(typeName, this.getData());
             }
 
-            return Util.getType(typeName);
+            return MaterialUtils.getType(typeName);
         }
 
         public BlockData getBlockData() {
@@ -140,7 +139,7 @@ public class CoreProtectAPI extends Queue {
         }
 
         public String worldName() {
-            return Util.getWorldName(Integer.parseInt(parse.length < 13 ? parse[5] : parse[9]));
+            return WorldUtils.getWorldName(Integer.parseInt(parse.length < 13 ? parse[5] : parse[9]));
         }
     }
 
@@ -153,7 +152,7 @@ public class CoreProtectAPI extends Queue {
                     result.put(value, false);
                 }
                 else if (value instanceof Integer) {
-                    Material material = Util.getType((Integer) value);
+                    Material material = MaterialUtils.getType((Integer) value);
                     result.put(material, false);
                 }
             }

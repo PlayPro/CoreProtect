@@ -4,7 +4,7 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.thread.Scheduler;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.ItemUtils;
 import org.bukkit.Location;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
@@ -27,7 +27,7 @@ public final class HopperPullListener {
             }
         }
 
-        ItemStack[] destinationContainer = Util.getContainerState(destinationHolder.getInventory().getContents());
+        ItemStack[] destinationContainer = ItemUtils.getContainerState(destinationHolder.getInventory().getContents());
         ItemStack movedItem = item.clone();
 
         final long taskStarted = InventoryChangeListener.tasksStarted.incrementAndGet();
@@ -38,7 +38,7 @@ public final class HopperPullListener {
                 }
 
                 boolean abort = false;
-                boolean addedInventory = Util.canAddContainer(destinationContainer, movedItem, destinationHolder.getInventory().getMaxStackSize());
+                boolean addedInventory = ItemUtils.canAddContainer(destinationContainer, movedItem, destinationHolder.getInventory().getMaxStackSize());
                 if (!addedInventory) {
                     abort = true;
                 }
@@ -51,7 +51,7 @@ public final class HopperPullListener {
                     }
                     movedItems.add(movedItem);
 
-                    ConfigHandler.hopperAbort.put(loggingChestId, new Object[] { movedItems, Util.getContainerState(destinationContents) });
+                    ConfigHandler.hopperAbort.put(loggingChestId, new Object[] { movedItems, ItemUtils.getContainerState(destinationContents) });
                     return;
                 }
 

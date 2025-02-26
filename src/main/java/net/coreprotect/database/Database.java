@@ -9,7 +9,8 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.MaterialUtils;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
@@ -109,11 +110,11 @@ public class Database extends Queue {
             if (Config.getConfig(location.getWorld()).ITEM_TRANSACTIONS) {
                 try {
                     if (contents == null) {
-                        contents = Util.getContainerContents(type, container, location);
+                        contents = ItemUtils.getContainerContents(type, container, location);
                     }
                     if (contents != null) {
                         List<ItemStack[]> forceList = new ArrayList<>();
-                        forceList.add(Util.getContainerState(contents));
+                        forceList.add(ItemUtils.getContainerState(contents));
                         ConfigHandler.forceContainer.put(user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ(), forceList);
                         Queue.queueContainerBreak(user, location, type, contents);
                     }
@@ -194,7 +195,7 @@ public class Database extends Queue {
 
     public static void performUpdate(Statement statement, long id, int rb, int table) {
         try {
-            int rolledBack = Util.toggleRolledBack(rb, (table == 2 || table == 3 || table == 4)); // co_item, co_container, co_block
+            int rolledBack = MaterialUtils.toggleRolledBack(rb, (table == 2 || table == 3 || table == 4)); // co_item, co_container, co_block
             if (table == 1 || table == 3) {
                 statement.executeUpdate("UPDATE " + ConfigHandler.prefix + "container SET rolled_back='" + rolledBack + "' WHERE rowid='" + id + "'");
             }

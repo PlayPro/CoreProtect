@@ -10,7 +10,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.WorldUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -289,7 +289,7 @@ public class RollbackRestoreCommand {
                             argAction.add(5);
                             argRadius = null;
                             argWid = 0;
-                            lo = new Location(Bukkit.getServer().getWorld(Util.getWorldName(wid)), x, y, z);
+                            lo = new Location(Bukkit.getServer().getWorld(WorldUtils.getWorldName(wid)), x, y, z);
                             Block block = lo.getBlock();
                             if (block.getState() instanceof Chest) {
                                 BlockFace[] blockFaces = new BlockFace[] { BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST };
@@ -390,7 +390,7 @@ public class RollbackRestoreCommand {
                                             }
                                             if (finalArgWid > 0) {
                                                 restrictWorld = true;
-                                                location = new Location(Bukkit.getServer().getWorld(Util.getWorldName(finalArgWid)), 0, 0, 0);
+                                                location = new Location(Bukkit.getServer().getWorld(WorldUtils.getWorldName(finalArgWid)), 0, 0, 0);
                                             }
                                             boolean verbose = false;
                                             if (noisy == 1) {

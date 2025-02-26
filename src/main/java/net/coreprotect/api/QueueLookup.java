@@ -4,7 +4,9 @@ import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.consumer.process.Process;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.utility.StringUtils;
+import net.coreprotect.utility.WorldUtils;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -63,12 +65,12 @@ public class QueueLookup extends Queue {
                     String user = userData[0];
                     BlockState blockState = (BlockState) objectData;
                     Location location = blockState.getLocation();
-                    int wid = Util.getWorldId(location.getWorld().getName());
-                    int resultType = Util.getBlockId(blockType);
+                    int wid = WorldUtils.getWorldId(location.getWorld().getName());
+                    int resultType = MaterialUtils.getBlockId(blockType);
                     int time = (int) (System.currentTimeMillis() / 1000L);
 
                     String[] lookupData = new String[] { String.valueOf(time), user, String.valueOf(location.getBlockX()), String.valueOf(location.getBlockY()), String.valueOf(location.getBlockZ()), String.valueOf(resultType), String.valueOf(legacyData), String.valueOf(action), "0", String.valueOf(wid), blockData };
-                    String[] lineData = Util.toStringArray(lookupData);
+                    String[] lineData = StringUtils.toStringArray(lookupData);
                     result.add(lineData);
                 }
             }

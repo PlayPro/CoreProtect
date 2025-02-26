@@ -8,10 +8,7 @@ import net.coreprotect.database.Database;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.patch.Patch;
-import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.ChatMessage;
-import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.*;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
@@ -112,10 +109,10 @@ public class PurgeCommand extends Consumer {
                 if (restrictTarget instanceof Material) {
                     targetName = ((Material) restrictTarget).name();
                     if (includeListMaterial.length() == 0) {
-                        includeListMaterial = includeListMaterial.append(Util.getBlockId(targetName, false));
+                        includeListMaterial = includeListMaterial.append(MaterialUtils.getBlockId(targetName, false));
                     }
                     else {
-                        includeListMaterial.append(",").append(Util.getBlockId(targetName, false));
+                        includeListMaterial.append(",").append(MaterialUtils.getBlockId(targetName, false));
                     }
 
                     /* Include legacy IDs */
@@ -131,10 +128,10 @@ public class PurgeCommand extends Consumer {
                 else if (restrictTarget instanceof EntityType) {
                     targetName = ((EntityType) restrictTarget).name();
                     if (includeListEntity.length() == 0) {
-                        includeListEntity = includeListEntity.append(Util.getEntityId(targetName, false));
+                        includeListEntity = includeListEntity.append(EntityUtils.getEntityId(targetName, false));
                     }
                     else {
-                        includeListEntity.append(",").append(Util.getEntityId(targetName, false));
+                        includeListEntity.append(",").append(EntityUtils.getEntityId(targetName, false));
                     }
 
                     targetName = ((EntityType) restrictTarget).name().toLowerCase(Locale.ROOT);
@@ -233,7 +230,7 @@ public class PurgeCommand extends Consumer {
                     }
 
                     Integer[] lastVersion = Patch.getDatabaseVersion(connection, true);
-                    boolean newVersion = Util.newVersion(lastVersion, Util.getInternalPluginVersion());
+                    boolean newVersion = VersionUtils.newVersion(lastVersion, VersionUtils.getInternalPluginVersion());
                     if (newVersion && !ConfigHandler.EDITION_BRANCH.contains("-dev")) {
                         Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_FAILED));
                         Consumer.isPaused = false;

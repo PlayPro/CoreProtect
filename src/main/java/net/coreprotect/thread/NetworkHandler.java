@@ -7,7 +7,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Language;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.VersionUtils;
 import org.bukkit.Bukkit;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -129,7 +129,7 @@ public class NetworkHandler extends Language implements Runnable {
                 try {
                     String lang = Config.getGlobal().LANGUAGE;
                     String languageCode = lang.trim().toLowerCase();
-                    String pluginVersion = Util.getPluginVersion();
+                    String pluginVersion = VersionUtils.getPluginVersion();
 
                     if (!languageCode.startsWith("en") && languageCode.length() > 1) {
                         boolean validCache = false;
@@ -277,7 +277,7 @@ public class NetworkHandler extends Language implements Runnable {
                 int statusEdge = 0;
                 HttpURLConnection connection = null;
                 HttpURLConnection connectionEdge = null;
-                String version = Util.getPluginVersion();
+                String version = VersionUtils.getPluginVersion();
 
                 try {
                     // CoreProtect Community Edition
@@ -316,7 +316,7 @@ public class NetworkHandler extends Language implements Runnable {
                         if (response.length() > 0 && response.length() < 10) {
                             String remoteVersion = response.replaceAll("[^0-9.]", "");
                             if (remoteVersion.contains(".")) {
-                                boolean newVersion = Util.newVersion(version, remoteVersion);
+                                boolean newVersion = VersionUtils.newVersion(version, remoteVersion);
                                 if (newVersion) {
                                     latestVersion = remoteVersion;
                                     if (startup) {
@@ -348,7 +348,7 @@ public class NetworkHandler extends Language implements Runnable {
                         if (response.length() > 0 && response.length() < 10) {
                             String remoteVersion = response.replaceAll("[^0-9.]", "");
                             if (remoteVersion.contains(".")) {
-                                boolean newVersion = Util.newVersion(version, remoteVersion);
+                                boolean newVersion = VersionUtils.newVersion(version, remoteVersion);
                                 if (newVersion) {
                                     latestEdgeVersion = remoteVersion;
                                 }

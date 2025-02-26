@@ -3,7 +3,7 @@ package net.coreprotect.listener.block;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.player.PlayerDropItemListener;
 import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.WorldUtils;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.event.EventHandler;
@@ -20,7 +20,7 @@ public final class CampfireStartListener extends Queue implements Listener {
     protected void onCampfireStart(CampfireStartEvent event) {
         Block block = event.getBlock();
         Location location = block.getLocation();
-        int worldId = Util.getWorldId(location.getWorld().getName());
+        int worldId = WorldUtils.getWorldId(location.getWorld().getName());
         int x = location.getBlockX();
         int y = location.getBlockY();
         int z = location.getBlockZ();

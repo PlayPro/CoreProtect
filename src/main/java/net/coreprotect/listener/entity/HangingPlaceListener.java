@@ -4,7 +4,7 @@ import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.MaterialUtils;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
@@ -39,7 +39,7 @@ public final class HangingPlaceListener extends Queue implements Listener {
                 material = Material.PAINTING;
                 Painting painting = (Painting) entity;
                 blockData = "FACING=" + painting.getFacing().name();
-                artId = Util.getArtId(painting.getArt().toString(), true);
+                artId = MaterialUtils.getArtId(painting.getArt().toString(), true);
             }
 
             int inspect = 0;

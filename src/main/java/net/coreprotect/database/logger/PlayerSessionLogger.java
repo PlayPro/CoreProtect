@@ -2,7 +2,7 @@ package net.coreprotect.database.logger;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.SessionStatement;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.WorldUtils;
 import org.bukkit.Location;
 
 import java.sql.PreparedStatement;
@@ -22,7 +22,7 @@ public class PlayerSessionLogger {
             int x = location.getBlockX();
             int y = location.getBlockY();
             int z = location.getBlockZ();
-            int wid = Util.getWorldId(location.getWorld().getName());
+            int wid = WorldUtils.getWorldId(location.getWorld().getName());
             int userId = ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT));
             SessionStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, action);
         }

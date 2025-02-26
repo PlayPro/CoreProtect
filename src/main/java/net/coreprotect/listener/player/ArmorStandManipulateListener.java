@@ -9,7 +9,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.ItemUtils;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.ArmorStand;
@@ -83,7 +83,7 @@ public final class ArmorStandManipulateListener extends Queue implements Listene
         Player player = event.getPlayer();
         final ArmorStand armorStand = event.getRightClicked();
         EntityEquipment equipment = armorStand.getEquipment();
-        ItemStack[] oldContents = Util.getArmorStandContents(equipment);
+        ItemStack[] oldContents = ItemUtils.getArmorStandContents(equipment);
         ItemStack[] newContents = oldContents.clone();
         ItemStack item = event.getArmorStandItem();
         ItemStack playerItem = event.getPlayerItem();

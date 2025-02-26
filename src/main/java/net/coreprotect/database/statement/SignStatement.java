@@ -1,7 +1,7 @@
 package net.coreprotect.database.statement;
 
 import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.BlockUtils;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 
@@ -79,8 +79,8 @@ public class SignStatement {
                     BukkitAdapter.ADAPTER.setColor(sign, false, colorSecondary);
                 }
 
-                boolean frontGlowing = Util.isSideGlowing(true, data);
-                boolean backGlowing = Util.isSideGlowing(false, data);
+                boolean frontGlowing = BlockUtils.isSideGlowing(true, data);
+                boolean backGlowing = BlockUtils.isSideGlowing(false, data);
                 BukkitAdapter.ADAPTER.setGlowing(sign, true, frontGlowing);
                 BukkitAdapter.ADAPTER.setGlowing(sign, false, backGlowing);
                 BukkitAdapter.ADAPTER.setLine(sign, 0, line1);

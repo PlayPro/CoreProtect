@@ -14,7 +14,8 @@ import net.coreprotect.patch.Patch;
 import net.coreprotect.spigot.SpigotAdapter;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.SystemUtils;
+import net.coreprotect.utility.VersionUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -34,8 +35,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ConfigHandler extends Queue {
     public static int SERVER_VERSION = 0;
     public static final int EDITION_VERSION = 2;
-    public static final String EDITION_BRANCH = Util.getBranch();
-    public static final String EDITION_NAME = Util.getPluginName();
+    public static final String EDITION_BRANCH = VersionUtils.getBranch();
+    public static final String EDITION_NAME = VersionUtils.getPluginName();
     public static final String COMMUNITY_EDITION = "Community Edition";
     public static final String JAVA_VERSION = "11.0";
     public static final String MINECRAFT_VERSION = "1.16";
@@ -52,10 +53,10 @@ public class ConfigHandler extends Queue {
     public static int maximumPoolSize = 10;
 
     public static HikariDataSource hikariDataSource = null;
-    public static final CentralProcessor processorInfo = Util.getProcessorInfo();
-    public static final boolean isSpigot = Util.isSpigot();
-    public static final boolean isPaper = Util.isPaper();
-    public static final boolean isFolia = Util.isFolia();
+    public static final CentralProcessor processorInfo = SystemUtils.getProcessorInfo();
+    public static final boolean isSpigot = VersionUtils.isSpigot();
+    public static final boolean isPaper = VersionUtils.isPaper();
+    public static final boolean isFolia = VersionUtils.isFolia();
     public static volatile boolean serverRunning = false;
     public static volatile boolean converterRunning = false;
     public static volatile boolean purgeRunning = false;
@@ -436,15 +437,15 @@ public class ConfigHandler extends Queue {
             ConfigHandler.loadTypes(statement); // Load material ID's into memory.
 
             // Initialize WorldEdit logging
-            if (Util.checkWorldEdit()) {
+            if (VersionUtils.checkWorldEdit()) {
                 PluginManager pluginManager = Bukkit.getServer().getPluginManager();
                 Plugin worldEditPlugin = pluginManager.getPlugin("WorldEdit");
                 if (worldEditPlugin != null && worldEditPlugin.isEnabled()) {
-                    Util.loadWorldEdit();
+                    VersionUtils.loadWorldEdit();
                 }
             }
             else if (ConfigHandler.worldeditEnabled) {
-                Util.unloadWorldEdit();
+                VersionUtils.unloadWorldEdit();
             }
 
             ConfigHandler.serverRunning = true; // Set as running before patching

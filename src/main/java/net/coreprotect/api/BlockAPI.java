@@ -3,7 +3,9 @@ package net.coreprotect.api;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.UserStatement;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.StringUtils;
+import net.coreprotect.utility.WorldUtils;
 import org.bukkit.block.Block;
 
 import java.sql.Connection;
@@ -26,7 +28,7 @@ public class BlockAPI {
             int y = block.getY();
             int z = block.getZ();
             int time = (int) (System.currentTimeMillis() / 1000L);
-            int worldId = Util.getWorldId(block.getWorld().getName());
+            int worldId = WorldUtils.getWorldId(block.getWorld().getName());
             int checkTime = 0;
             if (offset > 0) {
                 checkTime = time - offset;
@@ -37,7 +39,7 @@ public class BlockAPI {
             }
 
             Statement statement = connection.createStatement();
-            String query = "SELECT time,user,action,type,data,blockdata,rolled_back FROM " + ConfigHandler.prefix + "block " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND time > '" + checkTime + "' ORDER BY rowid DESC";
+            String query = "SELECT time,user,action,type,data,blockdata,rolled_back FROM " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND time > '" + checkTime + "' ORDER BY rowid DESC";
             ResultSet results = statement.executeQuery(query);
 
             while (results.next()) {
@@ -52,10 +54,10 @@ public class BlockAPI {
                     UserStatement.loadName(connection, resultUserId);
                 }
                 String resultUser = ConfigHandler.playerIdCacheReversed.get(resultUserId);
-                String blockData = Util.byteDataToString(resultBlockData, resultType);
+                String blockData = BlockUtils.byteDataToString(resultBlockData, resultType);
 
                 String[] lookupData = new String[] { resultTime, resultUser, String.valueOf(x), String.valueOf(y), String.valueOf(z), String.valueOf(resultType), resultData, resultAction, resultRolledBack, String.valueOf(worldId), blockData };
-                String[] lineData = Util.toStringArray(lookupData);
+                String[] lineData = StringUtils.toStringArray(lookupData);
                 result.add(lineData);
             }
             results.close();

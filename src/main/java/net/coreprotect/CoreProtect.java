@@ -14,10 +14,7 @@ import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.NetworkHandler;
 import net.coreprotect.thread.Scheduler;
-import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Teleport;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.*;
 import org.bstats.bukkit.MetricsLite;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -93,7 +90,7 @@ public final class CoreProtect extends JavaPlugin {
 
         if (start) {
             PluginDescriptionFile pluginDescription = this.getDescription();
-            Util.sendConsoleComponentStartup(Bukkit.getServer().getConsoleSender(), Phrase.build(Phrase.ENABLE_SUCCESS, ConfigHandler.EDITION_NAME));
+            ChatUtils.sendConsoleComponentStartup(Bukkit.getServer().getConsoleSender(), Phrase.build(Phrase.ENABLE_SUCCESS, ConfigHandler.EDITION_NAME));
             if (Config.getGlobal().MYSQL) {
                 Chat.console(Phrase.build(Phrase.USING_MYSQL));
             }
@@ -143,16 +140,16 @@ public final class CoreProtect extends JavaPlugin {
     private static boolean performVersionChecks() {
         try {
             String[] bukkitVersion = Bukkit.getServer().getBukkitVersion().split("[-.]");
-            if (Util.newVersion(bukkitVersion[0] + "." + bukkitVersion[1], ConfigHandler.MINECRAFT_VERSION)) {
+            if (VersionUtils.newVersion(bukkitVersion[0] + "." + bukkitVersion[1], ConfigHandler.MINECRAFT_VERSION)) {
                 Chat.console(Phrase.build(Phrase.VERSION_REQUIRED, "Minecraft", ConfigHandler.MINECRAFT_VERSION));
                 return false;
             }
-            if (Util.newVersion(ConfigHandler.LATEST_VERSION, bukkitVersion[0] + "." + bukkitVersion[1]) && Util.isBranch("master")) {
+            if (VersionUtils.newVersion(ConfigHandler.LATEST_VERSION, bukkitVersion[0] + "." + bukkitVersion[1]) && VersionUtils.isBranch("master")) {
                 Chat.console(Phrase.build(Phrase.VERSION_INCOMPATIBLE, "Minecraft", bukkitVersion[0] + "." + bukkitVersion[1]));
                 return false;
             }
             String[] javaVersion = (System.getProperty("java.version").replaceAll("[^0-9.]", "") + ".0").split("\\.");
-            if (Util.newVersion(javaVersion[0] + "." + javaVersion[1], ConfigHandler.JAVA_VERSION)) {
+            if (VersionUtils.newVersion(javaVersion[0] + "." + javaVersion[1], ConfigHandler.JAVA_VERSION)) {
                 Chat.console(Phrase.build(Phrase.VERSION_REQUIRED, "Java", ConfigHandler.JAVA_VERSION));
                 return false;
             }

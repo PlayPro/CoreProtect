@@ -3,7 +3,7 @@ package net.coreprotect.listener.block;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.WorldUtils;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -47,7 +47,7 @@ public class BlockUtil {
             int y = location.getBlockY();
             int z = location.getBlockZ();
             World world = location.getWorld();
-            int wid = Util.getWorldId(world.getName());
+            int wid = WorldUtils.getWorldId(world.getName());
             int yc = y - 1;
             // user placing sand/gravel. Find the bottom block
             int bottomfound = 0;

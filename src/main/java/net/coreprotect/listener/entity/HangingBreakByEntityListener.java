@@ -10,7 +10,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.player.PlayerInteractEntityListener;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.MaterialUtils;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.block.BlockState;
@@ -143,7 +143,7 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
                 material = Material.PAINTING;
                 Painting painting = (Painting) entity;
                 blockData = "FACING=" + painting.getFacing().name();
-                itemData = Util.getArtId(painting.getArt().toString(), true);
+                itemData = MaterialUtils.getArtId(painting.getArt().toString(), true);
             }
 
             if (!event.isCancelled() && Config.getConfig(blockEvent.getWorld()).BLOCK_BREAK && !inspecting) {

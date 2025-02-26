@@ -18,7 +18,8 @@ import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.WorldUtils;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -484,7 +485,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                         Thread thread = new Thread(runnable);
                         thread.start();
 
-                        Util.updateInventory(event.getPlayer());
+                        ItemUtils.updateInventory(event.getPlayer());
                         lastInspectorEvent.put(uuid, new Object[] { systemTime, eventHand });
 
                         if (event.hasItem()) {
@@ -653,7 +654,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             if (player.getGameMode() != GameMode.CREATIVE) {
                                 Location location = block.getLocation();
                                 long time = System.currentTimeMillis();
-                                int wid = Util.getWorldId(location.getWorld().getName());
+                                int wid = WorldUtils.getWorldId(location.getWorld().getName());
                                 int x = location.getBlockX();
                                 int y = location.getBlockY();
                                 int z = location.getBlockZ();
@@ -816,7 +817,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             String userUUID = player.getUniqueId().toString();
                             Location location = player.getLocation();
                             long time = System.currentTimeMillis();
-                            int wid = Util.getWorldId(location.getWorld().getName());
+                            int wid = WorldUtils.getWorldId(location.getWorld().getName());
                             int x = location.getBlockX();
                             int y = location.getBlockY();
                             int z = location.getBlockZ();
@@ -940,7 +941,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
     private void clickedDragonEgg(Player player, Block block) {
         Location location = block.getLocation();
         long time = System.currentTimeMillis();
-        int wid = Util.getWorldId(location.getWorld().getName());
+        int wid = WorldUtils.getWorldId(location.getWorld().getName());
         int x = location.getBlockX();
         int y = location.getBlockY();
         int z = location.getBlockZ();

@@ -2,7 +2,8 @@ package net.coreprotect.utility.entity;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.model.BlockGroup;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.MaterialUtils;
 import org.bukkit.Art;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -78,16 +79,16 @@ public class HangingUtil {
                     block = c4;
                 }
 
-                if (!Util.solidBlock(Util.getType(block.getRelative(BlockFace.EAST)))) {
+                if (!BlockUtils.solidBlock(BlockUtils.getType(block.getRelative(BlockFace.EAST)))) {
                     face = BlockFace.EAST;
                 }
-                else if (!Util.solidBlock(Util.getType(block.getRelative(BlockFace.NORTH)))) {
+                else if (!BlockUtils.solidBlock(BlockUtils.getType(block.getRelative(BlockFace.NORTH)))) {
                     face = BlockFace.NORTH;
                 }
-                else if (!Util.solidBlock(Util.getType(block.getRelative(BlockFace.WEST)))) {
+                else if (!BlockUtils.solidBlock(BlockUtils.getType(block.getRelative(BlockFace.WEST)))) {
                     face = BlockFace.WEST;
                 }
-                else if (!Util.solidBlock(Util.getType(block.getRelative(BlockFace.SOUTH)))) {
+                else if (!BlockUtils.solidBlock(BlockUtils.getType(block.getRelative(BlockFace.SOUTH)))) {
                     face = BlockFace.SOUTH;
                 }
             }
@@ -98,7 +99,7 @@ public class HangingUtil {
 
             if (faceSet != null && face != null) {
                 if (rowType.equals(Material.PAINTING)) {
-                    String name = Util.getArtName(rowData);
+                    String name = MaterialUtils.getArtName(rowData);
                     Art painting = Art.getByName(name.toUpperCase(Locale.ROOT));
                     int height = painting.getBlockHeight();
                     int width = painting.getBlockWidth();
@@ -122,7 +123,7 @@ public class HangingUtil {
                     }
                     Block spawnBlock = hangingFace != null ? block : block.getRelative(face);
                     if (hangingFace == null) {
-                        Util.setTypeAndData(spawnBlock, Material.AIR, null, true);
+                        BlockUtils.setTypeAndData(spawnBlock, Material.AIR, null, true);
                     }
                     Painting hanging = null;
                     try {
@@ -140,7 +141,7 @@ public class HangingUtil {
                     try {
                         Block spawnBlock = hangingFace != null ? block : block.getRelative(face);
                         if (hangingFace == null) {
-                            Util.setTypeAndData(spawnBlock, Material.AIR, null, true);
+                            BlockUtils.setTypeAndData(spawnBlock, Material.AIR, null, true);
                         }
                         Class itemFrame = BukkitAdapter.ADAPTER.getFrameClass(rowType);
                         Entity entity = block.getWorld().spawn(spawnBlock.getLocation(), itemFrame);
@@ -149,7 +150,7 @@ public class HangingUtil {
                             hanging.teleport(block.getWorld().getBlockAt(x, y, z).getLocation());
                             hanging.setFacingDirection(faceSet, true);
 
-                            Material type = Util.getType(rowData);
+                            Material type = MaterialUtils.getType(rowData);
                             if (type != null) {
                                 ItemStack istack = new ItemStack(type, 1);
                                 hanging.setItem(istack);

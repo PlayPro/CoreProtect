@@ -4,7 +4,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.WorldUtils;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -53,7 +53,7 @@ public final class PlayerBucketEmptyListener extends Queue implements Listener {
             }
 
             BlockState blockState = block.getState();
-            int worldId = Util.getWorldId(block.getWorld().getName());
+            int worldId = WorldUtils.getWorldId(block.getWorld().getName());
             int unixTimestamp = (int) (System.currentTimeMillis() / 1000L);
 
             if (type.equals(Material.WATER)) {

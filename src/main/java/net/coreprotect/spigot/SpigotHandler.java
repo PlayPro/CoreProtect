@@ -3,6 +3,7 @@ package net.coreprotect.spigot;
 import net.coreprotect.config.Config;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
+import net.coreprotect.utility.StringUtils;
 import net.coreprotect.utility.Util;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.chat.BaseComponent;
@@ -106,7 +107,7 @@ public class SpigotHandler extends SpigotAdapter implements SpigotInterface {
                 if (data[0].equals(Chat.COMPONENT_COMMAND)) {
                     TextComponent component = new TextComponent(TextComponent.fromLegacyText(data[2]));
                     component.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, data[1]));
-                    SpigotAdapter.ADAPTER.setHoverEvent(component, Util.hoverCommandFilter(data[1]));
+                    SpigotAdapter.ADAPTER.setHoverEvent(component, StringUtils.hoverCommandFilter(data[1]));
                     message.addExtra(component);
                 }
                 else if (data[0].equals(Chat.COMPONENT_POPUP)) {

@@ -3,7 +3,7 @@ package net.coreprotect.listener.world;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Lookup;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.BlockUtils;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.BlockState;
@@ -40,7 +40,7 @@ public final class PortalCreateListener extends Queue implements Listener {
                 continue;
             }
 
-            if (Util.isAir(type)) {
+            if (BlockUtils.isAir(type)) {
                 Queue.queueBlockBreak(user, oldBlock, oldBlock.getType(), oldBlock.getBlockData().getAsString(), 0);
             }
             else {

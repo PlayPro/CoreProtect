@@ -4,7 +4,7 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.WorldUtils;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -28,7 +28,7 @@ public final class FoodLevelChangeListener extends Queue implements Listener {
         int changeLevel = event.getFoodLevel() - player.getFoodLevel();
         if (changeLevel == 2) { // cake...
             Location location = player.getLocation();
-            int worldId = Util.getWorldId(location.getWorld().getName());
+            int worldId = WorldUtils.getWorldId(location.getWorld().getName());
             int x = location.getBlockX();
             int y = location.getBlockY();
             int z = location.getBlockZ();

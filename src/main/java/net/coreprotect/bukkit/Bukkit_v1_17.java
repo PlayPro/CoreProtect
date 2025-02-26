@@ -1,7 +1,8 @@
 package net.coreprotect.bukkit;
 
 import net.coreprotect.model.BlockGroup;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.MaterialUtils;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -48,7 +49,7 @@ public class Bukkit_v1_17 extends BukkitAdapter implements BukkitInterface {
     public int getLegacyBlockId(Material material) {
         switch (material) {
             case DIRT_PATH:
-                return Util.getBlockId("GRASS_PATH", false);
+                return MaterialUtils.getBlockId("GRASS_PATH", false);
             default:
                 return -1;
         }
@@ -112,7 +113,7 @@ public class Bukkit_v1_17 extends BukkitAdapter implements BukkitInterface {
             if (subMeta.hasItems()) {
                 list = new ArrayList<>();
                 for (ItemStack itemStack : subMeta.getItems()) {
-                    Map<String, Object> itemMap = Util.serializeItemStack(itemStack, null, slot);
+                    Map<String, Object> itemMap = ItemUtils.serializeItemStack(itemStack, null, slot);
                     if (itemMap.size() > 0) {
                         list.add(itemMap);
                     }
@@ -135,7 +136,7 @@ public class Bukkit_v1_17 extends BukkitAdapter implements BukkitInterface {
         if ((rowType == Material.BUNDLE)) {
             BundleMeta meta = (BundleMeta) itemstack.getItemMeta();
             for (Map<String, Object> itemData : map) {
-                ItemStack itemStack = Util.unserializeItemStack(itemData);
+                ItemStack itemStack = ItemUtils.unserializeItemStack(itemData);
                 if (itemStack != null) {
                     meta.addItem(itemStack);
                 }

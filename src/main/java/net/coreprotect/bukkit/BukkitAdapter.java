@@ -1,7 +1,7 @@
 package net.coreprotect.bukkit;
 
 import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.BlockUtils;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -162,7 +162,7 @@ public class BukkitAdapter implements BukkitInterface {
 
     @Override
     public boolean isInvisible(Material material) {
-        return Util.isAir(material);
+        return BlockUtils.isAir(material);
     }
 
     @Override

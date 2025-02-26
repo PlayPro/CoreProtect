@@ -6,7 +6,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.CommandStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.WorldUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 
@@ -38,7 +38,7 @@ public class CommandLogger {
             }
 
             int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
-            int wid = Util.getWorldId(location.getWorld().getName());
+            int wid = WorldUtils.getWorldId(location.getWorld().getName());
             int x = location.getBlockX();
             int y = location.getBlockY();
             int z = location.getBlockZ();

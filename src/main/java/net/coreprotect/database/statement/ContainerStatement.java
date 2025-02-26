@@ -1,6 +1,6 @@
 package net.coreprotect.database.statement;
 
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.ItemUtils;
 
 import java.sql.PreparedStatement;
 
@@ -12,7 +12,7 @@ public class ContainerStatement {
 
     public static void insert(PreparedStatement preparedStmt, int batchCount, int time, int id, int wid, int x, int y, int z, int type, int data, int amount, Object metadata, int action, int rolledBack) {
         try {
-            byte[] byteData = Util.convertByteData(metadata);
+            byte[] byteData = ItemUtils.convertByteData(metadata);
             preparedStmt.setInt(1, time);
             preparedStmt.setInt(2, id);
             preparedStmt.setInt(3, wid);

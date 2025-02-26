@@ -73,11 +73,17 @@ import net.coreprotect.model.BlockGroup;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.ChestTool;
 import net.coreprotect.utility.Color;
+import net.coreprotect.utility.DatabaseUtils;
+import net.coreprotect.utility.EntityUtils;
+import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.Teleport;
 import net.coreprotect.utility.Util;
+import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.entity.HangingUtil;
 
 public class Rollback extends RollbackUtil {
@@ -173,7 +179,7 @@ public class Rollback extends RollbackUtil {
                     // if (rowAction==11) result[8] = 1;
 
                     if (rowWorldId != worldId) {
-                        String world = Util.getWorldName(rowWorldId);
+                        String world = WorldUtils.getWorldName(rowWorldId);
                         World bukkitWorld = Bukkit.getServer().getWorld(world);
                         if (bukkitWorld != null) {
                             worldMin = BukkitAdapter.ADAPTER.getMinHeight(bukkitWorld);
@@ -281,7 +287,7 @@ public class Rollback extends RollbackUtil {
             ConfigHandler.rollbackHash.put(userString, new int[] { 0, 0, 0, 0, 0 });
 
             final String finalUserString = userString;
-            for (Entry<Long, Integer> entry : Util.entriesSortedByValues(chunkList)) {
+            for (Entry<Long, Integer> entry : DatabaseUtils.entriesSortedByValues(chunkList)) {
                 chunkCount++;
 
                 int itemCount = 0;
@@ -301,7 +307,7 @@ public class Rollback extends RollbackUtil {
 
                 HashMap<Integer, World> worldMap = new HashMap<>();
                 for (int rollbackWorldId : worldList) {
-                    String rollbackWorld = Util.getWorldName(rollbackWorldId);
+                    String rollbackWorld = WorldUtils.getWorldName(rollbackWorldId);
                     if (rollbackWorld.length() == 0) {
                         continue;
                     }
@@ -349,12 +355,12 @@ public class Rollback extends RollbackUtil {
                                 int rowTypeRaw = (Integer) row[6];
                                 int rowData = (Integer) row[7];
                                 int rowAction = (Integer) row[8];
-                                int rowRolledBack = Util.rolledBack((Integer) row[9], false);
+                                int rowRolledBack = MaterialUtils.rolledBack((Integer) row[9], false);
                                 int rowWorldId = (Integer) row[10];
                                 byte[] rowMeta = (byte[]) row[12];
                                 byte[] rowBlockData = (byte[]) row[13];
-                                String blockDataString = Util.byteDataToString(rowBlockData, rowTypeRaw);
-                                Material rowType = Util.getType(rowTypeRaw);
+                                String blockDataString = BlockUtils.byteDataToString(rowBlockData, rowTypeRaw);
+                                Material rowType = MaterialUtils.getType(rowTypeRaw);
 
                                 List<Object> meta = null;
                                 if (rowMeta != null) {
@@ -382,12 +388,12 @@ public class Rollback extends RollbackUtil {
                                     rawBlockData = blockData.clone();
                                 }
                                 if (rawBlockData == null && rowType != null && rowType.isBlock()) {
-                                    rawBlockData = Util.createBlockData(rowType);
+                                    rawBlockData = BlockUtils.createBlockData(rowType);
                                 }
 
                                 String rowUser = ConfigHandler.playerIdCacheReversed.get(rowUserId);
                                 int oldTypeRaw = rowTypeRaw;
-                                Material oldTypeMaterial = Util.getType(oldTypeRaw);
+                                Material oldTypeMaterial = MaterialUtils.getType(oldTypeRaw);
 
                                 if (rowAction == 1 && rollbackType == 0) { // block placement
                                     rowType = Material.AIR;
@@ -410,7 +416,7 @@ public class Rollback extends RollbackUtil {
 
                                 if (preview > 0) {
                                     if (rowAction != 3) { // entity kill
-                                        String world = Util.getWorldName(rowWorldId);
+                                        String world = WorldUtils.getWorldName(rowWorldId);
                                         if (world.length() == 0) {
                                             continue;
                                         }
@@ -424,13 +430,13 @@ public class Rollback extends RollbackUtil {
                                         if (preview == 2) {
                                             Material blockType = block.getType();
                                             if (!BukkitAdapter.ADAPTER.isItemFrame(blockType) && !blockType.equals(Material.PAINTING) && !blockType.equals(Material.ARMOR_STAND) && !blockType.equals(Material.END_CRYSTAL)) {
-                                                Util.prepareTypeAndData(chunkChanges, block, blockType, block.getBlockData(), true);
+                                                BlockUtils.prepareTypeAndData(chunkChanges, block, blockType, block.getBlockData(), true);
                                                 blockCount1++;
                                             }
                                         }
                                         else {
                                             if ((!BukkitAdapter.ADAPTER.isItemFrame(rowType)) && (rowType != Material.PAINTING) && (rowType != Material.ARMOR_STAND) && (rowType != Material.END_CRYSTAL)) {
-                                                Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, true);
+                                                BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, true);
                                                 blockCount1++;
                                             }
                                         }
@@ -440,7 +446,7 @@ public class Rollback extends RollbackUtil {
                                     }
                                 }
                                 else if (rowAction == 3) { // entity kill
-                                    String world = Util.getWorldName(rowWorldId);
+                                    String world = WorldUtils.getWorldName(rowWorldId);
                                     if (world.length() == 0) {
                                         continue;
                                     }
@@ -457,7 +463,7 @@ public class Rollback extends RollbackUtil {
                                     if (rowTypeRaw > 0) {
                                         // spawn in entity
                                         if (rowRolledBack == 0) {
-                                            EntityType entity_type = Util.getEntityType(rowTypeRaw);
+                                            EntityType entity_type = EntityUtils.getEntityType(rowTypeRaw);
                                             Queue.queueEntitySpawn(rowUser, block.getState(), entity_type, rowData);
                                             entityCount1++;
                                         }
@@ -467,7 +473,7 @@ public class Rollback extends RollbackUtil {
                                         if (rowRolledBack == 1) {
                                             boolean removed = false;
                                             int entityId = -1;
-                                            String entityName = Util.getEntityType(oldTypeRaw).name();
+                                            String entityName = EntityUtils.getEntityType(oldTypeRaw).name();
                                             String token = "" + rowX + "." + rowY + "." + rowZ + "." + rowWorldId + "." + entityName + "";
                                             Object[] cachedEntity = CacheHandler.entityCache.get(token);
 
@@ -493,7 +499,7 @@ public class Rollback extends RollbackUtil {
                                                     }
                                                 }
                                                 else {
-                                                    if (entity.getType().equals(Util.getEntityType(oldTypeRaw))) {
+                                                    if (entity.getType().equals(EntityUtils.getEntityType(oldTypeRaw))) {
                                                         Location entityLocation = entity.getLocation();
                                                         int entityx = entityLocation.getBlockX();
                                                         int entityY = entityLocation.getBlockY();
@@ -528,7 +534,7 @@ public class Rollback extends RollbackUtil {
                                         continue;
                                     }
 
-                                    String world = Util.getWorldName(rowWorldId);
+                                    String world = WorldUtils.getWorldName(rowWorldId);
                                     if (world.length() == 0) {
                                         continue;
                                     }
@@ -659,10 +665,10 @@ public class Rollback extends RollbackUtil {
                                                 if (pendingChangeData instanceof Waterlogged) {
                                                     Waterlogged waterlogged = (Waterlogged) pendingChangeData;
                                                     waterlogged.setWaterlogged(false);
-                                                    Util.prepareTypeAndData(chunkChanges, block, null, waterlogged, false);
+                                                    BlockUtils.prepareTypeAndData(chunkChanges, block, null, waterlogged, false);
                                                 }
                                                 else {
-                                                    Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, true);
+                                                    BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, true);
                                                 }
 
                                                 if (countBlock) {
@@ -670,7 +676,7 @@ public class Rollback extends RollbackUtil {
                                                 }
                                             }
                                             else if ((rowType == Material.AIR) && ((oldTypeMaterial == Material.SNOW))) {
-                                                Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, true);
+                                                BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, true);
                                                 if (countBlock) {
                                                     blockCount1++;
                                                 }
@@ -690,7 +696,7 @@ public class Rollback extends RollbackUtil {
                                             else if ((rowType == Material.AIR) || (rowType == Material.TNT)) {
                                                 if (clearInventories) {
                                                     if (BlockGroup.CONTAINERS.contains(changeType)) {
-                                                        Inventory inventory = Util.getContainerInventory(block.getState(), false);
+                                                        Inventory inventory = BlockUtils.getContainerInventory(block.getState(), false);
                                                         if (inventory != null) {
                                                             inventory.clear();
                                                         }
@@ -703,7 +709,7 @@ public class Rollback extends RollbackUtil {
                                                                     entityLocation.setY(entityLocation.getY() + 0.99);
 
                                                                     if (entityLocation.getBlockX() == rowX && entityLocation.getBlockY() == rowY && entityLocation.getBlockZ() == rowZ) {
-                                                                        EntityEquipment equipment = Util.getEntityEquipment((LivingEntity) entity);
+                                                                        EntityEquipment equipment = ItemUtils.getEntityEquipment((LivingEntity) entity);
                                                                         if (equipment != null) {
                                                                             equipment.clear();
                                                                         }
@@ -723,7 +729,7 @@ public class Rollback extends RollbackUtil {
                                                     if (pendingChangeData instanceof Waterlogged) {
                                                         Waterlogged waterlogged = (Waterlogged) pendingChangeData;
                                                         if (waterlogged.isWaterlogged()) {
-                                                            Util.prepareTypeAndData(chunkChanges, block, Material.WATER, Material.WATER.createBlockData(), true);
+                                                            BlockUtils.prepareTypeAndData(chunkChanges, block, Material.WATER, Material.WATER.createBlockData(), true);
                                                             remove = false;
                                                         }
                                                     }
@@ -756,7 +762,7 @@ public class Rollback extends RollbackUtil {
                                                         int worldMinHeight = BukkitAdapter.ADAPTER.getMinHeight(bukkitWorld);
                                                         if (bisectLocation.getBlockY() >= worldMinHeight && bisectLocation.getBlockY() < worldMaxHeight) {
                                                             Block bisectBlock = block.getWorld().getBlockAt(bisectLocation);
-                                                            Util.prepareTypeAndData(chunkChanges, bisectBlock, rowType, null, false);
+                                                            BlockUtils.prepareTypeAndData(chunkChanges, bisectBlock, rowType, null, false);
 
                                                             if (countBlock) {
                                                                 blockCount1++;
@@ -767,11 +773,11 @@ public class Rollback extends RollbackUtil {
                                                         Bed bed = (Bed) changeBlockData;
                                                         if (bed.getPart() == Part.FOOT) {
                                                             Block adjacentBlock = block.getRelative(bed.getFacing());
-                                                            Util.prepareTypeAndData(chunkChanges, adjacentBlock, rowType, null, false);
+                                                            BlockUtils.prepareTypeAndData(chunkChanges, adjacentBlock, rowType, null, false);
                                                         }
                                                     }
 
-                                                    Util.prepareTypeAndData(chunkChanges, block, rowType, null, physics);
+                                                    BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, null, physics);
                                                 }
 
                                                 if (countBlock) {
@@ -780,9 +786,9 @@ public class Rollback extends RollbackUtil {
                                             }
                                             else if ((rowType == Material.SPAWNER)) {
                                                 try {
-                                                    Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
+                                                    BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                                                     CreatureSpawner mobSpawner = (CreatureSpawner) block.getState();
-                                                    mobSpawner.setSpawnedType(Util.getSpawnerType(rowData));
+                                                    mobSpawner.setSpawnedType(EntityUtils.getSpawnerType(rowData));
                                                     mobSpawner.update();
 
                                                     if (countBlock) {
@@ -794,7 +800,7 @@ public class Rollback extends RollbackUtil {
                                                 }
                                             }
                                             else if ((rowType == Material.SKELETON_SKULL) || (rowType == Material.SKELETON_WALL_SKULL) || (rowType == Material.WITHER_SKELETON_SKULL) || (rowType == Material.WITHER_SKELETON_WALL_SKULL) || (rowType == Material.ZOMBIE_HEAD) || (rowType == Material.ZOMBIE_WALL_HEAD) || (rowType == Material.PLAYER_HEAD) || (rowType == Material.PLAYER_WALL_HEAD) || (rowType == Material.CREEPER_HEAD) || (rowType == Material.CREEPER_WALL_HEAD) || (rowType == Material.DRAGON_HEAD) || (rowType == Material.DRAGON_WALL_HEAD)) { // skull
-                                                Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
+                                                BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                                                 if (rowData > 0) {
                                                     Queue.queueSkullUpdate(rowUser, block.getState(), rowData);
                                                 }
@@ -804,7 +810,7 @@ public class Rollback extends RollbackUtil {
                                                 }
                                             }
                                             else if (BukkitAdapter.ADAPTER.isSign(rowType)) {// sign
-                                                Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
+                                                BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                                                 Queue.queueSignUpdate(rowUser, block.getState(), rollbackType, rowTime);
 
                                                 if (countBlock) {
@@ -812,14 +818,14 @@ public class Rollback extends RollbackUtil {
                                                 }
                                             }
                                             else if (BlockGroup.SHULKER_BOXES.contains(rowType)) {
-                                                Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
+                                                BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                                                 if (countBlock) {
                                                     blockCount1++;
                                                 }
                                                 if (meta != null) {
-                                                    Inventory inventory = Util.getContainerInventory(block.getState(), false);
+                                                    Inventory inventory = BlockUtils.getContainerInventory(block.getState(), false);
                                                     for (Object value : meta) {
-                                                        ItemStack item = Util.unserializeItemStackLegacy(value);
+                                                        ItemStack item = ItemUtils.unserializeItemStackLegacy(value);
                                                         if (item != null) {
                                                             modifyContainerItems(rowType, inventory, 0, item, 1);
                                                         }
@@ -827,7 +833,7 @@ public class Rollback extends RollbackUtil {
                                                 }
                                             }
                                             else if (rowType == Material.COMMAND_BLOCK || rowType == Material.REPEATING_COMMAND_BLOCK || rowType == Material.CHAIN_COMMAND_BLOCK) { // command block
-                                                Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
+                                                BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                                                 if (countBlock) {
                                                     blockCount1++;
                                                 }
@@ -847,10 +853,10 @@ public class Rollback extends RollbackUtil {
                                                 if (pendingChangeData instanceof Waterlogged) {
                                                     Waterlogged waterlogged = (Waterlogged) pendingChangeData;
                                                     waterlogged.setWaterlogged(true);
-                                                    Util.prepareTypeAndData(chunkChanges, block, null, waterlogged, false);
+                                                    BlockUtils.prepareTypeAndData(chunkChanges, block, null, waterlogged, false);
                                                 }
                                                 else {
-                                                    Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
+                                                    BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                                                 }
 
                                                 if (countBlock) {
@@ -858,7 +864,7 @@ public class Rollback extends RollbackUtil {
                                                 }
                                             }
                                             else if ((rowType == Material.NETHER_PORTAL) && rowAction == 0) {
-                                                Util.prepareTypeAndData(chunkChanges, block, Material.FIRE, null, true);
+                                                BlockUtils.prepareTypeAndData(chunkChanges, block, Material.FIRE, null, true);
                                             }
                                             else if (blockData == null && rowData > 0 && (rowType == Material.IRON_DOOR || BlockGroup.DOORS.contains(rowType))) {
                                                 if (countBlock) {
@@ -929,7 +935,7 @@ public class Rollback extends RollbackUtil {
                                                 block.setBlockData(bed, false);
                                             }
                                             else if (rowType.name().endsWith("_BANNER")) {
-                                                Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
+                                                BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                                                 if (countBlock) {
                                                     blockCount1++;
                                                 }
@@ -955,7 +961,7 @@ public class Rollback extends RollbackUtil {
                                                 block.setType(Material.AIR); // Clear existing container to prevent errors
 
                                                 boolean isChest = (blockData instanceof Chest);
-                                                Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, (isChest));
+                                                BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, (isChest));
                                                 if (isChest) {
                                                     ChestTool.updateDoubleChest(block, blockData, false);
                                                 }
@@ -965,7 +971,7 @@ public class Rollback extends RollbackUtil {
                                                 }
                                             }
                                             else if (BlockGroup.UPDATE_STATE.contains(rowType) || rowType.name().contains("CANDLE")) {
-                                                Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, true);
+                                                BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, true);
                                                 ChestTool.updateDoubleChest(block, blockData, true);
                                                 if (countBlock) {
                                                     blockCount1++;
@@ -988,10 +994,10 @@ public class Rollback extends RollbackUtil {
                                                 int worldMinHeight = BukkitAdapter.ADAPTER.getMinHeight(bukkitWorld);
                                                 if (bisectLocation.getBlockY() >= worldMinHeight && bisectLocation.getBlockY() < worldMaxHeight) {
                                                     Block bisectBlock = block.getWorld().getBlockAt(bisectLocation);
-                                                    Util.prepareTypeAndData(chunkChanges, bisectBlock, rowType, bisectData, false);
+                                                    BlockUtils.prepareTypeAndData(chunkChanges, bisectBlock, rowType, bisectData, false);
                                                 }
 
-                                                Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
+                                                BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                                                 if (countBlock) {
                                                     blockCount1++;
                                                     blockCount1++;
@@ -1003,13 +1009,13 @@ public class Rollback extends RollbackUtil {
                                                     Block adjacentBlock = block.getRelative(bed.getFacing());
                                                     Bed bedData = (Bed) rawBlockData.clone();
                                                     bedData.setPart(Part.HEAD);
-                                                    Util.prepareTypeAndData(chunkChanges, adjacentBlock, rowType, bedData, false);
+                                                    BlockUtils.prepareTypeAndData(chunkChanges, adjacentBlock, rowType, bedData, false);
                                                     if (countBlock) {
                                                         blockCount1++;
                                                     }
                                                 }
 
-                                                Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, true);
+                                                BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, true);
                                                 if (countBlock) {
                                                     blockCount1++;
                                                 }
@@ -1022,7 +1028,7 @@ public class Rollback extends RollbackUtil {
                                                 }
                                                 */
 
-                                                Util.prepareTypeAndData(chunkChanges, block, rowType, blockData, physics);
+                                                BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, physics);
                                                 if (countBlock) {
                                                     blockCount1++;
                                                 }
@@ -1053,7 +1059,7 @@ public class Rollback extends RollbackUtil {
                                     Util.sendBlockChange((Player) finalUser, changeBlock.getLocation(), changeBlockData);
                                 }
                                 else {
-                                    Util.setTypeAndData(changeBlock, null, changeBlockData, true);
+                                    BlockUtils.setTypeAndData(changeBlock, null, changeBlockData, true);
                                 }
                             }
                             chunkChanges.clear();
@@ -1080,16 +1086,16 @@ public class Rollback extends RollbackUtil {
                                 int rowTypeRaw = (Integer) row[6];
                                 int rowData = (Integer) row[7];
                                 int rowAction = (Integer) row[8];
-                                int rowRolledBack = Util.rolledBack((Integer) row[9], false);
+                                int rowRolledBack = MaterialUtils.rolledBack((Integer) row[9], false);
                                 int rowWorldId = (Integer) row[10];
                                 int rowAmount = (Integer) row[11];
                                 byte[] rowMetadata = (byte[]) row[12];
-                                Material rowType = Util.getType(rowTypeRaw);
+                                Material rowType = MaterialUtils.getType(rowTypeRaw);
 
-                                int rolledBackInventory = Util.rolledBack((Integer) row[9], true);
+                                int rolledBackInventory = MaterialUtils.rolledBack((Integer) row[9], true);
                                 if (rowType != null) {
                                     if (inventoryRollback && ((rollbackType == 0 && rolledBackInventory == 0) || (rollbackType == 1 && rolledBackInventory == 1))) {
-                                        Material inventoryItem = Util.itemFilter(rowType, ((Integer) row[14] == 0));
+                                        Material inventoryItem = ItemUtils.itemFilter(rowType, ((Integer) row[14] == 0));
                                         int rowUserId = (Integer) row[2];
                                         String rowUser = ConfigHandler.playerIdCacheReversed.get(rowUserId);
                                         if (rowUser == null) {
@@ -1148,7 +1154,7 @@ public class Rollback extends RollbackUtil {
 
                                         if (!containerInit || rowX != lastX || rowY != lastY || rowZ != lastZ || rowWorldId != lastWorldId || !faceData.equals(lastFace)) {
                                             container = null; // container patch 2.14.0
-                                            String world = Util.getWorldName(rowWorldId);
+                                            String world = WorldUtils.getWorldName(rowWorldId);
                                             if (world.length() == 0) {
                                                 continue;
                                             }
@@ -1168,7 +1174,7 @@ public class Rollback extends RollbackUtil {
                                                     container = blockState;
                                                 }
                                                 else {
-                                                    container = Util.getContainerInventory(blockState, false);
+                                                    container = BlockUtils.getContainerInventory(blockState, false);
                                                 }
 
                                                 containerType = block.getType();
@@ -1177,7 +1183,7 @@ public class Rollback extends RollbackUtil {
                                                 for (Entity entity : block.getChunk().getEntities()) {
                                                     if (entity.getLocation().getBlockX() == rowX && entity.getLocation().getBlockY() == rowY && entity.getLocation().getBlockZ() == rowZ) {
                                                         if (entity instanceof ArmorStand) {
-                                                            container = Util.getEntityEquipment((LivingEntity) entity);
+                                                            container = ItemUtils.getEntityEquipment((LivingEntity) entity);
                                                             containerType = Material.ARMOR_STAND;
                                                         }
                                                         else if (entity instanceof ItemFrame) {

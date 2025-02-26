@@ -63,6 +63,7 @@ import net.coreprotect.database.rollback.Rollback;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Util;
+import net.coreprotect.utility.WorldUtils;
 
 public class EntityUtil {
 
@@ -98,7 +99,7 @@ public class EntityUtil {
                 }
 
                 int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
-                int wid = Util.getWorldId(block.getWorld().getName());
+                int wid = WorldUtils.getWorldId(block.getWorld().getName());
                 String token = "" + block.getX() + "." + block.getY() + "." + block.getZ() + "." + wid + "." + type.name() + "";
                 CacheHandler.entityCache.put(token, new Object[] { unixtimestamp, entity.getEntityId() });
 

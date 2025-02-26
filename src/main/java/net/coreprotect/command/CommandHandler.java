@@ -31,7 +31,10 @@ import net.coreprotect.model.BlockGroup;
 import net.coreprotect.thread.NetworkHandler;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.EntityUtils;
+import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.utility.VersionUtils;
+import net.coreprotect.utility.WorldUtils;
 
 public class CommandHandler implements CommandExecutor {
     private static CommandHandler instance;
@@ -210,7 +213,7 @@ public class CommandHandler implements CommandExecutor {
                         }
                         if (cCount > 1) {
                             if (location == null && worldId > 0) {
-                                location = new Location(Bukkit.getWorld(Util.getWorldName(worldId)), 0, 0, 0);
+                                location = new Location(Bukkit.getWorld(WorldUtils.getWorldName(worldId)), 0, 0, 0);
                             }
                             if (location != null) {
                                 int worldMaxHeight = location.getWorld().getMaxHeight() - 1;
@@ -279,12 +282,12 @@ public class CommandHandler implements CommandExecutor {
                         String[] i2 = argument.split(",");
                         for (String i3 : i2) {
                             if (!checkTags(i3, excluded)) {
-                                Material i3_material = Util.getType(i3);
+                                Material i3_material = MaterialUtils.getType(i3);
                                 if (i3_material != null && (i3_material.isBlock() || argAction.contains(4))) {
                                     excluded.put(i3_material, false);
                                 }
                                 else {
-                                    EntityType i3_entity = Util.getEntityType(i3);
+                                    EntityType i3_entity = EntityUtils.getEntityType(i3);
                                     if (i3_entity != null) {
                                         excluded.put(i3_entity, false);
                                     }
@@ -303,12 +306,12 @@ public class CommandHandler implements CommandExecutor {
                     }
                     else {
                         if (!checkTags(argument, excluded)) {
-                            Material iMaterial = Util.getType(argument);
+                            Material iMaterial = MaterialUtils.getType(argument);
                             if (iMaterial != null && (iMaterial.isBlock() || argAction.contains(4))) {
                                 excluded.put(iMaterial, false);
                             }
                             else {
-                                EntityType iEntity = Util.getEntityType(argument);
+                                EntityType iEntity = EntityUtils.getEntityType(argument);
                                 if (iEntity != null) {
                                     excluded.put(iEntity, false);
                                 }
@@ -354,12 +357,12 @@ public class CommandHandler implements CommandExecutor {
                                 isBlock = true;
                             }
                             else {
-                                Material i3_material = Util.getType(i3);
+                                Material i3_material = MaterialUtils.getType(i3);
                                 if (i3_material != null) {
                                     isBlock = true;
                                 }
                                 else {
-                                    EntityType i3Entity = Util.getEntityType(i3);
+                                    EntityType i3Entity = EntityUtils.getEntityType(i3);
                                     if (i3Entity != null) {
                                         isBlock = true;
                                     }
@@ -382,12 +385,12 @@ public class CommandHandler implements CommandExecutor {
                             isBlock = true;
                         }
                         else {
-                            Material iMaterial = Util.getType(argument);
+                            Material iMaterial = MaterialUtils.getType(argument);
                             if (iMaterial != null) {
                                 isBlock = true;
                             }
                             else {
-                                EntityType entityType = Util.getEntityType(argument);
+                                EntityType entityType = EntityUtils.getEntityType(argument);
                                 if (entityType != null) {
                                     isBlock = true;
                                 }
@@ -429,7 +432,7 @@ public class CommandHandler implements CommandExecutor {
                         result = true;
                     }
                     else if (argument.startsWith("#")) {
-                        int worldId = Util.matchWorld(argument);
+                        int worldId = WorldUtils.matchWorld(argument);
                         if (worldId > 0) {
                             result = true;
                         }
@@ -622,12 +625,12 @@ public class CommandHandler implements CommandExecutor {
                         String[] i2 = argument.split(",");
                         for (String i3 : i2) {
                             if (!checkTags(argument, restricted)) {
-                                Material i3_material = Util.getType(i3);
+                                Material i3_material = MaterialUtils.getType(i3);
                                 if (i3_material != null && (i3_material.isBlock() || argAction.contains(4))) {
                                     restricted.add(i3_material);
                                 }
                                 else {
-                                    EntityType i3_entity = Util.getEntityType(i3);
+                                    EntityType i3_entity = EntityUtils.getEntityType(i3);
                                     if (i3_entity != null) {
                                         restricted.add(i3_entity);
                                     }
@@ -651,12 +654,12 @@ public class CommandHandler implements CommandExecutor {
                     }
                     else {
                         if (!checkTags(argument, restricted)) {
-                            Material material = Util.getType(argument);
+                            Material material = MaterialUtils.getType(argument);
                             if (material != null && (material.isBlock() || argAction.contains(4))) {
                                 restricted.add(material);
                             }
                             else {
-                                EntityType entityType = Util.getEntityType(argument);
+                                EntityType entityType = EntityUtils.getEntityType(argument);
                                 if (entityType != null) {
                                     restricted.add(entityType);
                                 }
@@ -1041,7 +1044,7 @@ public class CommandHandler implements CommandExecutor {
                         world_id = 0;
                     }
                     else if (inputProcessed.startsWith("#")) {
-                        world_id = Util.matchWorld(inputProcessed);
+                        world_id = WorldUtils.matchWorld(inputProcessed);
                         if (world_id == -1 && !requireLoaded) {
                             world_id = ConfigHandler.worlds.getOrDefault(argument.replaceFirst("#", ""), -1);
                         }
@@ -1275,7 +1278,7 @@ public class CommandHandler implements CommandExecutor {
                     NetworkDebugCommand.runCommand(user, permission, argumentArray);
                 }
                 else if (corecommand.equals("migrate-db")) {
-                    if (!Util.validDonationKey()) {
+                    if (!VersionUtils.validDonationKey()) {
                         Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DONATION_KEY_REQUIRED));
                     }
                     else {
@@ -1300,7 +1303,7 @@ public class CommandHandler implements CommandExecutor {
                         public void run() {
                             try {
                                 Thread.sleep(5000);
-                                Chat.sendMessage(user, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.UPDATE_HEADER, "CoreProtect" + (Util.isCommunityEdition() ? " " + ConfigHandler.COMMUNITY_EDITION : "")) + Color.WHITE + " -----");
+                                Chat.sendMessage(user, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.UPDATE_HEADER, "CoreProtect" + (VersionUtils.isCommunityEdition() ? " " + ConfigHandler.COMMUNITY_EDITION : "")) + Color.WHITE + " -----");
                                 if (latestVersion != null) {
                                     Chat.sendMessage(user, Color.DARK_AQUA + Phrase.build(Phrase.UPDATE_NOTICE, Color.WHITE, "CoreProtect CE v" + latestVersion));
                                     Chat.sendMessage(user, Color.DARK_AQUA + Phrase.build(Phrase.LINK_DOWNLOAD, Color.WHITE, "www.coreprotect.net/download/"));

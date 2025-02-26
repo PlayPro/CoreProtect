@@ -11,7 +11,7 @@ import org.bukkit.event.world.PortalCreateEvent;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Lookup;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.BlockUtils;
 
 public final class PortalCreateListener extends Queue implements Listener {
 
@@ -41,7 +41,7 @@ public final class PortalCreateListener extends Queue implements Listener {
                 continue;
             }
 
-            if (Util.isAir(type)) {
+            if (BlockUtils.isAir(type)) {
                 Queue.queueBlockBreak(user, oldBlock, oldBlock.getType(), oldBlock.getBlockData().getAsString(), 0);
             }
             else {

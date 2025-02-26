@@ -13,6 +13,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.patch.Patch;
 import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.Util;
 
 public class __2_20_0 {
@@ -90,7 +91,7 @@ public class __2_20_0 {
                         break;
                 }
 
-                preparedStatementUpdate.setInt(1, Util.getSpawnerType(entityType));
+                preparedStatementUpdate.setInt(1, EntityUtils.getSpawnerType(entityType));
                 preparedStatementUpdate.setInt(2, resultSet.getInt("rowid"));
                 preparedStatementUpdate.executeUpdate();
             }

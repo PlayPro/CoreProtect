@@ -34,7 +34,7 @@ import org.bukkit.util.io.BukkitObjectInputStream;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.database.Lookup;
 import net.coreprotect.model.BlockGroup;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.ItemUtils;
 
 public class RollbackUtil extends Lookup {
 
@@ -116,7 +116,7 @@ public class RollbackUtil extends Lookup {
                         while (count < amount) {
                             boolean addedItem = false;
                             if (isPlayerInventory) {
-                                int setArmor = Util.setPlayerArmor((PlayerInventory) inventory, itemstack);
+                                int setArmor = ItemUtils.setPlayerArmor((PlayerInventory) inventory, itemstack);
                                 addedItem = (setArmor > -1);
                                 modifiedArmor = addedItem ? setArmor : modifiedArmor;
                             }
@@ -303,7 +303,7 @@ public class RollbackUtil extends Lookup {
                     BlockStateMeta meta = (BlockStateMeta) itemstack.getItemMeta();
                     ShulkerBox shulkerBox = (ShulkerBox) meta.getBlockState();
                     for (Object value : metaList) {
-                        ItemStack item = Util.unserializeItemStackLegacy(value);
+                        ItemStack item = ItemUtils.unserializeItemStackLegacy(value);
                         if (item != null) {
                             shulkerBox.getInventory().addItem(item);
                         }
@@ -369,7 +369,7 @@ public class RollbackUtil extends Lookup {
                     itemstack.setItemMeta(itemMeta);
                 }
                 else if (itemCount == 0) {
-                    ItemMeta meta = Util.deserializeItemMeta(itemstack.getItemMeta().getClass(), map.get(0));
+                    ItemMeta meta = ItemUtils.deserializeItemMeta(itemstack.getItemMeta().getClass(), map.get(0));
                     itemstack.setItemMeta(meta);
 
                     if (map.size() > 1 && (rowType == Material.POTION)) {
@@ -407,7 +407,7 @@ public class RollbackUtil extends Lookup {
                     else if ((rowType == Material.CROSSBOW)) {
                         CrossbowMeta meta = (CrossbowMeta) itemstack.getItemMeta();
                         for (Map<String, Object> itemData : map) {
-                            ItemStack crossbowItem = Util.unserializeItemStack(itemData);
+                            ItemStack crossbowItem = ItemUtils.unserializeItemStack(itemData);
                             if (crossbowItem != null) {
                                 meta.addChargedProjectile(crossbowItem);
                             }

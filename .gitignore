@@ -16,6 +16,7 @@ local.properties
 .settings/
 .loadpath
 .gradle/
+.vscode/
 
 # External tool builders
 .externalToolBuilders/
@@ -171,6 +172,8 @@ Desktop.ini
 ## Misc.
 #############
 
+.cursorrules
+
 # Compiled class file
 *.class
 
@@ -200,3 +203,5 @@ docs/dev/
 # Extensions
 /src/main/java/net/coreprotect/extensions/*.java
 !/src/main/java/net/coreprotect/extensions/Extensions.java
+/.apt_generated/
+/.apt_generated_tests/

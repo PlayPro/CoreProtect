@@ -19,6 +19,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.Util;
+import net.coreprotect.utility.WorldUtils;
 
 public final class BlockPistonListener extends Queue implements Listener {
 
@@ -45,7 +46,7 @@ public final class BlockPistonListener extends Queue implements Listener {
             Block b = event.getBlock();
             BlockFace d = event.getDirection();
             Block bm = b.getRelative(d);
-            int wid = Util.getWorldId(bm.getWorld().getName());
+            int wid = WorldUtils.getWorldId(bm.getWorld().getName());
 
             int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
             int log = 0;

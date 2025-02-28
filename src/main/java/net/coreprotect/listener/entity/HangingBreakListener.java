@@ -18,7 +18,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Lookup;
 import net.coreprotect.listener.player.PlayerInteractEntityListener;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.MaterialUtils;
 
 public final class HangingBreakListener extends Queue implements Listener {
 
@@ -72,7 +72,7 @@ public final class HangingBreakListener extends Queue implements Listener {
                     material = Material.PAINTING;
                     Painting painting = (Painting) entity;
                     blockData = "FACING=" + painting.getFacing().name();
-                    itemData = Util.getArtId(painting.getArt().toString(), true);
+                    itemData = MaterialUtils.getArtId(painting.getArt().toString(), true);
                 }
 
                 if (!event.isCancelled() && Config.getConfig(blockEvent.getWorld()).NATURAL_BREAK) {

@@ -32,6 +32,7 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.Util;
 import net.coreprotect.utility.Validate;
 
@@ -124,7 +125,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
                             List<ItemStack[]> list = ConfigHandler.forceContainer.get(loggingChestIdViewer);
 
                             if (list != null && list.size() < sizeOld) {
-                                ItemStack[] containerState = Util.getContainerState(inventoryData);
+                                ItemStack[] containerState = ItemUtils.getContainerState(inventoryData);
 
                                 // If items have been removed by a hopper, merge into containerState
                                 List<Object> transactingChest = ConfigHandler.transactingChest.get(transactingChestId);
@@ -183,14 +184,14 @@ public final class InventoryChangeListener extends Queue implements Listener {
                             List<ItemStack[]> list = ConfigHandler.oldContainer.get(loggingChestId);
 
                             if (list != null && list.size() <= forceSize) {
-                                list.add(Util.getContainerState(inventoryData));
+                                list.add(ItemUtils.getContainerState(inventoryData));
                                 ConfigHandler.oldContainer.put(loggingChestId, list);
                             }
                         }
                     }
                     else {
                         List<ItemStack[]> list = new ArrayList<>();
-                        list.add(Util.getContainerState(inventoryData));
+                        list.add(ItemUtils.getContainerState(inventoryData));
                         ConfigHandler.oldContainer.put(loggingChestId, list);
                     }
 
@@ -225,7 +226,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
         }
 
         Location inventoryLocation = location;
-        ItemStack[] containerState = Util.getContainerState(inventory.getContents());
+        ItemStack[] containerState = ItemUtils.getContainerState(inventory.getContents());
 
         String loggingChestId = player.getName() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
         Boolean lastTransaction = inventoryProcessing.get(loggingChestId);

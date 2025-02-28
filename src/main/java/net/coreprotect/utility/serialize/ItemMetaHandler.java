@@ -28,7 +28,8 @@ import org.bukkit.potion.PotionEffect;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.StringUtils;
 
 public class ItemMetaHandler {
 
@@ -43,7 +44,7 @@ public class ItemMetaHandler {
                 name = "Curse of Binding";
                 break;
             default:
-                name = Util.capitalize(name.replace("_", " "), true);
+                name = StringUtils.capitalize(name.replace("_", " "), true);
                 break;
         }
 
@@ -216,7 +217,7 @@ public class ItemMetaHandler {
                     list = new ArrayList<>();
 
                     for (ItemStack chargedProjectile : subMeta.getChargedProjectiles()) {
-                        Map<String, Object> itemMap = Util.serializeItemStack(chargedProjectile, null, slot);
+                        Map<String, Object> itemMap = ItemUtils.serializeItemStack(chargedProjectile, null, slot);
                         if (itemMap.size() > 0) {
                             list.add(itemMap);
                         }

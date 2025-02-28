@@ -25,7 +25,11 @@ import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
 import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.EntityUtils;
+import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.Util;
+import net.coreprotect.utility.WorldUtils;
 
 public class Lookup extends Queue {
 
@@ -57,7 +61,7 @@ public class Lookup extends Queue {
                         }
                     }
                     else if (i == 13 && map[i] instanceof byte[]) {
-                        results[newId] = Util.byteDataToString((byte[]) map[i], (int) map[6]);
+                        results[newId] = BlockUtils.byteDataToString((byte[]) map[i], (int) map[6]);
                     }
                     else if (i > 0) { // skip rowid
                         if (map[i] instanceof Integer) {
@@ -402,10 +406,10 @@ public class Lookup extends Queue {
                     if (restrictTarget instanceof Material) {
                         targetName = ((Material) restrictTarget).name();
                         if (includeListMaterial.length() == 0) {
-                            includeListMaterial = includeListMaterial.append(Util.getBlockId(targetName, false));
+                            includeListMaterial = includeListMaterial.append(MaterialUtils.getBlockId(targetName, false));
                         }
                         else {
-                            includeListMaterial.append(",").append(Util.getBlockId(targetName, false));
+                            includeListMaterial.append(",").append(MaterialUtils.getBlockId(targetName, false));
                         }
 
                         /* Include legacy IDs */
@@ -417,10 +421,10 @@ public class Lookup extends Queue {
                     else if (restrictTarget instanceof EntityType) {
                         targetName = ((EntityType) restrictTarget).name();
                         if (includeListEntity.length() == 0) {
-                            includeListEntity = includeListEntity.append(Util.getEntityId(targetName, false));
+                            includeListEntity = includeListEntity.append(EntityUtils.getEntityId(targetName, false));
                         }
                         else {
-                            includeListEntity.append(",").append(Util.getEntityId(targetName, false));
+                            includeListEntity.append(",").append(EntityUtils.getEntityId(targetName, false));
                         }
                     }
                 }
@@ -439,10 +443,10 @@ public class Lookup extends Queue {
                     if (restrictTarget instanceof Material) {
                         targetName = ((Material) restrictTarget).name();
                         if (excludeListMaterial.length() == 0) {
-                            excludeListMaterial = excludeListMaterial.append(Util.getBlockId(targetName, false));
+                            excludeListMaterial = excludeListMaterial.append(MaterialUtils.getBlockId(targetName, false));
                         }
                         else {
-                            excludeListMaterial.append(",").append(Util.getBlockId(targetName, false));
+                            excludeListMaterial.append(",").append(MaterialUtils.getBlockId(targetName, false));
                         }
 
                         /* Include legacy IDs */
@@ -454,10 +458,10 @@ public class Lookup extends Queue {
                     else if (restrictTarget instanceof EntityType) {
                         targetName = ((EntityType) restrictTarget).name();
                         if (excludeListEntity.length() == 0) {
-                            excludeListEntity = excludeListEntity.append(Util.getEntityId(targetName, false));
+                            excludeListEntity = excludeListEntity.append(EntityUtils.getEntityId(targetName, false));
                         }
                         else {
-                            excludeListEntity.append(",").append(Util.getEntityId(targetName, false));
+                            excludeListEntity.append(",").append(EntityUtils.getEntityId(targetName, false));
                         }
                     }
                 }
@@ -560,7 +564,7 @@ public class Lookup extends Queue {
             }
 
             if (restrictWorld) {
-                int wid = Util.getWorldId(location.getWorld().getName());
+                int wid = WorldUtils.getWorldId(location.getWorld().getName());
                 queryBlock = queryBlock + " wid=" + wid + " AND";
             }
 
@@ -580,7 +584,7 @@ public class Lookup extends Queue {
                 queryBlock = queryBlock + " x >= '" + xmin + "' AND x <= '" + xmax + "' AND z >= '" + zmin + "' AND z <= '" + zmax + "' AND" + queryY;
             }
             else if (actionList.contains(5)) {
-                int worldId = Util.getWorldId(location.getWorld().getName());
+                int worldId = WorldUtils.getWorldId(location.getWorld().getName());
                 int x = (int) Math.floor(location.getX());
                 int z = (int) Math.floor(location.getZ());
                 int x2 = (int) Math.ceil(location.getX());
@@ -818,8 +822,8 @@ public class Lookup extends Queue {
             int y = block.getY();
             int z = block.getZ();
             int time = (int) (System.currentTimeMillis() / 1000L);
-            int worldId = Util.getWorldId(block.getWorld().getName());
-            String query = "SELECT user,type FROM " + ConfigHandler.prefix + "block " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND rolled_back IN(0,2) AND action='1' ORDER BY rowid DESC LIMIT 0, 1";
+            int worldId = WorldUtils.getWorldId(block.getWorld().getName());
+            String query = "SELECT user,type FROM " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND rolled_back IN(0,2) AND action='1' ORDER BY rowid DESC LIMIT 0, 1";
 
             ResultSet results = statement.executeQuery(query);
             while (results.next()) {
@@ -832,7 +836,7 @@ public class Lookup extends Queue {
 
                 result = ConfigHandler.playerIdCacheReversed.get(resultUserId);
                 if (result.length() > 0) {
-                    Material resultMaterial = Util.getType(resultType);
+                    Material resultMaterial = MaterialUtils.getType(resultType);
                     CacheHandler.lookupCache.put("" + x + "." + y + "." + z + "." + worldId + "", new Object[] { time, result, resultMaterial });
                 }
             }
@@ -864,7 +868,7 @@ public class Lookup extends Queue {
             int x = block.getX();
             int y = block.getY();
             int z = block.getZ();
-            int worldId = Util.getWorldId(block.getWorld().getName());
+            int worldId = WorldUtils.getWorldId(block.getWorld().getName());
 
             String cords = "" + x + "." + y + "." + z + "." + worldId + "";
             Object[] data = CacheHandler.lookupCache.get(cords);
@@ -891,7 +895,7 @@ public class Lookup extends Queue {
                 int x = block.getX();
                 int y = block.getY();
                 int z = block.getZ();
-                int worldId = Util.getWorldId(block.getWorld().getName());
+                int worldId = WorldUtils.getWorldId(block.getWorld().getName());
 
                 String cords = "" + x + "." + y + "." + z + "." + worldId + "";
                 Object[] data = CacheHandler.breakCache.get(cords);

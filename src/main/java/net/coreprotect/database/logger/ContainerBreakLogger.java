@@ -8,6 +8,7 @@ import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.Util;
 
 public class ContainerBreakLogger {
@@ -18,7 +19,7 @@ public class ContainerBreakLogger {
 
     public static void log(PreparedStatement preparedStmt, int batchCount, String player, Location l, Material type, ItemStack[] oldInventory) {
         try {
-            Util.mergeItems(type, oldInventory);
+            ItemUtils.mergeItems(type, oldInventory);
             ContainerLogger.logTransaction(preparedStmt, batchCount, player, type, null, oldInventory, 0, l);
             String loggingContainerId = player.toLowerCase(Locale.ROOT) + "." + l.getBlockX() + "." + l.getBlockY() + "." + l.getBlockZ();
 

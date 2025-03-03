@@ -127,7 +127,7 @@ MISSING_ROLLBACK_USER: "{ロールバック|復元}対象のユーザーを指�
 MYSQL_UNAVAILABLE: "MySQLサーバーに接続できません"
 NO_DATA: "{0}でデータが見つかりません。"
 NO_DATA_LOCATION: "{データ|トランザクション|相互作用|メッセージ}は見つかりませんでした。"
-NO_PERMISSION: "あなたにはそれをする許可がありません。"
+NO_PERMISSION: "あなたにはそれをする権限がありません。"
 NO_RESULTS: "結果が見つかりませんでした。"
 NO_RESULTS_PAGE: "このページには{結果|データ}は見つかりませんでした。"
 NO_ROLLBACK: "{保留中の|進んでいる}ロールバック/復元は見つかりませんでした。"

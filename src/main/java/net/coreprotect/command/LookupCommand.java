@@ -1,18 +1,14 @@
 package net.coreprotect.command;
 
-import com.google.common.base.Strings;
-import net.coreprotect.config.Config;
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.database.Database;
-import net.coreprotect.database.Lookup;
-import net.coreprotect.database.logger.ItemLogger;
-import net.coreprotect.database.lookup.*;
-import net.coreprotect.database.statement.UserStatement;
-import net.coreprotect.language.Phrase;
-import net.coreprotect.language.Selector;
-import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
-import net.coreprotect.listener.channel.PluginChannelListener;
-import net.coreprotect.utility.*;
+import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.Statement;
+import java.text.NumberFormat;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -24,37 +20,55 @@ import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 
-import java.nio.charset.StandardCharsets;
-import java.sql.Connection;
-import java.sql.Statement;
-import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import com.google.common.base.Strings;
+
+import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
+import net.coreprotect.database.Lookup;
+import net.coreprotect.database.logger.ItemLogger;
+import net.coreprotect.database.lookup.BlockLookup;
+import net.coreprotect.database.lookup.ChestTransactionLookup;
+import net.coreprotect.database.lookup.InteractionLookup;
+import net.coreprotect.database.lookup.PlayerLookup;
+import net.coreprotect.database.lookup.SignMessageLookup;
+import net.coreprotect.database.statement.UserStatement;
+import net.coreprotect.language.Phrase;
+import net.coreprotect.language.Selector;
+import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
+import net.coreprotect.listener.channel.PluginChannelListener;
+import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.ChatMessage;
+import net.coreprotect.utility.ChatUtils;
+import net.coreprotect.utility.Color;
+import net.coreprotect.utility.EntityUtils;
+import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.utility.StringUtils;
+import net.coreprotect.utility.WorldUtils;
 
 public class LookupCommand {
     protected static void runCommand(CommandSender player, Command command, boolean permission, String[] args) {
         int resultc = args.length;
-        args = CommandHandler.parsePage(args);
-        Location lo = CommandHandler.parseLocation(player, args);
+        args = CommandParser.parsePage(args);
+        Location lo = CommandParser.parseLocation(player, args);
         // List<String> arg_uuids = new ArrayList<String>();
-        List<String> argUsers = CommandHandler.parseUsers(args);
-        Integer[] argRadius = CommandHandler.parseRadius(args, player, lo);
-        int argNoisy = CommandHandler.parseNoisy(args);
-        List<Integer> argAction = CommandHandler.parseAction(args);
-        List<Object> argBlocks = CommandHandler.parseRestricted(player, args, argAction);
-        Map<Object, Boolean> argExclude = CommandHandler.parseExcluded(player, args, argAction);
-        List<String> argExcludeUsers = CommandHandler.parseExcludedUsers(player, args);
-        String ts = CommandHandler.parseTimeString(args);
-        long[] argTime = CommandHandler.parseTime(args);
+        List<String> argUsers = CommandParser.parseUsers(args);
+        Integer[] argRadius = CommandParser.parseRadius(args, player, lo);
+        int argNoisy = CommandParser.parseNoisy(args);
+        List<Integer> argAction = CommandParser.parseAction(args);
+        List<Object> argBlocks = CommandParser.parseRestricted(player, args, argAction);
+        Map<Object, Boolean> argExclude = CommandParser.parseExcluded(player, args, argAction);
+        List<String> argExcludeUsers = CommandParser.parseExcludedUsers(player, args);
+        String ts = CommandParser.parseTimeString(args);
+        long[] argTime = CommandParser.parseTime(args);
         long startTime = argTime[0];
         long endTime = argTime[1];
-        int argWid = CommandHandler.parseWorld(args, true, true);
-        int parseRows = CommandHandler.parseRows(args);
-        boolean count = CommandHandler.parseCount(args);
-        boolean worldedit = CommandHandler.parseWorldEdit(args);
-        boolean forceglobal = CommandHandler.parseForceGlobal(args);
+        int argWid = CommandParser.parseWorld(args, true, true);
+        int parseRows = CommandParser.parseRows(args);
+        boolean count = CommandParser.parseCount(args);
+        boolean worldedit = CommandParser.parseWorldEdit(args);
+        boolean forceglobal = CommandParser.parseForceGlobal(args);
         boolean pageLookup = false;
 
         if (argBlocks == null || argExclude == null || argExcludeUsers == null) {
@@ -111,7 +125,7 @@ public class LookupCommand {
         }
 
         if (argWid == -1) {
-            String worldName = CommandHandler.parseWorldName(args, true);
+            String worldName = CommandParser.parseWorldName(args, true);
             Chat.sendMessage(player, new ChatMessage(Phrase.build(Phrase.WORLD_NOT_FOUND, worldName)).build());
             return;
         }

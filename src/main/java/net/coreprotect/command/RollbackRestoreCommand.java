@@ -1,16 +1,12 @@
 package net.coreprotect.command;
 
-import net.coreprotect.config.Config;
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.database.ContainerRollback;
-import net.coreprotect.database.Database;
-import net.coreprotect.database.lookup.PlayerLookup;
-import net.coreprotect.database.rollback.Rollback;
-import net.coreprotect.language.Phrase;
-import net.coreprotect.language.Selector;
-import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.Color;
-import net.coreprotect.utility.WorldUtils;
+import java.sql.Connection;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -23,33 +19,38 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 
-import java.sql.Connection;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.ContainerRollback;
+import net.coreprotect.database.Database;
+import net.coreprotect.database.lookup.PlayerLookup;
+import net.coreprotect.database.rollback.Rollback;
+import net.coreprotect.language.Phrase;
+import net.coreprotect.language.Selector;
+import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.Color;
+import net.coreprotect.utility.WorldUtils;
 
 public class RollbackRestoreCommand {
     protected static void runCommand(CommandSender player, Command command, boolean permission, String[] args, Location argLocation, long forceStart, long forceEnd) {
-        Location lo = (argLocation != null ? argLocation : CommandHandler.parseLocation(player, args));
+        Location lo = (argLocation != null ? argLocation : CommandParser.parseLocation(player, args));
         List<String> argUuids = new ArrayList<>();
-        List<String> argUsers = CommandHandler.parseUsers(args);
-        Integer[] argRadius = CommandHandler.parseRadius(args, player, lo);
-        int argNoisy = CommandHandler.parseNoisy(args);
-        List<Integer> argAction = CommandHandler.parseAction(args);
-        List<Object> argBlocks = CommandHandler.parseRestricted(player, args, argAction);
-        Map<Object, Boolean> argExclude = CommandHandler.parseExcluded(player, args, argAction);
-        List<String> argExcludeUsers = CommandHandler.parseExcludedUsers(player, args);
-        String ts = CommandHandler.parseTimeString(args);
-        long[] argTime = CommandHandler.parseTime(args);
+        List<String> argUsers = CommandParser.parseUsers(args);
+        Integer[] argRadius = CommandParser.parseRadius(args, player, lo);
+        int argNoisy = CommandParser.parseNoisy(args);
+        List<Integer> argAction = CommandParser.parseAction(args);
+        List<Object> argBlocks = CommandParser.parseRestricted(player, args, argAction);
+        Map<Object, Boolean> argExclude = CommandParser.parseExcluded(player, args, argAction);
+        List<String> argExcludeUsers = CommandParser.parseExcludedUsers(player, args);
+        String ts = CommandParser.parseTimeString(args);
+        long[] argTime = CommandParser.parseTime(args);
         long startTime = argTime[0];
         long endTime = argTime[1];
-        int argWid = CommandHandler.parseWorld(args, true, true);
-        boolean count = CommandHandler.parseCount(args);
-        boolean worldedit = CommandHandler.parseWorldEdit(args);
-        boolean forceglobal = CommandHandler.parseForceGlobal(args);
-        int preview = CommandHandler.parsePreview(args);
+        int argWid = CommandParser.parseWorld(args, true, true);
+        boolean count = CommandParser.parseCount(args);
+        boolean worldedit = CommandParser.parseWorldEdit(args);
+        boolean forceglobal = CommandParser.parseForceGlobal(args);
+        int preview = CommandParser.parsePreview(args);
         String corecommand = args[0].toLowerCase(Locale.ROOT);
 
         if (argBlocks == null || argExclude == null || argExcludeUsers == null) {
@@ -110,7 +111,7 @@ public class RollbackRestoreCommand {
             return;
         }
         if (argWid == -1) {
-            String worldName = CommandHandler.parseWorldName(args, true);
+            String worldName = CommandParser.parseWorldName(args, true);
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.WORLD_NOT_FOUND, worldName));
             return;
         }

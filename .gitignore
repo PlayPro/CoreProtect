@@ -172,6 +172,8 @@ Desktop.ini
 ## Misc.
 #############
 
+.cursorrules
+
 # Compiled class file
 *.class
 

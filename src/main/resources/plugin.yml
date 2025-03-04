@@ -6,7 +6,7 @@ api-version: 1.13
 folia-supported: true
 website: http://coreprotect.net
 author: Intelli
-softdepend: [WorldEdit]
+softdepend: [WorldEdit,AdvancedChests]
 description: >
              Provides block protection for your server.
 commands:

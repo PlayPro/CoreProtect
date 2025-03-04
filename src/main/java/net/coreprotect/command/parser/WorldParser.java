@@ -1,9 +1,9 @@
 package net.coreprotect.command.parser;
 
-import java.util.Locale;
-
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.utility.WorldUtils;
+
+import java.util.Locale;
 
 /**
  * Parser for world-related command arguments

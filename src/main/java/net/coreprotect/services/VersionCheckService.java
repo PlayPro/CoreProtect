@@ -1,12 +1,11 @@
 package net.coreprotect.services;
 
-import org.bukkit.Bukkit;
-
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.VersionUtils;
+import org.bukkit.Bukkit;
 
 /**
  * Service responsible for checking compatibility of Minecraft, Java versions,

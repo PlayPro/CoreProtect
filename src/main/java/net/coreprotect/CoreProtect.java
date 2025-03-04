@@ -1,14 +1,13 @@
 package net.coreprotect;
 
-import java.io.File;
-
-import org.bukkit.plugin.java.JavaPlugin;
-
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.services.PluginInitializationService;
 import net.coreprotect.services.ShutdownService;
 import net.coreprotect.utility.Chat;
+import org.bukkit.plugin.java.JavaPlugin;
+
+import java.io.File;
 
 /**
  * Main class for the CoreProtect plugin

@@ -1,15 +1,14 @@
 package net.coreprotect.command.parser;
 
-import java.util.Locale;
-
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.utility.WorldUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.command.BlockCommandSender;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.utility.WorldUtils;
+import java.util.Locale;
 
 /**
  * Parser for location-related command arguments

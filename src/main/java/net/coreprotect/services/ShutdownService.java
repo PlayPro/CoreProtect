@@ -1,13 +1,5 @@
 package net.coreprotect.services;
 
-import java.util.Iterator;
-import java.util.Map.Entry;
-
-import org.bukkit.Location;
-import org.bukkit.block.data.BlockData;
-import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
-
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.process.Process;
@@ -16,6 +8,13 @@ import net.coreprotect.listener.player.PlayerQuitListener;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Teleport;
+import org.bukkit.Location;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
+
+import java.util.Iterator;
+import java.util.Map.Entry;
 
 /**
  * Service responsible for handling plugin shutdown operations

@@ -1,10 +1,10 @@
 package net.coreprotect.command.parser;
 
-import java.math.BigDecimal;
-import java.util.Locale;
-
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
+
+import java.math.BigDecimal;
+import java.util.Locale;
 
 /**
  * Parser for time-related command arguments

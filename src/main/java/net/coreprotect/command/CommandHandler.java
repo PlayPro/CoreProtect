@@ -1,12 +1,5 @@
 package net.coreprotect.command;
 
-import java.util.Locale;
-import java.util.concurrent.ConcurrentHashMap;
-
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
-import org.bukkit.command.CommandSender;
-
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.extensions.Extensions;
 import net.coreprotect.language.Phrase;
@@ -14,6 +7,12 @@ import net.coreprotect.thread.NetworkHandler;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.VersionUtils;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+
+import java.util.Locale;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class CommandHandler implements CommandExecutor {
     private static CommandHandler instance;

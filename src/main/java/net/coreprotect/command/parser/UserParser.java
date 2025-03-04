@@ -1,11 +1,11 @@
 package net.coreprotect.command.parser;
 
+import org.bukkit.command.CommandSender;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
-
-import org.bukkit.command.CommandSender;
 
 /**
  * Parser for user-related command arguments

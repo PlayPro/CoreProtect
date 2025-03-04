@@ -59,7 +59,7 @@ public final class CoreProtect extends JavaPlugin {
         ShutdownService.safeShutdown(this);
     }
 
-    public boolean isAdvancedChests(){
+    public boolean isAdvancedChestsEnabled(){
         return advancedChestsEnabled;
     }
 }

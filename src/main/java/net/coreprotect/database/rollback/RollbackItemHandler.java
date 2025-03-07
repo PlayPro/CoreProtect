@@ -22,36 +22,22 @@ public class RollbackItemHandler {
      * @return Object array containing [slot, facing, itemstack]
      */
     public static Object[] populateItemStack(ItemStack itemstack, byte[] metadata) {
-        int slot = 0;
-        String face = "";
-
         if (metadata != null) {
             try {
                 ByteArrayInputStream metaByteStream = new ByteArrayInputStream(metadata);
                 BukkitObjectInputStream metaObjectStream = new BukkitObjectInputStream(metaByteStream);
-                @SuppressWarnings("unchecked")
-                List<Object> meta = (List<Object>) metaObjectStream.readObject();
+                Object metaList = metaObjectStream.readObject();
                 metaObjectStream.close();
                 metaByteStream.close();
 
-                for (Object value : meta) {
-                    if (value instanceof Integer) {
-                        slot = (Integer) value;
-                    }
-                    else if (value instanceof ItemStack) {
-                        itemstack = (ItemStack) value;
-                    }
-                    else if (value instanceof String) {
-                        face = (String) value;
-                    }
-                }
+                return RollbackUtil.populateItemStack(itemstack, metaList);
             }
             catch (Exception e) {
                 e.printStackTrace();
             }
         }
 
-        return new Object[] { slot, face, itemstack };
+        return new Object[] { 0, "", itemstack };
     }
 
     /**

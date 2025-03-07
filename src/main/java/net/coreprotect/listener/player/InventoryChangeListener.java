@@ -20,10 +20,12 @@ import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.BlockInventoryHolder;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
@@ -268,10 +270,67 @@ public final class InventoryChangeListener extends Queue implements Listener {
         });
     }
 
+    /**
+     * Checks for anvil operations to properly track enchanted item results
+     * @param event The inventory click event
+     * @return true if this was an anvil result operation that was handled, false otherwise
+     */
+    private boolean checkAnvilOperation(InventoryClickEvent event) {
+        if (event.getInventory().getType() != InventoryType.ANVIL) {
+            return false;
+        }
+        
+        // Only process result slot clicks in anvils (slot 2)
+        if (event.getRawSlot() != 2) {
+            return false;
+        }
+        
+        // Ensure we have a valid player and item
+        Player player = (Player) event.getWhoClicked();
+        ItemStack resultItem = event.getCurrentItem();
+        if (resultItem == null || resultItem.getType() == Material.AIR) {
+            return false;
+        }
+        
+        // Get the input items (slots 0 and 1 in the anvil)
+        ItemStack firstItem = event.getInventory().getItem(0);
+        ItemStack secondItem = event.getInventory().getItem(1);
+        
+        if (firstItem == null || secondItem == null) {
+            return false;
+        }
+        
+        // Process the enchantment operation
+        Location location = player.getLocation();
+        String loggingItemId = player.getName().toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+        int itemId = getItemId(loggingItemId);
+        
+        // Log the input items as removed
+        List<ItemStack> removedItems = new ArrayList<>();
+        removedItems.add(firstItem.clone());
+        removedItems.add(secondItem.clone());
+        ConfigHandler.itemsDestroy.put(loggingItemId, removedItems);
+        
+        // Log the output item as created
+        List<ItemStack> createdItems = new ArrayList<>();
+        createdItems.add(resultItem.clone());
+        ConfigHandler.itemsCreate.put(loggingItemId, createdItems);
+        
+        int time = (int) (System.currentTimeMillis() / 1000L) + 1;
+        Queue.queueItemTransaction(player.getName(), location.clone(), time, 0, itemId);
+        
+        return true;
+    }
+
     @EventHandler(priority = EventPriority.LOWEST)
     protected void onInventoryClick(InventoryClickEvent event) {
         InventoryAction inventoryAction = event.getAction();
         if (inventoryAction == InventoryAction.NOTHING) {
+            return;
+        }
+        
+        // Check if this is an anvil operation first
+        if (checkAnvilOperation(event)) {
             return;
         }
 

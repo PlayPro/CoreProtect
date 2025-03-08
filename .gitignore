@@ -176,6 +176,8 @@ Desktop.ini
 .windsurfrules
 context.json
 run.sh
+run_*.sh
+no-log4j2.xml
 
 # Compiled class file
 *.class

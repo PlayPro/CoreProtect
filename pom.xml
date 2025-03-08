@@ -126,10 +126,10 @@
       <id>codemc-repo</id>
       <url>https://repo.codemc.org/repository/maven-public/</url>
     </repository>
-      <repository>
+    <repository>
       <id>jitpack.io</id>
       <url>https://jitpack.io</url>
-      </repository>
+    </repository>
   </repositories>
   <dependencyManagement>
     <dependencies>
@@ -157,8 +157,8 @@
     </dependency>
     <dependency>
       <groupId>org.bstats</groupId>
-      <artifactId>bstats-bukkit-lite</artifactId>
-      <version>1.8</version>
+      <artifactId>bstats-bukkit</artifactId>
+      <version>3.1.0</version>
       <scope>compile</scope>
     </dependency>
     <dependency>
@@ -221,6 +221,12 @@
       <groupId>org.mockito</groupId>
       <artifactId>mockito-junit-jupiter</artifactId>
       <version>5.10.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.github.seeseemelk</groupId>
+      <artifactId>MockBukkit-v1.21</artifactId>
+      <version>3.133.2</version>
       <scope>test</scope>
     </dependency>
   </dependencies>

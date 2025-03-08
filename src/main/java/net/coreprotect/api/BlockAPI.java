@@ -11,10 +11,9 @@ import org.bukkit.block.Block;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.UserStatement;
-import net.coreprotect.utility.Util;
-import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.StringUtils;
+import net.coreprotect.utility.WorldUtils;
 
 public class BlockAPI {
 

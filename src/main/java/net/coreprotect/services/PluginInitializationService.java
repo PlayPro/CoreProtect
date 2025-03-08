@@ -2,7 +2,7 @@ package net.coreprotect.services;
 
 import java.io.File;
 
-import org.bstats.bukkit.MetricsLite;
+import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -163,7 +163,7 @@ public class PluginInitializationService {
      */
     private static void enableMetrics(JavaPlugin plugin) {
         try {
-            new MetricsLite(plugin, 2876);
+            new Metrics(plugin, 2876);
         }
         catch (Exception e) {
             // Failed to connect to bStats server or something else went wrong

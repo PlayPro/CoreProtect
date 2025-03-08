@@ -25,6 +25,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.consumer.process.Process;
 import net.coreprotect.database.Lookup;
+import net.coreprotect.database.LookupConverter;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
@@ -320,7 +321,7 @@ public class Rollback extends RollbackUtil {
                 RollbackComplete.output(user, location, checkUsers, restrictList, excludeList, excludeUserList, actionList, timeString, chunkCount, totalSeconds, itemCount, blockCount, entityCount, rollbackType, radius, verbose, restrictWorld, preview);
             }
 
-            list = Lookup.convertRawLookup(statement, lookupList);
+            list = LookupConverter.convertRawLookup(statement, lookupList);
             return list;
         }
         catch (Exception e) {

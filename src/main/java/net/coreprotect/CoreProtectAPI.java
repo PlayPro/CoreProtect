@@ -28,12 +28,10 @@ import net.coreprotect.database.Lookup;
 import net.coreprotect.database.rollback.Rollback;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.player.InventoryChangeListener;
-import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.StringUtils;
-import net.coreprotect.utility.Util;
 import net.coreprotect.utility.WorldUtils;
 
 public class CoreProtectAPI extends Queue {
@@ -196,7 +194,7 @@ public class CoreProtectAPI extends Queue {
         boolean match = false;
 
         if (Config.getGlobal().API_ENABLED) {
-            long timestamp = System.currentTimeMillis();
+            long timestamp = getCurrentTimeMillis();
             long offsetTime = timestamp - offset * 1000L;
             List<String[]> check = blockLookup(block, time);
 
@@ -217,7 +215,7 @@ public class CoreProtectAPI extends Queue {
         boolean match = false;
 
         if (Config.getGlobal().API_ENABLED) {
-            long timestamp = System.currentTimeMillis();
+            long timestamp = getCurrentTimeMillis();
             long offsetTime = timestamp - offset * 1000L;
             List<String[]> check = blockLookup(block, time);
 
@@ -231,6 +229,10 @@ public class CoreProtectAPI extends Queue {
         }
 
         return match;
+    }
+
+    protected long getCurrentTimeMillis() {
+        return System.currentTimeMillis();
     }
 
     public boolean isEnabled() {

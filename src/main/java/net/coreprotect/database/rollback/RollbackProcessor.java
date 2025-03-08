@@ -94,7 +94,7 @@ public class RollbackProcessor {
 
                 List<Object> meta = null;
                 if (rowMeta != null) {
-                    meta = Rollback.deserializeMetadata(rowMeta);
+                    meta = RollbackUtil.deserializeMetadata(rowMeta);
                 }
 
                 BlockData blockData = null;

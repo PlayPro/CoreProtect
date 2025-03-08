@@ -34,37 +34,31 @@ public final class WorldEditBlockState implements BlockState {
 
     @Override
     public void setMetadata(String metadataKey, MetadataValue newMetadataValue) {
-        // TODO Auto-generated method stub
 
     }
 
     @Override
     public List<MetadataValue> getMetadata(String metadataKey) {
-        // TODO Auto-generated method stub
         return null;
     }
 
     @Override
     public boolean hasMetadata(String metadataKey) {
-        // TODO Auto-generated method stub
         return false;
     }
 
     @Override
     public void removeMetadata(String metadataKey, Plugin owningPlugin) {
-        // TODO Auto-generated method stub
 
     }
 
     @Override
     public Block getBlock() {
-        // TODO Auto-generated method stub
         return null;
     }
 
     @Override
     public MaterialData getData() {
-        // TODO Auto-generated method stub
         return null;
     }
 
@@ -80,7 +74,6 @@ public final class WorldEditBlockState implements BlockState {
 
     @Override
     public byte getLightLevel() {
-        // TODO Auto-generated method stub
         return 0;
     }
 
@@ -125,13 +118,11 @@ public final class WorldEditBlockState implements BlockState {
 
     @Override
     public Chunk getChunk() {
-        // TODO Auto-generated method stub
         return null;
     }
 
     @Override
     public void setData(MaterialData data) {
-        // TODO Auto-generated method stub
 
     }
 
@@ -147,73 +138,61 @@ public final class WorldEditBlockState implements BlockState {
 
     @Override
     public boolean update() {
-        // TODO Auto-generated method stub
         return false;
     }
 
     @Override
     public boolean update(boolean force) {
-        // TODO Auto-generated method stub
         return false;
     }
 
     @Override
     public boolean update(boolean force, boolean applyPhysics) {
-        // TODO Auto-generated method stub
         return false;
     }
 
     @Override
     public byte getRawData() {
-        // TODO Auto-generated method stub
         return 0;
     }
 
     @Override
     public void setRawData(byte data) {
-        // TODO Auto-generated method stub
 
     }
 
     @Override
     public boolean isPlaced() {
-        // TODO Auto-generated method stub
         return false;
     }
 
     @Override
     public boolean isCollidable() {
-        // TODO Auto-generated method stub
         return false;
     }
 
     @Override
     public Collection<ItemStack> getDrops() {
-        // TODO Auto-generated method stub
         return null;
     }
 
     @Override
     public Collection<ItemStack> getDrops(ItemStack tool) {
-        // TODO Auto-generated method stub
         return null;
     }
 
     @Override
     public Collection<ItemStack> getDrops(ItemStack tool, Entity entity) {
-        // TODO Auto-generated method stub
         return null;
     }
 
     @Override
     public BlockState copy() {
-        // TODO Auto-generated method stub
         return null;
     }
 
     @Override
     public BlockState copy(Location location) {
-        // TODO Auto-generated method stub
         return null;
     }
 

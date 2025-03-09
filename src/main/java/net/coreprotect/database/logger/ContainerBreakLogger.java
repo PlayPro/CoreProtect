@@ -9,7 +9,6 @@ import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.utility.ItemUtils;
-import net.coreprotect.utility.Util;
 
 public class ContainerBreakLogger {
 

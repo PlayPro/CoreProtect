@@ -17,7 +17,6 @@ import net.coreprotect.language.Selector;
 import net.coreprotect.listener.channel.PluginChannelListener;
 import net.coreprotect.utility.ChatUtils;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
 import net.coreprotect.utility.WorldUtils;
 
 public class SignMessageLookup {

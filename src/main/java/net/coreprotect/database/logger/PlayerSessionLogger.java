@@ -7,7 +7,6 @@ import org.bukkit.Location;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.SessionStatement;
-import net.coreprotect.utility.Util;
 import net.coreprotect.utility.WorldUtils;
 
 public class PlayerSessionLogger {

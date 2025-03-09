@@ -20,7 +20,6 @@ import net.coreprotect.utility.Color;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.StringUtils;
-import net.coreprotect.utility.Util;
 import net.coreprotect.utility.WorldUtils;
 
 public class ChestTransactionLookup {

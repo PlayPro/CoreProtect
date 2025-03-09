@@ -53,7 +53,8 @@ nbproject
 
 target
 dependency-reduced-pom.xml
-test/
+src/test
+maven_output.txt
 
 # Wrapper files
 mvnw

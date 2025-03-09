@@ -14,7 +14,6 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.Util;
 import net.coreprotect.utility.WorldUtils;
 
 public final class PlayerBucketEmptyListener extends Queue implements Listener {

@@ -15,7 +15,6 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
-import net.coreprotect.utility.Util;
 import net.coreprotect.utility.WorldUtils;
 
 public final class FoodLevelChangeListener extends Queue implements Listener {

@@ -19,7 +19,6 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.block.BlockUtil;
 import net.coreprotect.utility.EntityUtils;
-import net.coreprotect.utility.Util;
 
 public final class CreatureSpawnListener extends Queue implements Listener {
 

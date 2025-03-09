@@ -12,7 +12,6 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.BlockStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
-import net.coreprotect.utility.Util;
 import net.coreprotect.utility.WorldUtils;
 
 public class PlayerKillLogger {

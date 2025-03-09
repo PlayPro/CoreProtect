@@ -15,7 +15,6 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
 import net.coreprotect.utility.WorldUtils;
 
 public class PluginChannelListener implements Listener {

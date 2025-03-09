@@ -9,7 +9,6 @@ import org.bukkit.entity.Player;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.Util;
 import net.coreprotect.utility.WorldUtils;
 
 public class BlockUtil {

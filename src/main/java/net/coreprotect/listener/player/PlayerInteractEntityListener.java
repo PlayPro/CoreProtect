@@ -25,7 +25,6 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.ItemUtils;
-import net.coreprotect.utility.Util;
 
 public final class PlayerInteractEntityListener extends Queue implements Listener {
 

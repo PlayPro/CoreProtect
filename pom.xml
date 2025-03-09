@@ -229,5 +229,17 @@
       <version>3.133.2</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.xerial</groupId>
+      <artifactId>sqlite-jdbc</artifactId>
+      <version>3.45.1.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>2.0.12</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 </project>

@@ -25,7 +25,6 @@ import org.bukkit.inventory.BlockInventoryHolder;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
@@ -35,7 +34,6 @@ import net.coreprotect.model.BlockGroup;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.ItemUtils;
-import net.coreprotect.utility.Util;
 import net.coreprotect.utility.Validate;
 import us.lynuxcraft.deadsilenceiv.advancedchests.AdvancedChestsAPI;
 import us.lynuxcraft.deadsilenceiv.advancedchests.chest.AdvancedChest;
@@ -87,17 +85,20 @@ public final class InventoryChangeListener extends Queue implements Listener {
                     if (containerType != null) {
                         type = containerType;
                     }
-                } else {
+                }
+                else {
                     InventoryHolder inventoryHolder = inventory.getHolder();
                     if (inventoryHolder == null) {
                         if (CoreProtect.getInstance().isAdvancedChestsEnabled()) {
                             AdvancedChest<?, ?> advancedChest = AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory);
                             if (advancedChest != null) {
                                 playerLocation = advancedChest.getLocation();
-                            } else {
+                            }
+                            else {
                                 return false;
                             }
-                        } else {
+                        }
+                        else {
                             return false;
                         }
                     }
@@ -107,7 +108,8 @@ public final class InventoryChangeListener extends Queue implements Listener {
                         if (BlockGroup.CONTAINERS.contains(type)) {
                             playerLocation = state.getLocation();
                         }
-                    } else if (inventoryHolder instanceof DoubleChest) {
+                    }
+                    else if (inventoryHolder instanceof DoubleChest) {
                         DoubleChest state = (DoubleChest) inventoryHolder;
                         playerLocation = state.getLocation();
                     }
@@ -232,7 +234,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
             return;
         }
         if (CoreProtect.getInstance().isAdvancedChestsEnabled()) {
-            AdvancedChest<?,?> chest = AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory);
+            AdvancedChest<?, ?> chest = AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory);
             if (chest != null) {
                 location = chest.getLocation();
             }
@@ -272,53 +274,55 @@ public final class InventoryChangeListener extends Queue implements Listener {
 
     /**
      * Checks for anvil operations to properly track enchanted item results
-     * @param event The inventory click event
+     * 
+     * @param event
+     *            The inventory click event
      * @return true if this was an anvil result operation that was handled, false otherwise
      */
     private boolean checkAnvilOperation(InventoryClickEvent event) {
         if (event.getInventory().getType() != InventoryType.ANVIL) {
             return false;
         }
-        
+
         // Only process result slot clicks in anvils (slot 2)
         if (event.getRawSlot() != 2) {
             return false;
         }
-        
+
         // Ensure we have a valid player and item
         Player player = (Player) event.getWhoClicked();
         ItemStack resultItem = event.getCurrentItem();
         if (resultItem == null || resultItem.getType() == Material.AIR) {
             return false;
         }
-        
+
         // Get the input items (slots 0 and 1 in the anvil)
         ItemStack firstItem = event.getInventory().getItem(0);
         ItemStack secondItem = event.getInventory().getItem(1);
-        
+
         if (firstItem == null || secondItem == null) {
             return false;
         }
-        
+
         // Process the enchantment operation
         Location location = player.getLocation();
         String loggingItemId = player.getName().toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
         int itemId = getItemId(loggingItemId);
-        
+
         // Log the input items as removed
         List<ItemStack> removedItems = new ArrayList<>();
         removedItems.add(firstItem.clone());
         removedItems.add(secondItem.clone());
         ConfigHandler.itemsDestroy.put(loggingItemId, removedItems);
-        
+
         // Log the output item as created
         List<ItemStack> createdItems = new ArrayList<>();
         createdItems.add(resultItem.clone());
         ConfigHandler.itemsCreate.put(loggingItemId, createdItems);
-        
+
         int time = (int) (System.currentTimeMillis() / 1000L) + 1;
         Queue.queueItemTransaction(player.getName(), location.clone(), time, 0, itemId);
-        
+
         return true;
     }
 
@@ -328,7 +332,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
         if (inventoryAction == InventoryAction.NOTHING) {
             return;
         }
-        
+
         // Check if this is an anvil operation first
         if (checkAnvilOperation(event)) {
             return;
@@ -360,10 +364,11 @@ public final class InventoryChangeListener extends Queue implements Listener {
             if ((!(inventoryHolder instanceof BlockInventoryHolder || inventoryHolder instanceof DoubleChest)) && !enderChest && !advancedChest) {
                 return;
             }
-            if(advancedChest && event.getSlot() > inventory.getSize() - 10){
+            if (advancedChest && event.getSlot() > inventory.getSize() - 10) {
                 return;
             }
-        } else {
+        }
+        else {
             // Perform standard inventory holder check on primary inventory
             Inventory inventory = event.getInventory();
             if (inventory == null) {
@@ -376,7 +381,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
             if ((!(inventoryHolder instanceof BlockInventoryHolder || inventoryHolder instanceof DoubleChest)) && !enderChest && !advancedChest) {
                 return;
             }
-            if(advancedChest && event.getSlot() > inventory.getSize() - 10){
+            if (advancedChest && event.getSlot() > inventory.getSize() - 10) {
                 return;
             }
         }

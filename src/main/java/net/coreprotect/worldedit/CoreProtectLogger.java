@@ -21,7 +21,6 @@ import com.sk89q.worldedit.world.block.BlockStateHolder;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.utility.ItemUtils;
-import net.coreprotect.utility.Util;
 
 public class CoreProtectLogger extends AbstractDelegateExtent {
     private final Actor eventActor;

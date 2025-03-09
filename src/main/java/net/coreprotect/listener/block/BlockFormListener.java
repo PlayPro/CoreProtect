@@ -13,7 +13,6 @@ import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Lookup;
 import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.Util;
 import net.coreprotect.utility.WorldUtils;
 
 public final class BlockFormListener extends Queue implements Listener {

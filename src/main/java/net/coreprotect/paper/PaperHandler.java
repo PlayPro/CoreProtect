@@ -6,7 +6,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 
-public class PaperHandler extends PaperAdapter implements PaperInterface {
+public class PaperHandler extends PaperAdapter {
 
     @Override
     public boolean isStopping(Server server) {

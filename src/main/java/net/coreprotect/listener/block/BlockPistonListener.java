@@ -18,7 +18,6 @@ import org.bukkit.event.block.BlockPistonRetractEvent;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.Util;
 import net.coreprotect.utility.WorldUtils;
 
 public final class BlockPistonListener extends Queue implements Listener {

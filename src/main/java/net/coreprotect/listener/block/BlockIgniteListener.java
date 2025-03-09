@@ -23,7 +23,6 @@ import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.listener.player.ProjectileLaunchListener;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.Util;
 import net.coreprotect.utility.WorldUtils;
 
 public final class BlockIgniteListener extends Queue implements Listener {

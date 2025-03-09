@@ -3,7 +3,6 @@ package net.coreprotect.database.statement;
 import java.sql.PreparedStatement;
 import java.util.List;
 
-import net.coreprotect.utility.Util;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.ItemUtils;
 

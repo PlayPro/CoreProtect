@@ -36,7 +36,6 @@ import net.coreprotect.database.Database;
 import net.coreprotect.listener.player.PlayerInteractEntityListener;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.ItemUtils;
-import net.coreprotect.utility.Util;
 
 public final class EntityDamageByEntityListener extends Queue implements Listener {
 

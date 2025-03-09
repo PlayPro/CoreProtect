@@ -30,7 +30,6 @@ import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
-import net.coreprotect.utility.Util;
 
 public class ContainerRollback extends Rollback {
 

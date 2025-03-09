@@ -3,7 +3,7 @@ package net.coreprotect.bukkit;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
 
-public class Bukkit_v1_18 extends Bukkit_v1_17 implements BukkitInterface {
+public class Bukkit_v1_18 extends Bukkit_v1_17 {
 
     private Boolean hasAdjust = null;
 

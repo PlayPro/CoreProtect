@@ -62,7 +62,6 @@ import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.database.rollback.Rollback;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
-import net.coreprotect.utility.Util;
 import net.coreprotect.utility.WorldUtils;
 
 public class EntityUtil {

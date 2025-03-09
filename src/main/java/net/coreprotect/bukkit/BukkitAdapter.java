@@ -31,7 +31,6 @@ import org.bukkit.potion.PotionType;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.utility.BlockUtils;
-import net.coreprotect.utility.Util;
 
 public class BukkitAdapter implements BukkitInterface {
 

@@ -15,7 +15,6 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.patch.Patch;
-import net.coreprotect.utility.Util;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.MaterialUtils;
 

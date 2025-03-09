@@ -39,7 +39,6 @@ import net.coreprotect.database.Database;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.utility.BlockUtils;
-import net.coreprotect.utility.Util;
 
 public final class BlockBreakListener extends Queue implements Listener {
 

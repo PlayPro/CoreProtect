@@ -3,7 +3,6 @@ package net.coreprotect.database.statement;
 import java.sql.PreparedStatement;
 
 import net.coreprotect.utility.ItemUtils;
-import net.coreprotect.utility.Util;
 
 public class ContainerStatement {
 

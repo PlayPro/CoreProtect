@@ -25,7 +25,6 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.utility.EntityUtils;
-import net.coreprotect.utility.Util;
 
 public final class ProjectileLaunchListener extends Queue implements Listener {
 
@@ -103,7 +102,7 @@ public final class ProjectileLaunchListener extends Queue implements Listener {
         if (!(event.getEntity() instanceof Player)) {
             return;
         }
-
+    
         ItemStack itemStack = event.getConsumable();
         playerLaunchProjectile(event.getEntity().getLocation(), event.getEntity().getName(), itemStack, 1, 1, 0, ItemLogger.ITEM_SHOOT);
     }

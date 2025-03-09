@@ -12,7 +12,6 @@ import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.SkullStatement;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.utility.MaterialUtils;
-import net.coreprotect.utility.Util;
 
 public class SkullBreakLogger {
 

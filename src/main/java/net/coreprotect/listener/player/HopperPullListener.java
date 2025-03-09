@@ -15,7 +15,6 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.ItemUtils;
-import net.coreprotect.utility.Util;
 
 public final class HopperPullListener {
 

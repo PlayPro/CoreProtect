@@ -24,7 +24,7 @@ public final class EntityExplodeListener extends Queue implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onEntityExplode(EntityExplodeEvent event) {
         Entity entity = event.getEntity();
-        if (entity.getType().name().equals("WIND_CHARGE")) {
+        if (entity.getType().name().equals("WIND_CHARGE") || entity.getType().name().equals("BREEZE_WIND_CHARGE")) {
             return;
         }
 

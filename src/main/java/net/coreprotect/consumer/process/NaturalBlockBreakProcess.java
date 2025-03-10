@@ -11,6 +11,7 @@ import org.bukkit.block.BlockState;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.Lookup;
 import net.coreprotect.database.logger.BlockBreakLogger;
+import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.Util;
 
 class NaturalBlockBreakProcess {
@@ -28,7 +29,7 @@ class NaturalBlockBreakProcess {
                     }
                 }
                 blockLists.remove(id);
-                BlockBreakLogger.log(preparedStmt, batchCount, user, block.getLocation(), Util.getBlockId(blockType), blockData, null, block.getBlockData().getAsString(), overrideData);
+                BlockBreakLogger.log(preparedStmt, batchCount, user, block.getLocation(), MaterialUtils.getBlockId(blockType), blockData, null, block.getBlockData().getAsString(), overrideData);
             }
         }
     }

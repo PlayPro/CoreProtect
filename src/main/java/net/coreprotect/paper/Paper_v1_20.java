@@ -15,7 +15,7 @@ import com.destroystokyo.paper.profile.PlayerProfile;
 import net.coreprotect.config.Config;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
-public class Paper_v1_20 extends Paper_v1_17 implements PaperInterface {
+public class Paper_v1_20 extends Paper_v1_17 {
 
     @Override
     public String getLine(Sign sign, int line) {

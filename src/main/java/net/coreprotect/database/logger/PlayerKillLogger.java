@@ -12,7 +12,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.BlockStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.WorldUtils;
 
 public class PlayerKillLogger {
 
@@ -41,7 +41,7 @@ public class PlayerKillLogger {
 
             int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
             int playerId = ConfigHandler.playerIdCache.get(player.toLowerCase(Locale.ROOT));
-            int wid = Util.getWorldId(block.getWorld().getName());
+            int wid = WorldUtils.getWorldId(block.getWorld().getName());
             int time = (int) (System.currentTimeMillis() / 1000L);
             int x = block.getX();
             int y = block.getY();

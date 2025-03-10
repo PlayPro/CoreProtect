@@ -21,7 +21,7 @@ import org.bukkit.potion.PotionType;
 
 import net.coreprotect.model.BlockGroup;
 
-public class Bukkit_v1_20 extends Bukkit_v1_19 implements BukkitInterface {
+public class Bukkit_v1_20 extends Bukkit_v1_19 {
 
     private Boolean hasClickedPosition = null;
     private Boolean hasBasePotionType = null;

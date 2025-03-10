@@ -23,7 +23,7 @@ import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.listener.player.ProjectileLaunchListener;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.WorldUtils;
 
 public final class BlockIgniteListener extends Queue implements Listener {
 
@@ -137,7 +137,7 @@ public final class BlockIgniteListener extends Queue implements Listener {
                 Player player = event.getPlayer();
                 Queue.queueBlockPlace(player.getName(), block.getState(), block.getType(), replacedBlock, blockIgnited, -1, 0, forceBlockData.getAsString());
                 int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
-                int world_id = Util.getWorldId(block.getWorld().getName());
+                int world_id = WorldUtils.getWorldId(block.getWorld().getName());
                 CacheHandler.lookupCache.put("" + block.getX() + "." + block.getY() + "." + block.getZ() + "." + world_id + "", new Object[] { unixtimestamp, player.getName(), block.getType() });
             }
         }

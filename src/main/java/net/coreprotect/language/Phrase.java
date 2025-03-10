@@ -8,7 +8,7 @@ import java.util.regex.Pattern;
 
 import net.coreprotect.utility.ChatMessage;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.StringUtils;
 
 public enum Phrase {
 
@@ -242,7 +242,7 @@ public enum Phrase {
         String color = "";
 
         if (HEADERS.contains(phrase)) {
-            output = Util.capitalize(output, true);
+            output = StringUtils.capitalize(output, true);
         }
 
         int index = 0;

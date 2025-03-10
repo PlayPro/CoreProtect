@@ -1,7 +1,5 @@
 package net.coreprotect.listener.player;
 
-import java.sql.Connection;
-import java.sql.Statement;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
@@ -45,25 +43,30 @@ import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
-import net.coreprotect.database.Database;
-import net.coreprotect.database.lookup.BlockLookup;
-import net.coreprotect.database.lookup.ChestTransactionLookup;
-import net.coreprotect.database.lookup.InteractionLookup;
-import net.coreprotect.database.lookup.SignMessageLookup;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.block.CampfireStartListener;
+import net.coreprotect.listener.player.inspector.BlockInspector;
+import net.coreprotect.listener.player.inspector.ContainerInspector;
+import net.coreprotect.listener.player.inspector.InteractionInspector;
+import net.coreprotect.listener.player.inspector.SignInspector;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.WorldUtils;
 
 public final class PlayerInteractListener extends Queue implements Listener {
 
     public static ConcurrentHashMap<String, Object[]> lastInspectorEvent = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, Object[]> suspiciousBlockEvent = new ConcurrentHashMap<>();
+
+    private final BlockInspector blockInspector = new BlockInspector();
+    private final SignInspector signInspector = new SignInspector();
+    private final ContainerInspector containerInspector = new ContainerInspector();
+    private final InteractionInspector interactionInspector = new InteractionInspector();
 
     @EventHandler(priority = EventPriority.LOWEST)
     protected void onPlayerInspect(PlayerInteractEvent event) {
@@ -101,86 +104,27 @@ public final class PlayerInteractListener extends Queue implements Listener {
                 }
             }
 
-            final BlockState blockFinal = checkBlock;
-            class BasicThread implements Runnable {
-                @Override
-                public void run() {
-                    if (ConfigHandler.converterRunning) {
-                        player.sendMessage(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
-                        return;
-                    }
-                    if (ConfigHandler.purgeRunning) {
-                        player.sendMessage(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
-                        return;
-                    }
-                    if (ConfigHandler.lookupThrottle.get(player.getName()) != null) {
-                        Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
-                        if ((boolean) lookupThrottle[0] || (System.currentTimeMillis() - (long) lookupThrottle[1]) < 100) {
-                            player.sendMessage(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                            return;
-                        }
-                    }
-
-                    try (Connection connection = Database.getConnection(true)) {
-                        if (connection != null) {
-                            ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
-                            Statement statement = connection.createStatement();
-
-                            String resultData = BlockLookup.performLookup(null, statement, blockFinal, player, 0, 1, 7);
-                            if (resultData.contains("\n")) {
-                                for (String b : resultData.split("\n")) {
-                                    Chat.sendComponent(player, b);
-                                }
-                            }
-                            else if (resultData.length() > 0) {
-                                Chat.sendComponent(player, resultData);
-                            }
-
-                            statement.close();
-                            ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
-
-                            if (blockFinal instanceof Sign && player.getGameMode() != GameMode.CREATIVE) {
-                                Thread.sleep(1500);
-                                Sign sign = (Sign) blockFinal;
-                                player.sendSignChange(sign.getLocation(), sign.getLines(), sign.getColor());
-                            }
-                        }
-                        else {
-                            player.sendMessage(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                        }
-                    }
-                    catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-
-            Runnable runnable = new BasicThread();
-            Thread thread = new Thread(runnable);
-            thread.start();
+            blockInspector.performBlockLookup(player, checkBlock);
 
             if (checkBlockData instanceof Bisected) {
-                int worldMaxHeight = world.getMaxHeight();
-                if (y < (worldMaxHeight - 1)) {
-                    Block y1 = world.getBlockAt(x, y + 1, z);
-                    player.sendBlockChange(y1.getLocation(), y1.getBlockData());
-                }
+                PlayerInteractUtils.handleBisectedBlockVisualization(player, event.getClickedBlock(), world);
+            }
+            else {
+                Block block = event.getClickedBlock();
+                int blockX = block.getX();
+                int blockY = block.getY();
+                int blockZ = block.getZ();
 
-                int worldMinHeight = BukkitAdapter.ADAPTER.getMinHeight(world);
-                if (y > worldMinHeight) {
-                    Block y2 = world.getBlockAt(x, y - 1, z);
-                    player.sendBlockChange(y2.getLocation(), y2.getBlockData());
-                }
+                Block x1 = world.getBlockAt(blockX + 1, blockY, blockZ);
+                Block x2 = world.getBlockAt(blockX - 1, blockY, blockZ);
+                Block z1 = world.getBlockAt(blockX, blockY, blockZ + 1);
+                Block z2 = world.getBlockAt(blockX, blockY, blockZ - 1);
+                player.sendBlockChange(x1.getLocation(), x1.getBlockData());
+                player.sendBlockChange(x2.getLocation(), x2.getBlockData());
+                player.sendBlockChange(z1.getLocation(), z1.getBlockData());
+                player.sendBlockChange(z2.getLocation(), z2.getBlockData());
             }
 
-            Block x1 = world.getBlockAt(x + 1, y, z);
-            Block x2 = world.getBlockAt(x - 1, y, z);
-            Block z1 = world.getBlockAt(x, y, z + 1);
-            Block z2 = world.getBlockAt(x, y, z - 1);
-            player.sendBlockChange(x1.getLocation(), x1.getBlockData());
-            player.sendBlockChange(x2.getLocation(), x2.getBlockData());
-            player.sendBlockChange(z1.getLocation(), z1.getBlockData());
-            player.sendBlockChange(z2.getLocation(), z2.getBlockData());
             event.setCancelled(true);
         }
         else if (event.getAction().equals(Action.RIGHT_CLICK_BLOCK)) {
@@ -196,66 +140,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
 
                     if (isSignBlock) {
                         Location location = clickedBlock.getLocation();
-
-                        // sign messages
-                        class BasicThread implements Runnable {
-                            @Override
-                            public void run() {
-                                if (ConfigHandler.converterRunning) {
-                                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
-                                    return;
-                                }
-
-                                if (ConfigHandler.purgeRunning) {
-                                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
-                                    return;
-                                }
-
-                                if (ConfigHandler.lookupThrottle.get(player.getName()) != null) {
-                                    Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
-                                    if ((boolean) lookupThrottle[0] || (System.currentTimeMillis() - (long) lookupThrottle[1]) < 100) {
-                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                        return;
-                                    }
-                                }
-
-                                ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
-
-                                try (Connection connection = Database.getConnection(true)) {
-                                    if (connection != null) {
-                                        Statement statement = connection.createStatement();
-                                        List<String> signData = SignMessageLookup.performLookup(null, statement, location, player, 1, 7);
-                                        for (String signMessage : signData) {
-                                            String bypass = null;
-
-                                            if (signMessage.contains("\n")) {
-                                                String[] split = signMessage.split("\n");
-                                                signMessage = split[0];
-                                                bypass = split[1];
-                                            }
-
-                                            if (signMessage.length() > 0) {
-                                                Chat.sendComponent(player, signMessage, bypass);
-                                            }
-                                        }
-
-                                        statement.close();
-                                    }
-                                    else {
-                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                    }
-                                }
-                                catch (Exception e) {
-                                    e.printStackTrace();
-                                }
-
-                                ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
-                            }
-                        }
-
-                        Runnable runnable = new BasicThread();
-                        Thread thread = new Thread(runnable);
-                        thread.start();
+                        signInspector.performSignLookup(player, location);
                         event.setCancelled(true);
                     }
                     else if (isContainerBlock && Config.getConfig(world).ITEM_TRANSACTIONS) {
@@ -277,57 +162,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             location = clickedBlock.getLocation();
                         }
 
-                        Location finalLocation = location;
-
-                        // logged chest items
-                        class BasicThread implements Runnable {
-                            @Override
-                            public void run() {
-                                if (ConfigHandler.converterRunning) {
-                                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
-                                    return;
-                                }
-
-                                if (ConfigHandler.purgeRunning) {
-                                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
-                                    return;
-                                }
-
-                                if (ConfigHandler.lookupThrottle.get(player.getName()) != null) {
-                                    Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
-                                    if ((boolean) lookupThrottle[0] || (System.currentTimeMillis() - (long) lookupThrottle[1]) < 100) {
-                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                        return;
-                                    }
-                                }
-
-                                ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
-
-                                try (Connection connection = Database.getConnection(true)) {
-                                    if (connection != null) {
-                                        Statement statement = connection.createStatement();
-                                        List<String> blockData = ChestTransactionLookup.performLookup(null, statement, finalLocation, player, 1, 7, false);
-                                        for (String data : blockData) {
-                                            Chat.sendComponent(player, data);
-                                        }
-
-                                        statement.close();
-                                    }
-                                    else {
-                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                    }
-                                }
-                                catch (Exception e) {
-                                    e.printStackTrace();
-                                }
-
-                                ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
-                            }
-                        }
-
-                        Runnable runnable = new BasicThread();
-                        Thread thread = new Thread(runnable);
-                        thread.start();
+                        containerInspector.performContainerLookup(player, location);
                         event.setCancelled(true);
                     }
                     else if (isInteractBlock) {
@@ -342,59 +177,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             }
                         }
 
-                        final Block finalInteractBlock = interactBlock;
-                        class BasicThread implements Runnable {
-                            @Override
-                            public void run() {
-                                if (ConfigHandler.converterRunning) {
-                                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
-                                    return;
-                                }
-                                if (ConfigHandler.purgeRunning) {
-                                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
-                                    return;
-                                }
-                                if (ConfigHandler.lookupThrottle.get(player.getName()) != null) {
-                                    Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
-                                    if ((boolean) lookupThrottle[0] || (System.currentTimeMillis() - (long) lookupThrottle[1]) < 100) {
-                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                        return;
-                                    }
-                                }
-
-                                ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
-
-                                try (Connection connection = Database.getConnection(true)) {
-                                    if (connection != null) {
-                                        Statement statement = connection.createStatement();
-                                        String blockData = InteractionLookup.performLookup(null, statement, finalInteractBlock, player, 0, 1, 7);
-
-                                        if (blockData.contains("\n")) {
-                                            for (String splitData : blockData.split("\n")) {
-                                                Chat.sendComponent(player, splitData);
-                                            }
-                                        }
-                                        else {
-                                            Chat.sendComponent(player, blockData);
-                                        }
-
-                                        statement.close();
-                                    }
-                                    else {
-                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                    }
-                                }
-                                catch (Exception e) {
-                                    e.printStackTrace();
-                                }
-
-                                ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
-                            }
-                        }
-
-                        Runnable runnable = new BasicThread();
-                        Thread thread = new Thread(runnable);
-                        thread.start();
+                        interactionInspector.performInteractionLookup(player, interactBlock);
 
                         if (!BlockGroup.SAFE_INTERACT_BLOCKS.contains(type) || player.isSneaking()) {
                             event.setCancelled(true);
@@ -419,78 +202,10 @@ public final class PlayerInteractListener extends Queue implements Listener {
                     }
 
                     if (performLookup) {
-                        final Player finalPlayer = player;
                         final BlockState finalBlock = event.getClickedBlock().getRelative(event.getBlockFace()).getState();
+                        blockInspector.performAirBlockLookup(player, finalBlock);
 
-                        class BasicThread implements Runnable {
-                            @Override
-                            public void run() {
-                                if (ConfigHandler.converterRunning) {
-                                    Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
-                                    return;
-                                }
-
-                                if (ConfigHandler.purgeRunning) {
-                                    Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
-                                    return;
-                                }
-
-                                if (ConfigHandler.lookupThrottle.get(finalPlayer.getName()) != null) {
-                                    Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(finalPlayer.getName());
-                                    if ((boolean) lookupThrottle[0] || (System.currentTimeMillis() - (long) lookupThrottle[1]) < 100) {
-                                        Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                        return;
-                                    }
-                                }
-
-                                ConfigHandler.lookupThrottle.put(finalPlayer.getName(), new Object[] { true, System.currentTimeMillis() });
-
-                                try (Connection connection = Database.getConnection(true)) {
-                                    if (connection != null) {
-                                        Statement statement = connection.createStatement();
-                                        if (finalBlock.getType().equals(Material.AIR) || finalBlock.getType().equals(Material.CAVE_AIR)) {
-                                            String blockData = BlockLookup.performLookup(null, statement, finalBlock, finalPlayer, 0, 1, 7);
-
-                                            if (blockData.contains("\n")) {
-                                                for (String b : blockData.split("\n")) {
-                                                    Chat.sendComponent(finalPlayer, b);
-                                                }
-                                            }
-                                            else if (blockData.length() > 0) {
-                                                Chat.sendComponent(finalPlayer, blockData);
-                                            }
-                                        }
-                                        else {
-                                            String blockData = BlockLookup.performLookup(null, statement, finalBlock, finalPlayer, 0, 1, 7);
-                                            if (blockData.contains("\n")) {
-                                                for (String splitData : blockData.split("\n")) {
-                                                    Chat.sendComponent(finalPlayer, splitData);
-                                                }
-                                            }
-                                            else if (blockData.length() > 0) {
-                                                Chat.sendComponent(finalPlayer, blockData);
-                                            }
-                                        }
-
-                                        statement.close();
-                                    }
-                                    else {
-                                        Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                    }
-                                }
-                                catch (Exception e) {
-                                    e.printStackTrace();
-                                }
-
-                                ConfigHandler.lookupThrottle.put(finalPlayer.getName(), new Object[] { false, System.currentTimeMillis() });
-                            }
-                        }
-
-                        Runnable runnable = new BasicThread();
-                        Thread thread = new Thread(runnable);
-                        thread.start();
-
-                        Util.updateInventory(event.getPlayer());
+                        ItemUtils.updateInventory(event.getPlayer());
                         lastInspectorEvent.put(uuid, new Object[] { systemTime, eventHand });
 
                         if (event.hasItem()) {
@@ -527,7 +242,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
             if (event.useInteractedBlock() != Event.Result.DENY) {
                 Block block = event.getClickedBlock();
                 if (block.getType() == Material.DRAGON_EGG) {
-                    clickedDragonEgg(event.getPlayer(), block);
+                    PlayerInteractUtils.clickedDragonEgg(event.getPlayer(), block);
                 }
 
                 if (Config.getConfig(world).BLOCK_BREAK) {
@@ -659,7 +374,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             if (player.getGameMode() != GameMode.CREATIVE) {
                                 Location location = block.getLocation();
                                 long time = System.currentTimeMillis();
-                                int wid = Util.getWorldId(location.getWorld().getName());
+                                int wid = WorldUtils.getWorldId(location.getWorld().getName());
                                 int x = location.getBlockX();
                                 int y = location.getBlockY();
                                 int z = location.getBlockZ();
@@ -795,7 +510,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                         }
                     }
                     else if (type == Material.DRAGON_EGG) {
-                        clickedDragonEgg(player, block);
+                        PlayerInteractUtils.clickedDragonEgg(player, block);
                     }
 
                     if (isCake || type == Material.CAKE) {
@@ -822,7 +537,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             String userUUID = player.getUniqueId().toString();
                             Location location = player.getLocation();
                             long time = System.currentTimeMillis();
-                            int wid = Util.getWorldId(location.getWorld().getName());
+                            int wid = WorldUtils.getWorldId(location.getWorld().getName());
                             int x = location.getBlockX();
                             int y = location.getBlockY();
                             int z = location.getBlockZ();
@@ -942,16 +657,4 @@ public final class PlayerInteractListener extends Queue implements Listener {
             }
         }
     }
-
-    private void clickedDragonEgg(Player player, Block block) {
-        Location location = block.getLocation();
-        long time = System.currentTimeMillis();
-        int wid = Util.getWorldId(location.getWorld().getName());
-        int x = location.getBlockX();
-        int y = location.getBlockY();
-        int z = location.getBlockZ();
-        String coordinates = x + "." + y + "." + z + "." + wid + "." + Material.DRAGON_EGG.name();
-        CacheHandler.interactCache.put(coordinates, new Object[] { time, Material.DRAGON_EGG, player.getName() });
-    }
-
 }

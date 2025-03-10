@@ -29,7 +29,8 @@ import com.sk89q.worldedit.world.block.BlockStateHolder;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.EntityUtils;
 
 public class WorldEditLogger extends Queue {
 
@@ -88,7 +89,7 @@ public class WorldEditLogger extends Queue {
                         if (mobType != null) {
                             try {
                                 EntityType entityType = EntityType.valueOf(mobType);
-                                oldBlockExtraData = Util.getSpawnerType(entityType);
+                                oldBlockExtraData = EntityUtils.getSpawnerType(entityType);
                             }
                             catch (IllegalArgumentException exception) {
                                 // mobType isn't a valid enum (EntityType.class)
@@ -114,7 +115,7 @@ public class WorldEditLogger extends Queue {
             }
             else if ((!oldType.equals(Material.AIR) && !oldType.equals(Material.CAVE_AIR)) && (!newType.equals(Material.AIR) && !newType.equals(Material.CAVE_AIR))) {
                 // replaced a block
-                Waterlogged waterlogged = Util.checkWaterlogged(newBlockData, oldBlock);
+                Waterlogged waterlogged = BlockUtils.checkWaterlogged(newBlockData, oldBlock);
                 if (waterlogged != null) {
                     newBlockDataString = waterlogged.getAsString();
                     oldBlock = null;

@@ -16,7 +16,10 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.ItemStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 
 public class ItemLogger {
@@ -92,15 +95,15 @@ public class ItemLogger {
             itemBuys = buyList.toArray(itemBuys);
             buyList.clear();
 
-            Util.mergeItems(null, itemPickups);
-            Util.mergeItems(null, itemDrops);
-            Util.mergeItems(null, itemThrows);
-            Util.mergeItems(null, itemShots);
-            Util.mergeItems(null, itemBreaks);
-            Util.mergeItems(null, itemDestroys);
-            Util.mergeItems(null, itemCreates);
-            Util.mergeItems(null, itemSells);
-            Util.mergeItems(null, itemBuys);
+            ItemUtils.mergeItems(null, itemPickups);
+            ItemUtils.mergeItems(null, itemDrops);
+            ItemUtils.mergeItems(null, itemThrows);
+            ItemUtils.mergeItems(null, itemShots);
+            ItemUtils.mergeItems(null, itemBreaks);
+            ItemUtils.mergeItems(null, itemDestroys);
+            ItemUtils.mergeItems(null, itemCreates);
+            ItemUtils.mergeItems(null, itemSells);
+            ItemUtils.mergeItems(null, itemBuys);
             logTransaction(preparedStmt, batchCount, offset, user, location, itemPickups, ITEM_PICKUP);
             logTransaction(preparedStmt, batchCount, offset, user, location, itemDrops, ITEM_DROP);
             logTransaction(preparedStmt, batchCount, offset, user, location, itemThrows, ITEM_THROW);
@@ -119,7 +122,7 @@ public class ItemLogger {
     protected static void logTransaction(PreparedStatement preparedStmt, int batchCount, int offset, String user, Location location, ItemStack[] items, int action) {
         try {
             for (ItemStack item : items) {
-                if (item != null && item.getAmount() > 0 && !Util.isAir(item.getType())) {
+                if (item != null && item.getAmount() > 0 && !BlockUtils.isAir(item.getType())) {
                     // Object[] metadata = new Object[] { slot, item.getItemMeta() };
                     List<List<Map<String, Object>>> data = ItemMetaHandler.serialize(item, null, null, 0);
                     if (data.size() == 0) {
@@ -136,12 +139,12 @@ public class ItemLogger {
                     }
 
                     int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
-                    int wid = Util.getWorldId(location.getWorld().getName());
+                    int wid = WorldUtils.getWorldId(location.getWorld().getName());
                     int time = (int) (System.currentTimeMillis() / 1000L) - offset;
                     int x = location.getBlockX();
                     int y = location.getBlockY();
                     int z = location.getBlockZ();
-                    int typeId = Util.getBlockId(item.getType().name(), true);
+                    int typeId = MaterialUtils.getBlockId(item.getType().name(), true);
                     int amount = item.getAmount();
                     ItemStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, typeId, data, amount, action);
                 }

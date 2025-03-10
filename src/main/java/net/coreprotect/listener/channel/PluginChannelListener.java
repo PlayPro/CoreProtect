@@ -15,7 +15,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.WorldUtils;
 
 public class PluginChannelListener implements Listener {
 
@@ -36,7 +36,7 @@ public class PluginChannelListener implements Listener {
         }
 
         String phraseSelector = Phrase.getPhraseSelector(phrase, selector);
-        String worldName = Util.getWorldName(worldId);
+        String worldName = WorldUtils.getWorldName(worldId);
 
         ByteArrayOutputStream msgBytes = new ByteArrayOutputStream();
         DataOutputStream msgOut = new DataOutputStream(msgBytes);
@@ -78,7 +78,7 @@ public class PluginChannelListener implements Listener {
         }
 
         String phraseSelector = Phrase.getPhraseSelector(phrase, selector);
-        String worldName = Util.getWorldName(worldId);
+        String worldName = WorldUtils.getWorldName(worldId);
 
         ByteArrayOutputStream msgBytes = new ByteArrayOutputStream();
         DataOutputStream msgOut = new DataOutputStream(msgBytes);
@@ -112,7 +112,7 @@ public class PluginChannelListener implements Listener {
             return;
         }
 
-        String worldName = Util.getWorldName(worldId);
+        String worldName = WorldUtils.getWorldName(worldId);
 
         ByteArrayOutputStream msgBytes = new ByteArrayOutputStream();
         DataOutputStream msgOut = new DataOutputStream(msgBytes);

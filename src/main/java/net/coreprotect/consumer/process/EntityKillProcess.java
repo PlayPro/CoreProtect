@@ -9,6 +9,7 @@ import org.bukkit.entity.EntityType;
 
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.logger.EntityKillLogger;
+import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.Util;
 
 class EntityKillProcess {
@@ -20,7 +21,7 @@ class EntityKillProcess {
             Map<Integer, List<Object>> objectLists = Consumer.consumerObjectList.get(processId);
             if (objectLists.get(id) != null) {
                 List<Object> objectList = objectLists.get(id);
-                int entityId = Util.getEntityId(type);
+                int entityId = EntityUtils.getEntityId(type);
                 EntityKillLogger.log(preparedStmt, preparedStmtEntities, batchCount, user, block, objectList, entityId);
                 objectLists.remove(id);
             }

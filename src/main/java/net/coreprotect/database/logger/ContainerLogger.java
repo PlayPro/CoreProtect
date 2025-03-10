@@ -21,7 +21,10 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.statement.ContainerStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 
 public class ContainerLogger extends Queue {
@@ -56,8 +59,8 @@ public class ContainerLogger extends Queue {
             String loggingContainerId = player.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
             List<ItemStack[]> oldList = ConfigHandler.oldContainer.get(loggingContainerId);
             ItemStack[] oi1 = oldList.get(0);
-            ItemStack[] oldInventory = Util.getContainerState(oi1);
-            ItemStack[] newInventory = Util.getContainerState(contents);
+            ItemStack[] oldInventory = ItemUtils.getContainerState(oi1);
+            ItemStack[] newInventory = ItemUtils.getContainerState(contents);
             if (oldInventory == null || newInventory == null) {
                 return;
             }
@@ -66,7 +69,7 @@ public class ContainerLogger extends Queue {
             if (forceList != null) {
                 int forceSize = 0;
                 if (!forceList.isEmpty()) {
-                    newInventory = Util.getContainerState(forceList.get(0));
+                    newInventory = ItemUtils.getContainerState(forceList.get(0));
                     forceSize = modifyForceContainer(loggingContainerId, null);
                 }
                 if (forceSize == 0) {
@@ -119,7 +122,7 @@ public class ContainerLogger extends Queue {
             for (ItemStack oldi : oldInventory) {
                 for (ItemStack newi : newInventory) {
                     if (oldi != null && newi != null) {
-                        if (oldi.isSimilar(newi) && !Util.isAir(oldi.getType())) { // Ignores amount
+                        if (oldi.isSimilar(newi) && !BlockUtils.isAir(oldi.getType())) { // Ignores amount
                             int oldAmount = oldi.getAmount();
                             int newAmount = newi.getAmount();
                             if (newAmount >= oldAmount) {
@@ -137,8 +140,8 @@ public class ContainerLogger extends Queue {
                 }
             }
 
-            Util.mergeItems(type, oldInventory);
-            Util.mergeItems(type, newInventory);
+            ItemUtils.mergeItems(type, oldInventory);
+            ItemUtils.mergeItems(type, newInventory);
 
             if (type != Material.ENDER_CHEST) {
                 logTransaction(preparedStmtContainer, batchCount, player, type, faceData, oldInventory, 0, location);
@@ -166,7 +169,7 @@ public class ContainerLogger extends Queue {
             int slot = 0;
             for (ItemStack item : items) {
                 if (item != null) {
-                    if (item.getAmount() > 0 && !Util.isAir(item.getType())) {
+                    if (item.getAmount() > 0 && !BlockUtils.isAir(item.getType())) {
                         // Object[] metadata = new Object[] { slot, item.getItemMeta() };
                         List<List<Map<String, Object>>> metadata = ItemMetaHandler.serialize(item, type, faceData, slot);
                         if (metadata.size() == 0) {
@@ -183,12 +186,12 @@ public class ContainerLogger extends Queue {
                         }
 
                         int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
-                        int wid = Util.getWorldId(location.getWorld().getName());
+                        int wid = WorldUtils.getWorldId(location.getWorld().getName());
                         int time = (int) (System.currentTimeMillis() / 1000L);
                         int x = location.getBlockX();
                         int y = location.getBlockY();
                         int z = location.getBlockZ();
-                        int typeId = Util.getBlockId(item.getType().name(), true);
+                        int typeId = MaterialUtils.getBlockId(item.getType().name(), true);
                         int data = 0;
                         int amount = item.getAmount();
                         ContainerStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, typeId, data, amount, metadata, action, 0);

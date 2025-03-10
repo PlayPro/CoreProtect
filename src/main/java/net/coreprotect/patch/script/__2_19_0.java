@@ -16,7 +16,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.patch.Patch;
 import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.MaterialUtils;
 
 public class __2_19_0 {
 
@@ -118,7 +118,7 @@ public class __2_19_0 {
 
             List<Integer> signList = new ArrayList<>();
             for (Material material : Tag.SIGNS.getValues()) {
-                int id = Util.getBlockId(material.name(), false);
+                int id = MaterialUtils.getBlockId(material.name(), false);
                 if (id > -1) {
                     signList.add(id);
                 }

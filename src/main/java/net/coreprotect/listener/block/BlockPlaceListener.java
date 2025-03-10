@@ -28,7 +28,8 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.paper.PaperAdapter;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.MaterialUtils;
 
 public final class BlockPlaceListener extends Queue implements Listener {
 
@@ -51,9 +52,9 @@ public final class BlockPlaceListener extends Queue implements Listener {
                 InventoryChangeListener.inventoryTransaction(player.getName(), blockLogged.getLocation(), new ItemStack[1]);
                 abort = true;
             }
-            else if (Util.listContains(BlockGroup.CONTAINERS, blockType) || Util.listContains(BlockGroup.DIRECTIONAL_BLOCKS, blockType) || blockType.name().toUpperCase(Locale.ROOT).endsWith("_STAIRS")) {
+            else if (MaterialUtils.listContains(BlockGroup.CONTAINERS, blockType) || MaterialUtils.listContains(BlockGroup.DIRECTIONAL_BLOCKS, blockType) || blockType.name().toUpperCase(Locale.ROOT).endsWith("_STAIRS")) {
                 BlockData blockData = blockPlaced.getBlockData();
-                Waterlogged waterlogged = Util.checkWaterlogged(blockData, blockReplaced);
+                Waterlogged waterlogged = BlockUtils.checkWaterlogged(blockData, blockReplaced);
                 if (waterlogged != null) {
                     bBlockData = waterlogged.getAsString();
                     blockReplaced = null;
@@ -88,7 +89,7 @@ public final class BlockPlaceListener extends Queue implements Listener {
                 }
 
                 BlockData blockData = blockLogged.getBlockData();
-                Waterlogged waterlogged = Util.checkWaterlogged(blockData, blockReplaced);
+                Waterlogged waterlogged = BlockUtils.checkWaterlogged(blockData, blockReplaced);
                 if (waterlogged != null) {
                     bBlockData = waterlogged.getAsString();
                     blockReplaced = null;

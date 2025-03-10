@@ -30,7 +30,7 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionType;
 
 import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.BlockUtils;
 
 public class BukkitAdapter implements BukkitInterface {
 
@@ -171,7 +171,7 @@ public class BukkitAdapter implements BukkitInterface {
 
     @Override
     public boolean isInvisible(Material material) {
-        return Util.isAir(material);
+        return BlockUtils.isAir(material);
     }
 
     @Override

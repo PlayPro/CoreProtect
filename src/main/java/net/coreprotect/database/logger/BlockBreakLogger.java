@@ -16,7 +16,7 @@ import net.coreprotect.database.statement.BlockStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
 import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.WorldUtils;
 
 public class BlockBreakLogger {
 
@@ -30,7 +30,7 @@ public class BlockBreakLogger {
                 return;
             }
 
-            Material checkType = Util.getType(type);
+            Material checkType = net.coreprotect.utility.MaterialUtils.getType(type);
             if (checkType == null) {
                 return;
             }
@@ -43,7 +43,7 @@ public class BlockBreakLogger {
             }
 
             if (!user.startsWith("#")) {
-                String cacheId = location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ() + "." + Util.getWorldId(location.getWorld().getName());
+                String cacheId = location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ() + "." + WorldUtils.getWorldId(location.getWorld().getName());
                 CacheHandler.spreadCache.remove(cacheId);
             }
 
@@ -60,7 +60,7 @@ public class BlockBreakLogger {
             }
 
             int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
-            int wid = Util.getWorldId(location.getWorld().getName());
+            int wid = WorldUtils.getWorldId(location.getWorld().getName());
             int time = (int) (System.currentTimeMillis() / 1000L);
             int x = location.getBlockX();
             int y = location.getBlockY();

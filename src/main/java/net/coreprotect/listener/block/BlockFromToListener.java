@@ -17,7 +17,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Lookup;
 import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.WorldUtils;
 
 public final class BlockFromToListener extends Queue implements Listener {
 
@@ -66,7 +66,7 @@ public final class BlockFromToListener extends Queue implements Listener {
                 int x = toBlock.getX();
                 int y = toBlock.getY();
                 int z = toBlock.getZ();
-                int wid = Util.getWorldId(block.getWorld().getName());
+                int wid = WorldUtils.getWorldId(block.getWorld().getName());
                 if (Config.getConfig(world).LIQUID_TRACKING) {
                     String p = Lookup.whoPlacedCache(block);
                     if (p.length() > 0) {
@@ -75,7 +75,7 @@ public final class BlockFromToListener extends Queue implements Listener {
                 }
 
                 if (f.startsWith("#")) {
-                    String cacheId = toBlock.getX() + "." + toBlock.getY() + "." + toBlock.getZ() + "." + Util.getWorldId(toBlock.getWorld().getName());
+                    String cacheId = toBlock.getX() + "." + toBlock.getY() + "." + toBlock.getZ() + "." + WorldUtils.getWorldId(toBlock.getWorld().getName());
                     int timestamp = (int) (System.currentTimeMillis() / 1000L);
                     Object[] cacheData = CacheHandler.spreadCache.get(cacheId);
                     CacheHandler.spreadCache.put(cacheId, new Object[] { timestamp, type });
@@ -89,7 +89,7 @@ public final class BlockFromToListener extends Queue implements Listener {
             }
             else if (type.equals(Material.DRAGON_EGG)) {
                 Location location = block.getLocation();
-                int worldId = Util.getWorldId(location.getWorld().getName());
+                int worldId = WorldUtils.getWorldId(location.getWorld().getName());
                 int x = location.getBlockX();
                 int y = location.getBlockY();
                 int z = location.getBlockZ();

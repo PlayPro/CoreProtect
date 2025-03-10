@@ -38,7 +38,7 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.paper.PaperAdapter;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.BlockUtils;
 
 public final class BlockBreakListener extends Queue implements Listener {
 
@@ -305,7 +305,7 @@ public final class BlockBreakListener extends Queue implements Listener {
                 Database.containerBreakCheck(user, blockType, blockLog, null, blockLog.getLocation());
                 Queue.queueBlockBreak(user, blockState, blockType, blockState.getBlockData().getAsString(), type, physics, blockNumber);
 
-                if (player != null && Util.iceBreakCheck(blockState, user, blockType)) {
+                if (player != null && BlockUtils.iceBreakCheck(blockState, user, blockType)) {
                     ItemStack handItem = player.getInventory().getItemInMainHand();
                     if (!(player.getGameMode().equals(GameMode.CREATIVE)) && !(handItem != null && handItem.containsEnchantment(Enchantment.SILK_TOUCH))) {
                         Queue.queueBlockPlaceValidate(user, blockState, blockLog, null, Material.WATER, -1, 0, null, 0);

@@ -16,7 +16,7 @@ import net.coreprotect.database.statement.BlockStatement;
 import net.coreprotect.database.statement.EntityStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.WorldUtils;
 
 public class EntityKillLogger {
 
@@ -40,7 +40,7 @@ public class EntityKillLogger {
             }
 
             int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
-            int wid = Util.getWorldId(block.getWorld().getName());
+            int wid = WorldUtils.getWorldId(block.getWorld().getName());
             int time = (int) (System.currentTimeMillis() / 1000L);
             int x = block.getX();
             int y = block.getY();

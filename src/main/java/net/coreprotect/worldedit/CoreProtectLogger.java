@@ -20,7 +20,7 @@ import com.sk89q.worldedit.world.block.BlockState;
 import com.sk89q.worldedit.world.block.BlockStateHolder;
 
 import net.coreprotect.config.Config;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.ItemUtils;
 
 public class CoreProtectLogger extends AbstractDelegateExtent {
     private final Actor eventActor;
@@ -54,7 +54,7 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
         // No clear way to get container content data from within the WorldEdit API
         // Data may be available by converting oldBlock.toBaseBlock().getNbtData()
         // e.g. BaseBlock block = eventWorld.getBlock(position);
-        ItemStack[] containerData = CoreProtectEditSessionEvent.isFAWE() ? null : Util.getContainerContents(oldType, null, location);
+        ItemStack[] containerData = CoreProtectEditSessionEvent.isFAWE() ? null : ItemUtils.getContainerContents(oldType, null, location);
 
         if (CoreProtectEditSessionEvent.isFAWE()) {
             if (eventExtent.setBlock(position.getX(), position.getY(), position.getZ(), block)) {
@@ -107,7 +107,7 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
             // No clear way to get container content data from within the WorldEdit API
             // Data may be available by converting oldBlock.toBaseBlock().getNbtData()
             // e.g. BaseBlock block = eventWorld.getBlock(position);
-            ItemStack[] containerData = CoreProtectEditSessionEvent.isFAWE() ? null : Util.getContainerContents(oldType, null, location);
+            ItemStack[] containerData = CoreProtectEditSessionEvent.isFAWE() ? null : ItemUtils.getContainerContents(oldType, null, location);
             WorldEditLogger.postProcess(eventExtent, eventActor, position, location, pattern.applyBlock(position), baseBlock, oldType, oldBlock, containerData);
         }
     }

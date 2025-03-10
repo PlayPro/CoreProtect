@@ -5,7 +5,6 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 import org.bukkit.Bukkit;
@@ -21,6 +20,7 @@ import org.bukkit.entity.Player;
 import net.coreprotect.api.BlockAPI;
 import net.coreprotect.api.QueueLookup;
 import net.coreprotect.api.SessionLookup;
+import net.coreprotect.api.result.ParseResult;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
@@ -29,129 +29,28 @@ import net.coreprotect.database.rollback.Rollback;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.MaterialUtils;
-import net.coreprotect.utility.StringUtils;
-import net.coreprotect.utility.WorldUtils;
 
+/**
+ * The main API class for CoreProtect.
+ * <p>
+ * This class provides methods for interacting with the CoreProtect database,
+ * including lookups, rollbacks, and logging operations.
+ */
 public class CoreProtectAPI extends Queue {
 
-    public class ParseResult {
-        String[] parse;
+    /**
+     * Current version of the API
+     */
+    private static final int API_VERSION = 10;
 
-        public ParseResult(String[] data) {
-            parse = data;
-        }
-
-        public int getActionId() {
-            return Integer.parseInt(parse[7]);
-        }
-
-        public String getActionString() {
-            int actionID = Integer.parseInt(parse[7]);
-            if (parse.length < 13 && Integer.parseInt(parse[6]) == SessionLookup.ID) {
-                switch (actionID) {
-                    case 0:
-                        return "logout";
-                    case 1:
-                        return "login";
-                    default:
-                        return "unknown";
-                }
-            }
-
-            String result = "unknown";
-            if (actionID == 0) {
-                result = "break";
-            }
-            else if (actionID == 1) {
-                result = "place";
-            }
-            else if (actionID == 2) {
-                result = "click";
-            }
-            else if (actionID == 3) {
-                result = "kill";
-            }
-
-            return result;
-        }
-
-        @Deprecated
-        public int getData() {
-            return Integer.parseInt(parse[6]);
-        }
-
-        public String getPlayer() {
-            return parse[1];
-        }
-
-        @Deprecated
-        public int getTime() {
-            return Integer.parseInt(parse[0]);
-        }
-
-        public long getTimestamp() {
-            return Long.parseLong(parse[0]) * 1000L;
-        }
-
-        public Material getType() {
-            if (parse.length < 13) {
-                return null;
-            }
-
-            int actionID = this.getActionId();
-            int type = Integer.parseInt(parse[5]);
-            String typeName;
-
-            if (actionID == 3) {
-                typeName = EntityUtils.getEntityType(type).name();
-            }
-            else {
-                typeName = MaterialUtils.getType(type).name().toLowerCase(Locale.ROOT);
-                typeName = StringUtils.nameFilter(typeName, this.getData());
-            }
-
-            return MaterialUtils.getType(typeName);
-        }
-
-        public BlockData getBlockData() {
-            if (parse.length < 13) {
-                return null;
-            }
-
-            String blockData = parse[12];
-            if (blockData == null || blockData.length() == 0) {
-                return getType().createBlockData();
-            }
-            return Bukkit.getServer().createBlockData(blockData);
-        }
-
-        public int getX() {
-            return Integer.parseInt(parse[2]);
-        }
-
-        public int getY() {
-            return Integer.parseInt(parse[3]);
-        }
-
-        public int getZ() {
-            return Integer.parseInt(parse[4]);
-        }
-
-        public boolean isRolledBack() {
-            if (parse.length < 13) {
-                return false;
-            }
-
-            return (Integer.parseInt(parse[8]) == 1 || Integer.parseInt(parse[8]) == 3);
-        }
-
-        public String worldName() {
-            return WorldUtils.getWorldName(Integer.parseInt(parse.length < 13 ? parse[5] : parse[9]));
-        }
-    }
-
+    /**
+     * Converts a list of objects to a map for internal processing
+     * 
+     * @param list
+     *            List of objects to convert
+     * @return Map with objects as keys and Boolean false as values
+     */
     private static Map<Object, Boolean> parseList(List<Object> list) {
         Map<Object, Boolean> result = new HashMap<>();
 
@@ -170,131 +69,229 @@ public class CoreProtectAPI extends Queue {
         return result;
     }
 
+    /**
+     * Returns the current API version.
+     * 
+     * @return The API version as an integer
+     */
     public int APIVersion() {
-        return 10;
+        return API_VERSION;
     }
 
+    /**
+     * Performs a block lookup at the specified block.
+     * 
+     * @param block
+     *            The block to look up
+     * @param time
+     *            Time constraint in seconds
+     * @return List of results or null if API is disabled
+     */
     public List<String[]> blockLookup(Block block, int time) {
-        if (Config.getGlobal().API_ENABLED) {
+        if (isEnabled()) {
             return BlockAPI.performLookup(block, time);
         }
         return null;
     }
 
+    /**
+     * Performs a lookup on the queue data for the specified block.
+     * 
+     * @param block
+     *            The block to look up
+     * @return List of results
+     */
     public List<String[]> queueLookup(Block block) {
         return QueueLookup.performLookup(block);
     }
 
+    /**
+     * Performs a lookup on session data for the specified user.
+     * 
+     * @param user
+     *            The user to look up
+     * @param time
+     *            Time constraint in seconds
+     * @return List of results
+     */
     public List<String[]> sessionLookup(String user, int time) {
         return SessionLookup.performLookup(user, time);
     }
 
+    /**
+     * Determines if a user has placed a block at the specified location.
+     * 
+     * @param user
+     *            The username to check
+     * @param block
+     *            The block to check
+     * @param time
+     *            Time constraint in seconds
+     * @param offset
+     *            Offset in seconds for the check
+     * @return True if the user has placed the block within the specified time frame
+     */
     public boolean hasPlaced(String user, Block block, int time, int offset) {
-        // Determine if a user has placed a block at this location in the last # of seconds.
-        boolean match = false;
+        if (!isEnabled()) {
+            return false;
+        }
 
-        if (Config.getGlobal().API_ENABLED) {
-            long timestamp = getCurrentTimeMillis();
-            long offsetTime = timestamp - offset * 1000L;
-            List<String[]> check = blockLookup(block, time);
+        long timestamp = getCurrentTimeMillis();
+        long offsetTime = timestamp - offset * 1000L;
+        List<String[]> check = blockLookup(block, time);
 
-            for (String[] value : check) {
-                ParseResult result = parseResult(value);
-                if (user.equalsIgnoreCase(result.getPlayer()) && result.getActionId() == 1 && result.getTimestamp() <= offsetTime) {
-                    match = true;
-                    break;
-                }
+        for (String[] value : check) {
+            ParseResult result = parseResult(value);
+            if (user.equalsIgnoreCase(result.getPlayer()) && result.getActionId() == 1 && result.getTimestamp() <= offsetTime) {
+                return true;
             }
         }
 
-        return match;
+        return false;
     }
 
+    /**
+     * Determines if a user has removed a block at the specified location.
+     * 
+     * @param user
+     *            The username to check
+     * @param block
+     *            The block to check
+     * @param time
+     *            Time constraint in seconds
+     * @param offset
+     *            Offset in seconds for the check
+     * @return True if the user has removed the block within the specified time frame
+     */
     public boolean hasRemoved(String user, Block block, int time, int offset) {
-        // Determine if a user has removed a block at this location in the last # of seconds.
-        boolean match = false;
+        if (!isEnabled()) {
+            return false;
+        }
 
-        if (Config.getGlobal().API_ENABLED) {
-            long timestamp = getCurrentTimeMillis();
-            long offsetTime = timestamp - offset * 1000L;
-            List<String[]> check = blockLookup(block, time);
+        long timestamp = getCurrentTimeMillis();
+        long offsetTime = timestamp - offset * 1000L;
+        List<String[]> check = blockLookup(block, time);
 
-            for (String[] value : check) {
-                ParseResult result = parseResult(value);
-                if (user.equalsIgnoreCase(result.getPlayer()) && result.getActionId() == 0 && result.getTimestamp() <= offsetTime) {
-                    match = true;
-                    break;
-                }
+        for (String[] value : check) {
+            ParseResult result = parseResult(value);
+            if (user.equalsIgnoreCase(result.getPlayer()) && result.getActionId() == 0 && result.getTimestamp() <= offsetTime) {
+                return true;
             }
         }
 
-        return match;
+        return false;
     }
 
+    /**
+     * Gets the current time in milliseconds. Protected to allow mocking in tests.
+     * 
+     * @return Current time in milliseconds
+     */
     protected long getCurrentTimeMillis() {
         return System.currentTimeMillis();
     }
 
+    /**
+     * Checks if the CoreProtect API is enabled.
+     * 
+     * @return True if the API is enabled
+     */
     public boolean isEnabled() {
         return Config.getGlobal().API_ENABLED;
     }
 
+    /**
+     * Logs a chat message for a player.
+     * 
+     * @param player
+     *            The player who sent the message
+     * @param message
+     *            The chat message
+     * @return True if the message was logged
+     */
     public boolean logChat(Player player, String message) {
-        if (Config.getGlobal().API_ENABLED && player != null && Config.getConfig(player.getWorld()).PLAYER_MESSAGES) {
-            if (message != null) {
-                if (message.length() > 0 && !message.startsWith("/")) {
-                    long timestamp = System.currentTimeMillis() / 1000L;
-
-                    Queue.queuePlayerChat(player, message, timestamp);
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    public boolean logCommand(Player player, String command) {
-        if (Config.getGlobal().API_ENABLED && player != null && Config.getConfig(player.getWorld()).PLAYER_COMMANDS) {
-            if (command != null) {
-                if (command.length() > 0 && command.startsWith("/")) {
-                    long timestamp = System.currentTimeMillis() / 1000L;
-
-                    Queue.queuePlayerCommand(player, command, timestamp);
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    public boolean logInteraction(String user, Location location) {
-        if (Config.getGlobal().API_ENABLED) {
-            if (user != null && location != null) {
-                if (user.length() > 0) {
-                    Queue.queuePlayerInteraction(user, location.getBlock().getState(), location.getBlock().getType());
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    public boolean logContainerTransaction(String user, Location location) {
-        if (Config.getGlobal().API_ENABLED) {
-            return InventoryChangeListener.inventoryTransaction(user, location, null);
-        }
-        return false;
-    }
-
-    public boolean logPlacement(String user, BlockState blockState) {
-        if (!Config.getGlobal().API_ENABLED) {
+        if (!isEnabledForPlayer(player) || !Config.getConfig(player.getWorld()).PLAYER_MESSAGES) {
             return false;
         }
 
-        if (blockState == null || user == null || user.length() == 0) {
+        if (message == null || message.isEmpty() || message.startsWith("/")) {
+            return false;
+        }
+
+        long timestamp = System.currentTimeMillis() / 1000L;
+        Queue.queuePlayerChat(player, message, timestamp);
+        return true;
+    }
+
+    /**
+     * Logs a command executed by a player.
+     * 
+     * @param player
+     *            The player who executed the command
+     * @param command
+     *            The command
+     * @return True if the command was logged
+     */
+    public boolean logCommand(Player player, String command) {
+        if (!isEnabledForPlayer(player) || !Config.getConfig(player.getWorld()).PLAYER_COMMANDS) {
+            return false;
+        }
+
+        if (command == null || command.isEmpty() || !command.startsWith("/")) {
+            return false;
+        }
+
+        long timestamp = System.currentTimeMillis() / 1000L;
+        Queue.queuePlayerCommand(player, command, timestamp);
+        return true;
+    }
+
+    /**
+     * Logs an interaction by a user at a location.
+     * 
+     * @param user
+     *            The username
+     * @param location
+     *            The location
+     * @return True if the interaction was logged
+     */
+    public boolean logInteraction(String user, Location location) {
+        if (!isEnabled() || !isValidUserAndLocation(user, location)) {
+            return false;
+        }
+
+        Queue.queuePlayerInteraction(user, location.getBlock().getState(), location.getBlock().getType());
+        return true;
+    }
+
+    /**
+     * Logs a container transaction by a user at a location.
+     * 
+     * @param user
+     *            The username
+     * @param location
+     *            The location
+     * @return True if the transaction was logged
+     */
+    public boolean logContainerTransaction(String user, Location location) {
+        if (!isEnabled()) {
+            return false;
+        }
+
+        return InventoryChangeListener.inventoryTransaction(user, location, null);
+    }
+
+    /**
+     * Logs a block placement by a user.
+     * 
+     * @param user
+     *            The username
+     * @param blockState
+     *            The state of the block being placed
+     * @return True if the placement was logged
+     */
+    public boolean logPlacement(String user, BlockState blockState) {
+        if (!isEnabled() || blockState == null || user == null || user.isEmpty()) {
             return false;
         }
 
@@ -302,46 +299,71 @@ public class CoreProtectAPI extends Queue {
         return true;
     }
 
+    /**
+     * Logs a block placement by a user with a specific material and block data.
+     * 
+     * @param user
+     *            The username
+     * @param location
+     *            The location
+     * @param type
+     *            The material type
+     * @param blockData
+     *            The block data
+     * @return True if the placement was logged
+     */
     public boolean logPlacement(String user, Location location, Material type, BlockData blockData) {
-        if (Config.getGlobal().API_ENABLED) {
-            if (user != null && location != null) {
-                if (user.length() > 0) {
-                    Block block = location.getBlock();
-                    BlockState blockState = block.getState();
-                    String blockDataString = null;
-
-                    if (blockData != null) {
-                        blockDataString = blockData.getAsString();
-                    }
-
-                    Queue.queueBlockPlace(user, blockState, block.getType(), null, type, -1, 0, blockDataString);
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    @Deprecated
-    public boolean logPlacement(String user, Location location, Material type, byte data) {
-        if (Config.getGlobal().API_ENABLED) {
-            if (user != null && location != null) {
-                if (user.length() > 0) {
-                    Queue.queueBlockPlace(user, location.getBlock().getState(), location.getBlock().getType(), null, type, data, 1, null);
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    public boolean logRemoval(String user, BlockState blockState) {
-        if (!Config.getGlobal().API_ENABLED) {
+        if (!isEnabled() || !isValidUserAndLocation(user, location)) {
             return false;
         }
 
-        if (blockState == null || user == null || user.length() == 0) {
+        Block block = location.getBlock();
+        BlockState blockState = block.getState();
+        String blockDataString = null;
+
+        if (blockData != null) {
+            blockDataString = blockData.getAsString();
+        }
+
+        Queue.queueBlockPlace(user, blockState, block.getType(), null, type, -1, 0, blockDataString);
+        return true;
+    }
+
+    /**
+     * Logs a block placement by a user with a specific material and data value.
+     * 
+     * @param user
+     *            The username
+     * @param location
+     *            The location
+     * @param type
+     *            The material type
+     * @param data
+     *            The data value
+     * @return True if the placement was logged
+     * @deprecated Use {@link #logPlacement(String, Location, Material, BlockData)} instead
+     */
+    @Deprecated
+    public boolean logPlacement(String user, Location location, Material type, byte data) {
+        if (!isEnabled() || !isValidUserAndLocation(user, location)) {
+            return false;
+        }
+
+        Queue.queueBlockPlace(user, location.getBlock().getState(), location.getBlock().getType(), null, type, data, 1, null);
+        return true;
+    }
+
+    /**
+     * Logs a block removal by a user.
+     * 
+     * @param user
+     *            The username
+     * @param blockState
+     *            The state of the block being removed
+     * @return True if the removal was logged
+     */
+    public boolean logRemoval(String user, BlockState blockState) {
+        if (!isEnabled() || blockState == null || user == null || user.isEmpty()) {
             return false;
         }
 
@@ -349,111 +371,345 @@ public class CoreProtectAPI extends Queue {
         return true;
     }
 
+    /**
+     * Logs a block removal by a user with a specific material and block data.
+     * 
+     * @param user
+     *            The username
+     * @param location
+     *            The location
+     * @param type
+     *            The material type
+     * @param blockData
+     *            The block data
+     * @return True if the removal was logged
+     */
     public boolean logRemoval(String user, Location location, Material type, BlockData blockData) {
-        if (Config.getGlobal().API_ENABLED) {
-            if (user != null && location != null) {
-                if (user.length() > 0) {
-                    String blockDataString = null;
-
-                    if (blockData != null) {
-                        blockDataString = blockData.getAsString();
-                    }
-
-                    Block block = location.getBlock();
-                    Database.containerBreakCheck(user, block.getType(), block, null, location);
-                    Queue.queueBlockBreak(user, location.getBlock().getState(), type, blockDataString, 0);
-                    return true;
-                }
-            }
+        if (!isEnabled() || !isValidUserAndLocation(user, location)) {
+            return false;
         }
-        return false;
+
+        String blockDataString = null;
+        if (blockData != null) {
+            blockDataString = blockData.getAsString();
+        }
+
+        Block block = location.getBlock();
+        Database.containerBreakCheck(user, block.getType(), block, null, location);
+        Queue.queueBlockBreak(user, location.getBlock().getState(), type, blockDataString, 0);
+        return true;
     }
 
+    /**
+     * Logs a block removal by a user with a specific material and data value.
+     * 
+     * @param user
+     *            The username
+     * @param location
+     *            The location
+     * @param type
+     *            The material type
+     * @param data
+     *            The data value
+     * @return True if the removal was logged
+     * @deprecated Use {@link #logRemoval(String, Location, Material, BlockData)} instead
+     */
     @Deprecated
     public boolean logRemoval(String user, Location location, Material type, byte data) {
-        if (Config.getGlobal().API_ENABLED) {
-            if (user != null && location != null) {
-                if (user.length() > 0) {
-                    Queue.queueBlockBreak(user, location.getBlock().getState(), type, type.createBlockData().getAsString(), data);
-                    return true;
-                }
-            }
+        if (!isEnabled() || !isValidUserAndLocation(user, location)) {
+            return false;
         }
 
-        return false;
+        Queue.queueBlockBreak(user, location.getBlock().getState(), type, type.createBlockData().getAsString(), data);
+        return true;
     }
 
+    /**
+     * Parses lookup results into a ParseResult object.
+     * 
+     * @param results
+     *            The results to parse
+     * @return A ParseResult object containing the parsed data
+     */
     public ParseResult parseResult(String[] results) {
         return new ParseResult(results);
     }
 
+    /**
+     * Performs a lookup operation with various filters.
+     * 
+     * @param time
+     *            Time constraint in seconds
+     * @param restrictUsers
+     *            List of users to include in the lookup
+     * @param excludeUsers
+     *            List of users to exclude from the lookup
+     * @param restrictBlocks
+     *            List of blocks to include in the lookup
+     * @param excludeBlocks
+     *            List of blocks to exclude from the lookup
+     * @param actionList
+     *            List of actions to include in the lookup
+     * @param radius
+     *            Radius to search within
+     * @param radiusLocation
+     *            Center location for the radius search
+     * @return List of results or null if the API is disabled
+     */
     public List<String[]> performLookup(int time, List<String> restrictUsers, List<String> excludeUsers, List<Object> restrictBlocks, List<Object> excludeBlocks, List<Integer> actionList, int radius, Location radiusLocation) {
-        if (Config.getGlobal().API_ENABLED) {
-            return processData(time, radius, radiusLocation, parseList(restrictBlocks), parseList(excludeBlocks), restrictUsers, excludeUsers, actionList, 0, 1, -1, -1, false);
+        if (!isEnabled()) {
+            return null;
         }
-        return null;
+
+        return processData(time, radius, radiusLocation, parseList(restrictBlocks), parseList(excludeBlocks), restrictUsers, excludeUsers, actionList, 0, 1, -1, -1, false);
     }
 
+    /**
+     * Performs a lookup operation with basic filters.
+     * 
+     * @param user
+     *            The user to include in the lookup
+     * @param time
+     *            Time constraint in seconds
+     * @param radius
+     *            Radius to search within
+     * @param location
+     *            Center location for the radius search
+     * @param restrict
+     *            List of blocks to include in the lookup
+     * @param exclude
+     *            List of blocks to exclude from the lookup
+     * @return List of results or null if the API is disabled
+     * @deprecated Use {@link #performLookup(int, List, List, List, List, List, int, Location)} instead
+     */
     @Deprecated
     public List<String[]> performLookup(String user, int time, int radius, Location location, List<Object> restrict, List<Object> exclude) {
-        if (Config.getGlobal().API_ENABLED) {
-            return processData(user, time, radius, location, parseList(restrict), parseList(exclude), 0, 1, -1, -1, false);
+        if (!isEnabled()) {
+            return null;
         }
-        return null;
+
+        return processData(user, time, radius, location, parseList(restrict), parseList(exclude), 0, 1, -1, -1, false);
     }
 
+    /**
+     * Performs a partial lookup operation with various filters and pagination support.
+     * 
+     * @param time
+     *            Time constraint in seconds
+     * @param restrictUsers
+     *            List of users to include in the lookup
+     * @param excludeUsers
+     *            List of users to exclude from the lookup
+     * @param restrictBlocks
+     *            List of blocks to include in the lookup
+     * @param excludeBlocks
+     *            List of blocks to exclude from the lookup
+     * @param actionList
+     *            List of actions to include in the lookup
+     * @param radius
+     *            Radius to search within
+     * @param radiusLocation
+     *            Center location for the radius search
+     * @param limitOffset
+     *            Offset for pagination
+     * @param limitCount
+     *            Maximum number of results to return
+     * @return List of results or null if the API is disabled
+     */
     public List<String[]> performPartialLookup(int time, List<String> restrictUsers, List<String> excludeUsers, List<Object> restrictBlocks, List<Object> excludeBlocks, List<Integer> actionList, int radius, Location radiusLocation, int limitOffset, int limitCount) {
-        if (Config.getGlobal().API_ENABLED) {
-            return processData(time, radius, radiusLocation, parseList(restrictBlocks), parseList(excludeBlocks), restrictUsers, excludeUsers, actionList, 0, 1, limitOffset, limitCount, true);
+        if (!isEnabled()) {
+            return null;
         }
-        return null;
+
+        return processData(time, radius, radiusLocation, parseList(restrictBlocks), parseList(excludeBlocks), restrictUsers, excludeUsers, actionList, 0, 1, limitOffset, limitCount, true);
     }
 
+    /**
+     * Performs a partial lookup operation with basic filters and pagination support.
+     * 
+     * @param user
+     *            The user to include in the lookup
+     * @param time
+     *            Time constraint in seconds
+     * @param radius
+     *            Radius to search within
+     * @param location
+     *            Center location for the radius search
+     * @param restrict
+     *            List of blocks to include in the lookup
+     * @param exclude
+     *            List of blocks to exclude from the lookup
+     * @param limitOffset
+     *            Offset for pagination
+     * @param limitCount
+     *            Maximum number of results to return
+     * @return List of results or null if the API is disabled
+     * @deprecated Use {@link #performPartialLookup(int, List, List, List, List, List, int, Location, int, int)} instead
+     */
     @Deprecated
     public List<String[]> performPartialLookup(String user, int time, int radius, Location location, List<Object> restrict, List<Object> exclude, int limitOffset, int limitCount) {
-        if (Config.getGlobal().API_ENABLED) {
-            return processData(user, time, radius, location, parseList(restrict), parseList(exclude), 0, 1, limitOffset, limitCount, true);
+        if (!isEnabled()) {
+            return null;
         }
-        return null;
+
+        return processData(user, time, radius, location, parseList(restrict), parseList(exclude), 0, 1, limitOffset, limitCount, true);
     }
 
+    /**
+     * Performs a database purge operation.
+     * 
+     * @param time
+     *            Time in seconds for the purge operation
+     */
     public void performPurge(int time) {
         Server server = Bukkit.getServer();
         server.dispatchCommand(server.getConsoleSender(), "co purge t:" + time + "s");
     }
 
+    /**
+     * Performs a restore operation with various filters.
+     * 
+     * @param time
+     *            Time constraint in seconds
+     * @param restrictUsers
+     *            List of users to include in the restore
+     * @param excludeUsers
+     *            List of users to exclude from the restore
+     * @param restrictBlocks
+     *            List of blocks to include in the restore
+     * @param excludeBlocks
+     *            List of blocks to exclude from the restore
+     * @param actionList
+     *            List of actions to include in the restore
+     * @param radius
+     *            Radius to restore within
+     * @param radiusLocation
+     *            Center location for the radius restore
+     * @return List of results or null if the API is disabled
+     */
     public List<String[]> performRestore(int time, List<String> restrictUsers, List<String> excludeUsers, List<Object> restrictBlocks, List<Object> excludeBlocks, List<Integer> actionList, int radius, Location radiusLocation) {
-        if (Config.getGlobal().API_ENABLED) {
-            return processData(time, radius, radiusLocation, parseList(restrictBlocks), parseList(excludeBlocks), restrictUsers, excludeUsers, actionList, 1, 2, -1, -1, false);
+        if (!isEnabled()) {
+            return null;
         }
-        return null;
+
+        return processData(time, radius, radiusLocation, parseList(restrictBlocks), parseList(excludeBlocks), restrictUsers, excludeUsers, actionList, 1, 2, -1, -1, false);
     }
 
+    /**
+     * Performs a restore operation with basic filters.
+     * 
+     * @param user
+     *            The user to include in the restore
+     * @param time
+     *            Time constraint in seconds
+     * @param radius
+     *            Radius to restore within
+     * @param location
+     *            Center location for the radius restore
+     * @param restrict
+     *            List of blocks to include in the restore
+     * @param exclude
+     *            List of blocks to exclude from the restore
+     * @return List of results or null if the API is disabled
+     * @deprecated Use {@link #performRestore(int, List, List, List, List, List, int, Location)} instead
+     */
     @Deprecated
     public List<String[]> performRestore(String user, int time, int radius, Location location, List<Object> restrict, List<Object> exclude) {
-        if (Config.getGlobal().API_ENABLED) {
-            return processData(user, time, radius, location, parseList(restrict), parseList(exclude), 1, 2, -1, -1, false);
+        if (!isEnabled()) {
+            return null;
         }
-        return null;
+
+        return processData(user, time, radius, location, parseList(restrict), parseList(exclude), 1, 2, -1, -1, false);
     }
 
+    /**
+     * Performs a rollback operation with various filters.
+     * 
+     * @param time
+     *            Time constraint in seconds
+     * @param restrictUsers
+     *            List of users to include in the rollback
+     * @param excludeUsers
+     *            List of users to exclude from the rollback
+     * @param restrictBlocks
+     *            List of blocks to include in the rollback
+     * @param excludeBlocks
+     *            List of blocks to exclude from the rollback
+     * @param actionList
+     *            List of actions to include in the rollback
+     * @param radius
+     *            Radius to rollback within
+     * @param radiusLocation
+     *            Center location for the radius rollback
+     * @return List of results or null if the API is disabled
+     */
     public List<String[]> performRollback(int time, List<String> restrictUsers, List<String> excludeUsers, List<Object> restrictBlocks, List<Object> excludeBlocks, List<Integer> actionList, int radius, Location radiusLocation) {
-        if (Config.getGlobal().API_ENABLED) {
-            return processData(time, radius, radiusLocation, parseList(restrictBlocks), parseList(excludeBlocks), restrictUsers, excludeUsers, actionList, 0, 2, -1, -1, false);
+        if (!isEnabled()) {
+            return null;
         }
-        return null;
+
+        return processData(time, radius, radiusLocation, parseList(restrictBlocks), parseList(excludeBlocks), restrictUsers, excludeUsers, actionList, 0, 2, -1, -1, false);
     }
 
+    /**
+     * Performs a rollback operation with basic filters.
+     * 
+     * @param user
+     *            The user to include in the rollback
+     * @param time
+     *            Time constraint in seconds
+     * @param radius
+     *            Radius to rollback within
+     * @param location
+     *            Center location for the radius rollback
+     * @param restrict
+     *            List of blocks to include in the rollback
+     * @param exclude
+     *            List of blocks to exclude from the rollback
+     * @return List of results or null if the API is disabled
+     * @deprecated Use {@link #performRollback(int, List, List, List, List, List, int, Location)} instead
+     */
     @Deprecated
     public List<String[]> performRollback(String user, int time, int radius, Location location, List<Object> restrict, List<Object> exclude) {
-        if (Config.getGlobal().API_ENABLED) {
-            return processData(user, time, radius, location, parseList(restrict), parseList(exclude), 0, 2, -1, -1, false);
+        if (!isEnabled()) {
+            return null;
         }
-        return null;
+
+        return processData(user, time, radius, location, parseList(restrict), parseList(exclude), 0, 2, -1, -1, false);
     }
 
+    /**
+     * Processes a data request with various filters.
+     * 
+     * @param time
+     *            Time constraint in seconds
+     * @param radius
+     *            Radius for the operation
+     * @param location
+     *            Center location for the radius
+     * @param restrictBlocksMap
+     *            Map of blocks to include in the operation
+     * @param excludeBlocks
+     *            Map of blocks to exclude from the operation
+     * @param restrictUsers
+     *            List of users to include in the operation
+     * @param excludeUsers
+     *            List of users to exclude from the operation
+     * @param actionList
+     *            List of actions to include in the operation
+     * @param action
+     *            Action type for the operation
+     * @param lookup
+     *            Lookup type for the operation
+     * @param offset
+     *            Offset for pagination
+     * @param rowCount
+     *            Maximum number of results to return
+     * @param useLimit
+     *            Whether to use pagination limits
+     * @return List of results or null if the parameters are invalid
+     */
     private List<String[]> processData(int time, int radius, Location location, Map<Object, Boolean> restrictBlocksMap, Map<Object, Boolean> excludeBlocks, List<String> restrictUsers, List<String> excludeUsers, List<Integer> actionList, int action, int lookup, int offset, int rowCount, boolean useLimit) {
-        // You need to either specify time/radius or time/user
         List<String[]> result = new ArrayList<>();
         List<String> uuids = new ArrayList<>();
 
@@ -470,7 +726,7 @@ public class CoreProtectAPI extends Queue {
         }
 
         List<Object> restrictBlocks = new ArrayList<>(restrictBlocksMap.keySet());
-        if (actionList.size() == 0 && restrictBlocks.size() > 0) {
+        if (actionList.isEmpty() && !restrictBlocks.isEmpty()) {
             boolean addedMaterial = false;
             boolean addedEntity = false;
 
@@ -487,14 +743,14 @@ public class CoreProtectAPI extends Queue {
             }
         }
 
-        if (actionList.size() == 0) {
+        if (actionList.isEmpty()) {
             actionList.add(0);
             actionList.add(1);
         }
 
         actionList.removeIf(actionListItem -> actionListItem > 3);
 
-        if (restrictUsers.size() == 0) {
+        if (restrictUsers.isEmpty()) {
             restrictUsers.add("#global");
         }
 
@@ -568,6 +824,34 @@ public class CoreProtectAPI extends Queue {
         return result;
     }
 
+    /**
+     * Processes a data request with basic filters.
+     * 
+     * @param user
+     *            The user to include in the operation
+     * @param time
+     *            Time constraint in seconds
+     * @param radius
+     *            Radius for the operation
+     * @param location
+     *            Center location for the radius
+     * @param restrictBlocks
+     *            Map of blocks to include in the operation
+     * @param excludeBlocks
+     *            Map of blocks to exclude from the operation
+     * @param action
+     *            Action type for the operation
+     * @param lookup
+     *            Lookup type for the operation
+     * @param offset
+     *            Offset for pagination
+     * @param rowCount
+     *            Maximum number of results to return
+     * @param useLimit
+     *            Whether to use pagination limits
+     * @return List of results
+     * @deprecated Use {@link #processData(int, int, Location, Map, Map, List, List, List, int, int, int, int, boolean)} instead
+     */
     @Deprecated
     private List<String[]> processData(String user, int time, int radius, Location location, Map<Object, Boolean> restrictBlocks, Map<Object, Boolean> excludeBlocks, int action, int lookup, int offset, int rowCount, boolean useLimit) {
         ArrayList<String> restrictUsers = new ArrayList<>();
@@ -578,8 +862,34 @@ public class CoreProtectAPI extends Queue {
         return processData(time, radius, location, restrictBlocks, excludeBlocks, restrictUsers, null, null, action, lookup, offset, rowCount, useLimit);
     }
 
+    /**
+     * Tests the API functionality.
+     */
     public void testAPI() {
         Chat.console(Phrase.build(Phrase.API_TEST));
     }
 
+    /**
+     * Helper method to check if the API is enabled and the player is not null.
+     * 
+     * @param player
+     *            The player to check
+     * @return True if the API is enabled and the player is not null
+     */
+    private boolean isEnabledForPlayer(Player player) {
+        return isEnabled() && player != null;
+    }
+
+    /**
+     * Helper method to check if a user and location are valid.
+     * 
+     * @param user
+     *            The username to check
+     * @param location
+     *            The location to check
+     * @return True if the user and location are valid
+     */
+    private boolean isValidUserAndLocation(String user, Location location) {
+        return user != null && location != null && !user.isEmpty();
+    }
 }

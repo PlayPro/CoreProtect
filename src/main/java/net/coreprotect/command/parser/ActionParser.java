@@ -157,7 +157,8 @@ public class ActionParser {
                 argument = argument.trim().toLowerCase(Locale.ROOT);
                 argument = argument.replaceAll("\\\\", "");
                 argument = argument.replaceAll("'", "");
-                if (argument.equals("#count") || argument.equals("#sum")) {
+                if (argument.equals("#count") || argument.equals("#sum") || 
+                    argument.equals("count") || argument.equals("sum")) {
                     result = true;
                 }
             }
@@ -214,10 +215,11 @@ public class ActionParser {
                 argument = argument.trim().toLowerCase(Locale.ROOT);
                 argument = argument.replaceAll("\\\\", "");
                 argument = argument.replaceAll("'", "");
-                if (argument.equals("#preview")) {
+                if (argument.equals("#preview") || argument.equals("preview")) {
                     result = 1;
                 }
-                else if (argument.equals("#preview_cancel")) {
+                else if (argument.equals("#preview_cancel") || argument.equals("#preview-cancel") || 
+                         argument.equals("preview_cancel") || argument.equals("preview-cancel")) {
                     result = 2;
                 }
             }

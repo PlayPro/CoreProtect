@@ -28,7 +28,7 @@ import net.coreprotect.utility.Color;
 import net.coreprotect.utility.WorldUtils;
 
 public class LookupCommand {
-    protected static void runCommand(CommandSender player, Command command, boolean permission, String[] args) {
+    public static void runCommand(CommandSender player, Command command, boolean permission, String[] args) {
         int resultc = args.length;
         args = CommandParser.parsePage(args);
         Location lo = CommandParser.parseLocation(player, args);
@@ -470,10 +470,12 @@ public class LookupCommand {
                 List<String> rollbackusers = argUsers;
                 int c = 0;
                 for (String ruser : rollbackusers) {
-                    List<Player> players = Bukkit.getServer().matchPlayer(ruser);
-                    for (Player p : players) {
-                        if (p.getName().equalsIgnoreCase(ruser)) {
-                            rollbackusers.set(c, p.getName());
+                    if (Bukkit.getServer() != null) {
+                        List<Player> players = Bukkit.getServer().matchPlayer(ruser);
+                        for (Player p : players) {
+                            if (p.getName().equalsIgnoreCase(ruser)) {
+                                rollbackusers.set(c, p.getName());
+                            }
                         }
                     }
                     c++;
@@ -524,7 +526,9 @@ public class LookupCommand {
                     if (lo != null) {
                         x = lo.getBlockX();
                         z = lo.getBlockZ();
-                        wid = WorldUtils.getWorldId(lo.getWorld().getName());
+                        if (lo.getWorld() != null) {
+                            wid = WorldUtils.getWorldId(lo.getWorld().getName());
+                        }
                     }
 
                     if (rollbackusers.size() == 1 && rollbackusers.contains("#global") && argAction.contains(9)) {

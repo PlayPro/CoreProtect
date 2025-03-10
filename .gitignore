@@ -179,6 +179,9 @@ context.json
 run.sh
 run_*.sh
 no-log4j2.xml
+database.db
+*tests.txt
+refactor.txt
 
 # Compiled class file
 *.class

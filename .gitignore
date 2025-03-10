@@ -175,6 +175,7 @@ Desktop.ini
 
 .cursorrules
 .windsurfrules
+.clinerules
 context.json
 run.sh
 run_*.sh

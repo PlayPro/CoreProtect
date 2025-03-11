@@ -109,6 +109,8 @@ public class ConfigHandler extends Queue {
     public static ConcurrentHashMap<String, List<ItemStack>> itemsBuy = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, Object[]> hopperAbort = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, Object[]> hopperSuccess = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, ConcurrentHashMap<String, Long>> dispenserNoChange = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> dispenserPending = new ConcurrentHashMap<>();
     public static Map<String, List<ItemStack[]>> forceContainer = syncMap();
     public static Map<String, Integer> lookupType = syncMap();
     public static Map<String, Object[]> lookupThrottle = syncMap();

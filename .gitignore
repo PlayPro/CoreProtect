@@ -182,6 +182,7 @@ run_*.sh
 no-log4j2.xml
 database.db
 *tests.txt
+test*.db
 refactor.txt
 
 # Compiled class file
@@ -211,7 +212,7 @@ hs_err_pid*
 docs/dev/
 
 # Extensions
-/src/main/java/net/coreprotect/extensions/*.java
-!/src/main/java/net/coreprotect/extensions/Extensions.java
+/src/main/java/net/coreprotect/utility/extensions
+!/src/main/java/net/coreprotect/utility/extensions/Extensions.java
 /.apt_generated/
 /.apt_generated_tests/

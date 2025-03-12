@@ -8,11 +8,11 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 
 import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.extensions.Extensions;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.thread.NetworkHandler;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
+import net.coreprotect.utility.Extensions;
 import net.coreprotect.utility.VersionUtils;
 
 public class CommandHandler implements CommandExecutor {

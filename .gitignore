@@ -177,12 +177,14 @@ Desktop.ini
 .windsurfrules
 .clinerules
 context.json
+context.yml
 run.sh
 run_*.sh
 no-log4j2.xml
 database.db
 *tests.txt
 test*.db
+nullnull
 refactor.txt
 
 # Compiled class file

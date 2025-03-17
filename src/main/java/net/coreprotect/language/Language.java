@@ -221,8 +221,10 @@ public class Language {
         phrases.put(Phrase.TIME_DAYS, "{0} {day|days}");
         phrases.put(Phrase.TIME_HOURS, "{0} {hour|hours}");
         phrases.put(Phrase.TIME_MINUTES, "{0} {minute|minutes}");
+        phrases.put(Phrase.TIME_MONTHS, "{0} {month|months}");
         phrases.put(Phrase.TIME_SECONDS, "{0} {second|seconds}");
         phrases.put(Phrase.TIME_WEEKS, "{0} {week|weeks}");
+        phrases.put(Phrase.TIME_YEARS, "{0} {year|years}");
         phrases.put(Phrase.UPDATE_ERROR, "An error occurred while checking for updates.");
         phrases.put(Phrase.UPDATE_HEADER, "{0} Update");
         phrases.put(Phrase.UPDATE_NOTICE, "Notice: {0} is now available.");

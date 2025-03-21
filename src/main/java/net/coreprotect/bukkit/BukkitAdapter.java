@@ -109,6 +109,16 @@ public class BukkitAdapter implements BukkitInterface {
     }
 
     @Override
+    public void getWolfVariant(org.bukkit.entity.Wolf wolf, List<Object> info) {
+        // Base implementation does nothing - Wolf variants only exist in 1.21+
+    }
+
+    @Override
+    public void setWolfVariant(org.bukkit.entity.Wolf wolf, Object value) {
+        // Base implementation does nothing - Wolf variants only exist in 1.21+
+    }
+
+    @Override
     public EntityType getEntityType(Material material) {
         switch (material) {
             case END_CRYSTAL:

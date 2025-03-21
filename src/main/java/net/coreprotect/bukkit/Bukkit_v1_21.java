@@ -1,7 +1,6 @@
 package net.coreprotect.bukkit;
 
-import java.util.Arrays;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.bukkit.Bukkit;
@@ -125,5 +124,39 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 implements BukkitInterface {
         NamespacedKey namespacedKey = NamespacedKey.fromString(key);
         // return RegistryAccess.registryAccess().getRegistry(RegistryKey.CAT_VARIANT).get((NamespacedKey)value);
         return Bukkit.getRegistry((Class) tClass).get(namespacedKey);
+    }
+
+    /**
+     * Gets the wolf variant and adds it to the info list.
+     * This functionality is specific to Minecraft 1.21+.
+     * 
+     * @param wolf
+     *            The wolf entity
+     * @param info
+     *            The list to add the variant information to
+     */
+    @Override
+    public void getWolfVariant(org.bukkit.entity.Wolf wolf, List<Object> info) {
+        // Add the variant to the info list
+        info.add(getRegistryKey(wolf.getVariant()));
+    }
+
+    /**
+     * Sets the wolf variant from the provided value.
+     * This functionality is specific to Minecraft 1.21+.
+     * 
+     * @param wolf
+     *            The wolf entity
+     * @param value
+     *            The variant value to set
+     */
+    @Override
+    public void setWolfVariant(org.bukkit.entity.Wolf wolf, Object value) {
+        if (value instanceof String) {
+            value = getRegistryValue((String) value, org.bukkit.entity.Wolf.Variant.class);
+        }
+        org.bukkit.entity.Wolf.Variant variant = (org.bukkit.entity.Wolf.Variant) value;
+        wolf.setVariant(variant);
+
     }
 }

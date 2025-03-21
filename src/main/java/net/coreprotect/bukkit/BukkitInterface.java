@@ -242,6 +242,28 @@ public interface BukkitInterface {
     boolean setEntityMeta(Entity entity, Object value, int count);
 
     /**
+     * Gets the wolf variant and adds it to the info list.
+     * Only implemented in Minecraft 1.21+.
+     * 
+     * @param wolf
+     *            The wolf entity
+     * @param info
+     *            The list to add the variant information to
+     */
+    void getWolfVariant(org.bukkit.entity.Wolf wolf, List<Object> info);
+
+    /**
+     * Sets the wolf variant from the provided value.
+     * Only implemented in Minecraft 1.21+.
+     * 
+     * @param wolf
+     *            The wolf entity
+     * @param value
+     *            The variant value to set
+     */
+    void setWolfVariant(org.bukkit.entity.Wolf wolf, Object value);
+
+    /**
      * Gets the frame type for an entity.
      * 
      * @param entity

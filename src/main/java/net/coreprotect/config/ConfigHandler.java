@@ -265,7 +265,7 @@ public class ConfigHandler extends Queue {
             ConfigHandler.hikariDataSource = new HikariDataSource(config);
         }
 
-        Database.createDatabaseTables(ConfigHandler.prefix, null, Config.getGlobal().MYSQL, false);
+        Database.createDatabaseTables(ConfigHandler.prefix, false, null, Config.getGlobal().MYSQL, false);
     }
 
     public static void loadTypes(Statement statement) {

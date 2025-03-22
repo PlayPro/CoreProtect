@@ -257,7 +257,7 @@ public class PurgeCommand extends Consumer {
                             }
                         }
 
-                        Database.createDatabaseTables(purgePrefix, null, Config.getGlobal().MYSQL, true);
+                        Database.createDatabaseTables(purgePrefix, false, null, Config.getGlobal().MYSQL, true);
                     }
 
                     List<String> purgeTables = Arrays.asList("sign", "container", "item", "skull", "session", "chat", "command", "entity", "block");

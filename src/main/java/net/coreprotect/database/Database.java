@@ -308,7 +308,7 @@ public class Database extends Queue {
 
     private static final List<String> DATABASE_TABLES = Arrays.asList("art_map", "block", "chat", "command", "container", "item", "database_lock", "entity", "entity_map", "material_map", "blockdata_map", "session", "sign", "skull", "user", "username_log", "version", "world");
 
-    public static void createDatabaseTables(String prefix, Connection forceConnection, boolean mySQL, boolean purge) {
+    public static void createDatabaseTables(String prefix, boolean forcePrefix, Connection forceConnection, boolean mySQL, boolean purge) {
         ConfigHandler.databaseTables.clear();
         ConfigHandler.databaseTables.addAll(DATABASE_TABLES);
 
@@ -316,7 +316,7 @@ public class Database extends Queue {
             createMySQLTables(prefix, forceConnection, purge);
         }
         else {
-            createSQLiteTables(prefix, forceConnection, purge);
+            createSQLiteTables(prefix, forcePrefix, forceConnection, purge);
         }
     }
 
@@ -413,7 +413,7 @@ public class Database extends Queue {
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "world(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,world varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
     }
 
-    private static void createSQLiteTables(String prefix, Connection forceConnection, boolean purge) {
+    private static void createSQLiteTables(String prefix, boolean forcePrefix, Connection forceConnection, boolean purge) {
         try (Connection connection = (forceConnection != null ? forceConnection : Database.getConnection(true, 0))) {
             Statement statement = connection.createStatement();
             List<String> tableData = new ArrayList<>();
@@ -430,7 +430,7 @@ public class Database extends Queue {
 
             identifyExistingTablesAndIndexes(statement, attachDatabase, tableData, indexData);
             createSQLiteTableStructures(prefix, statement, tableData);
-            createSQLiteIndexes(prefix, statement, indexData, attachDatabase, purge);
+            createSQLiteIndexes(forcePrefix == true ? prefix : ConfigHandler.prefix, statement, indexData, attachDatabase, purge);
 
             if (!purge && forceConnection == null) {
                 initializeTables(prefix, statement);
@@ -516,36 +516,36 @@ public class Database extends Queue {
 
     private static void createSQLiteIndexes(String prefix, Statement statement, List<String> indexData, String attachDatabase, boolean purge) {
         try {
-            createSQLiteIndex(statement, indexData, attachDatabase, "art_map_id_index", ConfigHandler.prefix + "art_map(id)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "block_index", ConfigHandler.prefix + "block(wid,x,z,time)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "block_user_index", ConfigHandler.prefix + "block(user,time)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "block_type_index", ConfigHandler.prefix + "block(type,time)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "blockdata_map_id_index", ConfigHandler.prefix + "blockdata_map(id)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "chat_index", ConfigHandler.prefix + "chat(time)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "chat_user_index", ConfigHandler.prefix + "chat(user,time)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "chat_wid_index", ConfigHandler.prefix + "chat(wid,x,z,time)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "command_index", ConfigHandler.prefix + "command(time)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "command_user_index", ConfigHandler.prefix + "command(user,time)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "command_wid_index", ConfigHandler.prefix + "command(wid,x,z,time)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "container_index", ConfigHandler.prefix + "container(wid,x,z,time)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "container_user_index", ConfigHandler.prefix + "container(user,time)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "container_type_index", ConfigHandler.prefix + "container(type,time)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "item_index", ConfigHandler.prefix + "item(wid,x,z,time)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "item_user_index", ConfigHandler.prefix + "item(user,time)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "item_type_index", ConfigHandler.prefix + "item(type,time)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "entity_map_id_index", ConfigHandler.prefix + "entity_map(id)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "material_map_id_index", ConfigHandler.prefix + "material_map(id)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "session_index", ConfigHandler.prefix + "session(wid,x,z,time)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "session_action_index", ConfigHandler.prefix + "session(action,time)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "session_user_index", ConfigHandler.prefix + "session(user,time)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "session_time_index", ConfigHandler.prefix + "session(time)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "sign_index", ConfigHandler.prefix + "sign(wid,x,z,time)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "sign_user_index", ConfigHandler.prefix + "sign(user,time)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "sign_time_index", ConfigHandler.prefix + "sign(time)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "user_index", ConfigHandler.prefix + "user(user)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "uuid_index", ConfigHandler.prefix + "user(uuid)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "username_log_uuid_index", ConfigHandler.prefix + "username_log(uuid,user)");
-            createSQLiteIndex(statement, indexData, attachDatabase, "world_id_index", ConfigHandler.prefix + "world(id)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "art_map_id_index", prefix + "art_map(id)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "block_index", prefix + "block(wid,x,z,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "block_user_index", prefix + "block(user,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "block_type_index", prefix + "block(type,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "blockdata_map_id_index", prefix + "blockdata_map(id)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "chat_index", prefix + "chat(time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "chat_user_index", prefix + "chat(user,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "chat_wid_index", prefix + "chat(wid,x,z,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "command_index", prefix + "command(time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "command_user_index", prefix + "command(user,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "command_wid_index", prefix + "command(wid,x,z,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "container_index", prefix + "container(wid,x,z,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "container_user_index", prefix + "container(user,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "container_type_index", prefix + "container(type,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "item_index", prefix + "item(wid,x,z,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "item_user_index", prefix + "item(user,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "item_type_index", prefix + "item(type,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_map_id_index", prefix + "entity_map(id)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "material_map_id_index", prefix + "material_map(id)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "session_index", prefix + "session(wid,x,z,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "session_action_index", prefix + "session(action,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "session_user_index", prefix + "session(user,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "session_time_index", prefix + "session(time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "sign_index", prefix + "sign(wid,x,z,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "sign_user_index", prefix + "sign(user,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "sign_time_index", prefix + "sign(time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "user_index", prefix + "user(user)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "uuid_index", prefix + "user(uuid)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "username_log_uuid_index", prefix + "username_log(uuid,user)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "world_id_index", prefix + "world(id)");
         }
         catch (Exception e) {
             Chat.console(Phrase.build(Phrase.DATABASE_INDEX_ERROR));

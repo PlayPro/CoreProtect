@@ -10,7 +10,7 @@ public class Extensions {
 
     public static void runDatabaseMigration(String command, CommandSender user, String[] argumentArray) {
         try {
-            Class<?> patchClass = Class.forName("net.coreprotect.extensions.DatabaseMigration");
+            Class<?> patchClass = Class.forName("net.coreprotect.utility.extensions.DatabaseMigration");
             Method patchMethod = patchClass.getDeclaredMethod("runCommand", CommandSender.class, String[].class);
             patchMethod.invoke(null, user, argumentArray);
         }

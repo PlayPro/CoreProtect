@@ -36,13 +36,8 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 implements BukkitInterface {
      * Updates container, interaction, and update state blocks with new 1.21 blocks.
      */
     private void initializeBlockGroups() {
-        // Add the CRAFTER to CONTAINERS instead of replacing the entire set
         addToBlockGroupIfMissing(Material.CRAFTER, BlockGroup.CONTAINERS);
-
-        // Add the CRAFTER to INTERACT_BLOCKS instead of replacing the entire set
         addToBlockGroupIfMissing(Material.CRAFTER, BlockGroup.INTERACT_BLOCKS);
-
-        // Add the CRAFTER to UPDATE_STATE instead of replacing the entire set
         addToBlockGroupIfMissing(Material.CRAFTER, BlockGroup.UPDATE_STATE);
     }
 

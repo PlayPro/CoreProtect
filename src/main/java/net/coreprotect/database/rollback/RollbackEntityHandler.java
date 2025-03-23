@@ -46,7 +46,7 @@ public class RollbackEntityHandler {
      *            The username associated with this entity change
      * @return The number of entities affected (1 if successful, 0 otherwise)
      */
-    public static int processEntity(Object[] row, int rollbackType, String finalUserString, int rowTypeRaw, int rowData, int rowAction, int rowRolledBack, int rowX, int rowY, int rowZ, int rowWorldId, int rowUserId, String rowUser) {
+    public static int processEntity(Object[] row, int rollbackType, String finalUserString, int oldTypeRaw, int rowTypeRaw, int rowData, int rowAction, int rowRolledBack, int rowX, int rowY, int rowZ, int rowWorldId, int rowUserId, String rowUser) {
         try {
             // Entity kill
             if (rowAction == 3) {
@@ -76,12 +76,11 @@ public class RollbackEntityHandler {
                     }
                 }
                 else if (rowTypeRaw <= 0) {
-                    int oldTypeRaw = rowTypeRaw;
                     // Attempt to remove entity
                     if (rowRolledBack == 1) {
                         boolean removed = false;
                         int entityId = -1;
-                        String entityName = EntityUtils.getEntityType(Math.abs(oldTypeRaw)).name();
+                        String entityName = EntityUtils.getEntityType(oldTypeRaw).name();
                         String token = "" + rowX + "." + rowY + "." + rowZ + "." + rowWorldId + "." + entityName + "";
                         Object[] cachedEntity = CacheHandler.entityCache.get(token);
 
@@ -107,7 +106,7 @@ public class RollbackEntityHandler {
                                 }
                             }
                             else {
-                                if (entity.getType().equals(EntityUtils.getEntityType(Math.abs(oldTypeRaw)))) {
+                                if (entity.getType().equals(EntityUtils.getEntityType(oldTypeRaw))) {
                                     Location entityLocation = entity.getLocation();
                                     int entityx = entityLocation.getBlockX();
                                     int entityY = entityLocation.getBlockY();

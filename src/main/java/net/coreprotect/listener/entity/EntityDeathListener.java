@@ -127,6 +127,10 @@ public final class EntityDeathListener extends Queue implements Listener {
             e = isCommand ? "#command" : "";
         }
 
+        if (entity.getType() == EntityType.GLOW_SQUID && damage.getCause() == DamageCause.DROWNING) {
+            return;
+        }
+
         List<DamageCause> validDamageCauses = Arrays.asList(DamageCause.SUICIDE, DamageCause.POISON, DamageCause.THORNS, DamageCause.MAGIC, DamageCause.WITHER);
 
         boolean skip = true;
@@ -328,6 +332,7 @@ public final class EntityDeathListener extends Queue implements Listener {
                 Cat cat = (Cat) entity;
                 info.add(BukkitAdapter.ADAPTER.getRegistryKey(cat.getCatType()));
                 info.add(cat.getCollarColor());
+                info.add(cat.isSitting());
             }
             else if (entity instanceof Fox) {
                 Fox fox = (Fox) entity;
@@ -433,6 +438,7 @@ public final class EntityDeathListener extends Queue implements Listener {
                 Wolf wolf = (Wolf) entity;
                 info.add(wolf.isSitting());
                 info.add(wolf.getCollarColor());
+                BukkitAdapter.ADAPTER.getWolfVariant(wolf, info);
             }
             else if (entity instanceof ZombieVillager) {
                 ZombieVillager zombieVillager = (ZombieVillager) entity;

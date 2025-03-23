@@ -10,6 +10,7 @@ public class SystemUtils {
 
     private static boolean testMode = Boolean.getBoolean("net.coreprotect.test");
     private static String processorInfo = null;
+    private static boolean log4jInitialized = false;
 
     private SystemUtils() {
         throw new IllegalStateException("Utility class");
@@ -43,7 +44,17 @@ public class SystemUtils {
             else if (System.getProperty("os.name").toLowerCase().contains("android") || System.getProperty("java.runtime.name").toLowerCase().contains("android")) {
                 return null;
             }
-            Configurator.setLevel("oshi.hardware.common.AbstractCentralProcessor", Level.OFF);
+
+            try {
+                if (!log4jInitialized) {
+                    Configurator.setLevel("oshi.hardware.common.AbstractCentralProcessor", Level.OFF);
+                    log4jInitialized = true;
+                }
+            }
+            catch (Exception e) {
+                // log4j configuration failure, continue without it
+            }
+
             SystemInfo systemInfo = new SystemInfo();
             result = systemInfo.getHardware().getProcessor();
         }
@@ -79,6 +90,6 @@ public class SystemUtils {
      * @return true if Log4j is disabled
      */
     private static boolean isLog4jDisabled() {
-        return Boolean.getBoolean("log4j2.disable") || System.getProperty("log4j.configurationFile", "").contains("no-log4j2.xml");
+        return Boolean.getBoolean("log4j2.disable") || Boolean.getBoolean("net.coreprotect.disable.log4j") || System.getProperty("log4j.configurationFile", "").contains("no-log4j2.xml");
     }
 }

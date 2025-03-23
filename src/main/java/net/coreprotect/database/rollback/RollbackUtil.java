@@ -533,16 +533,7 @@ public class RollbackUtil extends Lookup {
      *            Additional data for the entity
      */
     public static void queueEntitySpawn(String user, BlockState block, EntityType type, int data) {
-        if (Queue.class.getDeclaredMethods() != null) {
-            try {
-                java.lang.reflect.Method method = Queue.class.getDeclaredMethod("queueEntitySpawn", String.class, BlockState.class, EntityType.class, int.class);
-                method.setAccessible(true);
-                method.invoke(null, user, block, type, data);
-            }
-            catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
+        Queue.queueEntitySpawn(user, block, type, data);
     }
 
     /**
@@ -556,16 +547,7 @@ public class RollbackUtil extends Lookup {
      *            The row ID for the skull data
      */
     public static void queueSkullUpdate(String user, BlockState block, int rowId) {
-        if (Queue.class.getDeclaredMethods() != null) {
-            try {
-                java.lang.reflect.Method method = Queue.class.getDeclaredMethod("queueSkullUpdate", String.class, BlockState.class, int.class);
-                method.setAccessible(true);
-                method.invoke(null, user, block, rowId);
-            }
-            catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
+        Queue.queueSkullUpdate(user, block, rowId);
     }
 
     /**
@@ -581,15 +563,6 @@ public class RollbackUtil extends Lookup {
      *            The time of the update
      */
     public static void queueSignUpdate(String user, BlockState block, int action, int time) {
-        if (Queue.class.getDeclaredMethods() != null) {
-            try {
-                java.lang.reflect.Method method = Queue.class.getDeclaredMethod("queueSignUpdate", String.class, BlockState.class, int.class, int.class);
-                method.setAccessible(true);
-                method.invoke(null, user, block, action, time);
-            }
-            catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
+        Queue.queueSignUpdate(user, block, action, time);
     }
 }

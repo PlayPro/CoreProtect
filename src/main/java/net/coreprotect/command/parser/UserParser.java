@@ -128,6 +128,14 @@ public class UserParser {
                         next = 0;
                     }
                 }
+                // Handle u:#player format for excluded users
+                else if (argument.startsWith("u:#")) {
+                    String username = argument.substring(3); // Remove the 'u:#' prefix
+                    if (!username.isEmpty()) {
+                        excluded.add(username);
+                    }
+                    next = 0;
+                }
                 else {
                     next = 0;
                 }

@@ -308,7 +308,7 @@ public class Database extends Queue {
 
     private static final List<String> DATABASE_TABLES = Arrays.asList("art_map", "block", "chat", "command", "container", "item", "database_lock", "entity", "entity_map", "material_map", "blockdata_map", "session", "sign", "skull", "user", "username_log", "version", "world");
 
-    public static void createDatabaseTables(String prefix, Connection forceConnection, boolean mySQL, boolean purge) {
+    public static void createDatabaseTables(String prefix, boolean forcePrefix, Connection forceConnection, boolean mySQL, boolean purge) {
         ConfigHandler.databaseTables.clear();
         ConfigHandler.databaseTables.addAll(DATABASE_TABLES);
 
@@ -316,7 +316,7 @@ public class Database extends Queue {
             createMySQLTables(prefix, forceConnection, purge);
         }
         else {
-            createSQLiteTables(prefix, forceConnection, purge);
+            createSQLiteTables(prefix, forcePrefix, forceConnection, purge);
         }
     }
 
@@ -413,7 +413,7 @@ public class Database extends Queue {
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "world(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,world varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
     }
 
-    private static void createSQLiteTables(String prefix, Connection forceConnection, boolean purge) {
+    private static void createSQLiteTables(String prefix, boolean forcePrefix, Connection forceConnection, boolean purge) {
         try (Connection connection = (forceConnection != null ? forceConnection : Database.getConnection(true, 0))) {
             Statement statement = connection.createStatement();
             List<String> tableData = new ArrayList<>();
@@ -430,7 +430,7 @@ public class Database extends Queue {
 
             identifyExistingTablesAndIndexes(statement, attachDatabase, tableData, indexData);
             createSQLiteTableStructures(prefix, statement, tableData);
-            createSQLiteIndexes(prefix, statement, indexData, attachDatabase, purge);
+            createSQLiteIndexes(forcePrefix == true ? prefix : ConfigHandler.prefix, statement, indexData, attachDatabase, purge);
 
             if (!purge && forceConnection == null) {
                 initializeTables(prefix, statement);

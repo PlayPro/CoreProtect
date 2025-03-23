@@ -26,7 +26,7 @@ public class CacheHandler implements Runnable {
     public void run() {
         while (ConfigHandler.serverRunning) {
             try {
-                for (int id = 0; id < 8; id++) {
+                for (int id = 0; id < 9; id++) {
                     Thread.sleep(1000);
                     int scanTime = 30;
                     Map cache = CacheHandler.lookupCache;
@@ -59,6 +59,10 @@ public class CacheHandler implements Runnable {
                             cache = ConfigHandler.entityBlockMapper;
                             scanTime = 5;
                             break;
+                        case 8:
+                            // Clean up dispenserNoChange cache
+                            cleanupDispenserCache();
+                            continue;
                     }
 
                     int timestamp = (int) (System.currentTimeMillis() / 1000L) - scanTime;
@@ -86,6 +90,59 @@ public class CacheHandler implements Runnable {
             catch (Exception e) {
                 e.printStackTrace();
             }
+        }
+    }
+
+    /**
+     * Cleans up the dispenserNoChange cache by removing entries older than 5 seconds
+     */
+    private void cleanupDispenserCache() {
+        try {
+            long currentTime = System.currentTimeMillis();
+            long expiryTime = 5000; // 5 seconds
+
+            // Clean up dispenserNoChange map (now a nested map)
+            Iterator<Entry<String, ConcurrentHashMap<String, Long>>> locationIterator = ConfigHandler.dispenserNoChange.entrySet().iterator();
+            while (locationIterator.hasNext()) {
+                Entry<String, ConcurrentHashMap<String, Long>> locationEntry = locationIterator.next();
+                ConcurrentHashMap<String, Long> eventMap = locationEntry.getValue();
+
+                if (eventMap.isEmpty()) {
+                    // Remove empty location entries
+                    locationIterator.remove();
+                    continue;
+                }
+
+                // Clean up expired events within this location
+                Iterator<Entry<String, Long>> eventIterator = eventMap.entrySet().iterator();
+                while (eventIterator.hasNext()) {
+                    Entry<String, Long> eventEntry = eventIterator.next();
+                    if ((currentTime - eventEntry.getValue()) > expiryTime) {
+                        eventIterator.remove();
+                    }
+                }
+
+                // If all events were removed, remove the location entry
+                if (eventMap.isEmpty()) {
+                    locationIterator.remove();
+                }
+            }
+
+            // Clean up dispenserPending map
+            Iterator<Entry<String, Object[]>> pendingIterator = ConfigHandler.dispenserPending.entrySet().iterator();
+            while (pendingIterator.hasNext()) {
+                Entry<String, Object[]> entry = pendingIterator.next();
+                Object[] data = entry.getValue();
+                if (data != null && data.length > 1) {
+                    long timestamp = (long) data[1];
+                    if ((currentTime - timestamp) > expiryTime) {
+                        pendingIterator.remove();
+                    }
+                }
+            }
+        }
+        catch (Exception e) {
+            e.printStackTrace();
         }
     }
 }

@@ -1,18 +1,16 @@
-package net.coreprotect.extensions;
+package net.coreprotect.utility;
 
 import java.lang.reflect.Method;
 
 import org.bukkit.command.CommandSender;
 
 import net.coreprotect.language.Phrase;
-import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.Color;
 
 public class Extensions {
 
     public static void runDatabaseMigration(String command, CommandSender user, String[] argumentArray) {
         try {
-            Class<?> patchClass = Class.forName("net.coreprotect.extensions.DatabaseMigration");
+            Class<?> patchClass = Class.forName("net.coreprotect.utility.extensions.DatabaseMigration");
             Method patchMethod = patchClass.getDeclaredMethod("runCommand", CommandSender.class, String[].class);
             patchMethod.invoke(null, user, argumentArray);
         }

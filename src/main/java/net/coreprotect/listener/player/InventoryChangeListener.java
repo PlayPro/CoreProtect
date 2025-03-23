@@ -43,14 +43,30 @@ public final class InventoryChangeListener extends Queue implements Listener {
     protected static AtomicLong tasksStarted = new AtomicLong();
     protected static AtomicLong tasksCompleted = new AtomicLong();
     private static ConcurrentHashMap<String, Boolean> inventoryProcessing = new ConcurrentHashMap<>();
+    private static final Object taskCompletionLock = new Object();
+    private static final long TASK_WAIT_MAX_MS = 50; // Maximum wait time in milliseconds
 
     protected static void checkTasks(long taskStarted) {
         try {
-            int waitCount = 0;
-            while (tasksCompleted.get() < (taskStarted - 1L) && waitCount++ <= 50) {
-                Thread.sleep(1);
+            // Skip checking if this is the first task or we're already caught up
+            if (taskStarted <= 1 || tasksCompleted.get() >= (taskStarted - 1L)) {
+                tasksCompleted.set(taskStarted);
+                return;
             }
-            tasksCompleted.set(taskStarted);
+
+            // Try to update without waiting if possible
+            if (tasksCompleted.compareAndSet(taskStarted - 1L, taskStarted)) {
+                return;
+            }
+
+            // Use proper synchronization instead of busy waiting
+            synchronized (taskCompletionLock) {
+                if (tasksCompleted.get() < (taskStarted - 1L)) {
+                    taskCompletionLock.wait(TASK_WAIT_MAX_MS);
+                }
+                tasksCompleted.set(taskStarted);
+                taskCompletionLock.notifyAll(); // Notify other waiting threads
+            }
         }
         catch (Exception e) {
             e.printStackTrace();

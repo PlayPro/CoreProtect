@@ -46,7 +46,18 @@ public class VersionUtils {
     }
 
     public static String getPluginName() {
-        String name = CoreProtect.getInstance().getDescription().getName();
+        CoreProtect instance = CoreProtect.getInstance();
+        // Return default name if instance is null
+        if (instance == null) {
+            return "CoreProtect";
+        }
+
+        // Return default name if description is null
+        if (instance.getDescription() == null) {
+            return "CoreProtect";
+        }
+
+        String name = instance.getDescription().getName();
         String branch = ConfigHandler.EDITION_BRANCH;
 
         if (branch.startsWith("-edge")) {
@@ -107,7 +118,12 @@ public class VersionUtils {
     public static String getBranch() {
         String branch = "";
         try {
-            InputStreamReader reader = new InputStreamReader(CoreProtect.getInstance().getClass().getResourceAsStream("/plugin.yml"));
+            CoreProtect instance = CoreProtect.getInstance();
+            if (instance == null) {
+                return "";
+            }
+
+            InputStreamReader reader = new InputStreamReader(instance.getClass().getResourceAsStream("/plugin.yml"));
             branch = YamlConfiguration.loadConfiguration(reader).getString("branch");
             reader.close();
 
@@ -257,4 +273,4 @@ public class VersionUtils {
 
         return result;
     }
-} 
+}

@@ -204,8 +204,10 @@ public enum Phrase {
     TIME_DAYS,
     TIME_HOURS,
     TIME_MINUTES,
+    TIME_MONTHS,
     TIME_SECONDS,
     TIME_WEEKS,
+    TIME_YEARS,
     UPDATE_ERROR,
     UPDATE_HEADER,
     UPDATE_NOTICE,
@@ -239,6 +241,16 @@ public enum Phrase {
 
     public static String build(Phrase phrase, String... params) {
         String output = phrase.getTranslatedPhrase();
+
+        // If translated phrase is null, fall back to the default phrase
+        if (output == null) {
+            output = phrase.getPhrase();
+            // If that's still null, use an empty string to avoid NullPointerException
+            if (output == null) {
+                output = "";
+            }
+        }
+
         String color = "";
 
         if (HEADERS.contains(phrase)) {
@@ -283,6 +295,12 @@ public enum Phrase {
     private static String buildInternal(Phrase phrase, String[] params, String color) {
         String output = phrase.getPhrase(); // get internal phrase
 
+        // If internal phrase is null, use an empty string to avoid NullPointerException
+        if (output == null) {
+            output = "";
+            return output; // Return empty string immediately if no phrase is available
+        }
+
         int index = 0;
         for (String param : params) {
             if (index == 0 && COLORS.contains(param)) {
@@ -301,6 +319,11 @@ public enum Phrase {
 
     public static String getPhraseSelector(Phrase phrase, String selector) {
         String translatedPhrase = phrase.getTranslatedPhrase();
+        // Return empty string if translated phrase is null
+        if (translatedPhrase == null) {
+            return "";
+        }
+
         Pattern phrasePattern = Pattern.compile("(\\{[a-zA-Z| ]+})");
         Matcher patternMatch = phrasePattern.matcher(translatedPhrase);
         String match = "";

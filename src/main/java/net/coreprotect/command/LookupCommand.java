@@ -15,6 +15,7 @@ import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 
+import net.coreprotect.CoreProtect;
 import net.coreprotect.command.lookup.BlockLookupThread;
 import net.coreprotect.command.lookup.ChestTransactionLookupThread;
 import net.coreprotect.command.lookup.StandardLookupThread;
@@ -28,7 +29,7 @@ import net.coreprotect.utility.Color;
 import net.coreprotect.utility.WorldUtils;
 
 public class LookupCommand {
-    public static void runCommand(CommandSender player, Command command, boolean permission, String[] args) {
+    public static void runCommand(CoreProtect plugin, CommandSender player, Command command, boolean permission, String[] args, boolean exportMode) {
         int resultc = args.length;
         args = CommandParser.parsePage(args);
         Location lo = CommandParser.parseLocation(player, args);
@@ -332,7 +333,7 @@ public class LookupCommand {
             double dz = 0.5 * (z + z2);
             final Location location = new Location(Bukkit.getServer().getWorld(world), dx, dy, dz);
 
-            Runnable runnable = new ChestTransactionLookupThread(player, command, location, p, re);
+            Runnable runnable = new ChestTransactionLookupThread(plugin, player, command, location, p, re, exportMode);
             Thread thread = new Thread(runnable);
             thread.start();
         }
@@ -396,7 +397,7 @@ public class LookupCommand {
             final Block block = Bukkit.getServer().getWorld(world).getBlockAt(x, y, z);
             final BlockState blockState = block.getState();
 
-            Runnable runnable = new BlockLookupThread(player, command, block, blockState, page, re, type);
+            Runnable runnable = new BlockLookupThread(plugin, player, command, block, blockState, page, re, type, exportMode);
             Thread thread = new Thread(runnable);
             thread.start();
         }
@@ -595,7 +596,7 @@ public class LookupCommand {
                         }
                     }
 
-                    Runnable runnable = new StandardLookupThread(player, command, rollbackusers, argBlocks, argExclude, argExcludeUsers, argAction, argRadius, lo, x, y, z, wid, argWid, timeStart, timeEnd, argNoisy, argExcluded, argRestricted, pa, re, type, ts, count);
+                    Runnable runnable = new StandardLookupThread(plugin, player, command, rollbackusers, argBlocks, argExclude, argExcludeUsers, argAction, argRadius, lo, x, y, z, wid, argWid, timeStart, timeEnd, argNoisy, argExcluded, argRestricted, pa, re, type, ts, count, exportMode);
                     Thread thread = new Thread(runnable);
                     thread.start();
                 }

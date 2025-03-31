@@ -14,14 +14,20 @@ import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Extensions;
 import net.coreprotect.utility.VersionUtils;
+import net.coreprotect.CoreProtect;
 
 public class CommandHandler implements CommandExecutor {
     private static CommandHandler instance;
     private static ConcurrentHashMap<String, Boolean> versionAlert = new ConcurrentHashMap<>();
+    private final CoreProtect plugin;
 
-    public static CommandHandler getInstance() {
+    public CommandHandler(CoreProtect plugin) {
+        this.plugin = plugin;
+    }
+
+    public static CommandHandler getInstance(CoreProtect plugin) {
         if (instance == null) {
-            instance = new CommandHandler();
+            instance = new CommandHandler(plugin);
         }
         return instance;
     }
@@ -54,7 +60,7 @@ public class CommandHandler implements CommandExecutor {
                     else if (user.hasPermission("coreprotect.purge") && corecommand.equals("purge")) {
                         permission = true;
                     }
-                    else if (user.hasPermission("coreprotect.lookup") && (corecommand.equals("l") || corecommand.equals("lookup") || corecommand.equals("page") || corecommand.equals("near"))) {
+                    else if (user.hasPermission("coreprotect.lookup") && (corecommand.equals("l") || corecommand.equals("lookup") || corecommand.equals("page") || corecommand.equals("near") || corecommand.equals("export"))) {
                         permission = true;
                     }
                     else if (user.hasPermission("coreprotect.lookup.near") && corecommand.equals("near")) {
@@ -78,16 +84,16 @@ public class CommandHandler implements CommandExecutor {
                 }
 
                 if (corecommand.equals("rollback") || corecommand.equals("restore") || corecommand.equals("rb") || corecommand.equals("rs") || corecommand.equals("ro") || corecommand.equals("re")) {
-                    RollbackRestoreCommand.runCommand(user, command, permission, argumentArray, null, 0, 0);
+                    RollbackRestoreCommand.runCommand(plugin, user, command, permission, argumentArray, null, 0, 0);
                 }
                 else if (corecommand.equals("apply")) {
-                    ApplyCommand.runCommand(user, command, permission, argumentArray);
+                    ApplyCommand.runCommand(plugin, user, command, permission, argumentArray);
                 }
                 else if (corecommand.equals("cancel")) {
-                    CancelCommand.runCommand(user, command, permission, argumentArray);
+                    CancelCommand.runCommand(plugin, user, command, permission, argumentArray);
                 }
                 else if (corecommand.equals("undo")) {
-                    UndoCommand.runCommand(user, command, permission, argumentArray);
+                    UndoCommand.runCommand(plugin, user, command, permission, argumentArray);
                 }
                 else if (corecommand.equals("help")) {
                     HelpCommand.runCommand(user, permission, argumentArray);
@@ -99,10 +105,13 @@ public class CommandHandler implements CommandExecutor {
                     InspectCommand.runCommand(user, permission, argumentArray);
                 }
                 else if (corecommand.equals("lookup") || corecommand.equals("l") || corecommand.equals("page")) {
-                    LookupCommand.runCommand(user, command, permission, argumentArray);
+                    LookupCommand.runCommand(plugin, user, command, permission, argumentArray, false);
                 }
                 else if (corecommand.equals("near")) {
-                    LookupCommand.runCommand(user, command, permission, new String[] { "near", "r:5x5" });
+                    LookupCommand.runCommand(plugin, user, command, permission, new String[] { "near", "r:5x5" }, false);
+                }
+                else if (corecommand.equals("export")) {
+                    LookupCommand.runCommand(plugin, user, command, permission, argumentArray, true);
                 }
                 else if (corecommand.equals("teleport") || corecommand.equals("tp")) {
                     TeleportCommand.runCommand(user, permission, argumentArray);

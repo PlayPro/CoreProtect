@@ -209,3 +209,9 @@ VERSION_INCOMPATIBLE: "{0} {1} is not supported."
 VERSION_NOTICE: "Version {0} is now available."
 VERSION_REQUIRED: "{0} {1} or higher is required."
 WORLD_NOT_FOUND: "World \"{0}\" not found."
+
+# Export Feature
+export-generating: Generating export file...
+export-success: Successfully exported {0} {row|rows} to {1}.
+export-failure: Failed to write export file.
+export-error: An error occurred during export generation.

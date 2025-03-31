@@ -88,11 +88,15 @@ public class PluginInitializationService {
      *            The CoreProtect plugin instance
      */
     private static void registerCommands(JavaPlugin plugin) {
-        plugin.getCommand("coreprotect").setExecutor(CommandHandler.getInstance());
+        // Cast JavaPlugin to CoreProtect, assuming it's safe in this context
+        CoreProtect coreProtectPlugin = (CoreProtect) plugin;
+
+        // Pass the CoreProtect instance to CommandHandler
+        plugin.getCommand("coreprotect").setExecutor(CommandHandler.getInstance(coreProtectPlugin));
         plugin.getCommand("coreprotect").setTabCompleter(new TabHandler());
-        plugin.getCommand("core").setExecutor(CommandHandler.getInstance());
+        plugin.getCommand("core").setExecutor(CommandHandler.getInstance(coreProtectPlugin));
         plugin.getCommand("core").setTabCompleter(new TabHandler());
-        plugin.getCommand("co").setExecutor(CommandHandler.getInstance());
+        plugin.getCommand("co").setExecutor(CommandHandler.getInstance(coreProtectPlugin));
         plugin.getCommand("co").setTabCompleter(new TabHandler());
     }
 

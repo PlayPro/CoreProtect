@@ -220,7 +220,13 @@ public enum Phrase {
     VERSION_NOTICE,
     VERSION_INCOMPATIBLE,
     VERSION_REQUIRED,
-    WORLD_NOT_FOUND;
+    WORLD_NOT_FOUND,
+
+    // Export related phrases
+    EXPORT_GENERATING,
+    EXPORT_SUCCESS,
+    EXPORT_FAILURE,
+    EXPORT_ERROR;
 
     final private static Set<Phrase> HEADERS = new HashSet<>(Arrays.asList(Phrase.CONTAINER_HEADER, Phrase.HELP_HEADER, Phrase.INTERACTIONS_HEADER, Phrase.LOOKUP_HEADER, Phrase.SIGN_HEADER, Phrase.UPDATE_HEADER));
     final private static Set<String> COLORS = new HashSet<>(Arrays.asList(Color.WHITE, Color.DARK_AQUA));

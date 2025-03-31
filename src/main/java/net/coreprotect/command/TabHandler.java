@@ -86,6 +86,7 @@ public class TabHandler implements TabCompleter {
         addCompletionIfPermitted(sender, "coreprotect.rollback", "rollback", completions);
         addCompletionIfPermitted(sender, "coreprotect.restore", "restore", completions);
         addCompletionIfPermitted(sender, "coreprotect.lookup", "lookup", completions);
+        addCompletionIfPermitted(sender, "coreprotect.lookup", "export", completions);
         addCompletionIfPermitted(sender, "coreprotect.purge", "purge", completions);
         addCompletionIfPermitted(sender, "coreprotect.reload", "reload", completions);
         addCompletionIfPermitted(sender, "coreprotect.status", "status", completions);
@@ -118,7 +119,9 @@ public class TabHandler implements TabCompleter {
     }
 
     private boolean hasLookupCommand(String cmd, CommandSender sender) {
-        return (sender.hasPermission("coreprotect.lookup") && (cmd.equals("l") || cmd.equals("lookup"))) || (sender.hasPermission("coreprotect.rollback") && (cmd.equals("rollback") || cmd.equals("rb") || cmd.equals("ro"))) || (sender.hasPermission("coreprotect.restore") && (cmd.equals("restore") || cmd.equals("rs") || cmd.equals("re")));
+        return (sender.hasPermission("coreprotect.lookup") && (cmd.equals("l") || cmd.equals("lookup") || cmd.equals("export"))) 
+               || (sender.hasPermission("coreprotect.rollback") && (cmd.equals("rollback") || cmd.equals("rb") || cmd.equals("ro"))) 
+               || (sender.hasPermission("coreprotect.restore") && (cmd.equals("restore") || cmd.equals("rs") || cmd.equals("re")));
     }
 
     private boolean isActionParam(String lastArg, String currentArg) {

@@ -88,7 +88,7 @@ public class EntityUtils extends Queue {
 
     public static EntityType getEntityType(int id) {
         // Internal ID pulled from DB
-        EntityType entitytype = null;
+        EntityType entitytype = EntityType.UNKNOWN;
         if (ConfigHandler.entitiesReversed.get(id) != null) {
             String name = ConfigHandler.entitiesReversed.get(id);
             if (name.contains(NAMESPACE)) {

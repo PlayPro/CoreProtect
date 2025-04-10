@@ -30,9 +30,10 @@ import net.coreprotect.language.Selector;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.CoreProtect;
 
 public class RollbackRestoreCommand {
-    public static void runCommand(CommandSender player, Command command, boolean permission, String[] args, Location argLocation, long forceStart, long forceEnd) {
+    public static void runCommand(CoreProtect plugin, CommandSender player, Command command, boolean permission, String[] args, Location argLocation, long forceStart, long forceEnd) {
         Location lo = (argLocation != null ? argLocation : CommandParser.parseLocation(player, args));
         List<String> argUuids = new ArrayList<>();
         List<String> argUsers = CommandParser.parseUsers(args);
@@ -99,7 +100,7 @@ public class RollbackRestoreCommand {
         }
 
         if (count) {
-            LookupCommand.runCommand(player, command, permission, args);
+            LookupCommand.runCommand(plugin, player, command, permission, args, false);
             return;
         }
         if (ConfigHandler.converterRunning) {

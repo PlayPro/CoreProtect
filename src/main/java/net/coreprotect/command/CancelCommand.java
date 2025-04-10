@@ -11,9 +11,10 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
+import net.coreprotect.CoreProtect;
 
 public class CancelCommand {
-    protected static void runCommand(CommandSender user, Command command, boolean permission, String[] args) {
+    protected static void runCommand(CoreProtect plugin, CommandSender user, Command command, boolean permission, String[] args) {
         try {
             if (ConfigHandler.lastRollback.get(user.getName()) != null) {
                 List<Object> list = ConfigHandler.lastRollback.get(user.getName());
@@ -33,7 +34,7 @@ public class CancelCommand {
                 }
                 else {
                     ConfigHandler.lastRollback.remove(user.getName());
-                    RollbackRestoreCommand.runCommand(user, command, permission, args, location, startTime, endTime);
+                    RollbackRestoreCommand.runCommand(plugin, user, command, permission, args, location, startTime, endTime);
                 }
             }
             else {

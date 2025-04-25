@@ -16,7 +16,6 @@ import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.model.BlockGroup;
-import net.coreprotect.utility.Util;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.MaterialUtils;
 

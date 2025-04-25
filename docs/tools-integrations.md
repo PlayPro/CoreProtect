@@ -23,6 +23,11 @@ The CoreProtect TNT extension adds logging for TNT and creeper explosion sources
 [https://www.spigotmc.org/resources/coreprotect-tnt-log-tnt-creeper-explode-source.69609/](https://www.spigotmc.org/resources/coreprotect-tnt-log-tnt-creeper-explode-source.69609/)  
 &nbsp;
 
+* **CoreProtect Time-Lapse**  
+CPTL is an add-on tool for CoreProtect used to create a time-lapse from historical data.
+[https://modrinth.com/plugin/cptl](https://modrinth.com/plugin/cptl)  
+&nbsp;
+
 ## Tools
 
 * **CoreProtect Lookup Web Interface**  

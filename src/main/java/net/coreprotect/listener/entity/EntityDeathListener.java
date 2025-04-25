@@ -127,7 +127,7 @@ public final class EntityDeathListener extends Queue implements Listener {
             e = isCommand ? "#command" : "";
         }
 
-        if (entity.getType() == EntityType.GLOW_SQUID && damage.getCause() == DamageCause.DROWNING) {
+        if (entity.getType().name().equals("GLOW_SQUID") && damage.getCause() == DamageCause.DROWNING) {
             return;
         }
 

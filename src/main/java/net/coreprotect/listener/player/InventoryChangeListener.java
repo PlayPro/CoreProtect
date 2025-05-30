@@ -348,7 +348,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
         }
 
         // Check if the clicked slot is one of the crafter slots
-        if (event.getRawSlot() > 8) {
+        if (event.getRawSlot() < 0 || event.getRawSlot() > 8) {
             return false;
         }
 

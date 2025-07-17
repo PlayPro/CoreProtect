@@ -54,65 +54,7 @@ import net.coreprotect.utility.entity.HangingUtil;
 
 public class RollbackBlockHandler extends Queue {
 
-    /**
-     * Handle block-related rollback operations
-     * 
-     * @param block
-     *            The block to modify
-     * @param row
-     *            Block data from the database (used only for specific operations)
-     * @param rollbackType
-     *            The type of rollback (0=rollback, 1=restore)
-     * @param clearInventories
-     *            Whether to clear container inventories
-     * @param chunkChanges
-     *            Map of block changes to apply
-     * @param countBlock
-     *            Whether to count this block in stats
-     * @param oldTypeMaterial
-     *            The previous material type
-     * @param pendingChangeType
-     *            The pending change material type
-     * @param pendingChangeData
-     *            The pending change block data
-     * @param finalUserString
-     *            The username for this rollback
-     * @param rawBlockData
-     *            The raw block data
-     * @param changeType
-     *            The current block type
-     * @param changeBlockData
-     *            The current block data
-     * @param meta
-     *            Block metadata
-     * @param blockData
-     *            The processed block data
-     * @param rowUser
-     *            The username associated with this block change
-     * @param rowType
-     *            The material type for this block change
-     * @param rowX
-     *            The X coordinate
-     * @param rowY
-     *            The Y coordinate
-     * @param rowZ
-     *            The Z coordinate
-     * @param rowTypeRaw
-     *            The raw type value
-     * @param rowData
-     *            The data value
-     * @param rowAction
-     *            The action value
-     * @param rowWorldId
-     *            The world ID
-     * @param blockDataString
-     *            The block data as a string
-     * @return Updated count status
-     */
-    public static boolean processBlockChange(Block block, Object[] row, int rollbackType, boolean clearInventories, Map<Block, BlockData> chunkChanges, boolean countBlock, Material oldTypeMaterial, Material pendingChangeType, BlockData pendingChangeData, String finalUserString, BlockData rawBlockData, Material changeType, BlockData changeBlockData, ArrayList<Object> meta, BlockData blockData, String rowUser, Material rowType, int rowX, int rowY, int rowZ, int rowTypeRaw, int rowData, int rowAction, int rowWorldId, String blockDataString) {
-
-        boolean changeBlock = true;
-        World bukkitWorld = block.getWorld();
+    public static boolean processBlockChange(World bukkitWorld, Block block, Object[] row, int rollbackType, boolean clearInventories, Map<Block, BlockData> chunkChanges, boolean countBlock, Material oldTypeMaterial, Material pendingChangeType, BlockData pendingChangeData, String finalUserString, BlockData rawBlockData, Material changeType, boolean changeBlock, BlockData changeBlockData, ArrayList<Object> meta, BlockData blockData, String rowUser, Material rowType, int rowX, int rowY, int rowZ, int rowTypeRaw, int rowData, int rowAction, int rowWorldId, String blockDataString) {
         int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
 
         try {

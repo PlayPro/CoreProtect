@@ -58,26 +58,6 @@
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.4.1</version>
-        <executions>
-          <execution>
-            <id>skip-deploy</id>
-            <phase>deploy</phase>
-            <goals><goal>enforce</goal></goals>
-            <configuration>
-              <rules>
-                <eval>
-                  <expression>true</expression>
-                </eval>
-              </rules>
-              <fail>true</fail>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin> 
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
         <version>3.2.4</version>
         <executions>
@@ -123,13 +103,6 @@
         </executions>
       </plugin>
       <plugin>
-        <artifactId>maven-deploy-plugin</artifactId>
-        <version>3.1.1</version>
-        <configuration>
-          <skip>true</skip>
-        </configuration>
-      </plugin>
-      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.2.3</version>
@@ -142,6 +115,28 @@
       </plugin>
     </plugins>
   </build>
+  <profiles>
+    <profile>
+      <id>maven-install</id>
+      <activation>
+        <property>
+          <name>env.BUILD_ID</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-install-plugin</artifactId>
+            <version>3.1.1</version>
+            <configuration>
+              <skip>true</skip>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
   <repositories>
     <repository>
       <id>spigot-repo</id>

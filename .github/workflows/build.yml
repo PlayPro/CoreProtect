@@ -36,6 +36,6 @@ jobs:
         with:
           tag_name: v${{ github.sha }}
           name: CoreProtect Automatic Build
-          files: /home/runner/work/CoreProtect/CoreProtect/target/CoreProtect-22.4.jar
+          files: /home/runner/work/CoreProtect/CoreProtect/target/*
           draft: false
           prerelease: false

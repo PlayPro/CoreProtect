@@ -28,3 +28,14 @@ jobs:
           restore-keys: ${{ runner.os }}-m2
       - name: Build
         run: mvn -B verify
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.sha }}
+          name: CoreProtect Automatic Build
+          files: /home/runner/work/CoreProtect/CoreProtect/target/CoreProtect-22.4.jar
+          draft: false
+          prerelease: false

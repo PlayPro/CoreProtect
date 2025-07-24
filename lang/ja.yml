@@ -1,8 +1,8 @@
 # CoreProtect Language File (ja)
 
 ACTION_NOT_SUPPORTED: "そのアクションはサポートされていません"
-AMOUNT_BLOCK: "{0}個の{ブロック|ブロック}"
-AMOUNT_CHUNK: "{0}個の{チャンク|チャンク}"
+AMOUNT_BLOCK: "{0}{ブロック|ブロック}"
+AMOUNT_CHUNK: "{0}{チャンク|チャンク}"
 AMOUNT_ENTITY: "{0}体の{エンティティ|エンティティ}"
 AMOUNT_ITEM: "{0}個の{アイテム|アイテム}"
 API_TEST: "APIテストに成功しました"

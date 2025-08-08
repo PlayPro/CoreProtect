@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>net.coreprotect</groupId>
   <artifactId>CoreProtect</artifactId>
-  <version>22.4</version>
+  <version>23.0</version>
   <properties>
     <project.branch></project.branch>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -73,7 +73,7 @@
                   <excludes>
                     <exclude>**/*.java</exclude>
                     <exclude>**/*.c</exclude>
-                    <exclude>META-INF/maven/**</exclude>
+                    <exclude>META-INF/maven/**/pom.properties</exclude>
                     <exclude>META-INF/services/**</exclude>
                   </excludes>
                 </filter>
@@ -126,12 +126,26 @@
       <build>
         <plugins>
           <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-install-plugin</artifactId>
-            <version>3.1.1</version>
-            <configuration>
-              <skip>true</skip>
-            </configuration>
+            <artifactId>maven-antrun-plugin</artifactId>
+            <version>3.1.0</version>
+            <executions>
+              <execution>
+                <id>install-validation</id>
+                <phase>install</phase>
+                <configuration>
+                  <target>
+                    <delete>
+                      <fileset dir="${project.build.directory}">
+                        <include name="${project.build.finalName}-shaded.jar"/>
+                      </fileset>
+                    </delete>
+                  </target>
+                </configuration>
+                <goals>
+                  <goal>run</goal>
+                </goals>
+              </execution>
+            </executions>
           </plugin>
         </plugins>
       </build>

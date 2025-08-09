@@ -2,7 +2,7 @@ name: CoreProtect
 main: net.coreprotect.CoreProtect
 version: ${project.version}
 branch: ${project.branch}
-api-version: 1.13
+api-version: 1.16
 folia-supported: true
 website: http://coreprotect.net
 author: Intelli

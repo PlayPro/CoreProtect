@@ -32,10 +32,8 @@ The `/co migrate-db` command allows you to seamlessly transfer all your CoreProt
 
 **Before starting the migration:**
 
-1. **Ensure your server is running** with your current CoreProtect database
-2. **Configure your new database** in `config.yml`:
-   * For MySQL migration: Set up your new MySQL connection details
-   * Ensure `use-mysql` is updated correctly in your `config.yml`
+1. Ensure your server is running with your current CoreProtect database
+2. Configure your new database in `config.yml` (ensure `use-mysql` is updated correctly)
 3. **Important:** Do NOT restart your server or use `/co reload` after modifying the config
 
 ### Step 2: Execute Migration
@@ -92,21 +90,25 @@ The `/co migrate-db` command allows you to seamlessly transfer all your CoreProt
 ### Common Issues
 
 **Migration won't start:**
+
 * Verify you're using a CoreProtect 23.0+ Patreon build
 * Ensure you're not trying to migrate to the same database type
 * Check that no other CoreProtect operations are running
 
 **Migration interrupted:**
+
 * Manually delete/wipe the target database
 * Verify server stability before restarting migration
 * Consider migrating during low-activity periods
 
 **Performance issues:**
+
 * Monitor server resources during migration
 * Consider temporarily reducing server activity
 * Large tables may cause temporary slowdowns
 
 **Data verification failures:**
+
 * Check database connectivity and permissions
 * Review server logs for specific error messages
 * Ensure sufficient disk space on target database
@@ -133,6 +135,7 @@ The migration process includes several advanced features:
 * Graceful error handling with detailed logging
 
 The migration handles all CoreProtect data types including:
+
 * Block changes and rollbacks
 * Container transactions
 * Player interactions and sessions

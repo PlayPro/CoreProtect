@@ -153,6 +153,18 @@
   </profiles>
   <repositories>
     <repository>
+      <id>central</id>
+      <url>https://repo.maven.apache.org/maven2/</url>
+      <releases><enabled>true</enabled></releases>
+      <snapshots><enabled>false</enabled></snapshots>
+    </repository>
+    <repository>
+      <id>enginehub-repo</id>
+      <url>https://maven.enginehub.org/repo/</url>
+      <releases><enabled>true</enabled></releases>
+      <snapshots><enabled>true</enabled></snapshots>
+    </repository>
+    <repository>
       <id>spigot-repo</id>
       <url>https://hub.spigotmc.org/nexus/content/groups/public/</url>
     </repository>
@@ -202,16 +214,18 @@
     <dependency>
       <groupId>com.fastasyncworldedit</groupId>
       <artifactId>FastAsyncWorldEdit-Core</artifactId>
+      <version>2.13.1</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>com.fastasyncworldedit</groupId>
       <artifactId>FastAsyncWorldEdit-Bukkit</artifactId>
+      <version>2.13.1</version>
       <scope>provided</scope>
       <exclusions>
         <exclusion>
-          <artifactId>FastAsyncWorldEdit-Core</artifactId>
           <groupId>*</groupId>
+          <artifactId>FastAsyncWorldEdit-Core</artifactId>
         </exclusion>
       </exclusions>
     </dependency>

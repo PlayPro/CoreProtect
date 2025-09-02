@@ -181,17 +181,6 @@
       <url>https://jitpack.io</url>
     </repository>
   </repositories>
-  <dependencyManagement>
-    <dependencies>
-      <dependency>
-        <groupId>com.intellectualsites.bom</groupId>
-        <artifactId>bom-newest</artifactId> <!--  Ref: https://github.com/IntellectualSites/bom -->
-        <version>1.45</version>
-        <scope>import</scope>
-        <type>pom</type>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
   <dependencies>
     <!--
     paper-api: io.papermc.paper

@@ -134,7 +134,7 @@ Migrate your CoreProtect database between SQLite and MySQL. Console-only command
 
 | Command | Parameters |
 | --- | --- |
-| /co migrate-db | `<sqlite\|mysql>` |
+| /co migrate-db | `<sqlite|mysql>` |
 
 > **Note:** This feature is exclusive to CoreProtect 23.0+ Patreon builds for Patron supporters.
 

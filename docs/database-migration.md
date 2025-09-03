@@ -19,8 +19,9 @@ The `/co migrate-db` command allows you to seamlessly transfer all your CoreProt
 | `/co migrate-db` | `<sqlite|mysql>` | Migrate to the specified database type |
 
 **Examples:**
-- `/co migrate-db mysql` - Migrate from SQLite to MySQL
-- `/co migrate-db sqlite` - Migrate from MySQL to SQLite
+
+* `/co migrate-db mysql` - Migrate from SQLite to MySQL
+* `/co migrate-db sqlite` - Migrate from MySQL to SQLite
 
 > **Console Only:** This command can only be executed from the server console, not from in-game.
 

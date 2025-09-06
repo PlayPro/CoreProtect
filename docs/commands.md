@@ -16,6 +16,7 @@ ___
 | [/co reload](#co-reload) | Reload the configuration file |
 | [/co status](#co-status) | View the plugin status |
 | [/co consumer](#co-consumer) | Toggle consumer processing |
+| [/co migrate-db](#co-migrate-db) | Migrate between SQLite and MySQL |
 
 ### Alias Commands
 
@@ -126,6 +127,19 @@ ___
 
 ### /co consumer
 Console command to pause or resume consumer queue processing.
+___
+
+### /co migrate-db
+Migrate your CoreProtect database between SQLite and MySQL. Console-only command.
+
+| Command | Parameters |
+| --- | --- |
+| /co migrate-db | `<sqlite|mysql>` |
+
+> **Note:** This feature is exclusive to CoreProtect 23.0+ Patreon builds for Patron supporters.
+
+For complete migration instructions, safety guidelines, and troubleshooting information, see the [Database Migration documentation](/database-migration/).
+
 ___
 
 

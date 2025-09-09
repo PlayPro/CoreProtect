@@ -137,24 +137,26 @@ public class ChatUtils {
             timeSince = 0.00;
         }
 
+        DecimalFormat decimalFormat = new DecimalFormat("0.00");
+
         // minutes
         timeSince = timeSince / 60;
         if (timeSince < 60.0) {
-            message.append(Phrase.build(Phrase.LOOKUP_TIME, new DecimalFormat("0.00").format(timeSince) + "/m"));
+            message.append(Phrase.build(Phrase.LOOKUP_TIME, decimalFormat.format(timeSince) + Phrase.TIME_UNIT_MINUTE.getTranslatedPhrase()));
         }
 
         // hours
         if (message.length() == 0) {
             timeSince = timeSince / 60;
             if (timeSince < 24.0) {
-                message.append(Phrase.build(Phrase.LOOKUP_TIME, new DecimalFormat("0.00").format(timeSince) + "/h"));
+                message.append(Phrase.build(Phrase.LOOKUP_TIME, decimalFormat.format(timeSince) + Phrase.TIME_UNIT_HOUR.getTranslatedPhrase()));
             }
         }
 
         // days
         if (message.length() == 0) {
             timeSince = timeSince / 24;
-            message.append(Phrase.build(Phrase.LOOKUP_TIME, new DecimalFormat("0.00").format(timeSince) + "/d"));
+            message.append(Phrase.build(Phrase.LOOKUP_TIME, decimalFormat.format(timeSince) + Phrase.TIME_UNIT_DAY.getTranslatedPhrase()));
         }
 
         if (component) {

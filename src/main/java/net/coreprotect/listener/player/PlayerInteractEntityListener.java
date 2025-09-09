@@ -24,7 +24,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.model.BlockGroup;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.ItemUtils;
 
 public final class PlayerInteractEntityListener extends Queue implements Listener {
 
@@ -128,14 +128,14 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
                 List<ItemStack[]> list = ConfigHandler.oldContainer.get(loggingChestId);
 
                 if (list.size() <= forceSize) {
-                    list.add(Util.getContainerState(contents));
+                    list.add(ItemUtils.getContainerState(contents));
                     ConfigHandler.oldContainer.put(loggingChestId, list);
                 }
             }
         }
         else {
             List<ItemStack[]> list = new ArrayList<>();
-            list.add(Util.getContainerState(contents));
+            list.add(ItemUtils.getContainerState(contents));
             ConfigHandler.oldContainer.put(loggingChestId, list);
         }
 

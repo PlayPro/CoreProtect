@@ -17,7 +17,8 @@ import net.coreprotect.patch.Patch;
 import net.coreprotect.thread.NetworkHandler;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.SystemUtils;
+import net.coreprotect.utility.VersionUtils;
 
 public class StatusCommand {
     private static ConcurrentHashMap<String, Boolean> alert = new ConcurrentHashMap<>();
@@ -43,7 +44,7 @@ public class StatusCommand {
                         }
                     }
 
-                    Chat.sendMessage(player, Color.WHITE + "----- " + Color.DARK_AQUA + "CoreProtect" + (Util.isCommunityEdition() ? " " + ConfigHandler.COMMUNITY_EDITION : "") + Color.WHITE + " -----");
+                    Chat.sendMessage(player, Color.WHITE + "----- " + Color.DARK_AQUA + "CoreProtect" + (VersionUtils.isCommunityEdition() ? " " + ConfigHandler.COMMUNITY_EDITION : "") + Color.WHITE + " -----");
                     Chat.sendMessage(player, Color.DARK_AQUA + Phrase.build(Phrase.STATUS_VERSION, Color.WHITE, ConfigHandler.EDITION_NAME + " v" + pdfFile.getVersion() + ".") + versionCheck);
 
                     String donationKey = NetworkHandler.donationKey();
@@ -116,7 +117,17 @@ public class StatusCommand {
                             }
 
                             String cpuSpeed = String.valueOf(ConfigHandler.processorInfo.getMaxFreq());
-                            cpuSpeed = String.format("%.2f", Long.valueOf(cpuSpeed) / 1000000000.0);
+                            double speedVal = Long.valueOf(cpuSpeed) / 1000000000.0;
+
+                            // Fix for Apple Silicon processors reporting 0 GHz
+                            if (speedVal < 0.01 && SystemUtils.isAppleSilicon()) {
+                                Double appleSiliconSpeed = SystemUtils.getAppleSiliconSpeed();
+                                if (appleSiliconSpeed != null) {
+                                    speedVal = appleSiliconSpeed;
+                                }
+                            }
+
+                            cpuSpeed = String.format("%.2f", speedVal);
                             cpuInfo = "x" + Runtime.getRuntime().availableProcessors() + " " + cpuSpeed + "GHz " + modelName + ".";
                         }
                         else {

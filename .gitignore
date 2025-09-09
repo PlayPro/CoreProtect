@@ -16,6 +16,7 @@ local.properties
 .settings/
 .loadpath
 .gradle/
+.vscode/
 
 # External tool builders
 .externalToolBuilders/
@@ -52,7 +53,8 @@ nbproject
 
 target
 dependency-reduced-pom.xml
-test/
+src/test
+maven_output.txt
 
 # Wrapper files
 mvnw
@@ -171,6 +173,20 @@ Desktop.ini
 ## Misc.
 #############
 
+.cursorrules
+.windsurfrules
+.clinerules
+context.json
+context.yml
+run.sh
+run_*.sh
+no-log4j2.xml
+database.db
+*tests.txt
+test*.db
+nullnull
+refactor.txt
+
 # Compiled class file
 *.class
 
@@ -196,3 +212,9 @@ hs_err_pid*
 
 # Documentation dev folder
 docs/dev/
+
+# Extensions
+/src/main/java/net/coreprotect/utility/extensions
+!/src/main/java/net/coreprotect/utility/extensions/Extensions.java
+/.apt_generated/
+/.apt_generated_tests/

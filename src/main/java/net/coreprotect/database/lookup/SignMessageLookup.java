@@ -15,8 +15,9 @@ import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.listener.channel.PluginChannelListener;
+import net.coreprotect.utility.ChatUtils;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.WorldUtils;
 
 public class SignMessageLookup {
 
@@ -50,12 +51,12 @@ public class SignMessageLookup {
             int y = l.getBlockY();
             int z = l.getBlockZ();
             long time = (System.currentTimeMillis() / 1000L);
-            int worldId = Util.getWorldId(l.getWorld().getName());
+            int worldId = WorldUtils.getWorldId(l.getWorld().getName());
             int count = 0;
             int rowMax = page * limit;
             int pageStart = rowMax - limit;
 
-            String query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "sign " + Util.getWidIndex("sign") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action = '1' AND (LENGTH(line_1) > 0 OR LENGTH(line_2) > 0 OR LENGTH(line_3) > 0 OR LENGTH(line_4) > 0 OR LENGTH(line_5) > 0 OR LENGTH(line_6) > 0 OR LENGTH(line_7) > 0 OR LENGTH(line_8) > 0) LIMIT 0, 1";
+            String query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "sign " + WorldUtils.getWidIndex("sign") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action = '1' AND (LENGTH(line_1) > 0 OR LENGTH(line_2) > 0 OR LENGTH(line_3) > 0 OR LENGTH(line_4) > 0 OR LENGTH(line_5) > 0 OR LENGTH(line_6) > 0 OR LENGTH(line_7) > 0 OR LENGTH(line_8) > 0) LIMIT 0, 1";
             ResultSet results = statement.executeQuery(query);
 
             while (results.next()) {
@@ -65,7 +66,7 @@ public class SignMessageLookup {
 
             int totalPages = (int) Math.ceil(count / (limit + 0.0));
 
-            query = "SELECT time,user,face,line_1,line_2,line_3,line_4,line_5,line_6,line_7,line_8 FROM " + ConfigHandler.prefix + "sign " + Util.getWidIndex("sign") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action = '1' AND (LENGTH(line_1) > 0 OR LENGTH(line_2) > 0 OR LENGTH(line_3) > 0 OR LENGTH(line_4) > 0 OR LENGTH(line_5) > 0 OR LENGTH(line_6) > 0 OR LENGTH(line_7) > 0 OR LENGTH(line_8) > 0) ORDER BY rowid DESC LIMIT " + pageStart + ", " + limit + "";
+            query = "SELECT time,user,face,line_1,line_2,line_3,line_4,line_5,line_6,line_7,line_8 FROM " + ConfigHandler.prefix + "sign " + WorldUtils.getWidIndex("sign") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action = '1' AND (LENGTH(line_1) > 0 OR LENGTH(line_2) > 0 OR LENGTH(line_3) > 0 OR LENGTH(line_4) > 0 OR LENGTH(line_5) > 0 OR LENGTH(line_6) > 0 OR LENGTH(line_7) > 0 OR LENGTH(line_8) > 0) ORDER BY rowid DESC LIMIT " + pageStart + ", " + limit + "";
             results = statement.executeQuery(query);
 
             while (results.next()) {
@@ -144,10 +145,10 @@ public class SignMessageLookup {
                 }
 
                 String resultUser = ConfigHandler.playerIdCacheReversed.get(resultUserId);
-                String timeAgo = Util.getTimeSince(resultTime, time, true);
+                String timeAgo = ChatUtils.getTimeSince(resultTime, time, true);
 
                 if (!found) {
-                    result.add(new StringBuilder(Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.SIGN_HEADER) + Color.WHITE + " ----- " + Util.getCoordinates(command, worldId, x, y, z, false, false) + "").toString());
+                    result.add(new StringBuilder(Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.SIGN_HEADER) + Color.WHITE + " ----- " + ChatUtils.getCoordinates(command, worldId, x, y, z, false, false) + "").toString());
                 }
                 found = true;
                 result.add(timeAgo + Color.WHITE + " - " + Color.DARK_AQUA + resultUser + ": " + Color.WHITE + "\n" + parsedMessage + Color.WHITE);
@@ -158,7 +159,7 @@ public class SignMessageLookup {
             if (found) {
                 if (count > limit) {
                     result.add(Color.WHITE + "-----");
-                    result.add(Util.getPageNavigation(command, page, totalPages));
+                    result.add(ChatUtils.getPageNavigation(command, page, totalPages));
                 }
             }
             else {

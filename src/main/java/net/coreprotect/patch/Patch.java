@@ -20,7 +20,7 @@ import net.coreprotect.database.Database;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.VersionUtils;
 
 public class Patch {
 
@@ -36,7 +36,7 @@ public class Patch {
         String result = "";
         if (firstVersion != null) {
             if ((firstVersion[0] + "." + firstVersion[1] + "." + firstVersion[2]).equals("0.0.0")) {
-                result = Util.getPluginVersion();
+                result = VersionUtils.getPluginVersion();
             }
             else {
                 result = firstVersion[1] + "." + firstVersion[2];
@@ -105,7 +105,7 @@ public class Patch {
                     if (className.startsWith("net/coreprotect/patch/script/__") && className.endsWith(".class")) {
                         Class<?> patchClass = Class.forName(className.substring(0, className.length() - 6).replaceAll("/", "."));
                         String patchVersion = getClassVersion(patchClass.getName());
-                        if (!Util.newVersion(Util.getInternalPluginVersion(), patchVersion)) {
+                        if (!VersionUtils.newVersion(VersionUtils.getInternalPluginVersion(), patchVersion)) {
                             patches.add(patchVersion);
                         }
                     }
@@ -114,10 +114,10 @@ public class Patch {
             }
 
             Collections.sort(patches, (o1, o2) -> {
-                if (Util.newVersion(o1, o2)) {
+                if (VersionUtils.newVersion(o1, o2)) {
                     return -1;
                 }
-                else if (Util.newVersion(o2, o1)) {
+                else if (VersionUtils.newVersion(o2, o1)) {
                     return 1;
                 }
                 return 0;
@@ -171,7 +171,7 @@ public class Patch {
                 int patchRevision = Integer.parseInt(thePatch[2]);
                 Integer[] patchVersion = new Integer[] { patchMajor, patchMinor, patchRevision };
 
-                boolean performPatch = Util.newVersion(newVersion, patchVersion);
+                boolean performPatch = VersionUtils.newVersion(newVersion, patchVersion);
                 if (performPatch) {
                     boolean success = false;
                     try {
@@ -231,14 +231,14 @@ public class Patch {
 
     public static boolean versionCheck(Statement statement) {
         try {
-            Integer[] currentVersion = Util.getInternalPluginVersion();
+            Integer[] currentVersion = VersionUtils.getInternalPluginVersion();
             firstVersion = getDatabaseVersion(statement.getConnection(), false);
             Integer[] lastVersion = getDatabaseVersion(statement.getConnection(), true);
 
-            boolean newVersion = Util.newVersion(lastVersion, currentVersion);
+            boolean newVersion = VersionUtils.newVersion(lastVersion, currentVersion);
             if (newVersion && lastVersion[0] > 0 && !ConfigHandler.converterRunning) {
                 Integer[] minimumVersion = new Integer[] { 2, 0, 0 };
-                if (Util.newVersion(lastVersion, minimumVersion)) {
+                if (VersionUtils.newVersion(lastVersion, minimumVersion)) {
                     Chat.sendConsoleMessage("§c[CoreProtect] " + Phrase.build(Phrase.PATCH_OUTDATED_1, "v" + minimumVersion[0] + "." + minimumVersion[1] + "." + minimumVersion[2]));
                     Chat.sendConsoleMessage("§c[CoreProtect] " + Phrase.build(Phrase.PATCH_OUTDATED_2));
                     return false;
@@ -312,7 +312,7 @@ public class Patch {
             else {
                 currentVersion[2] = 0;
                 lastVersion[2] = 0;
-                if (Util.newVersion(currentVersion, lastVersion)) {
+                if (VersionUtils.newVersion(currentVersion, lastVersion)) {
                     Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.VERSION_REQUIRED, "CoreProtect", "v" + lastVersion[1] + "." + lastVersion[2]));
                     return false;
                 }

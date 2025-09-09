@@ -11,7 +11,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.SkullStatement;
 import net.coreprotect.paper.PaperAdapter;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.MaterialUtils;
 
 public class SkullBreakLogger {
 
@@ -25,7 +25,7 @@ public class SkullBreakLogger {
                 return;
             }
             int time = (int) (System.currentTimeMillis() / 1000L);
-            int type = Util.getBlockId(block.getType().name(), true);
+            int type = MaterialUtils.getBlockId(block.getType().name(), true);
             Skull skull = (Skull) block;
             String skullOwner = "";
             String skullSkin = null;

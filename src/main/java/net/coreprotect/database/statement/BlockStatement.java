@@ -3,7 +3,8 @@ package net.coreprotect.database.statement;
 import java.sql.PreparedStatement;
 import java.util.List;
 
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.ItemUtils;
 
 public class BlockStatement {
 
@@ -13,11 +14,11 @@ public class BlockStatement {
 
     public static void insert(PreparedStatement preparedStmt, int batchCount, int time, int id, int wid, int x, int y, int z, int type, int data, List<Object> meta, String blockData, int action, int rolledBack) {
         try {
-            byte[] bBlockData = Util.stringToByteData(blockData, type);
+            byte[] bBlockData = BlockUtils.stringToByteData(blockData, type);
             byte[] byteData = null;
 
             if (meta != null) {
-                byteData = Util.convertByteData(meta);
+                byteData = ItemUtils.convertByteData(meta);
             }
 
             preparedStmt.setInt(1, time);

@@ -8,8 +8,10 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -24,7 +26,8 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.MaterialUtils;
 
 public class Database extends Queue {
 
@@ -43,11 +46,31 @@ public class Database extends Queue {
     public static final int BLOCKDATA = 12;
     public static final int ITEM = 13;
 
-    public static void beginTransaction(Statement statement) {
+    private static final Map<Integer, String> SQL_QUERIES = new HashMap<>();
+
+    static {
+        // Initialize SQL queries for different table types
+        SQL_QUERIES.put(SIGN, "INSERT INTO %sprefix%sign (time, user, wid, x, y, z, action, color, color_secondary, data, waxed, face, line_1, line_2, line_3, line_4, line_5, line_6, line_7, line_8) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        SQL_QUERIES.put(BLOCK, "INSERT INTO %sprefix%block (time, user, wid, x, y, z, type, data, meta, blockdata, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        SQL_QUERIES.put(SKULL, "INSERT INTO %sprefix%skull (time, owner, skin) VALUES (?, ?, ?)");
+        SQL_QUERIES.put(CONTAINER, "INSERT INTO %sprefix%container (time, user, wid, x, y, z, type, data, amount, metadata, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        SQL_QUERIES.put(ITEM, "INSERT INTO %sprefix%item (time, user, wid, x, y, z, type, data, amount, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        SQL_QUERIES.put(WORLD, "INSERT INTO %sprefix%world (id, world) VALUES (?, ?)");
+        SQL_QUERIES.put(CHAT, "INSERT INTO %sprefix%chat (time, user, wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        SQL_QUERIES.put(COMMAND, "INSERT INTO %sprefix%command (time, user, wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        SQL_QUERIES.put(SESSION, "INSERT INTO %sprefix%session (time, user, wid, x, y, z, action) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        SQL_QUERIES.put(ENTITY, "INSERT INTO %sprefix%entity (time, data) VALUES (?, ?)");
+        SQL_QUERIES.put(MATERIAL, "INSERT INTO %sprefix%material_map (id, material) VALUES (?, ?)");
+        SQL_QUERIES.put(ART, "INSERT INTO %sprefix%art_map (id, art) VALUES (?, ?)");
+        SQL_QUERIES.put(ENTITY_MAP, "INSERT INTO %sprefix%entity_map (id, entity) VALUES (?, ?)");
+        SQL_QUERIES.put(BLOCKDATA, "INSERT INTO %sprefix%blockdata_map (id, data) VALUES (?, ?)");
+    }
+
+    public static void beginTransaction(Statement statement, boolean isMySQL) {
         Consumer.transacting = true;
 
         try {
-            if (Config.getGlobal().MYSQL) {
+            if (isMySQL) {
                 statement.executeUpdate("START TRANSACTION");
             }
             else {
@@ -59,12 +82,12 @@ public class Database extends Queue {
         }
     }
 
-    public static void commitTransaction(Statement statement) throws Exception {
+    public static void commitTransaction(Statement statement, boolean isMySQL) throws Exception {
         int count = 0;
 
         while (true) {
             try {
-                if (Config.getGlobal().MYSQL) {
+                if (isMySQL) {
                     statement.executeUpdate("COMMIT");
                 }
                 else {
@@ -89,8 +112,8 @@ public class Database extends Queue {
         }
     }
 
-    public static void performCheckpoint(Statement statement) throws SQLException {
-        if (!Config.getGlobal().MYSQL) {
+    public static void performCheckpoint(Statement statement, boolean isMySQL) throws SQLException {
+        if (!isMySQL) {
             statement.executeUpdate("PRAGMA wal_checkpoint(TRUNCATE)");
         }
     }
@@ -115,11 +138,11 @@ public class Database extends Queue {
             if (Config.getConfig(location.getWorld()).ITEM_TRANSACTIONS) {
                 try {
                     if (contents == null) {
-                        contents = Util.getContainerContents(type, container, location);
+                        contents = ItemUtils.getContainerContents(type, container, location);
                     }
                     if (contents != null) {
                         List<ItemStack[]> forceList = new ArrayList<>();
-                        forceList.add(Util.getContainerState(contents));
+                        forceList.add(ItemUtils.getContainerState(contents));
                         ConfigHandler.forceContainer.put(user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ(), forceList);
                         Queue.queueContainerBreak(user, location, type, contents);
                     }
@@ -132,8 +155,7 @@ public class Database extends Queue {
     }
 
     public static Connection getConnection(boolean onlyCheckTransacting) {
-        // Previously 250ms; long consumer commit time may be due to batching
-        // TODO: Investigate, potentially remove batching for SQLite connections
+        // Previously 250ms; long consumer commit time may be due to batching (investigate removing batching for SQLite connections)
         return getConnection(false, false, onlyCheckTransacting, 1000);
     }
 
@@ -200,7 +222,7 @@ public class Database extends Queue {
 
     public static void performUpdate(Statement statement, long id, int rb, int table) {
         try {
-            int rolledBack = Util.toggleRolledBack(rb, (table == 2 || table == 3 || table == 4)); // co_item, co_container, co_block
+            int rolledBack = MaterialUtils.toggleRolledBack(rb, (table == 2 || table == 3 || table == 4)); // co_item, co_container, co_block
             if (table == 1 || table == 3) {
                 statement.executeUpdate("UPDATE " + ConfigHandler.prefix + "container SET rolled_back='" + rolledBack + "' WHERE rowid='" + id + "'");
             }
@@ -219,64 +241,10 @@ public class Database extends Queue {
     public static PreparedStatement prepareStatement(Connection connection, int type, boolean keys) {
         PreparedStatement preparedStatement = null;
         try {
-            String signInsert = "INSERT INTO " + ConfigHandler.prefix + "sign (time, user, wid, x, y, z, action, color, color_secondary, data, waxed, face, line_1, line_2, line_3, line_4, line_5, line_6, line_7, line_8) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            String blockInsert = "INSERT INTO " + ConfigHandler.prefix + "block (time, user, wid, x, y, z, type, data, meta, blockdata, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            String skullInsert = "INSERT INTO " + ConfigHandler.prefix + "skull (time, owner, skin) VALUES (?, ?, ?)";
-            String containerInsert = "INSERT INTO " + ConfigHandler.prefix + "container (time, user, wid, x, y, z, type, data, amount, metadata, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            String itemInsert = "INSERT INTO " + ConfigHandler.prefix + "item (time, user, wid, x, y, z, type, data, amount, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            String worldInsert = "INSERT INTO " + ConfigHandler.prefix + "world (id, world) VALUES (?, ?)";
-            String chatInsert = "INSERT INTO " + ConfigHandler.prefix + "chat (time, user, wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)";
-            String commandInsert = "INSERT INTO " + ConfigHandler.prefix + "command (time, user, wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)";
-            String sessionInsert = "INSERT INTO " + ConfigHandler.prefix + "session (time, user, wid, x, y, z, action) VALUES (?, ?, ?, ?, ?, ?, ?)";
-            String entityInsert = "INSERT INTO " + ConfigHandler.prefix + "entity (time, data) VALUES (?, ?)";
-            String materialInsert = "INSERT INTO " + ConfigHandler.prefix + "material_map (id, material) VALUES (?, ?)";
-            String artInsert = "INSERT INTO " + ConfigHandler.prefix + "art_map (id, art) VALUES (?, ?)";
-            String entityMapInsert = "INSERT INTO " + ConfigHandler.prefix + "entity_map (id, entity) VALUES (?, ?)";
-            String blockdataInsert = "INSERT INTO " + ConfigHandler.prefix + "blockdata_map (id, data) VALUES (?, ?)";
-
-            switch (type) {
-                case SIGN:
-                    preparedStatement = prepareStatement(connection, signInsert, keys);
-                    break;
-                case BLOCK:
-                    preparedStatement = prepareStatement(connection, blockInsert, keys);
-                    break;
-                case SKULL:
-                    preparedStatement = prepareStatement(connection, skullInsert, keys);
-                    break;
-                case CONTAINER:
-                    preparedStatement = prepareStatement(connection, containerInsert, keys);
-                    break;
-                case ITEM:
-                    preparedStatement = prepareStatement(connection, itemInsert, keys);
-                    break;
-                case WORLD:
-                    preparedStatement = prepareStatement(connection, worldInsert, keys);
-                    break;
-                case CHAT:
-                    preparedStatement = prepareStatement(connection, chatInsert, keys);
-                    break;
-                case COMMAND:
-                    preparedStatement = prepareStatement(connection, commandInsert, keys);
-                    break;
-                case SESSION:
-                    preparedStatement = prepareStatement(connection, sessionInsert, keys);
-                    break;
-                case ENTITY:
-                    preparedStatement = prepareStatement(connection, entityInsert, keys);
-                    break;
-                case MATERIAL:
-                    preparedStatement = prepareStatement(connection, materialInsert, keys);
-                    break;
-                case ART:
-                    preparedStatement = prepareStatement(connection, artInsert, keys);
-                    break;
-                case ENTITY_MAP:
-                    preparedStatement = prepareStatement(connection, entityMapInsert, keys);
-                    break;
-                case BLOCKDATA:
-                    preparedStatement = prepareStatement(connection, blockdataInsert, keys);
-                    break;
+            String query = SQL_QUERIES.get(type);
+            if (query != null) {
+                query = query.replace("%sprefix%", ConfigHandler.prefix);
+                preparedStatement = prepareStatement(connection, query, keys);
             }
         }
         catch (Exception e) {
@@ -338,250 +306,258 @@ public class Database extends Queue {
         }
     }
 
-    public static void createDatabaseTables(String prefix, boolean purge) {
+    private static final List<String> DATABASE_TABLES = Arrays.asList("art_map", "block", "chat", "command", "container", "item", "database_lock", "entity", "entity_map", "material_map", "blockdata_map", "session", "sign", "skull", "user", "username_log", "version", "world");
+
+    public static void createDatabaseTables(String prefix, boolean forcePrefix, Connection forceConnection, boolean mySQL, boolean purge) {
         ConfigHandler.databaseTables.clear();
-        ConfigHandler.databaseTables.addAll(Arrays.asList("art_map", "block", "chat", "command", "container", "item", "database_lock", "entity", "entity_map", "material_map", "blockdata_map", "session", "sign", "skull", "user", "username_log", "version", "world"));
+        ConfigHandler.databaseTables.addAll(DATABASE_TABLES);
 
-        if (Config.getGlobal().MYSQL) {
-            boolean success = false;
-            try (Connection connection = Database.getConnection(true, true, true, 0)) {
-                if (connection != null) {
-                    String index = "";
-                    Statement statement = connection.createStatement();
-                    index = ", INDEX(id)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "art_map(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,art varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(type,time)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "block(rowid bigint NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, wid int, x int, y int, z int, type int, data int, meta mediumblob, blockdata blob, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    index = ", INDEX(time), INDEX(user,time), INDEX(wid,x,z,time)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "chat(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int (3), z int, message varchar(16000)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    index = ", INDEX(time), INDEX(user,time), INDEX(wid,x,z,time)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "command(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int (3), z int, message varchar(16000)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(type,time)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "container(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, wid int, x int, y int, z int, type int, data int, amount int, metadata blob, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(type,time)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "item(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, wid int, x int, y int, z int, type int, data blob, amount int, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "database_lock(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),status tinyint,time int) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, data blob) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    index = ", INDEX(id)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_map(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,entity varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    index = ", INDEX(id)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "material_map(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,material varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    index = ", INDEX(id)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "blockdata_map(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,data varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    index = ", INDEX(wid,x,z,time), INDEX(action,time), INDEX(user,time), INDEX(time)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "session(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int (3), z int, action tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(time)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "sign(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int, z int, action tinyint, color int, color_secondary int, data tinyint, waxed tinyint, face tinyint, line_1 varchar(100), line_2 varchar(100), line_3 varchar(100), line_4 varchar(100), line_5 varchar(100), line_6 varchar(100), line_7 varchar(100), line_8 varchar(100)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "skull(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, owner varchar(255), skin varchar(255)) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    index = ", INDEX(user), INDEX(uuid)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "user(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int,user varchar(100),uuid varchar(64)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    index = ", INDEX(uuid,user)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "username_log(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int,uuid varchar(64),user varchar(100)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "version(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int,version varchar(16)) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    index = ", INDEX(id)";
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "world(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,world varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
-                    if (!purge) {
-                        initializeTables(prefix, statement);
-                    }
-                    statement.close();
-                    success = true;
-                }
-            }
-            catch (Exception e) {
-                e.printStackTrace();
-            }
-            if (!success) {
-                Config.getGlobal().MYSQL = false;
-            }
+        if (mySQL) {
+            createMySQLTables(prefix, forceConnection, purge);
         }
-        if (!Config.getGlobal().MYSQL) {
-            try (Connection connection = Database.getConnection(true, 0)) {
+        else {
+            createSQLiteTables(prefix, forcePrefix, forceConnection, purge);
+        }
+    }
+
+    private static void createMySQLTables(String prefix, Connection forceConnection, boolean purge) {
+        boolean success = false;
+        try (Connection connection = (forceConnection != null ? forceConnection : Database.getConnection(true, true, true, 0))) {
+            if (connection != null) {
                 Statement statement = connection.createStatement();
-                List<String> tableData = new ArrayList<>();
-                List<String> indexData = new ArrayList<>();
-                String attachDatabase = "";
-
-                if (purge) {
-                    String query = "ATTACH DATABASE '" + ConfigHandler.path + ConfigHandler.sqlite + ".tmp' AS tmp_db";
-                    PreparedStatement preparedStmt = connection.prepareStatement(query);
-                    preparedStmt.execute();
-                    preparedStmt.close();
-                    attachDatabase = "tmp_db.";
-                }
-
-                String query = "SELECT type,name FROM " + attachDatabase + "sqlite_master WHERE type='table' OR type='index';";
-                ResultSet rs = statement.executeQuery(query);
-                while (rs.next()) {
-                    String type = rs.getString("type");
-                    if (type.equalsIgnoreCase("table")) {
-                        tableData.add(rs.getString("name"));
-                    }
-                    else if (type.equalsIgnoreCase("index")) {
-                        indexData.add(rs.getString("name"));
-                    }
-                }
-                rs.close();
-
-                if (!tableData.contains(prefix + "art_map")) {
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "art_map (id INTEGER, art TEXT);");
-                }
-                if (!tableData.contains(prefix + "block")) {
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "block (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, data INTEGER, meta BLOB, blockdata BLOB, action INTEGER, rolled_back INTEGER);");
-                }
-                if (!tableData.contains(prefix + "chat")) {
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "chat (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, message TEXT);");
-                }
-                if (!tableData.contains(prefix + "command")) {
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "command (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, message TEXT);");
-                }
-                if (!tableData.contains(prefix + "container")) {
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "container (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, data INTEGER, amount INTEGER, metadata BLOB, action INTEGER, rolled_back INTEGER);");
-                }
-                if (!tableData.contains(prefix + "item")) {
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "item (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, data BLOB, amount INTEGER, action INTEGER, rolled_back INTEGER);");
-                }
-                if (!tableData.contains(prefix + "database_lock")) {
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "database_lock (status INTEGER, time INTEGER);");
-                }
-                if (!tableData.contains(prefix + "entity")) {
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity (id INTEGER PRIMARY KEY ASC, time INTEGER, data BLOB);");
-                }
-                if (!tableData.contains(prefix + "entity_map")) {
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_map (id INTEGER, entity TEXT);");
-                }
-                if (!tableData.contains(prefix + "material_map")) {
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "material_map (id INTEGER, material TEXT);");
-                }
-                if (!tableData.contains(prefix + "blockdata_map")) {
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "blockdata_map (id INTEGER, data TEXT);");
-                }
-                if (!tableData.contains(prefix + "session")) {
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "session (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, action INTEGER);");
-                }
-                if (!tableData.contains(prefix + "sign")) {
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "sign (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, action INTEGER, color INTEGER, color_secondary INTEGER, data INTEGER, waxed INTEGER, face INTEGER, line_1 TEXT, line_2 TEXT, line_3 TEXT, line_4 TEXT, line_5 TEXT, line_6 TEXT, line_7 TEXT, line_8 TEXT);");
-                }
-                if (!tableData.contains(prefix + "skull")) {
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "skull (id INTEGER PRIMARY KEY ASC, time INTEGER, owner TEXT, skin TEXT);");
-                }
-                if (!tableData.contains(prefix + "user")) {
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "user (id INTEGER PRIMARY KEY ASC, time INTEGER, user TEXT, uuid TEXT);");
-                }
-                if (!tableData.contains(prefix + "username_log")) {
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "username_log (id INTEGER PRIMARY KEY ASC, time INTEGER, uuid TEXT, user TEXT);");
-                }
-                if (!tableData.contains(prefix + "version")) {
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "version (time INTEGER, version TEXT);");
-                }
-                if (!tableData.contains(prefix + "world")) {
-                    statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "world (id INTEGER, world TEXT);");
-                }
-                try {
-                    if (!indexData.contains("art_map_id_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "art_map_id_index ON " + ConfigHandler.prefix + "art_map(id);");
-                    }
-                    if (!indexData.contains("block_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "block_index ON " + ConfigHandler.prefix + "block(wid,x,z,time);");
-                    }
-                    if (!indexData.contains("block_user_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "block_user_index ON " + ConfigHandler.prefix + "block(user,time);");
-                    }
-                    if (!indexData.contains("block_type_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "block_type_index ON " + ConfigHandler.prefix + "block(type,time);");
-                    }
-                    if (!indexData.contains("blockdata_map_id_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "blockdata_map_id_index ON " + ConfigHandler.prefix + "blockdata_map(id);");
-                    }
-                    if (!indexData.contains("chat_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "chat_index ON " + ConfigHandler.prefix + "chat(time);");
-                    }
-                    if (!indexData.contains("chat_user_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "chat_user_index ON " + ConfigHandler.prefix + "chat(user,time);");
-                    }
-                    if (!indexData.contains("chat_wid_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "chat_wid_index ON " + ConfigHandler.prefix + "chat(wid,x,z,time);");
-                    }
-                    if (!indexData.contains("command_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "command_index ON " + ConfigHandler.prefix + "command(time);");
-                    }
-                    if (!indexData.contains("command_user_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "command_user_index ON " + ConfigHandler.prefix + "command(user,time);");
-                    }
-                    if (!indexData.contains("command_wid_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "command_wid_index ON " + ConfigHandler.prefix + "command(wid,x,z,time);");
-                    }
-                    if (!indexData.contains("container_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "container_index ON " + ConfigHandler.prefix + "container(wid,x,z,time);");
-                    }
-                    if (!indexData.contains("container_user_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "container_user_index ON " + ConfigHandler.prefix + "container(user,time);");
-                    }
-                    if (!indexData.contains("container_type_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "container_type_index ON " + ConfigHandler.prefix + "container(type,time);");
-                    }
-                    if (!indexData.contains("item_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "item_index ON " + ConfigHandler.prefix + "item(wid,x,z,time);");
-                    }
-                    if (!indexData.contains("item_user_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "item_user_index ON " + ConfigHandler.prefix + "item(user,time);");
-                    }
-                    if (!indexData.contains("item_type_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "item_type_index ON " + ConfigHandler.prefix + "item(type,time);");
-                    }
-                    if (!indexData.contains("entity_map_id_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "entity_map_id_index ON " + ConfigHandler.prefix + "entity_map(id);");
-                    }
-                    if (!indexData.contains("material_map_id_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "material_map_id_index ON " + ConfigHandler.prefix + "material_map(id);");
-                    }
-                    if (!indexData.contains("session_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "session_index ON " + ConfigHandler.prefix + "session(wid,x,z,time);");
-                    }
-                    if (!indexData.contains("session_action_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "session_action_index ON " + ConfigHandler.prefix + "session(action,time);");
-                    }
-                    if (!indexData.contains("session_user_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "session_user_index ON " + ConfigHandler.prefix + "session(user,time);");
-                    }
-                    if (!indexData.contains("session_time_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "session_time_index ON " + ConfigHandler.prefix + "session(time);");
-                    }
-                    if (!indexData.contains("sign_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "sign_index ON " + ConfigHandler.prefix + "sign(wid,x,z,time);");
-                    }
-                    if (!indexData.contains("sign_user_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "sign_user_index ON " + ConfigHandler.prefix + "sign(user,time);");
-                    }
-                    if (!indexData.contains("sign_time_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "sign_time_index ON " + ConfigHandler.prefix + "sign(time);");
-                    }
-                    if (!indexData.contains("user_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "user_index ON " + ConfigHandler.prefix + "user(user);");
-                    }
-                    if (!indexData.contains("uuid_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "uuid_index ON " + ConfigHandler.prefix + "user(uuid);");
-                    }
-                    if (!indexData.contains("username_log_uuid_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "username_log_uuid_index ON " + ConfigHandler.prefix + "username_log(uuid,user);");
-                    }
-                    if (!indexData.contains("world_id_index")) {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + "world_id_index ON " + ConfigHandler.prefix + "world(id);");
-                    }
-                }
-                catch (Exception e) {
-                    Chat.console(Phrase.build(Phrase.DATABASE_INDEX_ERROR));
-                    if (purge) {
-                        e.printStackTrace();
-                    }
-                }
-                if (!purge) {
+                createMySQLTableStructures(prefix, statement);
+                if (!purge && forceConnection == null) {
                     initializeTables(prefix, statement);
                 }
                 statement.close();
+                success = true;
             }
-            catch (Exception e) {
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+        if (!success && forceConnection == null) {
+            Config.getGlobal().MYSQL = false;
+        }
+    }
+
+    private static void createMySQLTableStructures(String prefix, Statement statement) throws SQLException {
+        String index = "";
+
+        // Art map
+        index = ", INDEX(id)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "art_map(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,art varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+
+        // Block
+        index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(type,time)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "block(rowid bigint NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, wid int, x int, y int, z int, type int, data int, meta mediumblob, blockdata blob, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+
+        // Chat
+        index = ", INDEX(time), INDEX(user,time), INDEX(wid,x,z,time)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "chat(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int (3), z int, message varchar(16000)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+
+        // Command
+        index = ", INDEX(time), INDEX(user,time), INDEX(wid,x,z,time)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "command(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int (3), z int, message varchar(16000)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+
+        // Container
+        index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(type,time)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "container(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, wid int, x int, y int, z int, type int, data int, amount int, metadata blob, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+
+        // Item
+        index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(type,time)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "item(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, wid int, x int, y int, z int, type int, data blob, amount int, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+
+        // Database lock
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "database_lock(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),status tinyint,time int) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+
+        // Entity
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, data blob) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+
+        // Entity map
+        index = ", INDEX(id)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_map(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,entity varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+
+        // Material map
+        index = ", INDEX(id)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "material_map(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,material varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+
+        // Blockdata map
+        index = ", INDEX(id)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "blockdata_map(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,data varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+
+        // Session
+        index = ", INDEX(wid,x,z,time), INDEX(action,time), INDEX(user,time), INDEX(time)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "session(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int (3), z int, action tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+
+        // Sign
+        index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(time)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "sign(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int, z int, action tinyint, color int, color_secondary int, data tinyint, waxed tinyint, face tinyint, line_1 varchar(100), line_2 varchar(100), line_3 varchar(100), line_4 varchar(100), line_5 varchar(100), line_6 varchar(100), line_7 varchar(100), line_8 varchar(100)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+
+        // Skull
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "skull(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, owner varchar(255), skin varchar(255)) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+
+        // User
+        index = ", INDEX(user), INDEX(uuid)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "user(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int,user varchar(100),uuid varchar(64)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+
+        // Username log
+        index = ", INDEX(uuid,user)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "username_log(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int,uuid varchar(64),user varchar(100)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+
+        // Version
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "version(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int,version varchar(16)) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+
+        // World
+        index = ", INDEX(id)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "world(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,world varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+    }
+
+    private static void createSQLiteTables(String prefix, boolean forcePrefix, Connection forceConnection, boolean purge) {
+        try (Connection connection = (forceConnection != null ? forceConnection : Database.getConnection(true, 0))) {
+            Statement statement = connection.createStatement();
+            List<String> tableData = new ArrayList<>();
+            List<String> indexData = new ArrayList<>();
+            String attachDatabase = "";
+
+            if (purge && forceConnection == null) {
+                String query = "ATTACH DATABASE '" + ConfigHandler.path + ConfigHandler.sqlite + ".tmp' AS tmp_db";
+                PreparedStatement preparedStmt = connection.prepareStatement(query);
+                preparedStmt.execute();
+                preparedStmt.close();
+                attachDatabase = "tmp_db.";
+            }
+
+            identifyExistingTablesAndIndexes(statement, attachDatabase, tableData, indexData);
+            createSQLiteTableStructures(prefix, statement, tableData);
+            createSQLiteIndexes(forcePrefix == true ? prefix : ConfigHandler.prefix, statement, indexData, attachDatabase, purge);
+
+            if (!purge && forceConnection == null) {
+                initializeTables(prefix, statement);
+            }
+            statement.close();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void identifyExistingTablesAndIndexes(Statement statement, String attachDatabase, List<String> tableData, List<String> indexData) throws SQLException {
+        String query = "SELECT type,name FROM " + attachDatabase + "sqlite_master WHERE type='table' OR type='index';";
+        ResultSet rs = statement.executeQuery(query);
+        while (rs.next()) {
+            String type = rs.getString("type");
+            if (type.equalsIgnoreCase("table")) {
+                tableData.add(rs.getString("name"));
+            }
+            else if (type.equalsIgnoreCase("index")) {
+                indexData.add(rs.getString("name"));
+            }
+        }
+        rs.close();
+    }
+
+    private static void createSQLiteTableStructures(String prefix, Statement statement, List<String> tableData) throws SQLException {
+        if (!tableData.contains(prefix + "art_map")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "art_map (id INTEGER, art TEXT);");
+        }
+        if (!tableData.contains(prefix + "block")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "block (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, data INTEGER, meta BLOB, blockdata BLOB, action INTEGER, rolled_back INTEGER);");
+        }
+        if (!tableData.contains(prefix + "chat")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "chat (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, message TEXT);");
+        }
+        if (!tableData.contains(prefix + "command")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "command (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, message TEXT);");
+        }
+        if (!tableData.contains(prefix + "container")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "container (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, data INTEGER, amount INTEGER, metadata BLOB, action INTEGER, rolled_back INTEGER);");
+        }
+        if (!tableData.contains(prefix + "item")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "item (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, data BLOB, amount INTEGER, action INTEGER, rolled_back INTEGER);");
+        }
+        if (!tableData.contains(prefix + "database_lock")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "database_lock (status INTEGER, time INTEGER);");
+        }
+        if (!tableData.contains(prefix + "entity")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity (id INTEGER PRIMARY KEY ASC, time INTEGER, data BLOB);");
+        }
+        if (!tableData.contains(prefix + "entity_map")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_map (id INTEGER, entity TEXT);");
+        }
+        if (!tableData.contains(prefix + "material_map")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "material_map (id INTEGER, material TEXT);");
+        }
+        if (!tableData.contains(prefix + "blockdata_map")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "blockdata_map (id INTEGER, data TEXT);");
+        }
+        if (!tableData.contains(prefix + "session")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "session (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, action INTEGER);");
+        }
+        if (!tableData.contains(prefix + "sign")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "sign (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, action INTEGER, color INTEGER, color_secondary INTEGER, data INTEGER, waxed INTEGER, face INTEGER, line_1 TEXT, line_2 TEXT, line_3 TEXT, line_4 TEXT, line_5 TEXT, line_6 TEXT, line_7 TEXT, line_8 TEXT);");
+        }
+        if (!tableData.contains(prefix + "skull")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "skull (id INTEGER PRIMARY KEY ASC, time INTEGER, owner TEXT, skin TEXT);");
+        }
+        if (!tableData.contains(prefix + "user")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "user (id INTEGER PRIMARY KEY ASC, time INTEGER, user TEXT, uuid TEXT);");
+        }
+        if (!tableData.contains(prefix + "username_log")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "username_log (id INTEGER PRIMARY KEY ASC, time INTEGER, uuid TEXT, user TEXT);");
+        }
+        if (!tableData.contains(prefix + "version")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "version (time INTEGER, version TEXT);");
+        }
+        if (!tableData.contains(prefix + "world")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "world (id INTEGER, world TEXT);");
+        }
+    }
+
+    private static void createSQLiteIndexes(String prefix, Statement statement, List<String> indexData, String attachDatabase, boolean purge) {
+        try {
+            createSQLiteIndex(statement, indexData, attachDatabase, "art_map_id_index", prefix + "art_map(id)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "block_index", prefix + "block(wid,x,z,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "block_user_index", prefix + "block(user,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "block_type_index", prefix + "block(type,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "blockdata_map_id_index", prefix + "blockdata_map(id)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "chat_index", prefix + "chat(time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "chat_user_index", prefix + "chat(user,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "chat_wid_index", prefix + "chat(wid,x,z,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "command_index", prefix + "command(time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "command_user_index", prefix + "command(user,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "command_wid_index", prefix + "command(wid,x,z,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "container_index", prefix + "container(wid,x,z,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "container_user_index", prefix + "container(user,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "container_type_index", prefix + "container(type,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "item_index", prefix + "item(wid,x,z,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "item_user_index", prefix + "item(user,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "item_type_index", prefix + "item(type,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_map_id_index", prefix + "entity_map(id)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "material_map_id_index", prefix + "material_map(id)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "session_index", prefix + "session(wid,x,z,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "session_action_index", prefix + "session(action,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "session_user_index", prefix + "session(user,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "session_time_index", prefix + "session(time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "sign_index", prefix + "sign(wid,x,z,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "sign_user_index", prefix + "sign(user,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "sign_time_index", prefix + "sign(time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "user_index", prefix + "user(user)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "uuid_index", prefix + "user(uuid)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "username_log_uuid_index", prefix + "username_log(uuid,user)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "world_id_index", prefix + "world(id)");
+        }
+        catch (Exception e) {
+            Chat.console(Phrase.build(Phrase.DATABASE_INDEX_ERROR));
+            if (purge) {
                 e.printStackTrace();
             }
+        }
+    }
+
+    private static void createSQLiteIndex(Statement statement, List<String> indexData, String attachDatabase, String indexName, String indexColumns) throws SQLException {
+        if (!indexData.contains(indexName)) {
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + indexName + " ON " + indexColumns + ";");
         }
     }
 

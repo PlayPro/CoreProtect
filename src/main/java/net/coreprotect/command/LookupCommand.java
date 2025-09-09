@@ -1,10 +1,5 @@
 package net.coreprotect.command;
 
-import java.nio.charset.StandardCharsets;
-import java.sql.Connection;
-import java.sql.Statement;
-import java.text.NumberFormat;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -20,50 +15,40 @@ import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 
-import com.google.common.base.Strings;
-
+import net.coreprotect.command.lookup.BlockLookupThread;
+import net.coreprotect.command.lookup.ChestTransactionLookupThread;
+import net.coreprotect.command.lookup.StandardLookupThread;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.database.Database;
-import net.coreprotect.database.Lookup;
-import net.coreprotect.database.logger.ItemLogger;
-import net.coreprotect.database.lookup.BlockLookup;
-import net.coreprotect.database.lookup.ChestTransactionLookup;
-import net.coreprotect.database.lookup.InteractionLookup;
-import net.coreprotect.database.lookup.PlayerLookup;
-import net.coreprotect.database.lookup.SignMessageLookup;
-import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
-import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
-import net.coreprotect.listener.channel.PluginChannelListener;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.ChatMessage;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.WorldUtils;
 
 public class LookupCommand {
-    protected static void runCommand(CommandSender player, Command command, boolean permission, String[] args) {
+    public static void runCommand(CommandSender player, Command command, boolean permission, String[] args) {
         int resultc = args.length;
-        args = CommandHandler.parsePage(args);
-        Location lo = CommandHandler.parseLocation(player, args);
+        args = CommandParser.parsePage(args);
+        Location lo = CommandParser.parseLocation(player, args);
         // List<String> arg_uuids = new ArrayList<String>();
-        List<String> argUsers = CommandHandler.parseUsers(args);
-        Integer[] argRadius = CommandHandler.parseRadius(args, player, lo);
-        int argNoisy = CommandHandler.parseNoisy(args);
-        List<Integer> argAction = CommandHandler.parseAction(args);
-        List<Object> argBlocks = CommandHandler.parseRestricted(player, args, argAction);
-        Map<Object, Boolean> argExclude = CommandHandler.parseExcluded(player, args, argAction);
-        List<String> argExcludeUsers = CommandHandler.parseExcludedUsers(player, args);
-        String ts = CommandHandler.parseTimeString(args);
-        long[] argTime = CommandHandler.parseTime(args);
+        List<String> argUsers = CommandParser.parseUsers(args);
+        Integer[] argRadius = CommandParser.parseRadius(args, player, lo);
+        int argNoisy = CommandParser.parseNoisy(args);
+        List<Integer> argAction = CommandParser.parseAction(args);
+        List<Object> argBlocks = CommandParser.parseRestricted(player, args, argAction);
+        Map<Object, Boolean> argExclude = CommandParser.parseExcluded(player, args, argAction);
+        List<String> argExcludeUsers = CommandParser.parseExcludedUsers(player, args);
+        String ts = CommandParser.parseTimeString(args);
+        long[] argTime = CommandParser.parseTime(args);
         long startTime = argTime[0];
         long endTime = argTime[1];
-        int argWid = CommandHandler.parseWorld(args, true, true);
-        int parseRows = CommandHandler.parseRows(args);
-        boolean count = CommandHandler.parseCount(args);
-        boolean worldedit = CommandHandler.parseWorldEdit(args);
-        boolean forceglobal = CommandHandler.parseForceGlobal(args);
+        int argWid = CommandParser.parseWorld(args, true, true);
+        int parseRows = CommandParser.parseRows(args);
+        boolean count = CommandParser.parseCount(args);
+        boolean worldedit = CommandParser.parseWorldEdit(args);
+        boolean forceglobal = CommandParser.parseForceGlobal(args);
         boolean pageLookup = false;
 
         if (argBlocks == null || argExclude == null || argExcludeUsers == null) {
@@ -120,7 +105,7 @@ public class LookupCommand {
         }
 
         if (argWid == -1) {
-            String worldName = CommandHandler.parseWorldName(args, true);
+            String worldName = CommandParser.parseWorldName(args, true);
             Chat.sendMessage(player, new ChatMessage(Phrase.build(Phrase.WORLD_NOT_FOUND, worldName)).build());
             return;
         }
@@ -341,40 +326,13 @@ public class LookupCommand {
             String bc = x + "." + y + "." + z + "." + wid + "." + x2 + "." + y2 + "." + z2 + "." + re;
             ConfigHandler.lookupCommand.put(player.getName(), bc);
 
-            String world = Util.getWorldName(wid);
+            String world = WorldUtils.getWorldName(wid);
             double dx = 0.5 * (x + x2);
             double dy = 0.5 * (y + y2);
             double dz = 0.5 * (z + z2);
             final Location location = new Location(Bukkit.getServer().getWorld(world), dx, dy, dz);
-            final CommandSender player2 = player;
-            final int p2 = p;
-            final int finalLimit = re;
 
-            class BasicThread implements Runnable {
-                @Override
-                public void run() {
-                    try (Connection connection = Database.getConnection(true)) {
-                        ConfigHandler.lookupThrottle.put(player2.getName(), new Object[] { true, System.currentTimeMillis() });
-                        if (connection != null) {
-                            Statement statement = connection.createStatement();
-                            List<String> blockData = ChestTransactionLookup.performLookup(command.getName(), statement, location, player2, p2, finalLimit, false);
-                            for (String data : blockData) {
-                                Chat.sendComponent(player2, data);
-                            }
-                            statement.close();
-                        }
-                        else {
-                            Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                        }
-                    }
-                    catch (Exception e) {
-                        e.printStackTrace();
-                    }
-
-                    ConfigHandler.lookupThrottle.put(player2.getName(), new Object[] { false, System.currentTimeMillis() });
-                }
-            }
-            Runnable runnable = new BasicThread();
+            Runnable runnable = new ChestTransactionLookupThread(player, command, location, p, re);
             Thread thread = new Thread(runnable);
             thread.start();
         }
@@ -434,67 +392,11 @@ public class LookupCommand {
             String bc = x + "." + y + "." + z + "." + wid + "." + lookupType + "." + re;
             ConfigHandler.lookupCommand.put(player.getName(), bc);
 
-            String world = Util.getWorldName(wid);
-            final Block fblock = Bukkit.getServer().getWorld(world).getBlockAt(x, y, z);// .getLocation();
-            final BlockState fblockstate = fblock.getState();
-            final CommandSender player2 = player;
-            final int p2 = page;
-            final int finalLimit = re;
-            final int t = type;
-            class BasicThread implements Runnable {
-                @Override
-                public void run() {
-                    try (Connection connection = Database.getConnection(true)) {
-                        ConfigHandler.lookupThrottle.put(player2.getName(), new Object[] { true, System.currentTimeMillis() });
-                        if (connection != null) {
-                            Statement statement = connection.createStatement();
-                            if (t == 8) {
-                                List<String> signData = SignMessageLookup.performLookup(command.getName(), statement, fblockstate.getLocation(), player2, p2, finalLimit);
-                                for (String signMessage : signData) {
-                                    String bypass = null;
+            String world = WorldUtils.getWorldName(wid);
+            final Block block = Bukkit.getServer().getWorld(world).getBlockAt(x, y, z);
+            final BlockState blockState = block.getState();
 
-                                    if (signMessage.contains("\n")) {
-                                        String[] split = signMessage.split("\n");
-                                        signMessage = split[0];
-                                        bypass = split[1];
-                                    }
-
-                                    if (signMessage.length() > 0) {
-                                        Chat.sendComponent(player2, signMessage, bypass);
-                                    }
-                                }
-                            }
-                            else {
-                                String blockdata = null;
-                                if (t == 7) {
-                                    blockdata = InteractionLookup.performLookup(command.getName(), statement, fblock, player2, 0, p2, finalLimit);
-                                }
-                                else {
-                                    blockdata = BlockLookup.performLookup(command.getName(), statement, fblockstate, player2, 0, p2, finalLimit);
-                                }
-                                if (blockdata.contains("\n")) {
-                                    for (String b : blockdata.split("\n")) {
-                                        Chat.sendComponent(player2, b);
-                                    }
-                                }
-                                else if (blockdata.length() > 0) {
-                                    Chat.sendComponent(player2, blockdata);
-                                }
-                            }
-                            statement.close();
-                        }
-                        else {
-                            Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                        }
-                    }
-                    catch (Exception e) {
-                        e.printStackTrace();
-                    }
-
-                    ConfigHandler.lookupThrottle.put(player2.getName(), new Object[] { false, System.currentTimeMillis() });
-                }
-            }
-            Runnable runnable = new BasicThread();
+            Runnable runnable = new BlockLookupThread(player, command, block, blockState, page, re, type);
             Thread thread = new Thread(runnable);
             thread.start();
         }
@@ -568,10 +470,12 @@ public class LookupCommand {
                 List<String> rollbackusers = argUsers;
                 int c = 0;
                 for (String ruser : rollbackusers) {
-                    List<Player> players = Bukkit.getServer().matchPlayer(ruser);
-                    for (Player p : players) {
-                        if (p.getName().equalsIgnoreCase(ruser)) {
-                            rollbackusers.set(c, p.getName());
+                    if (Bukkit.getServer() != null) {
+                        List<Player> players = Bukkit.getServer().matchPlayer(ruser);
+                        for (Player p : players) {
+                            if (p.getName().equalsIgnoreCase(ruser)) {
+                                rollbackusers.set(c, p.getName());
+                            }
                         }
                     }
                     c++;
@@ -622,7 +526,9 @@ public class LookupCommand {
                     if (lo != null) {
                         x = lo.getBlockX();
                         z = lo.getBlockZ();
-                        wid = Util.getWorldId(lo.getWorld().getName());
+                        if (lo.getWorld() != null) {
+                            wid = WorldUtils.getWorldId(lo.getWorld().getName());
+                        }
                     }
 
                     if (rollbackusers.size() == 1 && rollbackusers.contains("#global") && argAction.contains(9)) {
@@ -671,431 +577,25 @@ public class LookupCommand {
                     }
                 }
 
-                final List<String> rollbackusers2 = rollbackusers;
-                long unixtimestamp = (System.currentTimeMillis() / 1000L);
-                if (timeStart == -1) {
-                    if (startTime <= 0) {
-                        timeStart = 0;
-                    }
-                    else {
-                        timeStart = unixtimestamp - startTime;
-                    }
-                    if (endTime <= 0) {
-                        timeEnd = 0;
-                    }
-                    else {
-                        timeEnd = unixtimestamp - endTime;
-                    }
-                }
-
-                final long finalTimeStart = timeStart;
-                final long finalTimeEnd = timeEnd;
-                final Integer[] radius = argRadius;
-
                 try {
                     Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Color.ITALIC + Phrase.build(Phrase.LOOKUP_SEARCHING));
-                    final CommandSender player2 = player;
-                    final int finalX = x;
-                    final int finalY = y;
-                    final int finalZ = z;
-                    final int finalWid = wid;
-                    final int finalArgWid = argWid;
-                    final int noisy = argNoisy;
-                    final String rtime = ts;
-                    final int excluded = argExcluded;
-                    final int restricted = argRestricted;
-                    // final List<String> uuid_list = arg_uuids;
-                    final List<Object> blist = argBlocks;
-                    final Map<Object, Boolean> elist = argExclude;
-                    final List<String> euserlist = argExcludeUsers;
-                    final int page = pa;
-                    final int displayResults = re;
-                    final int typeLookup = type;
-                    final Location finalLocation = lo;
-                    final List<Integer> finalArgAction = argAction;
-                    final boolean finalCount = count;
 
-                    class BasicThread2 implements Runnable {
-                        @Override
-                        public void run() {
-                            try (Connection connection = Database.getConnection(true)) {
-                                ConfigHandler.lookupThrottle.put(player2.getName(), new Object[] { true, System.currentTimeMillis() });
-
-                                List<String> uuidList = new ArrayList<>();
-                                Location location = finalLocation;
-                                boolean exists = false;
-                                String bc = finalX + "." + finalY + "." + finalZ + "." + finalWid + "." + finalTimeStart + "." + finalTimeEnd + "." + noisy + "." + excluded + "." + restricted + "." + finalArgWid + "." + displayResults;
-                                ConfigHandler.lookupCommand.put(player2.getName(), bc);
-                                ConfigHandler.lookupPage.put(player2.getName(), page);
-                                ConfigHandler.lookupTime.put(player2.getName(), rtime);
-                                ConfigHandler.lookupType.put(player2.getName(), 5);
-                                ConfigHandler.lookupElist.put(player2.getName(), elist);
-                                ConfigHandler.lookupEUserlist.put(player2.getName(), euserlist);
-                                ConfigHandler.lookupBlist.put(player2.getName(), blist);
-                                ConfigHandler.lookupUlist.put(player2.getName(), rollbackusers2);
-                                ConfigHandler.lookupAlist.put(player2.getName(), finalArgAction);
-                                ConfigHandler.lookupRadius.put(player2.getName(), radius);
-
-                                if (connection != null) {
-                                    Statement statement = connection.createStatement();
-                                    String baduser = "";
-                                    for (String check : rollbackusers2) {
-                                        if ((!check.equals("#global") && !check.equals("#container")) || finalArgAction.contains(9)) {
-                                            exists = PlayerLookup.playerExists(connection, check);
-                                            if (!exists) {
-                                                baduser = check;
-                                                break;
-                                            }
-                                            else if (finalArgAction.contains(9)) {
-                                                if (ConfigHandler.uuidCache.get(check.toLowerCase(Locale.ROOT)) != null) {
-                                                    String uuid = ConfigHandler.uuidCache.get(check.toLowerCase(Locale.ROOT));
-                                                    uuidList.add(uuid);
-                                                }
-                                            }
-                                        }
-                                        else {
-                                            exists = true;
-                                        }
-                                    }
-                                    if (exists) {
-                                        for (String check : euserlist) {
-                                            if (!check.equals("#global") && !check.equals("#hopper")) {
-                                                exists = PlayerLookup.playerExists(connection, check);
-                                                if (!exists) {
-                                                    baduser = check;
-                                                    break;
-                                                }
-                                            }
-                                            else if (check.equals("#global")) {
-                                                baduser = "#global";
-                                                exists = false;
-                                            }
-                                        }
-                                    }
-
-                                    if (exists) {
-                                        List<String> userList = new ArrayList<>();
-                                        if (!finalArgAction.contains(9)) {
-                                            userList = rollbackusers2;
-                                        }
-
-                                        int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
-                                        boolean restrict_world = false;
-                                        if (radius != null) {
-                                            restrict_world = true;
-                                        }
-                                        if (location == null) {
-                                            restrict_world = false;
-                                        }
-                                        if (finalArgWid > 0) {
-                                            restrict_world = true;
-                                            location = new Location(Bukkit.getServer().getWorld(Util.getWorldName(finalArgWid)), finalX, finalY, finalZ);
-                                        }
-                                        else if (location != null) {
-                                            location = new Location(Bukkit.getServer().getWorld(Util.getWorldName(finalWid)), finalX, finalY, finalZ);
-                                        }
-
-                                        Long[] rowData = new Long[] { 0L, 0L, 0L, 0L };
-                                        long rowMax = (long) page * displayResults;
-                                        long pageStart = rowMax - displayResults;
-                                        long rows = 0L;
-                                        boolean checkRows = true;
-
-                                        if (typeLookup == 5 && page > 1) {
-                                            rowData = ConfigHandler.lookupRows.get(player2.getName());
-                                            rows = rowData[3];
-
-                                            if (pageStart < rows) {
-                                                checkRows = false;
-                                            }
-                                        }
-
-                                        if (checkRows) {
-                                            rows = Lookup.countLookupRows(statement, player2, uuidList, userList, blist, elist, euserlist, finalArgAction, location, radius, rowData, finalTimeStart, finalTimeEnd, restrict_world, true);
-                                            rowData[3] = rows;
-                                            ConfigHandler.lookupRows.put(player2.getName(), rowData);
-                                        }
-                                        if (finalCount) {
-                                            String row_format = NumberFormat.getInstance().format(rows);
-                                            Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.LOOKUP_ROWS_FOUND, row_format, (rows == 1 ? Selector.FIRST : Selector.SECOND)));
-                                        }
-                                        else if (pageStart < rows) {
-                                            List<String[]> lookupList = Lookup.performPartialLookup(statement, player2, uuidList, userList, blist, elist, euserlist, finalArgAction, location, radius, rowData, finalTimeStart, finalTimeEnd, (int) pageStart, displayResults, restrict_world, true);
-
-                                            Chat.sendMessage(player2, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.LOOKUP_HEADER, "CoreProtect" + Color.WHITE + " | " + Color.DARK_AQUA) + Color.WHITE + " -----");
-                                            if (finalArgAction.contains(6) || finalArgAction.contains(7)) { // Chat/command
-                                                for (String[] data : lookupList) {
-                                                    String time = data[0];
-                                                    String dplayer = data[1];
-                                                    String message = data[2];
-                                                    String timeago = Util.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
-                                                    Chat.sendComponent(player2, timeago + " " + Color.WHITE + "- " + Color.DARK_AQUA + dplayer + ": " + Color.WHITE, message);
-                                                    if (PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(player2)) {
-                                                        int wid = Integer.parseInt(data[3]);
-                                                        int x = Integer.parseInt(data[4]);
-                                                        int y = Integer.parseInt(data[5]);
-                                                        int z = Integer.parseInt(data[6]);
-                                                        PluginChannelListener.getInstance().sendMessageData(player2, Integer.parseInt(time), dplayer, message, false, x, y, z, wid);
-                                                    }
-                                                }
-                                            }
-                                            else if (finalArgAction.contains(8)) { // login/logouts
-                                                for (String[] data : lookupList) {
-                                                    String time = data[0];
-                                                    String dplayer = data[1];
-                                                    int wid = Integer.parseInt(data[2]);
-                                                    int x = Integer.parseInt(data[3]);
-                                                    int y = Integer.parseInt(data[4]);
-                                                    int z = Integer.parseInt(data[5]);
-                                                    int action = Integer.parseInt(data[6]);
-                                                    String timeago = Util.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
-                                                    int timeLength = 50 + (Util.getTimeSince(Integer.parseInt(time), unixtimestamp, false).replaceAll("[^0-9]", "").length() * 6);
-                                                    String leftPadding = Color.BOLD + Strings.padStart("", 10, ' ');
-                                                    if (timeLength % 4 == 0) {
-                                                        leftPadding = Strings.padStart("", timeLength / 4, ' ');
-                                                    }
-                                                    else {
-                                                        leftPadding = leftPadding + Color.WHITE + Strings.padStart("", (timeLength - 50) / 4, ' ');
-                                                    }
-
-                                                    String tag = (action != 0 ? Color.GREEN + "+" : Color.RED + "-");
-                                                    Chat.sendComponent(player2, timeago + " " + tag + " " + Color.DARK_AQUA + Phrase.build(Phrase.LOOKUP_LOGIN, Color.DARK_AQUA + dplayer + Color.WHITE, (action != 0 ? Selector.FIRST : Selector.SECOND)));
-                                                    Chat.sendComponent(player2, Color.WHITE + leftPadding + Color.GREY + "^ " + Util.getCoordinates(command.getName(), wid, x, y, z, true, true) + "");
-                                                    PluginChannelListener.getInstance().sendInfoData(player2, Integer.parseInt(time), Phrase.LOOKUP_LOGIN, (action != 0 ? Selector.FIRST : Selector.SECOND), dplayer, -1, x, y, z, wid);
-                                                }
-                                            }
-                                            else if (finalArgAction.contains(9)) { // username-changes
-                                                for (String[] data : lookupList) {
-                                                    String time = data[0];
-                                                    String user = ConfigHandler.uuidCacheReversed.get(data[1]);
-                                                    String username = data[2];
-                                                    String timeago = Util.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
-                                                    Chat.sendComponent(player2, timeago + " " + Color.WHITE + "- " + Phrase.build(Phrase.LOOKUP_USERNAME, Color.DARK_AQUA + user + Color.WHITE, Color.DARK_AQUA + username + Color.WHITE));
-                                                    PluginChannelListener.getInstance().sendUsernameData(player2, Integer.parseInt(time), user, username);
-                                                }
-                                            }
-                                            else if (finalArgAction.contains(10)) { // sign messages
-                                                for (String[] data : lookupList) {
-                                                    String time = data[0];
-                                                    String dplayer = data[1];
-                                                    int wid = Integer.parseInt(data[2]);
-                                                    int x = Integer.parseInt(data[3]);
-                                                    int y = Integer.parseInt(data[4]);
-                                                    int z = Integer.parseInt(data[5]);
-                                                    String message = data[6];
-                                                    String timeago = Util.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
-                                                    int timeLength = 50 + (Util.getTimeSince(Integer.parseInt(time), unixtimestamp, false).replaceAll("[^0-9]", "").length() * 6);
-                                                    String leftPadding = Color.BOLD + Strings.padStart("", 10, ' ');
-                                                    if (timeLength % 4 == 0) {
-                                                        leftPadding = Strings.padStart("", timeLength / 4, ' ');
-                                                    }
-                                                    else {
-                                                        leftPadding = leftPadding + Color.WHITE + Strings.padStart("", (timeLength - 50) / 4, ' ');
-                                                    }
-
-                                                    Chat.sendComponent(player2, timeago + " " + Color.WHITE + "- " + Color.DARK_AQUA + dplayer + ": " + Color.WHITE, message);
-                                                    Chat.sendComponent(player2, Color.WHITE + leftPadding + Color.GREY + "^ " + Util.getCoordinates(command.getName(), wid, x, y, z, true, true) + "");
-                                                    PluginChannelListener.getInstance().sendMessageData(player2, Integer.parseInt(time), dplayer, message, true, x, y, z, wid);
-                                                }
-                                            }
-                                            else if (finalArgAction.contains(4) && finalArgAction.contains(11)) { // inventory transactions
-                                                for (String[] data : lookupList) {
-                                                    String time = data[0];
-                                                    String dplayer = data[1];
-                                                    int dtype = Integer.parseInt(data[5]);
-                                                    int ddata = Integer.parseInt(data[6]);
-                                                    int daction = Integer.parseInt(data[7]);
-                                                    int amount = Integer.parseInt(data[10]);
-                                                    int wid = Integer.parseInt(data[9]);
-                                                    int x = Integer.parseInt(data[2]);
-                                                    int y = Integer.parseInt(data[3]);
-                                                    int z = Integer.parseInt(data[4]);
-                                                    String rbd = ((Integer.parseInt(data[8]) == 2 || Integer.parseInt(data[8]) == 3) ? Color.STRIKETHROUGH : "");
-                                                    String timeago = Util.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
-                                                    Material blockType = Util.itemFilter(Util.getType(dtype), (Integer.parseInt(data[13]) == 0));
-                                                    String dname = Util.nameFilter(blockType.name().toLowerCase(Locale.ROOT), ddata);
-                                                    byte[] metadata = data[11] == null ? null : data[11].getBytes(StandardCharsets.ISO_8859_1);
-                                                    String tooltip = Util.getEnchantments(metadata, dtype, amount);
-
-                                                    String selector = Selector.FIRST;
-                                                    String tag = Color.WHITE + "-";
-                                                    if (daction == 2 || daction == 3) { // LOOKUP_ITEM
-                                                        selector = (daction != 2 ? Selector.FIRST : Selector.SECOND);
-                                                        tag = (daction != 2 ? Color.GREEN + "+" : Color.RED + "-");
-                                                    }
-                                                    else if (daction == 4 || daction == 5) { // LOOKUP_STORAGE
-                                                        selector = (daction == 4 ? Selector.FIRST : Selector.SECOND);
-                                                        tag = (daction == 4 ? Color.GREEN + "+" : Color.RED + "-");
-                                                    }
-                                                    else if (daction == 6 || daction == 7) { // LOOKUP_PROJECTILE
-                                                        selector = Selector.SECOND;
-                                                        tag = Color.RED + "-";
-                                                    }
-                                                    else if (daction == ItemLogger.ITEM_BREAK || daction == ItemLogger.ITEM_DESTROY || daction == ItemLogger.ITEM_CREATE) {
-                                                        selector = (daction == ItemLogger.ITEM_CREATE ? Selector.FIRST : Selector.SECOND);
-                                                        tag = (daction == ItemLogger.ITEM_CREATE ? Color.GREEN + "+" : Color.RED + "-");
-                                                    }
-                                                    else if (daction == ItemLogger.ITEM_SELL || daction == ItemLogger.ITEM_BUY) { // LOOKUP_TRADE
-                                                        selector = (daction == ItemLogger.ITEM_BUY ? Selector.FIRST : Selector.SECOND);
-                                                        tag = (daction == ItemLogger.ITEM_BUY ? Color.GREEN + "+" : Color.RED + "-");
-                                                    }
-                                                    else { // LOOKUP_CONTAINER
-                                                        selector = (daction == 0 ? Selector.FIRST : Selector.SECOND);
-                                                        tag = (daction == 0 ? Color.GREEN + "+" : Color.RED + "-");
-                                                    }
-
-                                                    Chat.sendComponent(player2, timeago + " " + tag + " " + Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, "x" + amount, Util.createTooltip(Color.DARK_AQUA + rbd + dname, tooltip) + Color.WHITE, selector));
-                                                    PluginChannelListener.getInstance().sendData(player2, Integer.parseInt(time), Phrase.LOOKUP_CONTAINER, selector, dplayer, dname, amount, x, y, z, wid, rbd, true, tag.contains("+"));
-                                                }
-                                            }
-                                            else {
-                                                for (String[] data : lookupList) {
-                                                    int drb = Integer.parseInt(data[8]);
-                                                    String rbd = "";
-                                                    if (drb == 1 || drb == 3) {
-                                                        rbd = Color.STRIKETHROUGH;
-                                                    }
-
-                                                    String time = data[0];
-                                                    String dplayer = data[1];
-                                                    int x = Integer.parseInt(data[2]);
-                                                    int y = Integer.parseInt(data[3]);
-                                                    int z = Integer.parseInt(data[4]);
-                                                    int dtype = Integer.parseInt(data[5]);
-                                                    int ddata = Integer.parseInt(data[6]);
-                                                    int daction = Integer.parseInt(data[7]);
-                                                    int wid = Integer.parseInt(data[9]);
-                                                    int amount = Integer.parseInt(data[10]);
-                                                    String tag = Color.WHITE + "-";
-
-                                                    String timeago = Util.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
-                                                    int timeLength = 50 + (Util.getTimeSince(Integer.parseInt(time), unixtimestamp, false).replaceAll("[^0-9]", "").length() * 6);
-                                                    String leftPadding = Color.BOLD + Strings.padStart("", 10, ' ');
-                                                    if (timeLength % 4 == 0) {
-                                                        leftPadding = Strings.padStart("", timeLength / 4, ' ');
-                                                    }
-                                                    else {
-                                                        leftPadding = leftPadding + Color.WHITE + Strings.padStart("", (timeLength - 50) / 4, ' ');
-                                                    }
-
-                                                    String dname = "";
-                                                    boolean isPlayer = false;
-                                                    if (daction == 3 && !finalArgAction.contains(11) && amount == -1) {
-                                                        if (dtype == 0) {
-                                                            if (ConfigHandler.playerIdCacheReversed.get(ddata) == null) {
-                                                                UserStatement.loadName(connection, ddata);
-                                                            }
-                                                            dname = ConfigHandler.playerIdCacheReversed.get(ddata);
-                                                            isPlayer = true;
-                                                        }
-                                                        else {
-                                                            dname = Util.getEntityType(dtype).name();
-                                                        }
-                                                    }
-                                                    else {
-                                                        dname = Util.getType(dtype).name().toLowerCase(Locale.ROOT);
-                                                        dname = Util.nameFilter(dname, ddata);
-                                                    }
-                                                    if (dname.length() > 0 && !isPlayer) {
-                                                        dname = "minecraft:" + dname.toLowerCase(Locale.ROOT) + "";
-                                                    }
-
-                                                    // Hide "minecraft:" for now.
-                                                    if (dname.contains("minecraft:")) {
-                                                        String[] blockNameSplit = dname.split(":");
-                                                        dname = blockNameSplit[1];
-                                                    }
-
-                                                    // Functions.sendMessage(player2, timeago+" " + ChatColors.WHITE + "- " + ChatColors.DARK_AQUA+rbd+""+dplayer+" " + ChatColors.WHITE+rbd+""+a+" " + ChatColors.DARK_AQUA+rbd+"#"+dtype+ChatColors.WHITE + ". " + ChatColors.GREY + "(x"+x+"/y"+y+"/z"+z+")");
-
-                                                    Phrase phrase = Phrase.LOOKUP_BLOCK;
-                                                    String selector = Selector.FIRST;
-                                                    String action = "a:block";
-                                                    if (finalArgAction.contains(4) || finalArgAction.contains(5) || finalArgAction.contains(11) || amount > -1) {
-                                                        byte[] metadata = data[11] == null ? null : data[11].getBytes(StandardCharsets.ISO_8859_1);
-                                                        String tooltip = Util.getEnchantments(metadata, dtype, amount);
-
-                                                        if (daction == 2 || daction == 3) {
-                                                            phrase = Phrase.LOOKUP_ITEM; // {picked up|dropped}
-                                                            selector = (daction != 2 ? Selector.FIRST : Selector.SECOND);
-                                                            tag = (daction != 2 ? Color.GREEN + "+" : Color.RED + "-");
-                                                            action = "a:item";
-                                                        }
-                                                        else if (daction == 4 || daction == 5) {
-                                                            phrase = Phrase.LOOKUP_STORAGE; // {deposited|withdrew}
-                                                            selector = (daction != 4 ? Selector.FIRST : Selector.SECOND);
-                                                            tag = (daction != 4 ? Color.RED + "-" : Color.GREEN + "+");
-                                                            action = "a:item";
-                                                        }
-                                                        else if (daction == 6 || daction == 7) {
-                                                            phrase = Phrase.LOOKUP_PROJECTILE; // {threw|shot}
-                                                            selector = (daction != 7 ? Selector.FIRST : Selector.SECOND);
-                                                            tag = Color.RED + "-";
-                                                            action = "a:item";
-                                                        }
-                                                        else {
-                                                            phrase = Phrase.LOOKUP_CONTAINER; // {added|removed}
-                                                            selector = (daction != 0 ? Selector.FIRST : Selector.SECOND);
-                                                            tag = (daction != 0 ? Color.GREEN + "+" : Color.RED + "-");
-                                                            action = "a:container";
-                                                        }
-
-                                                        Chat.sendComponent(player2, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, "x" + amount, Util.createTooltip(Color.DARK_AQUA + rbd + dname, tooltip) + Color.WHITE, selector));
-                                                        PluginChannelListener.getInstance().sendData(player2, Integer.parseInt(time), phrase, selector, dplayer, dname, (tag.contains("+") ? 1 : -1), x, y, z, wid, rbd, action.contains("container"), tag.contains("+"));
-                                                    }
-                                                    else {
-                                                        if (daction == 2 || daction == 3) {
-                                                            phrase = Phrase.LOOKUP_INTERACTION; // {clicked|killed}
-                                                            selector = (daction != 3 ? Selector.FIRST : Selector.SECOND);
-                                                            tag = (daction != 3 ? Color.WHITE + "-" : Color.RED + "-");
-                                                            action = (daction == 2 ? "a:click" : "a:kill");
-                                                        }
-                                                        else {
-                                                            phrase = Phrase.LOOKUP_BLOCK; // {placed|broke}
-                                                            selector = (daction != 0 ? Selector.FIRST : Selector.SECOND);
-                                                            tag = (daction != 0 ? Color.GREEN + "+" : Color.RED + "-");
-                                                        }
-
-                                                        Chat.sendComponent(player2, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, Color.DARK_AQUA + rbd + dname + Color.WHITE, selector));
-                                                        PluginChannelListener.getInstance().sendData(player2, Integer.parseInt(time), phrase, selector, dplayer, dname, (tag.contains("+") ? 1 : -1), x, y, z, wid, rbd, false, tag.contains("+"));
-                                                    }
-
-                                                    action = (finalArgAction.size() == 0 ? " (" + action + ")" : "");
-                                                    Chat.sendComponent(player2, Color.WHITE + leftPadding + Color.GREY + "^ " + Util.getCoordinates(command.getName(), wid, x, y, z, true, true) + Color.GREY + Color.ITALIC + action);
-                                                }
-                                            }
-                                            if (rows > displayResults) {
-                                                int total_pages = (int) Math.ceil(rows / (displayResults + 0.0));
-                                                if (finalArgAction.contains(6) || finalArgAction.contains(7) || finalArgAction.contains(9) || (finalArgAction.contains(4) && finalArgAction.contains(11))) {
-                                                    Chat.sendMessage(player2, "-----");
-                                                }
-                                                Chat.sendComponent(player2, Util.getPageNavigation(command.getName(), page, total_pages));
-                                            }
-                                        }
-                                        else if (rows > 0) {
-                                            Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS_PAGE, Selector.FIRST));
-                                        }
-                                        else {
-                                            Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS));
-                                        }
-                                    }
-                                    else {
-                                        Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.USER_NOT_FOUND, baduser));
-                                    }
-                                    statement.close();
-                                }
-                                else {
-                                    Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                                }
-                            }
-                            catch (Exception e) {
-                                e.printStackTrace();
-                            }
-
-                            ConfigHandler.lookupThrottle.put(player2.getName(), new Object[] { false, System.currentTimeMillis() });
+                    if (timeStart == -1) {
+                        if (startTime <= 0) {
+                            timeStart = 0;
+                        }
+                        else {
+                            timeStart = (System.currentTimeMillis() / 1000L) - startTime;
+                        }
+                        if (endTime <= 0) {
+                            timeEnd = 0;
+                        }
+                        else {
+                            timeEnd = (System.currentTimeMillis() / 1000L) - endTime;
                         }
                     }
-                    Runnable runnable = new BasicThread2();
+
+                    Runnable runnable = new StandardLookupThread(player, command, rollbackusers, argBlocks, argExclude, argExcludeUsers, argAction, argRadius, lo, x, y, z, wid, argWid, timeStart, timeEnd, argNoisy, argExcluded, argRestricted, pa, re, type, ts, count);
                     Thread thread = new Thread(runnable);
                     thread.start();
                 }

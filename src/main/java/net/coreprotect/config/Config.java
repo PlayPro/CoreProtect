@@ -12,7 +12,6 @@ import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.WeakHashMap;
 import java.util.concurrent.CompletableFuture;
 
 import org.bukkit.Bukkit;

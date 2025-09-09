@@ -6,6 +6,7 @@ import java.util.Locale;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.Location;
 import org.bukkit.block.BlockState;
 
 import net.coreprotect.CoreProtect;
@@ -16,7 +17,8 @@ import net.coreprotect.database.statement.BlockStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
 import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.utility.WorldUtils;
 
 public class BlockPlaceLogger {
 
@@ -84,14 +86,20 @@ public class BlockPlaceLogger {
                 }
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, block.getLocation());
             if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
             }
 
             int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
-            int wid = Util.getWorldId(block.getWorld().getName());
+            Location eventLocation = event.getLocation();
+            int wid = WorldUtils.getWorldId(eventLocation.getWorld().getName());
             int time = (int) (System.currentTimeMillis() / 1000L);
+
+            // Use event location for subsequent logging
+            x = eventLocation.getBlockX();
+            y = eventLocation.getBlockY();
+            z = eventLocation.getBlockZ();
 
             if (event.getUser().length() > 0) {
                 CacheHandler.lookupCache.put("" + x + "." + y + "." + z + "." + wid + "", new Object[] { time, event.getUser(), type });
@@ -101,8 +109,8 @@ public class BlockPlaceLogger {
                 return;
             }
 
-            int internalType = Util.getBlockId(type.name(), true);
-            if (replacedType > 0 && Util.getType(replacedType) != Material.AIR && Util.getType(replacedType) != Material.CAVE_AIR) {
+            int internalType = MaterialUtils.getBlockId(type.name(), true);
+            if (replacedType > 0 && MaterialUtils.getType(replacedType) != Material.AIR && MaterialUtils.getType(replacedType) != Material.CAVE_AIR) {
                 BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, replacedType, replacedData, null, replaceBlockData, 0, 0);
             }
 

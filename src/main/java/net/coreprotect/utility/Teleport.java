@@ -18,6 +18,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.BlockUtils;
 
 public class Teleport {
 
@@ -52,7 +53,7 @@ public class Teleport {
                 Material type1 = block1.getType();
                 Material type2 = block2.getType();
 
-                if (Util.passableBlock(block1) && Util.passableBlock(block2)) {
+                if (BlockUtils.passableBlock(block1) && BlockUtils.passableBlock(block2)) {
                     if (unsafeBlocks.contains(type1)) {
                         placeSafe = true;
                     }

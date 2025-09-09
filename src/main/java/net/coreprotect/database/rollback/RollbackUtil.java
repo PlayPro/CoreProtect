@@ -9,10 +9,12 @@ import org.bukkit.FireworkEffect.Builder;
 import org.bukkit.Material;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.Jukebox;
 import org.bukkit.block.ShulkerBox;
 import org.bukkit.block.banner.Pattern;
 import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.Inventory;
@@ -32,9 +34,10 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.util.io.BukkitObjectInputStream;
 
 import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Lookup;
 import net.coreprotect.model.BlockGroup;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.ItemUtils;
 
 public class RollbackUtil extends Lookup {
 
@@ -116,7 +119,7 @@ public class RollbackUtil extends Lookup {
                         while (count < amount) {
                             boolean addedItem = false;
                             if (isPlayerInventory) {
-                                int setArmor = Util.setPlayerArmor((PlayerInventory) inventory, itemstack);
+                                int setArmor = ItemUtils.setPlayerArmor((PlayerInventory) inventory, itemstack);
                                 addedItem = (setArmor > -1);
                                 modifiedArmor = addedItem ? setArmor : modifiedArmor;
                             }
@@ -303,7 +306,7 @@ public class RollbackUtil extends Lookup {
                     BlockStateMeta meta = (BlockStateMeta) itemstack.getItemMeta();
                     ShulkerBox shulkerBox = (ShulkerBox) meta.getBlockState();
                     for (Object value : metaList) {
-                        ItemStack item = Util.unserializeItemStackLegacy(value);
+                        ItemStack item = ItemUtils.unserializeItemStackLegacy(value);
                         if (item != null) {
                             shulkerBox.getInventory().addItem(item);
                         }
@@ -346,10 +349,17 @@ public class RollbackUtil extends Lookup {
                     List<Object> modifiers = (List<Object>) mapData.get("modifiers");
 
                     for (Object item : modifiers) {
-                        Map<Attribute, Map<String, Object>> modifiersMap = (Map<Attribute, Map<String, Object>>) item;
-                        for (Map.Entry<Attribute, Map<String, Object>> entry : modifiersMap.entrySet()) {
+                        Map<Object, Map<String, Object>> modifiersMap = (Map<Object, Map<String, Object>>) item;
+                        for (Map.Entry<Object, Map<String, Object>> entry : modifiersMap.entrySet()) {
                             try {
-                                Attribute attribute = entry.getKey();
+                                Attribute attribute = null;
+                                if (entry.getKey() instanceof Attribute) {
+                                    attribute = (Attribute) entry.getKey();
+                                }
+                                else {
+                                    attribute = (Attribute) BukkitAdapter.ADAPTER.getRegistryValue((String) entry.getKey(), Attribute.class);
+                                }
+
                                 AttributeModifier modifier = AttributeModifier.deserialize(entry.getValue());
                                 itemMeta.addAttributeModifier(attribute, modifier);
                             }
@@ -362,7 +372,7 @@ public class RollbackUtil extends Lookup {
                     itemstack.setItemMeta(itemMeta);
                 }
                 else if (itemCount == 0) {
-                    ItemMeta meta = Util.deserializeItemMeta(itemstack.getItemMeta().getClass(), map.get(0));
+                    ItemMeta meta = ItemUtils.deserializeItemMeta(itemstack.getItemMeta().getClass(), map.get(0));
                     itemstack.setItemMeta(meta);
 
                     if (map.size() > 1 && (rowType == Material.POTION)) {
@@ -400,7 +410,7 @@ public class RollbackUtil extends Lookup {
                     else if ((rowType == Material.CROSSBOW)) {
                         CrossbowMeta meta = (CrossbowMeta) itemstack.getItemMeta();
                         for (Map<String, Object> itemData : map) {
-                            ItemStack crossbowItem = Util.unserializeItemStack(itemData);
+                            ItemStack crossbowItem = ItemUtils.unserializeItemStack(itemData);
                             if (crossbowItem != null) {
                                 meta.addChargedProjectile(crossbowItem);
                             }
@@ -483,4 +493,76 @@ public class RollbackUtil extends Lookup {
         return new Object[] { 0, "", itemstack };
     }
 
+    /**
+     * Deserializes metadata from a byte array into a list of objects.
+     *
+     * @param metadata
+     *            The byte array containing serialized metadata
+     * @return The deserialized list of objects or null if deserialization fails
+     */
+    public static List<Object> deserializeMetadata(byte[] metadata) {
+        if (metadata == null) {
+            return null;
+        }
+
+        try {
+            ByteArrayInputStream metaByteStream = new ByteArrayInputStream(metadata);
+            BukkitObjectInputStream metaObjectStream = new BukkitObjectInputStream(metaByteStream);
+            @SuppressWarnings("unchecked")
+            List<Object> metaList = (List<Object>) metaObjectStream.readObject();
+            metaObjectStream.close();
+            metaByteStream.close();
+            return metaList;
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * Queues an entity spawn operation for processing.
+     *
+     * @param user
+     *            The username of the player
+     * @param block
+     *            The block state where the entity should be spawned
+     * @param type
+     *            The type of entity to spawn
+     * @param data
+     *            Additional data for the entity
+     */
+    public static void queueEntitySpawn(String user, BlockState block, EntityType type, int data) {
+        Queue.queueEntitySpawn(user, block, type, data);
+    }
+
+    /**
+     * Queues a skull update operation for processing.
+     *
+     * @param user
+     *            The username of the player
+     * @param block
+     *            The block state to update
+     * @param rowId
+     *            The row ID for the skull data
+     */
+    public static void queueSkullUpdate(String user, BlockState block, int rowId) {
+        Queue.queueSkullUpdate(user, block, rowId);
+    }
+
+    /**
+     * Queues a sign update operation for processing.
+     *
+     * @param user
+     *            The username of the player
+     * @param block
+     *            The block state to update
+     * @param action
+     *            The action type
+     * @param time
+     *            The time of the update
+     */
+    public static void queueSignUpdate(String user, BlockState block, int action, int time) {
+        Queue.queueSignUpdate(user, block, action, time);
+    }
 }

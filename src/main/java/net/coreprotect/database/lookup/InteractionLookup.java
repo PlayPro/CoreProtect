@@ -13,8 +13,11 @@ import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.listener.channel.PluginChannelListener;
+import net.coreprotect.utility.ChatUtils;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.utility.StringUtils;
+import net.coreprotect.utility.WorldUtils;
 
 public class InteractionLookup {
 
@@ -46,7 +49,7 @@ public class InteractionLookup {
             int y = block.getY();
             int z = block.getZ();
             int time = (int) (System.currentTimeMillis() / 1000L);
-            int worldId = Util.getWorldId(block.getWorld().getName());
+            int worldId = WorldUtils.getWorldId(block.getWorld().getName());
             int checkTime = 0;
             int count = 0;
             int rowMax = page * limit;
@@ -55,7 +58,7 @@ public class InteractionLookup {
                 checkTime = time - offset;
             }
 
-            String query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "block " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action='2' AND time >= '" + checkTime + "' LIMIT 0, 1";
+            String query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action='2' AND time >= '" + checkTime + "' LIMIT 0, 1";
             ResultSet results = statement.executeQuery(query);
 
             while (results.next()) {
@@ -64,7 +67,7 @@ public class InteractionLookup {
             results.close();
             int totalPages = (int) Math.ceil(count / (limit + 0.0));
 
-            query = "SELECT time,user,action,type,data,rolled_back FROM " + ConfigHandler.prefix + "block " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action='2' AND time >= '" + checkTime + "' ORDER BY rowid DESC LIMIT " + pageStart + ", " + limit + "";
+            query = "SELECT time,user,action,type,data,rolled_back FROM " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action='2' AND time >= '" + checkTime + "' ORDER BY rowid DESC LIMIT " + pageStart + ", " + limit + "";
             results = statement.executeQuery(query);
 
             StringBuilder resultBuilder = new StringBuilder();
@@ -81,10 +84,10 @@ public class InteractionLookup {
                 }
 
                 String resultUser = ConfigHandler.playerIdCacheReversed.get(resultUserId);
-                String timeAgo = Util.getTimeSince(resultTime, time, true);
+                String timeAgo = ChatUtils.getTimeSince(resultTime, time, true);
 
                 if (!found) {
-                    resultBuilder = new StringBuilder(Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.INTERACTIONS_HEADER) + Color.WHITE + " ----- " + Util.getCoordinates(command, worldId, x, y, z, false, false) + "\n");
+                    resultBuilder = new StringBuilder(Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.INTERACTIONS_HEADER) + Color.WHITE + " ----- " + ChatUtils.getCoordinates(command, worldId, x, y, z, false, false) + "\n");
                 }
                 found = true;
 
@@ -93,12 +96,12 @@ public class InteractionLookup {
                     rbFormat = Color.STRIKETHROUGH;
                 }
 
-                Material resultMaterial = Util.getType(resultType);
+                Material resultMaterial = MaterialUtils.getType(resultType);
                 if (resultMaterial == null) {
                     resultMaterial = Material.AIR;
                 }
                 String target = resultMaterial.name().toLowerCase(Locale.ROOT);
-                target = Util.nameFilter(target, resultData);
+                target = StringUtils.nameFilter(target, resultData);
                 if (target.length() > 0) {
                     target = "minecraft:" + target.toLowerCase(Locale.ROOT) + "";
                 }
@@ -117,7 +120,7 @@ public class InteractionLookup {
             if (found) {
                 if (count > limit) {
                     String pageInfo = Color.WHITE + "-----\n";
-                    pageInfo = pageInfo + Util.getPageNavigation(command, page, totalPages) + "\n";
+                    pageInfo = pageInfo + ChatUtils.getPageNavigation(command, page, totalPages) + "\n";
                     result = result + pageInfo;
                 }
             }

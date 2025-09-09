@@ -15,6 +15,7 @@ import net.coreprotect.utility.ChatMessage;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Teleport;
 import net.coreprotect.utility.Util;
+import net.coreprotect.utility.WorldUtils;
 
 public class TeleportCommand {
 
@@ -45,7 +46,7 @@ public class TeleportCommand {
         }
 
         String worldName = args[1];
-        int wid = Util.matchWorld(worldName);
+        int wid = WorldUtils.matchWorld(worldName);
         if (wid == -1 && resultc >= 5) {
             Chat.sendMessage(player, new ChatMessage(Phrase.build(Phrase.WORLD_NOT_FOUND, worldName)).build());
             return;
@@ -54,7 +55,7 @@ public class TeleportCommand {
         Location location = ((Player) player).getLocation().clone();
         World world = location.getWorld();
         if (wid > -1) {
-            world = Bukkit.getServer().getWorld(Util.getWorldName(wid));
+            world = Bukkit.getServer().getWorld(WorldUtils.getWorldName(wid));
         }
 
         String x = null;

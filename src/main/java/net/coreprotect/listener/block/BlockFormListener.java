@@ -13,7 +13,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Lookup;
 import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.WorldUtils;
 
 public final class BlockFormListener extends Queue implements Listener {
 
@@ -26,7 +26,7 @@ public final class BlockFormListener extends Queue implements Listener {
         boolean log = false;
         if (Config.getConfig(world).LIQUID_TRACKING && (newState.getType().equals(Material.OBSIDIAN) || newState.getType().equals(Material.COBBLESTONE) || block.getType().name().endsWith("_CONCRETE_POWDER"))) {
             String player = Lookup.whoPlacedCache(block);
-            int wid = Util.getWorldId(world.getName());
+            int wid = WorldUtils.getWorldId(world.getName());
             if (!(player.length() > 0)) {
                 int x = block.getX();
                 int y = block.getY();

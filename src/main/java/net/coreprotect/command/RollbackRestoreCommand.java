@@ -29,28 +29,28 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.WorldUtils;
 
 public class RollbackRestoreCommand {
-    protected static void runCommand(CommandSender player, Command command, boolean permission, String[] args, Location argLocation, long forceStart, long forceEnd) {
-        Location lo = (argLocation != null ? argLocation : CommandHandler.parseLocation(player, args));
+    public static void runCommand(CommandSender player, Command command, boolean permission, String[] args, Location argLocation, long forceStart, long forceEnd) {
+        Location lo = (argLocation != null ? argLocation : CommandParser.parseLocation(player, args));
         List<String> argUuids = new ArrayList<>();
-        List<String> argUsers = CommandHandler.parseUsers(args);
-        Integer[] argRadius = CommandHandler.parseRadius(args, player, lo);
-        int argNoisy = CommandHandler.parseNoisy(args);
-        List<Integer> argAction = CommandHandler.parseAction(args);
-        List<Object> argBlocks = CommandHandler.parseRestricted(player, args, argAction);
-        Map<Object, Boolean> argExclude = CommandHandler.parseExcluded(player, args, argAction);
-        List<String> argExcludeUsers = CommandHandler.parseExcludedUsers(player, args);
-        String ts = CommandHandler.parseTimeString(args);
-        long[] argTime = CommandHandler.parseTime(args);
+        List<String> argUsers = CommandParser.parseUsers(args);
+        Integer[] argRadius = CommandParser.parseRadius(args, player, lo);
+        int argNoisy = CommandParser.parseNoisy(args);
+        List<Integer> argAction = CommandParser.parseAction(args);
+        List<Object> argBlocks = CommandParser.parseRestricted(player, args, argAction);
+        Map<Object, Boolean> argExclude = CommandParser.parseExcluded(player, args, argAction);
+        List<String> argExcludeUsers = CommandParser.parseExcludedUsers(player, args);
+        String ts = CommandParser.parseTimeString(args);
+        long[] argTime = CommandParser.parseTime(args);
         long startTime = argTime[0];
         long endTime = argTime[1];
-        int argWid = CommandHandler.parseWorld(args, true, true);
-        boolean count = CommandHandler.parseCount(args);
-        boolean worldedit = CommandHandler.parseWorldEdit(args);
-        boolean forceglobal = CommandHandler.parseForceGlobal(args);
-        int preview = CommandHandler.parsePreview(args);
+        int argWid = CommandParser.parseWorld(args, true, true);
+        boolean count = CommandParser.parseCount(args);
+        boolean worldedit = CommandParser.parseWorldEdit(args);
+        boolean forceglobal = CommandParser.parseForceGlobal(args);
+        int preview = CommandParser.parsePreview(args);
         String corecommand = args[0].toLowerCase(Locale.ROOT);
 
         if (argBlocks == null || argExclude == null || argExcludeUsers == null) {
@@ -111,7 +111,7 @@ public class RollbackRestoreCommand {
             return;
         }
         if (argWid == -1) {
-            String worldName = CommandHandler.parseWorldName(args, true);
+            String worldName = CommandParser.parseWorldName(args, true);
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.WORLD_NOT_FOUND, worldName));
             return;
         }
@@ -290,7 +290,7 @@ public class RollbackRestoreCommand {
                             argAction.add(5);
                             argRadius = null;
                             argWid = 0;
-                            lo = new Location(Bukkit.getServer().getWorld(Util.getWorldName(wid)), x, y, z);
+                            lo = new Location(Bukkit.getServer().getWorld(WorldUtils.getWorldName(wid)), x, y, z);
                             Block block = lo.getBlock();
                             if (block.getState() instanceof Chest) {
                                 BlockFace[] blockFaces = new BlockFace[] { BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST };
@@ -391,7 +391,7 @@ public class RollbackRestoreCommand {
                                             }
                                             if (finalArgWid > 0) {
                                                 restrictWorld = true;
-                                                location = new Location(Bukkit.getServer().getWorld(Util.getWorldName(finalArgWid)), 0, 0, 0);
+                                                location = new Location(Bukkit.getServer().getWorld(WorldUtils.getWorldName(finalArgWid)), 0, 0, 0);
                                             }
                                             boolean verbose = false;
                                             if (noisy == 1) {

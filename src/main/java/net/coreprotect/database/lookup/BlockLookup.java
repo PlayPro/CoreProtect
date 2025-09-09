@@ -1,20 +1,18 @@
 package net.coreprotect.database.lookup;
 
-import java.sql.ResultSet;
-import java.sql.Statement;
-import java.util.Locale;
-
-import org.bukkit.Material;
-import org.bukkit.block.BlockState;
-import org.bukkit.command.CommandSender;
-
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.listener.channel.PluginChannelListener;
-import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.*;
+import org.bukkit.Material;
+import org.bukkit.block.BlockState;
+import org.bukkit.command.CommandSender;
+
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.Locale;
 
 public class BlockLookup {
 
@@ -46,7 +44,7 @@ public class BlockLookup {
             int y = block.getY();
             int z = block.getZ();
             long time = (System.currentTimeMillis() / 1000L);
-            int worldId = Util.getWorldId(block.getWorld().getName());
+            int worldId = WorldUtils.getWorldId(block.getWorld().getName());
             long checkTime = 0;
             int count = 0;
             int rowMax = page * limit;
@@ -57,7 +55,7 @@ public class BlockLookup {
 
             String blockName = block.getType().name().toLowerCase(Locale.ROOT);
 
-            String query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "block " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action IN(0,1) AND time >= '" + checkTime + "' LIMIT 0, 1";
+            String query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action IN(0,1) AND time >= '" + checkTime + "' LIMIT 0, 1";
             ResultSet results = statement.executeQuery(query);
             while (results.next()) {
                 count = results.getInt("count");
@@ -65,7 +63,7 @@ public class BlockLookup {
             results.close();
             int totalPages = (int) Math.ceil(count / (limit + 0.0));
 
-            query = "SELECT time,user,action,type,data,rolled_back FROM " + ConfigHandler.prefix + "block " + Util.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action IN(0,1) AND time >= '" + checkTime + "' ORDER BY rowid DESC LIMIT " + page_start + ", " + limit + "";
+            query = "SELECT time,user,action,type,data,rolled_back FROM " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action IN(0,1) AND time >= '" + checkTime + "' ORDER BY rowid DESC LIMIT " + page_start + ", " + limit + "";
             results = statement.executeQuery(query);
 
             StringBuilder resultTextBuilder = new StringBuilder();
@@ -83,10 +81,10 @@ public class BlockLookup {
                 }
 
                 String resultUser = ConfigHandler.playerIdCacheReversed.get(resultUserId);
-                String timeAgo = Util.getTimeSince(resultTime, time, true);
+                String timeAgo = ChatUtils.getTimeSince(resultTime, time, true);
 
                 if (!found) {
-                    resultTextBuilder = new StringBuilder(Color.WHITE + "----- " + Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "----- " + Util.getCoordinates(command, worldId, x, y, z, false, false) + "\n");
+                    resultTextBuilder = new StringBuilder(Color.WHITE + "----- " + Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "----- " + ChatUtils.getCoordinates(command, worldId, x, y, z, false, false) + "\n");
                 }
                 found = true;
 
@@ -111,14 +109,14 @@ public class BlockLookup {
 
                 String target;
                 if (resultAction == 3) {
-                    target = Util.getEntityType(resultType).name();
+                    target = EntityUtils.getEntityType(resultType).name();
                 }
                 else {
-                    Material resultMaterial = Util.getType(resultType);
+                    Material resultMaterial = MaterialUtils.getType(resultType);
                     if (resultMaterial == null) {
                         resultMaterial = Material.AIR;
                     }
-                    target = Util.nameFilter(resultMaterial.name().toLowerCase(Locale.ROOT), resultData);
+                    target = StringUtils.nameFilter(resultMaterial.name().toLowerCase(Locale.ROOT), resultData);
                     target = "minecraft:" + target.toLowerCase(Locale.ROOT);
                 }
                 if (target.length() > 0) {
@@ -140,7 +138,7 @@ public class BlockLookup {
             if (found) {
                 if (count > limit) {
                     String pageInfo = Color.WHITE + "-----\n";
-                    pageInfo = pageInfo + Util.getPageNavigation(command, page, totalPages) + "\n";
+                    pageInfo = pageInfo + ChatUtils.getPageNavigation(command, page, totalPages) + "\n";
                     resultText = resultText + pageInfo;
                 }
             }
@@ -152,7 +150,7 @@ public class BlockLookup {
                     // resultText = Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Color.WHITE + "No block data found at " + Color.ITALIC + "x" + x + "/y" + y + "/z" + z + ".";
                     resultText = Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_DATA_LOCATION, Selector.FIRST);
                     if (!blockName.equals("air") && !blockName.equals("cave_air")) {
-                        resultText = Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_DATA, Color.ITALIC + block.getType().name().toLowerCase(Locale.ROOT)) + "\n";
+                        resultText = Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_DATA, Color.ITALIC + block.getType().name().toLowerCase(Locale.ROOT) + Color.WHITE) + "\n";
                     }
                 }
             }

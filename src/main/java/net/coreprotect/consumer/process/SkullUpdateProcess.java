@@ -6,7 +6,7 @@ import org.bukkit.block.BlockState;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.SkullStatement;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.BlockUtils;
 
 class SkullUpdateProcess {
 
@@ -20,7 +20,7 @@ class SkullUpdateProcess {
             BlockState block = (BlockState) object;
             String query = "SELECT owner, skin FROM " + ConfigHandler.prefix + "skull WHERE rowid='" + rowId + "' LIMIT 0, 1";
             SkullStatement.getData(statement, block, query);
-            Util.updateBlock(block);
+            BlockUtils.updateBlock(block);
         }
     }
 }

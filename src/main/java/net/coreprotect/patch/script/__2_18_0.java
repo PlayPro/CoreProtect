@@ -15,7 +15,8 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.patch.Patch;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.MaterialUtils;
 
 public class __2_18_0 {
 
@@ -57,7 +58,7 @@ public class __2_18_0 {
                 PreparedStatement preparedContainerStatement = statement.getConnection().prepareStatement(preparedContainerQuery);
                 PreparedStatement preparedContainerUpdateStatement = statement.getConnection().prepareStatement(preparedContainerUpdateQuery);
                 PreparedStatement preparedMaterialDeleteStatement = statement.getConnection().prepareStatement(preparedMaterialDeleteQuery);
-                Database.beginTransaction(statement);
+                Database.beginTransaction(statement, Config.getGlobal().MYSQL);
                 try {
                     ResultSet resultSet = statement.executeQuery(query);
                     while (resultSet.next()) {
@@ -88,7 +89,7 @@ public class __2_18_0 {
                         }
 
                         Material material = Material.matchMaterial(materialName, legacy);
-                        int newID = Util.getBlockId(material);
+                        int newID = MaterialUtils.getBlockId(material);
 
                         preparedBlockStatement.setInt(1, oldID);
                         ResultSet blockResults = preparedBlockStatement.executeQuery();
@@ -101,7 +102,7 @@ public class __2_18_0 {
                             int validatedID = newID;
                             if (validatedMaterial == Material.WHITE_WOOL) {
                                 validatedMaterial = getWoolColor(blockData);
-                                validatedID = Util.getBlockId(validatedMaterial);
+                                validatedID = MaterialUtils.getBlockId(validatedMaterial);
                             }
 
                             if (blockBlockData == null && validatedMaterial.isBlock()) {
@@ -123,7 +124,7 @@ public class __2_18_0 {
                                         BlockFace newRotation = getLegacyRotation(blockData);
                                         rotatable.setRotation(newRotation);
                                     }
-                                    blockBlockData = Util.stringToByteData(newBlockData.getAsString(), validatedID);
+                                    blockBlockData = BlockUtils.stringToByteData(newBlockData.getAsString(), validatedID);
                                 }
                             }
 
@@ -163,7 +164,7 @@ public class __2_18_0 {
                 catch (Exception e) {
                     e.printStackTrace();
                 }
-                Database.commitTransaction(statement);
+                Database.commitTransaction(statement, Config.getGlobal().MYSQL);
 
                 preparedBlockStatement.close();
                 preparedBlockUpdateStatement.close();

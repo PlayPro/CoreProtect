@@ -18,7 +18,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.block.BlockUtil;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.EntityUtils;
 
 public final class CreatureSpawnListener extends Queue implements Listener {
 
@@ -40,7 +40,7 @@ public final class CreatureSpawnListener extends Queue implements Listener {
             Map.Entry<String, Object[]> pair = it.next();
             String name = pair.getKey();
             Object[] data = pair.getValue();
-            if ((data[1].equals(key) || data[2].equals(key)) && Util.getEntityMaterial(event.getEntityType()) == ((ItemStack) data[3]).getType()) {
+            if ((data[1].equals(key) || data[2].equals(key)) && EntityUtils.getEntityMaterial(event.getEntityType()) == ((ItemStack) data[3]).getType()) {
                 Block gravityLocation = BlockUtil.gravityScan(location, Material.ARMOR_STAND, name);
                 Queue.queueBlockPlace(name, gravityLocation.getState(), location.getBlock().getType(), location.getBlock().getState(), ((ItemStack) data[3]).getType(), (int) event.getEntity().getLocation().getYaw(), 1, null);
                 it.remove();

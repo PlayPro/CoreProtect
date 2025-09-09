@@ -24,7 +24,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.logger.ItemLogger;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.EntityUtils;
 
 public final class ProjectileLaunchListener extends Queue implements Listener {
 
@@ -68,7 +68,7 @@ public final class ProjectileLaunchListener extends Queue implements Listener {
             String name = pair.getKey();
             Object[] data = pair.getValue();
             ItemStack itemStack = (ItemStack) data[3];
-            Material entityMaterial = Util.getEntityMaterial(event.getEntityType());
+            Material entityMaterial = EntityUtils.getEntityMaterial(event.getEntityType());
             boolean isBow = BOWS.contains(itemStack.getType());
             if ((data[1].equals(key) || data[2].equals(key)) && (entityMaterial == itemStack.getType() || (itemStack.getType() == Material.LINGERING_POTION && entityMaterial == Material.SPLASH_POTION) || isBow)) {
                 boolean thrownItem = (itemStack.getType() != Material.FIREWORK_ROCKET && !isBow);
@@ -102,7 +102,7 @@ public final class ProjectileLaunchListener extends Queue implements Listener {
         if (!(event.getEntity() instanceof Player)) {
             return;
         }
-
+    
         ItemStack itemStack = event.getConsumable();
         playerLaunchProjectile(event.getEntity().getLocation(), event.getEntity().getName(), itemStack, 1, 1, 0, ItemLogger.ITEM_SHOOT);
     }

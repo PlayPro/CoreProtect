@@ -35,18 +35,19 @@ import net.coreprotect.patch.Patch;
 import net.coreprotect.spigot.SpigotAdapter;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.SystemUtils;
+import net.coreprotect.utility.VersionUtils;
 import oshi.hardware.CentralProcessor;
 
 public class ConfigHandler extends Queue {
     public static int SERVER_VERSION = 0;
     public static final int EDITION_VERSION = 2;
-    public static final String EDITION_BRANCH = Util.getBranch();
-    public static final String EDITION_NAME = Util.getPluginName();
+    public static final String EDITION_BRANCH = VersionUtils.getBranch();
+    public static final String EDITION_NAME = VersionUtils.getPluginName();
     public static final String COMMUNITY_EDITION = "Community Edition";
     public static final String JAVA_VERSION = "11.0";
-    public static final String MINECRAFT_VERSION = "1.15";
-    public static final String LATEST_VERSION = "1.21";
+    public static final String MINECRAFT_VERSION = "1.16";
+    public static final String LATEST_VERSION = "1.21.8";
     public static String path = "plugins/CoreProtect/";
     public static String sqlite = "database.db";
     public static String host = "127.0.0.1";
@@ -55,16 +56,18 @@ public class ConfigHandler extends Queue {
     public static String username = "root";
     public static String password = "";
     public static String prefix = "co_";
+    public static String prefixConfig = "co_";
     public static int maximumPoolSize = 10;
 
     public static HikariDataSource hikariDataSource = null;
-    public static final CentralProcessor processorInfo = Util.getProcessorInfo();
-    public static final boolean isSpigot = Util.isSpigot();
-    public static final boolean isPaper = Util.isPaper();
-    public static final boolean isFolia = Util.isFolia();
+    public static final CentralProcessor processorInfo = SystemUtils.getProcessorInfo();
+    public static final boolean isSpigot = VersionUtils.isSpigot();
+    public static final boolean isPaper = VersionUtils.isPaper();
+    public static final boolean isFolia = VersionUtils.isFolia();
     public static volatile boolean serverRunning = false;
     public static volatile boolean converterRunning = false;
     public static volatile boolean purgeRunning = false;
+    public static volatile boolean migrationRunning = false;
     public static volatile boolean pauseConsumer = false;
     public static volatile boolean worldeditEnabled = false;
     public static volatile boolean databaseReachable = true;
@@ -106,6 +109,8 @@ public class ConfigHandler extends Queue {
     public static ConcurrentHashMap<String, List<ItemStack>> itemsBuy = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, Object[]> hopperAbort = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, Object[]> hopperSuccess = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, ConcurrentHashMap<String, Long>> dispenserNoChange = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> dispenserPending = new ConcurrentHashMap<>();
     public static Map<String, List<ItemStack[]>> forceContainer = syncMap();
     public static Map<String, Integer> lookupType = syncMap();
     public static Map<String, Object[]> lookupThrottle = syncMap();
@@ -131,7 +136,7 @@ public class ConfigHandler extends Queue {
     public static ConcurrentHashMap<String, String> language = new ConcurrentHashMap<>();
     public static List<String> databaseTables = new ArrayList<>();
 
-    private static void checkPlayers(Connection connection) {
+    public static void checkPlayers(Connection connection) {
         ConfigHandler.playerIdCache.clear();
         ConfigHandler.playerIdCacheReversed.clear();
         for (Player player : Bukkit.getServer().getOnlinePlayers()) {
@@ -173,6 +178,7 @@ public class ConfigHandler extends Queue {
 
             // Enforce "co_" table prefix if using SQLite.
             if (!Config.getGlobal().MYSQL) {
+                ConfigHandler.prefixConfig = Config.getGlobal().PREFIX;
                 Config.getGlobal().PREFIX = "co_";
             }
 
@@ -259,7 +265,7 @@ public class ConfigHandler extends Queue {
             ConfigHandler.hikariDataSource = new HikariDataSource(config);
         }
 
-        Database.createDatabaseTables(ConfigHandler.prefix, false);
+        Database.createDatabaseTables(ConfigHandler.prefix, false, null, Config.getGlobal().MYSQL, false);
     }
 
     public static void loadTypes(Statement statement) {
@@ -440,15 +446,15 @@ public class ConfigHandler extends Queue {
             ConfigHandler.loadTypes(statement); // Load material ID's into memory.
 
             // Initialize WorldEdit logging
-            if (Util.checkWorldEdit()) {
+            if (VersionUtils.checkWorldEdit()) {
                 PluginManager pluginManager = Bukkit.getServer().getPluginManager();
                 Plugin worldEditPlugin = pluginManager.getPlugin("WorldEdit");
                 if (worldEditPlugin != null && worldEditPlugin.isEnabled()) {
-                    Util.loadWorldEdit();
+                    VersionUtils.loadWorldEdit();
                 }
             }
             else if (ConfigHandler.worldeditEnabled) {
-                Util.unloadWorldEdit();
+                VersionUtils.unloadWorldEdit();
             }
 
             ConfigHandler.serverRunning = true; // Set as running before patching

@@ -225,6 +225,9 @@ public class Language {
         phrases.put(Phrase.TIME_SECONDS, "{0} {second|seconds}");
         phrases.put(Phrase.TIME_WEEKS, "{0} {week|weeks}");
         phrases.put(Phrase.TIME_YEARS, "{0} {year|years}");
+        phrases.put(Phrase.TIME_UNIT_DAY, "/d");
+        phrases.put(Phrase.TIME_UNIT_HOUR, "/h");
+        phrases.put(Phrase.TIME_UNIT_MINUTE, "/m");
         phrases.put(Phrase.UPDATE_ERROR, "An error occurred while checking for updates.");
         phrases.put(Phrase.UPDATE_HEADER, "{0} Update");
         phrases.put(Phrase.UPDATE_NOTICE, "Notice: {0} is now available.");

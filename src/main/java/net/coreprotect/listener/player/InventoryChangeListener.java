@@ -10,21 +10,15 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.DoubleChest;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.inventory.InventoryAction;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryDragEvent;
-import org.bukkit.event.inventory.InventoryMoveItemEvent;
-import org.bukkit.event.inventory.InventoryType;
-import org.bukkit.inventory.BlockInventoryHolder;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
-import org.bukkit.inventory.ItemStack;
+import org.bukkit.event.inventory.*;
+import org.bukkit.inventory.*;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
@@ -342,9 +336,57 @@ public final class InventoryChangeListener extends Queue implements Listener {
         return true;
     }
 
+    private boolean checkCrafterSlotChange(InventoryClickEvent event) {
+        // Check if the clicked inventory is a crafter
+        if (event.getInventory().getType() != InventoryType.CRAFTER) {
+            return false;
+        }
+
+        // Check that the Action is NOTHING
+        if (event.getAction() != InventoryAction.NOTHING) {
+            return false;
+        }
+
+        // Check if the clicked slot is one of the crafter slots
+        if (event.getRawSlot() < 0 || event.getRawSlot() > 8) {
+            return false;
+        }
+
+        // Check that the click type is not a middle click
+        if (!(event.getClick() == ClickType.LEFT || event.getClick() == ClickType.RIGHT)) {
+            return false;
+        }
+
+        // Gather other necessary information
+        Player player = (Player) event.getWhoClicked();
+        Inventory inventory = event.getInventory();
+
+        Location location = null;
+        try {
+            location = inventory.getLocation();
+        } catch (Exception e) {
+            return false;
+        }
+
+        if (location == null) {
+            return false;
+        }
+
+        Block block = location.getBlock();
+        BlockState blockState = block.getState();
+
+        Queue.queueBlockPlace(player.getName(), blockState, block.getType(), blockState, block.getType(), -1, 0, blockState.getBlockData().getAsString());
+        return true;
+    }
+
     @EventHandler(priority = EventPriority.LOWEST)
     protected void onInventoryClick(InventoryClickEvent event) {
         InventoryAction inventoryAction = event.getAction();
+
+        if (checkCrafterSlotChange(event)) {
+            return;
+        }
+
         if (inventoryAction == InventoryAction.NOTHING) {
             return;
         }

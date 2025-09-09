@@ -1,14 +1,14 @@
 package net.coreprotect.language;
 
+import net.coreprotect.utility.ChatMessage;
+import net.coreprotect.utility.Color;
+import net.coreprotect.utility.StringUtils;
+
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import net.coreprotect.utility.ChatMessage;
-import net.coreprotect.utility.Color;
-import net.coreprotect.utility.StringUtils;
 
 public enum Phrase {
 
@@ -206,6 +206,7 @@ public enum Phrase {
     TIME_MINUTES,
     TIME_MONTHS,
     TIME_SECONDS,
+    TIME_UNITS,
     TIME_WEEKS,
     TIME_YEARS,
     UPDATE_ERROR,

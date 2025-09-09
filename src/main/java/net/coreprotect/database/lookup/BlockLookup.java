@@ -1,25 +1,18 @@
 package net.coreprotect.database.lookup;
 
-import java.sql.ResultSet;
-import java.sql.Statement;
-import java.util.Locale;
-
-import org.bukkit.Material;
-import org.bukkit.block.BlockState;
-import org.bukkit.command.CommandSender;
-
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.listener.channel.PluginChannelListener;
-import net.coreprotect.utility.ChatUtils;
-import net.coreprotect.utility.Color;
-import net.coreprotect.utility.EntityUtils;
-import net.coreprotect.utility.MaterialUtils;
-import net.coreprotect.utility.StringUtils;
-import net.coreprotect.utility.Util;
-import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.*;
+import org.bukkit.Material;
+import org.bukkit.block.BlockState;
+import org.bukkit.command.CommandSender;
+
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.Locale;
 
 public class BlockLookup {
 

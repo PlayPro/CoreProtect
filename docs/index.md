@@ -18,6 +18,9 @@ A list of all language codes that can be used with CoreProtect.
 [**CoreProtect API Documentation**](/api/)  
 Log your own block changes, perform lookups, rollbacks, restores, and more.  
 
+[**Database Migration**](/database-migration/)  
+Migrate your CoreProtect database between SQLite and MySQL.  
+
 [**Compatible Third-Party Plugins & Tools**](/tools-integrations/)  
 A list of plugins and tools that are compatible with CoreProtect.  
 

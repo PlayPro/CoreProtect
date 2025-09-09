@@ -5,6 +5,7 @@ import java.util.Locale;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.Location;
 import org.bukkit.block.BlockState;
 
 import net.coreprotect.CoreProtect;
@@ -29,7 +30,7 @@ public class PlayerInteractLogger {
                 return;
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, block.getLocation());
             if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
             }
@@ -39,11 +40,12 @@ public class PlayerInteractLogger {
             }
 
             int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
-            int wid = WorldUtils.getWorldId(block.getWorld().getName());
+            Location eventLocation = event.getLocation();
+            int wid = WorldUtils.getWorldId(eventLocation.getWorld().getName());
             int time = (int) (System.currentTimeMillis() / 1000L);
-            int x = block.getX();
-            int y = block.getY();
-            int z = block.getZ();
+            int x = eventLocation.getBlockX();
+            int y = eventLocation.getBlockY();
+            int z = eventLocation.getBlockZ();
             int data = 0;
             BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, type, data, null, null, 2, 0);
         }

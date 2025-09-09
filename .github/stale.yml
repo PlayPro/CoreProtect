@@ -3,6 +3,8 @@ daysUntilClose: 7
 exemptLabels:
   - 'accepted'
   - 'bug'
+  - 'confirmed bug (tested)'
+  - 'potential bug (needs testing)'
   - 'suggestion'
   - 'help wanted'
 staleLabel: stale

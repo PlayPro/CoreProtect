@@ -113,6 +113,31 @@
           <skipTests>${skipTests}</skipTests>
         </configuration>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>3.6.1</version>
+        <executions>
+          <execution>
+            <phase>validate</phase>
+            <goals><goal>enforce</goal></goals>
+            <configuration>
+              <rules>
+                <requireNoRepositories>
+                  <allowedRepositories>
+                    <allowedRepository>central</allowedRepository>
+                    <allowedRepository>enginehub-repo</allowedRepository>
+                    <allowedRepository>spigot-repo</allowedRepository>
+                    <allowedRepository>paper-repo</allowedRepository>
+                    <allowedRepository>codemc-repo</allowedRepository>
+                    <allowedRepository>jitpack.io</allowedRepository>
+                  </allowedRepositories>
+                </requireNoRepositories>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
   <profiles>

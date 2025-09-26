@@ -35,6 +35,12 @@ public class MaterialUtils extends Queue {
             id = ConfigHandler.materials.get(name);
         }
         else if (internal) {
+            // Check if another server has already added this material (multi-server setup)
+            id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.MATERIALS, name);
+            if (id != -1) {
+                return id;
+            }
+
             int mid = ConfigHandler.materialId + 1;
             ConfigHandler.materials.put(name, mid);
             ConfigHandler.materialsReversed.put(mid, name);
@@ -54,6 +60,12 @@ public class MaterialUtils extends Queue {
             id = ConfigHandler.blockdata.get(data);
         }
         else if (internal) {
+            // Check if another server has already added this blockdata (multi-server setup)
+            id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.BLOCKDATA, data);
+            if (id != -1) {
+                return id;
+            }
+
             int bid = ConfigHandler.blockdataId + 1;
             ConfigHandler.blockdata.put(data, bid);
             ConfigHandler.blockdataReversed.put(bid, data);
@@ -135,6 +147,12 @@ public class MaterialUtils extends Queue {
             id = ConfigHandler.art.get(name);
         }
         else if (internal) {
+            // Check if another server has already added this art (multi-server setup)
+            id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.ART, name);
+            if (id != -1) {
+                return id;
+            }
+
             int artID = ConfigHandler.artId + 1;
             ConfigHandler.art.put(name, artID);
             ConfigHandler.artReversed.put(artID, name);

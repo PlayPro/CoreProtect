@@ -44,6 +44,13 @@ public class VersionCheckService {
                 return false;
             }
 
+            // Patch version validation
+            if (VersionUtils.newVersion(ConfigHandler.PATCH_VERSION, VersionUtils.getPluginVersion()) && !ConfigHandler.EDITION_BRANCH.contains("-dev")) {
+                Chat.console(Phrase.build(Phrase.VERSION_INCOMPATIBLE, "CoreProtect", "v" + VersionUtils.getPluginVersion()));
+                Chat.sendConsoleMessage(Color.GREY + "[CoreProtect] " + Phrase.build(Phrase.INVALID_BRANCH_2));
+                return false;
+            }
+
             // Branch validation
             if (ConfigHandler.EDITION_BRANCH.length() == 0) {
                 Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.INVALID_BRANCH_1));

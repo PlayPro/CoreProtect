@@ -11,6 +11,7 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Tag;
 import org.bukkit.entity.EntityType;
+import org.bukkit.event.inventory.InventoryType;
 
 import net.coreprotect.model.BlockGroup;
 
@@ -160,6 +161,11 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 implements BukkitInterface {
         org.bukkit.entity.Wolf.Variant variant = (org.bukkit.entity.Wolf.Variant) value;
         wolf.setVariant(variant);
 
+    }
+
+    @Override
+    public boolean isCrafter(InventoryType type) {
+        return type == InventoryType.CRAFTER;
     }
 
     @Override

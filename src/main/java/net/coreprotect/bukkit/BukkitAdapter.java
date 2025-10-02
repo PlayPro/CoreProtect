@@ -23,6 +23,7 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.event.block.SignChangeEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
@@ -353,6 +354,11 @@ public class BukkitAdapter implements BukkitInterface {
     @Override
     public Object getRegistryValue(String key, Object tClass) {
         return null;
+    }
+
+    @Override
+    public boolean isCrafter(InventoryType type) {
+        return false;
     }
 
     @Override

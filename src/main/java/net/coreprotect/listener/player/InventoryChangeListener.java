@@ -17,10 +17,19 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.inventory.*;
-import org.bukkit.inventory.*;
+import org.bukkit.event.inventory.ClickType;
+import org.bukkit.event.inventory.InventoryAction;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.inventory.InventoryMoveItemEvent;
+import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.inventory.BlockInventoryHolder;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.CoreProtect;
+import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
@@ -338,7 +347,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
 
     private boolean checkCrafterSlotChange(InventoryClickEvent event) {
         // Check if the clicked inventory is a crafter
-        if (event.getInventory().getType() != InventoryType.CRAFTER) {
+        if (!BukkitAdapter.ADAPTER.isCrafter(event.getInventory().getType())) {
             return false;
         }
 
@@ -364,7 +373,8 @@ public final class InventoryChangeListener extends Queue implements Listener {
         Location location = null;
         try {
             location = inventory.getLocation();
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             return false;
         }
 

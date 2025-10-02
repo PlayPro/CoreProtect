@@ -209,7 +209,7 @@ public class RollbackProcessor {
                         BlockData checkData = rowType == Material.AIR ? blockData : rawBlockData;
                         if (checkData != null) {
                             if (checkData.getAsString().equals(pendingChangeData.getAsString()) || checkData instanceof org.bukkit.block.data.MultipleFacing || checkData instanceof org.bukkit.block.data.type.Stairs || checkData instanceof org.bukkit.block.data.type.RedstoneWire) {
-                                if (rowType != Material.CHEST && rowType != Material.TRAPPED_CHEST) { // always update double chests
+                                if (rowType != Material.CHEST && rowType != Material.TRAPPED_CHEST && !BukkitAdapter.ADAPTER.isCopperChest(rowType)) { // always update double chests
                                     changeBlock = false;
                                 }
                             }

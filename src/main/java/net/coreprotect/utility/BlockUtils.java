@@ -208,6 +208,7 @@ public class BlockUtils {
             if (blockState instanceof BlockInventoryHolder) {
                 if (singleBlock) {
                     List<Material> chests = java.util.Arrays.asList(Material.CHEST, Material.TRAPPED_CHEST);
+                    chests.addAll(BukkitAdapter.ADAPTER.copperChestMaterials());
                     Material type = blockState.getType();
                     if (chests.contains(type)) {
                         inventory = ((org.bukkit.block.Chest) blockState).getBlockInventory();

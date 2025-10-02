@@ -2,6 +2,7 @@ package net.coreprotect.bukkit;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -432,4 +433,8 @@ public interface BukkitInterface {
      * @return The parsed name
      */
     String parseLegacyName(String name);
+
+    boolean isCopperChest(Material material);
+
+    Set<Material> copperChestMaterials();
 }

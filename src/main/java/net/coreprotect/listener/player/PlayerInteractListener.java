@@ -145,7 +145,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                     }
                     else if (isContainerBlock && Config.getConfig(world).ITEM_TRANSACTIONS) {
                         Location location = null;
-                        if (type.equals(Material.CHEST) || type.equals(Material.TRAPPED_CHEST)) {
+                        if (type.equals(Material.CHEST) || type.equals(Material.TRAPPED_CHEST) || BukkitAdapter.ADAPTER.isCopperChest(type)) {
                             Chest chest = (Chest) clickedBlock.getState();
                             InventoryHolder inventoryHolder = chest.getInventory().getHolder();
 

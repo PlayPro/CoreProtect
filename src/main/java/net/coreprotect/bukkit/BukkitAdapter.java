@@ -1,7 +1,10 @@
 package net.coreprotect.bukkit;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.bukkit.Color;
 import org.bukkit.DyeColor;
@@ -85,6 +88,7 @@ public class BukkitAdapter implements BukkitInterface {
     }
 
     // -------------------- Basic data conversion methods --------------------
+    public static Set<Material> EMPTY_SET = new HashSet<>(Arrays.asList());
 
     @Override
     public String parseLegacyName(String name) {
@@ -349,5 +353,15 @@ public class BukkitAdapter implements BukkitInterface {
     @Override
     public Object getRegistryValue(String key, Object tClass) {
         return null;
+    }
+
+    @Override
+    public boolean isCopperChest(Material material) {
+        return false;
+    }
+
+    @Override
+    public Set<Material> copperChestMaterials() {
+        return EMPTY_SET;
     }
 }

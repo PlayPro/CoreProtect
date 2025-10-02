@@ -1,5 +1,7 @@
 package net.coreprotect.bukkit;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -22,6 +24,8 @@ import net.coreprotect.model.BlockGroup;
  */
 public class Bukkit_v1_21 extends Bukkit_v1_20 implements BukkitInterface {
 
+    public static Set<Material> COPPER_CHESTS = new HashSet<>(Arrays.asList());
+
     /**
      * Initializes the Bukkit_v1_21 adapter with 1.21-specific block groups and mappings.
      * Sets up collections of blocks with similar behavior for efficient handling.
@@ -29,6 +33,9 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 implements BukkitInterface {
     public Bukkit_v1_21() {
         initializeBlockGroups();
         initializeTrapdoorBlocks();
+        BlockGroup.INTERACT_BLOCKS.addAll(copperChestMaterials());
+        BlockGroup.CONTAINERS.addAll(copperChestMaterials());
+        BlockGroup.UPDATE_STATE.addAll(copperChestMaterials());
     }
 
     /**
@@ -153,5 +160,36 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 implements BukkitInterface {
         org.bukkit.entity.Wolf.Variant variant = (org.bukkit.entity.Wolf.Variant) value;
         wolf.setVariant(variant);
 
+    }
+
+    @Override
+    public boolean isCopperChest(Material material) {
+        if (COPPER_CHESTS.contains(material) && material != Material.CHEST) {
+            return true;
+        }
+
+        return false;
+    }
+
+    @Override
+    public Set<Material> copperChestMaterials() {
+        if (COPPER_CHESTS.isEmpty()) {
+            Material copperChest = Material.getMaterial("COPPER_CHEST");
+            if (copperChest == null) {
+                COPPER_CHESTS.add(Material.CHEST);
+            }
+            else {
+                COPPER_CHESTS.add(Material.getMaterial("COPPER_CHEST"));
+                COPPER_CHESTS.add(Material.getMaterial("EXPOSED_COPPER_CHEST"));
+                COPPER_CHESTS.add(Material.getMaterial("WEATHERED_COPPER_CHEST"));
+                COPPER_CHESTS.add(Material.getMaterial("OXIDIZED_COPPER_CHEST"));
+                COPPER_CHESTS.add(Material.getMaterial("WAXED_COPPER_CHEST"));
+                COPPER_CHESTS.add(Material.getMaterial("WAXED_EXPOSED_COPPER_CHEST"));
+                COPPER_CHESTS.add(Material.getMaterial("WAXED_WEATHERED_COPPER_CHEST"));
+                COPPER_CHESTS.add(Material.getMaterial("WAXED_OXIDIZED_COPPER_CHEST"));
+            }
+        }
+
+        return COPPER_CHESTS;
     }
 }

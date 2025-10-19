@@ -158,10 +158,7 @@ public class PurgeCommand extends Consumer {
             includeEntity = includeListEntity.toString();
         }
 
-        if (entity) {
-            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ACTION_NOT_SUPPORTED));
-            return;
-        }
+        // allow entity restrictions for purge (handled below per-table)
 
         boolean optimizeCheck = false;
         for (String arg : args) {
@@ -171,11 +168,13 @@ public class PurgeCommand extends Consumer {
             }
         }
 
-        final StringBuilder restrictTargets = restrict;
-        final String includeBlockFinal = includeBlock;
-        final boolean optimize = optimizeCheck;
-        final boolean hasBlockRestriction = hasBlock;
-        final int restrictCountFinal = restrictCount;
+    final StringBuilder restrictTargets = restrict;
+    final String includeBlockFinal = includeBlock;
+    final String includeEntityFinal = includeEntity;
+    final boolean optimize = optimizeCheck;
+    final boolean hasBlockRestriction = hasBlock;
+    final boolean hasEntityRestriction = entity;
+    final int restrictCountFinal = restrictCount;
 
         class BasicThread implements Runnable {
 
@@ -209,7 +208,7 @@ public class PurgeCommand extends Consumer {
                         Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_STARTED, "#global"));
                     }
 
-                    if (hasBlockRestriction) {
+                    if (hasBlockRestriction || hasEntityRestriction) {
                         Chat.sendGlobalMessage(player, Phrase.build(Phrase.ROLLBACK_INCLUDE, restrictTargets.toString(), Selector.FIRST, Selector.FIRST, (restrictCountFinal == 1 ? Selector.FIRST : Selector.SECOND))); // include
                     }
 
@@ -262,7 +261,8 @@ public class PurgeCommand extends Consumer {
 
                     List<String> purgeTables = Arrays.asList("sign", "container", "item", "skull", "session", "chat", "command", "entity", "block");
                     List<String> worldTables = Arrays.asList("sign", "container", "item", "session", "chat", "command", "block");
-                    List<String> restrictTables = Arrays.asList("block");
+                    // restrictTables: tables which support a "type" column for filtering
+                    List<String> restrictTables = Arrays.asList("block", "entity");
                     List<String> excludeTables = Arrays.asList("database_lock"); // don't insert data into these tables
                     for (String table : ConfigHandler.databaseTables) {
                         String tableName = table.replaceAll("_", " ");
@@ -290,19 +290,30 @@ public class PurgeCommand extends Consumer {
                                     boolean purge = true;
                                     String timeLimit = "";
                                     if (purgeTables.contains(table)) {
-                                        String blockRestriction = "(";
-                                        if (hasBlockRestriction && restrictTables.contains(table)) {
-                                            blockRestriction = "type NOT IN(" + includeBlockFinal + ") OR (type IN(" + includeBlockFinal + ") AND ";
+                                        String typeRestriction = "(";
+                                        if (restrictTables.contains(table)) {
+                                            if (table.equals("block") && hasBlockRestriction) {
+                                                typeRestriction = "type NOT IN(" + includeBlockFinal + ") OR (type IN(" + includeBlockFinal + ") AND ";
+                                            }
+                                            else if (table.equals("entity") && hasEntityRestriction) {
+                                                typeRestriction = "type NOT IN(" + includeEntityFinal + ") OR (type IN(" + includeEntityFinal + ") AND ";
+                                            }
+                                            else if ((table.equals("block") && hasBlockRestriction) || (table.equals("entity") && hasEntityRestriction)) {
+                                                // handled above
+                                            }
+                                            else {
+                                                purge = false;
+                                            }
                                         }
-                                        else if (hasBlockRestriction) {
+                                        else if ((hasBlockRestriction && table.equals("block")) || (hasEntityRestriction && table.equals("entity"))) {
                                             purge = false;
                                         }
 
                                         if (argWid > 0 && worldTables.contains(table)) {
-                                            timeLimit = " WHERE (" + blockRestriction + "wid = '" + argWid + "' AND (time >= '" + timeEnd + "' OR time < '" + timeStart + "'))) OR (wid != '" + argWid + "')";
+                                            timeLimit = " WHERE (" + typeRestriction + "wid = '" + argWid + "' AND (time >= '" + timeEnd + "' OR time < '" + timeStart + "'))) OR (wid != '" + argWid + "')";
                                         }
                                         else if (argWid == 0 && purge) {
-                                            timeLimit = " WHERE " + blockRestriction + "(time >= '" + timeEnd + "' OR time < '" + timeStart + "'))";
+                                            timeLimit = " WHERE " + typeRestriction + "(time >= '" + timeEnd + "' OR time < '" + timeStart + "'))";
                                         }
                                     }
                                     query = "INSERT INTO " + purgePrefix + table + " SELECT " + columns + " FROM " + ConfigHandler.prefix + table + timeLimit;
@@ -356,12 +367,17 @@ public class PurgeCommand extends Consumer {
                                 try {
                                     boolean purge = purgeTables.contains(table);
 
-                                    String blockRestriction = "";
-                                    if (hasBlockRestriction && restrictTables.contains(table)) {
-                                        blockRestriction = "type IN(" + includeBlockFinal + ") AND ";
-                                    }
-                                    else if (hasBlockRestriction) {
-                                        purge = false;
+                                    String typeRestriction = "";
+                                    if (restrictTables.contains(table)) {
+                                        if (table.equals("block") && hasBlockRestriction) {
+                                            typeRestriction = "type IN(" + includeBlockFinal + ") AND ";
+                                        }
+                                        else if (table.equals("entity") && hasEntityRestriction) {
+                                            typeRestriction = "type IN(" + includeEntityFinal + ") AND ";
+                                        }
+                                        else {
+                                            purge = false;
+                                        }
                                     }
 
                                     String worldRestriction = "";
@@ -373,7 +389,7 @@ public class PurgeCommand extends Consumer {
                                     }
 
                                     if (purge) {
-                                        query = "DELETE FROM " + purgePrefix + table + " WHERE " + blockRestriction + "time < '" + timeEnd + "' AND time >= '" + timeStart + "'" + worldRestriction;
+                                        query = "DELETE FROM " + purgePrefix + table + " WHERE " + typeRestriction + "time < '" + timeEnd + "' AND time >= '" + timeStart + "'" + worldRestriction;
                                         preparedStmt = connection.prepareStatement(query);
                                         preparedStmt.execute();
                                         preparedStmt.close();

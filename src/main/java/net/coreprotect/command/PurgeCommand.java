@@ -133,11 +133,12 @@ public class PurgeCommand extends Consumer {
                 }
                 else if (restrictTarget instanceof EntityType) {
                     targetName = ((EntityType) restrictTarget).name();
+                    int entityIdResolved = EntityUtils.getEntityId(targetName, false);
                     if (includeListEntity.length() == 0) {
-                        includeListEntity = includeListEntity.append(EntityUtils.getEntityId(targetName, false));
+                        includeListEntity = includeListEntity.append(entityIdResolved);
                     }
                     else {
-                        includeListEntity.append(",").append(EntityUtils.getEntityId(targetName, false));
+                        includeListEntity.append(",").append(entityIdResolved);
                     }
 
                     targetName = ((EntityType) restrictTarget).name().toLowerCase(Locale.ROOT);
@@ -157,8 +158,6 @@ public class PurgeCommand extends Consumer {
             includeBlock = includeListMaterial.toString();
             includeEntity = includeListEntity.toString();
         }
-
-        // allow entity restrictions for purge (handled below per-table)
 
         boolean optimizeCheck = false;
         for (String arg : args) {

@@ -24,6 +24,8 @@ public class RollbackEntityHandler {
      *            The type of rollback (0 for rollback, 1 for restore)
      * @param finalUserString
      *            The user string for tracking operations
+     * @param oldTypeRaw
+     *            The old raw type value
      * @param rowTypeRaw
      *            The raw type value
      * @param rowData
@@ -53,10 +55,11 @@ public class RollbackEntityHandler {
         }
 
         if (ConfigHandler.isFolia) {
+            // Folia - load chunk async before processing
             bukkitWorld.getChunkAtAsync(rowX >> 4, rowZ >> 4, true).thenAccept(chunk -> {
                 processEntityLogic(row, rollbackType, finalUserString, oldTypeRaw, rowTypeRaw, rowData, rowAction, rowRolledBack, rowX, rowY, rowZ, rowWorldId, rowUserId, rowUser, bukkitWorld);
             });
-            return 1;
+            return 1; // assume task is queued successfully
         }
         else {
             if (!bukkitWorld.isChunkLoaded(rowX >> 4, rowZ >> 4)) {

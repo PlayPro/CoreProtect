@@ -38,32 +38,49 @@ import net.coreprotect.utility.WorldUtils;
 
 public class RollbackProcessor {
 
-    /**
-     * Process data for a specific chunk
-     * 
-     * @param finalChunkX
-     *            The chunk X coordinate
-     * @param finalChunkZ
-     *            The chunk Z coordinate
-     * @param chunkKey
-     *            The chunk lookup key
-     * @param blockList
-     *            The list of block data to process
-     * @param itemList
-     *            The list of item data to process
-     * @param rollbackType
-     *            The rollback type (0=rollback, 1=restore)
-     * @param preview
-     *            Whether this is a preview (0=no, 1=yes-non-destructive, 2=yes-destructive)
-     * @param finalUserString
-     *            The username performing the rollback
-     * @param finalUser
-     *            The user performing the rollback
-     * @param bukkitRollbackWorld
-     *            The world to process
-     * @return True if successful, false if there was an error
-     */
     public static boolean processChunk(int finalChunkX, int finalChunkZ, long chunkKey, ArrayList<Object[]> blockList, ArrayList<Object[]> itemList, int rollbackType, int preview, String finalUserString, Player finalUser, World bukkitRollbackWorld, boolean inventoryRollback) {
+        if (ConfigHandler.isFolia) {
+            bukkitRollbackWorld.getChunkAtAsync(finalChunkX, finalChunkZ, true).thenAccept(chunk -> {
+                try {
+                    processChunkLogic(finalChunkX, finalChunkZ, chunkKey, blockList, itemList, rollbackType, preview, finalUserString, finalUser, bukkitRollbackWorld, inventoryRollback);
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+                    int[] rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
+                    if (rollbackHashData != null) {
+                        int itemCount = rollbackHashData[0];
+                        int blockCount = rollbackHashData[1];
+                        int entityCount = rollbackHashData[2];
+                        int scannedWorlds = rollbackHashData[4];
+                        ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount, blockCount, entityCount, 2, (scannedWorlds + 1) });
+                    }
+                }
+            });
+            return true;
+        }
+        else {
+            try {
+                if (!bukkitRollbackWorld.isChunkLoaded(finalChunkX, finalChunkZ)) {
+                    bukkitRollbackWorld.getChunkAt(finalChunkX, finalChunkZ);
+                }
+                return processChunkLogic(finalChunkX, finalChunkZ, chunkKey, blockList, itemList, rollbackType, preview, finalUserString, finalUser, bukkitRollbackWorld, inventoryRollback);
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+                int[] rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
+                if (rollbackHashData != null) {
+                    int itemCount = rollbackHashData[0];
+                    int blockCount = rollbackHashData[1];
+                    int entityCount = rollbackHashData[2];
+                    int scannedWorlds = rollbackHashData[4];
+                    ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount, blockCount, entityCount, 2, (scannedWorlds + 1) });
+                }
+                return false;
+            }
+        }
+    }
+
+    private static boolean processChunkLogic(int finalChunkX, int finalChunkZ, long chunkKey, ArrayList<Object[]> blockList, ArrayList<Object[]> itemList, int rollbackType, int preview, String finalUserString, Player finalUser, World bukkitRollbackWorld, boolean inventoryRollback) {
         try {
             boolean clearInventories = Config.getGlobal().ROLLBACK_ITEMS;
             ArrayList<Object[]> data = blockList != null ? blockList : new ArrayList<>();
@@ -182,10 +199,6 @@ public class RollbackProcessor {
                     }
 
                     Block block = bukkitWorld.getBlockAt(rowX, rowY, rowZ);
-                    if (!bukkitWorld.isChunkLoaded(block.getChunk())) {
-                        bukkitWorld.getChunkAt(block.getLocation());
-                    }
-
                     boolean changeBlock = true;
                     boolean countBlock = true;
                     Material changeType = block.getType();
@@ -243,7 +256,7 @@ public class RollbackProcessor {
             data.clear();
 
             // Apply cached block changes
-            RollbackBlockHandler.applyBlockChanges(chunkChanges, preview, finalUser instanceof Player ? (Player) finalUser : null);
+            RollbackBlockHandler.applyBlockChanges(chunkChanges, preview, finalUser);
 
             // Process container items
             Map<Player, List<Integer>> sortPlayers = new HashMap<>();
@@ -346,9 +359,6 @@ public class RollbackProcessor {
                                 continue;
                             }
                             Block block = bukkitWorld.getBlockAt(rowX, rowY, rowZ);
-                            if (!bukkitWorld.isChunkLoaded(block.getChunk())) {
-                                bukkitWorld.getChunkAt(block.getLocation());
-                            }
 
                             if (BlockGroup.CONTAINERS.contains(block.getType())) {
                                 BlockState blockState = block.getState();
@@ -441,12 +451,13 @@ public class RollbackProcessor {
         catch (Exception e) {
             e.printStackTrace();
             int[] rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
-            int itemCount = rollbackHashData[0];
-            int blockCount = rollbackHashData[1];
-            int entityCount = rollbackHashData[2];
-            int scannedWorlds = rollbackHashData[4];
-
-            ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount, blockCount, entityCount, 2, (scannedWorlds + 1) });
+            if (rollbackHashData != null) {
+                int itemCount = rollbackHashData[0];
+                int blockCount = rollbackHashData[1];
+                int entityCount = rollbackHashData[2];
+                int scannedWorlds = rollbackHashData[4];
+                ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount, blockCount, entityCount, 2, (scannedWorlds + 1) });
+            }
             return false;
         }
     }

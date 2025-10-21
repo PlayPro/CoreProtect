@@ -19,7 +19,7 @@ public class CacheHandler implements Runnable {
     public static Map<String, Object[]> entityCache = Collections.synchronizedMap(new HashMap<>());
     public static ConcurrentHashMap<String, Object[]> pistonCache = new ConcurrentHashMap<>(16, 0.75f, 2);
     public static ConcurrentHashMap<String, Object[]> spreadCache = new ConcurrentHashMap<>(16, 0.75f, 2);
-    public static ConcurrentHashMap<Location, Object[]> redstoneCache = new ConcurrentHashMap<>(16, 0.75f, 2);
+    public static ConcurrentHashMap<String, Object[]> redstoneCache = new ConcurrentHashMap<>(16, 0.75f, 2);
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override

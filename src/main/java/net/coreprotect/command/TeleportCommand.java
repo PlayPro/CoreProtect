@@ -100,16 +100,23 @@ public class TeleportCommand {
         location.setY(Double.parseDouble(y));
         location.setZ(Double.parseDouble(z));
 
-        int chunkX = location.getBlockX() >> 4;
-        int chunkZ = location.getBlockZ() >> 4;
-        Scheduler.runTask(CoreProtect.getInstance(), () -> {
-            if (!location.getWorld().isChunkLoaded(chunkX, chunkZ)) {
-                location.getWorld().getChunkAt(location);
-            }
-
-            // Teleport the player to a safe location
-            Teleport.performSafeTeleport(((Player) player), location, true);
-        }, location);
+        if (ConfigHandler.isFolia) {
+            location.getWorld().getChunkAtAsync(location).thenAccept(chunk -> {
+                Scheduler.runTask(CoreProtect.getInstance(), () -> {
+                    Teleport.performSafeTeleport(((Player) player), location, true);
+                }, location);
+            });
+        }
+        else {
+            int chunkX = location.getBlockX() >> 4;
+            int chunkZ = location.getBlockZ() >> 4;
+            Scheduler.runTask(CoreProtect.getInstance(), () -> {
+                if (!location.getWorld().isChunkLoaded(chunkX, chunkZ)) {
+                    location.getWorld().getChunkAt(location);
+                }
+                Teleport.performSafeTeleport(((Player) player), location, true);
+            }, location);
+        }
 
         ConfigHandler.teleportThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
     }

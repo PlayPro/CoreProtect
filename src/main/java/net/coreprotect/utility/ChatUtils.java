@@ -187,7 +187,7 @@ public class ChatUtils {
 
     public static String createGiveItemComponent(String phrase, String command, Integer itemId) {
         if (itemId == null) {
-            return phrase;
+            return "";
         }
 
         return Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_COMMAND + "|/" + command + " give " + itemId + "|" + phrase + Chat.COMPONENT_TAG_CLOSE;

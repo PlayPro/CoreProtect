@@ -5,16 +5,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import net.coreprotect.command.parser.*;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
-
-import net.coreprotect.command.parser.ActionParser;
-import net.coreprotect.command.parser.LocationParser;
-import net.coreprotect.command.parser.MaterialParser;
-import net.coreprotect.command.parser.TimeParser;
-import net.coreprotect.command.parser.UserParser;
-import net.coreprotect.command.parser.WorldParser;
 
 /**
  * Main parser class for CoreProtect commands.
@@ -326,4 +320,7 @@ public class CommandParser {
         return input.stripTrailingZeros().toPlainString();
     }
 
+    protected static Integer parseGivableItemId(String[] inputArguments) {
+        return GivableItemIdParser.parseGivableItemId(inputArguments);
+    }
 }

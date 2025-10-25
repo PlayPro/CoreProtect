@@ -42,7 +42,11 @@ public class ItemUtils {
         return GIVABLE_ITEMS.keySet().stream().skip(id).findFirst().orElse(null);
     }
 
-    public static int makeGivableItem(ItemStack item) {
+    public static Integer makeGivableItem(ItemStack item) {
+        if (item == null) {
+          return null;
+        }
+
         return GIVABLE_ITEMS.computeIfAbsent(item, k -> GIVABLE_ITEMS.size());
     }
 
@@ -383,14 +387,21 @@ public class ItemUtils {
 
         return null;
     }
-    
-    public static String getEnchantments(byte[] metadata, int type, int amount) {
+
+    public static ItemStack getItemStack(byte[] metadata, int type, int amount) {
         if (metadata == null) {
-            return "";
+            return null;
         }
 
         ItemStack item = new ItemStack(MaterialUtils.getType(type), amount);
         item = (ItemStack) net.coreprotect.database.rollback.Rollback.populateItemStack(item, metadata)[2];
+        return item;
+    }
+
+    public static String getEnchantments(byte[] metadata, int type, int amount) {
+        var item = getItemStack(metadata, type, amount);
+        if (item == null) return "";
+
         String displayName = item.hasItemMeta() && item.getItemMeta().hasDisplayName() ? item.getItemMeta().getDisplayName() : "";
         StringBuilder message = new StringBuilder(Color.ITALIC + displayName + Color.GREY);
 
@@ -412,7 +423,7 @@ public class ItemUtils {
 
         return message.toString();
     }
-    
+
     public static Map<Integer, Object> serializeItemStackLegacy(ItemStack itemStack, String faceData, int slot) {
         Map<Integer, Object> result = new HashMap<>();
         Map<String, Object> itemMap = serializeItemStack(itemStack, faceData, slot);

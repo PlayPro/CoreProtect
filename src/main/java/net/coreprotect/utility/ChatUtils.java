@@ -190,7 +190,7 @@ public class ChatUtils {
             return "";
         }
 
-        return Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_COMMAND + "|/" + command + " give " + itemId + "|" + phrase + Chat.COMPONENT_TAG_CLOSE;
+        return Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_COMMAND + "|/" + command + " give #" + itemId + "|" + phrase + Chat.COMPONENT_TAG_CLOSE;
     }
 
     // This theoretically initializes the component code, to prevent gson adapter errors

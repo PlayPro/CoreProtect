@@ -5,9 +5,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -30,9 +32,24 @@ import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 
 public class ItemUtils {
+    private static final Set<ItemStack> GIVABLE_ITEMS = Collections.synchronizedSet(new LinkedHashSet<>());
 
     private ItemUtils() {
         throw new IllegalStateException("Utility class");
+    }
+
+    public static ItemStack getGivableItem(int id) {
+      if (id < 0 || id >= GIVABLE_ITEMS.size()) {
+        return null;
+      }
+
+      return new ArrayList<>(GIVABLE_ITEMS).get(id);
+    }
+
+    public static int makeGivableItem(ItemStack item) {
+        if (GIVABLE_ITEMS.add(item)) return GIVABLE_ITEMS.size();
+
+        return new ArrayList<>(GIVABLE_ITEMS).indexOf(item);
     }
 
     public static void mergeItems(Material material, ItemStack[] items) {

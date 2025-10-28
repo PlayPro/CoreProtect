@@ -32,9 +32,3 @@ jobs:
         with:
           name: CoreProtect.jar
           path: target/CoreProtect-*.jar
-
-      - name: Upload More
-        uses: actions/upload-artifact@v4
-        with:
-          name: Orginal-CoreProtect.jar
-          path: target/orginal-CoreProtect-*.jar

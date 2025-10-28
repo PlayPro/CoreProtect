@@ -66,9 +66,6 @@ public class CommandHandler implements CommandExecutor {
                     else if (user.hasPermission("coreprotect.reload") && corecommand.equals("reload")) {
                         permission = true;
                     }
-                    else if (user.hasPermission("coreprotect.status") && (corecommand.equals("status") || corecommand.equals("stats") || corecommand.equals("version"))) {
-                        permission = true;
-                    }
                     else if (user.hasPermission("coreprotect.consumer") && corecommand.equals("consumer")) {
                         permission = true;
                     }
@@ -106,9 +103,6 @@ public class CommandHandler implements CommandExecutor {
                 }
                 else if (corecommand.equals("teleport") || corecommand.equals("tp")) {
                     TeleportCommand.runCommand(user, permission, argumentArray);
-                }
-                else if (corecommand.equals("status") || corecommand.equals("stats") || corecommand.equals("version")) {
-                    StatusCommand.runCommand(user, permission, argumentArray);
                 }
                 else if (corecommand.equals("reload")) {
                     ReloadCommand.runCommand(user, permission, argumentArray);

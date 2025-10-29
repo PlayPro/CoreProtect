@@ -453,17 +453,33 @@ public class RollbackBlockHandler extends Queue {
                     return false;
                 }
                 else if (rowType != changeType && (BlockGroup.CONTAINERS.contains(rowType) || BlockGroup.CONTAINERS.contains(changeType))) {
-                    // folia: wrapped container clearing in a scheduler task
+                    // folia: wrapped entire container rollback in region scheduler task
                     final Location blockLocation = block.getLocation();
-                    Scheduler.runTask(CoreProtect.getInstance(), () -> block.setType(Material.AIR), blockLocation);
+                    final Material finalRowType = rowType;
+                    final BlockData finalBlockData = blockData;
+                    final Map<Block, BlockData> finalChunkChanges = chunkChanges;
+                    final boolean finalCountBlock = countBlock;
+                    final String finalUserStringCopy = finalUserString;
 
-                    boolean isChest = (blockData instanceof Chest);
-                    BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, (isChest));
-                    if (isChest) {
-                        ChestTool.updateDoubleChest(block, blockData, false);
-                    }
+                    Runnable containerTask = () -> {
+                        // entire container rollback logic in main thread
+                        block.setType(Material.AIR);
 
-                    return countBlock;
+                        boolean isChest = (finalBlockData instanceof Chest);
+                        BlockUtils.prepareTypeAndData(finalChunkChanges, block, finalRowType, finalBlockData, isChest);
+                        if (isChest) {
+                            ChestTool.updateDoubleChest(block, finalBlockData, false);
+                        }
+
+                        if (finalCountBlock) {
+                            updateBlockCount(finalUserStringCopy, 1);
+                        }
+                    };
+
+
+                    Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), containerTask, blockLocation, 0);
+
+                    return false;
                 }
                 else if (BlockGroup.UPDATE_STATE.contains(rowType) || rowType.name().contains("CANDLE")) {
                     BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, true);

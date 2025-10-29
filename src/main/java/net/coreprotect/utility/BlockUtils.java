@@ -22,6 +22,7 @@ import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 
 public class BlockUtils {
@@ -40,7 +41,8 @@ public class BlockUtils {
                 return result;
             }
 
-            if (material.isBlock() && !createBlockData(material).getAsString().equals(string) && string.startsWith(NAMESPACE + material.name().toLowerCase(Locale.ROOT) + "[") && string.endsWith("]")) {
+            BlockData defaultBlockData = createBlockData(material);
+            if (defaultBlockData != null && material.isBlock() && !defaultBlockData.getAsString().equals(string) && string.startsWith(NAMESPACE + material.name().toLowerCase(Locale.ROOT) + "[") && string.endsWith("]")) {
                 String substring = string.substring(material.name().length() + 11, string.length() - 1);
                 String[] blockDataSplit = substring.split(",");
                 ArrayList<String> blockDataArray = new ArrayList<>();
@@ -80,7 +82,7 @@ public class BlockUtils {
             }
 
             result = new String(data, StandardCharsets.UTF_8);
-            if (result.length() > 0) {
+            if (!result.isEmpty()) {
                 if (result.matches("\\d+")) {
                     result = result + ",";
                 }
@@ -89,7 +91,7 @@ public class BlockUtils {
                     ArrayList<String> blockDataArray = new ArrayList<>();
                     for (String blockData : blockDataSplit) {
                         String block = MaterialUtils.getBlockDataString(Integer.parseInt(blockData));
-                        if (block.length() > 0) {
+                        if (!block.isEmpty()) {
                             blockDataArray.add(block);
                         }
                     }
@@ -142,7 +144,7 @@ public class BlockUtils {
         if (type.equals(Material.ICE)) { // Ice block
             int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
             int wid = WorldUtils.getWorldId(block.getWorld().getName());
-            net.coreprotect.thread.CacheHandler.lookupCache.put("" + block.getX() + "." + block.getY() + "." + block.getZ() + "." + wid + "", new Object[] { unixtimestamp, user, Material.WATER });
+            CacheHandler.lookupCache.put("" + block.getX() + "." + block.getY() + "." + block.getZ() + "." + wid, new Object[] { unixtimestamp, user, Material.WATER });
             return true;
         }
         return false;
@@ -162,7 +164,7 @@ public class BlockUtils {
     }
 
     public static void prepareTypeAndData(Map<Block, BlockData> map, Block block, Material type, BlockData blockData, boolean update) {
-        if (blockData == null) {
+        if (blockData == null && type != null) {
             blockData = createBlockData(type);
         }
 
@@ -231,7 +233,7 @@ public class BlockUtils {
             if (block instanceof CommandBlock) {
                 CommandBlock commandBlock = (CommandBlock) block;
                 String command = commandBlock.getCommand();
-                if (command.length() > 0) {
+                if (!command.isEmpty()) {
                     meta.add(command);
                 }
             }
@@ -249,7 +251,7 @@ public class BlockUtils {
                 int slot = 0;
                 for (ItemStack itemStack : inventory) {
                     Map<Integer, Object> itemMap = ItemUtils.serializeItemStackLegacy(itemStack, null, slot);
-                    if (itemMap.size() > 0) {
+                    if (!itemMap.isEmpty()) {
                         meta.add(itemMap);
                     }
                     slot++;

@@ -8,8 +8,10 @@ import org.bukkit.block.BlockState;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 
+import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.WorldUtils;
 
@@ -18,16 +20,12 @@ public class RollbackEntityHandler {
     /**
      * Processes an entity-related rollback operation.
      *
-     * @param row
-     *            The database row containing entity data (used only for specific operations)
      * @param rollbackType
      *            The type of rollback (0 for rollback, 1 for restore)
      * @param finalUserString
      *            The user string for tracking operations
      * @param oldTypeRaw
      *            The old raw type value
-     * @param rowTypeRaw
-     *            The raw type value
      * @param rowData
      *            The data value
      * @param rowAction
@@ -42,55 +40,45 @@ public class RollbackEntityHandler {
      *            The Z coordinate
      * @param rowWorldId
      *            The world ID
-     * @param rowUserId
-     *            The user ID
      * @param rowUser
      *            The username associated with this entity change
      * @return The number of entities affected (1 if successful, 0 otherwise)
      */
-    public static int processEntity(Object[] row, int rollbackType, String finalUserString, int oldTypeRaw, int rowTypeRaw, int rowData, int rowAction, int rowRolledBack, int rowX, int rowY, int rowZ, int rowWorldId, int rowUserId, String rowUser) {
+
+    public static int processEntity(int rollbackType, String finalUserString, int oldTypeRaw, int rowData, int rowAction, int rowRolledBack, int rowX, int rowY, int rowZ, int rowWorldId, String rowUser) {
         World bukkitWorld = Bukkit.getServer().getWorld(WorldUtils.getWorldName(rowWorldId));
         if (bukkitWorld == null) {
             return 0;
         }
 
+        Location entityLocation = new Location(bukkitWorld, rowX, rowY, rowZ);
+
         if (ConfigHandler.isFolia) {
-            // Folia - load chunk async before processing
-            bukkitWorld.getChunkAtAsync(rowX >> 4, rowZ >> 4, true).thenAccept(chunk -> {
-                processEntityLogic(row, rollbackType, finalUserString, oldTypeRaw, rowTypeRaw, rowData, rowAction, rowRolledBack, rowX, rowY, rowZ, rowWorldId, rowUserId, rowUser, bukkitWorld);
-            });
+            // folia: load chunk async before processing, then regionize the entity operations
+            Scheduler.runTask(CoreProtect.getInstance(), () -> processEntityLogic(finalUserString, oldTypeRaw, rowData, rowAction, rowRolledBack, rowX, rowY, rowZ, rowWorldId, rowUser, bukkitWorld), entityLocation);
+
             return 1; // assume task is queued successfully
         }
         else {
             if (!bukkitWorld.isChunkLoaded(rowX >> 4, rowZ >> 4)) {
                 bukkitWorld.getChunkAt(rowX >> 4, rowZ >> 4);
             }
-            return processEntityLogic(row, rollbackType, finalUserString, oldTypeRaw, rowTypeRaw, rowData, rowAction, rowRolledBack, rowX, rowY, rowZ, rowWorldId, rowUserId, rowUser, bukkitWorld);
+            return processEntityLogic(finalUserString, oldTypeRaw, rowData, rowAction, rowRolledBack, rowX, rowY, rowZ, rowWorldId, rowUser, bukkitWorld);
         }
     }
 
-    private static int processEntityLogic(Object[] row, int rollbackType, String finalUserString, int oldTypeRaw, int rowTypeRaw, int rowData, int rowAction, int rowRolledBack, int rowX, int rowY, int rowZ, int rowWorldId, int rowUserId, String rowUser, World bukkitWorld) {
+    private static int processEntityLogic(String finalUserString, int oldTypeRaw, int rowData, int rowAction, int rowRolledBack, int rowX, int rowY, int rowZ, int rowWorldId, String rowUser, World bukkitWorld) {
         try {
             // Entity kill
             if (rowAction == 3) {
                 Block block = bukkitWorld.getBlockAt(rowX, rowY, rowZ);
-                if (rowTypeRaw > 0) {
-                    // Spawn in entity
-                    if (rowRolledBack == 0) {
-                        EntityType entityType = EntityUtils.getEntityType(rowTypeRaw);
-                        // Use the spawnEntity method from the RollbackUtil class instead of Queue
-                        spawnEntity(rowUser, block.getState(), entityType, rowData);
-                        updateEntityCount(finalUserString, 1);
-                        return 1;
-                    }
-                }
-                else if (rowTypeRaw <= 0) {
+                if (oldTypeRaw <= 0) {
                     // Attempt to remove entity
                     if (rowRolledBack == 1) {
                         boolean removed = false;
                         int entityId = -1;
                         String entityName = EntityUtils.getEntityType(oldTypeRaw).name();
-                        String token = "" + rowX + "." + rowY + "." + rowZ + "." + rowWorldId + "." + entityName + "";
+                        String token = String.valueOf(rowX) + "." + rowY + "." + rowZ + "." + rowWorldId + "." + entityName;
                         Object[] cachedEntity = CacheHandler.entityCache.get(token);
 
                         if (cachedEntity != null) {
@@ -110,7 +98,8 @@ public class RollbackEntityHandler {
                                 if (id == entityId) {
                                     updateEntityCount(finalUserString, 1);
                                     removed = true;
-                                    entity.remove();
+                                    // folia: wrapped entity removal in a scheduler task
+                                    Scheduler.runTask(CoreProtect.getInstance(), entity::remove, entity);
                                     break;
                                 }
                             }
@@ -124,7 +113,8 @@ public class RollbackEntityHandler {
                                     if (entityx >= xmin && entityx <= xmax && entityY >= ymin && entityY <= ymax && entityZ >= zmin && entityZ <= zmax) {
                                         updateEntityCount(finalUserString, 1);
                                         removed = true;
-                                        entity.remove();
+                                        // folia: wrapped entity removal in a scheduler task
+                                        Scheduler.runTask(CoreProtect.getInstance(), entity::remove, entity);
                                         break;
                                     }
                                 }
@@ -137,7 +127,8 @@ public class RollbackEntityHandler {
                                 if (id == entityId) {
                                     updateEntityCount(finalUserString, 1);
                                     removed = true;
-                                    entity.remove();
+                                    // folia: wrapped entity removal in a scheduler task
+                                    Scheduler.runTask(CoreProtect.getInstance(), entity::remove, entity);
                                     break;
                                 }
                             }
@@ -148,6 +139,16 @@ public class RollbackEntityHandler {
                         }
                     }
                 }
+                else {
+                    // Spawn in entity
+                    if (rowRolledBack == 0) {
+                        EntityType entityType = EntityUtils.getEntityType(oldTypeRaw);
+                        // Use the spawnEntity method from the RollbackUtil class instead of Queue
+                        spawnEntity(rowUser, block.getState(), entityType, rowData);
+                        updateEntityCount(finalUserString, 1);
+                        return 1;
+                    }
+                }
             }
         }
         catch (Exception e) {
@@ -155,17 +156,6 @@ public class RollbackEntityHandler {
         }
 
         return 0;
-    }
-
-    /**
-     * Gets the world name from a world ID.
-     *
-     * @param worldId
-     *            The world ID
-     * @return The world name
-     */
-    private static String getWorldName(int worldId) {
-        return WorldUtils.getWorldName(worldId);
     }
 
     /**

@@ -457,22 +457,28 @@ public class RollbackBlockHandler extends Queue {
                     final Location blockLocation = block.getLocation();
                     final Material finalRowType = rowType;
                     final BlockData finalBlockData = blockData;
+                    final Map<Block, BlockData> finalChunkChanges = chunkChanges;
                     final boolean finalCountBlock = countBlock;
                     final String finalUserStringCopy = finalUserString;
-                    final boolean isChest = (finalBlockData instanceof Chest);
 
                     Runnable containerTask = () -> {
-                        block.setType(Material.AIR, false);
-                        block.setBlockData(finalBlockData, isChest);
+                        // entire container rollback logic in main thread
+                        block.setType(Material.AIR);
+
+                        boolean isChest = (finalBlockData instanceof Chest);
+                        BlockUtils.prepareTypeAndData(finalChunkChanges, block, finalRowType, finalBlockData, isChest);
                         if (isChest) {
                             ChestTool.updateDoubleChest(block, finalBlockData, false);
                         }
+
                         if (finalCountBlock) {
                             updateBlockCount(finalUserStringCopy, 1);
                         }
                     };
 
-                    Scheduler.runTask(CoreProtect.getInstance(), containerTask, blockLocation);
+
+                    Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), containerTask, blockLocation, 0);
+
                     return false;
                 }
                 else if (BlockGroup.UPDATE_STATE.contains(rowType) || rowType.name().contains("CANDLE")) {

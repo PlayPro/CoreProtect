@@ -453,33 +453,17 @@ public class RollbackBlockHandler extends Queue {
                     return false;
                 }
                 else if (rowType != changeType && (BlockGroup.CONTAINERS.contains(rowType) || BlockGroup.CONTAINERS.contains(changeType))) {
-                    // folia: wrapped entire container rollback in region scheduler task
+                    // folia: wrapped container clearing in a scheduler task
                     final Location blockLocation = block.getLocation();
-                    final Material finalRowType = rowType;
-                    final BlockData finalBlockData = blockData;
-                    final Map<Block, BlockData> finalChunkChanges = chunkChanges;
-                    final boolean finalCountBlock = countBlock;
-                    final String finalUserStringCopy = finalUserString;
+                    Scheduler.runTask(CoreProtect.getInstance(), () -> block.setType(Material.AIR), blockLocation);
 
-                    Runnable containerTask = () -> {
-                        // entire container rollback logic in main thread
-                        block.setType(Material.AIR);
+                    boolean isChest = (blockData instanceof Chest);
+                    BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, (isChest));
+                    if (isChest) {
+                        ChestTool.updateDoubleChest(block, blockData, false);
+                    }
 
-                        boolean isChest = (finalBlockData instanceof Chest);
-                        BlockUtils.prepareTypeAndData(finalChunkChanges, block, finalRowType, finalBlockData, isChest);
-                        if (isChest) {
-                            ChestTool.updateDoubleChest(block, finalBlockData, false);
-                        }
-
-                        if (finalCountBlock) {
-                            updateBlockCount(finalUserStringCopy, 1);
-                        }
-                    };
-
-
-                    Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), containerTask, blockLocation, 0);
-
-                    return false;
+                    return countBlock;
                 }
                 else if (BlockGroup.UPDATE_STATE.contains(rowType) || rowType.name().contains("CANDLE")) {
                     BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, true);

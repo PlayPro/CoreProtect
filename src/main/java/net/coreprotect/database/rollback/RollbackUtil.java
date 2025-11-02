@@ -18,7 +18,6 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.BannerMeta;
@@ -45,7 +44,7 @@ public class RollbackUtil extends Lookup {
     protected static int modifyContainerItems(Material type, Object container, int slot, ItemStack itemstack, int action) {
         int modifiedArmor = -1;
         try {
-            ItemStack[] contents;
+            ItemStack[] contents = null;
 
             if (type != null && type.equals(Material.ARMOR_STAND)) {
                 EntityEquipment equipment = (EntityEquipment) container;
@@ -67,9 +66,7 @@ public class RollbackUtil extends Lookup {
                     }
                     else {
                         ArmorStand armorStand = (ArmorStand) equipment.getHolder();
-                        if (armorStand != null) {
-                            armorStand.setArms(true);
-                        }
+                        armorStand.setArms(true);
                         switch (slot) {
                             case 4:
                                 equipment.setItemInMainHand(itemstack);
@@ -96,9 +93,8 @@ public class RollbackUtil extends Lookup {
                 }
             }
             else if (type != null && type.equals(Material.JUKEBOX)) {
-                // fix: ClassCastException: handle both jukebox block state and jukebox inventory
-                if (container instanceof Jukebox) {
-                    Jukebox jukebox = (Jukebox) container;
+                Jukebox jukebox = (Jukebox) container;
+                if (jukebox != null) {
                     if (action == 1 && itemstack.getType().name().startsWith("MUSIC_DISC")) {
                         itemstack.setAmount(1);
                     }
@@ -109,23 +105,6 @@ public class RollbackUtil extends Lookup {
 
                     jukebox.setRecord(itemstack);
                     jukebox.update();
-                }
-                else if (container instanceof Inventory) {
-                    // handle case where container is actually the jukebox inventory
-                    Inventory inventory = (Inventory) container;
-                    InventoryHolder holder = inventory.getHolder();
-                    if (holder instanceof Jukebox) {
-                        Jukebox jukebox = (Jukebox) holder;
-                        if (action == 1 && itemstack.getType().name().startsWith("MUSIC_DISC")) {
-                            itemstack.setAmount(1);
-                        }
-                        else {
-                            itemstack.setType(Material.AIR);
-                            itemstack.setAmount(0);
-                        }
-                        jukebox.setRecord(itemstack);
-                        jukebox.update();
-                    }
                 }
             }
             else {
@@ -160,17 +139,17 @@ public class RollbackUtil extends Lookup {
                                         inventory.setStorageContents(inventoryContents);
                                     }
                                     else {
-                                        addedItem = (inventory.addItem(itemstack).isEmpty());
+                                        addedItem = (inventory.addItem(itemstack).size() == 0);
                                     }
                                 }
                                 else {
-                                    addedItem = (inventory.addItem(itemstack).isEmpty());
+                                    addedItem = (inventory.addItem(itemstack).size() == 0);
                                 }
                             }
                             if (!addedItem && isPlayerInventory) {
                                 PlayerInventory playerInventory = (PlayerInventory) inventory;
                                 ItemStack offhand = playerInventory.getItemInOffHand();
-                                if (offhand.getType() == Material.AIR || (itemstack.isSimilar(offhand) && offhand.getAmount() < offhand.getMaxStackSize())) {
+                                if (offhand == null || offhand.getType() == Material.AIR || (itemstack.isSimilar(offhand) && offhand.getAmount() < offhand.getMaxStackSize())) {
                                     ItemStack setOffhand = itemstack.clone();
                                     if (itemstack.isSimilar(offhand)) {
                                         setOffhand.setAmount(offhand.getAmount() + 1);
@@ -281,17 +260,13 @@ public class RollbackUtil extends Lookup {
             FireworkEffect effect = effectBuilder.build();
             if ((rowType == Material.FIREWORK_ROCKET)) {
                 FireworkMeta meta = (FireworkMeta) itemstack.getItemMeta();
-                if (meta != null) {
-                    meta.addEffect(effect);
-                    itemstack.setItemMeta(meta);
-                }
+                meta.addEffect(effect);
+                itemstack.setItemMeta(meta);
             }
             else if ((rowType == Material.FIREWORK_STAR)) {
                 FireworkEffectMeta meta = (FireworkEffectMeta) itemstack.getItemMeta();
-                if (meta != null) {
-                    meta.setEffect(effect);
-                    itemstack.setItemMeta(meta);
-                }
+                meta.setEffect(effect);
+                itemstack.setItemMeta(meta);
             }
         }
         catch (Exception e) {
@@ -316,32 +291,28 @@ public class RollbackUtil extends Lookup {
 
             Material rowType = itemstack.getType();
             List<Object> metaList = (List<Object>) list;
-            if (metaList != null && !metaList.isEmpty() && !(metaList.get(0) instanceof List<?>)) {
+            if (metaList.size() > 0 && !(metaList.get(0) instanceof List<?>)) {
                 if (rowType.name().endsWith("_BANNER")) {
                     BannerMeta meta = (BannerMeta) itemstack.getItemMeta();
-                    if (meta != null) {
-                        for (Object value : metaList) {
-                            if (value instanceof Map) {
-                                Pattern pattern = new Pattern((Map<String, Object>) value);
-                                meta.addPattern(pattern);
-                            }
+                    for (Object value : metaList) {
+                        if (value instanceof Map) {
+                            Pattern pattern = new Pattern((Map<String, Object>) value);
+                            meta.addPattern(pattern);
                         }
-                        itemstack.setItemMeta(meta);
                     }
+                    itemstack.setItemMeta(meta);
                 }
                 else if (BlockGroup.SHULKER_BOXES.contains(rowType)) {
                     BlockStateMeta meta = (BlockStateMeta) itemstack.getItemMeta();
-                    if (meta != null) {
-                        ShulkerBox shulkerBox = (ShulkerBox) meta.getBlockState();
-                        for (Object value : metaList) {
-                            ItemStack item = ItemUtils.unserializeItemStackLegacy(value);
-                            if (item != null) {
-                                shulkerBox.getInventory().addItem(item);
-                            }
+                    ShulkerBox shulkerBox = (ShulkerBox) meta.getBlockState();
+                    for (Object value : metaList) {
+                        ItemStack item = ItemUtils.unserializeItemStackLegacy(value);
+                        if (item != null) {
+                            shulkerBox.getInventory().addItem(item);
                         }
-                        meta.setBlockState(shulkerBox);
-                        itemstack.setItemMeta(meta);
                     }
+                    meta.setBlockState(shulkerBox);
+                    itemstack.setItemMeta(meta);
                 }
 
                 return new Object[] { slot, faceData, itemstack };
@@ -349,168 +320,152 @@ public class RollbackUtil extends Lookup {
 
             int itemCount = 0;
             Builder effectBuilder = FireworkEffect.builder();
-            if (list instanceof List) {
-                for (List<Map<String, Object>> map : (List<List<Map<String, Object>>>) list) {
-                    if (map.isEmpty()) {
-                        if (itemCount == 3 && (rowType == Material.FIREWORK_ROCKET || rowType == Material.FIREWORK_STAR)) {
-                            buildFireworkEffect(effectBuilder, rowType, itemstack);
-                            itemCount = 0;
-                        }
-
-                        itemCount++;
-                        continue;
-                    }
-                    Map<String, Object> mapData = map.get(0);
-
-                    if (mapData.get("slot") != null) {
-                        slot = (Integer) mapData.get("slot");
-                    }
-                    else if (mapData.get("facing") != null) {
-                        faceData = (String) mapData.get("facing");
-                    }
-                    else if (mapData.get("modifiers") != null) {
-                        ItemMeta itemMeta = itemstack.getItemMeta();
-                        if (itemMeta != null && itemMeta.hasAttributeModifiers()) {
-                            for (Map.Entry<Attribute, AttributeModifier> entry : itemMeta.getAttributeModifiers().entries()) {
-                                itemMeta.removeAttributeModifier(entry.getKey(), entry.getValue());
-                            }
-                        }
-
-                        List<Object> modifiers = (List<Object>) mapData.get("modifiers");
-
-                        for (Object item : modifiers) {
-                            Map<Object, Map<String, Object>> modifiersMap = (Map<Object, Map<String, Object>>) item;
-                            for (Map.Entry<Object, Map<String, Object>> entry : modifiersMap.entrySet()) {
-                                try {
-                                    Attribute attribute = null;
-                                    if (entry.getKey() instanceof Attribute) {
-                                        attribute = (Attribute) entry.getKey();
-                                    }
-                                    else {
-                                        attribute = (Attribute) BukkitAdapter.ADAPTER.getRegistryValue((String) entry.getKey(), Attribute.class);
-                                    }
-
-                                    AttributeModifier modifier = AttributeModifier.deserialize(entry.getValue());
-                                    if (itemMeta != null && attribute != null) {
-                                        itemMeta.addAttributeModifier(attribute, modifier);
-                                    }
-                                }
-                                catch (IllegalArgumentException e) {
-                                    // AttributeModifier already exists
-                                }
-                            }
-                        }
-
-                        itemstack.setItemMeta(itemMeta);
-                    }
-                    else if (itemCount == 0) {
-                        ItemMeta meta = ItemUtils.deserializeItemMeta(itemstack.getItemMeta().getClass(), map.get(0));
-                        itemstack.setItemMeta(meta);
-
-                        if (map.size() > 1 && (rowType == Material.POTION)) {
-                            PotionMeta subMeta = (PotionMeta) itemstack.getItemMeta();
-                            if (subMeta != null) {
-                                org.bukkit.Color color = org.bukkit.Color.deserialize(map.get(1));
-                                subMeta.setColor(color);
-                                itemstack.setItemMeta(subMeta);
-                            }
-                        }
-                    }
-                    else {
-                        if ((rowType == Material.LEATHER_HORSE_ARMOR) || (rowType == Material.LEATHER_HELMET) || (rowType == Material.LEATHER_CHESTPLATE) || (rowType == Material.LEATHER_LEGGINGS) || (rowType == Material.LEATHER_BOOTS)) { // leather armor
-                            for (Map<String, Object> colorData : map) {
-                                LeatherArmorMeta meta = (LeatherArmorMeta) itemstack.getItemMeta();
-                                org.bukkit.Color color = org.bukkit.Color.deserialize(colorData);
-                                meta.setColor(color);
-                                itemstack.setItemMeta(meta);
-                            }
-                        }
-                        else if ((rowType == Material.POTION)) { // potion
-                            for (Map<String, Object> potionData : map) {
-                                PotionMeta meta = (PotionMeta) itemstack.getItemMeta();
-                                PotionEffect effect = new PotionEffect(potionData);
-                                if (meta != null) {
-                                    meta.addCustomEffect(effect, true);
-                                    itemstack.setItemMeta(meta);
-                                }
-                            }
-                        }
-                        else if (rowType.name().endsWith("_BANNER")) {
-                            for (Map<String, Object> patternData : map) {
-                                BannerMeta meta = (BannerMeta) itemstack.getItemMeta();
-                                Pattern pattern = new Pattern(patternData);
-                                if (meta != null) {
-                                    meta.addPattern(pattern);
-                                    itemstack.setItemMeta(meta);
-                                }
-                            }
-                        }
-                        else if ((rowType == Material.CROSSBOW)) {
-                            CrossbowMeta meta = (CrossbowMeta) itemstack.getItemMeta();
-                            if (meta != null) {
-                                for (Map<String, Object> itemData : map) {
-                                    ItemStack crossbowItem = ItemUtils.unserializeItemStack(itemData);
-                                    if (crossbowItem != null) {
-                                        meta.addChargedProjectile(crossbowItem);
-                                    }
-                                }
-                                itemstack.setItemMeta(meta);
-                            }
-                        }
-                        else if (rowType == Material.MAP || rowType == Material.FILLED_MAP) {
-                            for (Map<String, Object> colorData : map) {
-                                MapMeta meta = (MapMeta) itemstack.getItemMeta();
-                                if (meta != null) {
-                                    org.bukkit.Color color = org.bukkit.Color.deserialize(colorData);
-                                    meta.setColor(color);
-                                    itemstack.setItemMeta(meta);
-                                }
-                            }
-                        }
-                        else if ((rowType == Material.FIREWORK_ROCKET) || (rowType == Material.FIREWORK_STAR)) {
-                            if (itemCount == 1) {
-                                effectBuilder = FireworkEffect.builder();
-                                for (Map<String, Object> fireworkData : map) {
-                                    org.bukkit.FireworkEffect.Type type = (org.bukkit.FireworkEffect.Type) fireworkData.getOrDefault("type", org.bukkit.FireworkEffect.Type.BALL);
-                                    boolean hasFlicker = (Boolean) fireworkData.get("flicker");
-                                    boolean hasTrail = (Boolean) fireworkData.get("trail");
-                                    effectBuilder.with(type);
-                                    effectBuilder.flicker(hasFlicker);
-                                    effectBuilder.trail(hasTrail);
-                                }
-                            }
-                            else if (itemCount == 2) {
-                                for (Map<String, Object> colorData : map) {
-                                    org.bukkit.Color color = org.bukkit.Color.deserialize(colorData);
-                                    effectBuilder.withColor(color);
-                                }
-                            }
-                            else if (itemCount == 3) {
-                                for (Map<String, Object> colorData : map) {
-                                    org.bukkit.Color color = org.bukkit.Color.deserialize(colorData);
-                                    effectBuilder.withFade(color);
-                                }
-                                buildFireworkEffect(effectBuilder, rowType, itemstack);
-                                itemCount = 0;
-                            }
-                        }
-                        else if ((rowType == Material.SUSPICIOUS_STEW)) {
-                            for (Map<String, Object> suspiciousStewData : map) {
-                                SuspiciousStewMeta meta = (SuspiciousStewMeta) itemstack.getItemMeta();
-                                PotionEffect effect = new PotionEffect(suspiciousStewData);
-                                if (meta != null) {
-                                    meta.addCustomEffect(effect, true);
-                                    itemstack.setItemMeta(meta);
-                                }
-                            }
-                        }
-                        else {
-                            BukkitAdapter.ADAPTER.setItemMeta(rowType, itemstack, map);
-                        }
+            for (List<Map<String, Object>> map : (List<List<Map<String, Object>>>) list) {
+                if (map.size() == 0) {
+                    if (itemCount == 3 && (rowType == Material.FIREWORK_ROCKET || rowType == Material.FIREWORK_STAR)) {
+                        buildFireworkEffect(effectBuilder, rowType, itemstack);
+                        itemCount = 0;
                     }
 
                     itemCount++;
+                    continue;
                 }
+                Map<String, Object> mapData = map.get(0);
+
+                if (mapData.get("slot") != null) {
+                    slot = (Integer) mapData.get("slot");
+                }
+                else if (mapData.get("facing") != null) {
+                    faceData = (String) mapData.get("facing");
+                }
+                else if (mapData.get("modifiers") != null) {
+                    ItemMeta itemMeta = itemstack.getItemMeta();
+                    if (itemMeta.hasAttributeModifiers()) {
+                        for (Map.Entry<Attribute, AttributeModifier> entry : itemMeta.getAttributeModifiers().entries()) {
+                            itemMeta.removeAttributeModifier(entry.getKey(), entry.getValue());
+                        }
+                    }
+
+                    List<Object> modifiers = (List<Object>) mapData.get("modifiers");
+
+                    for (Object item : modifiers) {
+                        Map<Object, Map<String, Object>> modifiersMap = (Map<Object, Map<String, Object>>) item;
+                        for (Map.Entry<Object, Map<String, Object>> entry : modifiersMap.entrySet()) {
+                            try {
+                                Attribute attribute = null;
+                                if (entry.getKey() instanceof Attribute) {
+                                    attribute = (Attribute) entry.getKey();
+                                }
+                                else {
+                                    attribute = (Attribute) BukkitAdapter.ADAPTER.getRegistryValue((String) entry.getKey(), Attribute.class);
+                                }
+
+                                AttributeModifier modifier = AttributeModifier.deserialize(entry.getValue());
+                                itemMeta.addAttributeModifier(attribute, modifier);
+                            }
+                            catch (IllegalArgumentException e) {
+                                // AttributeModifier already exists
+                            }
+                        }
+                    }
+
+                    itemstack.setItemMeta(itemMeta);
+                }
+                else if (itemCount == 0) {
+                    ItemMeta meta = ItemUtils.deserializeItemMeta(itemstack.getItemMeta().getClass(), map.get(0));
+                    itemstack.setItemMeta(meta);
+
+                    if (map.size() > 1 && (rowType == Material.POTION)) {
+                        PotionMeta subMeta = (PotionMeta) itemstack.getItemMeta();
+                        org.bukkit.Color color = org.bukkit.Color.deserialize(map.get(1));
+                        subMeta.setColor(color);
+                        itemstack.setItemMeta(subMeta);
+                    }
+                }
+                else {
+                    if ((rowType == Material.LEATHER_HORSE_ARMOR) || (rowType == Material.LEATHER_HELMET) || (rowType == Material.LEATHER_CHESTPLATE) || (rowType == Material.LEATHER_LEGGINGS) || (rowType == Material.LEATHER_BOOTS)) { // leather armor
+                        for (Map<String, Object> colorData : map) {
+                            LeatherArmorMeta meta = (LeatherArmorMeta) itemstack.getItemMeta();
+                            org.bukkit.Color color = org.bukkit.Color.deserialize(colorData);
+                            meta.setColor(color);
+                            itemstack.setItemMeta(meta);
+                        }
+                    }
+                    else if ((rowType == Material.POTION)) { // potion
+                        for (Map<String, Object> potionData : map) {
+                            PotionMeta meta = (PotionMeta) itemstack.getItemMeta();
+                            PotionEffect effect = new PotionEffect(potionData);
+                            meta.addCustomEffect(effect, true);
+                            itemstack.setItemMeta(meta);
+                        }
+                    }
+                    else if (rowType.name().endsWith("_BANNER")) {
+                        for (Map<String, Object> patternData : map) {
+                            BannerMeta meta = (BannerMeta) itemstack.getItemMeta();
+                            Pattern pattern = new Pattern(patternData);
+                            meta.addPattern(pattern);
+                            itemstack.setItemMeta(meta);
+                        }
+                    }
+                    else if ((rowType == Material.CROSSBOW)) {
+                        CrossbowMeta meta = (CrossbowMeta) itemstack.getItemMeta();
+                        for (Map<String, Object> itemData : map) {
+                            ItemStack crossbowItem = ItemUtils.unserializeItemStack(itemData);
+                            if (crossbowItem != null) {
+                                meta.addChargedProjectile(crossbowItem);
+                            }
+                        }
+                        itemstack.setItemMeta(meta);
+                    }
+                    else if (rowType == Material.MAP || rowType == Material.FILLED_MAP) {
+                        for (Map<String, Object> colorData : map) {
+                            MapMeta meta = (MapMeta) itemstack.getItemMeta();
+                            org.bukkit.Color color = org.bukkit.Color.deserialize(colorData);
+                            meta.setColor(color);
+                            itemstack.setItemMeta(meta);
+                        }
+                    }
+                    else if ((rowType == Material.FIREWORK_ROCKET) || (rowType == Material.FIREWORK_STAR)) {
+                        if (itemCount == 1) {
+                            effectBuilder = FireworkEffect.builder();
+                            for (Map<String, Object> fireworkData : map) {
+                                org.bukkit.FireworkEffect.Type type = (org.bukkit.FireworkEffect.Type) fireworkData.getOrDefault("type", org.bukkit.FireworkEffect.Type.BALL);
+                                boolean hasFlicker = (Boolean) fireworkData.get("flicker");
+                                boolean hasTrail = (Boolean) fireworkData.get("trail");
+                                effectBuilder.with(type);
+                                effectBuilder.flicker(hasFlicker);
+                                effectBuilder.trail(hasTrail);
+                            }
+                        }
+                        else if (itemCount == 2) {
+                            for (Map<String, Object> colorData : map) {
+                                org.bukkit.Color color = org.bukkit.Color.deserialize(colorData);
+                                effectBuilder.withColor(color);
+                            }
+                        }
+                        else if (itemCount == 3) {
+                            for (Map<String, Object> colorData : map) {
+                                org.bukkit.Color color = org.bukkit.Color.deserialize(colorData);
+                                effectBuilder.withFade(color);
+                            }
+                            buildFireworkEffect(effectBuilder, rowType, itemstack);
+                            itemCount = 0;
+                        }
+                    }
+                    else if ((rowType == Material.SUSPICIOUS_STEW)) {
+                        for (Map<String, Object> suspiciousStewData : map) {
+                            SuspiciousStewMeta meta = (SuspiciousStewMeta) itemstack.getItemMeta();
+                            PotionEffect effect = new PotionEffect(suspiciousStewData);
+                            meta.addCustomEffect(effect, true);
+                            itemstack.setItemMeta(meta);
+                        }
+                    }
+                    else {
+                        BukkitAdapter.ADAPTER.setItemMeta(rowType, itemstack, map);
+                    }
+                }
+
+                itemCount++;
             }
         }
         catch (Exception e) {
@@ -579,5 +534,35 @@ public class RollbackUtil extends Lookup {
      */
     public static void queueEntitySpawn(String user, BlockState block, EntityType type, int data) {
         Queue.queueEntitySpawn(user, block, type, data);
+    }
+
+    /**
+     * Queues a skull update operation for processing.
+     *
+     * @param user
+     *            The username of the player
+     * @param block
+     *            The block state to update
+     * @param rowId
+     *            The row ID for the skull data
+     */
+    public static void queueSkullUpdate(String user, BlockState block, int rowId) {
+        Queue.queueSkullUpdate(user, block, rowId);
+    }
+
+    /**
+     * Queues a sign update operation for processing.
+     *
+     * @param user
+     *            The username of the player
+     * @param block
+     *            The block state to update
+     * @param action
+     *            The action type
+     * @param time
+     *            The time of the update
+     */
+    public static void queueSignUpdate(String user, BlockState block, int action, int time) {
+        Queue.queueSignUpdate(user, block, action, time);
     }
 }

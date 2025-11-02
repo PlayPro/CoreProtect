@@ -284,7 +284,7 @@ public enum Phrase {
             output = buildInternal(phrase, params, color);
         }
 
-        if (color.length() > 0) {
+        if (!color.isEmpty()) {
             output = output.replaceFirst(SPLIT, SPLIT + color);
             output = output.replaceFirst(FULL_WIDTH_SPLIT, FULL_WIDTH_SPLIT + color);
             output = ChatMessage.parseQuotes(output, color);

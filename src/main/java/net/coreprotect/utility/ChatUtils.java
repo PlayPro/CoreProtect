@@ -64,21 +64,21 @@ public class ChatUtils {
                 }
             }
 
-            int displayStart = (page - 2) < 1 ? 1 : (page - 2);
-            int displayEnd = (page + 2) > totalPages ? totalPages : (page + 2);
+            int displayStart = Math.max((page - 2), 1);
+            int displayEnd = Math.min((page + 2), totalPages);
             if (page > 999 || (page > 101 && totalPages > 99999)) { // limit to max 5 page numbers
                 displayStart = (displayStart + 1) < displayEnd ? (displayStart + 1) : displayStart;
                 displayEnd = (displayEnd - 1) > displayStart ? (displayEnd - 1) : displayEnd;
                 if (displayStart > (totalPages - 3)) {
-                    displayStart = (totalPages - 3) < 1 ? 1 : (totalPages - 3);
+                    displayStart = Math.max((totalPages - 3), 1);
                 }
             }
             else { // display at least 7 page numbers
                 if (displayStart > (totalPages - 5)) {
-                    displayStart = (totalPages - 5) < 1 ? 1 : (totalPages - 5);
+                    displayStart = Math.max((totalPages - 5), 1);
                 }
                 if (displayEnd < 6) {
-                    displayEnd = 6 > totalPages ? totalPages : 6;
+                    displayEnd = Math.min(6, totalPages);
                 }
             }
 

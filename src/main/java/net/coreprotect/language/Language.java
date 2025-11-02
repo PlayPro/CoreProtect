@@ -4,9 +4,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class Language {
 
-    private static ConcurrentHashMap<Phrase, String> phrases = new ConcurrentHashMap<>();
-    private static ConcurrentHashMap<Phrase, String> userPhrases = new ConcurrentHashMap<>();
-    private static ConcurrentHashMap<Phrase, String> translatedPhrases = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Phrase, String> phrases = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Phrase, String> userPhrases = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Phrase, String> translatedPhrases = new ConcurrentHashMap<>();
 
     protected static String getPhrase(Phrase phrase) {
         return phrases.get(phrase);

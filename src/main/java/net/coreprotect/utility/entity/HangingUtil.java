@@ -14,8 +14,11 @@ import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.Painting;
 import org.bukkit.inventory.ItemStack;
 
+import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.MaterialUtils;
 
@@ -48,7 +51,12 @@ public class HangingUtil {
                     Location el = e.getLocation();
                     if (el.getBlockX() == x && el.getBlockY() == y && el.getBlockZ() == z) {
                         if (hangingFace == null || ((Hanging) e).getFacing() == hangingFace) {
-                            e.remove();
+                            if (ConfigHandler.isFolia) {
+                                Scheduler.runTask(CoreProtect.getInstance(), e::remove, e);
+                            }
+                            else {
+                                e.remove();
+                            }
                             break;
                         }
                     }
@@ -185,7 +193,12 @@ public class HangingUtil {
                     Location el = e.getLocation();
                     if (el.getBlockX() == block.getX() && el.getBlockY() == block.getY() && el.getBlockZ() == block.getZ()) {
                         if (hangingFace == null || ((Hanging) e).getFacing() == hangingFace) {
-                            e.remove();
+                            if (ConfigHandler.isFolia) {
+                                Scheduler.runTask(CoreProtect.getInstance(), e::remove, e);
+                            }
+                            else {
+                                e.remove();
+                            }
                         }
                     }
                 }

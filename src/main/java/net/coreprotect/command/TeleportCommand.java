@@ -56,6 +56,9 @@ public class TeleportCommand {
         World world = location.getWorld();
         if (wid > -1) {
             world = Bukkit.getServer().getWorld(WorldUtils.getWorldName(wid));
+            if (world == null) {
+                return;
+            }
         }
 
         String x = null;
@@ -101,10 +104,10 @@ public class TeleportCommand {
         location.setZ(Double.parseDouble(z));
 
         if (ConfigHandler.isFolia) {
-            location.getWorld().getChunkAtAsync(location).thenAccept(chunk -> {
-                Scheduler.runTask(CoreProtect.getInstance(), () -> {
+            CoreProtect.getInstance().getServer().getRegionScheduler().run(CoreProtect.getInstance(), location, task -> {
+                location.getWorld().getChunkAtAsync(location).thenAccept(chunk -> {
                     Teleport.performSafeTeleport(((Player) player), location, true);
-                }, location);
+                });
             });
         }
         else {

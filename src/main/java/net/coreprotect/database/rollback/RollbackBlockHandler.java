@@ -39,12 +39,14 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
+import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.ChestTool;
 import net.coreprotect.utility.EntityUtils;
@@ -144,7 +146,12 @@ public class RollbackBlockHandler extends Queue {
                     for (Entity entity : block.getChunk().getEntities()) {
                         if (entity instanceof EnderCrystal) {
                             if (entity.getLocation().getBlockX() == rowX && entity.getLocation().getBlockY() == rowY && entity.getLocation().getBlockZ() == rowZ) {
-                                entity.remove();
+                                if (ConfigHandler.isFolia) {
+                                    Scheduler.runTask(CoreProtect.getInstance(), entity::remove, entity);
+                                }
+                                else {
+                                    entity.remove();
+                                }
                             }
                         }
                     }
@@ -172,7 +179,12 @@ public class RollbackBlockHandler extends Queue {
 
                                             entityLocation.setY(entityLocation.getY() - 1.99);
                                             PaperAdapter.ADAPTER.teleportAsync(entity, entityLocation);
-                                            entity.remove();
+                                            if (ConfigHandler.isFolia) {
+                                                Scheduler.runTask(CoreProtect.getInstance(), entity::remove, entity);
+                                            }
+                                            else {
+                                                entity.remove();
+                                            }
                                         }
                                     }
                                 }
@@ -492,7 +504,7 @@ public class RollbackBlockHandler extends Queue {
 
     /**
      * Update the block count in the rollback hash
-     * 
+     *
      * @param userString
      *            The username for this rollback
      * @param increment
@@ -511,7 +523,7 @@ public class RollbackBlockHandler extends Queue {
 
     /**
      * Apply all pending block changes to the world
-     * 
+     *
      * @param chunkChanges
      *            Map of blocks to change
      * @param preview

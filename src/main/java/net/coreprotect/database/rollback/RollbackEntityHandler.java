@@ -1,5 +1,10 @@
 package net.coreprotect.database.rollback;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -8,8 +13,10 @@ import org.bukkit.block.BlockState;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 
+import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.WorldUtils;
 
@@ -56,10 +63,16 @@ public class RollbackEntityHandler {
 
         if (ConfigHandler.isFolia) {
             // Folia - load chunk async before processing
-            bukkitWorld.getChunkAtAsync(rowX >> 4, rowZ >> 4, true).thenAccept(chunk -> {
-                processEntityLogic(row, rollbackType, finalUserString, oldTypeRaw, rowTypeRaw, rowData, rowAction, rowRolledBack, rowX, rowY, rowZ, rowWorldId, rowUserId, rowUser, bukkitWorld);
+            CompletableFuture<Integer> future = bukkitWorld.getChunkAtAsync(rowX >> 4, rowZ >> 4, true).thenApply(chunk -> {
+                return processEntityLogic(row, rollbackType, finalUserString, oldTypeRaw, rowTypeRaw, rowData, rowAction, rowRolledBack, rowX, rowY, rowZ, rowWorldId, rowUserId, rowUser, bukkitWorld);
             });
-            return 1; // assume task is queued successfully
+            try {
+                return future.get(10, TimeUnit.SECONDS);
+            }
+            catch (InterruptedException | ExecutionException | TimeoutException e) {
+                e.printStackTrace();
+                return 0;
+            }
         }
         else {
             if (!bukkitWorld.isChunkLoaded(rowX >> 4, rowZ >> 4)) {
@@ -110,7 +123,12 @@ public class RollbackEntityHandler {
                                 if (id == entityId) {
                                     updateEntityCount(finalUserString, 1);
                                     removed = true;
-                                    entity.remove();
+                                    if (ConfigHandler.isFolia) {
+                                        Scheduler.runTask(CoreProtect.getInstance(), entity::remove, entity);
+                                    }
+                                    else {
+                                        entity.remove();
+                                    }
                                     break;
                                 }
                             }
@@ -124,7 +142,12 @@ public class RollbackEntityHandler {
                                     if (entityx >= xmin && entityx <= xmax && entityY >= ymin && entityY <= ymax && entityZ >= zmin && entityZ <= zmax) {
                                         updateEntityCount(finalUserString, 1);
                                         removed = true;
-                                        entity.remove();
+                                        if (ConfigHandler.isFolia) {
+                                            Scheduler.runTask(CoreProtect.getInstance(), entity::remove, entity);
+                                        }
+                                        else {
+                                            entity.remove();
+                                        }
                                         break;
                                     }
                                 }
@@ -137,7 +160,12 @@ public class RollbackEntityHandler {
                                 if (id == entityId) {
                                     updateEntityCount(finalUserString, 1);
                                     removed = true;
-                                    entity.remove();
+                                    if (ConfigHandler.isFolia) {
+                                        Scheduler.runTask(CoreProtect.getInstance(), entity::remove, entity);
+                                    }
+                                    else {
+                                        entity.remove();
+                                    }
                                     break;
                                 }
                             }

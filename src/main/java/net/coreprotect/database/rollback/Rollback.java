@@ -11,6 +11,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -252,7 +254,11 @@ public class Rollback extends RollbackUtil {
 
             // wait for all chunk processing tasks to complete
             CompletableFuture<Void> allFutures = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
-            allFutures.get();
+            try {
+                allFutures.get(30, TimeUnit.SECONDS);
+            }
+            catch (TimeoutException e) {
+            }
 
             int[] rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
             int itemCount = rollbackHashData[0];

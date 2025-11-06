@@ -81,7 +81,6 @@ public class BlockUtil {
                     }
                     yc--;
                 }
-
             }
             CacheHandler.lookupCache.put("" + x + "." + block.getY() + "." + z + "." + wid + "", new Object[] { timestamp, player, type });
         }

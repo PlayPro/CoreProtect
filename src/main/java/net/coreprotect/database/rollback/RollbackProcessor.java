@@ -41,6 +41,31 @@ import net.coreprotect.utility.WorldUtils;
 
 public class RollbackProcessor {
 
+    /**
+     * Process data for a specific chunk
+     *
+     * @param finalChunkX
+     *            The chunk X coordinate
+     * @param finalChunkZ
+     *            The chunk Z coordinate
+     * @param chunkKey
+     *            The chunk lookup key
+     * @param blockList
+     *            The list of block data to process
+     * @param itemList
+     *            The list of item data to process
+     * @param rollbackType
+     *            The rollback type (0=rollback, 1=restore)
+     * @param preview
+     *            Whether this is a preview (0=no, 1=yes-non-destructive, 2=yes-destructive)
+     * @param finalUserString
+     *            The username performing the rollback
+     * @param finalUser
+     *            The user performing the rollback
+     * @param bukkitRollbackWorld
+     *            The world to process
+     * @return True if successful, false if there was an error
+     */
     public static boolean processChunk(int finalChunkX, int finalChunkZ, long chunkKey, ArrayList<Object[]> blockList, ArrayList<Object[]> itemList, int rollbackType, int preview, String finalUserString, Player finalUser, World bukkitRollbackWorld, boolean inventoryRollback) {
         try {
             boolean clearInventories = Config.getGlobal().ROLLBACK_ITEMS;
@@ -48,6 +73,7 @@ public class RollbackProcessor {
             ArrayList<Object[]> itemData = itemList != null ? itemList : new ArrayList<>();
             Map<Block, BlockData> chunkChanges = new LinkedHashMap<>();
 
+            // Process blocks
             for (Object[] row : data) {
                 int[] rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
                 int itemCount = rollbackHashData[0];
@@ -182,6 +208,7 @@ public class RollbackProcessor {
                     }
 
                     if ((rowType == pendingChangeType) && ((!BukkitAdapter.ADAPTER.isItemFrame(oldTypeMaterial)) && (oldTypeMaterial != Material.PAINTING) && (oldTypeMaterial != Material.ARMOR_STAND)) && (oldTypeMaterial != Material.END_CRYSTAL)) {
+                        // block is already changed!
                         BlockData checkData = rowType == Material.AIR ? blockData : rawBlockData;
                         if (checkData != null) {
                             if (checkData.getAsString().equals(pendingChangeData.getAsString()) || checkData instanceof org.bukkit.block.data.MultipleFacing || checkData instanceof org.bukkit.block.data.type.Stairs || checkData instanceof org.bukkit.block.data.type.RedstoneWire) {
@@ -218,8 +245,10 @@ public class RollbackProcessor {
             }
             data.clear();
 
+            // Apply cached block changes
             RollbackBlockHandler.applyBlockChanges(chunkChanges, preview, finalUser instanceof Player ? (Player) finalUser : null);
 
+            // Process container items
             Map<Player, List<Integer>> sortPlayers = new HashMap<>();
             Object container = null;
             Material containerType = null;
@@ -296,11 +325,11 @@ public class RollbackProcessor {
 
                         itemCount1 = itemCount1 + rowAmount;
                         ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount1, blockCount1, entityCount1, 0, scannedWorlds });
-                        continue;
+                        continue; // remove this for merged rollbacks in future? (be sure to re-enable chunk sorting)
                     }
 
                     if (inventoryRollback || rowAction > 1) {
-                        continue;
+                        continue; // skip inventory & ender chest transactions
                     }
 
                     if ((rollbackType == 0 && rowRolledBack == 0) || (rollbackType == 1 && rowRolledBack == 1)) {
@@ -309,7 +338,7 @@ public class RollbackProcessor {
                         String faceData = (String) populatedStack[1];
 
                         if (!containerInit || rowX != lastX || rowY != lastY || rowZ != lastZ || rowWorldId != lastWorldId || !faceData.equals(lastFace)) {
-                            container = null;
+                            container = null; // container patch 2.14.0
                             String world = WorldUtils.getWorldName(rowWorldId);
                             if (world.length() == 0) {
                                 continue;

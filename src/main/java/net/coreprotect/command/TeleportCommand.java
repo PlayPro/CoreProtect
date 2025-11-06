@@ -117,6 +117,8 @@ public class TeleportCommand {
                 if (!location.getWorld().isChunkLoaded(chunkX, chunkZ)) {
                     location.getWorld().getChunkAt(location);
                 }
+
+                // Teleport the player to a safe location
                 Teleport.performSafeTeleport(((Player) player), location, true);
             }, location);
         }

@@ -211,7 +211,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Checks if the CoreProtect API is enabled.
-     *
+     * 
      * @return True if the API is enabled
      */
     public boolean isEnabled() {

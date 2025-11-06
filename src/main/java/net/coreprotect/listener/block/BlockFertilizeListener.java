@@ -50,8 +50,7 @@ public final class BlockFertilizeListener extends Queue implements Listener {
             user = player.getName();
         }
         else {
-            String key = location.getWorld().getName() + ":" + location.getBlockX() + ":" + location.getBlockY() + ":" + location.getBlockZ();
-            Object[] data = CacheHandler.redstoneCache.get(key);
+            Object[] data = CacheHandler.redstoneCache.get(location);
             if (data != null) {
                 long newTime = System.currentTimeMillis();
                 long oldTime = (long) data[0];
@@ -59,7 +58,7 @@ public final class BlockFertilizeListener extends Queue implements Listener {
                     user = (String) data[1];
                 }
 
-                CacheHandler.redstoneCache.remove(key);
+                CacheHandler.redstoneCache.remove(location);
             }
         }
 

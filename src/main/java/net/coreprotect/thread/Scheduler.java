@@ -31,10 +31,10 @@ public class Scheduler {
             else if (regionData instanceof Entity) {
                 Entity entity = (Entity) regionData;
                 if (delay == 0) {
-                    entity.getScheduler().run(plugin, value -> task.run(), null);
+                    entity.getScheduler().run(plugin, value -> task.run(), task);
                 }
                 else {
-                    entity.getScheduler().runDelayed(plugin, value -> task.run(), null, delay);
+                    entity.getScheduler().runDelayed(plugin, value -> task.run(), task, delay);
                 }
             }
             else {
@@ -64,7 +64,7 @@ public class Scheduler {
             }
             else if (regionData instanceof Entity) {
                 Entity entity = (Entity) regionData;
-                return entity.getScheduler().runAtFixedRate(plugin, value -> task.run(), null, delay, period);
+                return entity.getScheduler().runAtFixedRate(plugin, value -> task.run(), task, delay, period);
             }
             else {
                 return Bukkit.getServer().getGlobalRegionScheduler().runAtFixedRate(plugin, value -> task.run(), delay, period);

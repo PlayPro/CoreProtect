@@ -83,9 +83,7 @@ public final class BlockDispenseListener extends Queue implements Listener {
                 }
 
                 if (!dispenseSuccess && material == Material.BONE_MEAL) {
-                    Location location = newBlock.getLocation();
-                    String key = location.getWorld().getName() + ":" + location.getBlockX() + ":" + location.getBlockY() + ":" + location.getBlockZ();
-                    CacheHandler.redstoneCache.put(key, new Object[] { System.currentTimeMillis(), user });
+                    CacheHandler.redstoneCache.put(newBlock.getLocation(), new Object[] { System.currentTimeMillis(), user });
                 }
 
                 if (type == Material.FIRE && (!Config.getConfig(world).BLOCK_IGNITE || !(newBlockData instanceof Lightable))) {

@@ -43,7 +43,7 @@ public class RollbackProcessor {
 
     /**
      * Process data for a specific chunk
-     *
+     * 
      * @param finalChunkX
      *            The chunk X coordinate
      * @param finalChunkZ
@@ -425,6 +425,7 @@ public class RollbackProcessor {
             int scannedWorlds = rollbackHashData[4];
             ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount, blockCount, entityCount, 1, (scannedWorlds + 1) });
 
+            // Teleport players out of danger if they're within this chunk
             if (preview == 0) {
                 for (Player player : Bukkit.getOnlinePlayers()) {
                     Location playerLocation = player.getLocation();

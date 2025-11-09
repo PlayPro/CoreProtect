@@ -4,18 +4,13 @@ import java.sql.Connection;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 
 import org.bukkit.Bukkit;
-import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Server;
-import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
@@ -34,7 +29,6 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.MaterialUtils;
-import net.coreprotect.utility.WorldUtils;
 
 /**
  * The main API class for CoreProtect.
@@ -53,7 +47,7 @@ public class CoreProtectAPI extends Queue {
 
         /**
          * Creates a new ParseResult from string array data.
-         * 
+         *
          * @param data
          *            The string array data to parse
          */
@@ -64,7 +58,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Converts a list of objects to a map for internal processing
-     * 
+     *
      * @param list
      *            List of objects to convert
      * @return Map with objects as keys and Boolean false as values
@@ -89,7 +83,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Returns the current API version.
-     * 
+     *
      * @return The API version as an integer
      */
     public int APIVersion() {
@@ -98,7 +92,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a block lookup at the specified block.
-     * 
+     *
      * @param block
      *            The block to look up
      * @param time
@@ -114,7 +108,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a lookup on the queue data for the specified block.
-     * 
+     *
      * @param block
      *            The block to look up
      * @return List of results
@@ -125,7 +119,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a lookup on session data for the specified user.
-     * 
+     *
      * @param user
      *            The user to look up
      * @param time
@@ -138,7 +132,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Determines if a user has placed a block at the specified location.
-     * 
+     *
      * @param user
      *            The username to check
      * @param block
@@ -170,7 +164,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Determines if a user has removed a block at the specified location.
-     * 
+     *
      * @param user
      *            The username to check
      * @param block
@@ -202,7 +196,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Gets the current time in milliseconds. Protected to allow mocking in tests.
-     * 
+     *
      * @return Current time in milliseconds
      */
     protected long getCurrentTimeMillis() {
@@ -211,7 +205,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Checks if the CoreProtect API is enabled.
-     * 
+     *
      * @return True if the API is enabled
      */
     public boolean isEnabled() {
@@ -220,7 +214,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Logs a chat message for a player.
-     * 
+     *
      * @param player
      *            The player who sent the message
      * @param message
@@ -243,7 +237,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Logs a command executed by a player.
-     * 
+     *
      * @param player
      *            The player who executed the command
      * @param command
@@ -266,7 +260,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Logs an interaction by a user at a location.
-     * 
+     *
      * @param user
      *            The username
      * @param location
@@ -284,7 +278,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Logs a container transaction by a user at a location.
-     * 
+     *
      * @param user
      *            The username
      * @param location
@@ -301,7 +295,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Logs a block placement by a user.
-     * 
+     *
      * @param user
      *            The username
      * @param blockState
@@ -319,7 +313,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Logs a block placement by a user with a specific material and block data.
-     * 
+     *
      * @param user
      *            The username
      * @param location
@@ -349,7 +343,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Logs a block placement by a user with a specific material and data value.
-     * 
+     *
      * @param user
      *            The username
      * @param location
@@ -373,7 +367,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Logs a block removal by a user.
-     * 
+     *
      * @param user
      *            The username
      * @param blockState
@@ -391,7 +385,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Logs a block removal by a user with a specific material and block data.
-     * 
+     *
      * @param user
      *            The username
      * @param location
@@ -420,7 +414,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Logs a block removal by a user with a specific material and data value.
-     * 
+     *
      * @param user
      *            The username
      * @param location
@@ -444,7 +438,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Parses lookup results into a ParseResult object.
-     * 
+     *
      * @param results
      *            The results to parse
      * @return A ParseResult object containing the parsed data
@@ -455,7 +449,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a lookup operation with various filters.
-     * 
+     *
      * @param time
      *            Time constraint in seconds
      * @param restrictUsers
@@ -484,7 +478,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a lookup operation with basic filters.
-     * 
+     *
      * @param user
      *            The user to include in the lookup
      * @param time
@@ -511,7 +505,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a partial lookup operation with various filters and pagination support.
-     * 
+     *
      * @param time
      *            Time constraint in seconds
      * @param restrictUsers
@@ -544,7 +538,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a partial lookup operation with basic filters and pagination support.
-     * 
+     *
      * @param user
      *            The user to include in the lookup
      * @param time
@@ -575,7 +569,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a database purge operation.
-     * 
+     *
      * @param time
      *            Time in seconds for the purge operation
      */
@@ -586,7 +580,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a restore operation with various filters.
-     * 
+     *
      * @param time
      *            Time constraint in seconds
      * @param restrictUsers
@@ -615,7 +609,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a restore operation with basic filters.
-     * 
+     *
      * @param user
      *            The user to include in the restore
      * @param time
@@ -642,7 +636,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a rollback operation with various filters.
-     * 
+     *
      * @param time
      *            Time constraint in seconds
      * @param restrictUsers
@@ -671,7 +665,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a rollback operation with basic filters.
-     * 
+     *
      * @param user
      *            The user to include in the rollback
      * @param time
@@ -698,7 +692,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Processes a data request with various filters.
-     * 
+     *
      * @param time
      *            Time constraint in seconds
      * @param radius
@@ -824,34 +818,6 @@ public class CoreProtectAPI extends Queue {
                 }
                 else {
                     if (!Bukkit.isPrimaryThread()) {
-                        if (Config.getGlobal().MYSQL == false) {
-                            List<String[]> lookupData = Lookup.performLookup(statement, null, uuids, restrictUsers, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, startTime, endTime, restrictWorld, true);
-
-                            if (lookupData != null && !lookupData.isEmpty()) {
-                                Set<Chunk> chunksToLoad = new HashSet<>();
-                                for (String[] data : lookupData) {
-                                    try {
-                                        ParseResult parseResult = new ParseResult(data);
-                                        World world = Bukkit.getWorld(parseResult.worldName());
-                                        if (world != null) {
-                                            int chunkX = parseResult.getX() >> 4;
-                                            int chunkZ = parseResult.getZ() >> 4;
-                                            if (!world.isChunkLoaded(chunkX, chunkZ)) {
-                                                chunksToLoad.add(world.getChunkAt(chunkX, chunkZ));
-                                            }
-                                        }
-                                    }
-                                    catch (Exception e) {
-                                        // ignore
-                                    }
-                                }
-
-                                if (!chunksToLoad.isEmpty()) {
-                                    loadChunksInBatches(chunksToLoad, 10);
-                                }
-                            }
-                        }
-
                         boolean verbose = false;
                         result = Rollback.performRollbackRestore(statement, null, uuids, restrictUsers, null, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, startTime, endTime, restrictWorld, false, verbose, action, 0);
                     }
@@ -872,7 +838,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Processes a data request with basic filters.
-     * 
+     *
      * @param user
      *            The user to include in the operation
      * @param time
@@ -917,7 +883,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Helper method to check if the API is enabled and the player is not null.
-     * 
+     *
      * @param player
      *            The player to check
      * @return True if the API is enabled and the player is not null
@@ -928,7 +894,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Helper method to check if a user and location are valid.
-     * 
+     *
      * @param user
      *            The username to check
      * @param location
@@ -937,38 +903,5 @@ public class CoreProtectAPI extends Queue {
      */
     private boolean isValidUserAndLocation(String user, Location location) {
         return user != null && location != null && !user.isEmpty();
-    }
-
-    private void loadChunksInBatches(Set<Chunk> chunks, int batchSize) {
-        List<Chunk> chunkList = new ArrayList<>(chunks);
-        for (int i = 0; i < chunkList.size(); i += batchSize) {
-            int end = Math.min(i + batchSize, chunkList.size());
-            List<Chunk> batch = chunkList.subList(i, end);
-
-            loadChunkBatch(batch);
-
-            if (i + batchSize < chunkList.size()) {
-                try {
-                    Thread.sleep(50);
-                }
-                catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-            }
-        }
-    }
-
-    private void loadChunkBatch(List<Chunk> chunkBatch) {
-        if (chunkBatch.isEmpty()) {
-            return;
-        }
-
-        List<CompletableFuture<Chunk>> futures = new ArrayList<>();
-        for (Chunk chunk : chunkBatch) {
-            futures.add(chunk.getWorld().getChunkAtAsync(chunk.getX(), chunk.getZ()));
-        }
-
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
     }
 }

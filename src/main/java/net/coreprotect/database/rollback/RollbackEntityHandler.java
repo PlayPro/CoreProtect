@@ -1,10 +1,5 @@
 package net.coreprotect.database.rollback;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -13,10 +8,8 @@ import org.bukkit.block.BlockState;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 
-import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.WorldUtils;
 
@@ -54,35 +47,24 @@ public class RollbackEntityHandler {
      * @return The number of entities affected (1 if successful, 0 otherwise)
      */
     public static int processEntity(Object[] row, int rollbackType, String finalUserString, int oldTypeRaw, int rowTypeRaw, int rowData, int rowAction, int rowRolledBack, int rowX, int rowY, int rowZ, int rowWorldId, int rowUserId, String rowUser) {
-        World bukkitWorld = Bukkit.getServer().getWorld(WorldUtils.getWorldName(rowWorldId));
-        if (bukkitWorld == null) {
-            return 0;
-        }
-
-        if (ConfigHandler.isFolia) {
-            CompletableFuture<Integer> future = bukkitWorld.getChunkAtAsync(rowX >> 4, rowZ >> 4, true).thenApply(chunk -> {
-                return processEntityLogic(row, rollbackType, finalUserString, oldTypeRaw, rowTypeRaw, rowData, rowAction, rowRolledBack, rowX, rowY, rowZ, rowWorldId, rowUserId, rowUser, bukkitWorld);
-            });
-            try {
-                return future.get(10, TimeUnit.SECONDS);
-            }
-            catch (InterruptedException | ExecutionException | TimeoutException e) {
-                e.printStackTrace();
-                return 0;
-            }
-        }
-        else {
-            if (!bukkitWorld.isChunkLoaded(rowX >> 4, rowZ >> 4)) {
-                bukkitWorld.getChunkAt(rowX >> 4, rowZ >> 4);
-            }
-            return processEntityLogic(row, rollbackType, finalUserString, oldTypeRaw, rowTypeRaw, rowData, rowAction, rowRolledBack, rowX, rowY, rowZ, rowWorldId, rowUserId, rowUser, bukkitWorld);
-        }
-    }
-
-    private static int processEntityLogic(Object[] row, int rollbackType, String finalUserString, int oldTypeRaw, int rowTypeRaw, int rowData, int rowAction, int rowRolledBack, int rowX, int rowY, int rowZ, int rowWorldId, int rowUserId, String rowUser, World bukkitWorld) {
         try {
+            // Entity kill
             if (rowAction == 3) {
+                String world = getWorldName(rowWorldId);
+                if (world.isEmpty()) {
+                    return 0;
+                }
+
+                World bukkitWorld = Bukkit.getServer().getWorld(world);
+                if (bukkitWorld == null) {
+                    return 0;
+                }
+
                 Block block = bukkitWorld.getBlockAt(rowX, rowY, rowZ);
+                if (!bukkitWorld.isChunkLoaded(block.getChunk())) {
+                    bukkitWorld.getChunkAt(block.getLocation());
+                }
+
                 if (rowTypeRaw > 0) {
                     // Spawn in entity
                     if (rowRolledBack == 0) {
@@ -119,12 +101,7 @@ public class RollbackEntityHandler {
                                 if (id == entityId) {
                                     updateEntityCount(finalUserString, 1);
                                     removed = true;
-                                    if (ConfigHandler.isFolia) {
-                                        Scheduler.runTask(CoreProtect.getInstance(), entity::remove, entity);
-                                    }
-                                    else {
-                                        entity.remove();
-                                    }
+                                    entity.remove();
                                     break;
                                 }
                             }
@@ -138,12 +115,7 @@ public class RollbackEntityHandler {
                                     if (entityx >= xmin && entityx <= xmax && entityY >= ymin && entityY <= ymax && entityZ >= zmin && entityZ <= zmax) {
                                         updateEntityCount(finalUserString, 1);
                                         removed = true;
-                                        if (ConfigHandler.isFolia) {
-                                            Scheduler.runTask(CoreProtect.getInstance(), entity::remove, entity);
-                                        }
-                                        else {
-                                            entity.remove();
-                                        }
+                                        entity.remove();
                                         break;
                                     }
                                 }
@@ -156,12 +128,7 @@ public class RollbackEntityHandler {
                                 if (id == entityId) {
                                     updateEntityCount(finalUserString, 1);
                                     removed = true;
-                                    if (ConfigHandler.isFolia) {
-                                        Scheduler.runTask(CoreProtect.getInstance(), entity::remove, entity);
-                                    }
-                                    else {
-                                        entity.remove();
-                                    }
+                                    entity.remove();
                                     break;
                                 }
                             }
@@ -217,7 +184,7 @@ public class RollbackEntityHandler {
 
     /**
      * Spawns an entity at the given block location.
-     * 
+     *
      * @param user
      *            The username of the player
      * @param block

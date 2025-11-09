@@ -185,6 +185,7 @@ public class Rollback extends RollbackUtil {
                 }
             }
 
+            // Perform update transaction(s) in consumer
             if (preview == 0) {
                 if (actionList.contains(11)) {
                     List<Object[]> blockList = new ArrayList<>();
@@ -324,6 +325,7 @@ public class Rollback extends RollbackUtil {
                         final HashMap<Long, ArrayList<Object[]>> finalItemList = itemDataList.get(rollbackWorldId);
 
                         Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
+                            // Process this chunk using our new RollbackProcessor class
                             ArrayList<Object[]> blockData = finalBlockList != null ? finalBlockList.getOrDefault(chunkKey, new ArrayList<>()) : new ArrayList<>();
                             ArrayList<Object[]> itemData = finalItemList != null ? finalItemList.getOrDefault(chunkKey, new ArrayList<>()) : new ArrayList<>();
                             RollbackProcessor.processChunk(finalChunkX, finalChunkZ, chunkKey, blockData, itemData, rollbackType, preview, finalUserString, finalUser instanceof Player ? (Player) finalUser : null, bukkitRollbackWorld, inventoryRollback);

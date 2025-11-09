@@ -184,7 +184,7 @@ public class RollbackEntityHandler {
 
     /**
      * Spawns an entity at the given block location.
-     *
+     * 
      * @param user
      *            The username of the player
      * @param block

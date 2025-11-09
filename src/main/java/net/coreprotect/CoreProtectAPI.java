@@ -47,7 +47,7 @@ public class CoreProtectAPI extends Queue {
 
         /**
          * Creates a new ParseResult from string array data.
-         *
+         * 
          * @param data
          *            The string array data to parse
          */
@@ -58,7 +58,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Converts a list of objects to a map for internal processing
-     *
+     * 
      * @param list
      *            List of objects to convert
      * @return Map with objects as keys and Boolean false as values
@@ -83,7 +83,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Returns the current API version.
-     *
+     * 
      * @return The API version as an integer
      */
     public int APIVersion() {
@@ -92,7 +92,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a block lookup at the specified block.
-     *
+     * 
      * @param block
      *            The block to look up
      * @param time
@@ -108,7 +108,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a lookup on the queue data for the specified block.
-     *
+     * 
      * @param block
      *            The block to look up
      * @return List of results
@@ -119,7 +119,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a lookup on session data for the specified user.
-     *
+     * 
      * @param user
      *            The user to look up
      * @param time
@@ -132,7 +132,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Determines if a user has placed a block at the specified location.
-     *
+     * 
      * @param user
      *            The username to check
      * @param block
@@ -164,7 +164,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Determines if a user has removed a block at the specified location.
-     *
+     * 
      * @param user
      *            The username to check
      * @param block
@@ -196,7 +196,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Gets the current time in milliseconds. Protected to allow mocking in tests.
-     *
+     * 
      * @return Current time in milliseconds
      */
     protected long getCurrentTimeMillis() {
@@ -205,7 +205,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Checks if the CoreProtect API is enabled.
-     *
+     * 
      * @return True if the API is enabled
      */
     public boolean isEnabled() {
@@ -214,7 +214,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Logs a chat message for a player.
-     *
+     * 
      * @param player
      *            The player who sent the message
      * @param message
@@ -237,7 +237,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Logs a command executed by a player.
-     *
+     * 
      * @param player
      *            The player who executed the command
      * @param command
@@ -260,7 +260,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Logs an interaction by a user at a location.
-     *
+     * 
      * @param user
      *            The username
      * @param location
@@ -278,7 +278,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Logs a container transaction by a user at a location.
-     *
+     * 
      * @param user
      *            The username
      * @param location
@@ -295,7 +295,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Logs a block placement by a user.
-     *
+     * 
      * @param user
      *            The username
      * @param blockState
@@ -313,7 +313,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Logs a block placement by a user with a specific material and block data.
-     *
+     * 
      * @param user
      *            The username
      * @param location
@@ -343,7 +343,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Logs a block placement by a user with a specific material and data value.
-     *
+     * 
      * @param user
      *            The username
      * @param location
@@ -367,7 +367,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Logs a block removal by a user.
-     *
+     * 
      * @param user
      *            The username
      * @param blockState
@@ -385,7 +385,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Logs a block removal by a user with a specific material and block data.
-     *
+     * 
      * @param user
      *            The username
      * @param location
@@ -414,7 +414,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Logs a block removal by a user with a specific material and data value.
-     *
+     * 
      * @param user
      *            The username
      * @param location
@@ -438,7 +438,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Parses lookup results into a ParseResult object.
-     *
+     * 
      * @param results
      *            The results to parse
      * @return A ParseResult object containing the parsed data
@@ -449,7 +449,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a lookup operation with various filters.
-     *
+     * 
      * @param time
      *            Time constraint in seconds
      * @param restrictUsers
@@ -478,7 +478,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a lookup operation with basic filters.
-     *
+     * 
      * @param user
      *            The user to include in the lookup
      * @param time
@@ -505,7 +505,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a partial lookup operation with various filters and pagination support.
-     *
+     * 
      * @param time
      *            Time constraint in seconds
      * @param restrictUsers
@@ -538,7 +538,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a partial lookup operation with basic filters and pagination support.
-     *
+     * 
      * @param user
      *            The user to include in the lookup
      * @param time
@@ -569,7 +569,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a database purge operation.
-     *
+     * 
      * @param time
      *            Time in seconds for the purge operation
      */
@@ -580,7 +580,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a restore operation with various filters.
-     *
+     * 
      * @param time
      *            Time constraint in seconds
      * @param restrictUsers
@@ -609,7 +609,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a restore operation with basic filters.
-     *
+     * 
      * @param user
      *            The user to include in the restore
      * @param time
@@ -636,7 +636,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a rollback operation with various filters.
-     *
+     * 
      * @param time
      *            Time constraint in seconds
      * @param restrictUsers
@@ -665,7 +665,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Performs a rollback operation with basic filters.
-     *
+     * 
      * @param user
      *            The user to include in the rollback
      * @param time
@@ -692,7 +692,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Processes a data request with various filters.
-     *
+     * 
      * @param time
      *            Time constraint in seconds
      * @param radius
@@ -838,7 +838,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Processes a data request with basic filters.
-     *
+     * 
      * @param user
      *            The user to include in the operation
      * @param time
@@ -883,7 +883,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Helper method to check if the API is enabled and the player is not null.
-     *
+     * 
      * @param player
      *            The player to check
      * @return True if the API is enabled and the player is not null
@@ -894,7 +894,7 @@ public class CoreProtectAPI extends Queue {
 
     /**
      * Helper method to check if a user and location are valid.
-     *
+     * 
      * @param user
      *            The username to check
      * @param location

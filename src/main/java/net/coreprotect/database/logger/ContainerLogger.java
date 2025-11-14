@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -21,7 +22,10 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.statement.ContainerStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 
 public class ContainerLogger extends Queue {
@@ -56,17 +60,63 @@ public class ContainerLogger extends Queue {
             String loggingContainerId = player.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
             List<ItemStack[]> oldList = ConfigHandler.oldContainer.get(loggingContainerId);
             ItemStack[] oi1 = oldList.get(0);
-            ItemStack[] oldInventory = Util.getContainerState(oi1);
-            ItemStack[] newInventory = Util.getContainerState(contents);
+            ItemStack[] oldInventory = ItemUtils.getContainerState(oi1);
+            ItemStack[] newInventory = ItemUtils.getContainerState(contents);
             if (oldInventory == null || newInventory == null) {
                 return;
+            }
+
+            // Check if this is a dispenser with no actual changes
+            if (player.equals("#dispenser") && ItemUtils.compareContainers(oldInventory, newInventory)) {
+                // No changes detected, mark this dispenser in the dispenserNoChange map
+                // Extract the location key from the loggingContainerId
+                // Format: #dispenser.x.y.z
+                String[] parts = loggingContainerId.split("\\.");
+                if (parts.length >= 4) {
+                    int x = Integer.parseInt(parts[1]);
+                    int y = Integer.parseInt(parts[2]);
+                    int z = Integer.parseInt(parts[3]);
+
+                    // Create the location key
+                    String locationKey = location.getWorld().getUID().toString() + "." + x + "." + y + "." + z;
+
+                    // Check if we have pending event details for this dispenser
+                    Object[] pendingEvent = ConfigHandler.dispenserPending.remove(locationKey);
+                    if (pendingEvent != null) {
+                        // We have the exact event details, use them to mark this event as unchanged
+                        String eventKey = (String) pendingEvent[0];
+
+                        // Get or create the inner map for this location
+                        ConfigHandler.dispenserNoChange.computeIfAbsent(locationKey, k -> new ConcurrentHashMap<>()).put(eventKey, System.currentTimeMillis());
+                    }
+                }
+                return;
+            }
+
+            // If we reach here, the dispenser event resulted in changes
+            // Remove any pending event for this dispenser
+            if (player.equals("#dispenser")) {
+                String[] parts = loggingContainerId.split("\\.");
+                if (parts.length >= 4) {
+                    int x = Integer.parseInt(parts[1]);
+                    int y = Integer.parseInt(parts[2]);
+                    int z = Integer.parseInt(parts[3]);
+
+                    String locationKey = location.getWorld().getUID().toString() + "." + x + "." + y + "." + z;
+
+                    // Remove the pending event since it resulted in changes
+                    ConfigHandler.dispenserPending.remove(locationKey);
+
+                    // Clear any existing dispenserNoChange entries for this location
+                    ConfigHandler.dispenserNoChange.remove(locationKey);
+                }
             }
 
             List<ItemStack[]> forceList = ConfigHandler.forceContainer.get(loggingContainerId);
             if (forceList != null) {
                 int forceSize = 0;
                 if (!forceList.isEmpty()) {
-                    newInventory = Util.getContainerState(forceList.get(0));
+                    newInventory = ItemUtils.getContainerState(forceList.get(0));
                     forceSize = modifyForceContainer(loggingContainerId, null);
                 }
                 if (forceSize == 0) {
@@ -119,7 +169,7 @@ public class ContainerLogger extends Queue {
             for (ItemStack oldi : oldInventory) {
                 for (ItemStack newi : newInventory) {
                     if (oldi != null && newi != null) {
-                        if (oldi.isSimilar(newi) && !Util.isAir(oldi.getType())) { // Ignores amount
+                        if (oldi.isSimilar(newi) && !BlockUtils.isAir(oldi.getType())) { // Ignores amount
                             int oldAmount = oldi.getAmount();
                             int newAmount = newi.getAmount();
                             if (newAmount >= oldAmount) {
@@ -137,8 +187,8 @@ public class ContainerLogger extends Queue {
                 }
             }
 
-            Util.mergeItems(type, oldInventory);
-            Util.mergeItems(type, newInventory);
+            ItemUtils.mergeItems(type, oldInventory);
+            ItemUtils.mergeItems(type, newInventory);
 
             if (type != Material.ENDER_CHEST) {
                 logTransaction(preparedStmtContainer, batchCount, player, type, faceData, oldInventory, 0, location);
@@ -166,14 +216,14 @@ public class ContainerLogger extends Queue {
             int slot = 0;
             for (ItemStack item : items) {
                 if (item != null) {
-                    if (item.getAmount() > 0 && !Util.isAir(item.getType())) {
+                    if (item.getAmount() > 0 && !BlockUtils.isAir(item.getType())) {
                         // Object[] metadata = new Object[] { slot, item.getItemMeta() };
                         List<List<Map<String, Object>>> metadata = ItemMetaHandler.serialize(item, type, faceData, slot);
                         if (metadata.size() == 0) {
                             metadata = null;
                         }
 
-                        CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
+                        CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location);
                         if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                             CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
                         }
@@ -183,12 +233,13 @@ public class ContainerLogger extends Queue {
                         }
 
                         int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
-                        int wid = Util.getWorldId(location.getWorld().getName());
+                        Location eventLocation = event.getLocation();
+                        int wid = WorldUtils.getWorldId(eventLocation.getWorld().getName());
                         int time = (int) (System.currentTimeMillis() / 1000L);
-                        int x = location.getBlockX();
-                        int y = location.getBlockY();
-                        int z = location.getBlockZ();
-                        int typeId = Util.getBlockId(item.getType().name(), true);
+                        int x = eventLocation.getBlockX();
+                        int y = eventLocation.getBlockY();
+                        int z = eventLocation.getBlockZ();
+                        int typeId = MaterialUtils.getBlockId(item.getType().name(), true);
                         int data = 0;
                         int amount = item.getAmount();
                         ContainerStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, typeId, data, amount, metadata, action, 0);

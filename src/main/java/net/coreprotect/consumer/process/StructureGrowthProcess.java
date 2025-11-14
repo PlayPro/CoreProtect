@@ -11,6 +11,7 @@ import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.Lookup;
 import net.coreprotect.database.logger.BlockBreakLogger;
 import net.coreprotect.database.logger.BlockPlaceLogger;
+import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.Util;
 
 class StructureGrowthProcess {
@@ -31,7 +32,7 @@ class StructureGrowthProcess {
                 int count = 0;
                 for (BlockState blockState : blockStates) {
                     if (count < replaceBlockCount) {
-                        BlockBreakLogger.log(preparedStmt, batchCount, user, blockState.getLocation(), Util.getBlockId(blockState.getType()), 0, null, blockState.getBlockData().getAsString(), null);
+                        BlockBreakLogger.log(preparedStmt, batchCount, user, blockState.getLocation(), MaterialUtils.getBlockId(blockState.getType()), 0, null, blockState.getBlockData().getAsString(), null);
                     }
                     else {
                         BlockPlaceLogger.log(preparedStmt, batchCount, user, blockState, 0, 0, null, -1, false, null, null, null);

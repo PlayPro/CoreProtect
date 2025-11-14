@@ -35,7 +35,7 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
 import net.coreprotect.listener.player.PlayerInteractEntityListener;
 import net.coreprotect.thread.Scheduler;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.ItemUtils;
 
 public final class EntityDamageByEntityListener extends Queue implements Listener {
 
@@ -126,7 +126,7 @@ public final class EntityDamageByEntityListener extends Queue implements Listene
                         // Do this here, as we're unable to read armor stand contents on EntityDeathEvent (in survival mode)
                         if (Config.getConfig(entityLocation.getWorld()).ITEM_TRANSACTIONS) {
                             String killer = user;
-                            ItemStack[] contents = Util.getContainerContents(Material.ARMOR_STAND, entity, block.getLocation());
+                            ItemStack[] contents = ItemUtils.getContainerContents(Material.ARMOR_STAND, entity, block.getLocation());
                             Scheduler.runTask(CoreProtect.getInstance(), () -> {
                                 if (entity != null && entity.isDead()) {
                                     entityLocation.setY(entityLocation.getY() + 0.99);

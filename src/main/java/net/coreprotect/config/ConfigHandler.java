@@ -35,18 +35,25 @@ import net.coreprotect.patch.Patch;
 import net.coreprotect.spigot.SpigotAdapter;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.SystemUtils;
+import net.coreprotect.utility.VersionUtils;
 import oshi.hardware.CentralProcessor;
 
 public class ConfigHandler extends Queue {
+
+    public enum CacheType {
+        MATERIALS, BLOCKDATA, ART, ENTITIES, WORLDS
+    }
+
     public static int SERVER_VERSION = 0;
     public static final int EDITION_VERSION = 2;
-    public static final String EDITION_BRANCH = Util.getBranch();
-    public static final String EDITION_NAME = Util.getPluginName();
+    public static final String EDITION_BRANCH = VersionUtils.getBranch();
+    public static final String EDITION_NAME = VersionUtils.getPluginName();
     public static final String COMMUNITY_EDITION = "Community Edition";
     public static final String JAVA_VERSION = "11.0";
-    public static final String MINECRAFT_VERSION = "1.15";
-    public static final String LATEST_VERSION = "1.21";
+    public static final String MINECRAFT_VERSION = "1.16";
+    public static final String PATCH_VERSION = "23.0";
+    public static final String LATEST_VERSION = "1.21.10";
     public static String path = "plugins/CoreProtect/";
     public static String sqlite = "database.db";
     public static String host = "127.0.0.1";
@@ -59,10 +66,10 @@ public class ConfigHandler extends Queue {
     public static int maximumPoolSize = 10;
 
     public static HikariDataSource hikariDataSource = null;
-    public static final CentralProcessor processorInfo = Util.getProcessorInfo();
-    public static final boolean isSpigot = Util.isSpigot();
-    public static final boolean isPaper = Util.isPaper();
-    public static final boolean isFolia = Util.isFolia();
+    public static final CentralProcessor processorInfo = SystemUtils.getProcessorInfo();
+    public static final boolean isSpigot = VersionUtils.isSpigot();
+    public static final boolean isPaper = VersionUtils.isPaper();
+    public static final boolean isFolia = VersionUtils.isFolia();
     public static volatile boolean serverRunning = false;
     public static volatile boolean converterRunning = false;
     public static volatile boolean purgeRunning = false;
@@ -108,6 +115,8 @@ public class ConfigHandler extends Queue {
     public static ConcurrentHashMap<String, List<ItemStack>> itemsBuy = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, Object[]> hopperAbort = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, Object[]> hopperSuccess = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, ConcurrentHashMap<String, Long>> dispenserNoChange = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> dispenserPending = new ConcurrentHashMap<>();
     public static Map<String, List<ItemStack[]>> forceContainer = syncMap();
     public static Map<String, Integer> lookupType = syncMap();
     public static Map<String, Object[]> lookupThrottle = syncMap();
@@ -133,7 +142,7 @@ public class ConfigHandler extends Queue {
     public static ConcurrentHashMap<String, String> language = new ConcurrentHashMap<>();
     public static List<String> databaseTables = new ArrayList<>();
 
-    private static void checkPlayers(Connection connection) {
+    public static void checkPlayers(Connection connection) {
         ConfigHandler.playerIdCache.clear();
         ConfigHandler.playerIdCacheReversed.clear();
         for (Player player : Bukkit.getServer().getOnlinePlayers()) {
@@ -262,10 +271,10 @@ public class ConfigHandler extends Queue {
             ConfigHandler.hikariDataSource = new HikariDataSource(config);
         }
 
-        Database.createDatabaseTables(ConfigHandler.prefix, null, Config.getGlobal().MYSQL, false);
+        Database.createDatabaseTables(ConfigHandler.prefix, false, null, Config.getGlobal().MYSQL, false);
     }
 
-    public static void loadTypes(Statement statement) {
+    public static void loadMaterials(Statement statement) {
         try {
             String query = "SELECT id,material FROM " + ConfigHandler.prefix + "material_map";
             ResultSet rs = statement.executeQuery(query);
@@ -283,9 +292,16 @@ public class ConfigHandler extends Queue {
                 }
             }
             rs.close();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
-            query = "SELECT id,data FROM " + ConfigHandler.prefix + "blockdata_map";
-            rs = statement.executeQuery(query);
+    public static void loadBlockdata(Statement statement) {
+        try {
+            String query = "SELECT id,data FROM " + ConfigHandler.prefix + "blockdata_map";
+            ResultSet rs = statement.executeQuery(query);
             ConfigHandler.blockdata.clear();
             ConfigHandler.blockdataReversed.clear();
             blockdataId = 0;
@@ -300,9 +316,16 @@ public class ConfigHandler extends Queue {
                 }
             }
             rs.close();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
-            query = "SELECT id,art FROM " + ConfigHandler.prefix + "art_map";
-            rs = statement.executeQuery(query);
+    public static void loadArt(Statement statement) {
+        try {
+            String query = "SELECT id,art FROM " + ConfigHandler.prefix + "art_map";
+            ResultSet rs = statement.executeQuery(query);
             ConfigHandler.art.clear();
             ConfigHandler.artReversed.clear();
             artId = 0;
@@ -317,9 +340,16 @@ public class ConfigHandler extends Queue {
                 }
             }
             rs.close();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
-            query = "SELECT id,entity FROM " + ConfigHandler.prefix + "entity_map";
-            rs = statement.executeQuery(query);
+    public static void loadEntities(Statement statement) {
+        try {
+            String query = "SELECT id,entity FROM " + ConfigHandler.prefix + "entity_map";
+            ResultSet rs = statement.executeQuery(query);
             ConfigHandler.entities.clear();
             ConfigHandler.entitiesReversed.clear();
             entityId = 0;
@@ -338,6 +368,67 @@ public class ConfigHandler extends Queue {
         catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public static void loadTypes(Statement statement) {
+        loadMaterials(statement);
+        loadBlockdata(statement);
+        loadArt(statement);
+        loadEntities(statement);
+    }
+
+    /**
+     * Unified method to reload cache from database when DATABASE_LOCK is false (multi-server setup)
+     * 
+     * @param type
+     *            The type of cache to reload
+     * @param name
+     *            The name to look up after reload
+     * @return The ID if found after reload, or -1 if not found
+     */
+    public static int reloadAndGetId(CacheType type, String name) {
+        // Only reload if DATABASE_LOCK is false (multi-server setup)
+        if (Config.getGlobal().DATABASE_LOCK) {
+            return -1;
+        }
+
+        try (Connection connection = Database.getConnection(true)) {
+            if (connection != null) {
+                Statement statement = connection.createStatement();
+
+                // Reload appropriate cache based on type
+                switch (type) {
+                    case MATERIALS:
+                        loadMaterials(statement);
+                        statement.close();
+                        return materials.getOrDefault(name, -1);
+                    case BLOCKDATA:
+                        loadBlockdata(statement);
+                        statement.close();
+                        return blockdata.getOrDefault(name, -1);
+                    case ART:
+                        loadArt(statement);
+                        statement.close();
+                        return art.getOrDefault(name, -1);
+                    case ENTITIES:
+                        loadEntities(statement);
+                        statement.close();
+                        return entities.getOrDefault(name, -1);
+                    case WORLDS:
+                        loadWorlds(statement);
+                        statement.close();
+                        return worlds.getOrDefault(name, -1);
+                    default:
+                        statement.close();
+                        return -1;
+                }
+            }
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return -1;
     }
 
     public static void loadWorlds(Statement statement) {
@@ -443,15 +534,15 @@ public class ConfigHandler extends Queue {
             ConfigHandler.loadTypes(statement); // Load material ID's into memory.
 
             // Initialize WorldEdit logging
-            if (Util.checkWorldEdit()) {
+            if (VersionUtils.checkWorldEdit()) {
                 PluginManager pluginManager = Bukkit.getServer().getPluginManager();
                 Plugin worldEditPlugin = pluginManager.getPlugin("WorldEdit");
                 if (worldEditPlugin != null && worldEditPlugin.isEnabled()) {
-                    Util.loadWorldEdit();
+                    VersionUtils.loadWorldEdit();
                 }
             }
             else if (ConfigHandler.worldeditEnabled) {
-                Util.unloadWorldEdit();
+                VersionUtils.unloadWorldEdit();
             }
 
             ConfigHandler.serverRunning = true; // Set as running before patching

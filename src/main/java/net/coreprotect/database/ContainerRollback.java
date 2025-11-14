@@ -26,8 +26,10 @@ import net.coreprotect.database.rollback.RollbackComplete;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.MaterialUtils;
 
 public class ContainerRollback extends Rollback {
 
@@ -68,14 +70,14 @@ public class ContainerRollback extends Rollback {
                         List<ItemFrame> matchingFrames = new ArrayList<>();
 
                         if (BlockGroup.CONTAINERS.contains(type)) {
-                            container = Util.getContainerInventory(block.getState(), false);
+                            container = BlockUtils.getContainerInventory(block.getState(), false);
                         }
                         else {
                             for (Entity entity : block.getChunk().getEntities()) {
                                 if (entity.getLocation().getBlockX() == location.getBlockX() && entity.getLocation().getBlockY() == location.getBlockY() && entity.getLocation().getBlockZ() == location.getBlockZ()) {
                                     if (entity instanceof ArmorStand) {
                                         type = Material.ARMOR_STAND;
-                                        container = Util.getEntityEquipment((LivingEntity) entity);
+                                        container = ItemUtils.getEntityEquipment((LivingEntity) entity);
                                     }
                                     else if (entity instanceof ItemFrame) {
                                         type = Material.ITEM_FRAME;
@@ -99,11 +101,11 @@ public class ContainerRollback extends Rollback {
                                 int rowTypeRaw = (Integer) lookupRow[6];
                                 int rowData = (Integer) lookupRow[7];
                                 int rowAction = (Integer) lookupRow[8];
-                                int rowRolledBack = Util.rolledBack((Integer) lookupRow[9], false);
+                                int rowRolledBack = MaterialUtils.rolledBack((Integer) lookupRow[9], false);
                                 // int rowWid = (Integer)lookupRow[10];
                                 int rowAmount = (Integer) lookupRow[11];
                                 byte[] rowMetadata = (byte[]) lookupRow[12];
-                                Material rowType = Util.getType(rowTypeRaw);
+                                Material rowType = MaterialUtils.getType(rowTypeRaw);
 
                                 if ((rollbackType == 0 && rowRolledBack == 0) || (rollbackType == 1 && rowRolledBack == 1)) {
                                     modifyCount = modifyCount + rowAmount;

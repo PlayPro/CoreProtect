@@ -15,7 +15,7 @@ import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.MaterialUtils;
 
 public final class HangingPlaceListener extends Queue implements Listener {
 
@@ -40,7 +40,13 @@ public final class HangingPlaceListener extends Queue implements Listener {
                 material = Material.PAINTING;
                 Painting painting = (Painting) entity;
                 blockData = "FACING=" + painting.getFacing().name();
-                artId = Util.getArtId(painting.getArt().toString(), true);
+                try {
+                    artId = MaterialUtils.getArtId(painting.getArt().toString(), true);
+                }
+                catch (IncompatibleClassChangeError e) {
+                    artId = 0;
+                    // 1.21.2+
+                }
             }
 
             int inspect = 0;

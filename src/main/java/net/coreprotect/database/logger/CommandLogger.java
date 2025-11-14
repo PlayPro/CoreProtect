@@ -12,7 +12,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.CommandStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.WorldUtils;
 
 public class CommandLogger {
 
@@ -29,7 +29,7 @@ public class CommandLogger {
                 return;
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user);
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location);
             if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
             }
@@ -39,10 +39,11 @@ public class CommandLogger {
             }
 
             int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
-            int wid = Util.getWorldId(location.getWorld().getName());
-            int x = location.getBlockX();
-            int y = location.getBlockY();
-            int z = location.getBlockZ();
+            Location eventLocation = event.getLocation();
+            int wid = WorldUtils.getWorldId(eventLocation.getWorld().getName());
+            int x = eventLocation.getBlockX();
+            int y = eventLocation.getBlockY();
+            int z = eventLocation.getBlockZ();
             CommandStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, message);
         }
         catch (Exception e) {

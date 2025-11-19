@@ -15,6 +15,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.UserStatement;
+import net.coreprotect.utility.SyntheticUsernames;
 
 public class Process {
 
@@ -99,8 +100,9 @@ public class Process {
                 if (data != null) {
                     String user = data[0];
                     String uuid = data[1];
-                    if (user != null && ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT)) == null) {
-                        UserStatement.loadId(connection, user, uuid);
+                    String normalizedUser = SyntheticUsernames.normalize(user);
+                    if (normalizedUser != null && ConfigHandler.playerIdCache.get(normalizedUser.toLowerCase(Locale.ROOT)) == null) {
+                        UserStatement.loadId(connection, normalizedUser, uuid);
                     }
                 }
             }

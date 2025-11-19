@@ -12,18 +12,20 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitTask;
 
 import io.papermc.paper.event.entity.ItemTransportingEntityValidateTargetEvent;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.listener.player.InventoryChangeListener;
+import net.coreprotect.utility.SyntheticUsernames;
 
 public final class CopperGolemChestListener implements Listener {
 
     private static final String COPPER_GOLEM_NAME = "COPPER_GOLEM";
     private static final String USERNAME = "#copper_golem";
-    private static final long DELAY_TICKS = 50L;
+    private static final long DELAY_TICKS = 60L;
 
     private final CoreProtect plugin;
     private final Map<UUID, PendingTransaction> pendingTransactions = new ConcurrentHashMap<>();
@@ -67,6 +69,7 @@ public final class CopperGolemChestListener implements Listener {
 
     private void scheduleTransaction(Entity entity, Location location) {
         UUID entityId = entity.getUniqueId();
+        String username = SyntheticUsernames.qualifyWithUuid(USERNAME, entityId);
         PendingTransaction pendingTransaction = pendingTransactions.remove(entityId);
         if (pendingTransaction != null) {
             pendingTransaction.cancel();
@@ -84,7 +87,7 @@ public final class CopperGolemChestListener implements Listener {
                 return;
             }
 
-            InventoryChangeListener.inventoryTransaction(USERNAME, targetLocation, null);
+            InventoryChangeListener.inventoryTransaction(username, targetLocation, null);
         }, DELAY_TICKS);
 
         scheduled.setTask(task);

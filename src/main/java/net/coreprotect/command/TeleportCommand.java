@@ -56,6 +56,9 @@ public class TeleportCommand {
         World world = location.getWorld();
         if (wid > -1) {
             world = Bukkit.getServer().getWorld(WorldUtils.getWorldName(wid));
+            if (world == null) {
+                return;
+            }
         }
 
         String x = null;
@@ -100,16 +103,25 @@ public class TeleportCommand {
         location.setY(Double.parseDouble(y));
         location.setZ(Double.parseDouble(z));
 
-        int chunkX = location.getBlockX() >> 4;
-        int chunkZ = location.getBlockZ() >> 4;
-        Scheduler.runTask(CoreProtect.getInstance(), () -> {
-            if (!location.getWorld().isChunkLoaded(chunkX, chunkZ)) {
-                location.getWorld().getChunkAt(location);
-            }
+        if (ConfigHandler.isFolia) {
+            CoreProtect.getInstance().getServer().getRegionScheduler().run(CoreProtect.getInstance(), location, task -> {
+                location.getWorld().getChunkAtAsync(location).thenAccept(chunk -> {
+                    Teleport.performSafeTeleport(((Player) player), location, true);
+                });
+            });
+        }
+        else {
+            int chunkX = location.getBlockX() >> 4;
+            int chunkZ = location.getBlockZ() >> 4;
+            Scheduler.runTask(CoreProtect.getInstance(), () -> {
+                if (!location.getWorld().isChunkLoaded(chunkX, chunkZ)) {
+                    location.getWorld().getChunkAt(location);
+                }
 
-            // Teleport the player to a safe location
-            Teleport.performSafeTeleport(((Player) player), location, true);
-        }, location);
+                // Teleport the player to a safe location
+                Teleport.performSafeTeleport(((Player) player), location, true);
+            }, location);
+        }
 
         ConfigHandler.teleportThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
     }

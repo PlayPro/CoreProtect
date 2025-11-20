@@ -25,7 +25,6 @@ import net.coreprotect.event.CoreProtectPreLogEvent;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
-import net.coreprotect.utility.SyntheticUsernames;
 import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 
@@ -58,13 +57,7 @@ public class ContainerLogger extends Queue {
                 return;
             }
 
-            String uniqueUser = player;
-            String canonicalUser = SyntheticUsernames.normalize(uniqueUser);
-            if (canonicalUser == null) {
-                canonicalUser = uniqueUser;
-            }
-
-            String loggingContainerId = uniqueUser.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+            String loggingContainerId = player.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
             List<ItemStack[]> oldList = ConfigHandler.oldContainer.get(loggingContainerId);
             ItemStack[] oi1 = oldList.get(0);
             ItemStack[] oldInventory = ItemUtils.getContainerState(oi1);
@@ -74,7 +67,7 @@ public class ContainerLogger extends Queue {
             }
 
             // Check if this is a dispenser with no actual changes
-            if ("#dispenser".equals(canonicalUser) && ItemUtils.compareContainers(oldInventory, newInventory)) {
+            if ("#dispenser".equals(player) && ItemUtils.compareContainers(oldInventory, newInventory)) {
                 // No changes detected, mark this dispenser in the dispenserNoChange map
                 // Extract the location key from the loggingContainerId
                 // Format: #dispenser.x.y.z
@@ -102,7 +95,7 @@ public class ContainerLogger extends Queue {
 
             // If we reach here, the dispenser event resulted in changes
             // Remove any pending event for this dispenser
-            if ("#dispenser".equals(canonicalUser)) {
+            if ("#dispenser".equals(player)) {
                 String[] parts = loggingContainerId.split("\\.");
                 if (parts.length >= 4) {
                     int x = Integer.parseInt(parts[1]);
@@ -198,12 +191,12 @@ public class ContainerLogger extends Queue {
             ItemUtils.mergeItems(type, newInventory);
 
             if (type != Material.ENDER_CHEST) {
-                logTransaction(preparedStmtContainer, batchCount, canonicalUser, type, faceData, oldInventory, 0, location);
-                logTransaction(preparedStmtContainer, batchCount, canonicalUser, type, faceData, newInventory, 1, location);
+                logTransaction(preparedStmtContainer, batchCount, player, type, faceData, oldInventory, 0, location);
+                logTransaction(preparedStmtContainer, batchCount, player, type, faceData, newInventory, 1, location);
             }
             else { // pass ender chest transactions to item logger
-                ItemLogger.logTransaction(preparedStmtItems, batchCount, 0, canonicalUser, location, oldInventory, ItemLogger.ITEM_REMOVE_ENDER);
-                ItemLogger.logTransaction(preparedStmtItems, batchCount, 0, canonicalUser, location, newInventory, ItemLogger.ITEM_ADD_ENDER);
+                ItemLogger.logTransaction(preparedStmtItems, batchCount, 0, player, location, oldInventory, ItemLogger.ITEM_REMOVE_ENDER);
+                ItemLogger.logTransaction(preparedStmtItems, batchCount, 0, player, location, newInventory, ItemLogger.ITEM_ADD_ENDER);
             }
 
             oldList.remove(0);

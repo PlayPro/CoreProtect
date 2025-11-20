@@ -100,9 +100,8 @@ public class Process {
                 if (data != null) {
                     String user = data[0];
                     String uuid = data[1];
-                    String normalizedUser = SyntheticUsernames.normalize(user);
-                    if (normalizedUser != null && ConfigHandler.playerIdCache.get(normalizedUser.toLowerCase(Locale.ROOT)) == null) {
-                        UserStatement.loadId(connection, normalizedUser, uuid);
+                    if (user != null && ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT)) == null) {
+                        UserStatement.loadId(connection, user, uuid);
                     }
                 }
             }

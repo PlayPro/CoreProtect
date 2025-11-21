@@ -75,6 +75,9 @@ public class CommandHandler implements CommandExecutor {
                     else if (user.hasPermission("coreprotect.networking") && corecommand.equals("network-debug")) {
                         permission = true;
                     }
+                    else if (user.hasPermission("coreprotect.give") && corecommand.equals("give")) {
+                        permission = true;
+                    }
                 }
 
                 if (corecommand.equals("rollback") || corecommand.equals("restore") || corecommand.equals("rb") || corecommand.equals("rs") || corecommand.equals("ro") || corecommand.equals("re")) {
@@ -118,6 +121,9 @@ public class CommandHandler implements CommandExecutor {
                 }
                 else if (corecommand.equals("network-debug")) {
                     NetworkDebugCommand.runCommand(user, permission, argumentArray);
+                }
+                else if (corecommand.equals("give")) {
+                    GiveCommand.runCommand(user, command, permission, argumentArray);
                 }
                 else if (corecommand.equals("migrate-db")) {
                     if (!VersionUtils.validDonationKey()) {

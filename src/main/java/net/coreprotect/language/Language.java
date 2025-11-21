@@ -123,6 +123,7 @@ public class Language {
         phrases.put(Phrase.INVALID_DONATION_KEY, "Invalid donation key.");
         phrases.put(Phrase.INVALID_INCLUDE, "\"{0}\" is an invalid block/entity name.");
         phrases.put(Phrase.INVALID_INCLUDE_COMBO, "That is an invalid block/entity combination.");
+        phrases.put(Phrase.INVALID_ITEM_ID, "Please enter a valid item id.");
         phrases.put(Phrase.INVALID_RADIUS, "Please enter a valid radius.");
         phrases.put(Phrase.INVALID_SELECTION, "{0} selection not found.");
         phrases.put(Phrase.INVALID_USERNAME, "\"{0}\" is an invalid username.");

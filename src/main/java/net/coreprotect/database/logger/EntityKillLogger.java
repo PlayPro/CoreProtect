@@ -30,6 +30,9 @@ public class EntityKillLogger {
             if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {
                 return;
             }
+           if (ConfigHandler.blacklist.get(ConfigHandler.entitiesReversed.get(type).toLowerCase(Locale.ROOT)) != null) {
+                return;
+            }
 
             Location initialLocation = new Location(block.getWorld(), block.getX(), block.getY(), block.getZ());
             CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, initialLocation);

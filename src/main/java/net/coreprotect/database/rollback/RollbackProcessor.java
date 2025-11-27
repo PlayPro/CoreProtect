@@ -182,7 +182,7 @@ public class RollbackProcessor {
                     }
 
                     Block block = bukkitWorld.getBlockAt(rowX, rowY, rowZ);
-                    if (!bukkitWorld.isChunkLoaded(block.getChunk())) {
+                    if (!ConfigHandler.isFolia && !bukkitWorld.isChunkLoaded(block.getChunk())) {
                         bukkitWorld.getChunkAt(block.getLocation());
                     }
 
@@ -346,7 +346,7 @@ public class RollbackProcessor {
                                 continue;
                             }
                             Block block = bukkitWorld.getBlockAt(rowX, rowY, rowZ);
-                            if (!bukkitWorld.isChunkLoaded(block.getChunk())) {
+                            if (!ConfigHandler.isFolia && !bukkitWorld.isChunkLoaded(block.getChunk())) {
                                 bukkitWorld.getChunkAt(block.getLocation());
                             }
 

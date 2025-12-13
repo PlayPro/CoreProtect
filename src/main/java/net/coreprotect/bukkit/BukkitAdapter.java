@@ -278,6 +278,12 @@ public class BukkitAdapter implements BukkitInterface {
         return null;
     }
 
+    @Override
+    public ItemStack getShelfItemStack(BlockState blockState, PlayerInteractEvent event){
+        return null;
+    }
+
+
     // -------------------- Sign handling methods --------------------
 
     @Override
@@ -367,7 +373,17 @@ public class BukkitAdapter implements BukkitInterface {
     }
 
     @Override
+    public boolean isShelf(Material material){
+        return false;
+    }
+
+    @Override
     public Set<Material> copperChestMaterials() {
+        return EMPTY_SET;
+    }
+
+    @Override
+    public Set<Material> shelfMaterials() {
         return EMPTY_SET;
     }
 }

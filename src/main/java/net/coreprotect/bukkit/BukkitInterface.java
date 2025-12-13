@@ -132,6 +132,17 @@ public interface BukkitInterface {
      */
     boolean isChiseledBookshelf(Material material);
 
+
+    /**
+     * Checks if a material is a shelf of any wood kind.
+     * 
+     * @param material
+     *            The material to check
+     * @return true if the material is a shelf, false otherwise
+     */
+    boolean isShelf(Material material);
+
+
     /**
      * Checks if a material is a bookshelf book.
      * 
@@ -203,6 +214,19 @@ public interface BukkitInterface {
      * @return The book item stack, or null if not applicable
      */
     ItemStack getChiseledBookshelfBook(BlockState blockState, PlayerInteractEvent event);
+
+
+    /**
+     * Gets an item from a shelf.
+     * 
+     * @param blockState
+     *            The block state
+     * @param event
+     *            The player interact event
+     * @return The item stack, or null if not applicable
+     */
+    ItemStack getShelfItemStack(BlockState blockState, PlayerInteractEvent event);
+
 
     /**
      * Gets arrow metadata for an item stack.
@@ -440,5 +464,7 @@ public interface BukkitInterface {
     boolean isCopperChest(Material material);
 
     Set<Material> copperChestMaterials();
+
+    Set<Material> shelfMaterials();
 
 }

@@ -7,7 +7,6 @@ import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.scheduler.BukkitTask;
 
-import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 
@@ -116,8 +115,8 @@ public class Scheduler {
 
     public static void cancelTask(Object task) {
         if (ConfigHandler.isFolia) {
-            if (task instanceof ScheduledTask) {
-                ScheduledTask scheduledTask = (ScheduledTask) task;
+            if (task instanceof io.papermc.paper.threadedregions.scheduler.ScheduledTask) {
+                io.papermc.paper.threadedregions.scheduler.ScheduledTask scheduledTask = (io.papermc.paper.threadedregions.scheduler.ScheduledTask) task;
                 scheduledTask.cancel();
             }
         }

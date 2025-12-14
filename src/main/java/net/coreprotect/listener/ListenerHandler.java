@@ -75,7 +75,7 @@ public final class ListenerHandler {
 
         try {
             Class.forName("io.papermc.paper.event.entity.ItemTransportingEntityValidateTargetEvent"); // Paper 1.21.10+
-            pluginManager.registerEvents(new CopperGolemChestListener(plugin), plugin);
+            // pluginManager.registerEvents(new CopperGolemChestListener(plugin), plugin);
         }
         catch (Exception e) {
             // Ignore registration failures to remain compatible with older servers.

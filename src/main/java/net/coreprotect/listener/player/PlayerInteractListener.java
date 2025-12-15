@@ -473,7 +473,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                         if (blockState instanceof Shelf){
                             Shelf shelf = (Shelf) blockState;
                         
-                        // ignore events such as clicking on the back
+                        // ignore clicking on the back face
                         if (event.getBlockFace() != shelf.getFacing()){
                             return;
                         }
@@ -484,7 +484,6 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             Block center = block;
                             Vector direction = shelf.getFacing().getDirection();
                             
-                                // if connected and it's not the center, find the center one
                                 if (shelf.getSideChain() == ChainPart.LEFT){
                                     center = center.getRelative(direction.getBlockZ(), 0, -direction.getBlockX());
                                 } else if (shelf.getSideChain() == ChainPart.RIGHT){
@@ -494,11 +493,10 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                 // log center
                                 InventoryChangeListener.inventoryTransaction(player.getName(), center.getLocation(), null);
                                 
-                                if (((Shelf)center.getBlockData()).getSideChain() != ChainPart.CENTER){
+                                if (center instanceof Shelf && ((Shelf)center.getBlockData()).getSideChain() != ChainPart.CENTER){
                                     // if it's not the center it's just a chain of 2,
                                     InventoryChangeListener.inventoryTransaction(player.getName(), block.getLocation(), null);
                                 } else {
-                                    // once we have the center, log left and right
                                     Block left = center.getRelative(-direction.getBlockZ(), 0, direction.getBlockX());
                                     InventoryChangeListener.inventoryTransaction(player.getName(), left.getLocation(), null);
                                     

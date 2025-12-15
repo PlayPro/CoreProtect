@@ -278,12 +278,6 @@ public class BukkitAdapter implements BukkitInterface {
         return null;
     }
 
-    @Override
-    public ItemStack getShelfItemStack(BlockState blockState, PlayerInteractEvent event){
-        return null;
-    }
-
-
     // -------------------- Sign handling methods --------------------
 
     @Override

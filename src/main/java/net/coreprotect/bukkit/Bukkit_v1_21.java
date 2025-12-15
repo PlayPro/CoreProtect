@@ -182,11 +182,7 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
 
     @Override
     public boolean isShelf(Material material) {
-        if (SHELVES.contains(material)) {
-            return true;
-        }
-
-        return false;
+        return SHELVES.contains(material);
     }
 
     @Override
@@ -213,7 +209,7 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
 
     @Override
     public Set<Material> shelfMaterials() {
-        if (SHELVES.isEmpty()) {;
+        if (SHELVES.isEmpty()) {
             Material shelf = Material.getMaterial("OAK_SHELF");
             if (shelf != null) {
                 SHELVES.addAll(Tag.WOODEN_SHELVES.getValues());

@@ -215,19 +215,6 @@ public interface BukkitInterface {
      */
     ItemStack getChiseledBookshelfBook(BlockState blockState, PlayerInteractEvent event);
 
-
-    /**
-     * Gets an item from a shelf.
-     * 
-     * @param blockState
-     *            The block state
-     * @param event
-     *            The player interact event
-     * @return The item stack, or null if not applicable
-     */
-    ItemStack getShelfItemStack(BlockState blockState, PlayerInteractEvent event);
-
-
     /**
      * Gets arrow metadata for an item stack.
      * 

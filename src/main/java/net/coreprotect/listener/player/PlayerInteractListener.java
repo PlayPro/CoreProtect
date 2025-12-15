@@ -490,20 +490,25 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                     center = center.getRelative(-direction.getBlockZ(), 0, direction.getBlockX());
                                 }
 
-                                // log center
-                                InventoryChangeListener.inventoryTransaction(player.getName(), center.getLocation(), null);
-                                
-                                if (center instanceof Shelf && ((Shelf)center.getBlockData()).getSideChain() != ChainPart.CENTER){
-                                    // if it's not the center it's just a chain of 2,
-                                    InventoryChangeListener.inventoryTransaction(player.getName(), block.getLocation(), null);
+                                BlockData centerBlockData = center.getBlockData();
+                                if (centerBlockData instanceof Shelf){
+                                    // log center
+                                    InventoryChangeListener.inventoryTransaction(player.getName(), center.getLocation(), null);
+
+                                    if (((Shelf)centerBlockData).getSideChain() != ChainPart.CENTER){
+                                        // if it's not the center it's just a chain of 2
+                                        InventoryChangeListener.inventoryTransaction(player.getName(), block.getLocation(), null);
+                                    } else {
+                                        Block left = center.getRelative(-direction.getBlockZ(), 0, direction.getBlockX());
+                                        InventoryChangeListener.inventoryTransaction(player.getName(), left.getLocation(), null);
+                                        
+                                        Block right = center.getRelative(direction.getBlockZ(), 0, -direction.getBlockX());
+                                        InventoryChangeListener.inventoryTransaction(player.getName(), right.getLocation(), null); 
+                                    }
                                 } else {
-                                    Block left = center.getRelative(-direction.getBlockZ(), 0, direction.getBlockX());
-                                    InventoryChangeListener.inventoryTransaction(player.getName(), left.getLocation(), null);
-                                    
-                                    Block right = center.getRelative(direction.getBlockZ(), 0, -direction.getBlockX());
-                                    InventoryChangeListener.inventoryTransaction(player.getName(), right.getLocation(), null); 
-                                }
-    
+                                    // fallback if invalid block is found just log clicked shelf
+                                    InventoryChangeListener.inventoryTransaction(player.getName(), block.getLocation(), null);
+                                }    
                             } 
                         }
                     }

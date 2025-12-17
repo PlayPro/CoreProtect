@@ -367,7 +367,17 @@ public class BukkitAdapter implements BukkitInterface {
     }
 
     @Override
+    public boolean isShelf(Material material){
+        return false;
+    }
+
+    @Override
     public Set<Material> copperChestMaterials() {
+        return EMPTY_SET;
+    }
+
+    @Override
+    public Set<Material> shelfMaterials() {
         return EMPTY_SET;
     }
 }

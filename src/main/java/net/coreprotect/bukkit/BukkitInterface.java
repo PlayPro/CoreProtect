@@ -132,6 +132,17 @@ public interface BukkitInterface {
      */
     boolean isChiseledBookshelf(Material material);
 
+
+    /**
+     * Checks if a material is a shelf of any wood kind.
+     * 
+     * @param material
+     *            The material to check
+     * @return true if the material is a shelf, false otherwise
+     */
+    boolean isShelf(Material material);
+
+
     /**
      * Checks if a material is a bookshelf book.
      * 
@@ -440,5 +451,7 @@ public interface BukkitInterface {
     boolean isCopperChest(Material material);
 
     Set<Material> copperChestMaterials();
+
+    Set<Material> shelfMaterials();
 
 }

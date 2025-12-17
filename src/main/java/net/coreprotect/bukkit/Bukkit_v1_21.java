@@ -23,9 +23,10 @@ import net.coreprotect.model.BlockGroup;
  * - Registry handling for named objects
  * - Updated interaction blocks
  */
-public class Bukkit_v1_21 extends Bukkit_v1_20 implements BukkitInterface {
+public class Bukkit_v1_21 extends Bukkit_v1_20 {
 
     public static Set<Material> COPPER_CHESTS = new HashSet<>(Arrays.asList());
+    public static Set<Material> SHELVES = new HashSet<>(Arrays.asList());
 
     /**
      * Initializes the Bukkit_v1_21 adapter with 1.21-specific block groups and mappings.
@@ -37,6 +38,7 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 implements BukkitInterface {
         BlockGroup.INTERACT_BLOCKS.addAll(copperChestMaterials());
         BlockGroup.CONTAINERS.addAll(copperChestMaterials());
         BlockGroup.UPDATE_STATE.addAll(copperChestMaterials());
+        BlockGroup.CONTAINERS.addAll(shelfMaterials());
     }
 
     /**
@@ -111,6 +113,7 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 implements BukkitInterface {
         return ((Keyed) value).getKey().toString();
     }
 
+
     /**
      * Gets a registry value from a key string and class.
      * Used for deserializing registry objects.
@@ -178,6 +181,11 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 implements BukkitInterface {
     }
 
     @Override
+    public boolean isShelf(Material material) {
+        return SHELVES.contains(material);
+    }
+
+    @Override
     public Set<Material> copperChestMaterials() {
         if (COPPER_CHESTS.isEmpty()) {
             Material copperChest = Material.getMaterial("COPPER_CHEST");
@@ -197,5 +205,17 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 implements BukkitInterface {
         }
 
         return COPPER_CHESTS;
+    }
+
+    @Override
+    public Set<Material> shelfMaterials() {
+        if (SHELVES.isEmpty()) {
+            Material shelf = Material.getMaterial("OAK_SHELF");
+            if (shelf != null) {
+                SHELVES.addAll(Tag.WOODEN_SHELVES.getValues());
+            }
+        }
+
+        return SHELVES;
     }
 }

@@ -59,7 +59,7 @@ public class Database extends Queue {
         SQL_QUERIES.put(CHAT, "INSERT INTO %sprefix%chat (time, user, wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)");
         SQL_QUERIES.put(COMMAND, "INSERT INTO %sprefix%command (time, user, wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)");
         SQL_QUERIES.put(SESSION, "INSERT INTO %sprefix%session (time, user, wid, x, y, z, action) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        SQL_QUERIES.put(ENTITY, "INSERT INTO %sprefix%entity (time, data) VALUES (?, ?)");
+        SQL_QUERIES.put(ENTITY, "INSERT INTO %sprefix%entity (time, data, entity_type) VALUES (?, ?, ?)");
         SQL_QUERIES.put(MATERIAL, "INSERT INTO %sprefix%material_map (id, material) VALUES (?, ?)");
         SQL_QUERIES.put(ART, "INSERT INTO %sprefix%art_map (id, art) VALUES (?, ?)");
         SQL_QUERIES.put(ENTITY_MAP, "INSERT INTO %sprefix%entity_map (id, entity) VALUES (?, ?)");
@@ -327,6 +327,7 @@ public class Database extends Queue {
                 Statement statement = connection.createStatement();
                 createMySQLTableStructures(prefix, statement);
                 if (!purge && forceConnection == null) {
+                    migrateEntityTable(connection, prefix, true);
                     initializeTables(prefix, statement);
                 }
                 statement.close();
@@ -372,7 +373,8 @@ public class Database extends Queue {
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "database_lock(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),status tinyint,time int) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
         // Entity
-        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, data blob) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+        index = ", INDEX(time), INDEX(entity_type,time)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, data blob, entity_type int DEFAULT 0" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
         // Entity map
         index = ", INDEX(id)";
@@ -433,6 +435,7 @@ public class Database extends Queue {
             createSQLiteIndexes(forcePrefix == true ? prefix : ConfigHandler.prefix, statement, indexData, attachDatabase, purge);
 
             if (!purge && forceConnection == null) {
+                migrateEntityTable(connection, prefix, false);
                 initializeTables(prefix, statement);
             }
             statement.close();
@@ -480,7 +483,7 @@ public class Database extends Queue {
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "database_lock (status INTEGER, time INTEGER);");
         }
         if (!tableData.contains(prefix + "entity")) {
-            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity (id INTEGER PRIMARY KEY ASC, time INTEGER, data BLOB);");
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity (id INTEGER PRIMARY KEY ASC, time INTEGER, data BLOB, entity_type INTEGER DEFAULT 0);");
         }
         if (!tableData.contains(prefix + "entity_map")) {
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_map (id INTEGER, entity TEXT);");
@@ -533,6 +536,8 @@ public class Database extends Queue {
             createSQLiteIndex(statement, indexData, attachDatabase, "item_index", prefix + "item(wid,x,z,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "item_user_index", prefix + "item(user,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "item_type_index", prefix + "item(type,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_time_index", prefix + "entity(time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_type_index", prefix + "entity(entity_type,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "entity_map_id_index", prefix + "entity_map(id)");
             createSQLiteIndex(statement, indexData, attachDatabase, "material_map_id_index", prefix + "material_map(id)");
             createSQLiteIndex(statement, indexData, attachDatabase, "session_index", prefix + "session(wid,x,z,time)");
@@ -558,6 +563,52 @@ public class Database extends Queue {
     private static void createSQLiteIndex(Statement statement, List<String> indexData, String attachDatabase, String indexName, String indexColumns) throws SQLException {
         if (!indexData.contains(indexName)) {
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + indexName + " ON " + indexColumns + ";");
+        }
+    }
+
+    /**
+     * Migrates the entity table to add the entity_type column if it doesn't exist.
+     * This is needed for databases created before this feature was added.
+     */
+    public static void migrateEntityTable(Connection connection, String prefix, boolean isMySQL) {
+        try {
+            Statement statement = connection.createStatement();
+            boolean hasEntityTypeColumn = false;
+
+            // Check if entity_type column exists
+            if (isMySQL) {
+                ResultSet rs = statement.executeQuery("SHOW COLUMNS FROM " + prefix + "entity LIKE 'entity_type'");
+                hasEntityTypeColumn = rs.next();
+                rs.close();
+            }
+            else {
+                ResultSet rs = statement.executeQuery("PRAGMA table_info(" + prefix + "entity)");
+                while (rs.next()) {
+                    if ("entity_type".equals(rs.getString("name"))) {
+                        hasEntityTypeColumn = true;
+                        break;
+                    }
+                }
+                rs.close();
+            }
+
+            // Add entity_type column if it doesn't exist
+            if (!hasEntityTypeColumn) {
+                Chat.console(Phrase.build(Phrase.DATABASE_INDEX_ERROR)); // Reusing existing phrase for migration message
+                if (isMySQL) {
+                    statement.executeUpdate("ALTER TABLE " + prefix + "entity ADD COLUMN entity_type int DEFAULT 0");
+                    statement.executeUpdate("CREATE INDEX entity_type_time_idx ON " + prefix + "entity(entity_type, time)");
+                    statement.executeUpdate("CREATE INDEX entity_time_idx ON " + prefix + "entity(time)");
+                }
+                else {
+                    statement.executeUpdate("ALTER TABLE " + prefix + "entity ADD COLUMN entity_type INTEGER DEFAULT 0");
+                }
+            }
+
+            statement.close();
+        }
+        catch (Exception e) {
+            // Table might not exist yet, which is fine
         }
     }
 

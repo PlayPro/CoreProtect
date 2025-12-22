@@ -94,13 +94,25 @@ public class PurgeCommand extends Consumer {
             }
         }
 
+        // Validate that both include and exclude are not specified together
+        if (argBlocks.size() > 0 && argExclude.size() > 0) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "Cannot use both include (i:) and exclude (e:) parameters together."));
+            return;
+        }
+
         StringBuilder restrict = new StringBuilder();
+        StringBuilder exclude = new StringBuilder();
         String includeBlock = "";
         String includeEntity = "";
+        String excludeBlock = "";
+        String excludeEntity = "";
         boolean hasBlock = false;
+        boolean hasExcludedBlock = false;
         boolean item = false;
         boolean entity = false;
+        boolean excludedEntity = false;
         int restrictCount = 0;
+        int excludeCount = 0;
 
         if (argBlocks.size() > 0) {
             StringBuilder includeListMaterial = new StringBuilder();
@@ -155,6 +167,58 @@ public class PurgeCommand extends Consumer {
             includeEntity = includeListEntity.toString();
         }
 
+        if (argExclude.size() > 0) {
+            StringBuilder excludeListMaterial = new StringBuilder();
+            StringBuilder excludeListEntity = new StringBuilder();
+
+            for (Object excludeTarget : argExclude.keySet()) {
+                String targetName = "";
+
+                if (excludeTarget instanceof Material) {
+                    targetName = ((Material) excludeTarget).name();
+                    if (excludeListMaterial.length() == 0) {
+                        excludeListMaterial = excludeListMaterial.append(MaterialUtils.getBlockId(targetName, false));
+                    }
+                    else {
+                        excludeListMaterial.append(",").append(MaterialUtils.getBlockId(targetName, false));
+                    }
+
+                    /* Include legacy IDs */
+                    int legacyId = BukkitAdapter.ADAPTER.getLegacyBlockId((Material) excludeTarget);
+                    if (legacyId > 0) {
+                        excludeListMaterial.append(",").append(legacyId);
+                    }
+
+                    targetName = ((Material) excludeTarget).name().toLowerCase(Locale.ROOT);
+                    hasExcludedBlock = true;
+                }
+                else if (excludeTarget instanceof EntityType) {
+                    targetName = ((EntityType) excludeTarget).name();
+                    if (excludeListEntity.length() == 0) {
+                        excludeListEntity = excludeListEntity.append(EntityUtils.getEntityId(targetName, false));
+                    }
+                    else {
+                        excludeListEntity.append(",").append(EntityUtils.getEntityId(targetName, false));
+                    }
+
+                    targetName = ((EntityType) excludeTarget).name().toLowerCase(Locale.ROOT);
+                    excludedEntity = true;
+                }
+
+                if (excludeCount == 0) {
+                    exclude = exclude.append("" + targetName + "");
+                }
+                else {
+                    exclude.append(", ").append(targetName);
+                }
+
+                excludeCount++;
+            }
+
+            excludeBlock = excludeListMaterial.toString();
+            excludeEntity = excludeListEntity.toString();
+        }
+
         // Entity type filtering is now supported for purging
 
         boolean optimizeCheck = false;
@@ -166,12 +230,18 @@ public class PurgeCommand extends Consumer {
         }
 
         final StringBuilder restrictTargets = restrict;
+        final StringBuilder excludeTargets = exclude;
         final String includeBlockFinal = includeBlock;
         final String includeEntityFinal = includeEntity;
+        final String excludeBlockFinal = excludeBlock;
+        final String excludeEntityFinal = excludeEntity;
         final boolean optimize = optimizeCheck;
         final boolean hasBlockRestriction = hasBlock;
         final boolean hasEntityRestriction = entity;
+        final boolean hasExcludedBlockRestriction = hasExcludedBlock;
+        final boolean hasExcludedEntityRestriction = excludedEntity;
         final int restrictCountFinal = restrictCount;
+        final int excludeCountFinal = excludeCount;
         final Integer[] radiusFinal = argRadius;
 
         class BasicThread implements Runnable {
@@ -208,6 +278,10 @@ public class PurgeCommand extends Consumer {
 
                     if (hasBlockRestriction) {
                         Chat.sendGlobalMessage(player, Phrase.build(Phrase.ROLLBACK_INCLUDE, restrictTargets.toString(), Selector.FIRST, Selector.FIRST, (restrictCountFinal == 1 ? Selector.FIRST : Selector.SECOND))); // include
+                    }
+
+                    if (hasExcludedBlockRestriction || hasExcludedEntityRestriction) {
+                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.ROLLBACK_INCLUDE, excludeTargets.toString(), Selector.SECOND, Selector.FIRST, (excludeCountFinal == 1 ? Selector.FIRST : Selector.SECOND))); // exclude
                     }
 
                     Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_NOTICE_1));
@@ -305,15 +379,23 @@ public class PurgeCommand extends Consumer {
                                     String timeLimit = "";
                                     if (purgeTables.contains(table)) {
                                         String typeRestriction = "(";
-                                        // Handle block table with type column
+                                        // Handle block table with type column - include mode
                                         if (hasBlockRestriction && table.equals("block")) {
                                             typeRestriction = "type NOT IN(" + includeBlockFinal + ") OR (type IN(" + includeBlockFinal + ") AND ";
                                         }
-                                        // Handle entity table with entity_type column
+                                        // Handle entity table with entity_type column - include mode
                                         else if (hasEntityRestriction && table.equals("entity")) {
                                             typeRestriction = "entity_type NOT IN(" + includeEntityFinal + ") OR (entity_type IN(" + includeEntityFinal + ") AND ";
                                         }
-                                        else if ((hasBlockRestriction || hasEntityRestriction) && restrictTables.contains(table)) {
+                                        // Handle block table with type column - exclude mode
+                                        else if (hasExcludedBlockRestriction && table.equals("block")) {
+                                            typeRestriction = "type IN(" + excludeBlockFinal + ") OR (type NOT IN(" + excludeBlockFinal + ") AND ";
+                                        }
+                                        // Handle entity table with entity_type column - exclude mode
+                                        else if (hasExcludedEntityRestriction && table.equals("entity")) {
+                                            typeRestriction = "entity_type IN(" + excludeEntityFinal + ") OR (entity_type NOT IN(" + excludeEntityFinal + ") AND ";
+                                        }
+                                        else if ((hasBlockRestriction || hasEntityRestriction || hasExcludedBlockRestriction || hasExcludedEntityRestriction) && restrictTables.contains(table)) {
                                             // If we have restrictions but this table doesn't match, skip purging it
                                             purge = false;
                                         }
@@ -382,15 +464,23 @@ public class PurgeCommand extends Consumer {
                                     boolean purge = purgeTables.contains(table);
 
                                     String typeRestriction = "";
-                                    // Handle block table with type column
+                                    // Handle block table with type column - include mode
                                     if (hasBlockRestriction && table.equals("block")) {
                                         typeRestriction = "type IN(" + includeBlockFinal + ") AND ";
                                     }
-                                    // Handle entity table with entity_type column
+                                    // Handle entity table with entity_type column - include mode
                                     else if (hasEntityRestriction && table.equals("entity")) {
                                         typeRestriction = "entity_type IN(" + includeEntityFinal + ") AND ";
                                     }
-                                    else if ((hasBlockRestriction || hasEntityRestriction) && restrictTables.contains(table)) {
+                                    // Handle block table with type column - exclude mode
+                                    else if (hasExcludedBlockRestriction && table.equals("block")) {
+                                        typeRestriction = "type NOT IN(" + excludeBlockFinal + ") AND ";
+                                    }
+                                    // Handle entity table with entity_type column - exclude mode
+                                    else if (hasExcludedEntityRestriction && table.equals("entity")) {
+                                        typeRestriction = "entity_type NOT IN(" + excludeEntityFinal + ") AND ";
+                                    }
+                                    else if ((hasBlockRestriction || hasEntityRestriction || hasExcludedBlockRestriction || hasExcludedEntityRestriction) && restrictTables.contains(table)) {
                                         purge = false;
                                     }
 
@@ -464,15 +554,23 @@ public class PurgeCommand extends Consumer {
                                 boolean purge = purgeTables.contains(table);
 
                                 String typeRestriction = "";
-                                // Handle block table with type column
+                                // Handle block table with type column - include mode
                                 if (hasBlockRestriction && table.equals("block")) {
                                     typeRestriction = "type IN(" + includeBlockFinal + ") AND ";
                                 }
-                                // Handle entity table with entity_type column
+                                // Handle entity table with entity_type column - include mode
                                 else if (hasEntityRestriction && table.equals("entity")) {
                                     typeRestriction = "entity_type IN(" + includeEntityFinal + ") AND ";
                                 }
-                                else if ((hasBlockRestriction || hasEntityRestriction) && restrictTables.contains(table)) {
+                                // Handle block table with type column - exclude mode
+                                else if (hasExcludedBlockRestriction && table.equals("block")) {
+                                    typeRestriction = "type NOT IN(" + excludeBlockFinal + ") AND ";
+                                }
+                                // Handle entity table with entity_type column - exclude mode
+                                else if (hasExcludedEntityRestriction && table.equals("entity")) {
+                                    typeRestriction = "entity_type NOT IN(" + excludeEntityFinal + ") AND ";
+                                }
+                                else if ((hasBlockRestriction || hasEntityRestriction || hasExcludedBlockRestriction || hasExcludedEntityRestriction) && restrictTables.contains(table)) {
                                     purge = false;
                                 }
 

@@ -50,7 +50,7 @@ public class EntityKillLogger {
             int z = eventLocation.getBlockZ();
             int entity_key = 0;
 
-            ResultSet resultSet = EntityStatement.insert(preparedStmt2, time, data);
+            ResultSet resultSet = EntityStatement.insert(preparedStmt2, time, data, type);
             if (Database.hasReturningKeys()) {
                 resultSet.next();
                 entity_key = resultSet.getInt(1);

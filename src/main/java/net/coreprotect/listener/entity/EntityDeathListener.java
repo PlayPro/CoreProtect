@@ -544,12 +544,115 @@ public final class EntityDeathListener extends Queue implements Listener {
             data.add(details);
 
             if (!(entity instanceof Player)) {
-                Queue.queueEntityKill(e, entity.getLocation(), data, type);
+                // Check if we should skip detailed data for generic entities
+                String customName = entity.getCustomName();
+                boolean isGeneric = Config.getConfig(entity.getWorld()).SKIP_GENERIC_ENTITY_DATA
+                        && isGenericEntity(entity, age, tame, info, attributes, customName);
+
+                List<Object> dataToStore = isGeneric ? new ArrayList<>() : data;
+                Queue.queueEntityKill(e, entity.getLocation(), dataToStore, type);
             }
             else {
                 Queue.queuePlayerKill(e, entity.getLocation(), entity.getName());
             }
         }
+    }
+
+    /**
+     * Checks if an entity has modified attributes (non-default base values or modifiers).
+     */
+    private static boolean hasModifiedAttributes(List<Object> attributes) {
+        for (Object attr : attributes) {
+            @SuppressWarnings("unchecked")
+            List<Object> attrData = (List<Object>) attr;
+            if (attrData.size() >= 3) {
+                @SuppressWarnings("unchecked")
+                List<Object> modifiers = (List<Object>) attrData.get(2);
+                if (!modifiers.isEmpty()) {
+                    return true;  // Has attribute modifiers
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Determines if an entity is "generic" (has all default attributes and no unique characteristics).
+     * Generic entities can be rolled back by spawning with default attributes.
+     */
+    private static boolean isGenericEntity(LivingEntity entity, List<Object> age, List<Object> tame,
+            List<Object> info, List<Object> attributes, String customName) {
+
+        // Has custom name = unique
+        if (customName != null && !customName.isEmpty()) {
+            return false;
+        }
+
+        // Is tamed = unique
+        if (!tame.isEmpty() && tame.get(0) != null && (Boolean) tame.get(0)) {
+            return false;
+        }
+
+        // Villagers are always unique (have professions/recipes)
+        if (entity instanceof AbstractVillager) {
+            return false;
+        }
+
+        // Armor stands are always unique (have poses/equipment)
+        if (entity instanceof ArmorStand) {
+            return false;
+        }
+
+        // Check entity-specific non-default states
+        if (!info.isEmpty() && info.get(0) != null) {
+            // Baby zombies/piglins/zoglins are unique
+            if (entity instanceof Zombie && (Boolean) info.get(0)) {
+                return false;
+            }
+            if (entity instanceof Piglin && (Boolean) info.get(0)) {
+                return false;
+            }
+            if (entity instanceof Zoglin && (Boolean) info.get(0)) {
+                return false;
+            }
+            // Powered creepers are unique
+            if (entity instanceof Creeper && (Boolean) info.get(0)) {
+                return false;
+            }
+            // Player-created iron golems are unique
+            if (entity instanceof IronGolem && (Boolean) info.get(0)) {
+                return false;
+            }
+            // Sheared sheep are unique
+            if (entity instanceof Sheep && (Boolean) info.get(0)) {
+                return false;
+            }
+            // Saddled pigs are unique
+            if (entity instanceof Pig && (Boolean) info.get(0)) {
+                return false;
+            }
+        }
+
+        // Horses with equipment are unique
+        if (entity instanceof AbstractHorse) {
+            AbstractHorse horse = (AbstractHorse) entity;
+            if (horse.getInventory().getSaddle() != null) {
+                return false;
+            }
+            if (entity instanceof Horse) {
+                Horse horseEntity = (Horse) entity;
+                if (horseEntity.getInventory().getArmor() != null) {
+                    return false;
+                }
+            }
+        }
+
+        // Has non-default attributes = unique
+        if (hasModifiedAttributes(attributes)) {
+            return false;
+        }
+
+        return true;  // Generic entity
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

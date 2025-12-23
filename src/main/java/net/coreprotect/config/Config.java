@@ -55,6 +55,7 @@ public class Config extends Language {
     public boolean ROLLBACK_ITEMS;
     public boolean ROLLBACK_ENTITIES;
     public boolean SKIP_GENERIC_DATA;
+    public boolean SKIP_GENERIC_ENTITY_DATA;
     public boolean BLOCK_PLACE;
     public boolean BLOCK_BREAK;
     public boolean NATURAL_BREAK;
@@ -214,6 +215,7 @@ public class Config extends Language {
         this.ROLLBACK_ITEMS = this.getBoolean("rollback-items");
         this.ROLLBACK_ENTITIES = this.getBoolean("rollback-entities");
         this.SKIP_GENERIC_DATA = this.getBoolean("skip-generic-data");
+        this.SKIP_GENERIC_ENTITY_DATA = this.getBoolean("skip-generic-entity-data");
         this.BLOCK_PLACE = this.getBoolean("block-place");
         this.BLOCK_BREAK = this.getBoolean("block-break");
         this.NATURAL_BREAK = this.getBoolean("natural-break");

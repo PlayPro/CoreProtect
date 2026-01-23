@@ -218,6 +218,10 @@ public class ContainerLogger extends Queue {
                 if (item != null) {
                     if (item.getAmount() > 0 && !BlockUtils.isAir(item.getType())) {
                         // Object[] metadata = new Object[] { slot, item.getItemMeta() };
+                        if (ConfigHandler.isFilterBlacklisted(item.getType().getKey().toString(), user.toLowerCase())){
+                            continue;
+                        }
+
                         List<List<Map<String, Object>>> metadata = ItemMetaHandler.serialize(item, type, faceData, slot);
                         if (metadata.size() == 0) {
                             metadata = null;
@@ -230,11 +234,8 @@ public class ContainerLogger extends Queue {
 
                         if (event.isCancelled()) {
                             return;
-                        }
+                        }  
 
-                        if (ConfigHandler.isFilterBlacklisted(item.getType().toString(), user)){
-                            continue;
-                        }
 
                         int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
                         Location eventLocation = event.getLocation();

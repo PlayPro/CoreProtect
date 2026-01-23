@@ -186,7 +186,7 @@ public class ConfigHandler extends Queue {
                 while (( blLine = blfile.readLine()) != null ) {
                     blLine = blLine.replace(" ", "").toLowerCase(Locale.ROOT);
                     if (blLine.isEmpty() || blLine.startsWith("%")) {
-                        return;
+                        continue;
                     }
                     String[] blSplit = blLine.split("@");
                     if (blSplit.length == 1){

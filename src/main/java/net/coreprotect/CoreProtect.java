@@ -47,7 +47,8 @@ public final class CoreProtect extends JavaPlugin {
         advancedChestsEnabled = getServer().getPluginManager().getPlugin("AdvancedChests") != null;
         // Initialize plugin using the initialization service
         boolean initialized = PluginInitializationService.initializePlugin(this);
-
+        // Initialize blacklist.txt file
+        this.saveResource("blacklist.txt", false);
         // Disable plugin if initialization failed
         if (!initialized) {
             Chat.console(Phrase.build(Phrase.ENABLE_FAILED, ConfigHandler.EDITION_NAME));

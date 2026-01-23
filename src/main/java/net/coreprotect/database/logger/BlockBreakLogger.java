@@ -26,10 +26,6 @@ public class BlockBreakLogger {
 
     public static void log(PreparedStatement preparedStmt, int batchCount, String user, Location location, int type, int data, List<Object> meta, String blockData, String overrideData) {
         try {
-            if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null || location == null) {
-                return;
-            }
-
             Material checkType = net.coreprotect.utility.MaterialUtils.getType(type);
             if (checkType == null) {
                 return;
@@ -38,7 +34,7 @@ public class BlockBreakLogger {
                 return;
             }
 
-            if (ConfigHandler.blacklist.get(checkType.getKey().toString()) != null) {
+            if (ConfigHandler.isBlaclisted(checkType.getKey().toString(), user)) {
                 return;
             }
 

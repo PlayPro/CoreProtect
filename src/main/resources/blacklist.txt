@@ -1,0 +1,4 @@
+% For more information, visit https://docs.coreprotect.net/config/
+
+% Notch
+% minecraft:zombie

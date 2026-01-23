@@ -137,6 +137,10 @@ public class ItemLogger {
                     if (event.isCancelled()) {
                         return;
                     }
+                    
+                    if (ConfigHandler.isFilterBlacklisted(item.getType().toString(), user)){
+                        continue;
+                    }
 
                     int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
                     Location eventLocation = event.getLocation();

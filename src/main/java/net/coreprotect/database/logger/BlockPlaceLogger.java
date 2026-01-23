@@ -58,7 +58,7 @@ public class BlockPlaceLogger {
                 return;
             }
 
-            if (ConfigHandler.blacklist.get(type.getKey().toString()) != null) {
+            if (ConfigHandler.isBlaclisted(type.getKey().toString(), user)){
                 return;
             }
 

@@ -232,6 +232,10 @@ public class ContainerLogger extends Queue {
                             return;
                         }
 
+                        if (ConfigHandler.isFilterBlacklisted(item.getType().toString(), user)){
+                            continue;
+                        }
+
                         int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
                         Location eventLocation = event.getLocation();
                         int wid = WorldUtils.getWorldId(eventLocation.getWorld().getName());

@@ -3,11 +3,11 @@ package net.coreprotect.database.logger;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.List;
-import java.util.Locale;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.block.BlockState;
+import org.bukkit.entity.EntityType;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
@@ -27,7 +27,12 @@ public class EntityKillLogger {
 
     public static void log(PreparedStatement preparedStmt, PreparedStatement preparedStmt2, int batchCount, String user, BlockState block, List<Object> data, int type) {
         try {
-            if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {
+            EntityType checkType = net.coreprotect.utility.EntityUtils.getEntityType(type);
+            if (checkType == null) {
+                return;
+            }
+
+            if (ConfigHandler.isBlaclisted(checkType.getKey().toString(), user)){
                 return;
             }
 

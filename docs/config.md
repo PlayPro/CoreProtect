@@ -29,7 +29,7 @@ The blacklist supports disabling logs for:
 - Commands, such as `/help`
 - Blocks, such as minecraft:stone. *Please note that you must include the namespace (e.g. minecraft:). Only `block` actions are affected*
 - Entities, such as minecraft:creeper. *Please note that you must include the namespace.*
-- Filters can also be specified for a particular user, by use of the @ symbol after the specific item id. This is especially useful for farms where the same non-player user interacts with the same block. *This will filter the `block`, `kill`, `item` and `container` actions*. 
+- Filters can also be specified for a particular user, by use of the @ symbol after the specific item, block, or entity ID. *This will filter the `block`, `kill`, `item` and `container` actions*. 
 
 An example blacklist.txt file would look like this:
 

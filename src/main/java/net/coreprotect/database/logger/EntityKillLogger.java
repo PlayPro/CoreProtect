@@ -32,7 +32,7 @@ public class EntityKillLogger {
                 return;
             }
 
-            if (ConfigHandler.isBlaclisted(checkType.getKey().toString(), user.toLowerCase())){
+            if (ConfigHandler.isBlacklisted(user, checkType.getKey().toString())){
                 return;
             }
 

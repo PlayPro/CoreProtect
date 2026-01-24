@@ -44,7 +44,7 @@ public class ItemLogger {
 
     public static void log(PreparedStatement preparedStmt, int batchCount, Location location, int offset, String user) {
         try {
-            if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {
+            if (ConfigHandler.isBlacklisted(user)) {
                 return;
             }
 
@@ -124,7 +124,7 @@ public class ItemLogger {
             for (ItemStack item : items) {
                 if (item != null && item.getAmount() > 0 && !BlockUtils.isAir(item.getType())) {
                     // Object[] metadata = new Object[] { slot, item.getItemMeta() };
-                    if (ConfigHandler.isFilterBlacklisted(item.getType().getKey().toString(), user.toLowerCase())){
+                    if (ConfigHandler.isFilterBlacklisted(user, item.getType().getKey().toString())){
                         continue;
                     }
 

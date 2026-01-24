@@ -154,20 +154,23 @@ public class ConfigHandler extends Queue {
         }
     }
 
-    public static boolean isBlaclisted(String object, String user){
-        if (ConfigHandler.blacklist.containsKey(object) || ConfigHandler.blacklist.containsKey(user)){
-            return true;
-        }
-        return isFilterBlacklisted(object, user);
+    public static boolean isBlacklisted(String user){
+        return ConfigHandler.blacklist.containsKey(user.toLowerCase(Locale.ROOT));
     }
 
+    public static boolean isBlacklisted(String user, String object){
+        if (ConfigHandler.blacklist.containsKey(object) || ConfigHandler.blacklist.containsKey(user.toLowerCase(Locale.ROOT))){
+            return true;
+        }
+        return isFilterBlacklisted(user, object);
+    }
 
-    public static boolean isFilterBlacklisted(String object, String user){
+    public static boolean isFilterBlacklisted(String user, String object){
         HashSet <String> blUserSet = FilteredBlacklist.get(object);
         if (blUserSet == null){
             return false;
         }
-        return blUserSet.contains(user);
+        return blUserSet.contains(user.toLowerCase(Locale.ROOT));
     }
 
     private static void loadBlacklist() {

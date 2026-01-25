@@ -27,12 +27,18 @@ public class EntityKillLogger {
 
     public static void log(PreparedStatement preparedStmt, PreparedStatement preparedStmt2, int batchCount, String user, BlockState block, List<Object> data, int type) {
         try {
+            if (ConfigHandler.isBlacklisted(user)){
+                return;
+            }
+
             EntityType checkType = net.coreprotect.utility.EntityUtils.getEntityType(type);
             if (checkType == null) {
                 return;
             }
-
-            if (ConfigHandler.isBlacklisted(user, checkType.getKey().toString())){
+            // Ignore blacklist if the entity has a custom name
+            // data[4] contains custom name data
+            if (ConfigHandler.isBlacklisted(user, checkType.getKey().toString()) &&
+                !(data.size() > 4 && data.get(4) != null)){
                 return;
             }
 

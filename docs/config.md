@@ -27,9 +27,14 @@ To disable logging for specific users, blocks or commands, simply do the followi
 The blacklist supports disabling logs for:
 - Users, which includes Players and non-player users, such as "#creeper"
 - Commands, such as `/help`
-- Blocks, such as minecraft:stone. *Please note that you must include the namespace (e.g. minecraft:). Only `block` actions are affected*
-- Entities, such as minecraft:creeper. *Please note that you must include the namespace.*
-- Filters can also be specified for a particular user, by use of the @ symbol after the specific item, block, or entity ID. *This will filter the `block`, `kill`, `item` and `container` actions*. 
+- Blocks, such as minecraft:stone. Only `block` actions are affected.
+- Entities, such as minecraft:creeper. *Note: renamed entities will be logged even if blacklisted.*
+- Filters can also be specified for a particular user, by use of the @ symbol after the specific item, block, or entity namespaced ID. The format is `id @ user`. This will filter the `block`, `kill`, `item` and `container` actions. 
+
+*Please note that you must include the namespace (e.g. minecraft:) for blocks, entities and items.*
+
+All blacklist entries are case-insensitive and ignore spaces.
+
 
 An example blacklist.txt file would look like this:
 

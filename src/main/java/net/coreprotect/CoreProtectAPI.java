@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import net.coreprotect.api.result.ContainerResult;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -115,6 +116,20 @@ public class CoreProtectAPI extends Queue {
      */
     public List<String[]> queueLookup(Block block) {
         return QueueLookup.performLookup(block);
+    }
+
+    /**
+     * Performs a lookup of container-related actions at the specified location.
+     *
+     * @param location The location to look up
+     * @param time     Time constraint in seconds (0 means no time constraint)
+     * @return List of results in a ContainerResult list format
+     */
+    public List<ContainerResult> containerLookup(Location location, int time) {
+        if (isEnabled()) {
+            return BlockAPI.performContainerLookup(location, time);
+        }
+        return null;
     }
 
     /**

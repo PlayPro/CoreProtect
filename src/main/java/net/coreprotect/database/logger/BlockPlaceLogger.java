@@ -28,10 +28,6 @@ public class BlockPlaceLogger {
 
     public static void log(PreparedStatement preparedStmt, int batchCount, String user, BlockState block, int replacedType, int replacedData, Material forceType, int forceData, boolean force, List<Object> meta, String blockData, String replaceBlockData) {
         try {
-            if (user == null || ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {
-                return;
-            }
-
             Material type = block.getType();
             if (blockData == null && (forceType == null || (!forceType.equals(Material.WATER)) && (!forceType.equals(Material.LAVA)))) {
                 blockData = block.getBlockData().getAsString();
@@ -58,7 +54,7 @@ public class BlockPlaceLogger {
                 return;
             }
 
-            if (ConfigHandler.blacklist.get(type.getKey().toString()) != null) {
+            if (ConfigHandler.isBlacklisted(user, type.getKey().toString())){
                 return;
             }
 

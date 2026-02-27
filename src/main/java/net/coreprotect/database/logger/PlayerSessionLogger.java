@@ -17,7 +17,7 @@ public class PlayerSessionLogger {
 
     public static void log(PreparedStatement preparedStmt, int batchCount, String user, Location location, int time, int action) {
         try {
-            if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {
+            if (ConfigHandler.isBlacklisted(user)) {
                 return;
             }
             int x = location.getBlockX();

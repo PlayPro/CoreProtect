@@ -209,7 +209,7 @@ public class ContainerLogger extends Queue {
 
     protected static void logTransaction(PreparedStatement preparedStmt, int batchCount, String user, Material type, String faceData, ItemStack[] items, int action, Location location) {
         try {
-            if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {
+            if (ConfigHandler.isBlacklisted(user)) {
                 return;
             }
             boolean success = false;
@@ -218,6 +218,10 @@ public class ContainerLogger extends Queue {
                 if (item != null) {
                     if (item.getAmount() > 0 && !BlockUtils.isAir(item.getType())) {
                         // Object[] metadata = new Object[] { slot, item.getItemMeta() };
+                        if (ConfigHandler.isFilterBlacklisted(user, item.getType().getKey().toString())){
+                            continue;
+                        }
+
                         List<List<Map<String, Object>>> metadata = ItemMetaHandler.serialize(item, type, faceData, slot);
                         if (metadata.size() == 0) {
                             metadata = null;
@@ -230,7 +234,8 @@ public class ContainerLogger extends Queue {
 
                         if (event.isCancelled()) {
                             return;
-                        }
+                        }  
+
 
                         int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
                         Location eventLocation = event.getLocation();

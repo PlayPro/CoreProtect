@@ -23,7 +23,7 @@ public class PlayerKillLogger {
 
     public static void log(PreparedStatement preparedStmt, int batchCount, String user, BlockState block, String player) {
         try {
-            if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {
+            if (ConfigHandler.isBlacklisted(user)) {
                 return;
             }
 

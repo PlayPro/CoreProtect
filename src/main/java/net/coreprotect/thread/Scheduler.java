@@ -2,7 +2,6 @@ package net.coreprotect.thread;
 
 import java.util.concurrent.TimeUnit;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.scheduler.BukkitTask;
@@ -21,10 +20,10 @@ public class Scheduler {
             if (regionData instanceof Location) {
                 Location location = (Location) regionData;
                 if (delay == 0) {
-                    Bukkit.getServer().getRegionScheduler().run(plugin, location, value -> task.run());
+                    plugin.getServer().getRegionScheduler().run(plugin, location, value -> task.run());
                 }
                 else {
-                    Bukkit.getServer().getRegionScheduler().runDelayed(plugin, location, value -> task.run(), delay);
+                    plugin.getServer().getRegionScheduler().runDelayed(plugin, location, value -> task.run(), delay);
                 }
             }
             else if (regionData instanceof Entity) {
@@ -38,19 +37,19 @@ public class Scheduler {
             }
             else {
                 if (delay == 0) {
-                    Bukkit.getServer().getGlobalRegionScheduler().run(plugin, value -> task.run());
+                    plugin.getServer().getGlobalRegionScheduler().run(plugin, value -> task.run());
                 }
                 else {
-                    Bukkit.getServer().getGlobalRegionScheduler().runDelayed(plugin, value -> task.run(), delay);
+                    plugin.getServer().getGlobalRegionScheduler().runDelayed(plugin, value -> task.run(), delay);
                 }
             }
         }
         else {
             if (delay == 0) {
-                Bukkit.getServer().getScheduler().runTask(plugin, task);
+                plugin.getServer().getScheduler().runTask(plugin, task);
             }
             else {
-                Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(plugin, task, delay);
+                plugin.getServer().getScheduler().runTaskLater(plugin, task, delay);
             }
         }
     }
@@ -59,36 +58,36 @@ public class Scheduler {
         if (ConfigHandler.isFolia) {
             if (regionData instanceof Location) {
                 Location location = (Location) regionData;
-                return Bukkit.getServer().getRegionScheduler().runAtFixedRate(plugin, location, value -> task.run(), delay, period);
+                return plugin.getServer().getRegionScheduler().runAtFixedRate(plugin, location, value -> task.run(), delay, period);
             }
             else if (regionData instanceof Entity) {
                 Entity entity = (Entity) regionData;
                 return entity.getScheduler().runAtFixedRate(plugin, value -> task.run(), task, delay, period);
             }
             else {
-                return Bukkit.getServer().getGlobalRegionScheduler().runAtFixedRate(plugin, value -> task.run(), delay, period);
+                return plugin.getServer().getGlobalRegionScheduler().runAtFixedRate(plugin, value -> task.run(), delay, period);
             }
         }
         else {
-            return Bukkit.getServer().getScheduler().scheduleSyncRepeatingTask(plugin, task, delay, period);
+            return plugin.getServer().getScheduler().scheduleSyncRepeatingTask(plugin, task, delay, period);
         }
     }
 
     public static void scheduleAsyncDelayedTask(CoreProtect plugin, Runnable task, int delay) {
         if (ConfigHandler.isFolia) {
             if (delay == 0) {
-                Bukkit.getServer().getAsyncScheduler().runNow(plugin, value -> task.run());
+                plugin.getServer().getAsyncScheduler().runNow(plugin, value -> task.run());
             }
             else {
-                Bukkit.getServer().getAsyncScheduler().runDelayed(plugin, value -> task.run(), (delay * 50L), TimeUnit.MILLISECONDS);
+                plugin.getServer().getAsyncScheduler().runDelayed(plugin, value -> task.run(), (delay * 50L), TimeUnit.MILLISECONDS);
             }
         }
         else {
             if (delay == 0) {
-                Bukkit.getServer().getScheduler().runTaskAsynchronously(plugin, task);
+                plugin.getServer().getScheduler().runTaskAsynchronously(plugin, task);
             }
             else {
-                Bukkit.getServer().getScheduler().runTaskLaterAsynchronously(plugin, task, delay);
+                plugin.getServer().getScheduler().runTaskLaterAsynchronously(plugin, task, delay);
             }
         }
     }

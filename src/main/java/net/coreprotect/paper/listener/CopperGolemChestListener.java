@@ -30,6 +30,7 @@ import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.listener.player.InventoryChangeListener;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.ItemUtils;
 
 public final class CopperGolemChestListener implements Listener {
@@ -322,11 +323,11 @@ public final class CopperGolemChestListener implements Listener {
     }
 
     private void scheduleCloseFinalize(UUID golemId, OpenInteraction interaction, TransactionKey containerKey, int attempt) {
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> finalizeContainerClose(golemId, interaction, containerKey, attempt), CLOSE_FINALIZE_DELAY_TICKS);
+        Scheduler.scheduleSyncDelayedTask(plugin, () -> finalizeContainerClose(golemId, interaction, containerKey, attempt), interaction.location, (int) CLOSE_FINALIZE_DELAY_TICKS);
     }
 
     private void scheduleUntrackedCopperChestCloseFinalize(UUID golemId, Location containerLocation, Material containerType, int attempt) {
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> finalizeUntrackedCopperChestClose(golemId, containerLocation, containerType, attempt), CLOSE_FINALIZE_DELAY_TICKS);
+        Scheduler.scheduleSyncDelayedTask(plugin, () -> finalizeUntrackedCopperChestClose(golemId, containerLocation, containerType, attempt), containerLocation, (int) CLOSE_FINALIZE_DELAY_TICKS);
     }
 
     private void finalizeContainerClose(UUID golemId, OpenInteraction interaction, TransactionKey containerKey, int attempt) {

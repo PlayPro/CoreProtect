@@ -200,8 +200,37 @@ public class ActionParser {
     }
 
     /**
+     * Parse message filter from command arguments (m:, msg:, message:)
+     *
+     * @param inputArguments
+     *            The command arguments
+     * @return The message filter string, or empty string if not present
+     */
+    public static String parseMessageFilter(String[] inputArguments) {
+        String[] argumentArray = inputArguments.clone();
+        String result = "";
+        int count = 0;
+        for (String argument : argumentArray) {
+            if (count > 0) {
+                argument = argument.trim();
+                String lower = argument.toLowerCase(Locale.ROOT);
+                if (lower.startsWith("message:") || lower.startsWith("msg:") || lower.startsWith("m:")) {
+                    String filter = argument.replaceAll("(?i)^message:", "").replaceAll("(?i)^msg:", "").replaceAll("(?i)^m:", "");
+                    filter = filter.replaceAll("\\\\", "");
+                    filter = filter.replaceAll("'", "");
+                    if (filter.length() > 0) {
+                        result = filter;
+                    }
+                }
+            }
+            count++;
+        }
+        return result;
+    }
+
+    /**
      * Parse preview flag from command arguments
-     * 
+     *
      * @param inputArguments
      *            The command arguments
      * @return 1 for preview, 2 for preview cancel, 0 otherwise

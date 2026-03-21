@@ -361,6 +361,12 @@ public class BukkitAdapter implements BukkitInterface {
         return false;
     }
 
+
+    @Override
+    public boolean isBundle(Material material) {
+        return false;
+    }
+
     @Override
     public boolean isCopperChest(Material material) {
         return false;

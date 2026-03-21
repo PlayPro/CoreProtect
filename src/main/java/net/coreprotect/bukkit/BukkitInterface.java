@@ -152,6 +152,17 @@ public interface BukkitInterface {
      */
     boolean isBookshelfBook(Material material);
 
+
+    /**
+     * Checks if a material is a bundle.
+     * 
+     * @param material
+     *            The material to check
+     * @return true if the material is a bundle, false otherwise
+     */
+    boolean isBundle(Material material);
+
+
     /**
      * Gets the seeds material for a plant material.
      * 

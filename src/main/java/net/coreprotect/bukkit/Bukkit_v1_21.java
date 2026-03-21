@@ -27,6 +27,7 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
 
     public static Set<Material> COPPER_CHESTS = new HashSet<>(Arrays.asList());
     public static Set<Material> SHELVES = new HashSet<>(Arrays.asList());
+    public static Set<Material> BUNDLES = new HashSet<>(Arrays.asList());
 
     /**
      * Initializes the Bukkit_v1_21 adapter with 1.21-specific block groups and mappings.
@@ -35,6 +36,7 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
     public Bukkit_v1_21() {
         initializeBlockGroups();
         initializeTrapdoorBlocks();
+        initializeBundles();
         BlockGroup.INTERACT_BLOCKS.addAll(copperChestMaterials());
         BlockGroup.CONTAINERS.addAll(copperChestMaterials());
         BlockGroup.UPDATE_STATE.addAll(copperChestMaterials());
@@ -65,6 +67,20 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
             // Add to interaction blocks if not already present
             addToBlockGroupIfMissing(value, BlockGroup.INTERACT_BLOCKS);
             addToBlockGroupIfMissing(value, BlockGroup.SAFE_INTERACT_BLOCKS);
+        }
+    }
+
+    /**
+     * Initializes the bundles group to enable the ability to roll back dyed bundles correctly.
+     * It needs to check whether dyed bundles exist because they were added in 1.21.2.
+     */
+    public void initializeBundles(){
+        if (BUNDLES.isEmpty()) {
+            Material bundle = Material.getMaterial("RED_BUNDLE");
+            if (bundle != null) {
+                BUNDLES.addAll(Tag.ITEMS_BUNDLES.getValues());
+            }
+            BUNDLES.add(Material.BUNDLE);
         }
     }
 
@@ -184,6 +200,12 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
     public boolean isShelf(Material material) {
         return SHELVES.contains(material);
     }
+
+    @Override
+    public boolean isBundle(Material material) {
+        return Tag.ITEMS_BUNDLES.getValues().contains(material);
+    }
+
 
     @Override
     public Set<Material> copperChestMaterials() {

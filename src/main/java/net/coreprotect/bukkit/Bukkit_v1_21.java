@@ -6,12 +6,17 @@ import java.util.List;
 import java.util.Set;
 
 import org.bukkit.Bukkit;
+import org.bukkit.ExplosionResult;
 import org.bukkit.Keyed;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Tag;
 import org.bukkit.entity.EntityType;
+import org.bukkit.event.Event;
+import org.bukkit.event.block.BlockExplodeEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.inventory.InventoryType;
+
 
 import net.coreprotect.model.BlockGroup;
 
@@ -217,5 +222,19 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
         }
 
         return SHELVES;
+    }
+
+    @Override
+    public boolean shouldLogExplosion(Event event){
+        ExplosionResult result = null;
+
+        if (event instanceof EntityExplodeEvent){
+            result = ((EntityExplodeEvent)event).getExplosionResult();
+        } else if (event instanceof BlockExplodeEvent){
+            result = ((BlockExplodeEvent)event).getExplosionResult();
+        }
+        return !(result == ExplosionResult.KEEP ||
+                 result == ExplosionResult.TRIGGER_BLOCK
+        );
     }
 }

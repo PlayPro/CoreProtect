@@ -14,6 +14,8 @@ import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.event.Event;
+import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -412,6 +414,27 @@ public interface BukkitInterface {
      * @return true if the event is for the front side, false otherwise
      */
     boolean isSignFront(SignChangeEvent event);
+
+
+
+    /**
+     * Checks whether an explosion event should be logged or not. (i.e. wind charge explosions)
+     * 
+     * @param event
+     *            The explosion event (Block or Entity ExplodeEvent)
+     * @return true if the explosion should affect blocks
+     */
+    boolean shouldLogExplosion(Event event);
+
+
+    /**
+     * Gets the material of the block that exploded
+     * 
+     * @param event
+     *            The block explosion event
+     * @return the material of the block that caused the explosion
+     */
+    Material getExplodedBlock(BlockExplodeEvent event);
 
     // --------------------------------------------------------------------------
     // Registry methods

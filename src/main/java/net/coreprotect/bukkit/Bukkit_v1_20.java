@@ -13,6 +13,7 @@ import org.bukkit.block.ChiseledBookshelf;
 import org.bukkit.block.Sign;
 import org.bukkit.block.sign.Side;
 import org.bukkit.entity.Arrow;
+import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
@@ -296,5 +297,11 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
             hasBasePotionType = false;
             return super.getArrowMeta(arrow, itemStack);
         }
+    }
+
+    @Override
+    public Material getExplodedBlock(BlockExplodeEvent event){
+        // accoding to the Bukkit docs this will always return air
+        return event.getExplodedBlockState().getType();
     }
 }

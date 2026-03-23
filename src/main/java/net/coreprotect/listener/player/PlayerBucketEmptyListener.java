@@ -32,25 +32,11 @@ public final class PlayerBucketEmptyListener extends Queue implements Listener {
         }
 
         if (!event.isCancelled() && Config.getConfig(world).BUCKETS && inspect == 0) {
-            Block block = event.getBlockClicked();
+            Block block = event.getBlock();
             BlockData blockData = block.getBlockData();
             Material type = Material.WATER;
             if (event.getBucket().equals(Material.LAVA_BUCKET)) {
                 type = Material.LAVA;
-            }
-
-            boolean getRelative = true;
-            if (blockData instanceof Waterlogged) {
-                if (type.equals(Material.WATER)) {
-                    boolean isWaterlogged = ((Waterlogged) blockData).isWaterlogged();
-                    if (!isWaterlogged) {
-                        getRelative = false;
-                    }
-                }
-            }
-            if (getRelative) {
-                block = block.getRelative(event.getBlockFace());
-                blockData = block.getBlockData();
             }
 
             BlockState blockState = block.getState();

@@ -22,6 +22,8 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.event.Event;
+import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -314,6 +316,17 @@ public class BukkitAdapter implements BukkitInterface {
     @Override
     public boolean isWaxed(Sign sign) {
         return false;
+    }
+
+    @Override
+    public boolean shouldLogExplosion(Event event){
+        return true;
+    }
+
+    @Override
+    public Material getExplodedBlock(BlockExplodeEvent event){
+        // accoding to the Bukkit docs this will always return air
+        return event.getBlock().getType();
     }
 
     @Override

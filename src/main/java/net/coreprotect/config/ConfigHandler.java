@@ -24,6 +24,7 @@ import org.bukkit.plugin.PluginManager;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
+import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
@@ -204,6 +205,13 @@ public class ConfigHandler extends Queue {
         }
         catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    public static void initializeBlacklist(){
+        File file = new File(ConfigHandler.path + "blacklist.txt");
+        if (!file.exists()){
+            CoreProtect.getInstance().saveResource("blacklist.txt", false);
         }
     }
 
@@ -548,6 +556,7 @@ public class ConfigHandler extends Queue {
 
             ConfigHandler.loadConfig(); // Load (or create) the configuration file.
             ConfigHandler.loadDatabase(); // Initialize MySQL and create tables if necessary.
+            ConfigHandler.initializeBlacklist(); // Create blacklist.txt file if it doesn't exist.
 
             if (startup) {
                 ListenerHandler.registerNetworking(); // Register channels for networking API

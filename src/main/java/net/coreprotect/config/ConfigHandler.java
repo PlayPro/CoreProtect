@@ -67,6 +67,10 @@ public class ConfigHandler extends Queue {
     public static String prefixConfig = "co_";
     public static int maximumPoolSize = 10;
 
+    public static final String BLACKLIST_COMMENT_SEPARATOR = "%";
+    public static final String BLACKLIST_FILTER_SEPARATOR = "@";
+    public static final String BLACKLIST_FILENAME = "blacklist.txt";
+
     public static HikariDataSource hikariDataSource = null;
     public static final CentralProcessor processorInfo = SystemUtils.getProcessorInfo();
     public static final boolean isSpigot = VersionUtils.isSpigot();
@@ -178,21 +182,22 @@ public class ConfigHandler extends Queue {
         try {
             ConfigHandler.blacklist.clear();
             ConfigHandler.FilteredBlacklist.clear();
-            String blacklist = ConfigHandler.path + "blacklist.txt";
-            if (!(new File(blacklist)).exists()){
+
+            File file = new File(ConfigHandler.path, BLACKLIST_FILENAME);
+            if (!file.exists()){
                 return;
             }
-            try (RandomAccessFile blfile = new RandomAccessFile(blacklist, "r")){
+            try (RandomAccessFile blfile = new RandomAccessFile(file, "r")){
                 if (blfile.length() == 0){
                     return;
                 }
                 String blLine;
                 while (( blLine = blfile.readLine()) != null ) {
-                    blLine = blLine.replace(" ", "").toLowerCase(Locale.ROOT);
-                    if (blLine.isEmpty() || blLine.startsWith("%")) {
+                    blLine = blLine.replace(" ", "").toLowerCase(Locale.ROOT).split(BLACKLIST_COMMENT_SEPARATOR)[0];
+                    if (blLine.isEmpty()) {
                         continue;
                     }
-                    String[] blSplit = blLine.split("@");
+                    String[] blSplit = blLine.split(BLACKLIST_FILTER_SEPARATOR);
                     if (blSplit.length == 1){
                         ConfigHandler.blacklist.put(blLine, true);
                     } else {
@@ -209,9 +214,9 @@ public class ConfigHandler extends Queue {
     }
 
     public static void initializeBlacklist(){
-        File file = new File(ConfigHandler.path + "blacklist.txt");
+        File file = new File(ConfigHandler.path, BLACKLIST_FILENAME);
         if (!file.exists()){
-            CoreProtect.getInstance().saveResource("blacklist.txt", false);
+            CoreProtect.getInstance().saveResource(BLACKLIST_FILENAME, false);
         }
     }
 

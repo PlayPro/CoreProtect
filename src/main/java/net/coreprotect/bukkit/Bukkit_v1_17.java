@@ -153,8 +153,14 @@ public class Bukkit_v1_17 extends BukkitAdapter {
     }
 
     @Override
+    public boolean isBundle(Material material) {
+        return material == Material.BUNDLE;
+    }
+
+
+    @Override
     public boolean setItemMeta(Material rowType, ItemStack itemstack, List<Map<String, Object>> map) {
-        if (rowType == Material.BUNDLE) {
+        if (BukkitAdapter.ADAPTER.isBundle(rowType)) {
             BundleMeta meta = (BundleMeta) itemstack.getItemMeta();
             for (Map<String, Object> itemData : map) {
                 ItemStack itemStack = ItemUtils.unserializeItemStack(itemData);

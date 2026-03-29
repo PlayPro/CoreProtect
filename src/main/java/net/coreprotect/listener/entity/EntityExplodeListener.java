@@ -1,5 +1,6 @@
 package net.coreprotect.listener.entity;
 
+import org.bukkit.ExplosionResult;
 import org.bukkit.World;
 import org.bukkit.entity.Creeper;
 import org.bukkit.entity.EnderCrystal;
@@ -15,6 +16,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityExplodeEvent;
 
+import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.block.BlockExplodeListener;
@@ -24,7 +26,8 @@ public final class EntityExplodeListener extends Queue implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onEntityExplode(EntityExplodeEvent event) {
         Entity entity = event.getEntity();
-        if (entity.getType().name().equals("WIND_CHARGE") || entity.getType().name().equals("BREEZE_WIND_CHARGE")) {
+
+        if (!BukkitAdapter.ADAPTER.shouldLogExplosion(event)){
             return;
         }
 

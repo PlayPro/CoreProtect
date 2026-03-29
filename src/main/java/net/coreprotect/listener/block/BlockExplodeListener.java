@@ -146,18 +146,25 @@ public final class BlockExplodeListener extends Queue implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onBlockExplode(BlockExplodeEvent event) {
-        Block eventBlock = event.getBlock();
-        World world = eventBlock.getLocation().getWorld();
+        Material eventMaterial = BukkitAdapter.ADAPTER.getExplodedBlock(event);
+        World world = event.getBlock().getLocation().getWorld();
+
+        if (!BukkitAdapter.ADAPTER.shouldLogExplosion(event)){
+            return;
+        }
+
         String user = "";
-        if (!eventBlock.getType().equals(Material.AIR) && !eventBlock.getType().equals(Material.CAVE_AIR)) {
-            user = eventBlock.getType().name().toLowerCase(Locale.ROOT);
+        if (!eventMaterial.equals(Material.AIR) && !eventMaterial.equals(Material.CAVE_AIR)) {
+            user = eventMaterial.name().toLowerCase(Locale.ROOT);
+
+            if (user.contains("respawn_anchor")) {
+                user = "#respawn_anchor";
+            }
+            else if (user.contains("_bed")) {
+                user = "#bed";
+            }
         }
-        if (user.contains("tnt")) {
-            user = "#tnt";
-        }
-        else if (user.contains("end_crystal")) {
-            user = "#end_crystal";
-        }
+        
         if (!user.startsWith("#")) {
             user = "#explosion";
         }

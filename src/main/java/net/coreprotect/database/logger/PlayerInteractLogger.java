@@ -26,7 +26,7 @@ public class PlayerInteractLogger {
     public static void log(PreparedStatement preparedStmt, int batchCount, String user, BlockState block, Material blockType) {
         try {
             int type = MaterialUtils.getBlockId(blockType.name(), true);
-            if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null || MaterialUtils.getType(type).equals(Material.AIR) || MaterialUtils.getType(type).equals(Material.CAVE_AIR)) {
+            if (ConfigHandler.isBlacklisted(user) || MaterialUtils.getType(type).equals(Material.AIR) || MaterialUtils.getType(type).equals(Material.CAVE_AIR)) {
                 return;
             }
 

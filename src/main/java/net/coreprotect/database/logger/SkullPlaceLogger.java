@@ -21,7 +21,7 @@ public class SkullPlaceLogger {
 
     public static void log(PreparedStatement preparedStmt, PreparedStatement preparedStmt2, int batchCount, String user, BlockState block, int replaceType, int replaceData) {
         try {
-            if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null || block == null) {
+            if (ConfigHandler.isBlacklisted(user) || block == null) {
                 return;
             }
             int time = (int) (System.currentTimeMillis() / 1000L);

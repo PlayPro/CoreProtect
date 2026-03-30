@@ -39,8 +39,12 @@ public class StatusCommand {
                     String versionCheck = "";
                     if (Config.getGlobal().CHECK_UPDATES) {
                         String latestVersion = NetworkHandler.latestVersion();
+                        String latestEdgeVersion = NetworkHandler.latestEdgeVersion();
                         if (latestVersion != null) {
                             versionCheck = " (" + Phrase.build(Phrase.LATEST_VERSION, "v" + latestVersion) + ")";
+                        }
+                        else if (latestEdgeVersion != null && !VersionUtils.isCommunityEdition()) {
+                            versionCheck = " (" + Phrase.build(Phrase.LATEST_VERSION, "v" + latestEdgeVersion) + ")";
                         }
                     }
 

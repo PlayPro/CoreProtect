@@ -41,7 +41,7 @@ public class CoreProtectAPI extends Queue {
     /**
      * Current version of the API
      */
-    private static final int API_VERSION = 10;
+    private static final int API_VERSION = 11;
 
     public static class ParseResult extends net.coreprotect.api.result.ParseResult {
 

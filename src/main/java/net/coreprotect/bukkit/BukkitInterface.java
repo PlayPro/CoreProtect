@@ -2,6 +2,7 @@ package net.coreprotect.bukkit;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -13,7 +14,10 @@ import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.event.Event;
+import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.SignChangeEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
@@ -130,6 +134,17 @@ public interface BukkitInterface {
      */
     boolean isChiseledBookshelf(Material material);
 
+
+    /**
+     * Checks if a material is a shelf of any wood kind.
+     * 
+     * @param material
+     *            The material to check
+     * @return true if the material is a shelf, false otherwise
+     */
+    boolean isShelf(Material material);
+
+
     /**
      * Checks if a material is a bookshelf book.
      * 
@@ -138,6 +153,17 @@ public interface BukkitInterface {
      * @return true if the material is a bookshelf book, false otherwise
      */
     boolean isBookshelfBook(Material material);
+
+
+    /**
+     * Checks if a material is a bundle.
+     * 
+     * @param material
+     *            The material to check
+     * @return true if the material is a bundle, false otherwise
+     */
+    boolean isBundle(Material material);
+
 
     /**
      * Gets the seeds material for a plant material.
@@ -400,6 +426,27 @@ public interface BukkitInterface {
      */
     boolean isSignFront(SignChangeEvent event);
 
+
+
+    /**
+     * Checks whether an explosion event should be logged or not. (i.e. wind charge explosions)
+     * 
+     * @param event
+     *            The explosion event (Block or Entity ExplodeEvent)
+     * @return true if the explosion should affect blocks
+     */
+    boolean shouldLogExplosion(Event event);
+
+
+    /**
+     * Gets the material of the block that exploded
+     * 
+     * @param event
+     *            The block explosion event
+     * @return the material of the block that caused the explosion
+     */
+    Material getExplodedBlock(BlockExplodeEvent event);
+
     // --------------------------------------------------------------------------
     // Registry methods
     // --------------------------------------------------------------------------
@@ -432,4 +479,13 @@ public interface BukkitInterface {
      * @return The parsed name
      */
     String parseLegacyName(String name);
+
+    boolean isCrafter(InventoryType type);
+
+    boolean isCopperChest(Material material);
+
+    Set<Material> copperChestMaterials();
+
+    Set<Material> shelfMaterials();
+
 }

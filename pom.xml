@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>net.coreprotect</groupId>
   <artifactId>CoreProtect</artifactId>
-  <version>22.4</version>
+  <version>23.1</version>
   <properties>
     <project.branch></project.branch>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -73,7 +73,7 @@
                   <excludes>
                     <exclude>**/*.java</exclude>
                     <exclude>**/*.c</exclude>
-                    <exclude>META-INF/maven/**</exclude>
+                    <exclude>META-INF/maven/**/pom.properties</exclude>
                     <exclude>META-INF/services/**</exclude>
                   </excludes>
                 </filter>
@@ -113,9 +113,82 @@
           <skipTests>${skipTests}</skipTests>
         </configuration>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>3.6.1</version>
+        <executions>
+          <execution>
+            <phase>validate</phase>
+            <goals><goal>enforce</goal></goals>
+            <configuration>
+              <rules>
+                <requireNoRepositories>
+                  <allowedRepositories>
+                    <allowedRepository>central</allowedRepository>
+                    <allowedRepository>enginehub-repo</allowedRepository>
+                    <allowedRepository>spigot-repo</allowedRepository>
+                    <allowedRepository>paper-repo</allowedRepository>
+                    <allowedRepository>codemc-repo</allowedRepository>
+                    <allowedRepository>jitpack.io</allowedRepository>
+                  </allowedRepositories>
+                </requireNoRepositories>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
+  <profiles>
+    <profile>
+      <id>maven-install</id>
+      <activation>
+        <property>
+          <name>env.BUILD_ID</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-antrun-plugin</artifactId>
+            <version>3.1.0</version>
+            <executions>
+              <execution>
+                <id>install-validation</id>
+                <phase>install</phase>
+                <configuration>
+                  <target>
+                    <delete>
+                      <fileset dir="${project.build.directory}">
+                        <include name="${project.build.finalName}-shaded.jar"/>
+                      </fileset>
+                    </delete>
+                  </target>
+                </configuration>
+                <goals>
+                  <goal>run</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
   <repositories>
+    <repository>
+      <id>central</id>
+      <url>https://repo.maven.apache.org/maven2/</url>
+      <releases><enabled>true</enabled></releases>
+      <snapshots><enabled>false</enabled></snapshots>
+    </repository>
+    <repository>
+      <id>enginehub-repo</id>
+      <url>https://maven.enginehub.org/repo/</url>
+      <releases><enabled>true</enabled></releases>
+      <snapshots><enabled>true</enabled></snapshots>
+    </repository>
     <repository>
       <id>spigot-repo</id>
       <url>https://hub.spigotmc.org/nexus/content/groups/public/</url>
@@ -137,17 +210,6 @@
       <url>https://jitpack.io</url>
     </repository>
   </repositories>
-  <dependencyManagement>
-    <dependencies>
-      <dependency>
-        <groupId>com.intellectualsites.bom</groupId>
-        <artifactId>bom-newest</artifactId> <!--  Ref: https://github.com/IntellectualSites/bom -->
-        <version>1.45</version>
-        <scope>import</scope>
-        <type>pom</type>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
   <dependencies>
     <!--
     paper-api: io.papermc.paper
@@ -158,7 +220,7 @@
     <dependency>
       <groupId>io.papermc.paper</groupId>
       <artifactId>paper-api</artifactId>
-      <version>1.21.1-R0.1-SNAPSHOT</version>
+      <version>1.21.11-R0.1-SNAPSHOT</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
@@ -170,6 +232,7 @@
     <dependency>
       <groupId>com.fastasyncworldedit</groupId>
       <artifactId>FastAsyncWorldEdit-Core</artifactId>
+      <version>2.13.1</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
@@ -187,11 +250,12 @@
     <dependency>
       <groupId>com.fastasyncworldedit</groupId>
       <artifactId>FastAsyncWorldEdit-Bukkit</artifactId>
+      <version>2.13.1</version>
       <scope>provided</scope>
       <exclusions>
         <exclusion>
-          <artifactId>FastAsyncWorldEdit-Core</artifactId>
           <groupId>*</groupId>
+          <artifactId>FastAsyncWorldEdit-Core</artifactId>
         </exclusion>
       </exclusions>
     </dependency>

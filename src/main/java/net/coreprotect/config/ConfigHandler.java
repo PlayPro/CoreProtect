@@ -2,6 +2,8 @@ package net.coreprotect.config;
 
 import java.io.File;
 import java.io.RandomAccessFile;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
@@ -55,7 +57,8 @@ public class ConfigHandler extends Queue {
     public static final String PATCH_VERSION = "23.1";
     public static final String LATEST_VERSION = "1.21.11";
     public static String path = "plugins/CoreProtect/";
-    public static String sqlite = "database.db";
+    public static final String SQLITE_DEFAULT_FILE = "database.db";
+    public static String sqlite = SQLITE_DEFAULT_FILE;
     public static String host = "127.0.0.1";
     public static int port = 3306;
     public static String database = "database";
@@ -195,6 +198,7 @@ public class ConfigHandler extends Queue {
             ConfigHandler.password = Config.getGlobal().MYSQL_PASSWORD;
             ConfigHandler.maximumPoolSize = Config.getGlobal().MAXIMUM_POOL_SIZE;
             ConfigHandler.prefix = Config.getGlobal().PREFIX;
+            ConfigHandler.sqlite = resolveSQLiteDatabasePath(Config.getGlobal().SQLITE_DATABASE);
 
             ConfigHandler.loadBlacklist(); // Load the blacklist file if it exists.
         }
@@ -272,6 +276,44 @@ public class ConfigHandler extends Queue {
         }
 
         Database.createDatabaseTables(ConfigHandler.prefix, false, null, Config.getGlobal().MYSQL, false);
+    }
+
+    private static String resolveSQLiteDatabasePath(String configuredPath) {
+        try {
+            String normalizedPath = configuredPath == null ? "" : configuredPath.trim();
+            if (normalizedPath.isEmpty()) {
+                normalizedPath = SQLITE_DEFAULT_FILE;
+            }
+
+            Path sqlitePath = Paths.get(normalizedPath);
+            if (!sqlitePath.isAbsolute()) {
+                sqlitePath = Paths.get(ConfigHandler.path).resolve(sqlitePath);
+            }
+
+            sqlitePath = sqlitePath.normalize().toAbsolutePath();
+            File sqliteFile = sqlitePath.toFile();
+            File parentFolder = sqliteFile.getParentFile();
+            if (parentFolder != null && !parentFolder.exists()) {
+                parentFolder.mkdirs();
+            }
+
+            return sqliteFile.getPath();
+        }
+        catch (Exception e) {
+            return Paths.get(ConfigHandler.path, SQLITE_DEFAULT_FILE).normalize().toAbsolutePath().toString();
+        }
+    }
+
+    public static String getSQLiteDatabasePath() {
+        return ConfigHandler.sqlite;
+    }
+
+    public static String getSQLiteTemporaryPath() {
+        return ConfigHandler.sqlite + ".tmp";
+    }
+
+    public static String getSQLiteTemporaryPathSql() {
+        return getSQLiteTemporaryPath().replace("'", "''");
     }
 
     public static void loadMaterials(Statement statement) {

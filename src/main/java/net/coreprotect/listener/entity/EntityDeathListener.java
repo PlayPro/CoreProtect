@@ -134,12 +134,6 @@ public final class EntityDeathListener extends Queue implements Listener {
             skip = false;
         }
 
-        // At the moment this doesn't work as the mob is removed from the stack before this
-        // We don't want to log entity deaths if it's a stacked mob (saves a LOT of space)
-        /*if (Bukkit.getServer().getPluginManager().getPlugin("InsanityStacker") != null) {
-            if (PlaceholderAPI.setPlaceholders(null, "%istacker_ismobstacked_" + entity.getUniqueId() + "%").equals("true")) return;
-        }*/
-
         if (damage instanceof EntityDamageByEntityEvent) {
             EntityDamageByEntityEvent attack = (EntityDamageByEntityEvent) damage;
             Entity attacker = attack.getDamager();
@@ -588,11 +582,17 @@ public final class EntityDeathListener extends Queue implements Listener {
         if (e.getEntity() instanceof ArmorStand) return;
         if (!Config.getConfig(e.getEntity().getWorld()).ENTITY_KILLS) return;
 
-        String bool = PlaceholderAPI.setPlaceholders(null, "%istacker_ismobstacked_" + e.getEntity().getUniqueId() + "%");
-        if (bool.equals("true")) {
-            if (!stackedMobs.contains(e.getEntity().getUniqueId())) {
-                stackedMobs.add(e.getEntity().getUniqueId());
+        String stack = PlaceholderAPI.setPlaceholders(null, "%istacker_stackcount_" + e.getEntity().getUniqueId() + "%");
+
+        System.out.println(stack);
+        try {
+            int stackSize = Integer.parseInt(stack);
+            if (stackSize > 1) {
+                if (!stackedMobs.contains(e.getEntity().getUniqueId())) {
+                    stackedMobs.add(e.getEntity().getUniqueId());
+                }
             }
-        }
+
+        } catch (NumberFormatException ignored) {}
     }
 }

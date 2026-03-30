@@ -217,12 +217,12 @@
     spigot-api: org.spigotmc
     bukkit: org.bukkit
     -->
-    <dependency>
+    <!--<dependency>
       <groupId>io.papermc.paper</groupId>
       <artifactId>paper-api</artifactId>
       <version>1.21.11-R0.1-SNAPSHOT</version>
       <scope>provided</scope>
-    </dependency>
+    </dependency>-->
     <dependency>
       <groupId>org.bstats</groupId>
       <artifactId>bstats-bukkit</artifactId>

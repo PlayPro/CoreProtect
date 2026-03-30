@@ -43,13 +43,15 @@ import net.coreprotect.utility.BlockUtils;
 public final class BlockBreakListener extends Queue implements Listener {
 
     public BlockBreakListener() {
-        File file = new File(Bukkit.getServer().getWorldContainer().getAbsolutePath() + "/server-info.yml");
+        CoreProtect.isSkyblock = (Bukkit.getPluginManager().getPlugin("InsanitySkyblock") != null);
+
+        /*File file = new File(Bukkit.getServer().getWorldContainer().getAbsolutePath() + "/server-info.yml");
         if (file.exists()) {
             YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
             String serverName = config.getString("ServerName");
 
             if (serverName != null && serverName.equals("Skyblock")) CoreProtect.isSkyblock = true;
-        }
+        }*/
     }
 
     private static boolean isAttached(Block block, Block scanBlock, int scanMin) {

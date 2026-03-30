@@ -521,8 +521,9 @@ public class RollbackBlockHandler extends Queue {
      */
     public static void applyBlockChanges(Map<Block, BlockData> chunkChanges, int preview, Player user) {
         for (Entry<Block, BlockData> chunkChange : chunkChanges.entrySet()) {
-            Block changeBlock = chunkChange.getKey();
-            BlockData changeBlockData = chunkChange.getValue();
+            Block changeBlock = chunkChange.getKey(); // From block (pre rollback)
+            BlockData changeBlockData = chunkChange.getValue(); // To block (post rollback)
+
             if (preview > 0 && user != null) {
                 Util.sendBlockChange(user, changeBlock.getLocation(), changeBlockData);
             }

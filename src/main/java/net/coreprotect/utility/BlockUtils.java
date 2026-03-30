@@ -6,13 +6,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.block.Banner;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockState;
-import org.bukkit.block.CommandBlock;
-import org.bukkit.block.Jukebox;
-import org.bukkit.block.ShulkerBox;
+import org.bukkit.NamespacedKey;
+import org.bukkit.block.*;
 import org.bukkit.block.banner.Pattern;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Waterlogged;
@@ -23,6 +20,8 @@ import org.bukkit.inventory.ItemStack;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.thread.Scheduler;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.Plugin;
 
 public class BlockUtils {
 
@@ -253,6 +252,19 @@ public class BlockUtils {
                         meta.add(itemMap);
                     }
                     slot++;
+                }
+            }
+
+            // JHarris - Make sure spawner stack data is saved to the meta so it can be restored
+            else if (block instanceof CreatureSpawner) {
+                Plugin iFacs = Bukkit.getPluginManager().getPlugin("InsanityFactions");
+
+                if (iFacs != null) {
+                    CreatureSpawner spawner = (CreatureSpawner) block;
+                    String spawnerStack = spawner.getPersistentDataContainer().get(new NamespacedKey(iFacs, "spawnerStack"), PersistentDataType.STRING);
+                    if (spawnerStack != null) {
+                        meta.add(spawnerStack);
+                    }
                 }
             }
         }

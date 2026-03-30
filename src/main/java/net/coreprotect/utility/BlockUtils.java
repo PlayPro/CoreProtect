@@ -262,6 +262,7 @@ public class BlockUtils {
                 if (iFacs != null) {
                     CreatureSpawner spawner = (CreatureSpawner) block;
                     String spawnerStack = spawner.getPersistentDataContainer().get(new NamespacedKey(iFacs, "spawnerStack"), PersistentDataType.STRING);
+
                     if (spawnerStack != null) {
                         meta.add(spawnerStack);
                     }

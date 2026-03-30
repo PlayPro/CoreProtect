@@ -584,7 +584,6 @@ public final class EntityDeathListener extends Queue implements Listener {
 
         String stack = PlaceholderAPI.setPlaceholders(null, "%istacker_stackcount_" + e.getEntity().getUniqueId() + "%");
 
-        System.out.println(stack);
         try {
             int stackSize = Integer.parseInt(stack);
             if (stackSize > 1) {

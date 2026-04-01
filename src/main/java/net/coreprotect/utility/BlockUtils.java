@@ -225,6 +225,10 @@ public class BlockUtils {
     }
 
     public static List<Object> processMeta(BlockState block) {
+        return processMeta(block, null);
+    }
+
+    public static List<Object> processMeta(BlockState block, String spawnerStack) {
         List<Object> meta = new ArrayList<>();
         try {
             if (block instanceof CommandBlock) {
@@ -257,14 +261,21 @@ public class BlockUtils {
 
             // JHarris - Make sure spawner stack data is saved to the meta so it can be restored
             else if (block instanceof CreatureSpawner) {
-                Plugin iFacs = Bukkit.getPluginManager().getPlugin("InsanityFactions");
+                // Use pre-captured spawnerStack if available (captured eagerly on main thread),
+                // otherwise fall back to reading from BlockState snapshot
+                if (spawnerStack != null) {
+                    meta.add(spawnerStack);
+                }
+                else {
+                    Plugin iFacs = Bukkit.getPluginManager().getPlugin("InsanityFactions");
 
-                if (iFacs != null) {
-                    CreatureSpawner spawner = (CreatureSpawner) block;
-                    String spawnerStack = spawner.getPersistentDataContainer().get(new NamespacedKey(iFacs, "spawnerStack"), PersistentDataType.STRING);
+                    if (iFacs != null) {
+                        CreatureSpawner spawner = (CreatureSpawner) block;
+                        String stack = spawner.getPersistentDataContainer().get(new NamespacedKey(iFacs, "spawnerStack"), PersistentDataType.STRING);
 
-                    if (spawnerStack != null) {
-                        meta.add(spawnerStack);
+                        if (stack != null) {
+                            meta.add(stack);
+                        }
                     }
                 }
             }

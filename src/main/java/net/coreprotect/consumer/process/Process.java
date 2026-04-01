@@ -142,7 +142,7 @@ public class Process {
                         try {
                             switch (action) {
                                 case Process.BLOCK_BREAK:
-                                    BlockBreakProcess.process(preparedStmtBlocks, preparedStmtSkulls, i, processId, id, blockType, blockData, replaceType, forceData, user, object, (String) data[7]);
+                                    BlockBreakProcess.process(preparedStmtBlocks, preparedStmtSkulls, i, processId, id, blockType, blockData, replaceType, forceData, user, object, (String) data[7], data.length > 8 ? (String) data[8] : null);
                                     break;
                                 case Process.BLOCK_PLACE:
                                     BlockPlaceProcess.process(preparedStmtBlocks, preparedStmtSkulls, i, blockType, blockData, replaceType, replaceData, forceData, user, object, (String) data[7], (String) data[8]);

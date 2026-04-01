@@ -17,6 +17,10 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import org.bukkit.NamespacedKey;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.Plugin;
+
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
@@ -100,9 +104,16 @@ public class Queue {
     }
 
     protected static void queueBlockBreak(String user, BlockState block, Material type, String blockData, Material breakType, int extraData, int blockNumber) {
+        String spawnerStack = null;
         if (type == Material.SPAWNER && block instanceof CreatureSpawner) { // Mob spawner
             CreatureSpawner mobSpawner = (CreatureSpawner) block;
             extraData = EntityUtils.getSpawnerType(mobSpawner.getSpawnedType());
+
+            // Read PDC immediately while still on the main thread, before async consumer processes it
+            Plugin iFacs = Bukkit.getPluginManager().getPlugin("InsanityFactions");
+            if (iFacs != null) {
+                spawnerStack = mobSpawner.getPersistentDataContainer().get(new NamespacedKey(iFacs, "spawnerStack"), PersistentDataType.STRING);
+            }
         }
         else if (type == Material.IRON_DOOR || BlockGroup.DOORS.contains(type) || type.equals(Material.SUNFLOWER) || type.equals(Material.LILAC) || type.equals(Material.TALL_GRASS) || type.equals(Material.LARGE_FERN) || type.equals(Material.ROSE_BUSH) || type.equals(Material.PEONY)) { // Double plant
             if (block.getBlockData() instanceof Bisected) {
@@ -130,7 +141,7 @@ public class Queue {
 
         int currentConsumer = Consumer.currentConsumer;
         int consumerId = Consumer.newConsumerId(currentConsumer);
-        addConsumer(currentConsumer, new Object[] { consumerId, Process.BLOCK_BREAK, type, extraData, breakType, 0, blockNumber, blockData });
+        addConsumer(currentConsumer, new Object[] { consumerId, Process.BLOCK_BREAK, type, extraData, breakType, 0, blockNumber, blockData, spawnerStack });
         queueStandardData(consumerId, currentConsumer, new String[] { user, null }, block);
     }
 

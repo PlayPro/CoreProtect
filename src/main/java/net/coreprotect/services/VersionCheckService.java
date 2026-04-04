@@ -67,7 +67,7 @@ public class VersionCheckService {
                 return false;
             }
 
-            // Support both legacy 1.x versioning and the new year-based 26.x format.
+            // Support both legacy 1.x versioning and the new year-based 26.x/26.1.x format.
             ConfigHandler.SERVER_VERSION = parseCompatibilityVersion(minecraftVersion);
         }
         catch (Exception e) {

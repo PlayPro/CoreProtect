@@ -67,7 +67,7 @@ public class ContainerLogger extends Queue {
             }
 
             // Check if this is a dispenser with no actual changes
-            if (player.equals("#dispenser") && ItemUtils.compareContainers(oldInventory, newInventory)) {
+            if ("#dispenser".equals(player) && ItemUtils.compareContainers(oldInventory, newInventory)) {
                 // No changes detected, mark this dispenser in the dispenserNoChange map
                 // Extract the location key from the loggingContainerId
                 // Format: #dispenser.x.y.z
@@ -95,7 +95,7 @@ public class ContainerLogger extends Queue {
 
             // If we reach here, the dispenser event resulted in changes
             // Remove any pending event for this dispenser
-            if (player.equals("#dispenser")) {
+            if ("#dispenser".equals(player)) {
                 String[] parts = loggingContainerId.split("\\.");
                 if (parts.length >= 4) {
                     int x = Integer.parseInt(parts[1]);

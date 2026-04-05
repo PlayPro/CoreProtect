@@ -22,6 +22,8 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.event.Event;
+import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -317,6 +319,17 @@ public class BukkitAdapter implements BukkitInterface {
     }
 
     @Override
+    public boolean shouldLogExplosion(Event event){
+        return true;
+    }
+
+    @Override
+    public Material getExplodedBlock(BlockExplodeEvent event){
+        // accoding to the Bukkit docs this will always return air
+        return event.getBlock().getType();
+    }
+
+    @Override
     public void setGlowing(Sign sign, boolean isFront, boolean isGlowing) {
         // Base implementation does nothing
     }
@@ -361,13 +374,29 @@ public class BukkitAdapter implements BukkitInterface {
         return false;
     }
 
+
+    @Override
+    public boolean isBundle(Material material) {
+        return false;
+    }
+
     @Override
     public boolean isCopperChest(Material material) {
         return false;
     }
 
     @Override
+    public boolean isShelf(Material material){
+        return false;
+    }
+
+    @Override
     public Set<Material> copperChestMaterials() {
+        return EMPTY_SET;
+    }
+
+    @Override
+    public Set<Material> shelfMaterials() {
         return EMPTY_SET;
     }
 }

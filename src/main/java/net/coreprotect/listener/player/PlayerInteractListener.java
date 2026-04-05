@@ -18,12 +18,14 @@ import org.bukkit.block.Jukebox;
 import org.bukkit.block.Sign;
 import org.bukkit.block.data.Bisected;
 import org.bukkit.block.data.Bisected.Half;
+import org.bukkit.block.data.SideChaining.ChainPart;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Lightable;
 import org.bukkit.block.data.Waterlogged;
 import org.bukkit.block.data.type.Bed;
 import org.bukkit.block.data.type.Bed.Part;
 import org.bukkit.block.data.type.Cake;
+import org.bukkit.block.data.type.Shelf;
 import org.bukkit.entity.EnderCrystal;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -37,6 +39,7 @@ import org.bukkit.inventory.BlockInventoryHolder;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.util.Vector;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
@@ -464,6 +467,49 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             else { // fallback if unable to determine bookshelf slot
                                 InventoryChangeListener.inventoryTransaction(player.getName(), blockState.getLocation(), null);
                             }
+                        }
+                    } else if (BukkitAdapter.ADAPTER.isShelf(type) ){
+                        BlockData blockState = block.getBlockData();  
+                        if (blockState instanceof Shelf){
+                            Shelf shelf = (Shelf) blockState;
+                        
+                        // ignore clicking on the back face
+                        if (event.getBlockFace() != shelf.getFacing()){
+                            return;
+                        }
+
+                        if (shelf.getSideChain() == ChainPart.UNCONNECTED){
+                            InventoryChangeListener.inventoryTransaction(player.getName(), block.getLocation(), null);
+                        } else {
+                            Block center = block;
+                            Vector direction = shelf.getFacing().getDirection();
+                            
+                                if (shelf.getSideChain() == ChainPart.LEFT){
+                                    center = center.getRelative(direction.getBlockZ(), 0, -direction.getBlockX());
+                                } else if (shelf.getSideChain() == ChainPart.RIGHT){
+                                    center = center.getRelative(-direction.getBlockZ(), 0, direction.getBlockX());
+                                }
+
+                                BlockData centerBlockData = center.getBlockData();
+                                if (centerBlockData instanceof Shelf){
+                                    // log center
+                                    InventoryChangeListener.inventoryTransaction(player.getName(), center.getLocation(), null);
+
+                                    if (((Shelf)centerBlockData).getSideChain() != ChainPart.CENTER){
+                                        // if it's not the center it's just a chain of 2
+                                        InventoryChangeListener.inventoryTransaction(player.getName(), block.getLocation(), null);
+                                    } else {
+                                        Block left = center.getRelative(-direction.getBlockZ(), 0, direction.getBlockX());
+                                        InventoryChangeListener.inventoryTransaction(player.getName(), left.getLocation(), null);
+                                        
+                                        Block right = center.getRelative(direction.getBlockZ(), 0, -direction.getBlockX());
+                                        InventoryChangeListener.inventoryTransaction(player.getName(), right.getLocation(), null); 
+                                    }
+                                } else {
+                                    // fallback if invalid block is found just log clicked shelf
+                                    InventoryChangeListener.inventoryTransaction(player.getName(), block.getLocation(), null);
+                                }    
+                            } 
                         }
                     }
                     else if (BukkitAdapter.ADAPTER.isDecoratedPot(type)) {

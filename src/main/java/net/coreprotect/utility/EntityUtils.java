@@ -3,11 +3,13 @@ package net.coreprotect.utility;
 import java.util.Locale;
 
 import org.bukkit.Material;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
+import org.bukkit.entity.ThrowableProjectile;
 
 public class EntityUtils extends Queue {
 
@@ -48,6 +50,14 @@ public class EntityUtils extends Queue {
         }
 
         return id;
+    }
+
+    public static Material getEntityMaterial(final Entity entity) {
+        if (entity instanceof ThrowableProjectile) {
+            return ((ThrowableProjectile) entity).getItem().getType();
+        }
+
+        return getEntityMaterial(entity.getType());
     }
 
     public static Material getEntityMaterial(EntityType type) {

@@ -25,6 +25,7 @@ To disable logging for specific users, blocks or commands, simply do the followi
 3. Either restart your server, or type "/co reload" in-game.
 
 The blacklist supports disabling logs for:
+
 - Users, which includes Players and non-player users, such as "#creeper"
 - Commands, such as `/help`
 - Blocks, such as minecraft:stone. Only `block` actions are affected.

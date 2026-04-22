@@ -159,20 +159,20 @@ public class ConfigHandler extends Queue {
         }
     }
 
-    public static boolean isBlacklisted(String user){
+    public static boolean isBlacklisted(String user) {
         return ConfigHandler.blacklist.containsKey(user.toLowerCase(Locale.ROOT));
     }
 
-    public static boolean isBlacklisted(String user, String object){
-        if (ConfigHandler.blacklist.containsKey(object) || ConfigHandler.blacklist.containsKey(user.toLowerCase(Locale.ROOT))){
+    public static boolean isBlacklisted(String user, String object) {
+        if (ConfigHandler.blacklist.containsKey(object) || ConfigHandler.blacklist.containsKey(user.toLowerCase(Locale.ROOT))) {
             return true;
         }
         return isFilterBlacklisted(user, object);
     }
 
-    public static boolean isFilterBlacklisted(String user, String object){
-        HashSet <String> blUserSet = FilteredBlacklist.get(object);
-        if (blUserSet == null){
+    public static boolean isFilterBlacklisted(String user, String object) {
+        HashSet<String> blUserSet = FilteredBlacklist.get(object);
+        if (blUserSet == null) {
             return false;
         }
         return blUserSet.contains(user.toLowerCase(Locale.ROOT));
@@ -184,26 +184,25 @@ public class ConfigHandler extends Queue {
             ConfigHandler.FilteredBlacklist.clear();
 
             File file = new File(ConfigHandler.path, BLACKLIST_FILENAME);
-            if (!file.exists()){
+            if (!file.exists()) {
                 return;
             }
-            try (RandomAccessFile blfile = new RandomAccessFile(file, "r")){
-                if (blfile.length() == 0){
+            try (RandomAccessFile blfile = new RandomAccessFile(file, "r")) {
+                if (blfile.length() == 0) {
                     return;
                 }
                 String blLine;
-                while (( blLine = blfile.readLine()) != null ) {
+                while ((blLine = blfile.readLine()) != null) {
                     blLine = blLine.replace(" ", "").toLowerCase(Locale.ROOT).split(BLACKLIST_COMMENT_SEPARATOR)[0];
                     if (blLine.isEmpty()) {
                         continue;
                     }
                     String[] blSplit = blLine.split(BLACKLIST_FILTER_SEPARATOR);
-                    if (blSplit.length == 1){
+                    if (blSplit.length == 1) {
                         ConfigHandler.blacklist.put(blLine, true);
-                    } else {
-                        ConfigHandler.FilteredBlacklist.
-                        computeIfAbsent(blSplit[0], k-> new HashSet<>())
-                        .add(blSplit[1]);
+                    }
+                    else {
+                        ConfigHandler.FilteredBlacklist.computeIfAbsent(blSplit[0], k -> new HashSet<>()).add(blSplit[1]);
                     }
                 }
             }

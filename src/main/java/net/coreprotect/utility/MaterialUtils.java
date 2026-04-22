@@ -4,6 +4,7 @@ import java.util.Locale;
 import java.util.Set;
 
 import org.bukkit.Material;
+import org.bukkit.entity.Painting;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
@@ -162,6 +163,15 @@ public class MaterialUtils extends Queue {
         }
 
         return id;
+    }
+
+    public static String getPaintingArtName(Painting painting) {
+        try {
+            return painting.getArt().name();
+        }
+        catch (IncompatibleClassChangeError e) {
+            return painting.getArt().toString();
+        }
     }
 
     public static String getArtName(int id) {

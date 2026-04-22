@@ -232,6 +232,8 @@ public class ConfigHandler extends Queue {
             ConfigHandler.password = Config.getGlobal().MYSQL_PASSWORD;
             ConfigHandler.maximumPoolSize = Config.getGlobal().MAXIMUM_POOL_SIZE;
             ConfigHandler.prefix = Config.getGlobal().PREFIX;
+
+            ConfigHandler.loadBlacklist(); // Load the blacklist file if it exists.
         }
         catch (Exception e) {
             e.printStackTrace();
@@ -552,7 +554,6 @@ public class ConfigHandler extends Queue {
 
             ConfigHandler.loadConfig(); // Load (or create) the configuration file.
             ConfigHandler.loadDatabase(); // Initialize MySQL and create tables if necessary.
-            ConfigHandler.initializeBlacklist(); // Create blacklist.txt file if it doesn't exist.
 
             if (startup) {
                 ListenerHandler.registerNetworking(); // Register channels for networking API

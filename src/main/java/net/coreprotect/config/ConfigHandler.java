@@ -8,6 +8,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -23,6 +24,7 @@ import org.bukkit.plugin.PluginManager;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
+import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
@@ -65,6 +67,10 @@ public class ConfigHandler extends Queue {
     public static String prefixConfig = "co_";
     public static int maximumPoolSize = 10;
 
+    public static final String BLACKLIST_COMMENT_SEPARATOR = "#";
+    public static final String BLACKLIST_FILTER_SEPARATOR = "@";
+    public static final String BLACKLIST_FILENAME = "blacklist.txt";
+
     public static HikariDataSource hikariDataSource = null;
     public static final CentralProcessor processorInfo = SystemUtils.getProcessorInfo();
     public static final boolean isSpigot = VersionUtils.isSpigot();
@@ -100,6 +106,7 @@ public class ConfigHandler extends Queue {
     public static Map<String, int[]> rollbackHash = syncMap();
     public static Map<String, Boolean> inspecting = syncMap();
     public static Map<String, Boolean> blacklist = syncMap();
+    public static Map<String, HashSet<String>> FilteredBlacklist = syncMap();
     public static Map<String, Integer> loggingChest = syncMap();
     public static Map<String, Integer> loggingItem = syncMap();
     public static ConcurrentHashMap<String, List<Object>> transactingChest = new ConcurrentHashMap<>();
@@ -152,23 +159,53 @@ public class ConfigHandler extends Queue {
         }
     }
 
+    public static boolean isBlacklisted(String user){
+        return ConfigHandler.blacklist.containsKey(user.toLowerCase(Locale.ROOT));
+    }
+
+    public static boolean isBlacklisted(String user, String object){
+        if (ConfigHandler.blacklist.containsKey(object) || ConfigHandler.blacklist.containsKey(user.toLowerCase(Locale.ROOT))){
+            return true;
+        }
+        return isFilterBlacklisted(user, object);
+    }
+
+    public static boolean isFilterBlacklisted(String user, String object){
+        HashSet <String> blUserSet = FilteredBlacklist.get(object);
+        if (blUserSet == null){
+            return false;
+        }
+        return blUserSet.contains(user.toLowerCase(Locale.ROOT));
+    }
+
     private static void loadBlacklist() {
         try {
             ConfigHandler.blacklist.clear();
-            String blacklist = ConfigHandler.path + "blacklist.txt";
-            boolean exists = (new File(blacklist)).exists();
-            if (exists) {
-                RandomAccessFile blfile = new RandomAccessFile(blacklist, "rw");
-                long blc = blfile.length();
-                if (blc > 0) {
-                    while (blfile.getFilePointer() < blfile.length()) {
-                        String blacklistUser = blfile.readLine().replaceAll(" ", "").toLowerCase(Locale.ROOT);
-                        if (blacklistUser.length() > 0) {
-                            ConfigHandler.blacklist.put(blacklistUser, true);
-                        }
+            ConfigHandler.FilteredBlacklist.clear();
+
+            File file = new File(ConfigHandler.path, BLACKLIST_FILENAME);
+            if (!file.exists()){
+                return;
+            }
+            try (RandomAccessFile blfile = new RandomAccessFile(file, "r")){
+                if (blfile.length() == 0){
+                    return;
+                }
+                String blLine;
+                while (( blLine = blfile.readLine()) != null ) {
+                    blLine = blLine.replace(" ", "").toLowerCase(Locale.ROOT).split(BLACKLIST_COMMENT_SEPARATOR)[0];
+                    if (blLine.isEmpty()) {
+                        continue;
+                    }
+                    String[] blSplit = blLine.split(BLACKLIST_FILTER_SEPARATOR);
+                    if (blSplit.length == 1){
+                        ConfigHandler.blacklist.put(blLine, true);
+                    } else {
+                        ConfigHandler.FilteredBlacklist.
+                        computeIfAbsent(blSplit[0], k-> new HashSet<>())
+                        .add(blSplit[1]);
                     }
                 }
-                blfile.close();
             }
         }
         catch (Exception e) {

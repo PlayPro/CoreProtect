@@ -15,7 +15,7 @@ public class UsernameLogger {
 
     public static void log(Connection connection, String user, String uuid, int configUsernames, int time) {
         try {
-            if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {
+            if (ConfigHandler.isBlacklisted(user)) {
                 return;
             }
 

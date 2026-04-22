@@ -213,13 +213,6 @@ public class ConfigHandler extends Queue {
         }
     }
 
-    public static void initializeBlacklist(){
-        File file = new File(ConfigHandler.path, BLACKLIST_FILENAME);
-        if (!file.exists()){
-            CoreProtect.getInstance().saveResource(BLACKLIST_FILENAME, false);
-        }
-    }
-
     private static void loadConfig() {
         try {
             Config.init();
@@ -239,8 +232,6 @@ public class ConfigHandler extends Queue {
             ConfigHandler.password = Config.getGlobal().MYSQL_PASSWORD;
             ConfigHandler.maximumPoolSize = Config.getGlobal().MAXIMUM_POOL_SIZE;
             ConfigHandler.prefix = Config.getGlobal().PREFIX;
-
-            ConfigHandler.loadBlacklist(); // Load the blacklist file if it exists.
         }
         catch (Exception e) {
             e.printStackTrace();

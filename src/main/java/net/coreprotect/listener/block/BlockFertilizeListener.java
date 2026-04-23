@@ -27,20 +27,24 @@ public final class BlockFertilizeListener extends Queue implements Listener {
         }
 
         Block block = event.getBlock();
-        if (!Config.getConfig(block.getWorld()).BLOCK_PLACE) {
+        Config config = Config.getConfig(block.getWorld());
+        if (!config.BLOCK_PLACE) {
             return;
         }
 
+        Material blockType = block.getType();
         Location location = block.getLocation();
         List<BlockState> blocks = event.getBlocks();
+        boolean singleBlockGrowth = blocks.size() == 1 && blocks.get(0).getLocation().equals(location);
+        boolean mushroomGrowthBlock = isMushroomGrowthBlock(blockType);
 
-        if (Tag.SAPLINGS.isTagged(block.getType()) && (!Config.getConfig(location.getWorld()).TREE_GROWTH || (blocks.size() == 1 && blocks.get(0).getLocation().equals(location)))) {
+        if (mushroomGrowthBlock && (!config.MUSHROOM_GROWTH || singleBlockGrowth)) {
             return;
         }
-        if (block.getType().name().toLowerCase(Locale.ROOT).contains("mushroom") && (!Config.getConfig(location.getWorld()).MUSHROOM_GROWTH || (blocks.size() == 1 && blocks.get(0).getLocation().equals(location)))) {
+        if (!mushroomGrowthBlock && Tag.SAPLINGS.isTagged(blockType) && (!config.TREE_GROWTH || singleBlockGrowth)) {
             return;
         }
-        if (block.getType() == Material.AIR && blocks.size() > 1 && Tag.LOGS.isTagged(blocks.get(1).getType()) && !Config.getConfig(location.getWorld()).TREE_GROWTH) {
+        if (blockType == Material.AIR && blocks.size() > 1 && Tag.LOGS.isTagged(blocks.get(1).getType()) && !config.TREE_GROWTH) {
             return;
         }
 
@@ -65,6 +69,10 @@ public final class BlockFertilizeListener extends Queue implements Listener {
         for (BlockState newBlock : blocks) {
             Queue.queueBlockPlace(user, newBlock, newBlock.getType(), newBlock.getBlock().getState(), newBlock.getType(), -1, 0, newBlock.getBlockData().getAsString());
         }
+    }
+
+    private static boolean isMushroomGrowthBlock(Material blockType) {
+        return blockType == Material.CRIMSON_FUNGUS || blockType == Material.WARPED_FUNGUS || blockType.name().toLowerCase(Locale.ROOT).contains("mushroom");
     }
 
 }

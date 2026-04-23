@@ -11,6 +11,7 @@ import org.bukkit.entity.Ravager;
 import org.bukkit.entity.Silverfish;
 import org.bukkit.entity.Turtle;
 import org.bukkit.entity.Wither;
+import org.bukkit.entity.Zombie;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -47,6 +48,9 @@ public final class EntityChangeBlockListener extends Queue implements Listener {
             }
             else if (entity instanceof Ravager) {
                 e = "#ravager";
+            }
+            else if (entity instanceof Zombie) {
+                e = "#zombie";
             }
             else if (entity instanceof Silverfish) {
                 if (newtype.equals(Material.AIR) || newtype.equals(Material.CAVE_AIR)) {

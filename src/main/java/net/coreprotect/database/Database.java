@@ -195,7 +195,7 @@ public class Database extends Queue {
                     }
                 }
 
-                String database = "jdbc:sqlite:" + ConfigHandler.getSQLiteDatabasePath();
+                String database = "jdbc:sqlite:" + ConfigHandler.path + ConfigHandler.sqlite + "";
                 connection = DriverManager.getConnection(database);
 
                 ConfigHandler.databaseReachable = true;
@@ -421,7 +421,7 @@ public class Database extends Queue {
             String attachDatabase = "";
 
             if (purge && forceConnection == null) {
-                String query = "ATTACH DATABASE '" + ConfigHandler.getSQLiteTemporaryPathSql() + "' AS tmp_db";
+                String query = "ATTACH DATABASE '" + ConfigHandler.path + ConfigHandler.sqlite + ".tmp' AS tmp_db";
                 PreparedStatement preparedStmt = connection.prepareStatement(query);
                 preparedStmt.execute();
                 preparedStmt.close();

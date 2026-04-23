@@ -95,7 +95,6 @@ public class Config extends Language {
 
     static {
         DEFAULT_VALUES.put("donation-key", "");
-        DEFAULT_VALUES.put("sqlite-database", "database.db");
         DEFAULT_VALUES.put("use-mysql", "false");
         DEFAULT_VALUES.put("table-prefix", "co_");
         DEFAULT_VALUES.put("mysql-host", "127.0.0.1");
@@ -145,7 +144,6 @@ public class Config extends Language {
         DEFAULT_VALUES.put("worldedit", "true");
 
         HEADERS.put("donation-key", new String[] { "# CoreProtect is donationware. Obtain a donation key from coreprotect.net/donate/" });
-        HEADERS.put("sqlite-database", new String[] { "# Path to the SQLite database file when MySQL is disabled.", "# Supports both relative paths (from this plugin folder) and absolute paths." });
         HEADERS.put("use-mysql", new String[] { "# MySQL is optional and not required.", "# If you prefer to use MySQL, enable the following and fill out the fields." });
         HEADERS.put("language", new String[] { "# If modified, will automatically attempt to translate languages phrases.", "# List of language codes: https://coreprotect.net/languages/" });
         HEADERS.put("check-updates", new String[] { "# If enabled, CoreProtect will check for updates when your server starts up.", "# If an update is available, you'll be notified via your server console.", });

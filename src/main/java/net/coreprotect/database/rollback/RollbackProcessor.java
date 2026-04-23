@@ -277,7 +277,11 @@ public class RollbackProcessor {
                 int rolledBackInventory = MaterialUtils.rolledBack((Integer) row[9], true);
                 if (rowType != null) {
                     if (inventoryRollback && ((rollbackType == 0 && rolledBackInventory == 0) || (rollbackType == 1 && rolledBackInventory == 1))) {
-                        Material inventoryItem = ItemUtils.itemFilter(rowType, ((Integer) row[14] == 0));
+                        Material inventoryItem = ItemUtils.inventoryItemFilter(rowType, ((Integer) row[14] == 0));
+                        if (inventoryItem == null) {
+                            continue;
+                        }
+
                         int rowUserId = (Integer) row[2];
                         String rowUser = ConfigHandler.playerIdCacheReversed.get(rowUserId);
                         if (rowUser == null) {

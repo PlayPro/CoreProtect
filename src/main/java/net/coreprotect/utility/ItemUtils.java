@@ -362,6 +362,23 @@ public class ItemUtils {
         return material;
     }
 
+    public static Material inventoryItemFilter(Material material, boolean blockTable) {
+        material = itemFilter(material, blockTable);
+        if (material == null) {
+            return null;
+        }
+
+        if (material == Material.LAVA) {
+            return Material.LAVA_BUCKET;
+        }
+
+        if (material == Material.WATER) {
+            return Material.WATER_BUCKET;
+        }
+
+        return material.isItem() ? material : null;
+    }
+
     public static ItemStack newItemStack(Material type, int amount) {
         return new ItemStack(type, amount);
     }

@@ -28,11 +28,15 @@ import net.coreprotect.thread.CacheHandler;
 
 public final class BlockDispenseListener extends Queue implements Listener {
 
+    private static final int DISPENSER_LIQUID_DUPLICATE_THRESHOLD = 256;
+    private static final int DISPENSER_LIQUID_DUPLICATE_WINDOW_SECONDS = 1200;
+
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onBlockDispense(BlockDispenseEvent event) {
         Block block = event.getBlock();
         World world = block.getWorld();
-        if (!event.isCancelled() && Config.getConfig(world).BLOCK_PLACE) {
+        Config config = Config.getConfig(world);
+        if (!event.isCancelled() && config.BLOCK_PLACE) {
             BlockData blockData = block.getBlockData();
             ItemStack item = event.getItem();
             if (item != null && blockData instanceof Dispenser) {
@@ -67,11 +71,9 @@ public final class BlockDispenseListener extends Queue implements Listener {
 
                 if (material.equals(Material.WATER_BUCKET)) {
                     type = Material.WATER;
-                    user = "#water";
                 }
                 else if (material.equals(Material.LAVA_BUCKET)) {
                     type = Material.LAVA;
-                    user = "#lava";
                 }
                 else if (material.equals(Material.FLINT_AND_STEEL)) {
                     type = Material.FIRE;
@@ -85,10 +87,10 @@ public final class BlockDispenseListener extends Queue implements Listener {
                     CacheHandler.redstoneCache.put(newBlock.getLocation(), new Object[] { System.currentTimeMillis(), user });
                 }
 
-                if (type == Material.FIRE && (!Config.getConfig(world).BLOCK_IGNITE || !(newBlockData instanceof Lightable))) {
+                if (type == Material.FIRE && (!config.BLOCK_IGNITE || !(newBlockData instanceof Lightable))) {
                     return;
                 }
-                else if (type != Material.FIRE && (!Config.getConfig(world).BUCKETS || (!Config.getConfig(world).WATER_FLOW && type.equals(Material.WATER)) || (!Config.getConfig(world).LAVA_FLOW && type.equals(Material.LAVA)))) {
+                else if (type != Material.FIRE && (!config.BUCKETS || (!config.WATER_FLOW && type.equals(Material.WATER)) || (!config.LAVA_FLOW && type.equals(Material.LAVA)))) {
                     return;
                 }
 
@@ -104,6 +106,9 @@ public final class BlockDispenseListener extends Queue implements Listener {
                     }
                     else if (dispenseRelative) {
                         BlockState blockState = newBlock.getState();
+                        if (config.DUPLICATE_SUPPRESSION && shouldSuppressDispenseLiquidDuplicate(user, newBlock, type)) {
+                            return;
+                        }
                         if (!type.equals(Material.AIR)) {
                             queueBlockPlaceValidate(user, blockState, newBlock, blockState, type, 1, 1, null, 0);
                         }
@@ -114,6 +119,34 @@ public final class BlockDispenseListener extends Queue implements Listener {
                 }
             }
         }
+    }
+
+    private boolean shouldSuppressDispenseLiquidDuplicate(String user, Block targetBlock, Material newType) {
+        Material oldType = targetBlock.getType();
+        boolean placeLiquid = ("#water".equals(user) || "#lava".equals(user) || "#dispenser".equals(user)) && (newType == Material.WATER || newType == Material.LAVA);
+        boolean removeLiquid = "#dispenser".equals(user) && newType == Material.AIR && (oldType == Material.WATER || oldType == Material.LAVA);
+        if (!placeLiquid && !removeLiquid) {
+            return false;
+        }
+
+        if (!isLiquidToggleType(oldType) || !isLiquidToggleType(newType) || oldType == newType) {
+            return false;
+        }
+
+        String left = oldType.name();
+        String right = newType.name();
+        if (left.compareTo(right) > 0) {
+            String swap = left;
+            left = right;
+            right = swap;
+        }
+
+        String signature = targetBlock.getWorld().getUID().toString() + "." + targetBlock.getX() + "." + targetBlock.getY() + "." + targetBlock.getZ() + ".#dispense-liquid." + left + "<>" + right;
+        return CacheHandler.shouldSuppressRepeat(CacheHandler.flowDuplicateCache, signature, DISPENSER_LIQUID_DUPLICATE_THRESHOLD, DISPENSER_LIQUID_DUPLICATE_WINDOW_SECONDS);
+    }
+
+    private boolean isLiquidToggleType(Material type) {
+        return type == Material.AIR || type == Material.WATER || type == Material.LAVA;
     }
 
 }

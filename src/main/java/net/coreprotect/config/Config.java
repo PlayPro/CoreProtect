@@ -46,6 +46,7 @@ public class Config extends Language {
     public boolean DATABASE_LOCK;
     public boolean LOG_CANCELLED_CHAT;
     public boolean HOPPER_FILTER_META;
+    public boolean DUPLICATE_SUPPRESSION;
     public boolean EXCLUDE_TNT;
     public boolean NETWORK_DEBUG;
     public boolean MYSQL;
@@ -193,6 +194,7 @@ public class Config extends Language {
         this.DATABASE_LOCK = this.getBoolean("database-lock", true);
         this.LOG_CANCELLED_CHAT = this.getBoolean("log-cancelled-chat", true);
         this.HOPPER_FILTER_META = this.getBoolean("hopper-filter-meta", false);
+        this.DUPLICATE_SUPPRESSION = this.getBoolean("duplicate-suppression", true);
         this.EXCLUDE_TNT = this.getBoolean("exclude-tnt", false);
         this.NETWORK_DEBUG = this.getBoolean("network-debug", false);
         this.UNKNOWN_LOGGING = this.getBoolean("unknown-logging", false);

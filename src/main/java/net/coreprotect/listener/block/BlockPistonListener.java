@@ -32,7 +32,8 @@ public final class BlockPistonListener extends Queue implements Listener {
         }
 
         World world = event.getBlock().getWorld();
-        if (Config.getConfig(world).PISTONS && !event.isCancelled()) {
+        Config config = Config.getConfig(world);
+        if (config.PISTONS && !event.isCancelled()) {
             List<Block> nblocks = new ArrayList<>();
             List<Block> blocks = new ArrayList<>();
 
@@ -48,6 +49,7 @@ public final class BlockPistonListener extends Queue implements Listener {
             int wid = WorldUtils.getWorldId(bm.getWorld().getName());
 
             int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
+            boolean duplicateSuppression = config.DUPLICATE_SUPPRESSION;
             int log = 0;
             int l = 0;
             while (l <= nblocks.size()) {
@@ -65,10 +67,12 @@ public final class BlockPistonListener extends Queue implements Listener {
                     int z = n.getZ();
                     Material t = n.getType();
                     String cords = "" + x + "." + y + "." + z + "." + wid + "." + t.name() + "";
-                    if (CacheHandler.pistonCache.get(cords) == null) {
+                    if (!duplicateSuppression || CacheHandler.pistonCache.get(cords) == null) {
                         log = 1;
                     }
-                    CacheHandler.pistonCache.put(cords, new Object[] { unixtimestamp });
+                    if (duplicateSuppression) {
+                        CacheHandler.pistonCache.put(cords, new Object[] { unixtimestamp });
+                    }
                 }
                 l++;
             }

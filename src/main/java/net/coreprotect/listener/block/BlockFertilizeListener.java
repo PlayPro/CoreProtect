@@ -1,5 +1,7 @@
 package net.coreprotect.listener.block;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -19,6 +21,9 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.thread.CacheHandler;
 
 public final class BlockFertilizeListener extends Queue implements Listener {
+
+    private static final int BONEMEAL_DUPLICATE_THRESHOLD = 256;
+    private static final int BONEMEAL_DUPLICATE_WINDOW_SECONDS = 900;
 
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onBlockFertilize(BlockFertilizeEvent event) {
@@ -66,6 +71,10 @@ public final class BlockFertilizeListener extends Queue implements Listener {
             }
         }
 
+        if (config.DUPLICATE_SUPPRESSION && "#dispenser".equals(user) && shouldSuppressBonemealDuplicate(location, blocks)) {
+            return;
+        }
+
         for (BlockState newBlock : blocks) {
             Queue.queueBlockPlace(user, newBlock, newBlock.getType(), newBlock.getBlock().getState(), newBlock.getType(), -1, 0, newBlock.getBlockData().getAsString());
         }
@@ -73,6 +82,21 @@ public final class BlockFertilizeListener extends Queue implements Listener {
 
     private static boolean isMushroomGrowthBlock(Material blockType) {
         return blockType == Material.CRIMSON_FUNGUS || blockType == Material.WARPED_FUNGUS || blockType.name().toLowerCase(Locale.ROOT).contains("mushroom");
+    }
+
+    private boolean shouldSuppressBonemealDuplicate(Location location, List<BlockState> blocks) {
+        if (blocks == null || blocks.isEmpty()) {
+            return false;
+        }
+
+        List<String> states = new ArrayList<>();
+        for (BlockState newBlock : blocks) {
+            Location newLocation = newBlock.getLocation();
+            states.add(newLocation.getBlockX() + "." + newLocation.getBlockY() + "." + newLocation.getBlockZ() + "." + newBlock.getType().name() + "." + newBlock.getBlockData().getAsString());
+        }
+        Collections.sort(states);
+        String signature = location.getWorld().getUID().toString() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ() + "." + Integer.toHexString(String.join("|", states).hashCode());
+        return CacheHandler.shouldSuppressRepeat(CacheHandler.bonemealDuplicateCache, signature, BONEMEAL_DUPLICATE_THRESHOLD, BONEMEAL_DUPLICATE_WINDOW_SECONDS);
     }
 
 }

@@ -31,7 +31,8 @@ public final class BlockPreDispenseListener extends Queue implements Listener {
     public void onBlockPreDispense(BlockPreDispenseEvent event) {
         Block block = event.getBlock();
         World world = block.getWorld();
-        if (!Config.getConfig(world).BLOCK_PLACE) {
+        Config config = Config.getConfig(world);
+        if (!config.BLOCK_PLACE) {
             return;
         }
 
@@ -47,46 +48,34 @@ public final class BlockPreDispenseListener extends Queue implements Listener {
                 return;
             }
 
-            // Create a basic location key for this dispenser
             String locationKey = block.getWorld().getUID().toString() + "." + block.getX() + "." + block.getY() + "." + block.getZ();
+            if (config.DUPLICATE_SUPPRESSION) {
+                String eventKey = event.getSlot() + "." + item.getType().name() + ":" + item.getAmount();
 
-            // Create a detailed event key that includes item details
-            String eventKey = event.getSlot() + "." + item.getType().name() + ":" + item.getAmount();
-
-            // Add metadata hash if available
-            if (item.hasItemMeta()) {
-                try {
-                    eventKey += ":" + item.getItemMeta().hashCode();
+                if (item.hasItemMeta()) {
+                    try {
+                        eventKey += ":" + item.getItemMeta().hashCode();
+                    }
+                    catch (Exception e) {
+                    }
                 }
-                catch (Exception e) {
-                    // If we can't get metadata hash, just use the basic key
+
+                ConcurrentHashMap<String, Long> locationMap = ConfigHandler.dispenserNoChange.computeIfAbsent(locationKey, k -> new ConcurrentHashMap<>());
+                Long lastNoChangeTime = locationMap.get(eventKey);
+
+                long currentTime = System.currentTimeMillis();
+                if (lastNoChangeTime != null && (currentTime - lastNoChangeTime) < CACHE_EXPIRY_TIME) {
+                    locationMap.put(eventKey, currentTime);
+                    return;
                 }
+
+                ConfigHandler.dispenserNoChange.remove(locationKey);
+                ConfigHandler.dispenserPending.put(locationKey, new Object[] { eventKey, currentTime, event.getSlot(), item.clone() });
             }
-
-            // Get or create the inner map for this location
-            ConcurrentHashMap<String, Long> locationMap = ConfigHandler.dispenserNoChange.computeIfAbsent(locationKey, k -> new ConcurrentHashMap<>());
-
-            // Check if this specific dispenser event has been marked as having no changes recently
-            Long lastNoChangeTime = locationMap.get(eventKey);
-
-            long currentTime = System.currentTimeMillis();
-            if (lastNoChangeTime != null && (currentTime - lastNoChangeTime) < CACHE_EXPIRY_TIME) {
-                // This specific dispenser event was recently processed and had no changes
-                // Update the timestamp to extend the skip period
-                locationMap.put(eventKey, currentTime);
-                return;
+            else {
+                ConfigHandler.dispenserNoChange.remove(locationKey);
+                ConfigHandler.dispenserPending.remove(locationKey);
             }
-
-            // This is a new or changed event
-            // Clear any existing dispenserNoChange entries for this location
-            ConfigHandler.dispenserNoChange.remove(locationKey);
-
-            // Store the event details for ContainerLogger to use
-            ConfigHandler.dispenserPending.put(locationKey, new Object[] { eventKey, // The detailed event key
-                    currentTime, // Timestamp
-                    event.getSlot(), // Slot
-                    item.clone() // Item (cloned to prevent modification)
-            });
 
             // Process the inventory transaction
             String user = "#dispenser";

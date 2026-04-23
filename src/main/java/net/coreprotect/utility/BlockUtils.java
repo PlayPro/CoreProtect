@@ -165,6 +165,9 @@ public class BlockUtils {
         if (blockData == null) {
             blockData = createBlockData(type);
         }
+        if (blockData == null) {
+            return;
+        }
 
         if (!update) {
             setTypeAndData(block, type, blockData, update);

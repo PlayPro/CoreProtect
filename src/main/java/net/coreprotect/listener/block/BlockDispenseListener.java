@@ -9,7 +9,6 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Lightable;
-import org.bukkit.block.data.Waterlogged;
 import org.bukkit.block.data.type.Dispenser;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -105,14 +104,8 @@ public final class BlockDispenseListener extends Queue implements Listener {
                     }
                     else if (dispenseRelative) {
                         BlockState blockState = newBlock.getState();
-                        if (type.equals(Material.WATER)) {
-                            if (newBlockData instanceof Waterlogged) {
-                                blockState = null;
-                            }
-                        }
-
                         if (!type.equals(Material.AIR)) {
-                            queueBlockPlace(user, newBlock.getState(), newBlock.getType(), blockState, type, 1, 1, null);
+                            queueBlockPlaceValidate(user, blockState, newBlock, blockState, type, 1, 1, null, 0);
                         }
                         else {
                             Queue.queueBlockBreak(user, newBlock.getState(), newBlock.getType(), newBlock.getBlockData().getAsString(), 0);

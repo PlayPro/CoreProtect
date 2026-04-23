@@ -9,8 +9,10 @@ import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.CreatureSpawner;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Bisected;
 import org.bukkit.block.data.Bisected.Half;
+import org.bukkit.block.data.Waterlogged;
 import org.bukkit.block.data.type.Bed;
 import org.bukkit.block.data.type.Bed.Part;
 import org.bukkit.entity.EntityType;
@@ -25,8 +27,10 @@ import net.coreprotect.consumer.process.Process;
 import net.coreprotect.listener.block.BlockUtil;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.thread.Scheduler;
+import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.EntityUtils;
+import net.coreprotect.utility.WorldUtils;
 
 public class Queue {
 
@@ -191,16 +195,50 @@ public class Queue {
     }
 
     protected static void queueBlockPlaceValidate(final String user, final BlockState blockLocation, final Block block, final BlockState blockReplaced, final Material forceT, final int forceD, final int forceData, final String blockData, int ticks) {
+        queueBlockPlaceValidate(user, blockLocation, block, blockReplaced, forceT, forceD, forceData, blockData, ticks, false);
+    }
+
+    protected static void queueBlockPlaceValidate(final String user, final BlockState blockLocation, final Block block, final BlockState blockReplaced, final Material forceT, final int forceD, final int forceData, final String blockData, int ticks, boolean cacheLookup) {
         Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
             try {
                 Material blockType = block.getType();
-                if (blockType.equals(forceT)) {
+                BlockState replacedBlock = blockReplaced;
+                boolean placed = blockType.equals(forceT);
+                if (!placed && forceT == Material.WATER) {
+                    BlockData currentBlockData = block.getBlockData();
+                    if (currentBlockData instanceof Waterlogged) {
+                        Waterlogged waterlogged = (Waterlogged) currentBlockData;
+                        if (waterlogged.isWaterlogged()) {
+                            boolean wasWaterlogged = false;
+                            if (blockReplaced != null) {
+                                BlockData replacedBlockData = blockReplaced.getBlockData();
+                                if (replacedBlockData instanceof Waterlogged) {
+                                    wasWaterlogged = ((Waterlogged) replacedBlockData).isWaterlogged();
+                                }
+                            }
+
+                            if (!wasWaterlogged) {
+                                placed = true;
+                                replacedBlock = null;
+                            }
+                        }
+                    }
+                }
+
+                if (placed) {
                     BlockState blockStateLocation = blockLocation;
-                    if (Config.getConfig(blockLocation.getWorld()).BLOCK_MOVEMENT) {
+                    if (blockType.equals(forceT) && Config.getConfig(blockLocation.getWorld()).BLOCK_MOVEMENT) {
                         blockStateLocation = BlockUtil.gravityScan(blockLocation.getLocation(), blockType, user).getState();
                     }
 
-                    queueBlockPlace(user, blockStateLocation, blockType, blockReplaced, forceT, forceD, forceData, blockData);
+                    if (cacheLookup) {
+                        Location cacheLocation = blockStateLocation.getLocation();
+                        int worldId = WorldUtils.getWorldId(cacheLocation.getWorld().getName());
+                        int unixTimestamp = (int) (System.currentTimeMillis() / 1000L);
+                        CacheHandler.lookupCache.put(cacheLocation.getBlockX() + "." + cacheLocation.getBlockY() + "." + cacheLocation.getBlockZ() + "." + worldId, new Object[] { unixTimestamp, user, forceT });
+                    }
+
+                    queueBlockPlace(user, blockStateLocation, blockType, replacedBlock, forceT, forceD, forceData, blockData);
                 }
             }
             catch (Exception e) {

@@ -10,16 +10,20 @@ import org.bukkit.entity.EntityType;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.logger.EntityKillLogger;
 import net.coreprotect.utility.EntityUtils;
-import net.coreprotect.utility.Util;
 
 class EntityKillProcess {
 
     static void process(PreparedStatement preparedStmt, PreparedStatement preparedStmtEntities, int batchCount, int processId, int id, Object object, String user) {
         if (object instanceof Object[]) {
-            BlockState block = (BlockState) ((Object[]) object)[0];
-            EntityType type = (EntityType) ((Object[]) object)[1];
+            Object[] values = (Object[]) object;
+            if (values.length <= 1 || !(values[0] instanceof BlockState) || !(values[1] instanceof EntityType)) {
+                return;
+            }
+
+            BlockState block = (BlockState) values[0];
+            EntityType type = (EntityType) values[1];
             Map<Integer, List<Object>> objectLists = Consumer.consumerObjectList.get(processId);
-            if (objectLists.get(id) != null) {
+            if (objectLists != null && objectLists.get(id) != null) {
                 List<Object> objectList = objectLists.get(id);
                 int entityId = EntityUtils.getEntityId(type);
                 EntityKillLogger.log(preparedStmt, preparedStmtEntities, batchCount, user, block, objectList, entityId);

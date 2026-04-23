@@ -1,5 +1,7 @@
 package net.coreprotect.database.rollback;
 
+import java.util.Arrays;
+
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -78,16 +80,8 @@ public class RollbackEntityHandler {
                 else if (rowTypeRaw <= 0) {
                     // Attempt to remove entity
                     if (rowRolledBack == 1) {
-                        boolean removed = false;
-                        int entityId = -1;
-                        String entityName = EntityUtils.getEntityType(oldTypeRaw).name();
-                        String token = "" + rowX + "." + rowY + "." + rowZ + "." + rowWorldId + "." + entityName + "";
-                        Object[] cachedEntity = CacheHandler.entityCache.get(token);
-
-                        if (cachedEntity != null) {
-                            entityId = (Integer) cachedEntity[1];
-                        }
-
+                        int entityId = getCachedEntityId(rowX, rowY, rowZ, rowWorldId, oldTypeRaw);
+                        EntityType targetType = EntityUtils.getEntityType(oldTypeRaw);
                         int xmin = rowX - 5;
                         int xmax = rowX + 5;
                         int ymin = rowY - 1;
@@ -95,43 +89,10 @@ public class RollbackEntityHandler {
                         int zmin = rowZ - 5;
                         int zmax = rowZ + 5;
 
-                        for (Entity entity : block.getChunk().getEntities()) {
-                            if (entityId > -1) {
-                                int id = entity.getEntityId();
-                                if (id == entityId) {
-                                    updateEntityCount(finalUserString, 1);
-                                    removed = true;
-                                    entity.remove();
-                                    break;
-                                }
-                            }
-                            else {
-                                if (entity.getType().equals(EntityUtils.getEntityType(oldTypeRaw))) {
-                                    Location entityLocation = entity.getLocation();
-                                    int entityx = entityLocation.getBlockX();
-                                    int entityY = entityLocation.getBlockY();
-                                    int entityZ = entityLocation.getBlockZ();
-
-                                    if (entityx >= xmin && entityx <= xmax && entityY >= ymin && entityY <= ymax && entityZ >= zmin && entityZ <= zmax) {
-                                        updateEntityCount(finalUserString, 1);
-                                        removed = true;
-                                        entity.remove();
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-
-                        if (!removed && entityId > -1) {
-                            for (Entity entity : block.getWorld().getLivingEntities()) {
-                                int id = entity.getEntityId();
-                                if (id == entityId) {
-                                    updateEntityCount(finalUserString, 1);
-                                    removed = true;
-                                    entity.remove();
-                                    break;
-                                }
-                            }
+                        boolean removed = removeMatchingEntity(Arrays.asList(block.getChunk().getEntities()), finalUserString, entityId, targetType, xmin, xmax, ymin, ymax, zmin, zmax, true);
+                        if (!removed && entityId > -1 && !ConfigHandler.isFolia) {
+                            // On non-Folia, keep world-wide fallback for moved entities.
+                            removed = removeMatchingEntity(block.getWorld().getLivingEntities(), finalUserString, entityId, targetType, xmin, xmax, ymin, ymax, zmin, zmax, false);
                         }
 
                         if (removed) {
@@ -157,6 +118,48 @@ public class RollbackEntityHandler {
      */
     private static String getWorldName(int worldId) {
         return WorldUtils.getWorldName(worldId);
+    }
+
+    private static int getCachedEntityId(int rowX, int rowY, int rowZ, int rowWorldId, int oldTypeRaw) {
+        String entityName = EntityUtils.getEntityType(oldTypeRaw).name();
+        String token = rowX + "." + rowY + "." + rowZ + "." + rowWorldId + "." + entityName;
+        Object[] cachedEntity = CacheHandler.entityCache.get(token);
+        if (cachedEntity != null && cachedEntity.length > 1 && cachedEntity[1] instanceof Integer) {
+            return (Integer) cachedEntity[1];
+        }
+        return -1;
+    }
+
+    private static boolean removeMatchingEntity(Iterable<? extends Entity> entities, String userString, int cachedEntityId, EntityType targetType, int xmin, int xmax, int ymin, int ymax, int zmin, int zmax, boolean useBounds) {
+        for (Entity entity : entities) {
+            if (cachedEntityId > -1) {
+                if (entity.getEntityId() == cachedEntityId) {
+                    updateEntityCount(userString, 1);
+                    entity.remove();
+                    return true;
+                }
+                continue;
+            }
+
+            if (!entity.getType().equals(targetType)) {
+                continue;
+            }
+            if (useBounds && !isWithinBounds(entity.getLocation(), xmin, xmax, ymin, ymax, zmin, zmax)) {
+                continue;
+            }
+
+            updateEntityCount(userString, 1);
+            entity.remove();
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean isWithinBounds(Location location, int xmin, int xmax, int ymin, int ymax, int zmin, int zmax) {
+        int entityX = location.getBlockX();
+        int entityY = location.getBlockY();
+        int entityZ = location.getBlockZ();
+        return entityX >= xmin && entityX <= xmax && entityY >= ymin && entityY <= ymax && entityZ >= zmin && entityZ <= zmax;
     }
 
     /**

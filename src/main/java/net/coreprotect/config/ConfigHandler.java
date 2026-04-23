@@ -67,7 +67,7 @@ public class ConfigHandler extends Queue {
     public static String prefixConfig = "co_";
     public static int maximumPoolSize = 10;
 
-    public static final String BLACKLIST_COMMENT_SEPARATOR = "#";
+    public static final String BLACKLIST_COMMENT_SEPARATOR = ";";
     public static final String BLACKLIST_FILTER_SEPARATOR = "@";
     public static final String BLACKLIST_FILENAME = "blacklist.txt";
 

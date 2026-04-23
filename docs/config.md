@@ -38,12 +38,12 @@ The blacklist supports disabling logs for:
 An example blacklist.txt file would look like this:
 
 ```text
-Notch # User
-#tnt # TNT explosions
-/help # Help command
-minecraft:stone # Stone blocks
-minecraft:creeper # Creeper entity
-minecraft:shears@#dispenser # Shears being dispensed
+Notch ; User
+#tnt ; TNT explosions
+/help ; Help command
+minecraft:stone ; Stone blocks
+minecraft:creeper ; Creeper entity
+minecraft:shears@#dispenser ; Shears being dispensed
 ```
 
 

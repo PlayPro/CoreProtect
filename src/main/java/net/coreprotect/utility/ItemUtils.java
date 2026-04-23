@@ -1,13 +1,16 @@
 package net.coreprotect.utility;
 
 import java.io.ByteArrayOutputStream;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.logging.Logger;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -30,6 +33,9 @@ import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 
 public class ItemUtils {
+
+    private static final Object UNSERIALIZABLE_VALUE = new Object();
+    private static final Logger LOGGER = Logger.getLogger("CoreProtect");
 
     private ItemUtils() {
         throw new IllegalStateException("Utility class");
@@ -336,27 +342,126 @@ public class ItemUtils {
     }
     
     public static byte[] convertByteData(Object data) {
-        byte[] result = null;
         if (data == null) {
-            return result;
+            return null;
         }
 
         try {
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            BukkitObjectOutputStream oos = new BukkitObjectOutputStream(bos);
-            oos.writeObject(data);
-            oos.flush();
-            oos.close();
-            bos.close();
-            result = bos.toByteArray();
+            return serializeByteData(data);
         }
-        catch (Exception e) { // only display exception on development branch
-            if (!ConfigHandler.EDITION_BRANCH.contains("-dev")) {
-                e.printStackTrace();
+        catch (Exception initialException) {
+            Object sanitizedData = sanitizeByteData(data);
+            if (sanitizedData != UNSERIALIZABLE_VALUE) {
+                try {
+                    byte[] result = serializeByteData(sanitizedData);
+                    if (ConfigHandler.EDITION_BRANCH.contains("-dev")) {
+                        LOGGER.warning("CoreProtect sanitized unsupported metadata during byte serialization; some nested values were omitted.");
+                    }
+                    return result;
+                }
+                catch (Exception sanitizedException) {
+                    if (ConfigHandler.EDITION_BRANCH.contains("-dev")) {
+                        sanitizedException.printStackTrace();
+                    }
+                    return null;
+                }
+            }
+
+            if (ConfigHandler.EDITION_BRANCH.contains("-dev")) {
+                initialException.printStackTrace();
             }
         }
 
-        return result;
+        return null;
+    }
+
+    private static byte[] serializeByteData(Object data) throws Exception {
+        try (ByteArrayOutputStream byteStream = new ByteArrayOutputStream(); BukkitObjectOutputStream objectStream = new BukkitObjectOutputStream(byteStream)) {
+            objectStream.writeObject(data);
+            objectStream.flush();
+            return byteStream.toByteArray();
+        }
+    }
+
+    private static boolean canSerializeByteData(Object data) {
+        try {
+            serializeByteData(data);
+            return true;
+        }
+        catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static Object sanitizeByteData(Object data) {
+        if (data == null || canSerializeByteData(data)) {
+            return data;
+        }
+
+        if (data instanceof Map<?, ?>) {
+            Map<?, ?> sourceMap = (Map<?, ?>) data;
+            Map<Object, Object> sanitizedMap = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : sourceMap.entrySet()) {
+                Object sanitizedKey = sanitizeByteData(entry.getKey());
+                Object sanitizedValue = sanitizeByteData(entry.getValue());
+                if (sanitizedKey == UNSERIALIZABLE_VALUE || sanitizedValue == UNSERIALIZABLE_VALUE) {
+                    continue;
+                }
+
+                sanitizedMap.put(sanitizedKey, sanitizedValue);
+            }
+
+            if (sanitizedMap.isEmpty() && !sourceMap.isEmpty()) {
+                return UNSERIALIZABLE_VALUE;
+            }
+
+            return canSerializeByteData(sanitizedMap) ? sanitizedMap : UNSERIALIZABLE_VALUE;
+        }
+
+        if (data instanceof List<?>) {
+            List<?> sourceList = (List<?>) data;
+            List<Object> sanitizedList = new ArrayList<>();
+            for (Object value : sourceList) {
+                Object sanitizedValue = sanitizeByteData(value);
+                if (sanitizedValue == UNSERIALIZABLE_VALUE) {
+                    continue;
+                }
+
+                sanitizedList.add(sanitizedValue);
+            }
+
+            if (sanitizedList.isEmpty() && !sourceList.isEmpty()) {
+                return UNSERIALIZABLE_VALUE;
+            }
+
+            return canSerializeByteData(sanitizedList) ? sanitizedList : UNSERIALIZABLE_VALUE;
+        }
+
+        if (data.getClass().isArray()) {
+            int length = Array.getLength(data);
+            List<Object> sanitizedValues = new ArrayList<>();
+            for (int index = 0; index < length; index++) {
+                Object sanitizedValue = sanitizeByteData(Array.get(data, index));
+                if (sanitizedValue == UNSERIALIZABLE_VALUE) {
+                    continue;
+                }
+
+                sanitizedValues.add(sanitizedValue);
+            }
+
+            if (sanitizedValues.isEmpty() && length > 0) {
+                return UNSERIALIZABLE_VALUE;
+            }
+
+            Object sanitizedArray = Array.newInstance(data.getClass().getComponentType(), sanitizedValues.size());
+            for (int index = 0; index < sanitizedValues.size(); index++) {
+                Array.set(sanitizedArray, index, sanitizedValues.get(index));
+            }
+
+            return canSerializeByteData(sanitizedArray) ? sanitizedArray : UNSERIALIZABLE_VALUE;
+        }
+
+        return UNSERIALIZABLE_VALUE;
     }
 
     public static ItemMeta deserializeItemMeta(Class<? extends ItemMeta> itemMetaClass, Map<String, Object> args) {
@@ -365,7 +470,7 @@ public class ItemUtils {
             return (ItemMeta) org.bukkit.configuration.serialization.ConfigurationSerialization.deserializeObject(args, delegate.value());
         }
         catch (Exception e) { // only display exception on development branch
-            if (!ConfigHandler.EDITION_BRANCH.contains("-dev")) {
+            if (ConfigHandler.EDITION_BRANCH.contains("-dev")) {
                 e.printStackTrace();
             }
         }

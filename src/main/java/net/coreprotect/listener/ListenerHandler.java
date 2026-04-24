@@ -16,6 +16,7 @@ import net.coreprotect.listener.block.BlockPistonListener;
 import net.coreprotect.listener.block.BlockPlaceListener;
 import net.coreprotect.listener.block.BlockSpreadListener;
 import net.coreprotect.listener.block.CampfireStartListener;
+import net.coreprotect.listener.block.TNTPrimeListener;
 import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
 import net.coreprotect.listener.channel.PluginChannelListener;
 import net.coreprotect.listener.entity.CreatureSpawnListener;
@@ -57,6 +58,7 @@ import net.coreprotect.listener.world.StructureGrowListener;
 import net.coreprotect.paper.listener.BlockPreDispenseListener;
 import net.coreprotect.paper.listener.CopperGolemChestListener;
 import net.coreprotect.paper.listener.FlowerPotManipulateListener;
+import net.coreprotect.paper.listener.LegacyTNTPrimeListener;
 import net.coreprotect.paper.listener.PaperChatListener;
 
 public final class ListenerHandler {
@@ -101,6 +103,19 @@ public final class ListenerHandler {
         }
         catch (Exception e) {
             CampfireStartListener.useCampfireStartEvent = false;
+        }
+        try {
+            Class.forName("org.bukkit.event.block.TNTPrimeEvent"); // Bukkit 1.20+
+            pluginManager.registerEvents(new TNTPrimeListener(), plugin);
+        }
+        catch (Exception e) {
+            try {
+                Class.forName("com.destroystokyo.paper.event.block.TNTPrimeEvent"); // Paper 1.16+
+                pluginManager.registerEvents(new LegacyTNTPrimeListener(), plugin);
+            }
+            catch (Exception ignored) {
+                // Ignore registration failures to remain compatible with older servers.
+            }
         }
 
         // Entity Listeners

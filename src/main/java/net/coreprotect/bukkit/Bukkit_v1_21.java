@@ -10,7 +10,10 @@ import org.bukkit.ExplosionResult;
 import org.bukkit.Keyed;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
 import org.bukkit.Tag;
+import org.bukkit.block.BlockType;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.EntityType;
 import org.bukkit.event.Event;
 import org.bukkit.event.block.BlockExplodeEvent;
@@ -19,6 +22,7 @@ import org.bukkit.event.inventory.InventoryType;
 
 
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.utility.BlockTypeUtils;
 
 /**
  * Bukkit adapter implementation for Minecraft 1.21.
@@ -101,6 +105,43 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
         if (!group.contains(block)) {
             group.add(block);
         }
+    }
+
+    @Override
+    public boolean hasBlockType(String key) {
+        return getBlockType(key) != null;
+    }
+
+    @Override
+    public BlockData createBlockData(String key) {
+        try {
+            BlockType blockType = getBlockType(key);
+            return blockType == null ? null : blockType.createBlockData();
+        }
+        catch (Exception e) {
+            return null;
+        }
+    }
+
+    @Override
+    public BlockData createBlockDataFromString(String blockData) {
+        try {
+            BlockType blockType = getBlockType(BlockTypeUtils.getBlockDataKey(blockData));
+            if (blockType == null) {
+                return null;
+            }
+
+            String states = BlockTypeUtils.getBlockDataStates(blockData);
+            return states == null ? blockType.createBlockData() : blockType.createBlockData(states);
+        }
+        catch (Exception e) {
+            return null;
+        }
+    }
+
+    private BlockType getBlockType(String key) {
+        NamespacedKey namespacedKey = NamespacedKey.fromString(BlockTypeUtils.normalizeKey(key));
+        return namespacedKey == null ? null : Registry.BLOCK.get(namespacedKey);
     }
 
     /**

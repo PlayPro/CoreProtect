@@ -4,7 +4,6 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Locale;
 
-import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
 
@@ -16,7 +15,6 @@ import net.coreprotect.listener.channel.PluginChannelListener;
 import net.coreprotect.utility.ChatUtils;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.MaterialUtils;
-import net.coreprotect.utility.StringUtils;
 import net.coreprotect.utility.WorldUtils;
 
 public class InteractionLookup {
@@ -96,13 +94,8 @@ public class InteractionLookup {
                     rbFormat = Color.STRIKETHROUGH;
                 }
 
-                Material resultMaterial = MaterialUtils.getType(resultType);
-                if (resultMaterial == null) {
-                    resultMaterial = Material.AIR;
-                }
-                String target = resultMaterial.name().toLowerCase(Locale.ROOT);
-                target = StringUtils.nameFilter(target, resultData);
-                if (target.length() > 0) {
+                String target = MaterialUtils.getBlockDisplayName(resultType, resultData);
+                if (target.length() > 0 && !target.contains(":")) {
                     target = "minecraft:" + target.toLowerCase(Locale.ROOT) + "";
                 }
 

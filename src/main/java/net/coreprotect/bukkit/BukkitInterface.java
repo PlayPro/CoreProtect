@@ -76,6 +76,33 @@ public interface BukkitInterface {
      */
     Material getBucketContents(Material material);
 
+    /**
+     * Checks whether the runtime supports and contains a block type key.
+     *
+     * @param key
+     *            The namespaced block key
+     * @return true if the block type exists, false otherwise
+     */
+    boolean hasBlockType(String key);
+
+    /**
+     * Creates default block data for a block type key.
+     *
+     * @param key
+     *            The namespaced block key
+     * @return The block data, or null if unsupported/unavailable
+     */
+    BlockData createBlockData(String key);
+
+    /**
+     * Creates block data from a serialized block data string.
+     *
+     * @param blockData
+     *            The serialized block data
+     * @return The block data, or null if unsupported/unavailable
+     */
+    BlockData createBlockDataFromString(String blockData);
+
     // --------------------------------------------------------------------------
     // Material type checking methods
     // --------------------------------------------------------------------------

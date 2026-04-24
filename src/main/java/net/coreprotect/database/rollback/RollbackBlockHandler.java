@@ -77,6 +77,15 @@ public class RollbackBlockHandler extends Queue {
                     ((Piston) blockData).setFacing(technicalPiston.getFacing());
                 }
 
+                if (rowType == null) {
+                    if (blockData != null) {
+                        BlockUtils.prepareTypeAndData(chunkChanges, block, null, blockData, true);
+                        return countBlock;
+                    }
+
+                    return false;
+                }
+
                 if ((rowType == Material.AIR) && ((BukkitAdapter.ADAPTER.isItemFrame(oldTypeMaterial)) || (oldTypeMaterial == Material.PAINTING))) {
                     HangingUtil.removeHanging(block.getState(), blockDataString);
                 }

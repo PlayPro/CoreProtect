@@ -192,6 +192,18 @@ public class PurgeCommand extends Consumer {
                     targetName = ((EntityType) restrictTarget).name().toLowerCase(Locale.ROOT);
                     entity = true;
                 }
+                else if (restrictTarget instanceof String) {
+                    int blockId = MaterialUtils.getBlockId((String) restrictTarget, false);
+                    if (includeListMaterial.length() == 0) {
+                        includeListMaterial = includeListMaterial.append(blockId);
+                    }
+                    else {
+                        includeListMaterial.append(",").append(blockId);
+                    }
+
+                    targetName = ((String) restrictTarget).toLowerCase(Locale.ROOT);
+                    hasBlock = true;
+                }
 
                 if (restrictCount == 0) {
                     restrict = restrict.append("" + targetName + "");

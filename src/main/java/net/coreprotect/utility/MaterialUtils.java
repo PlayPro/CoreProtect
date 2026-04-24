@@ -24,6 +24,15 @@ public class MaterialUtils extends Queue {
         return getBlockId(material.name(), true);
     }
 
+    public static int getBlockId(String blockData, Material fallback, boolean internal) {
+        String name = BlockTypeUtils.getBlockDataKey(blockData);
+        if (name.length() == 0 && fallback != null) {
+            name = fallback.getKey().toString();
+        }
+
+        return name.length() == 0 ? -1 : getBlockId(name, internal);
+    }
+
     public static int getBlockId(String name, boolean internal) {
         int id = -1;
 
@@ -93,6 +102,15 @@ public class MaterialUtils extends Queue {
             name = ConfigHandler.materialsReversed.get(id);
         }
         return name;
+    }
+
+    public static String getBlockDisplayName(int id, int data) {
+        Material material = getType(id);
+        if (material != null) {
+            return StringUtils.nameFilter(material.name().toLowerCase(Locale.ROOT), data);
+        }
+
+        return getBlockName(id);
     }
 
     public static String getBlockNameShort(int id) {

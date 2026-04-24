@@ -2,6 +2,7 @@ package net.coreprotect.consumer;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -93,7 +94,7 @@ public class Queue {
     protected static void queueBlockBreakValidate(final String user, final Block block, final BlockState blockState, final Material type, final String blockData, final int extraData, int ticks) {
         Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
             try {
-                if (!block.getType().equals(type)) {
+                if (!Objects.equals(block.getType(), type)) {
                     queueBlockBreak(user, blockState, type, blockData, null, extraData, 0);
                 }
             }
@@ -108,7 +109,7 @@ public class Queue {
             CreatureSpawner mobSpawner = (CreatureSpawner) block;
             extraData = EntityUtils.getSpawnerType(mobSpawner.getSpawnedType());
         }
-        else if (type == Material.IRON_DOOR || BlockGroup.DOORS.contains(type) || type.equals(Material.SUNFLOWER) || type.equals(Material.LILAC) || type.equals(Material.TALL_GRASS) || type.equals(Material.LARGE_FERN) || type.equals(Material.ROSE_BUSH) || type.equals(Material.PEONY)) { // Double plant
+        else if (type != null && (type == Material.IRON_DOOR || BlockGroup.DOORS.contains(type) || type.equals(Material.SUNFLOWER) || type.equals(Material.LILAC) || type.equals(Material.TALL_GRASS) || type.equals(Material.LARGE_FERN) || type.equals(Material.ROSE_BUSH) || type.equals(Material.PEONY))) { // Double plant
             if (block.getBlockData() instanceof Bisected) {
                 if (((Bisected) block.getBlockData()).getHalf().equals(Half.TOP)) {
                     if (blockNumber == 5) {
@@ -126,7 +127,7 @@ public class Queue {
                 }
             }
         }
-        else if (type.name().endsWith("_BED") && block.getBlockData() instanceof Bed) {
+        else if (type != null && type.name().endsWith("_BED") && block.getBlockData() instanceof Bed) {
             if (((Bed) block.getBlockData()).getPart().equals(Part.HEAD)) {
                 return;
             }
@@ -155,7 +156,7 @@ public class Queue {
             replaceType = blockReplaced.getType();
             replaceData = 0;
 
-            if ((replaceType == Material.IRON_DOOR || BlockGroup.DOORS.contains(replaceType) || replaceType.equals(Material.SUNFLOWER) || replaceType.equals(Material.LILAC) || replaceType.equals(Material.TALL_GRASS) || replaceType.equals(Material.LARGE_FERN) || replaceType.equals(Material.ROSE_BUSH) || replaceType.equals(Material.PEONY)) && replaceData >= 8) { // Double plant top half
+            if (replaceType != null && (replaceType == Material.IRON_DOOR || BlockGroup.DOORS.contains(replaceType) || replaceType.equals(Material.SUNFLOWER) || replaceType.equals(Material.LILAC) || replaceType.equals(Material.TALL_GRASS) || replaceType.equals(Material.LARGE_FERN) || replaceType.equals(Material.ROSE_BUSH) || replaceType.equals(Material.PEONY)) && replaceData >= 8) { // Double plant top half
                 BlockState blockBelow = blockReplaced.getWorld().getBlockAt(blockReplaced.getX(), blockReplaced.getY() - 1, blockReplaced.getZ()).getState();
                 Material belowType = blockBelow.getType();
                 Queue.queueBlockBreak(user, blockBelow, belowType, blockBelow.getBlockData().getAsString(), 0);
@@ -203,7 +204,7 @@ public class Queue {
             try {
                 Material blockType = block.getType();
                 BlockState replacedBlock = blockReplaced;
-                boolean placed = blockType.equals(forceT);
+                boolean placed = Objects.equals(blockType, forceT);
                 if (!placed && forceT == Material.WATER) {
                     BlockData currentBlockData = block.getBlockData();
                     if (currentBlockData instanceof Waterlogged) {
@@ -227,7 +228,7 @@ public class Queue {
 
                 if (placed) {
                     BlockState blockStateLocation = blockLocation;
-                    if (blockType.equals(forceT) && Config.getConfig(blockLocation.getWorld()).BLOCK_MOVEMENT) {
+                    if (blockType != null && Objects.equals(blockType, forceT) && Config.getConfig(blockLocation.getWorld()).BLOCK_MOVEMENT) {
                         blockStateLocation = BlockUtil.gravityScan(blockLocation.getLocation(), blockType, user).getState();
                     }
 

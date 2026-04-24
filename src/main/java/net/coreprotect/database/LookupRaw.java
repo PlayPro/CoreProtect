@@ -314,6 +314,15 @@ public class LookupRaw extends Queue {
                             includeListEntity.append(",").append(EntityUtils.getEntityId(targetName, false));
                         }
                     }
+                    else if (restrictTarget instanceof String) {
+                        int blockId = MaterialUtils.getBlockId((String) restrictTarget, false);
+                        if (includeListMaterial.length() == 0) {
+                            includeListMaterial = includeListMaterial.append(blockId);
+                        }
+                        else {
+                            includeListMaterial.append(",").append(blockId);
+                        }
+                    }
                 }
 
                 includeBlock = includeListMaterial.toString();
@@ -349,6 +358,17 @@ public class LookupRaw extends Queue {
                         }
                         else {
                             excludeListEntity.append(",").append(EntityUtils.getEntityId(targetName, false));
+                        }
+                    }
+                    else if (restrictTarget instanceof String) {
+                        int blockId = MaterialUtils.getBlockId((String) restrictTarget, false);
+                        if (blockId > -1) {
+                            if (excludeListMaterial.length() == 0) {
+                                excludeListMaterial = excludeListMaterial.append(blockId);
+                            }
+                            else {
+                                excludeListMaterial.append(",").append(blockId);
+                            }
                         }
                     }
                 }

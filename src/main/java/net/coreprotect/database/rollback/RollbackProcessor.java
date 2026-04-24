@@ -33,6 +33,7 @@ import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.BlockTypeUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.Teleport;
@@ -101,7 +102,10 @@ public class RollbackProcessor {
                 BlockData blockData = null;
                 if (blockDataString != null && blockDataString.contains(":")) {
                     try {
-                        blockData = Bukkit.getServer().createBlockData(blockDataString);
+                        blockData = BlockTypeUtils.createBlockDataFromString(blockDataString);
+                        if (blockData == null) {
+                            blockData = Bukkit.getServer().createBlockData(blockDataString);
+                        }
                     }
                     catch (Exception e) {
                         // corrupt BlockData, let the server automatically set the BlockData instead
@@ -112,8 +116,8 @@ public class RollbackProcessor {
                 if (blockData != null) {
                     rawBlockData = blockData.clone();
                 }
-                if (rawBlockData == null && rowType != null && rowType.isBlock()) {
-                    rawBlockData = BlockUtils.createBlockData(rowType);
+                if (rawBlockData == null) {
+                    rawBlockData = BlockUtils.createBlockData(rowTypeRaw);
                 }
 
                 String rowUser = ConfigHandler.playerIdCacheReversed.get((Integer) row[2]);

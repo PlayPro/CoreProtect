@@ -224,6 +224,21 @@ public class BukkitAdapter implements BukkitInterface {
     }
 
     @Override
+    public boolean hasBlockType(String key) {
+        return false;
+    }
+
+    @Override
+    public BlockData createBlockData(String key) {
+        return null;
+    }
+
+    @Override
+    public BlockData createBlockDataFromString(String blockData) {
+        return null;
+    }
+
+    @Override
     public boolean isInvisible(Material material) {
         return BlockUtils.isAir(material);
     }

@@ -17,11 +17,17 @@ public final class LegacyTNTPrimeListener extends Queue implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onTNTPrime(TNTPrimeEvent event) {
         Block block = event.getBlock();
-        if (event.isCancelled() || block.getType() != Material.TNT || !Config.getConfig(block.getWorld()).EXPLOSIONS || event.getReason() == TNTPrimeEvent.PrimeReason.EXPLOSION) {
+        boolean explosions = Config.getConfig(block.getWorld()).EXPLOSIONS;
+        boolean alreadyLogged = event.getReason() == TNTPrimeEvent.PrimeReason.EXPLOSION;
+        String user = TNTPrimeUtil.getUser(event.getPrimerEntity());
+        if (event.isCancelled() || block.getType() != Material.TNT || !explosions || alreadyLogged) {
             return;
         }
+        else if (event.getReason() == TNTPrimeEvent.PrimeReason.FIRE) {
+            user = TNTPrimeUtil.getFireUser(block, user);
+        }
 
-        Queue.queueBlockBreak(TNTPrimeUtil.getUser(event.getPrimerEntity()), block.getState(), Material.TNT, block.getBlockData().getAsString(), 0);
+        Queue.queueBlockBreak(user, block.getState(), Material.TNT, block.getBlockData().getAsString(), 0);
     }
 
 }

@@ -17,6 +17,7 @@ import net.coreprotect.listener.block.BlockPlaceListener;
 import net.coreprotect.listener.block.BlockSpreadListener;
 import net.coreprotect.listener.block.CampfireStartListener;
 import net.coreprotect.listener.block.TNTPrimeListener;
+import net.coreprotect.listener.block.TNTPrimeUtil;
 import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
 import net.coreprotect.listener.channel.PluginChannelListener;
 import net.coreprotect.listener.entity.CreatureSpawnListener;
@@ -107,11 +108,13 @@ public final class ListenerHandler {
         try {
             Class.forName("org.bukkit.event.block.TNTPrimeEvent"); // Bukkit 1.20+
             pluginManager.registerEvents(new TNTPrimeListener(), plugin);
+            TNTPrimeUtil.useTNTPrimeEvent = true;
         }
         catch (Exception e) {
             try {
                 Class.forName("com.destroystokyo.paper.event.block.TNTPrimeEvent"); // Paper 1.16+
                 pluginManager.registerEvents(new LegacyTNTPrimeListener(), plugin);
+                TNTPrimeUtil.useTNTPrimeEvent = true;
             }
             catch (Exception ignored) {
                 // Ignore registration failures to remain compatible with older servers.

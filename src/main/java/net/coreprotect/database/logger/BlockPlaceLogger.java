@@ -57,6 +57,9 @@ public class BlockPlaceLogger {
                 }
                 blockKey = type.getKey().toString();
             }
+            else if (type != null && (type == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(type))) {
+                blockKey = type.getKey().toString();
+            }
 
             if (type != null && (type.equals(Material.AIR) || type.equals(Material.CAVE_AIR)) && BlockTypeUtils.isAir(blockKey)) {
                 return;

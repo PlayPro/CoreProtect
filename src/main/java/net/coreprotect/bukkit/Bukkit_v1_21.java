@@ -3,8 +3,10 @@ package net.coreprotect.bukkit;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
+import org.bukkit.Art;
 import org.bukkit.Bukkit;
 import org.bukkit.ExplosionResult;
 import org.bukkit.Keyed;
@@ -15,6 +17,7 @@ import org.bukkit.Tag;
 import org.bukkit.block.BlockType;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Painting;
 import org.bukkit.event.Event;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
@@ -192,6 +195,51 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
         NamespacedKey namespacedKey = NamespacedKey.fromString(key);
         // return RegistryAccess.registryAccess().getRegistry(RegistryKey.CAT_VARIANT).get((NamespacedKey)value);
         return Bukkit.getRegistry((Class) tClass).get(namespacedKey);
+    }
+
+    @Override
+    public String getPaintingArtKey(Painting painting) {
+        try {
+            NamespacedKey key = Registry.ART.getKey(painting.getArt());
+            if (key != null) {
+                return normalizePaintingArtKey(key.toString());
+            }
+        }
+        catch (Exception e) {
+        }
+
+        return normalizePaintingArtKey(super.getPaintingArtKey(painting));
+    }
+
+    @Override
+    public Art getPaintingArt(String name) {
+        NamespacedKey key = NamespacedKey.fromString(normalizePaintingArtLookupKey(name));
+        if (key != null) {
+            Art art = Registry.ART.get(key);
+            if (art != null) {
+                return art;
+            }
+        }
+
+        return super.getPaintingArt(name);
+    }
+
+    private String normalizePaintingArtKey(String name) {
+        if (name == null) {
+            return "";
+        }
+
+        String normalized = name.toLowerCase(Locale.ROOT).trim();
+        if (normalized.startsWith("minecraft:")) {
+            return normalized.substring("minecraft:".length());
+        }
+
+        return normalized;
+    }
+
+    private String normalizePaintingArtLookupKey(String name) {
+        String normalized = normalizePaintingArtKey(name);
+        return normalized.contains(":") ? normalized : "minecraft:" + normalized;
     }
 
     /**

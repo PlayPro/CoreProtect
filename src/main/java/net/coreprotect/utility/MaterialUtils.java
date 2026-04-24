@@ -184,12 +184,7 @@ public class MaterialUtils extends Queue {
     }
 
     public static String getPaintingArtName(Painting painting) {
-        try {
-            return painting.getArt().name();
-        }
-        catch (IncompatibleClassChangeError e) {
-            return painting.getArt().toString();
-        }
+        return net.coreprotect.bukkit.BukkitAdapter.ADAPTER.getPaintingArtKey(painting);
     }
 
     public static String getArtName(int id) {

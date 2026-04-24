@@ -32,6 +32,9 @@ public class BlockBreakLogger {
             if (blockKey.length() == 0 && checkType != null) {
                 blockKey = checkType.getKey().toString();
             }
+            else if (checkType != null && (checkType == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(checkType))) {
+                blockKey = checkType.getKey().toString();
+            }
 
             if (checkType == null && blockKey.length() == 0) {
                 return;

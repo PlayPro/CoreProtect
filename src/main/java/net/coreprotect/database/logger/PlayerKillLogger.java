@@ -6,6 +6,7 @@ import java.util.Locale;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.block.BlockState;
+import org.bukkit.entity.EntityType;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
@@ -32,7 +33,7 @@ public class PlayerKillLogger {
             }
 
             Location initialLocation = new Location(block.getWorld(), block.getX(), block.getY(), block.getZ());
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, initialLocation);
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, initialLocation, CoreProtectPreLogEvent.Action.PLAYER_KILL, 3, null, EntityType.PLAYER, null);
             if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
             }

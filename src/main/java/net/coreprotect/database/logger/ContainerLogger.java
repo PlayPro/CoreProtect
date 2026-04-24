@@ -249,7 +249,7 @@ public class ContainerLogger extends Queue {
                             metadata = null;
                         }
 
-                        CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location);
+                        CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.CONTAINER_TRANSACTION, action, item.getType(), null, null);
                         if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                             CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
                         }

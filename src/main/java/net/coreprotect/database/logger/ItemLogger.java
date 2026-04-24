@@ -133,7 +133,7 @@ public class ItemLogger {
                         data = null;
                     }
 
-                    CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location);
+                    CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.ITEM_TRANSACTION, action, item.getType(), null, null);
                     if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                         CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
                     }

@@ -26,7 +26,7 @@ public class SignTextLogger {
                 return;
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location);
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.SIGN_TEXT, action, null, null, null);
             if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
             }

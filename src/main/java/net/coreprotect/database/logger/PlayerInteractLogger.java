@@ -38,7 +38,7 @@ public class PlayerInteractLogger {
                 return;
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, block.getLocation());
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, block.getLocation(), CoreProtectPreLogEvent.Action.PLAYER_INTERACTION, 2, blockType, null, null);
             if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
             }

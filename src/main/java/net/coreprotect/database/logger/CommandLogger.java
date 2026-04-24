@@ -29,7 +29,7 @@ public class CommandLogger {
                 return;
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location);
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.PLAYER_COMMAND, -1, null, null, message);
             if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
             }

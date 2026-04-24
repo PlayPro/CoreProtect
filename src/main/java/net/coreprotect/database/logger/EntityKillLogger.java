@@ -43,7 +43,7 @@ public class EntityKillLogger {
             }
 
             Location initialLocation = new Location(block.getWorld(), block.getX(), block.getY(), block.getZ());
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, initialLocation);
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, initialLocation, CoreProtectPreLogEvent.Action.ENTITY_KILL, 3, null, checkType, null);
             if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
             }

@@ -90,7 +90,7 @@ public class BlockPlaceLogger {
                 }
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, block.getLocation());
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, block.getLocation(), CoreProtectPreLogEvent.Action.BLOCK_PLACE, 1, type, null, null);
             if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
             }

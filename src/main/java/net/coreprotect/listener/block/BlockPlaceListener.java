@@ -27,8 +27,10 @@ import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.paper.PaperAdapter;
+import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.utility.WorldUtils;
 
 public final class BlockPlaceListener extends Queue implements Listener {
 
@@ -38,12 +40,9 @@ public final class BlockPlaceListener extends Queue implements Listener {
         if (!event.isCancelled() && Config.getConfig(world).BLOCK_PLACE) {
             Player player = event.getPlayer();
             Block blockPlaced = event.getBlockPlaced();
-            Block blockLogged = blockPlaced;
             String bBlockData = null;
             BlockState blockReplaced = event.getBlockReplacedState();
             Material blockType = blockPlaced.getType();
-            Material forceType = null;
-            int forceData = -1;
             boolean abort = false;
 
             if (blockType == Material.LECTERN && blockReplaced.getType() == Material.LECTERN) {
@@ -57,7 +56,7 @@ public final class BlockPlaceListener extends Queue implements Listener {
                     bBlockData = waterlogged.getAsString();
                     blockReplaced = null;
                 }
-                Queue.queueBlockPlaceDelayed(player.getName(), blockLogged.getLocation(), blockLogged.getType(), bBlockData, blockReplaced, 0);
+                Queue.queueBlockPlaceDelayed(player.getName(), blockPlaced.getLocation(), blockPlaced.getType(), bBlockData, blockReplaced, 0);
                 abort = true;
             }
             else if (BlockGroup.FIRE.contains(blockType)) {
@@ -78,15 +77,7 @@ public final class BlockPlaceListener extends Queue implements Listener {
             }
 
             if (!abort) {
-                if (Config.getConfig(world).BLOCK_MOVEMENT) {
-                    blockLogged = BlockUtil.gravityScan(blockLogged.getLocation(), blockLogged.getType(), player.getName());
-                    if (!blockLogged.equals(blockPlaced)) {
-                        forceType = blockType;
-                        blockReplaced = blockLogged.getState();
-                    }
-                }
-
-                BlockData blockData = blockLogged.getBlockData();
+                BlockData blockData = blockPlaced.getBlockData();
                 Waterlogged waterlogged = BlockUtils.checkWaterlogged(blockData, blockReplaced);
                 if (waterlogged != null) {
                     bBlockData = waterlogged.getAsString();
@@ -94,7 +85,7 @@ public final class BlockPlaceListener extends Queue implements Listener {
                 }
 
                 // fix for placed bisected blocks randomly returning the top or bottom of the block in this event
-                BlockState blockState = blockLogged.getState();
+                BlockState blockState = blockPlaced.getState();
                 if (blockState.getBlockData() instanceof Bisected && !(blockState.getBlockData() instanceof Stairs || blockState.getBlockData() instanceof TrapDoor)) {
                     if (((Bisected) blockState.getBlockData()).getHalf().equals(Half.TOP)) {
                         if (blockPlaced.getY() > BukkitAdapter.ADAPTER.getMinHeight(world)) {
@@ -103,7 +94,15 @@ public final class BlockPlaceListener extends Queue implements Listener {
                     }
                 }
 
-                Queue.queueBlockPlace(player.getName(), blockState, blockPlaced.getType(), blockReplaced, forceType, forceData, 0, bBlockData);
+                if (blockType.hasGravity()) {
+                    // FallingBlock listeners read lookupCache before the async consumer can populate it; record the placer synchronously so the fall and landing get attributed to the player instead of #gravity.
+                    int worldId = WorldUtils.getWorldId(world.getName());
+                    int timestamp = (int) (System.currentTimeMillis() / 1000L);
+                    String coordKey = blockPlaced.getX() + "." + blockPlaced.getY() + "." + blockPlaced.getZ() + "." + worldId;
+                    CacheHandler.lookupCache.put(coordKey, new Object[] { timestamp, player.getName(), blockType });
+                }
+
+                Queue.queueBlockPlace(player.getName(), blockState, blockPlaced.getType(), blockReplaced, null, -1, 0, bBlockData);
 
                 if (BukkitAdapter.ADAPTER.isSign(blockType)) {
                     if (Config.getConfig(world).SIGN_TEXT) {

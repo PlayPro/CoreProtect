@@ -248,20 +248,6 @@ public class Queue {
         }, blockLocation.getLocation(), ticks);
     }
 
-    protected static void queueBlockGravityValidate(final String user, final Location location, final Block block, final Material blockType, int ticks) {
-        Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
-            try {
-                Block placementBlock = BlockUtil.gravityScan(location, blockType, user);
-                if (!block.equals(placementBlock)) {
-                    queueBlockPlace(user, placementBlock.getState(), blockType, null, blockType, -1, 0, null);
-                }
-            }
-            catch (Exception e) {
-                e.printStackTrace();
-            }
-        }, location, ticks);
-    }
-
     protected static void queueContainerBreak(String user, Location location, Material type, ItemStack[] oldInventory) {
         int currentConsumer = Consumer.currentConsumer;
         int consumerId = Consumer.newConsumerId(currentConsumer);

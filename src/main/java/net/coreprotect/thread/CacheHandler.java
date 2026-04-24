@@ -24,6 +24,7 @@ public class CacheHandler implements Runnable {
     public static ConcurrentHashMap<String, Object[]> bonemealDuplicateCache = new ConcurrentHashMap<>(16, 0.75f, 2);
     public static ConcurrentHashMap<String, Object[]> entityKillDuplicateCache = new ConcurrentHashMap<>(16, 0.75f, 2);
     public static ConcurrentHashMap<String, Object[]> redstoneCache = new ConcurrentHashMap<>(16, 0.75f, 2);
+    public static ConcurrentHashMap<String, Object[]> fallingBlockSpawnCache = new ConcurrentHashMap<>(16, 0.75f, 2);
 
     public static String locationKey(Location location) {
         if (location == null || location.getWorld() == null) {
@@ -63,7 +64,7 @@ public class CacheHandler implements Runnable {
     public void run() {
         while (ConfigHandler.serverRunning) {
             try {
-                for (int id = 0; id < 13; id++) {
+                for (int id = 0; id < 14; id++) {
                     Thread.sleep(1000);
                     int scanTime = 30;
                     Map cache = CacheHandler.lookupCache;
@@ -115,6 +116,10 @@ public class CacheHandler implements Runnable {
                         case 12:
                             cache = CacheHandler.entityKillDuplicateCache;
                             scanTime = 900; // 15 minutes
+                            break;
+                        case 13:
+                            cache = CacheHandler.fallingBlockSpawnCache;
+                            scanTime = 30; // 30 seconds
                             break;
                     }
 

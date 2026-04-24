@@ -29,6 +29,7 @@ import net.coreprotect.listener.entity.EntityDeathListener;
 import net.coreprotect.listener.entity.EntityExplodeListener;
 import net.coreprotect.listener.entity.EntityInteractListener;
 import net.coreprotect.listener.entity.EntityPickupItemListener;
+import net.coreprotect.listener.entity.EntitySpawnListener;
 import net.coreprotect.listener.entity.HangingBreakByEntityListener;
 import net.coreprotect.listener.entity.HangingBreakListener;
 import net.coreprotect.listener.entity.HangingPlaceListener;
@@ -131,6 +132,7 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new EntityExplodeListener(), plugin);
         pluginManager.registerEvents(new EntityInteractListener(), plugin);
         pluginManager.registerEvents(new EntityPickupItemListener(), plugin);
+        pluginManager.registerEvents(new EntitySpawnListener(), plugin);
         pluginManager.registerEvents(new HangingPlaceListener(), plugin);
         pluginManager.registerEvents(new HangingBreakListener(), plugin);
         pluginManager.registerEvents(new HangingBreakByEntityListener(), plugin);

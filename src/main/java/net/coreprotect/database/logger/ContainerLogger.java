@@ -53,6 +53,9 @@ public class ContainerLogger extends Queue {
             else if (type == Material.JUKEBOX || type == Material.ARMOR_STAND) {
                 contents = (ItemStack[]) ((Object[]) container)[1];
             }
+            else if (container instanceof ItemStack[]) {
+                contents = (ItemStack[]) container;
+            }
             else {
                 Inventory inventory = (Inventory) container;
                 if (inventory != null) {

@@ -25,7 +25,6 @@ import org.bukkit.inventory.ItemStack;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
-import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.utility.BlockUtils;
@@ -48,8 +47,7 @@ public final class BlockPlaceListener extends Queue implements Listener {
             boolean abort = false;
 
             if (blockType == Material.LECTERN && blockReplaced.getType() == Material.LECTERN) {
-                // Placing a book in a lectern - log this as a new item being placed in the existing lectern
-                InventoryChangeListener.inventoryTransaction(player.getName(), blockLogged.getLocation(), new ItemStack[1]);
+                // Logged by PlayerInteractListener; prevent a false lectern block-place record.
                 abort = true;
             }
             else if (MaterialUtils.listContains(BlockGroup.CONTAINERS, blockType) || MaterialUtils.listContains(BlockGroup.DIRECTIONAL_BLOCKS, blockType) || blockType.name().toUpperCase(Locale.ROOT).endsWith("_STAIRS")) {

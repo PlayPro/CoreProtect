@@ -72,6 +72,47 @@ public final class PlayerInteractListener extends Queue implements Listener {
     private final ContainerInspector containerInspector = new ContainerInspector();
     private final InteractionInspector interactionInspector = new InteractionInspector();
 
+    private static boolean containsItem(ItemStack itemStack) {
+        return itemStack != null && itemStack.getType() != Material.AIR;
+    }
+
+    private static ItemStack getHandItem(Player player, EquipmentSlot hand) {
+        if (hand == EquipmentSlot.HAND) {
+            return player.getInventory().getItemInMainHand();
+        }
+        else if (hand == EquipmentSlot.OFF_HAND) {
+            return player.getInventory().getItemInOffHand();
+        }
+
+        return null;
+    }
+
+    private static boolean isLecternBook(ItemStack itemStack) {
+        if (!containsItem(itemStack)) {
+            return false;
+        }
+
+        Material type = itemStack.getType();
+        return type == Material.WRITABLE_BOOK || type == Material.WRITTEN_BOOK;
+    }
+
+    private static boolean containsLecternBook(ItemStack[] contents) {
+        return contents != null && contents.length > 0 && isLecternBook(contents[0]);
+    }
+
+    private static void logLecternBookPlacement(Player player, Block block, ItemStack[] oldContents) {
+        Location location = block.getLocation();
+        Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
+            BlockState blockState = location.getBlock().getState();
+            if (blockState.getType() == Material.LECTERN && blockState instanceof InventoryHolder) {
+                InventoryHolder inventoryHolder = (InventoryHolder) blockState;
+                if (containsLecternBook(inventoryHolder.getInventory().getContents())) {
+                    InventoryChangeListener.inventoryTransaction(player.getName(), location, oldContents);
+                }
+            }
+        }, location, 1);
+    }
+
     @EventHandler(priority = EventPriority.LOWEST)
     protected void onPlayerInspect(PlayerInteractEvent event) {
         Player player = event.getPlayer();
@@ -427,6 +468,20 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                     ItemStack[] newState = new ItemStack[] { newItemState };
                                     PlayerInteractEntityListener.queueContainerSpecifiedItems(player.getName(), Material.JUKEBOX, new Object[] { oldState, newState }, jukebox.getLocation(), logDrops);
                                 }
+                            }
+                        }
+                    }
+                    else if (type == Material.LECTERN && Config.getConfig(world).ITEM_TRANSACTIONS && event.useItemInHand() != Event.Result.DENY) {
+                        BlockState blockState = block.getState();
+                        if (blockState instanceof InventoryHolder) {
+                            InventoryHolder inventoryHolder = (InventoryHolder) blockState;
+                            ItemStack[] oldContents = ItemUtils.getContainerState(inventoryHolder.getInventory().getContents());
+                            ItemStack handItem = getHandItem(player, event.getHand());
+                            boolean oldContainsBook = containsLecternBook(oldContents);
+                            boolean handIsBook = isLecternBook(handItem);
+
+                            if (!oldContainsBook && handIsBook) {
+                                logLecternBookPlacement(player, block, oldContents);
                             }
                         }
                     }

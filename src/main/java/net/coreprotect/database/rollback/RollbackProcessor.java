@@ -17,6 +17,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.Powerable;
 import org.bukkit.block.data.type.Jukebox;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
@@ -40,6 +41,12 @@ import net.coreprotect.utility.Teleport;
 import net.coreprotect.utility.WorldUtils;
 
 public class RollbackProcessor {
+
+    private static void normalizeRollbackBlockData(BlockData blockData) {
+        if (blockData instanceof Powerable && blockData.getMaterial() == Material.NOTE_BLOCK) {
+            ((Powerable) blockData).setPowered(false);
+        }
+    }
 
     /**
      * Process data for a specific chunk
@@ -111,13 +118,16 @@ public class RollbackProcessor {
                         // corrupt BlockData, let the server automatically set the BlockData instead
                     }
                 }
-
                 BlockData rawBlockData = null;
                 if (blockData != null) {
                     rawBlockData = blockData.clone();
                 }
                 if (rawBlockData == null) {
                     rawBlockData = BlockUtils.createBlockData(rowTypeRaw);
+                }
+                if (rowType == Material.NOTE_BLOCK) {
+                    normalizeRollbackBlockData(blockData);
+                    normalizeRollbackBlockData(rawBlockData);
                 }
 
                 String rowUser = ConfigHandler.playerIdCacheReversed.get((Integer) row[2]);

@@ -34,6 +34,7 @@ public class Config extends Language {
     private Config defaults;
 
     public String DONATION_KEY;
+    public String SQLITE_DATABASE;
     public String PREFIX;
     public String MYSQL_HOST;
     public String MYSQL_DATABASE;
@@ -203,6 +204,7 @@ public class Config extends Language {
         this.UNKNOWN_LOGGING = this.getBoolean("unknown-logging", false);
         this.MAXIMUM_POOL_SIZE = this.getInt("maximum-pool-size", 10);
         this.DONATION_KEY = this.getString("donation-key");
+        this.SQLITE_DATABASE = this.getString("sqlite-database");
         this.MYSQL = this.getBoolean("use-mysql");
         this.PREFIX = this.getString("table-prefix");
         this.MYSQL_HOST = this.getString("mysql-host");

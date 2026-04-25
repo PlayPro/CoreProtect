@@ -231,6 +231,7 @@ public class ConfigHandler extends Queue {
             ConfigHandler.password = Config.getGlobal().MYSQL_PASSWORD;
             ConfigHandler.maximumPoolSize = Config.getGlobal().MAXIMUM_POOL_SIZE;
             ConfigHandler.prefix = Config.getGlobal().PREFIX;
+            ConfigHandler.sqlite = Config.getGlobal().SQLITE_DATABASE.trim().length() > 0 ? Config.getGlobal().SQLITE_DATABASE.trim() : "database.db";
 
             ConfigHandler.loadBlacklist(); // Load the blacklist file if it exists.
         }

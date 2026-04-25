@@ -73,6 +73,10 @@ public class Queue {
         Consumer.consumer_id.put(currentConsumer, new Integer[] { Consumer.consumer_id.get(currentConsumer)[0], 0 });
     }
 
+    private static Location getBlockLocation(Location location) {
+        return new Location(location.getWorld(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
+    }
+
     protected static void queueAdvancedBreak(String user, BlockState block, Material type, String blockData, int data, Material breakType, int blockNumber) {
         int currentConsumer = Consumer.currentConsumer;
         int consumerId = Consumer.newConsumerId(currentConsumer);
@@ -283,7 +287,7 @@ public class Queue {
         int consumerId = Consumer.newConsumerId(currentConsumer);
         addConsumer(currentConsumer, new Object[] { consumerId, Process.ENTITY_KILL, null, 0, null, 0, 0 });
         Consumer.consumerObjectList.get(currentConsumer).put(consumerId, data);
-        queueStandardData(consumerId, currentConsumer, new String[] { user, null }, new Object[] { location.getBlock().getState(), type, null });
+        queueStandardData(consumerId, currentConsumer, new String[] { user, null }, new Object[] { getBlockLocation(location), type, null });
     }
 
     protected static void queueEntitySpawn(String user, BlockState block, EntityType type, int data) {
@@ -347,7 +351,7 @@ public class Queue {
         int currentConsumer = Consumer.currentConsumer;
         int consumerId = Consumer.newConsumerId(currentConsumer);
         addConsumer(currentConsumer, new Object[] { consumerId, Process.PLAYER_KILL, null, 0, null, 0, 0, null });
-        queueStandardData(consumerId, currentConsumer, new String[] { user, null }, new Object[] { location.getBlock().getState(), player });
+        queueStandardData(consumerId, currentConsumer, new String[] { user, null }, new Object[] { getBlockLocation(location), player });
     }
 
     protected static void queuePlayerLogin(Player player, int time, int configSessions, int configUsernames) {

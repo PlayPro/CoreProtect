@@ -46,6 +46,7 @@ public class Config extends Language {
     public boolean DATABASE_LOCK;
     public boolean LOG_CANCELLED_CHAT;
     public boolean HOPPER_FILTER_META;
+    public boolean DUPLICATE_SUPPRESSION;
     public boolean EXCLUDE_TNT;
     public boolean NETWORK_DEBUG;
     public boolean MYSQL;
@@ -62,6 +63,7 @@ public class Config extends Language {
     public boolean PISTONS;
     public boolean BLOCK_BURN;
     public boolean BLOCK_IGNITE;
+    public boolean FIRE_EXTINGUISH;
     public boolean EXPLOSIONS;
     public boolean ENTITY_CHANGE;
     public boolean ENTITY_KILLS;
@@ -117,6 +119,7 @@ public class Config extends Language {
         DEFAULT_VALUES.put("pistons", "true");
         DEFAULT_VALUES.put("block-burn", "true");
         DEFAULT_VALUES.put("block-ignite", "true");
+        DEFAULT_VALUES.put("fire-extinguish", "false");
         DEFAULT_VALUES.put("explosions", "true");
         DEFAULT_VALUES.put("entity-change", "true");
         DEFAULT_VALUES.put("entity-kills", "true");
@@ -160,6 +163,7 @@ public class Config extends Language {
         HEADERS.put("pistons", new String[] { "# Properly track blocks moved by pistons." });
         HEADERS.put("block-burn", new String[] { "# Logs blocks that burn up in a fire." });
         HEADERS.put("block-ignite", new String[] { "# Logs when a block naturally ignites, such as from fire spreading." });
+        HEADERS.put("fire-extinguish", new String[] { "# Logs when fire naturally extinguishes." });
         HEADERS.put("explosions", new String[] { "# Logs explosions, such as TNT and Creepers." });
         HEADERS.put("entity-change", new String[] { "# Track when an entity changes a block, such as an Enderman destroying blocks." });
         HEADERS.put("entity-kills", new String[] { "# Logs killed entities, such as killed cows and enderman." });
@@ -193,6 +197,7 @@ public class Config extends Language {
         this.DATABASE_LOCK = this.getBoolean("database-lock", true);
         this.LOG_CANCELLED_CHAT = this.getBoolean("log-cancelled-chat", true);
         this.HOPPER_FILTER_META = this.getBoolean("hopper-filter-meta", false);
+        this.DUPLICATE_SUPPRESSION = this.getBoolean("duplicate-suppression", true);
         this.EXCLUDE_TNT = this.getBoolean("exclude-tnt", false);
         this.NETWORK_DEBUG = this.getBoolean("network-debug", false);
         this.UNKNOWN_LOGGING = this.getBoolean("unknown-logging", false);
@@ -221,6 +226,7 @@ public class Config extends Language {
         this.PISTONS = this.getBoolean("pistons");
         this.BLOCK_BURN = this.getBoolean("block-burn");
         this.BLOCK_IGNITE = this.getBoolean("block-ignite");
+        this.FIRE_EXTINGUISH = this.getBoolean("fire-extinguish");
         this.EXPLOSIONS = this.getBoolean("explosions");
         this.ENTITY_CHANGE = this.getBoolean("entity-change");
         this.ENTITY_KILLS = this.getBoolean("entity-kills");

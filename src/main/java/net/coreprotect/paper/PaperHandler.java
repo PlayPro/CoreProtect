@@ -7,6 +7,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 
 public class PaperHandler extends PaperAdapter {
+    private volatile boolean supportsSnapshotHolderLookup = true;
 
     @Override
     public boolean isStopping(Server server) {
@@ -20,7 +21,16 @@ public class PaperHandler extends PaperAdapter {
 
     @Override
     public InventoryHolder getHolder(Inventory holder, boolean useSnapshot) {
-        return holder.getHolder(useSnapshot);
+        if (supportsSnapshotHolderLookup) {
+            try {
+                return holder.getHolder(useSnapshot);
+            }
+            catch (LinkageError ignored) {
+                supportsSnapshotHolderLookup = false;
+            }
+        }
+
+        return holder.getHolder();
     }
 
 }

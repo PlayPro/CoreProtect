@@ -187,8 +187,35 @@ public class VersionUtils {
 
     public static void loadWorldEdit() {
         try {
-            boolean validVersion = true;
-            String version = Bukkit.getServer().getPluginManager().getPlugin("WorldEdit").getDescription().getVersion();
+            Plugin worldEdit = Bukkit.getServer().getPluginManager().getPlugin("WorldEdit");
+            String version = worldEdit.getDescription().getVersion();
+            boolean validVersion;
+            if (isFastAsyncWorldEdit(worldEdit)) {
+                validVersion = validFastAsyncWorldEditVersion(worldEdit.getDescription().getAPIVersion(), version);
+            }
+            else if (version.equals("unspecified")) { // Legacy FAWE
+                Plugin fawe = Bukkit.getServer().getPluginManager().getPlugin("FastAsyncWorldEdit");
+                validVersion = fawe != null && validFastAsyncWorldEditVersion(worldEdit.getDescription().getAPIVersion(), fawe.getDescription().getVersion());
+            }
+            else {
+                validVersion = validWorldEditVersion(version);
+            }
+
+            if (validVersion) {
+                CoreProtectEditSessionEvent.register();
+            }
+            else {
+                Chat.console(Phrase.build(Phrase.INTEGRATION_VERSION, "WorldEdit"));
+            }
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static boolean validWorldEditVersion(String version) {
+        boolean validVersion = true;
+        try {
             if (version.contains(";") || version.contains("+")) {
                 if (version.contains("-beta-")) {
                     version = version.split(";")[0];
@@ -224,33 +251,51 @@ public class VersionUtils {
                     }
                 }
             }
-            else if (version.equals("unspecified")) { // FAWE
-                validVersion = false;
-                Plugin fawe = Bukkit.getServer().getPluginManager().getPlugin("FastAsyncWorldEdit");
-                if (fawe != null) {
-                    String apiVersion = Bukkit.getServer().getPluginManager().getPlugin("WorldEdit").getDescription().getAPIVersion();
-                    String faweVersion = fawe.getDescription().getVersion();
-                    double apiDouble = Double.parseDouble(apiVersion);
-                    double faweDouble = Double.parseDouble(faweVersion);
-                    if (apiDouble >= 1.13 && faweDouble >= 1.0) {
-                        validVersion = true;
-                    }
-                }
-            }
             else {
                 validVersion = false;
-            }
-
-            if (validVersion) {
-                CoreProtectEditSessionEvent.register();
-            }
-            else {
-                Chat.console(Phrase.build(Phrase.INTEGRATION_VERSION, "WorldEdit"));
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            validVersion = false;
         }
+
+        return validVersion;
+    }
+
+    private static boolean isFastAsyncWorldEdit(Plugin plugin) {
+        return plugin != null && plugin.getDescription() != null && "FastAsyncWorldEdit".equals(plugin.getDescription().getName());
+    }
+
+    private static boolean validFastAsyncWorldEditVersion(String apiVersion, String pluginVersion) {
+        String[] versions = { apiVersion, pluginVersion };
+        String[] minimumVersions = { "1.13", "1.0" };
+        for (int i = 0; i < versions.length; i++) {
+            if (versions[i] == null) {
+                return false;
+            }
+
+            String major = null;
+            boolean validVersion = false;
+            for (String part : versions[i].split("[^0-9]+")) {
+                if (part.length() == 0) {
+                    continue;
+                }
+
+                if (major == null) {
+                    major = part;
+                }
+                else {
+                    validVersion = !newVersion(major + "." + part, minimumVersions[i]);
+                    break;
+                }
+            }
+
+            if (!validVersion) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public static void unloadWorldEdit() {

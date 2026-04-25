@@ -95,6 +95,9 @@ public class Language {
         phrases.put(Phrase.HELP_PARAMS_7, "Exclude blocks/users from the {lookup|rollback|restore}.");
         phrases.put(Phrase.HELP_PURGE_1, "Delete data older than specified time.");
         phrases.put(Phrase.HELP_PURGE_2, "For example, \"{0}\" will delete all data older than one month, and only keep the last 30 days of data.");
+        phrases.put(Phrase.HELP_PURGE_3, "Specify the amount of time to purge.");
+        phrases.put(Phrase.HELP_PURGE_4, "Specify a world to limit the purge to.");
+        phrases.put(Phrase.HELP_PURGE_5, "Include specific blocks in the purge.");
         phrases.put(Phrase.HELP_PURGE_COMMAND, "Delete old block data.");
         phrases.put(Phrase.HELP_RADIUS_1, "Specify a radius area.");
         phrases.put(Phrase.HELP_RADIUS_2, "Examples: [r:10] (Only make changes within 10 blocks of you)");
@@ -123,6 +126,7 @@ public class Language {
         phrases.put(Phrase.INVALID_DONATION_KEY, "Invalid donation key.");
         phrases.put(Phrase.INVALID_INCLUDE, "\"{0}\" is an invalid block/entity name.");
         phrases.put(Phrase.INVALID_INCLUDE_COMBO, "That is an invalid block/entity combination.");
+        phrases.put(Phrase.INVALID_PARAMETER, "\"{0}\" is not a supported parameter.");
         phrases.put(Phrase.INVALID_RADIUS, "Please enter a valid radius.");
         phrases.put(Phrase.INVALID_SELECTION, "{0} selection not found.");
         phrases.put(Phrase.INVALID_USERNAME, "\"{0}\" is an invalid username.");

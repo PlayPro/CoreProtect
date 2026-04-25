@@ -74,12 +74,17 @@ public class EntityUtil {
         if (type == null) {
             return;
         }
+        final Location blockLocation = block.getLocation();
+        if (blockLocation.getWorld() == null) {
+            return;
+        }
+
         Scheduler.runTask(CoreProtect.getInstance(), () -> {
             try {
-                Location location = block.getLocation();
+                Location location = blockLocation.clone();
                 location.setX(location.getX() + 0.50);
                 location.setZ(location.getZ() + 0.50);
-                Entity entity = block.getLocation().getWorld().spawnEntity(location, type);
+                Entity entity = blockLocation.getWorld().spawnEntity(location, type);
 
                 if (list.isEmpty()) {
                     return;
@@ -599,7 +604,7 @@ public class EntityUtil {
             catch (Exception e) {
                 e.printStackTrace();
             }
-        }, block.getLocation());
+        }, blockLocation);
     }
 
 }

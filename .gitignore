@@ -173,6 +173,9 @@ Desktop.ini
 ## Misc.
 #############
 
+.claude
+AGENTS.md
+CLAUDE.md
 .cursorrules
 .windsurfrules
 .clinerules

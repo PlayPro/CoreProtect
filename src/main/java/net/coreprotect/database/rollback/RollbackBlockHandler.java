@@ -77,6 +77,15 @@ public class RollbackBlockHandler extends Queue {
                     ((Piston) blockData).setFacing(technicalPiston.getFacing());
                 }
 
+                if (rowType == null) {
+                    if (blockData != null) {
+                        BlockUtils.prepareTypeAndData(chunkChanges, block, null, blockData, true);
+                        return countBlock;
+                    }
+
+                    return false;
+                }
+
                 if ((rowType == Material.AIR) && ((BukkitAdapter.ADAPTER.isItemFrame(oldTypeMaterial)) || (oldTypeMaterial == Material.PAINTING))) {
                     HangingUtil.removeHanging(block.getState(), blockDataString);
                 }
@@ -201,11 +210,12 @@ public class RollbackBlockHandler extends Queue {
 
                     if (remove) {
                         boolean physics = true;
-                        if ((changeType == Material.NETHER_PORTAL) || changeBlockData instanceof MultipleFacing || changeBlockData instanceof Snow || changeBlockData instanceof Stairs || changeBlockData instanceof RedstoneWire || changeBlockData instanceof Chest) {
+                        BlockData removeBlockData = pendingChangeData != null ? pendingChangeData : changeBlockData;
+                        if ((changeType == Material.NETHER_PORTAL) || removeBlockData instanceof MultipleFacing || removeBlockData instanceof Snow || removeBlockData instanceof Stairs || removeBlockData instanceof RedstoneWire || removeBlockData instanceof Chest) {
                             physics = true;
                         }
-                        else if (changeBlockData instanceof Bisected && !(changeBlockData instanceof TrapDoor)) {
-                            Bisected bisected = (Bisected) changeBlockData;
+                        else if (removeBlockData instanceof Bisected && !(removeBlockData instanceof TrapDoor)) {
+                            Bisected bisected = (Bisected) removeBlockData;
                             Location bisectLocation = block.getLocation().clone();
                             if (bisected.getHalf() == Half.TOP) {
                                 bisectLocation.setY(bisectLocation.getY() - 1);
@@ -225,8 +235,8 @@ public class RollbackBlockHandler extends Queue {
                                 }
                             }
                         }
-                        else if (changeBlockData instanceof Bed) {
-                            Bed bed = (Bed) changeBlockData;
+                        else if (removeBlockData instanceof Bed) {
+                            Bed bed = (Bed) removeBlockData;
                             if (bed.getPart() == Part.FOOT) {
                                 Block adjacentBlock = block.getRelative(bed.getFacing());
                                 BlockUtils.prepareTypeAndData(chunkChanges, adjacentBlock, rowType, null, false);
@@ -300,6 +310,10 @@ public class RollbackBlockHandler extends Queue {
                     return false;
                 }
                 else if ((rowType == Material.WATER)) {
+                    if (bukkitWorld.getEnvironment() == World.Environment.NETHER) {
+                        return false;
+                    }
+
                     if (pendingChangeData instanceof Waterlogged) {
                         Waterlogged waterlogged = (Waterlogged) pendingChangeData;
                         waterlogged.setWaterlogged(true);

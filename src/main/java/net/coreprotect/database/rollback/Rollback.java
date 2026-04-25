@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -247,19 +248,21 @@ public class Rollback extends RollbackUtil {
                 }
 
                 ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount, blockCount, entityCount, 0, scannedWorldData });
+                List<CompletableFuture<Boolean>> chunkFutures = new ArrayList<>();
                 for (Entry<Integer, World> rollbackWorlds : worldMap.entrySet()) {
                     Integer rollbackWorldId = rollbackWorlds.getKey();
                     World bukkitRollbackWorld = rollbackWorlds.getValue();
-                    Location chunkLocation = new Location(bukkitRollbackWorld, (finalChunkX << 4), 0, (finalChunkZ << 4));
                     final HashMap<Long, ArrayList<Object[]>> finalBlockList = dataList.get(rollbackWorldId);
                     final HashMap<Long, ArrayList<Object[]>> finalItemList = itemDataList.get(rollbackWorldId);
 
-                    Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
-                        // Process this chunk using our new RollbackProcessor class
-                        ArrayList<Object[]> blockData = finalBlockList != null ? finalBlockList.getOrDefault(chunkKey, new ArrayList<>()) : new ArrayList<>();
-                        ArrayList<Object[]> itemData = finalItemList != null ? finalItemList.getOrDefault(chunkKey, new ArrayList<>()) : new ArrayList<>();
-                        RollbackProcessor.processChunk(finalChunkX, finalChunkZ, chunkKey, blockData, itemData, rollbackType, preview, finalUserString, finalUser instanceof Player ? (Player) finalUser : null, bukkitRollbackWorld, inventoryRollback);
-                    }, chunkLocation, 0);
+                    chunkFutures.add(scheduleChunkTask(finalChunkX, finalChunkZ, chunkKey, finalBlockList, finalItemList, rollbackType, preview, finalUserString, finalUser, bukkitRollbackWorld, inventoryRollback));
+                }
+
+                if (ConfigHandler.isFolia) {
+                    if (!awaitChunkTasks(chunkFutures, preview)) {
+                        Chat.console(Phrase.build(Phrase.ROLLBACK_ABORTED));
+                        break;
+                    }
                 }
 
                 rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
@@ -268,24 +271,26 @@ public class Rollback extends RollbackUtil {
                 int sleepTime = 0;
                 int abort = 0;
 
-                while (next == 0 || scannedWorlds < worldMap.size()) {
-                    if (preview == 1) {
-                        // Not actually changing blocks, so less intensive.
-                        sleepTime = sleepTime + 1;
-                        Thread.sleep(1);
-                    }
-                    else {
-                        sleepTime = sleepTime + 5;
-                        Thread.sleep(5);
-                    }
+                if (!ConfigHandler.isFolia) {
+                    while (next == 0 || scannedWorlds < worldMap.size()) {
+                        if (preview == 1) {
+                            // Not actually changing blocks, so less intensive.
+                            sleepTime = sleepTime + 1;
+                            Thread.sleep(1);
+                        }
+                        else {
+                            sleepTime = sleepTime + 5;
+                            Thread.sleep(5);
+                        }
 
-                    rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
-                    next = rollbackHashData[3];
-                    scannedWorlds = rollbackHashData[4];
+                        rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
+                        next = rollbackHashData[3];
+                        scannedWorlds = rollbackHashData[4];
 
-                    if (sleepTime > 300000) {
-                        abort = 1;
-                        break;
+                        if (sleepTime > 300000) {
+                            abort = 1;
+                            break;
+                        }
                     }
                 }
 
@@ -329,6 +334,71 @@ public class Rollback extends RollbackUtil {
         }
 
         return null;
+    }
+
+    private static CompletableFuture<Boolean> scheduleChunkTask(int chunkX, int chunkZ, long chunkKey, HashMap<Long, ArrayList<Object[]>> blockList, HashMap<Long, ArrayList<Object[]>> itemList, int rollbackType, int preview, String userString, CommandSender user, World world, boolean inventoryRollback) {
+        CompletableFuture<Boolean> future = new CompletableFuture<>();
+        Location chunkLocation = new Location(world, (chunkX << 4), 0, (chunkZ << 4));
+
+        Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
+            try {
+                ArrayList<Object[]> blockData = blockList != null ? blockList.getOrDefault(chunkKey, new ArrayList<>()) : new ArrayList<>();
+                ArrayList<Object[]> itemData = itemList != null ? itemList.getOrDefault(chunkKey, new ArrayList<>()) : new ArrayList<>();
+                Player rollbackPlayer = user instanceof Player ? (Player) user : null;
+                boolean result = RollbackProcessor.processChunk(chunkX, chunkZ, chunkKey, blockData, itemData, rollbackType, preview, userString, rollbackPlayer, world, inventoryRollback);
+                future.complete(result);
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+                future.complete(false);
+            }
+        }, chunkLocation, 0);
+
+        return future;
+    }
+
+    private static boolean awaitChunkTasks(List<CompletableFuture<Boolean>> futures, int preview) throws InterruptedException {
+        if (futures.isEmpty()) {
+            return true;
+        }
+
+        int sleepTime = 0;
+        while (true) {
+            boolean allDone = true;
+            for (CompletableFuture<Boolean> future : futures) {
+                if (!future.isDone()) {
+                    allDone = false;
+                    break;
+                }
+            }
+
+            if (allDone) {
+                break;
+            }
+
+            int delay = preview == 1 ? 1 : 5;
+            sleepTime += delay;
+            if (sleepTime > 300000) {
+                return false;
+            }
+            Thread.sleep(delay);
+        }
+
+        for (CompletableFuture<Boolean> future : futures) {
+            Boolean result;
+            try {
+                result = future.getNow(Boolean.FALSE);
+            }
+            catch (Exception e) {
+                return false;
+            }
+
+            if (!Boolean.TRUE.equals(result)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
 }

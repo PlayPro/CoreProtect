@@ -16,6 +16,7 @@ import net.coreprotect.database.statement.BlockStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
 import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.utility.BlockTypeUtils;
 import net.coreprotect.utility.WorldUtils;
 
 public class BlockBreakLogger {
@@ -26,19 +27,23 @@ public class BlockBreakLogger {
 
     public static void log(PreparedStatement preparedStmt, int batchCount, String user, Location location, int type, int data, List<Object> meta, String blockData, String overrideData) {
         try {
-            if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null || location == null) {
-                return;
-            }
-
             Material checkType = net.coreprotect.utility.MaterialUtils.getType(type);
-            if (checkType == null) {
+            String blockKey = BlockTypeUtils.getBlockDataKey(blockData);
+            if (blockKey.length() == 0 && checkType != null) {
+                blockKey = checkType.getKey().toString();
+            }
+            else if (checkType != null && (checkType == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(checkType) || checkType == Material.ARMOR_STAND || checkType == Material.END_CRYSTAL)) {
+                blockKey = checkType.getKey().toString();
+            }
+
+            if (checkType == null && blockKey.length() == 0) {
                 return;
             }
-            else if (checkType.equals(Material.AIR) || checkType.equals(Material.CAVE_AIR)) {
+            else if (checkType != null && (checkType.equals(Material.AIR) || checkType.equals(Material.CAVE_AIR)) && BlockTypeUtils.isAir(blockKey)) {
                 return;
             }
 
-            if (ConfigHandler.blacklist.get(checkType.getKey().toString()) != null) {
+            if (ConfigHandler.isBlacklisted(user, blockKey)) {
                 return;
             }
 
@@ -50,11 +55,11 @@ public class BlockBreakLogger {
             if (checkType == Material.LECTERN) {
                 blockData = blockData.replaceFirst("has_book=true", "has_book=false");
             }
-            else if (checkType == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(checkType)) {
+            else if (checkType != null && (checkType == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(checkType))) {
                 blockData = overrideData;
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location);
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.BLOCK_BREAK, 0, checkType, null, null);
             if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
             }
@@ -72,7 +77,8 @@ public class BlockBreakLogger {
                 return;
             }
 
-            BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, type, data, meta, blockData, 0, 0);
+            int internalType = blockKey.length() > 0 ? net.coreprotect.utility.MaterialUtils.getBlockId(blockKey, true) : type;
+            BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, internalType, data, meta, blockData, 0, 0);
         }
         catch (Exception e) {
             e.printStackTrace();

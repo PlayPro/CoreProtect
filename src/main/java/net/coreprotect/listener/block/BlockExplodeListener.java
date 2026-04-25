@@ -79,29 +79,6 @@ public final class BlockExplodeListener extends Queue implements Listener {
                                 }
                             }
                         }
-                        else if (scanType.hasGravity() && Config.getConfig(world).BLOCK_MOVEMENT) {
-                            // log the top-most sand/gravel block as being removed
-                            int scanY = location.getBlockY() + 1;
-                            boolean topFound = false;
-                            while (!topFound) {
-                                Block topBlock = world.getBlockAt(location.getBlockX(), scanY, location.getBlockZ());
-                                Material topMaterial = topBlock.getType();
-                                if (!topMaterial.hasGravity()) {
-                                    location = new Location(world, location.getBlockX(), (scanY - 1), location.getBlockZ());
-                                    topFound = true;
-
-                                    // log block attached to top as being removed
-                                    if (BlockGroup.TRACK_ANY.contains(topMaterial) || BlockGroup.TRACK_TOP.contains(topMaterial) || BlockGroup.TRACK_TOP_BOTTOM.contains(topMaterial)) {
-                                        blockMap.put(topBlock.getLocation(), topBlock);
-                                    }
-                                }
-                                scanY++;
-                            }
-
-                            Block gravityBlock = location.getBlock();
-                            blockMap.put(location, gravityBlock);
-                            Queue.queueBlockGravityValidate(user, location, gravityBlock, scanType, 0);
-                        }
                     }
                     scanMin++;
                 }
@@ -146,18 +123,25 @@ public final class BlockExplodeListener extends Queue implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onBlockExplode(BlockExplodeEvent event) {
-        Block eventBlock = event.getBlock();
-        World world = eventBlock.getLocation().getWorld();
+        Material eventMaterial = BukkitAdapter.ADAPTER.getExplodedBlock(event);
+        World world = event.getBlock().getLocation().getWorld();
+
+        if (!BukkitAdapter.ADAPTER.shouldLogExplosion(event)){
+            return;
+        }
+
         String user = "";
-        if (!eventBlock.getType().equals(Material.AIR) && !eventBlock.getType().equals(Material.CAVE_AIR)) {
-            user = eventBlock.getType().name().toLowerCase(Locale.ROOT);
+        if (!eventMaterial.equals(Material.AIR) && !eventMaterial.equals(Material.CAVE_AIR)) {
+            user = eventMaterial.name().toLowerCase(Locale.ROOT);
+
+            if (user.contains("respawn_anchor")) {
+                user = "#respawn_anchor";
+            }
+            else if (user.contains("_bed")) {
+                user = "#bed";
+            }
         }
-        if (user.contains("tnt")) {
-            user = "#tnt";
-        }
-        else if (user.contains("end_crystal")) {
-            user = "#end_crystal";
-        }
+        
         if (!user.startsWith("#")) {
             user = "#explosion";
         }

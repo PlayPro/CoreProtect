@@ -3,17 +3,29 @@ package net.coreprotect.bukkit;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
+import org.bukkit.Art;
 import org.bukkit.Bukkit;
+import org.bukkit.ExplosionResult;
 import org.bukkit.Keyed;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
 import org.bukkit.Tag;
+import org.bukkit.block.BlockType;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Painting;
+import org.bukkit.event.Event;
+import org.bukkit.event.block.BlockExplodeEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.inventory.InventoryType;
 
+
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.utility.BlockTypeUtils;
 
 /**
  * Bukkit adapter implementation for Minecraft 1.21.
@@ -27,6 +39,7 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
 
     public static Set<Material> COPPER_CHESTS = new HashSet<>(Arrays.asList());
     public static Set<Material> SHELVES = new HashSet<>(Arrays.asList());
+    public static Set<Material> BUNDLES = new HashSet<>(Arrays.asList());
 
     /**
      * Initializes the Bukkit_v1_21 adapter with 1.21-specific block groups and mappings.
@@ -35,6 +48,7 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
     public Bukkit_v1_21() {
         initializeBlockGroups();
         initializeTrapdoorBlocks();
+        initializeBundles();
         BlockGroup.INTERACT_BLOCKS.addAll(copperChestMaterials());
         BlockGroup.CONTAINERS.addAll(copperChestMaterials());
         BlockGroup.UPDATE_STATE.addAll(copperChestMaterials());
@@ -69,6 +83,20 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
     }
 
     /**
+     * Initializes the bundles group to enable the ability to roll back dyed bundles correctly.
+     * It needs to check whether dyed bundles exist because they were added in 1.21.2.
+     */
+    public void initializeBundles(){
+        if (BUNDLES.isEmpty()) {
+            Material bundle = Material.getMaterial("RED_BUNDLE");
+            if (bundle != null) {
+                BUNDLES.addAll(Tag.ITEMS_BUNDLES.getValues());
+            }
+            BUNDLES.add(Material.BUNDLE);
+        }
+    }
+
+    /**
      * Helper method to add a block to a block group if it's not already present.
      * 
      * @param block
@@ -80,6 +108,43 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
         if (!group.contains(block)) {
             group.add(block);
         }
+    }
+
+    @Override
+    public boolean hasBlockType(String key) {
+        return getBlockType(key) != null;
+    }
+
+    @Override
+    public BlockData createBlockData(String key) {
+        try {
+            BlockType blockType = getBlockType(key);
+            return blockType == null ? null : blockType.createBlockData();
+        }
+        catch (Exception e) {
+            return null;
+        }
+    }
+
+    @Override
+    public BlockData createBlockDataFromString(String blockData) {
+        try {
+            BlockType blockType = getBlockType(BlockTypeUtils.getBlockDataKey(blockData));
+            if (blockType == null) {
+                return null;
+            }
+
+            String states = BlockTypeUtils.getBlockDataStates(blockData);
+            return states == null ? blockType.createBlockData() : blockType.createBlockData(states);
+        }
+        catch (Exception e) {
+            return null;
+        }
+    }
+
+    private BlockType getBlockType(String key) {
+        NamespacedKey namespacedKey = NamespacedKey.fromString(BlockTypeUtils.normalizeKey(key));
+        return namespacedKey == null ? null : Registry.BLOCK.get(namespacedKey);
     }
 
     /**
@@ -130,6 +195,51 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
         NamespacedKey namespacedKey = NamespacedKey.fromString(key);
         // return RegistryAccess.registryAccess().getRegistry(RegistryKey.CAT_VARIANT).get((NamespacedKey)value);
         return Bukkit.getRegistry((Class) tClass).get(namespacedKey);
+    }
+
+    @Override
+    public String getPaintingArtKey(Painting painting) {
+        try {
+            NamespacedKey key = Registry.ART.getKey(painting.getArt());
+            if (key != null) {
+                return normalizePaintingArtKey(key.toString());
+            }
+        }
+        catch (Exception e) {
+        }
+
+        return normalizePaintingArtKey(super.getPaintingArtKey(painting));
+    }
+
+    @Override
+    public Art getPaintingArt(String name) {
+        NamespacedKey key = NamespacedKey.fromString(normalizePaintingArtLookupKey(name));
+        if (key != null) {
+            Art art = Registry.ART.get(key);
+            if (art != null) {
+                return art;
+            }
+        }
+
+        return super.getPaintingArt(name);
+    }
+
+    private String normalizePaintingArtKey(String name) {
+        if (name == null) {
+            return "";
+        }
+
+        String normalized = name.toLowerCase(Locale.ROOT).trim();
+        if (normalized.startsWith("minecraft:")) {
+            return normalized.substring("minecraft:".length());
+        }
+
+        return normalized;
+    }
+
+    private String normalizePaintingArtLookupKey(String name) {
+        String normalized = normalizePaintingArtKey(name);
+        return normalized.contains(":") ? normalized : "minecraft:" + normalized;
     }
 
     /**
@@ -186,6 +296,12 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
     }
 
     @Override
+    public boolean isBundle(Material material) {
+        return Tag.ITEMS_BUNDLES.getValues().contains(material);
+    }
+
+
+    @Override
     public Set<Material> copperChestMaterials() {
         if (COPPER_CHESTS.isEmpty()) {
             Material copperChest = Material.getMaterial("COPPER_CHEST");
@@ -217,5 +333,19 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
         }
 
         return SHELVES;
+    }
+
+    @Override
+    public boolean shouldLogExplosion(Event event){
+        ExplosionResult result = null;
+
+        if (event instanceof EntityExplodeEvent){
+            result = ((EntityExplodeEvent)event).getExplosionResult();
+        } else if (event instanceof BlockExplodeEvent){
+            result = ((BlockExplodeEvent)event).getExplosionResult();
+        }
+        return !(result == ExplosionResult.KEEP ||
+                 result == ExplosionResult.TRIGGER_BLOCK
+        );
     }
 }

@@ -366,10 +366,9 @@ public class StandardLookupThread implements Runnable {
                                     }
                                 }
                                 else {
-                                    dname = MaterialUtils.getType(dtype).name().toLowerCase(Locale.ROOT);
-                                    dname = StringUtils.nameFilter(dname, ddata);
+                                    dname = MaterialUtils.getBlockDisplayName(dtype, ddata);
                                 }
-                                if (dname.length() > 0 && !isPlayer) {
+                                if (dname.length() > 0 && !isPlayer && !dname.contains(":")) {
                                     dname = "minecraft:" + dname.toLowerCase(Locale.ROOT) + "";
                                 }
 

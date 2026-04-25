@@ -45,7 +45,7 @@ public class CoreProtectAPI extends Queue {
     /**
      * Current version of the API
      */
-    private static final int API_VERSION = 11;
+    private static final int API_VERSION = 12;
 
     public static class ParseResult extends net.coreprotect.api.result.ParseResult {
 
@@ -72,7 +72,7 @@ public class CoreProtectAPI extends Queue {
 
         if (list != null) {
             for (Object value : list) {
-                if (value instanceof Material || value instanceof EntityType) {
+                if (value instanceof Material || value instanceof EntityType || value instanceof String) {
                     result.put(value, false);
                 }
                 else if (value instanceof Integer) {
@@ -375,6 +375,27 @@ public class CoreProtectAPI extends Queue {
     }
 
     /**
+     * Logs a block placement by a user with specific block data.
+     *
+     * @param user
+     *            The username
+     * @param location
+     *            The location
+     * @param blockData
+     *            The block data
+     * @return True if the placement was logged
+     */
+    public boolean logPlacement(String user, Location location, BlockData blockData) {
+        if (!isEnabled() || !isValidUserAndLocation(user, location) || blockData == null) {
+            return false;
+        }
+
+        Block block = location.getBlock();
+        Queue.queueBlockPlace(user, block.getState(), block.getType(), null, block.getType(), -1, 0, blockData.getAsString());
+        return true;
+    }
+
+    /**
      * Logs a block placement by a user with a specific material and data value.
      * 
      * @param user
@@ -442,6 +463,28 @@ public class CoreProtectAPI extends Queue {
         Block block = location.getBlock();
         Database.containerBreakCheck(user, block.getType(), block, null, location);
         Queue.queueBlockBreak(user, location.getBlock().getState(), type, blockDataString, 0);
+        return true;
+    }
+
+    /**
+     * Logs a block removal by a user with specific block data.
+     *
+     * @param user
+     *            The username
+     * @param location
+     *            The location
+     * @param blockData
+     *            The block data
+     * @return True if the removal was logged
+     */
+    public boolean logRemoval(String user, Location location, BlockData blockData) {
+        if (!isEnabled() || !isValidUserAndLocation(user, location) || blockData == null) {
+            return false;
+        }
+
+        Block block = location.getBlock();
+        Database.containerBreakCheck(user, block.getType(), block, null, location);
+        Queue.queueBlockBreak(user, block.getState(), block.getType(), blockData.getAsString(), 0);
         return true;
     }
 

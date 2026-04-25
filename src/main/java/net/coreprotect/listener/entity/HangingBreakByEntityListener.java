@@ -145,7 +145,7 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
                 Painting painting = (Painting) entity;
                 blockData = "FACING=" + painting.getFacing().name();
                 try {
-                    itemData = MaterialUtils.getArtId(painting.getArt().toString(), true);
+                    itemData = MaterialUtils.getArtId(MaterialUtils.getPaintingArtName(painting), true);
                 }
                 catch (IncompatibleClassChangeError e) {
                     // 1.21.2+

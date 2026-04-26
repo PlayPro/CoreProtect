@@ -61,8 +61,13 @@ public class StandardLookupThread implements Runnable {
     private final int typeLookup;
     private final String rtime;
     private final boolean count;
+    private final String messageFilter;
 
     public StandardLookupThread(CommandSender player, Command command, List<String> rollbackUsers, List<Object> blockList, Map<Object, Boolean> excludedBlocks, List<String> excludedUsers, List<Integer> actions, Integer[] radius, Location location, int x, int y, int z, int worldId, int argWorldId, long timeStart, long timeEnd, int noisy, int excluded, int restricted, int page, int displayResults, int typeLookup, String rtime, boolean count) {
+        this(player, command, rollbackUsers, blockList, excludedBlocks, excludedUsers, actions, radius, location, x, y, z, worldId, argWorldId, timeStart, timeEnd, noisy, excluded, restricted, page, displayResults, typeLookup, rtime, count, "");
+    }
+
+    public StandardLookupThread(CommandSender player, Command command, List<String> rollbackUsers, List<Object> blockList, Map<Object, Boolean> excludedBlocks, List<String> excludedUsers, List<Integer> actions, Integer[] radius, Location location, int x, int y, int z, int worldId, int argWorldId, long timeStart, long timeEnd, int noisy, int excluded, int restricted, int page, int displayResults, int typeLookup, String rtime, boolean count, String messageFilter) {
         this.player = player;
         this.command = command;
         this.rollbackUsers = rollbackUsers;
@@ -87,6 +92,7 @@ public class StandardLookupThread implements Runnable {
         this.typeLookup = typeLookup;
         this.rtime = rtime;
         this.count = count;
+        this.messageFilter = messageFilter;
     }
 
     @Override
@@ -101,6 +107,7 @@ public class StandardLookupThread implements Runnable {
             ConfigHandler.lookupCommand.put(player.getName(), bc);
             ConfigHandler.lookupPage.put(player.getName(), page);
             ConfigHandler.lookupTime.put(player.getName(), rtime);
+            ConfigHandler.lookupMessageFilter.put(player.getName(), messageFilter);
             ConfigHandler.lookupType.put(player.getName(), 5);
             ConfigHandler.lookupElist.put(player.getName(), excludedBlocks);
             ConfigHandler.lookupEUserlist.put(player.getName(), excludedUsers);
@@ -184,7 +191,7 @@ public class StandardLookupThread implements Runnable {
                     }
 
                     if (checkRows) {
-                        rows = Lookup.countLookupRows(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, finalLocation, radius, rowData, timeStart, timeEnd, restrict_world, true);
+                        rows = Lookup.countLookupRows(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, finalLocation, radius, rowData, timeStart, timeEnd, restrict_world, true, messageFilter);
                         rowData[3] = rows;
                         ConfigHandler.lookupRows.put(player.getName(), rowData);
                     }
@@ -193,7 +200,7 @@ public class StandardLookupThread implements Runnable {
                         Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.LOOKUP_ROWS_FOUND, row_format, (rows == 1 ? Selector.FIRST : Selector.SECOND)));
                     }
                     else if (pageStart < rows) {
-                        List<String[]> lookupList = Lookup.performPartialLookup(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, finalLocation, radius, rowData, timeStart, timeEnd, (int) pageStart, displayResults, restrict_world, true);
+                        List<String[]> lookupList = Lookup.performPartialLookup(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, finalLocation, radius, rowData, timeStart, timeEnd, (int) pageStart, displayResults, restrict_world, true, messageFilter);
 
                         Chat.sendMessage(player, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.LOOKUP_HEADER, "CoreProtect" + Color.WHITE + " | " + Color.DARK_AQUA) + Color.WHITE + " -----");
                         if (actions.contains(6) || actions.contains(7)) { // Chat/command

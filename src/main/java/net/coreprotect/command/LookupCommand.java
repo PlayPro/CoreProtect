@@ -49,6 +49,7 @@ public class LookupCommand {
         boolean count = CommandParser.parseCount(args);
         boolean worldedit = CommandParser.parseWorldEdit(args);
         boolean forceglobal = CommandParser.parseForceGlobal(args);
+        String messageFilter = CommandParser.parseMessageFilter(args);
         boolean pageLookup = false;
 
         if (argBlocks == null || argExclude == null || argExcludeUsers == null) {
@@ -247,6 +248,11 @@ public class LookupCommand {
                 Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INCOMPATIBLE_ACTION, "e:"));
                 return;
             }
+        }
+
+        if (messageFilter.length() > 0 && !argAction.contains(6) && !argAction.contains(7)) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INCOMPATIBLE_ACTION, "m:"));
+            return;
         }
 
         if (startTime <= 0 && !pageLookup && type == 4 && (argBlocks.size() > 0 || argUsers.size() > 0)) {
@@ -519,6 +525,9 @@ public class LookupCommand {
                     argAction = ConfigHandler.lookupAlist.get(player.getName());
                     argRadius = ConfigHandler.lookupRadius.get(player.getName());
                     ts = ConfigHandler.lookupTime.get(player.getName());
+                    if (ConfigHandler.lookupMessageFilter.get(player.getName()) != null) {
+                        messageFilter = ConfigHandler.lookupMessageFilter.get(player.getName());
+                    }
                     startTime = 1;
                     endTime = 0;
                 }
@@ -595,7 +604,7 @@ public class LookupCommand {
                         }
                     }
 
-                    Runnable runnable = new StandardLookupThread(player, command, rollbackusers, argBlocks, argExclude, argExcludeUsers, argAction, argRadius, lo, x, y, z, wid, argWid, timeStart, timeEnd, argNoisy, argExcluded, argRestricted, pa, re, type, ts, count);
+                    Runnable runnable = new StandardLookupThread(player, command, rollbackusers, argBlocks, argExclude, argExcludeUsers, argAction, argRadius, lo, x, y, z, wid, argWid, timeStart, timeEnd, argNoisy, argExcluded, argRestricted, pa, re, type, ts, count, messageFilter);
                     Thread thread = new Thread(runnable);
                     thread.start();
                 }

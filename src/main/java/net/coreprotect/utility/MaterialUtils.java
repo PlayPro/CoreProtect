@@ -4,6 +4,7 @@ import java.util.Locale;
 import java.util.Set;
 
 import org.bukkit.Material;
+import org.bukkit.entity.Painting;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
@@ -20,6 +21,15 @@ public class MaterialUtils extends Queue {
             material = Material.AIR;
         }
         return getBlockId(material.name(), true);
+    }
+
+    public static int getBlockId(String blockData, Material fallback, boolean internal) {
+        String name = BlockTypeUtils.getBlockDataKey(blockData);
+        if (name.length() == 0 && fallback != null) {
+            name = fallback.getKey().toString();
+        }
+
+        return name.length() == 0 ? -1 : getBlockId(name, internal);
     }
 
     public static int getBlockId(String name, boolean internal) {
@@ -73,6 +83,15 @@ public class MaterialUtils extends Queue {
 
     public static String getBlockName(int id) {
         return ConfigHandler.materialsReversed.getOrDefault(id, "");
+    }
+
+    public static String getBlockDisplayName(int id, int data) {
+        Material material = getType(id);
+        if (material != null) {
+            return StringUtils.nameFilter(material.name().toLowerCase(Locale.ROOT), data);
+        }
+
+        return getBlockName(id);
     }
 
     public static String getBlockNameShort(int id) {
@@ -140,6 +159,10 @@ public class MaterialUtils extends Queue {
         }
 
         return id;
+    }
+
+    public static String getPaintingArtName(Painting painting) {
+        return net.coreprotect.bukkit.BukkitAdapter.ADAPTER.getPaintingArtKey(painting);
     }
 
     public static String getArtName(int id) {

@@ -10,6 +10,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import net.coreprotect.data.lookup.LookupResult;
 import net.coreprotect.data.lookup.result.CommonLookupResult;
@@ -253,6 +257,7 @@ public class Rollback extends RollbackUtil {
                 }
 
                 ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount, blockCount, entityCount, 0, scannedWorldData });
+                List<CompletableFuture<Boolean>> chunkFutures = new ArrayList<>();
                 for (Entry<Integer, World> rollbackWorlds : worldMap.entrySet()) {
                     Integer rollbackWorldId = rollbackWorlds.getKey();
                     World bukkitRollbackWorld = rollbackWorlds.getValue();
@@ -262,10 +267,17 @@ public class Rollback extends RollbackUtil {
 
                     Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
                         // Process this chunk using our new RollbackProcessor class
-                        List<CommonLookupData> blockData = finalBlockList != null ? finalBlockList.getOrDefault(chunkKey, new ArrayList<>()) : new ArrayList<>();
-                        List<CommonLookupData> itemData = finalItemList != null ? finalItemList.getOrDefault(chunkKey, new ArrayList<>()) : new ArrayList<>();
-                        RollbackProcessor.processChunk(finalChunkX, finalChunkZ, chunkKey, blockData, itemData, rollbackType, preview, finalUserString, finalUser instanceof Player ? (Player) finalUser : null, bukkitRollbackWorld, inventoryRollback);
+
                     }, chunkLocation, 0);
+
+                    chunkFutures.add(scheduleChunkTask(finalChunkX, finalChunkZ, chunkKey, finalBlockList, finalItemList, rollbackType, preview, finalUserString, finalUser, bukkitRollbackWorld, inventoryRollback));
+                }
+
+                if (ConfigHandler.isFolia) {
+                    if (!awaitChunkTasks(chunkFutures, preview)) {
+                        Chat.console(Phrase.build(Phrase.ROLLBACK_ABORTED));
+                        break;
+                    }
                 }
 
                 rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
@@ -274,24 +286,26 @@ public class Rollback extends RollbackUtil {
                 int sleepTime = 0;
                 int abort = 0;
 
-                while (next == 0 || scannedWorlds < worldMap.size()) {
-                    if (preview == 1) {
-                        // Not actually changing blocks, so less intensive.
-                        sleepTime = sleepTime + 1;
-                        Thread.sleep(1);
-                    }
-                    else {
-                        sleepTime = sleepTime + 5;
-                        Thread.sleep(5);
-                    }
+                if (!ConfigHandler.isFolia) {
+                    while (next == 0 || scannedWorlds < worldMap.size()) {
+                        if (preview == 1) {
+                            // Not actually changing blocks, so less intensive.
+                            sleepTime = sleepTime + 1;
+                            Thread.sleep(1);
+                        }
+                        else {
+                            sleepTime = sleepTime + 5;
+                            Thread.sleep(5);
+                        }
 
-                    rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
-                    next = rollbackHashData[3];
-                    scannedWorlds = rollbackHashData[4];
+                        rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
+                        next = rollbackHashData[3];
+                        scannedWorlds = rollbackHashData[4];
 
-                    if (sleepTime > 300000) {
-                        abort = 1;
-                        break;
+                        if (sleepTime > 300000) {
+                            abort = 1;
+                            break;
+                        }
                     }
                 }
 
@@ -336,4 +350,36 @@ public class Rollback extends RollbackUtil {
         return null;
     }
 
+    private static CompletableFuture<Boolean> scheduleChunkTask(int chunkX, int chunkZ, long chunkKey, Map<Long, List<CommonLookupData>> blockList, Map<Long, List<CommonLookupData>> itemList, int rollbackType, int preview, String userString, CommandSender user, World world, boolean inventoryRollback) {
+        CompletableFuture<Boolean> future = new CompletableFuture<>();
+        Location chunkLocation = new Location(world, (chunkX << 4), 0, (chunkZ << 4));
+
+        Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
+            try {
+                List<CommonLookupData> blockData = blockList != null ? blockList.getOrDefault(chunkKey, new ArrayList<>()) : new ArrayList<>();
+                List<CommonLookupData> itemData = itemList != null ? itemList.getOrDefault(chunkKey, new ArrayList<>()) : new ArrayList<>();
+                boolean result = RollbackProcessor.processChunk(chunkX, chunkZ, chunkKey, blockData, itemData, rollbackType, preview, userString, user instanceof Player player ? player : null, world, inventoryRollback);
+                future.complete(result);
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+                future.complete(false);
+            }
+        }, chunkLocation, 0);
+
+        return future;
+    }
+
+    private static boolean awaitChunkTasks(List<CompletableFuture<Boolean>> futures, int preview) throws InterruptedException {
+        if (futures.isEmpty()) {
+            return true;
+        }
+
+        try {
+            CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).get(5, TimeUnit.MINUTES);
+            return futures.stream().allMatch(future -> future.getNow(Boolean.FALSE) == Boolean.TRUE);
+        } catch (TimeoutException | ExecutionException ignored) {
+            return false;
+        }
+    }
 }

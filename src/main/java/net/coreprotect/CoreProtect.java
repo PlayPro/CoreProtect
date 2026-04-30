@@ -18,7 +18,7 @@ public final class CoreProtect extends JavaPlugin {
 
     private static CoreProtect instance;
     private boolean advancedChestsEnabled = false;
-    private RowNumbers rowNumbers = new RowNumbers(this);
+    private final RowNumbers rowNumbers = new RowNumbers(this);
 
     /**
      * Get the instance of CoreProtect

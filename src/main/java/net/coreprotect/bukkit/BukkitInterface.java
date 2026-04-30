@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.bukkit.Art;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -14,6 +15,7 @@ import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Painting;
 import org.bukkit.event.Event;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.SignChangeEvent;
@@ -75,6 +77,33 @@ public interface BukkitInterface {
      * @return The material inside the bucket, or AIR if not applicable
      */
     Material getBucketContents(Material material);
+
+    /**
+     * Checks whether the runtime supports and contains a block type key.
+     *
+     * @param key
+     *            The namespaced block key
+     * @return true if the block type exists, false otherwise
+     */
+    boolean hasBlockType(String key);
+
+    /**
+     * Creates default block data for a block type key.
+     *
+     * @param key
+     *            The namespaced block key
+     * @return The block data, or null if unsupported/unavailable
+     */
+    BlockData createBlockData(String key);
+
+    /**
+     * Creates block data from a serialized block data string.
+     *
+     * @param blockData
+     *            The serialized block data
+     * @return The block data, or null if unsupported/unavailable
+     */
+    BlockData createBlockDataFromString(String blockData);
 
     // --------------------------------------------------------------------------
     // Material type checking methods
@@ -470,6 +499,10 @@ public interface BukkitInterface {
      * @return The registry value
      */
     Object getRegistryValue(String key, Object tClass);
+
+    String getPaintingArtKey(Painting painting);
+
+    Art getPaintingArt(String name);
 
     /**
      * Parses a legacy material name.

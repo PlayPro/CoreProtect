@@ -74,6 +74,15 @@ public class EntityUtil {
 
     @Deprecated
     public static void spawnEntity(final BlockState block, final EntityType type, final List<Object> list) {
+        if (type == null) {
+            return;
+        }
+
+        final Location blockLocation = block.getLocation();
+        if (blockLocation.getWorld() == null) {
+            return;
+        }
+
         Scheduler.runTask(CoreProtect.getInstance(), () -> {
             spawnEntity(block.getLocation(), type, list);
         }, block.getLocation());
@@ -84,12 +93,13 @@ public class EntityUtil {
             return null;
         }
         final Block block = loc.getBlock();
-        final Location location = block.getLocation();
+        final Location blockLocation = block.getLocation();
         //Scheduler.runTask(CoreProtect.getInstance(), () -> {
             try {
+                Location location = blockLocation.clone();
                 location.setX(location.getX() + 0.50);
                 location.setZ(location.getZ() + 0.50);
-                Entity entity = location.getWorld().spawnEntity(location, type);
+                Entity entity = blockLocation.getWorld().spawnEntity(location, type);
 
                 if (list.isEmpty()) {
                     return entity;
@@ -608,7 +618,7 @@ public class EntityUtil {
                 return entity;
             }
             catch (Exception e) {
-                CoreProtect.getInstance().getSLF4JLogger().error("Failed to deserialize entity data for entity at '{}' with type '{}'", location, type.getKey().asMinimalString(), e);
+                CoreProtect.getInstance().getSLF4JLogger().error("Failed to deserialize entity data for entity at '{}' with type '{}'", blockLocation, type.getKey().asMinimalString(), e);
             }
         //}, block.getLocation());
         return null;

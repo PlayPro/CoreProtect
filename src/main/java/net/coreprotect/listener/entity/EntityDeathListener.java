@@ -34,9 +34,13 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 
 public final class EntityDeathListener extends Queue implements Listener {
+
+    private static final int ENTITY_KILL_DUPLICATE_THRESHOLD = 256;
+    private static final int ENTITY_KILL_DUPLICATE_WINDOW_SECONDS = 900;
 
     public static void parseEntityKills(String message) {
         message = message.trim().toLowerCase(Locale.ROOT);
@@ -206,12 +210,28 @@ public final class EntityDeathListener extends Queue implements Listener {
             return;
         }
 
+        if (Config.getConfig(entity.getWorld()).DUPLICATE_SUPPRESSION && shouldSuppressEntityKill(e, entity, cause)) {
+            return;
+        }
+
         if (!(entity instanceof Player)) {
             Queue.queueEntityKill(e, entity.getLocation(), entity.getType(), EntityUtils.serializeEntity(entity));
         }
         else {
             Queue.queuePlayerKill(e, entity.getLocation(), entity.getName());
         }
+    }
+
+    private static boolean shouldSuppressEntityKill(String user, LivingEntity entity, DamageCause cause) {
+        if (user == null || !user.startsWith("#") || "#command".equals(user)) {
+            return false;
+        }
+
+        Location location = entity.getLocation();
+        String causeName = cause == null ? "UNKNOWN" : cause.name();
+        String customName = entity.getCustomName();
+        String signature = location.getWorld().getUID().toString() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ() + "." + user + "." + entity.getType().name() + "." + causeName + "." + (customName == null ? "-" : customName);
+        return CacheHandler.shouldSuppressRepeat(CacheHandler.entityKillDuplicateCache, signature, ENTITY_KILL_DUPLICATE_THRESHOLD, ENTITY_KILL_DUPLICATE_WINDOW_SECONDS);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

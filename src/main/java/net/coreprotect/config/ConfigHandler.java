@@ -11,6 +11,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -32,6 +33,7 @@ import org.bukkit.plugin.PluginManager;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
+import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
@@ -59,8 +61,8 @@ public class ConfigHandler extends Queue {
     public static final String COMMUNITY_EDITION = "ClickHouse Edition";
     public static final String JAVA_VERSION = "11.0";
     public static final String MINECRAFT_VERSION = "1.16";
-    public static final String PATCH_VERSION = "23.1";
-    public static final String LATEST_VERSION = "1.21.11";
+    public static final String PATCH_VERSION = "23.2";
+    public static final String LATEST_VERSION = "26.1";
     public static String path = "plugins/CoreProtect/";
     public static String sqlite = "database.db";
     public static String host = "127.0.0.1";
@@ -72,6 +74,10 @@ public class ConfigHandler extends Queue {
     public static String prefixConfig = "co_";
     public static int maximumPoolSize = 10;
     public static final boolean READ_ONLY = Boolean.getBoolean("net.earthmc.coreprotect-clickhouse.database.read-only");
+
+    public static final String BLACKLIST_COMMENT_SEPARATOR = ";";
+    public static final String BLACKLIST_FILTER_SEPARATOR = "@";
+    public static final String BLACKLIST_FILENAME = "blacklist.txt";
 
     public static HikariDataSource hikariDataSource = null;
     public static final CentralProcessor processorInfo = SystemUtils.getProcessorInfo();
@@ -106,6 +112,7 @@ public class ConfigHandler extends Queue {
     public static Map<String, int[]> rollbackHash = syncMap();
     public static Map<String, Boolean> inspecting = syncMap();
     public static Map<String, Boolean> blacklist = syncMap();
+    public static Map<String, HashSet<String>> FilteredBlacklist = syncMap();
     public static Map<String, Integer> loggingChest = syncMap();
     public static Map<String, Integer> loggingItem = syncMap();
     public static ConcurrentHashMap<String, List<Object>> transactingChest = new ConcurrentHashMap<>();
@@ -158,6 +165,25 @@ public class ConfigHandler extends Queue {
         }
     }
 
+    public static boolean isBlacklisted(String user) {
+        return ConfigHandler.blacklist.containsKey(user.toLowerCase(Locale.ROOT));
+    }
+
+    public static boolean isBlacklisted(String user, String object) {
+        if (ConfigHandler.blacklist.containsKey(object) || ConfigHandler.blacklist.containsKey(user.toLowerCase(Locale.ROOT))) {
+            return true;
+        }
+        return isFilterBlacklisted(user, object);
+    }
+
+    public static boolean isFilterBlacklisted(String user, String object) {
+        HashSet<String> blUserSet = FilteredBlacklist.get(object);
+        if (blUserSet == null) {
+            return false;
+        }
+        return blUserSet.contains(user.toLowerCase(Locale.ROOT));
+    }
+
     private static void loadBlacklist() {
         final CoreProtect plugin = CoreProtect.getInstance();
 
@@ -170,9 +196,14 @@ public class ConfigHandler extends Queue {
 
         try (Stream<String> lines = Files.lines(blacklistPath, StandardCharsets.UTF_8)) {
             lines.forEach(line -> {
-                String blacklistUser = line.replaceAll(" ", "").toLowerCase(Locale.ROOT);
-                if (!blacklistUser.isEmpty()) {
-                    ConfigHandler.blacklist.put(blacklistUser, true);
+                line = line.replace(" ", "").toLowerCase(Locale.ROOT).split(BLACKLIST_COMMENT_SEPARATOR)[0];
+                if (!line.isEmpty()) {
+                    final String[] split = line.split(BLACKLIST_FILTER_SEPARATOR);
+                    if (split.length == 1) {
+                        ConfigHandler.blacklist.put(line, true);
+                    } else {
+                        ConfigHandler.FilteredBlacklist.computeIfAbsent(split[0], k -> new HashSet<>()).add(split[1]);
+                    }
                 }
             });
         } catch (IOException e) {

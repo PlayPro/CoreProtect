@@ -1,7 +1,5 @@
 package net.coreprotect.listener.block;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 
 import org.bukkit.GameMode;
@@ -38,7 +36,9 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.paper.PaperAdapter;
+import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.WorldUtils;
 
 public final class BlockBreakListener extends Queue implements Listener {
 
@@ -86,7 +86,6 @@ public final class BlockBreakListener extends Queue implements Listener {
     }
 
     protected static void processBlockBreak(Player player, String user, Block block, boolean logBreak, int skipScan) {
-        List<Block> placementMap = new ArrayList<>();
         Material type = block.getType();
         World world = block.getWorld();
         int x = block.getX();
@@ -124,24 +123,9 @@ public final class BlockBreakListener extends Queue implements Listener {
                 Location scanLocation = locationMap[scanMin - 1];
                 Block scanBlock = world.getBlockAt(scanLocation);
                 Material scanType = scanBlock.getType();
-                if (scanMin == 5) {
-                    if (scanType.hasGravity() || BukkitAdapter.ADAPTER.isSuspiciousBlock(scanType)) {
-                        if (Config.getConfig(world).BLOCK_MOVEMENT) {
-                            // log the top-most sand/gravel block as being removed
-                            int scanY = y + 2;
-                            boolean topFound = false;
-                            while (!topFound) {
-                                Block topBlock = world.getBlockAt(x, scanY, z);
-                                Material topMaterial = topBlock.getType();
-                                if (!topMaterial.hasGravity() && !BukkitAdapter.ADAPTER.isSuspiciousBlock(topMaterial)) {
-                                    scanLocation = new Location(world, x, (scanY - 1), z);
-                                    topFound = true;
-                                }
-                                scanY++;
-                            }
-                            placementMap.add(scanBlock);
-                        }
-                    }
+                if (scanMin == 5 && (scanType.hasGravity() || BukkitAdapter.ADAPTER.isSuspiciousBlock(scanType)) && Config.getConfig(world).BLOCK_MOVEMENT) {
+                    // FallingBlock listeners read lookupCache to attribute the chain reaction; overwrite the cache up the gravity stack so falls record under whoever broke this block instead of #gravity or the original placer.
+                    seedGravityFallAttribution(user, world, x, z, y + 1, scanType);
                 }
                 if (!BlockGroup.TRACK_ANY.contains(scanType)) {
                     if (scanMin != 5 && scanMin != 6 && !scanDown) { // side block
@@ -205,11 +189,6 @@ public final class BlockBreakListener extends Queue implements Listener {
                     if (!log) {
                         if (type.equals(Material.PISTON_HEAD)) {// broke a piston extension
                             if (scanType.equals(Material.STICKY_PISTON) || scanType.equals(Material.PISTON)) { // adjacent piston
-                                log = true;
-                            }
-                        }
-                        else if (scanMin == 5) {
-                            if (scanType.hasGravity() || BukkitAdapter.ADAPTER.isSuspiciousBlock(scanType)) {
                                 log = true;
                             }
                         }
@@ -323,13 +302,6 @@ public final class BlockBreakListener extends Queue implements Listener {
 
             scanMin++;
         }
-
-        for (Block placementBlock : placementMap) {
-            Material placementType = placementBlock.getType();
-            if (placementType.hasGravity()) {
-                queueBlockPlace(user, block.getState(), placementType, null, null, -1, 0, placementBlock.getBlockData().getAsString());
-            }
-        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -337,7 +309,27 @@ public final class BlockBreakListener extends Queue implements Listener {
         if (!event.isCancelled()) {
             String user = event.getPlayer().getName();
             Block block = event.getBlock();
-            processBlockBreak(event.getPlayer(), user, event.getBlock(), Config.getConfig(block.getWorld()).BLOCK_BREAK, BlockUtil.NONE);
+            processBlockBreak(event.getPlayer(), user, block, Config.getConfig(block.getWorld()).BLOCK_BREAK, BlockUtil.NONE);
+        }
+    }
+
+    private static void seedGravityFallAttribution(String user, World world, int x, int z, int startY, Material startType) {
+        int worldId = WorldUtils.getWorldId(world.getName());
+        int timestamp = (int) (System.currentTimeMillis() / 1000L);
+        int worldMax = world.getMaxHeight();
+        Material currentType = startType;
+        int scanY = startY;
+        while (scanY < worldMax) {
+            String coordKey = x + "." + scanY + "." + z + "." + worldId;
+            CacheHandler.lookupCache.put(coordKey, new Object[] { timestamp, user, currentType });
+            scanY++;
+            if (scanY >= worldMax) {
+                break;
+            }
+            currentType = world.getBlockAt(x, scanY, z).getType();
+            if (!currentType.hasGravity() && !BukkitAdapter.ADAPTER.isSuspiciousBlock(currentType)) {
+                break;
+            }
         }
     }
 

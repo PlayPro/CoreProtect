@@ -42,12 +42,17 @@ public class BlockUtils {
         String result = null;
         if (string != null) {
             Material material = MaterialUtils.getType(type);
-            if (material == null) {
+            String blockKey = MaterialUtils.getBlockName(type);
+            if ((blockKey == null || blockKey.length() == 0) && material != null) {
+                blockKey = material.getKey().toString();
+            }
+            if (blockKey == null || blockKey.length() == 0) {
                 return result;
             }
 
-            if (material.isBlock() && !createBlockData(material).getAsString().equals(string) && string.startsWith(material.getKey().asString() + "[") && string.endsWith("]")) {
-                String substring = string.substring(material.name().length() + 11, string.length() - 1);
+            BlockData defaultBlockData = createBlockData(type);
+            if (defaultBlockData != null && !defaultBlockData.getAsString().equals(string) && string.startsWith(blockKey + "[") && string.endsWith("]")) {
+                String substring = string.substring(blockKey.length() + 1, string.length() - 1);
                 String[] blockDataSplit = substring.split(",");
                 ArrayList<String> blockDataArray = new ArrayList<>();
                 for (String data : blockDataSplit) {
@@ -58,7 +63,7 @@ public class BlockUtils {
                 }
                 string = String.join(",", blockDataArray);
             }
-            else if (!string.contains(":") && (material == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(material))) {
+            else if (material != null && !string.contains(":") && (material == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(material))) {
                 int id = MaterialUtils.getBlockdataId(string, true);
                 if (id > -1) {
                     string = Integer.toString(id);
@@ -81,7 +86,11 @@ public class BlockUtils {
         String result = "";
         if (data != null) {
             Material material = MaterialUtils.getType(type);
-            if (material == null) {
+            String blockKey = MaterialUtils.getBlockName(type);
+            if ((blockKey == null || blockKey.length() == 0) && material != null) {
+                blockKey = material.getKey().toString();
+            }
+            if (blockKey == null || blockKey.length() == 0) {
                 return result;
             }
 
@@ -100,11 +109,11 @@ public class BlockUtils {
                         }
                     }
 
-                    if (material == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(material)) {
+                    if (material != null && (material == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(material))) {
                         result = String.join(",", blockDataArray);
                     }
                     else {
-                        result = material.getKey().asString() + "[" + String.join(",", blockDataArray) + "]";
+                        result = blockKey + "[" + String.join(",", blockDataArray) + "]";
                     }
                 }
                 else {
@@ -167,9 +176,21 @@ public class BlockUtils {
         }
     }
 
+    public static BlockData createBlockData(int type) {
+        Material material = MaterialUtils.getType(type);
+        if (material != null && material.isBlock()) {
+            return createBlockData(material);
+        }
+
+        return BlockTypeUtils.createBlockData(MaterialUtils.getBlockName(type));
+    }
+
     public static void prepareTypeAndData(Map<Location, BlockData> map, Block block, Material type, BlockData blockData, boolean update) {
         if (blockData == null) {
             blockData = createBlockData(type);
+        }
+        if (blockData == null) {
+            return;
         }
 
         if (!update) {

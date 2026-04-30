@@ -1,7 +1,6 @@
 package net.coreprotect.database.logger;
 
 import java.sql.PreparedStatement;
-import java.util.Locale;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -21,11 +20,15 @@ public class CommandLogger {
 
     public static void log(PreparedStatement preparedStmt, int batchCount, long time, Location location, String user, String message, boolean cancelled) {
         try {
-            if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {
+            if (ConfigHandler.isBlacklisted(user)) {
                 return;
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location);
+            if (ConfigHandler.isBlacklisted(((message + " ").split(" "))[0])) {
+                return;
+            }
+
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.PLAYER_COMMAND, -1, null, null, message);
             if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread() && !event.callEvent()) {
                 return;
             }

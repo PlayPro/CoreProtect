@@ -142,6 +142,10 @@ public final class HopperPullListener {
         }
 
         Location destinationLocation = destinationHolder.getInventory().getLocation();
+        if (destinationLocation == null) {
+            return;
+        }
+
         List<Object> list = ConfigHandler.transactingChest.get(destinationLocation.getWorld().getUID().toString() + "." + destinationLocation.getBlockX() + "." + destinationLocation.getBlockY() + "." + destinationLocation.getBlockZ());
         if (list != null) {
             list.add(new ItemStack[] { null, movedItem });

@@ -20,24 +20,34 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.Powerable;
 import org.bukkit.block.data.type.Jukebox;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.Player;
 
+import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.BlockTypeUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.Teleport;
 import net.coreprotect.utility.WorldUtils;
 
 public class RollbackProcessor {
+
+    private static void normalizeRollbackBlockData(BlockData blockData) {
+        if (blockData instanceof Powerable && blockData.getMaterial() == Material.NOTE_BLOCK) {
+            ((Powerable) blockData).setPowered(false);
+        }
+    }
 
     /**
      * Process data for a specific chunk
@@ -100,19 +110,25 @@ public class RollbackProcessor {
                 BlockData blockData = null;
                 if (blockDataString != null && blockDataString.contains(":")) {
                     try {
-                        blockData = Bukkit.getServer().createBlockData(blockDataString);
+                        blockData = BlockTypeUtils.createBlockDataFromString(blockDataString);
+                        if (blockData == null) {
+                            blockData = Bukkit.getServer().createBlockData(blockDataString);
+                        }
                     }
                     catch (Exception e) {
                         // corrupt BlockData, let the server automatically set the BlockData instead
                     }
                 }
-
                 BlockData rawBlockData = null;
                 if (blockData != null) {
                     rawBlockData = blockData.clone();
                 }
-                if (rawBlockData == null && rowType != null && rowType.isBlock()) {
-                    rawBlockData = BlockUtils.createBlockData(rowType);
+                if (rawBlockData == null) {
+                    rawBlockData = BlockUtils.createBlockData(rowTypeRaw);
+                }
+                if (rowType == Material.NOTE_BLOCK) {
+                    normalizeRollbackBlockData(blockData);
+                    normalizeRollbackBlockData(rawBlockData);
                 }
 
                 String rowUser = row.playerName();
@@ -278,6 +294,10 @@ public class RollbackProcessor {
                 if (rowType != null) {
                     if (inventoryRollback && ((rollbackType == 0 && rolledBackInventory == 0) || (rollbackType == 1 && rolledBackInventory == 1))) {
                         Material inventoryItem = ItemUtils.itemFilter(rowType, (row.table() == 0));
+                        if (inventoryItem == null) {
+                            continue;
+                        }
+
                         int rowUserId = row.userId();
                         String rowUser = ConfigHandler.playerIdCacheReversed.get(rowUserId);
                         if (rowUser == null) {
@@ -431,7 +451,7 @@ public class RollbackProcessor {
                     int chunkZ = playerLocation.getBlockZ() >> 4;
 
                     if (bukkitRollbackWorld.getName().equals(playerWorld) && chunkX == finalChunkX && chunkZ == finalChunkZ) {
-                        Teleport.performSafeTeleport(player, playerLocation, false);
+                        Scheduler.runTask(CoreProtect.getInstance(), () -> Teleport.performSafeTeleport(player, playerLocation, false), player);
                     }
                 }
             }

@@ -104,14 +104,9 @@ public class ChestTransactionLookup {
                         rbFormat = Color.STRIKETHROUGH;
                     }
 
-                    Material resultMaterial = MaterialUtils.getType(resultType);
-                    if (resultMaterial == null) {
-                        resultMaterial = Material.AIR;
-                    }
-                    String target = resultMaterial.name().toLowerCase(Locale.ROOT);
-                    target = StringUtils.nameFilter(target, resultData);
-                    if (!target.isEmpty()) {
-                        target = "minecraft:" + target.toLowerCase(Locale.ROOT) + "";
+                    String target = MaterialUtils.getBlockDisplayName(resultType, resultData);
+                    if (target.length() > 0 && !target.contains(":")) {
+                        target = "minecraft:" + target.toLowerCase(Locale.ROOT);
                     }
 
                     // Hide "minecraft:" for now.

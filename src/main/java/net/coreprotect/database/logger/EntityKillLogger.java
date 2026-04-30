@@ -1,11 +1,10 @@
 package net.coreprotect.database.logger;
 
 import java.sql.PreparedStatement;
-import java.util.Locale;
 
 import org.bukkit.Bukkit;
-import org.bukkit.block.Block;
 import org.bukkit.Location;
+import org.bukkit.entity.EntityType;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
@@ -22,14 +21,25 @@ public class EntityKillLogger {
         throw new IllegalStateException("Database class");
     }
 
-    public static void log(PreparedStatement preparedStmt, PreparedStatement preparedStmt2, int batchCount, String user, Block block, String entityData, int type) {
+    public static void log(PreparedStatement preparedStmt, PreparedStatement preparedStmt2, int batchCount, String user, Location location, String entityData, int type) {
         try {
-            if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {
+            if (ConfigHandler.isBlacklisted(user)) {
                 return;
             }
 
-            Location initialLocation = new Location(block.getWorld(), block.getX(), block.getY(), block.getZ());
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, initialLocation);
+            EntityType checkType = net.coreprotect.utility.EntityUtils.getEntityType(type);
+            if (checkType == null) {
+                return;
+            }
+            // Ignore blacklist if the entity has a custom name
+            // data[4] contains custom name data
+            // CH: we don't have a data array though, so ignore ignoring that for now
+            if (ConfigHandler.isBlacklisted(user, checkType.getKey().toString())) {
+                return;
+            }
+
+            Location initialLocation = location.clone();
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, initialLocation, CoreProtectPreLogEvent.Action.ENTITY_KILL, 3, null, checkType, null);
             if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
             }

@@ -1,5 +1,6 @@
 package net.coreprotect.listener.player;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
@@ -70,6 +71,47 @@ public final class PlayerInteractListener extends Queue implements Listener {
     private final SignInspector signInspector = new SignInspector();
     private final ContainerInspector containerInspector = new ContainerInspector();
     private final InteractionInspector interactionInspector = new InteractionInspector();
+
+    private static boolean containsItem(ItemStack itemStack) {
+        return itemStack != null && itemStack.getType() != Material.AIR;
+    }
+
+    private static ItemStack getHandItem(Player player, EquipmentSlot hand) {
+        if (hand == EquipmentSlot.HAND) {
+            return player.getInventory().getItemInMainHand();
+        }
+        else if (hand == EquipmentSlot.OFF_HAND) {
+            return player.getInventory().getItemInOffHand();
+        }
+
+        return null;
+    }
+
+    private static boolean isLecternBook(ItemStack itemStack) {
+        if (!containsItem(itemStack)) {
+            return false;
+        }
+
+        Material type = itemStack.getType();
+        return type == Material.WRITABLE_BOOK || type == Material.WRITTEN_BOOK;
+    }
+
+    private static boolean containsLecternBook(ItemStack[] contents) {
+        return contents != null && contents.length > 0 && isLecternBook(contents[0]);
+    }
+
+    private static void logLecternBookPlacement(Player player, Block block, ItemStack[] oldContents) {
+        Location location = block.getLocation();
+        Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
+            BlockState blockState = location.getBlock().getState();
+            if (blockState.getType() == Material.LECTERN && blockState instanceof InventoryHolder) {
+                InventoryHolder inventoryHolder = (InventoryHolder) blockState;
+                if (containsLecternBook(inventoryHolder.getInventory().getContents())) {
+                    InventoryChangeListener.inventoryTransaction(player.getName(), location, oldContents);
+                }
+            }
+        }, location, 1);
+    }
 
     @EventHandler(priority = EventPriority.LOWEST)
     protected void onPlayerInspect(PlayerInteractEvent event) {
@@ -429,6 +471,20 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             }
                         }
                     }
+                    else if (type == Material.LECTERN && Config.getConfig(world).ITEM_TRANSACTIONS && event.useItemInHand() != Event.Result.DENY) {
+                        BlockState blockState = block.getState();
+                        if (blockState instanceof InventoryHolder) {
+                            InventoryHolder inventoryHolder = (InventoryHolder) blockState;
+                            ItemStack[] oldContents = ItemUtils.getContainerState(inventoryHolder.getInventory().getContents());
+                            ItemStack handItem = getHandItem(player, event.getHand());
+                            boolean oldContainsBook = containsLecternBook(oldContents);
+                            boolean handIsBook = isLecternBook(handItem);
+
+                            if (!oldContainsBook && handIsBook) {
+                                logLecternBookPlacement(player, block, oldContents);
+                            }
+                        }
+                    }
                     else if (BukkitAdapter.ADAPTER.isChiseledBookshelf(type)) {
                         BlockState blockState = block.getState();
                         if (blockState instanceof BlockInventoryHolder) {
@@ -595,9 +651,11 @@ public final class PlayerInteractListener extends Queue implements Listener {
             }
 
             if (event.useItemInHand() != Event.Result.DENY) {
-                List<Material> entityBlockTypes = Arrays.asList(Material.ARMOR_STAND, Material.END_CRYSTAL, Material.BOW, Material.CROSSBOW, Material.TRIDENT, Material.EXPERIENCE_BOTTLE, Material.SPLASH_POTION, Material.LINGERING_POTION, Material.ENDER_PEARL, Material.FIREWORK_ROCKET, Material.EGG, Material.SNOWBALL);
+                List<Material> entityBlockTypes = new ArrayList<>(Arrays.asList(Material.ARMOR_STAND, Material.END_CRYSTAL, Material.BOW, Material.CROSSBOW, Material.TRIDENT, Material.EXPERIENCE_BOTTLE, Material.SPLASH_POTION, Material.LINGERING_POTION, Material.ENDER_PEARL, Material.FIREWORK_ROCKET, Material.EGG, Material.SNOWBALL));
                 try {
                     entityBlockTypes.add(Material.valueOf("WIND_CHARGE"));
+                    entityBlockTypes.add(Material.valueOf("BLUE_EGG"));
+                    entityBlockTypes.add(Material.valueOf("BROWN_EGG"));
                 }
                 catch (Exception e) {
                     // not running MC 1.21+

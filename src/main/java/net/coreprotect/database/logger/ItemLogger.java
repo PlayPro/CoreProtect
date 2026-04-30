@@ -42,7 +42,7 @@ public class ItemLogger {
 
     public static void log(PreparedStatement preparedStmt, int batchCount, Location location, int offset, String user) {
         try {
-            if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {
+            if (ConfigHandler.isBlacklisted(user)) {
                 return;
             }
 
@@ -121,7 +121,11 @@ public class ItemLogger {
         try {
             for (ItemStack item : items) {
                 if (item != null && item.getAmount() > 0 && !BlockUtils.isAir(item.getType())) {
-                    CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location);
+                    if (ConfigHandler.isFilterBlacklisted(user, item.getType().getKey().toString())){
+                        continue;
+                    }
+
+                    CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.ITEM_TRANSACTION, action, item.getType(), null, null);
                     if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                         CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
                     }

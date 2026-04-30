@@ -356,19 +356,4 @@ public class Database extends Queue {
         orderBy = "ORDER BY rowid";
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "world(rowid UInt64, id UInt32, world LowCardinality(String)) ENGINE = MergeTree " + orderBy);
     }
-
-    private static void identifyExistingTablesAndIndexes(Statement statement, String attachDatabase, List<String> tableData, List<String> indexData) throws SQLException {
-        String query = "SELECT type,name FROM " + attachDatabase + "sqlite_master WHERE type='table' OR type='index';";
-        ResultSet rs = statement.executeQuery(query);
-        while (rs.next()) {
-            String type = rs.getString("type");
-            if (type.equalsIgnoreCase("table")) {
-                tableData.add(rs.getString("name"));
-            }
-            else if (type.equalsIgnoreCase("index")) {
-                indexData.add(rs.getString("name"));
-            }
-        }
-        rs.close();
-    }
 }

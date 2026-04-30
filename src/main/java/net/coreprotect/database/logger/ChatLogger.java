@@ -21,7 +21,7 @@ public class ChatLogger {
 
     public static void log(PreparedStatement preparedStmt, int batchCount, long time, Location location, String user, String message, boolean cancelled) {
         try {
-            if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {
+            if (ConfigHandler.isBlacklisted(user)) {
                 return;
             }
             int x = location.getBlockX();

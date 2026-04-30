@@ -3,9 +3,11 @@ package net.coreprotect.bukkit;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import org.bukkit.Art;
 import org.bukkit.Color;
 import org.bukkit.DyeColor;
 import org.bukkit.Material;
@@ -22,6 +24,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Painting;
 import org.bukkit.event.Event;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.SignChangeEvent;
@@ -224,6 +227,21 @@ public class BukkitAdapter implements BukkitInterface {
     }
 
     @Override
+    public boolean hasBlockType(String key) {
+        return false;
+    }
+
+    @Override
+    public BlockData createBlockData(String key) {
+        return null;
+    }
+
+    @Override
+    public BlockData createBlockDataFromString(String blockData) {
+        return null;
+    }
+
+    @Override
     public boolean isInvisible(Material material) {
         return BlockUtils.isAir(material);
     }
@@ -367,6 +385,25 @@ public class BukkitAdapter implements BukkitInterface {
     @Override
     public Object getRegistryValue(String key, Object tClass) {
         return null;
+    }
+
+    @Override
+    public String getPaintingArtKey(Painting painting) {
+        try {
+            return painting.getArt().name();
+        }
+        catch (IncompatibleClassChangeError e) {
+            return painting.getArt().toString();
+        }
+    }
+
+    @Override
+    public Art getPaintingArt(String name) {
+        if (name == null || name.isBlank()) {
+            return null;
+        }
+
+        return Art.getByName(name.toUpperCase(Locale.ROOT));
     }
 
     @Override

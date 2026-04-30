@@ -7,6 +7,8 @@ import org.bukkit.Material;
 import org.bukkit.block.data.BlockData;
 
 import net.coreprotect.api.SessionLookup;
+import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.BlockTypeUtils;
 import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.StringUtils;
@@ -84,7 +86,12 @@ public class ParseResult {
             typeName = EntityUtils.getEntityType(type).name();
         }
         else {
-            typeName = MaterialUtils.getType(type).name().toLowerCase(Locale.ROOT);
+            Material material = MaterialUtils.getType(type);
+            if (material == null) {
+                return null;
+            }
+
+            typeName = material.name().toLowerCase(Locale.ROOT);
             typeName = StringUtils.nameFilter(typeName, this.getData());
         }
 
@@ -98,9 +105,16 @@ public class ParseResult {
 
         String blockData = parse[12];
         if (blockData == null || blockData.length() == 0) {
-            return getType().createBlockData();
+            Material type = getType();
+            if (type != null) {
+                return type.createBlockData();
+            }
+
+            return BlockUtils.createBlockData(Integer.parseInt(parse[5]));
         }
-        return Bukkit.getServer().createBlockData(blockData);
+
+        BlockData result = BlockTypeUtils.createBlockDataFromString(blockData);
+        return result != null ? result : Bukkit.getServer().createBlockData(blockData);
     }
 
     public int getX() {

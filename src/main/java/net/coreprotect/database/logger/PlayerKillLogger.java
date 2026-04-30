@@ -5,7 +5,7 @@ import java.util.Locale;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.block.BlockState;
+import org.bukkit.entity.EntityType;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
@@ -21,9 +21,9 @@ public class PlayerKillLogger {
         throw new IllegalStateException("Database class");
     }
 
-    public static void log(PreparedStatement preparedStmt, int batchCount, String user, BlockState block, String player) {
+    public static void log(PreparedStatement preparedStmt, int batchCount, String user, Location location, String player) {
         try {
-            if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {
+            if (ConfigHandler.isBlacklisted(user)) {
                 return;
             }
 
@@ -31,8 +31,8 @@ public class PlayerKillLogger {
                 UserStatement.loadId(preparedStmt.getConnection(), player, null);
             }
 
-            Location initialLocation = new Location(block.getWorld(), block.getX(), block.getY(), block.getZ());
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, initialLocation);
+            Location initialLocation = location.clone();
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, initialLocation, CoreProtectPreLogEvent.Action.PLAYER_KILL, 3, null, EntityType.PLAYER, null);
             if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
             }

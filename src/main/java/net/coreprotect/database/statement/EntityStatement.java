@@ -31,13 +31,14 @@ public class EntityStatement {
         return rowid;
     }
 
+    @Deprecated // ch
     public static List<Object> getData(Statement statement, BlockState block, String query) {
         List<Object> result = new ArrayList<>();
 
         try {
             ResultSet resultSet = statement.executeQuery(query);
             while (resultSet.next()) {
-                byte[] data = Bytes.fromBlobString(resultSet.getString("data"));
+                byte[] data = resultSet.getBytes("data");
                 ByteArrayInputStream bais = new ByteArrayInputStream(data);
                 BukkitObjectInputStream ins = new BukkitObjectInputStream(bais);
                 @SuppressWarnings("unchecked")
@@ -50,7 +51,7 @@ public class EntityStatement {
             resultSet.close();
         }
         catch (Exception e) { // only display exception on development branch
-            if (!ConfigHandler.EDITION_BRANCH.contains("-dev")) {
+            if (ConfigHandler.EDITION_BRANCH.contains("-dev")) {
                 e.printStackTrace();
             }
         }

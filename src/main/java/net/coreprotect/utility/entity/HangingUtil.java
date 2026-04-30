@@ -101,7 +101,11 @@ public class HangingUtil {
             if (faceSet != null && face != null) {
                 if (rowType.equals(Material.PAINTING)) {
                     String name = MaterialUtils.getArtName(rowData);
-                    Art painting = Art.getByName(name.toUpperCase(Locale.ROOT));
+                    Art painting = BukkitAdapter.ADAPTER.getPaintingArt(name);
+                    if (painting == null) {
+                        return;
+                    }
+
                     int height = painting.getBlockHeight();
                     int width = painting.getBlockWidth();
                     int paintingX = x;

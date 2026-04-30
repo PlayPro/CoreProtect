@@ -61,7 +61,7 @@ public class RollbackRestoreCommand {
         boolean hasBlock = false;
         boolean hasEntity = false;
         for (Object arg : argBlocks) {
-            if (arg instanceof Material) {
+            if (arg instanceof Material || arg instanceof String) {
                 hasBlock = true;
             }
             else if (arg instanceof EntityType) {
@@ -78,7 +78,7 @@ public class RollbackRestoreCommand {
 
         /* check for invalid block/entity combinations (exclude) */
         for (Object arg : argExclude.keySet()) {
-            if (arg instanceof Material) {
+            if (arg instanceof Material || arg instanceof String) {
                 hasBlock = true;
             }
             else if (arg instanceof EntityType) {

@@ -5,7 +5,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.Tag;
 
 public final class BlockGroup {
@@ -77,7 +79,8 @@ public final class BlockGroup {
         VERTICAL.addAll(VERTICAL_BOTTOM);
 
         /* Natural block group */
-        NATURAL_BLOCKS.addAll(Tag.BAMBOO_PLANTABLE_ON.getValues());
+        /* https://minecraft.fandom.com/wiki/Tag */
+        addBlockTag(NATURAL_BLOCKS, "bamboo_plantable_on", "supports_bamboo");
         NATURAL_BLOCKS.addAll(Tag.VALID_SPAWN.getValues());
         NATURAL_BLOCKS.addAll(Tag.SAND.getValues());
         NATURAL_BLOCKS.addAll(Tag.LOGS.getValues());
@@ -88,5 +91,15 @@ public final class BlockGroup {
         NATURAL_BLOCKS.addAll(Tag.ENDERMAN_HOLDABLE.getValues());
         NATURAL_BLOCKS.addAll(SOUL_BLOCKS);
         NATURAL_BLOCKS.addAll(VINES);
+    }
+
+    private static void addBlockTag(Set<Material> blockGroup, String... keys) {
+        for (String key : keys) {
+            Tag<Material> tag = Bukkit.getTag(Tag.REGISTRY_BLOCKS, NamespacedKey.minecraft(key), Material.class);
+            if (tag != null) {
+                blockGroup.addAll(tag.getValues());
+                return;
+            }
+        }
     }
 }

@@ -1,8 +1,8 @@
 package net.coreprotect.api.result;
 
-import net.coreprotect.utility.MaterialUtils;
-import net.coreprotect.utility.WorldUtils;
 import org.bukkit.Material;
+
+import net.coreprotect.utility.MaterialUtils;
 
 /**
  * Represents the result of a container action lookup with typed fields.
@@ -36,36 +36,12 @@ public class ContainerResult {
      * @param metadata   The item metadata
      * @param action     The action ID
      * @param rolledBack Whether the action has been rolled back
-     * @throws IllegalArgumentException if validation fails
      */
     public ContainerResult(long time, String username, String world, int x, int y, int z,
                            int type, int data, int amount, byte[] metadata, int action, int rolledBack) {
-        // Validation
-        if (time < 0) {
-            throw new IllegalArgumentException("Time cannot be negative");
-        }
-        if (username == null || username.trim().isEmpty()) {
-            throw new IllegalArgumentException("Username cannot be null or empty");
-        }
-        if (type < 0) {
-            throw new IllegalArgumentException("Type cannot be negative");
-        }
-        if (data < 0) {
-            throw new IllegalArgumentException("Data cannot be negative");
-        }
-        if (amount < 0) {
-            throw new IllegalArgumentException("Amount cannot be negative");
-        }
-        if (action < 0) {
-            throw new IllegalArgumentException("Action cannot be negative");
-        }
-        if (rolledBack < 0) {
-            throw new IllegalArgumentException("Rolled back cannot be negative");
-        }
-
         this.time = time;
-        this.username = username.trim();
-        this.world = world;
+        this.username = username != null ? username : "";
+        this.world = world != null ? world : "";
         this.x = x;
         this.y = y;
         this.z = z;
@@ -94,7 +70,8 @@ public class ContainerResult {
     public String getActionString() {
         if (action == 0) {
             return "remove";
-        } else if (action == 1) {
+        }
+        else if (action == 1) {
             return "add";
         }
         return "unknown";
@@ -139,11 +116,10 @@ public class ContainerResult {
     /**
      * Gets the material type of the item.
      *
-     * @return The Material, or Material.AIR if unknown
+     * @return The Material, or null if unknown
      */
     public Material getType() {
-        Material material = MaterialUtils.getType(type);
-        return material != null ? material : Material.AIR;
+        return MaterialUtils.getType(type);
     }
 
     /**

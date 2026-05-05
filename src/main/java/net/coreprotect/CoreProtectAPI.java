@@ -7,23 +7,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import net.coreprotect.api.result.ContainerResult;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Server;
-import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.EntityType;
-import org.bukkit.util.BoundingBox;
 import org.bukkit.entity.Player;
 
 import net.coreprotect.api.BlockAPI;
-import net.coreprotect.api.BoxAPI;
 import net.coreprotect.api.QueueLookup;
 import net.coreprotect.api.SessionLookup;
+import net.coreprotect.api.result.ContainerResult;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
@@ -45,7 +42,7 @@ public class CoreProtectAPI extends Queue {
     /**
      * Current version of the API
      */
-    private static final int API_VERSION = 12;
+    private static final int API_VERSION = 13;
 
     public static class ParseResult extends net.coreprotect.api.result.ParseResult {
 
@@ -122,30 +119,17 @@ public class CoreProtectAPI extends Queue {
     }
 
     /**
-     * Performs a lookup of container-related actions at the specified location.
-     *
-     * @param location The location to look up
-     * @param time     Time constraint in seconds (0 means no time constraint)
-     * @return List of results in a ContainerResult list format
+     * Performs a container lookup at the specified location.
+     * 
+     * @param location
+     *            The location to look up
+     * @param time
+     *            Time constraint in seconds
+     * @return List of results or null if API is disabled
      */
     public List<ContainerResult> containerLookup(Location location, int time) {
         if (isEnabled()) {
             return BlockAPI.performContainerLookup(location, time);
-        }
-        return null;
-    }
-
-    /**
-     * Performs a lookup of container-related actions within the specified bounding box area.
-     *
-     * @param world       The world to perform the lookup in
-     * @param boundingBox The bounding box defining the area to search
-     * @param time        Time constraint in seconds (0 means no time constraint)
-     * @return List of results in a ContainerResult list format, or null if API is disabled
-     */
-    public List<ContainerResult> containerLookup(World world, BoundingBox boundingBox, int time) {
-        if (isEnabled()) {
-            return BoxAPI.performAreaContainerLookup(world, boundingBox, time);
         }
         return null;
     }

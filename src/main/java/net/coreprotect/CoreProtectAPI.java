@@ -18,9 +18,11 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 
 import net.coreprotect.api.BlockAPI;
+import net.coreprotect.api.MessageAPI;
 import net.coreprotect.api.QueueLookup;
 import net.coreprotect.api.SessionLookup;
 import net.coreprotect.api.result.ContainerResult;
+import net.coreprotect.api.result.MessageResult;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
@@ -163,6 +165,78 @@ public class CoreProtectAPI extends Queue {
      */
     public List<String[]> sessionLookup(String user, int time) {
         return SessionLookup.performLookup(user, time);
+    }
+
+    /**
+     * Performs a chat message lookup for the specified user.
+     *
+     * @param user
+     *            The user to look up, or #global/null for all users
+     * @param time
+     *            Time constraint in seconds
+     * @return List of results or null if API is disabled
+     */
+    public List<MessageResult> chatLookup(String user, int time) {
+        if (isEnabled()) {
+            return MessageAPI.performChatLookup(user, time);
+        }
+        return null;
+    }
+
+    /**
+     * Performs a chat message lookup around the specified location.
+     *
+     * @param user
+     *            The user to look up, or #global/null for all users
+     * @param time
+     *            Time constraint in seconds
+     * @param radius
+     *            Radius to search in the X/Z plane; 0 searches the exact location
+     * @param radiusLocation
+     *            Center location for the radius search
+     * @return List of results or null if API is disabled
+     */
+    public List<MessageResult> chatLookup(String user, int time, int radius, Location radiusLocation) {
+        if (isEnabled()) {
+            return MessageAPI.performChatLookup(user, time, radius, radiusLocation);
+        }
+        return null;
+    }
+
+    /**
+     * Performs a command lookup for the specified user.
+     *
+     * @param user
+     *            The user to look up, or #global/null for all users
+     * @param time
+     *            Time constraint in seconds
+     * @return List of results or null if API is disabled
+     */
+    public List<MessageResult> commandLookup(String user, int time) {
+        if (isEnabled()) {
+            return MessageAPI.performCommandLookup(user, time);
+        }
+        return null;
+    }
+
+    /**
+     * Performs a command lookup around the specified location.
+     *
+     * @param user
+     *            The user to look up, or #global/null for all users
+     * @param time
+     *            Time constraint in seconds
+     * @param radius
+     *            Radius to search in the X/Z plane; 0 searches the exact location
+     * @param radiusLocation
+     *            Center location for the radius search
+     * @return List of results or null if API is disabled
+     */
+    public List<MessageResult> commandLookup(String user, int time, int radius, Location radiusLocation) {
+        if (isEnabled()) {
+            return MessageAPI.performCommandLookup(user, time, radius, radiusLocation);
+        }
+        return null;
     }
 
     /**

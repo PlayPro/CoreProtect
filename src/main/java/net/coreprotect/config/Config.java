@@ -106,7 +106,7 @@ public class Config extends Language {
         DEFAULT_VALUES.put("mysql-username", "default");
         DEFAULT_VALUES.put("mysql-password", "");
         DEFAULT_VALUES.put("clickhouse-partitioning", "toStartOfInterval(parseDateTimeBestEffort(toString(time), 0, 'UTC'), toIntervalQuarter(2))");
-        DEFAULT_VALUES.put("clickhouse-use-select-final", "true");
+        DEFAULT_VALUES.put("clickhouse-select-use-final", "false");
         DEFAULT_VALUES.put("database-lock", "false");
         DEFAULT_VALUES.put("language", "en");
         DEFAULT_VALUES.put("check-updates", "true");
@@ -219,7 +219,7 @@ public class Config extends Language {
         this.MYSQL_USERNAME = this.getString("mysql-username");
         this.MYSQL_PASSWORD = this.getString("mysql-password");
         this.PARTITIONING = this.getString("clickhouse-partitioning");
-        this.SELECT_USE_FINAL = this.getBoolean("clickhouse-use-select-final", true);
+        this.SELECT_USE_FINAL = this.getBoolean("clickhouse-select-use-final", false);
         this.LANGUAGE = this.getString("language");
         this.CHECK_UPDATES = this.getBoolean("check-updates");
         this.API_ENABLED = this.getBoolean("api-enabled");

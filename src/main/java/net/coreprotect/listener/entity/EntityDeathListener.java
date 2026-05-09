@@ -54,6 +54,7 @@ import org.bukkit.entity.Wolf;
 import org.bukkit.entity.Zoglin;
 import org.bukkit.entity.Zombie;
 import org.bukkit.entity.ZombieVillager;
+import org.bukkit.entity.memory.MemoryKey;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -73,10 +74,21 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 
 public final class EntityDeathListener extends Queue implements Listener {
+
+    private static final int ENTITY_KILL_DUPLICATE_THRESHOLD = 256;
+    private static final int ENTITY_KILL_DUPLICATE_WINDOW_SECONDS = 900;
+    private static final MemoryKey<?>[] VILLAGER_MEMORY_KEYS = {
+        MemoryKey.JOB_SITE,
+        MemoryKey.POTENTIAL_JOB_SITE,
+        MemoryKey.HOME,
+        MemoryKey.MEETING_POINT,
+        MemoryKey.LAST_WORKED_AT_POI
+    };
 
     public static void parseEntityKills(String message) {
         message = message.trim().toLowerCase(Locale.ROOT);
@@ -258,6 +270,10 @@ public final class EntityDeathListener extends Queue implements Listener {
             e = "#lightning";
         }
 
+        if (Config.getConfig(entity.getWorld()).DUPLICATE_SUPPRESSION && shouldSuppressEntityKill(e, entity, cause)) {
+            return;
+        }
+
         if (e.length() > 0) {
             List<Object> data = new ArrayList<>();
             List<Object> age = new ArrayList<>();
@@ -418,6 +434,7 @@ public final class EntityDeathListener extends Queue implements Listener {
                     info.add(recipes);
                     info.add(villager.getVillagerLevel());
                     info.add(villager.getVillagerExperience());
+                    info.add(serializeVillagerMemories(villager));
                 }
                 else {
                     info.add(null);
@@ -550,6 +567,54 @@ public final class EntityDeathListener extends Queue implements Listener {
                 Queue.queuePlayerKill(e, entity.getLocation(), entity.getName());
             }
         }
+    }
+
+    private static List<Object> serializeVillagerMemories(Villager villager) {
+        List<Object> memories = new ArrayList<>();
+        for (MemoryKey<?> key : VILLAGER_MEMORY_KEYS) {
+            addVillagerMemory(villager, memories, key);
+        }
+
+        return memories;
+    }
+
+    private static <T> void addVillagerMemory(Villager villager, List<Object> memories, MemoryKey<T> key) {
+        T value = villager.getMemory(key);
+        if (value == null) {
+            return;
+        }
+
+        List<Object> memory = new ArrayList<>();
+        memory.add(key.getKey().toString());
+        if (value instanceof Location) {
+            memory.add(serializeMemoryLocation((Location) value));
+        }
+        else {
+            memory.add(value);
+        }
+        memories.add(memory);
+    }
+
+    private static List<Object> serializeMemoryLocation(Location location) {
+        List<Object> data = new ArrayList<>();
+        World world = location.getWorld();
+        data.add(world == null ? "" : world.getName());
+        data.add(location.getBlockX());
+        data.add(location.getBlockY());
+        data.add(location.getBlockZ());
+        return data;
+    }
+
+    private static boolean shouldSuppressEntityKill(String user, LivingEntity entity, DamageCause cause) {
+        if (user == null || !user.startsWith("#") || "#command".equals(user)) {
+            return false;
+        }
+
+        Location location = entity.getLocation();
+        String causeName = cause == null ? "UNKNOWN" : cause.name();
+        String customName = entity.getCustomName();
+        String signature = location.getWorld().getUID().toString() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ() + "." + user + "." + entity.getType().name() + "." + causeName + "." + (customName == null ? "-" : customName);
+        return CacheHandler.shouldSuppressRepeat(CacheHandler.entityKillDuplicateCache, signature, ENTITY_KILL_DUPLICATE_THRESHOLD, ENTITY_KILL_DUPLICATE_WINDOW_SECONDS);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

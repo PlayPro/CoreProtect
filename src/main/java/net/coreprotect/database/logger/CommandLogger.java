@@ -22,14 +22,14 @@ public class CommandLogger {
 
     public static void log(PreparedStatement preparedStmt, int batchCount, long time, Location location, String user, String message) {
         try {
-            if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {
+            if (ConfigHandler.isBlacklisted(user)) {
                 return;
             }
-            if (ConfigHandler.blacklist.get(((message + " ").split(" "))[0].toLowerCase(Locale.ROOT)) != null) {
+            if (ConfigHandler.isBlacklisted(((message + " ").split(" "))[0])) {
                 return;
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location);
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.PLAYER_COMMAND, -1, null, null, message);
             if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
             }

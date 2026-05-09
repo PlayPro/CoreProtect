@@ -124,6 +124,10 @@ public class RollbackComplete {
                         item = (!item ? !(((Material) restrictTarget).isBlock()) : item);
                         material = true;
                     }
+                    else if (restrictTarget instanceof String) {
+                        targetName = ((String) restrictTarget).toLowerCase(Locale.ROOT);
+                        material = true;
+                    }
                     else if (restrictTarget instanceof EntityType) {
                         targetName = ((EntityType) restrictTarget).name().toLowerCase(Locale.ROOT);
                         entity = true;
@@ -180,6 +184,10 @@ public class RollbackComplete {
                     if (excludeTarget instanceof Material) {
                         targetName = ((Material) excludeTarget).name().toLowerCase(Locale.ROOT);
                         item = (!item ? !(((Material) excludeTarget).isBlock()) : item);
+                        material = true;
+                    }
+                    else if (excludeTarget instanceof String) {
+                        targetName = ((String) excludeTarget).toLowerCase(Locale.ROOT);
                         material = true;
                     }
                     else if (excludeTarget instanceof EntityType) {

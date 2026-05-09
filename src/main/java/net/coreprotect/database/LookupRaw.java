@@ -314,6 +314,15 @@ public class LookupRaw extends Queue {
                             includeListEntity.append(",").append(EntityUtils.getEntityId(targetName, false));
                         }
                     }
+                    else if (restrictTarget instanceof String) {
+                        int blockId = MaterialUtils.getBlockId((String) restrictTarget, false);
+                        if (includeListMaterial.length() == 0) {
+                            includeListMaterial = includeListMaterial.append(blockId);
+                        }
+                        else {
+                            includeListMaterial.append(",").append(blockId);
+                        }
+                    }
                 }
 
                 includeBlock = includeListMaterial.toString();
@@ -349,6 +358,17 @@ public class LookupRaw extends Queue {
                         }
                         else {
                             excludeListEntity.append(",").append(EntityUtils.getEntityId(targetName, false));
+                        }
+                    }
+                    else if (restrictTarget instanceof String) {
+                        int blockId = MaterialUtils.getBlockId((String) restrictTarget, false);
+                        if (blockId > -1) {
+                            if (excludeListMaterial.length() == 0) {
+                                excludeListMaterial = excludeListMaterial.append(blockId);
+                            }
+                            else {
+                                excludeListMaterial.append(",").append(blockId);
+                            }
                         }
                     }
                 }
@@ -586,17 +606,17 @@ public class LookupRaw extends Queue {
             String unionSelect = "SELECT * FROM (";
             if (Config.getGlobal().MYSQL) {
                 if (queryTable.equals("block")) {
-                    if (includeBlock.length() > 0 || includeEntity.length() > 0) {
-                        index = "USE INDEX(type) IGNORE INDEX(user,wid) ";
-                    }
-                    if (users.length() > 0) {
-                        index = "USE INDEX(user) IGNORE INDEX(type,wid) ";
-                    }
                     if (radius != null && (radius[2] - radius[1]) <= 50 && (radius[6] - radius[5]) <= 50) {
-                        index = "USE INDEX(wid) IGNORE INDEX(type,user) ";
+                        index = "USE INDEX(wid) ";
                     }
-                    if ((restrictWorld && (users.length() > 0 || includeBlock.length() > 0 || includeEntity.length() > 0))) {
-                        index = "IGNORE INDEX(PRIMARY) ";
+                    else if (users.length() > 0) {
+                        index = "USE INDEX(user) ";
+                    }
+                    else if (includeBlock.length() > 0 || includeEntity.length() > 0) {
+                        index = "USE INDEX(type) ";
+                    }
+                    else if (restrictWorld) {
+                        index = "USE INDEX(wid) ";
                     }
                 }
 

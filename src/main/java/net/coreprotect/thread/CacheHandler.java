@@ -19,14 +19,52 @@ public class CacheHandler implements Runnable {
     public static Map<String, Object[]> entityCache = Collections.synchronizedMap(new HashMap<>());
     public static ConcurrentHashMap<String, Object[]> pistonCache = new ConcurrentHashMap<>(16, 0.75f, 2);
     public static ConcurrentHashMap<String, Object[]> spreadCache = new ConcurrentHashMap<>(16, 0.75f, 2);
-    public static ConcurrentHashMap<Location, Object[]> redstoneCache = new ConcurrentHashMap<>(16, 0.75f, 2);
+    public static ConcurrentHashMap<String, Object[]> containerDuplicateCache = new ConcurrentHashMap<>(16, 0.75f, 2);
+    public static ConcurrentHashMap<String, Object[]> flowDuplicateCache = new ConcurrentHashMap<>(16, 0.75f, 2);
+    public static ConcurrentHashMap<String, Object[]> bonemealDuplicateCache = new ConcurrentHashMap<>(16, 0.75f, 2);
+    public static ConcurrentHashMap<String, Object[]> entityKillDuplicateCache = new ConcurrentHashMap<>(16, 0.75f, 2);
+    public static ConcurrentHashMap<String, Object[]> redstoneCache = new ConcurrentHashMap<>(16, 0.75f, 2);
+    public static ConcurrentHashMap<String, Object[]> fallingBlockSpawnCache = new ConcurrentHashMap<>(16, 0.75f, 2);
+
+    public static String locationKey(Location location) {
+        if (location == null || location.getWorld() == null) {
+            return "";
+        }
+        return location.getWorld().getUID() + ":" + location.getBlockX() + ":" + location.getBlockY() + ":" + location.getBlockZ();
+    }
+
+    public static boolean shouldSuppressRepeat(ConcurrentHashMap<String, Object[]> cache, String cacheId, int threshold, int resetWindowSeconds) {
+        if (cache == null || cacheId == null || cacheId.isEmpty() || threshold <= 0) {
+            return false;
+        }
+
+        final int timestamp = (int) (System.currentTimeMillis() / 1000L);
+        Object[] result = cache.compute(cacheId, (key, value) -> {
+            int count = 1;
+            if (value != null) {
+                int previousTime = (int) value[0];
+                int previousCount = (int) value[1];
+                if (timestamp - previousTime <= resetWindowSeconds) {
+                    count = previousCount + 1;
+                }
+            }
+
+            if (count > (threshold + 1)) {
+                count = threshold + 1;
+            }
+
+            return new Object[] { timestamp, count };
+        });
+
+        return ((int) result[1]) > threshold;
+    }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override
     public void run() {
         while (ConfigHandler.serverRunning) {
             try {
-                for (int id = 0; id < 9; id++) {
+                for (int id = 0; id < 14; id++) {
                     Thread.sleep(1000);
                     int scanTime = 30;
                     Map cache = CacheHandler.lookupCache;
@@ -63,6 +101,26 @@ public class CacheHandler implements Runnable {
                             // Clean up dispenserNoChange cache
                             cleanupDispenserCache();
                             continue;
+                        case 9:
+                            cache = CacheHandler.containerDuplicateCache;
+                            scanTime = 1800; // 30 minutes
+                            break;
+                        case 10:
+                            cache = CacheHandler.flowDuplicateCache;
+                            scanTime = 900; // 15 minutes
+                            break;
+                        case 11:
+                            cache = CacheHandler.bonemealDuplicateCache;
+                            scanTime = 900; // 15 minutes
+                            break;
+                        case 12:
+                            cache = CacheHandler.entityKillDuplicateCache;
+                            scanTime = 900; // 15 minutes
+                            break;
+                        case 13:
+                            cache = CacheHandler.fallingBlockSpawnCache;
+                            scanTime = 30; // 30 seconds
+                            break;
                     }
 
                     int timestamp = (int) (System.currentTimeMillis() / 1000L) - scanTime;

@@ -29,10 +29,10 @@ public class Scheduler {
             else if (regionData instanceof Entity) {
                 Entity entity = (Entity) regionData;
                 if (delay == 0) {
-                    entity.getScheduler().run(plugin, value -> task.run(), task);
+                    entity.getScheduler().run(plugin, value -> task.run(), null);
                 }
                 else {
-                    entity.getScheduler().runDelayed(plugin, value -> task.run(), task, delay);
+                    entity.getScheduler().runDelayed(plugin, value -> task.run(), null, delay);
                 }
             }
             else {
@@ -62,7 +62,7 @@ public class Scheduler {
             }
             else if (regionData instanceof Entity) {
                 Entity entity = (Entity) regionData;
-                return entity.getScheduler().runAtFixedRate(plugin, value -> task.run(), task, delay, period);
+                return entity.getScheduler().runAtFixedRate(plugin, value -> task.run(), null, delay, period);
             }
             else {
                 return plugin.getServer().getGlobalRegionScheduler().runAtFixedRate(plugin, value -> task.run(), delay, period);

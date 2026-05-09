@@ -16,6 +16,8 @@ import net.coreprotect.listener.block.BlockPistonListener;
 import net.coreprotect.listener.block.BlockPlaceListener;
 import net.coreprotect.listener.block.BlockSpreadListener;
 import net.coreprotect.listener.block.CampfireStartListener;
+import net.coreprotect.listener.block.TNTPrimeListener;
+import net.coreprotect.listener.block.TNTPrimeUtil;
 import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
 import net.coreprotect.listener.channel.PluginChannelListener;
 import net.coreprotect.listener.entity.CreatureSpawnListener;
@@ -27,6 +29,7 @@ import net.coreprotect.listener.entity.EntityDeathListener;
 import net.coreprotect.listener.entity.EntityExplodeListener;
 import net.coreprotect.listener.entity.EntityInteractListener;
 import net.coreprotect.listener.entity.EntityPickupItemListener;
+import net.coreprotect.listener.entity.EntitySpawnListener;
 import net.coreprotect.listener.entity.HangingBreakByEntityListener;
 import net.coreprotect.listener.entity.HangingBreakListener;
 import net.coreprotect.listener.entity.HangingPlaceListener;
@@ -56,6 +59,8 @@ import net.coreprotect.listener.world.PortalCreateListener;
 import net.coreprotect.listener.world.StructureGrowListener;
 import net.coreprotect.paper.listener.BlockPreDispenseListener;
 import net.coreprotect.paper.listener.CopperGolemChestListener;
+import net.coreprotect.paper.listener.FlowerPotManipulateListener;
+import net.coreprotect.paper.listener.LegacyTNTPrimeListener;
 import net.coreprotect.paper.listener.PaperChatListener;
 
 public final class ListenerHandler {
@@ -101,6 +106,21 @@ public final class ListenerHandler {
         catch (Exception e) {
             CampfireStartListener.useCampfireStartEvent = false;
         }
+        try {
+            Class.forName("org.bukkit.event.block.TNTPrimeEvent"); // Bukkit 1.20+
+            pluginManager.registerEvents(new TNTPrimeListener(), plugin);
+            TNTPrimeUtil.useTNTPrimeEvent = true;
+        }
+        catch (Exception e) {
+            try {
+                Class.forName("com.destroystokyo.paper.event.block.TNTPrimeEvent"); // Paper 1.16+
+                pluginManager.registerEvents(new LegacyTNTPrimeListener(), plugin);
+                TNTPrimeUtil.useTNTPrimeEvent = true;
+            }
+            catch (Exception ignored) {
+                // Ignore registration failures to remain compatible with older servers.
+            }
+        }
 
         // Entity Listeners
         pluginManager.registerEvents(new CreatureSpawnListener(), plugin);
@@ -112,6 +132,7 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new EntityExplodeListener(), plugin);
         pluginManager.registerEvents(new EntityInteractListener(), plugin);
         pluginManager.registerEvents(new EntityPickupItemListener(), plugin);
+        pluginManager.registerEvents(new EntitySpawnListener(), plugin);
         pluginManager.registerEvents(new HangingPlaceListener(), plugin);
         pluginManager.registerEvents(new HangingBreakListener(), plugin);
         pluginManager.registerEvents(new HangingBreakByEntityListener(), plugin);
@@ -123,6 +144,13 @@ public final class ListenerHandler {
         }
         catch (Exception e) {
             pluginManager.registerEvents(new PlayerChatListener(), plugin);
+        }
+        try {
+            Class.forName("io.papermc.paper.event.player.PlayerFlowerPotManipulateEvent");
+            pluginManager.registerEvents(new FlowerPotManipulateListener(), plugin);
+        }
+        catch (Exception e) {
+            // Ignore registration failures to remain compatible with older servers.
         }
 
         // Player Listeners

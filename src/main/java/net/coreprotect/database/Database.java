@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.TreeMap;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -326,6 +327,7 @@ public class Database extends Queue {
             if (connection != null) {
                 Statement statement = connection.createStatement();
                 createMySQLTableStructures(prefix, statement);
+                createMySQLIndexes(prefix, statement, purge);
                 if (!purge && forceConnection == null) {
                     initializeTables(prefix, statement);
                 }
@@ -411,6 +413,103 @@ public class Database extends Queue {
         // World
         index = ", INDEX(id)";
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "world(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,world varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+    }
+
+    private static void createMySQLIndexes(String prefix, Statement statement, boolean purge) {
+        try {
+            ensureMySQLIndex(statement, prefix + "block", "wid", "x", "z", "time");
+            ensureMySQLIndex(statement, prefix + "block", "user", "time");
+            ensureMySQLIndex(statement, prefix + "block", "type", "time");
+            ensureMySQLIndex(statement, prefix + "container", "wid", "x", "z", "time");
+            ensureMySQLIndex(statement, prefix + "container", "user", "time");
+            ensureMySQLIndex(statement, prefix + "container", "type", "time");
+            ensureMySQLIndex(statement, prefix + "item", "wid", "x", "z", "time");
+            ensureMySQLIndex(statement, prefix + "item", "user", "time");
+            ensureMySQLIndex(statement, prefix + "item", "type", "time");
+        }
+        catch (Exception e) {
+            Chat.console(Phrase.build(Phrase.DATABASE_INDEX_ERROR));
+            if (purge) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private static void ensureMySQLIndex(Statement statement, String tableName, String... columns) throws SQLException {
+        if (hasMySQLIndex(statement, tableName, columns)) {
+            return;
+        }
+
+        String indexName = createMySQLIndexName(tableName, columns);
+        String indexColumns = String.join(",", columns);
+        statement.executeUpdate("CREATE INDEX " + indexName + " ON " + tableName + "(" + indexColumns + ")");
+    }
+
+    private static boolean hasMySQLIndex(Statement statement, String tableName, String... columns) {
+        Map<String, TreeMap<Integer, String>> indexData = new HashMap<>();
+
+        try (ResultSet resultSet = statement.executeQuery("SHOW INDEX FROM " + tableName)) {
+            while (resultSet.next()) {
+                String keyName = resultSet.getString("Key_name");
+                int sequence = resultSet.getInt("Seq_in_index");
+                String columnName = resultSet.getString("Column_name");
+                if (keyName == null || columnName == null) {
+                    continue;
+                }
+
+                indexData.computeIfAbsent(keyName, key -> new TreeMap<>()).put(sequence, columnName.toLowerCase(Locale.ROOT));
+            }
+        }
+        catch (Exception e) {
+            return false;
+        }
+
+        List<String> expected = new ArrayList<>(columns.length);
+        for (String column : columns) {
+            expected.add(column.toLowerCase(Locale.ROOT));
+        }
+
+        for (TreeMap<Integer, String> indexColumns : indexData.values()) {
+            if (indexColumns.size() < expected.size()) {
+                continue;
+            }
+
+            boolean matchesPrefix = true;
+            int position = 0;
+            for (String column : indexColumns.values()) {
+                if (!column.equals(expected.get(position))) {
+                    matchesPrefix = false;
+                    break;
+                }
+                position++;
+                if (position == expected.size()) {
+                    break;
+                }
+            }
+
+            if (matchesPrefix && position == expected.size()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static String createMySQLIndexName(String tableName, String... columns) {
+        String normalizedTable = tableName.replaceAll("[^A-Za-z0-9_]", "_");
+        String joinedColumns = String.join("_", columns);
+        String candidate = normalizedTable + "_" + joinedColumns + "_idx";
+        if (candidate.length() <= 64) {
+            return candidate;
+        }
+
+        String hash = Integer.toHexString(candidate.hashCode());
+        int maxPrefixLength = 64 - (hash.length() + 1);
+        if (maxPrefixLength < 1) {
+            maxPrefixLength = 1;
+        }
+
+        return candidate.substring(0, maxPrefixLength) + "_" + hash;
     }
 
     private static void createSQLiteTables(String prefix, boolean forcePrefix, Connection forceConnection, boolean purge) {

@@ -112,12 +112,10 @@ public class BlockLookup {
                     target = EntityUtils.getEntityType(resultType).name();
                 }
                 else {
-                    Material resultMaterial = MaterialUtils.getType(resultType);
-                    if (resultMaterial == null) {
-                        resultMaterial = Material.AIR;
+                    target = MaterialUtils.getBlockDisplayName(resultType, resultData);
+                    if (target.length() > 0 && !target.contains(":")) {
+                        target = "minecraft:" + target.toLowerCase(Locale.ROOT);
                     }
-                    target = StringUtils.nameFilter(resultMaterial.name().toLowerCase(Locale.ROOT), resultData);
-                    target = "minecraft:" + target.toLowerCase(Locale.ROOT);
                 }
                 if (target.length() > 0) {
                     target = "" + target + "";

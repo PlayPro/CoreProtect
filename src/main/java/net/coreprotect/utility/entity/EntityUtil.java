@@ -2,12 +2,16 @@ package net.coreprotect.utility.entity;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.bukkit.Bukkit;
 import org.bukkit.DyeColor;
 import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.World;
 import org.bukkit.attribute.Attributable;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
@@ -52,6 +56,7 @@ import org.bukkit.entity.Wolf;
 import org.bukkit.entity.Zoglin;
 import org.bukkit.entity.Zombie;
 import org.bukkit.entity.ZombieVillager;
+import org.bukkit.entity.memory.MemoryKey;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -74,12 +79,17 @@ public class EntityUtil {
         if (type == null) {
             return;
         }
+        final Location blockLocation = block.getLocation();
+        if (blockLocation.getWorld() == null) {
+            return;
+        }
+
         Scheduler.runTask(CoreProtect.getInstance(), () -> {
             try {
-                Location location = block.getLocation();
+                Location location = blockLocation.clone();
                 location.setX(location.getX() + 0.50);
                 location.setZ(location.getZ() + 0.50);
-                Entity entity = block.getLocation().getWorld().spawnEntity(location, type);
+                Entity entity = blockLocation.getWorld().spawnEntity(location, type);
 
                 if (list.isEmpty()) {
                     return;
@@ -404,7 +414,7 @@ public class EntityUtil {
                                 abstractVillager.setRecipes(merchantRecipes);
                             }
                         }
-                        else {
+                        else if (abstractVillager instanceof Villager) {
                             Villager villager = (Villager) abstractVillager;
 
                             if (count == 3) {
@@ -414,6 +424,9 @@ public class EntityUtil {
                             else if (count == 4) {
                                 int set = (int) value;
                                 villager.setVillagerExperience(set);
+                            }
+                            else if (count == 5 && value instanceof List<?>) {
+                                restoreVillagerMemories(villager, (List<?>) value);
                             }
                         }
                     }
@@ -599,7 +612,184 @@ public class EntityUtil {
             catch (Exception e) {
                 e.printStackTrace();
             }
-        }, block.getLocation());
+        }, blockLocation);
+    }
+
+    private static void restoreVillagerMemories(Villager villager, List<?> memories) {
+        for (Object memoryObject : memories) {
+            if (!(memoryObject instanceof List<?>)) {
+                continue;
+            }
+
+            List<?> memory = (List<?>) memoryObject;
+            if (memory.size() < 2 || !(memory.get(0) instanceof String)) {
+                continue;
+            }
+
+            MemoryKey<?> memoryKey = getMemoryKey((String) memory.get(0));
+            if (memoryKey == null) {
+                continue;
+            }
+
+            Object value = deserializeMemoryValue(memoryKey, memory.get(1));
+            if (value == null) {
+                continue;
+            }
+
+            boolean invalidJobSite = isJobSiteMemory(memoryKey) && value instanceof Location && !isValidJobSiteMemory(villager, memoryKey, (Location) value);
+            if (invalidJobSite) {
+                setVillagerMemory(villager, memoryKey, null);
+                continue;
+            }
+
+            setVillagerMemory(villager, memoryKey, value);
+        }
+    }
+
+    private static MemoryKey<?> getMemoryKey(String value) {
+        try {
+            NamespacedKey key = NamespacedKey.fromString(value);
+            return key == null ? null : MemoryKey.getByKey(key);
+        }
+        catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static Object deserializeMemoryValue(MemoryKey<?> memoryKey, Object value) {
+        Class<?> memoryClass = memoryKey.getMemoryClass();
+        if (memoryClass == Location.class) {
+            return deserializeMemoryLocation(value);
+        }
+        else if (memoryClass == Long.class && value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        else if (memoryClass == Integer.class && value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        else if (memoryClass.isInstance(value)) {
+            return value;
+        }
+
+        return null;
+    }
+
+    private static Location deserializeMemoryLocation(Object value) {
+        if (!(value instanceof List<?>)) {
+            return null;
+        }
+
+        List<?> data = (List<?>) value;
+        boolean validLocation = data.size() >= 4 && data.get(0) instanceof String && data.get(1) instanceof Number && data.get(2) instanceof Number && data.get(3) instanceof Number;
+        if (!validLocation) {
+            return null;
+        }
+
+        World world = Bukkit.getServer().getWorld((String) data.get(0));
+        if (world == null) {
+            return null;
+        }
+
+        int x = ((Number) data.get(1)).intValue();
+        int y = ((Number) data.get(2)).intValue();
+        int z = ((Number) data.get(3)).intValue();
+        return new Location(world, x, y, z);
+    }
+
+    private static boolean isJobSiteMemory(MemoryKey<?> memoryKey) {
+        return memoryKey == MemoryKey.JOB_SITE || memoryKey == MemoryKey.POTENTIAL_JOB_SITE;
+    }
+
+    private static boolean isValidJobSiteMemory(Villager villager, MemoryKey<?> memoryKey, Location location) {
+        World world = location.getWorld();
+        if (world == null) {
+            return false;
+        }
+
+        Material blockType = location.getBlock().getType();
+        Material workstation = getWorkstation(villager.getProfession());
+        if (workstation != null) {
+            return isMatchingWorkstation(blockType, workstation);
+        }
+
+        return memoryKey == MemoryKey.POTENTIAL_JOB_SITE && isVillagerWorkstation(blockType);
+    }
+
+    private static boolean isMatchingWorkstation(Material blockType, Material workstation) {
+        return workstation == Material.CAULDRON ? isCauldron(blockType) : blockType == workstation;
+    }
+
+    private static boolean isVillagerWorkstation(Material blockType) {
+        return blockType == Material.BLAST_FURNACE || blockType == Material.SMOKER || blockType == Material.CARTOGRAPHY_TABLE || blockType == Material.BREWING_STAND || blockType == Material.COMPOSTER || blockType == Material.BARREL ||
+            blockType == Material.FLETCHING_TABLE || isCauldron(blockType) || blockType == Material.LECTERN || blockType == Material.STONECUTTER || blockType == Material.LOOM || blockType == Material.SMITHING_TABLE ||
+            blockType == Material.GRINDSTONE;
+    }
+
+    private static boolean isCauldron(Material blockType) {
+        return blockType == Material.CAULDRON || blockType.name().endsWith("_CAULDRON");
+    }
+
+    private static Material getWorkstation(Profession profession) {
+        if (profession == null) {
+            return null;
+        }
+
+        Object key = BukkitAdapter.ADAPTER.getRegistryKey(profession);
+        String professionName = key == null ? "" : key.toString().toLowerCase(Locale.ROOT);
+        return getWorkstation(professionName);
+    }
+
+    private static Material getWorkstation(String professionName) {
+        if (professionName.startsWith("minecraft:")) {
+            professionName = professionName.substring("minecraft:".length());
+        }
+
+        if (professionName.equals("armorer")) {
+            return Material.BLAST_FURNACE;
+        }
+        else if (professionName.equals("butcher")) {
+            return Material.SMOKER;
+        }
+        else if (professionName.equals("cartographer")) {
+            return Material.CARTOGRAPHY_TABLE;
+        }
+        else if (professionName.equals("cleric")) {
+            return Material.BREWING_STAND;
+        }
+        else if (professionName.equals("farmer")) {
+            return Material.COMPOSTER;
+        }
+        else if (professionName.equals("fisherman")) {
+            return Material.BARREL;
+        }
+        else if (professionName.equals("fletcher")) {
+            return Material.FLETCHING_TABLE;
+        }
+        else if (professionName.equals("leatherworker")) {
+            return Material.CAULDRON;
+        }
+        else if (professionName.equals("librarian")) {
+            return Material.LECTERN;
+        }
+        else if (professionName.equals("mason")) {
+            return Material.STONECUTTER;
+        }
+        else if (professionName.equals("shepherd")) {
+            return Material.LOOM;
+        }
+        else if (professionName.equals("toolsmith")) {
+            return Material.SMITHING_TABLE;
+        }
+        else if (professionName.equals("weaponsmith")) {
+            return Material.GRINDSTONE;
+        }
+
+        return null;
+    }
+
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    private static void setVillagerMemory(Villager villager, MemoryKey<?> memoryKey, Object value) {
+        villager.setMemory((MemoryKey) memoryKey, value);
     }
 
 }

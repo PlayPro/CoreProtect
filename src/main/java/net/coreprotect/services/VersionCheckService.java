@@ -26,14 +26,23 @@ public class VersionCheckService {
     public static boolean performVersionChecks() {
         try {
             // Check Minecraft version compatibility
-            String[] bukkitVersion = Bukkit.getServer().getBukkitVersion().split("[-.]");
-            if (VersionUtils.newVersion(bukkitVersion[0] + "." + bukkitVersion[1], ConfigHandler.MINECRAFT_VERSION)) {
+            String numericVersion = Bukkit.getServer().getBukkitVersion().split("-", 2)[0];
+            String[] bukkitVersion = numericVersion.split("\\.");
+            if (bukkitVersion.length < 2 || !bukkitVersion[0].matches("\\d+") || !bukkitVersion[1].matches("\\d+")) {
+                Chat.console(Phrase.build(Phrase.VERSION_INCOMPATIBLE, "Minecraft", numericVersion));
+                return false;
+            }
+
+            String minimumVersion = bukkitVersion[0] + "." + bukkitVersion[1];
+            String currentVersion = minimumVersion + (bukkitVersion.length > 2 && bukkitVersion[2].matches("\\d+") ? "." + bukkitVersion[2] : "");
+
+            if (VersionUtils.newVersion(minimumVersion, ConfigHandler.MINECRAFT_VERSION)) {
                 Chat.console(Phrase.build(Phrase.VERSION_REQUIRED, "Minecraft", ConfigHandler.MINECRAFT_VERSION));
                 return false;
             }
 
-            if (VersionUtils.newVersion(ConfigHandler.LATEST_VERSION, bukkitVersion[0] + "." + bukkitVersion[1] + (bukkitVersion.length > 2 && bukkitVersion[2].matches("\\d+") ? "." + bukkitVersion[2] : "")) && VersionUtils.isCommunityEdition()) {
-                Chat.console(Phrase.build(Phrase.VERSION_INCOMPATIBLE, "Minecraft", bukkitVersion[0] + "." + bukkitVersion[1] + (bukkitVersion.length > 2 ? "." + bukkitVersion[2] : "")));
+            if (VersionUtils.newVersion(ConfigHandler.LATEST_VERSION, currentVersion) && VersionUtils.isCommunityEdition()) {
+                Chat.console(Phrase.build(Phrase.VERSION_INCOMPATIBLE, "Minecraft", currentVersion));
                 return false;
             }
 
@@ -60,7 +69,9 @@ public class VersionCheckService {
             }
 
             // Store Minecraft server version for later use
-            ConfigHandler.SERVER_VERSION = Integer.parseInt(bukkitVersion[1]);
+            int major = Integer.parseInt(bukkitVersion[0]);
+            int minor = Integer.parseInt(bukkitVersion[1]);
+            ConfigHandler.SERVER_VERSION = (major == 1 ? minor : major);
         }
         catch (Exception e) {
             e.printStackTrace();

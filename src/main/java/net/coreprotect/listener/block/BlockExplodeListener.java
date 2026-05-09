@@ -79,29 +79,6 @@ public final class BlockExplodeListener extends Queue implements Listener {
                                 }
                             }
                         }
-                        else if (scanType.hasGravity() && Config.getConfig(world).BLOCK_MOVEMENT) {
-                            // log the top-most sand/gravel block as being removed
-                            int scanY = location.getBlockY() + 1;
-                            boolean topFound = false;
-                            while (!topFound) {
-                                Block topBlock = world.getBlockAt(location.getBlockX(), scanY, location.getBlockZ());
-                                Material topMaterial = topBlock.getType();
-                                if (!topMaterial.hasGravity()) {
-                                    location = new Location(world, location.getBlockX(), (scanY - 1), location.getBlockZ());
-                                    topFound = true;
-
-                                    // log block attached to top as being removed
-                                    if (BlockGroup.TRACK_ANY.contains(topMaterial) || BlockGroup.TRACK_TOP.contains(topMaterial) || BlockGroup.TRACK_TOP_BOTTOM.contains(topMaterial)) {
-                                        blockMap.put(topBlock.getLocation(), topBlock);
-                                    }
-                                }
-                                scanY++;
-                            }
-
-                            Block gravityBlock = location.getBlock();
-                            blockMap.put(location, gravityBlock);
-                            Queue.queueBlockGravityValidate(user, location, gravityBlock, scanType, 0);
-                        }
                     }
                     scanMin++;
                 }

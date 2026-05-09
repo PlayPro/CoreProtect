@@ -1,16 +1,19 @@
 package net.coreprotect.api;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import net.coreprotect.api.result.SessionResult;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.UserStatement;
+import net.coreprotect.utility.WorldUtils;
 
 /**
  * Provides API methods for looking up player session data in the CoreProtect database.
@@ -73,6 +76,56 @@ public class SessionLookup {
                     while (results.next()) {
                         String[] sessionData = extractSessionData(connection, results, type);
                         result.add(sessionData);
+                    }
+                }
+            }
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return result;
+    }
+
+    /**
+     * Performs a typed lookup of session-related actions.
+     *
+     * @param options
+     *            Lookup options
+     * @return List of typed session results, empty list if API is disabled or no results found
+     */
+    public static List<SessionResult> performLookup(LookupOptions options) {
+        List<SessionResult> result = new ArrayList<>();
+
+        if (!Config.getGlobal().API_ENABLED) {
+            return result;
+        }
+
+        try (Connection connection = Database.getConnection(false, 1000)) {
+            if (connection == null) {
+                return result;
+            }
+
+            LookupFilter filter = LookupFilter.fromOptions(connection, options);
+            if (filter.hasInvalidUser() || filter.hasInvalidLocation()) {
+                return result;
+            }
+
+            StringBuilder query = new StringBuilder("SELECT time,user,wid,x,y,z,action FROM ");
+            query.append(ConfigHandler.prefix).append("session ");
+            if (filter.hasLocation()) {
+                query.append(WorldUtils.getWidIndex("session"));
+            }
+            filter.appendWhere(query);
+            query.append(" ORDER BY rowid DESC");
+            filter.appendLimit(query);
+
+            try (PreparedStatement statement = connection.prepareStatement(query.toString())) {
+                filter.bind(statement);
+
+                try (ResultSet results = statement.executeQuery()) {
+                    while (results.next()) {
+                        result.add(parseSessionResult(connection, results));
                     }
                 }
             }
@@ -160,5 +213,18 @@ public class SessionLookup {
 
         // Create and return the session data array
         return new String[] { resultTime, resultUser, resultX, resultY, resultZ, resultWorldId, type, resultAction };
+    }
+
+    private static SessionResult parseSessionResult(Connection connection, ResultSet results) throws Exception {
+        int userId = results.getInt("user");
+        String username = ConfigHandler.playerIdCacheReversed.get(userId);
+        if (username == null) {
+            username = UserStatement.loadName(connection, userId);
+        }
+
+        return new SessionResult(
+                results.getLong("time"), username, WorldUtils.getWorldName(results.getInt("wid")),
+                results.getInt("x"), results.getInt("y"), results.getInt("z"), results.getInt("action")
+        );
     }
 }

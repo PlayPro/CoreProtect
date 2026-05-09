@@ -14,6 +14,7 @@ import org.bukkit.entity.EntityType;
 
 import net.coreprotect.language.Phrase;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.utility.BlockTypeUtils;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.EntityUtils;
@@ -65,6 +66,9 @@ public class MaterialParser {
                                 if (i3_material != null && (i3_material.isBlock() || argAction.contains(4))) {
                                     restricted.add(i3_material);
                                 }
+                                else if (!argAction.contains(4) && BlockTypeUtils.hasBlockType(i3)) {
+                                    restricted.add(BlockTypeUtils.normalizeKey(i3));
+                                }
                                 else {
                                     EntityType i3_entity = EntityUtils.getEntityType(i3);
                                     if (i3_entity != null) {
@@ -93,6 +97,9 @@ public class MaterialParser {
                             Material material = MaterialUtils.getType(argument);
                             if (material != null && (material.isBlock() || argAction.contains(4))) {
                                 restricted.add(material);
+                            }
+                            else if (!argAction.contains(4) && BlockTypeUtils.hasBlockType(argument)) {
+                                restricted.add(BlockTypeUtils.normalizeKey(argument));
                             }
                             else {
                                 EntityType entityType = EntityUtils.getEntityType(argument);
@@ -157,6 +164,9 @@ public class MaterialParser {
                                 if (i3_material != null && (i3_material.isBlock() || argAction.contains(4))) {
                                     excluded.put(i3_material, false);
                                 }
+                                else if (!argAction.contains(4) && BlockTypeUtils.hasBlockType(i3)) {
+                                    excluded.put(BlockTypeUtils.normalizeKey(i3), false);
+                                }
                                 else {
                                     EntityType i3_entity = EntityUtils.getEntityType(i3);
                                     if (i3_entity != null) {
@@ -180,6 +190,9 @@ public class MaterialParser {
                             Material iMaterial = MaterialUtils.getType(argument);
                             if (iMaterial != null && (iMaterial.isBlock() || argAction.contains(4))) {
                                 excluded.put(iMaterial, false);
+                            }
+                            else if (!argAction.contains(4) && BlockTypeUtils.hasBlockType(argument)) {
+                                excluded.put(BlockTypeUtils.normalizeKey(argument), false);
                             }
                             else {
                                 EntityType iEntity = EntityUtils.getEntityType(argument);
@@ -216,6 +229,9 @@ public class MaterialParser {
         tagMap.put("#natural", BlockGroup.NATURAL_BLOCKS);
         tagMap.put("#pressure_plate", BlockGroup.PRESSURE_PLATES);
         tagMap.put("#shulker_box", BlockGroup.SHULKER_BOXES);
+        if (!BlockGroup.BUNDLES.isEmpty()) {
+            tagMap.put("#bundle", BlockGroup.BUNDLES);
+        }
         return tagMap;
     }
 
@@ -294,6 +310,9 @@ public class MaterialParser {
         else {
             Material material = MaterialUtils.getType(argument);
             if (material != null) {
+                isBlock = true;
+            }
+            else if (BlockTypeUtils.hasBlockType(argument)) {
                 isBlock = true;
             }
             else {

@@ -316,8 +316,19 @@ public class CommandParser {
     }
 
     /**
+     * Parse message filter from command arguments (m:, msg:, message:)
+     *
+     * @param inputArguments
+     *            The command arguments
+     * @return The message filter string, or empty string if not present
+     */
+    protected static String parseMessageFilter(String[] inputArguments) {
+        return ActionParser.parseMessageFilter(inputArguments);
+    }
+
+    /**
      * Helper method for formatting BigDecimal values
-     * 
+     *
      * @param input
      *            The BigDecimal value to format
      * @return The formatted string

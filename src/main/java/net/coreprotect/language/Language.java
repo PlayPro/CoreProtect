@@ -2,6 +2,8 @@ package net.coreprotect.language;
 
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.bukkit.ChatColor;
+
 public class Language {
 
     private static ConcurrentHashMap<Phrase, String> phrases = new ConcurrentHashMap<>();
@@ -21,10 +23,16 @@ public class Language {
     }
 
     protected static void setUserPhrase(Phrase phrase, String value) {
+        if (value != null) {
+            value = ChatColor.translateAlternateColorCodes('&', value);
+        }
         userPhrases.put(phrase, value);
     }
 
     protected static void setTranslatedPhrase(Phrase phrase, String value) {
+        if (value != null) {
+            value = ChatColor.translateAlternateColorCodes('&', value);
+        }
         translatedPhrases.put(phrase, value);
     }
 

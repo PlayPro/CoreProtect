@@ -20,13 +20,7 @@ Supported values use the same style as CoreProtect command times, such as `30d`,
 
 Automatic purging runs once per day using your server's local time. By default, it runs at midnight.
 
-You can optionally add the following hidden setting to `config.yml` to change the daily runtime:
-
-```yaml
-auto-purge-time: "03:30"
-```
-
-Use 24-hour `HH:mm` time. This option is not added to `config.yml` automatically.
+To change the daily runtime, manually add `auto-purge-time: "03:30"` to `config.yml`. Use 24-hour `HH:mm` server time.
 
 After changing `auto-purge` or `auto-purge-time`, use `/co reload` or restart the server. Changes apply to the next scheduled run.
 

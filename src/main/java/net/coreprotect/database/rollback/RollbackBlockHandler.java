@@ -78,8 +78,9 @@ public class RollbackBlockHandler extends Queue {
                 }
 
                 if (rowType == null) {
-                    if (blockData != null) {
-                        BlockUtils.prepareTypeAndData(chunkChanges, block, null, blockData, true);
+                    BlockData customBlockData = blockData != null ? blockData : rawBlockData;
+                    if (customBlockData != null) {
+                        BlockUtils.prepareTypeAndData(chunkChanges, block, null, customBlockData, true);
                         return countBlock;
                     }
 

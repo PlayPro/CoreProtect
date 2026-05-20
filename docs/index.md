@@ -21,6 +21,9 @@ Log your own block changes, perform lookups, rollbacks, restores, and more.
 [**Database Migration**](/database-migration/)  
 Migrate your CoreProtect database between SQLite and MySQL.  
 
+[**Automatic Purging**](/auto-purge/)
+Automatically remove old CoreProtect data on a daily schedule.
+
 [**Compatible Third-Party Plugins & Tools**](/tools-integrations/)  
 A list of plugins and tools that are compatible with CoreProtect.  
 

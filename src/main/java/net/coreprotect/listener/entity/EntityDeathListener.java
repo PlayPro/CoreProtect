@@ -132,24 +132,24 @@ public final class EntityDeathListener extends Queue implements Listener {
         }
 
         EntityDamageEvent damage = entity.getLastDamageCause();
-        if (damage == null) {
+        if (damage == null && e == null) {
             return;
         }
 
-        boolean isCommand = (damage.getCause() == DamageCause.VOID && entity.getLocation().getBlockY() >= BukkitAdapter.ADAPTER.getMinHeight(entity.getWorld()));
+        EntityDamageEvent.DamageCause cause = damage == null ? null : damage.getCause();
+        boolean isCommand = (cause == DamageCause.VOID && entity.getLocation().getBlockY() >= BukkitAdapter.ADAPTER.getMinHeight(entity.getWorld()));
         if (e == null) {
             e = isCommand ? "#command" : "";
         }
 
-        if (entity.getType().name().equals("GLOW_SQUID") && damage.getCause() == DamageCause.DROWNING) {
+        if (entity.getType().name().equals("GLOW_SQUID") && cause == DamageCause.DROWNING) {
             return;
         }
 
         List<DamageCause> validDamageCauses = Arrays.asList(DamageCause.SUICIDE, DamageCause.POISON, DamageCause.THORNS, DamageCause.MAGIC, DamageCause.WITHER);
 
         boolean skip = true;
-        EntityDamageEvent.DamageCause cause = damage.getCause();
-        if (!Config.getConfig(entity.getWorld()).SKIP_GENERIC_DATA || (!(entity instanceof Zombie) && !(entity instanceof Skeleton)) || (validDamageCauses.contains(cause) || cause.name().equals("KILL"))) {
+        if (cause != null && (!Config.getConfig(entity.getWorld()).SKIP_GENERIC_DATA || (!(entity instanceof Zombie) && !(entity instanceof Skeleton)) || (validDamageCauses.contains(cause) || cause.name().equals("KILL")))) {
             skip = false;
         }
 
@@ -197,7 +197,7 @@ public final class EntityDeathListener extends Queue implements Listener {
                 e = "#" + attacker.getType().name().toLowerCase(Locale.ROOT);
             }
         }
-        else {
+        else if (cause != null) {
             if (cause.equals(EntityDamageEvent.DamageCause.FIRE)) {
                 e = "#fire";
             }

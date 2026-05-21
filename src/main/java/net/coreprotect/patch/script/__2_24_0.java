@@ -21,6 +21,10 @@ public class __2_24_0 {
                     e.printStackTrace();
                     return false;
                 }
+
+                if (!updateItemMetadataColumns(statement)) {
+                    return false;
+                }
             }
         }
         catch (Exception e) {
@@ -29,6 +33,28 @@ public class __2_24_0 {
         }
 
         return true;
+    }
+
+    protected static boolean updateItemMetadataColumns(Statement statement) {
+        if (Config.getGlobal().MYSQL) {
+            return modifyColumn(statement, ConfigHandler.prefix + "container", "ALTER TABLE " + ConfigHandler.prefix + "container MODIFY metadata MEDIUMBLOB") &&
+                    modifyColumn(statement, ConfigHandler.prefix + "item", "ALTER TABLE " + ConfigHandler.prefix + "item MODIFY data MEDIUMBLOB");
+        }
+
+        return true;
+    }
+
+    private static boolean modifyColumn(Statement statement, String table, String query) {
+        try {
+            statement.executeUpdate(query);
+            return true;
+        }
+        catch (Exception e) {
+            Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, table, Selector.FIRST, Selector.FIRST));
+            e.printStackTrace();
+        }
+
+        return false;
     }
 
 }

@@ -2,6 +2,7 @@ package net.coreprotect.services;
 
 import org.bukkit.Bukkit;
 
+import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.utility.Chat;
@@ -72,7 +73,7 @@ public class VersionCheckService {
             // Store Minecraft server version for later use
             int major = Integer.parseInt(bukkitVersion[0]);
             int minor = Integer.parseInt(bukkitVersion[1]);
-            ConfigHandler.SERVER_VERSION = (major == 1 ? minor : major);
+            ConfigHandler.SERVER_VERSION = BukkitAdapter.getAdapterVersion(major, minor);
         }
         catch (Exception e) {
             ErrorReporter.report(e);

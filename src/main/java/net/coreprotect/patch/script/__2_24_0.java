@@ -26,6 +26,10 @@ public class __2_24_0 {
                 if (!updateItemMetadataColumns(statement)) {
                     return false;
                 }
+
+                if (!updateSkullSkinColumn(statement)) {
+                    return false;
+                }
             }
         }
         catch (Exception e) {
@@ -40,6 +44,14 @@ public class __2_24_0 {
         if (Config.getGlobal().MYSQL) {
             return modifyColumn(statement, ConfigHandler.prefix + "container", "ALTER TABLE " + ConfigHandler.prefix + "container MODIFY metadata MEDIUMBLOB") &&
                     modifyColumn(statement, ConfigHandler.prefix + "item", "ALTER TABLE " + ConfigHandler.prefix + "item MODIFY data MEDIUMBLOB");
+        }
+
+        return true;
+    }
+
+    protected static boolean updateSkullSkinColumn(Statement statement) {
+        if (Config.getGlobal().MYSQL) {
+            return modifyColumn(statement, ConfigHandler.prefix + "skull", "ALTER TABLE " + ConfigHandler.prefix + "skull MODIFY skin TEXT");
         }
 
         return true;

@@ -63,6 +63,11 @@ public class BukkitAdapter implements BukkitInterface {
     public static final int BUKKIT_V1_19 = 19;
     public static final int BUKKIT_V1_20 = 20;
     public static final int BUKKIT_V1_21 = 21;
+    public static final int BUKKIT_V26_0 = 2600;
+
+    public static int getAdapterVersion(int major, int minor) {
+        return major == 1 ? minor : (major * 100) + minor;
+    }
 
     /**
      * Initializes the appropriate Bukkit adapter based on the server version.
@@ -89,6 +94,7 @@ public class BukkitAdapter implements BukkitInterface {
                 ADAPTER = new Bukkit_v1_20();
                 break;
             case BUKKIT_V1_21:
+            case BUKKIT_V26_0:
             default:
                 ADAPTER = new Bukkit_v1_21();
                 break;

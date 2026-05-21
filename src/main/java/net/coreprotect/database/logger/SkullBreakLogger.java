@@ -2,7 +2,6 @@ package net.coreprotect.database.logger;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.util.Locale;
 
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Skull;
@@ -31,9 +30,9 @@ public class SkullBreakLogger {
             String skullOwner = "";
             String skullSkin = null;
             int skullKey = 0;
-            if (skull.hasOwner()) {
-                skullOwner = PaperAdapter.ADAPTER.getSkullOwner(skull);
-                skullSkin = PaperAdapter.ADAPTER.getSkullSkin(skull);
+            skullOwner = PaperAdapter.ADAPTER.getSkullOwner(skull);
+            skullSkin = PaperAdapter.ADAPTER.getSkullSkin(skull);
+            if ((skullOwner != null && skullOwner.length() > 0) || (skullSkin != null && skullSkin.length() > 0)) {
                 ResultSet resultSet = SkullStatement.insert(preparedStmt2, time, skullOwner, skullSkin);
                 if (Database.hasReturningKeys()) {
                     resultSet.next();

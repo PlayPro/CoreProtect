@@ -31,9 +31,14 @@ public class Paper_v1_20 extends Paper_v1_17 {
 
     @Override
     public String getSkullOwner(Skull skull) {
-        String owner = skull.getPlayerProfile().getName();
-        if (skull.getPlayerProfile().getId() != null) {
-            owner = skull.getPlayerProfile().getId().toString();
+        PlayerProfile playerProfile = skull.getPlayerProfile();
+        if (playerProfile == null) {
+            return null;
+        }
+
+        String owner = playerProfile.getName();
+        if (playerProfile.getId() != null) {
+            owner = playerProfile.getId().toString();
         }
         else if (Config.getGlobal().MYSQL && owner != null && owner.length() > 255) {
             return owner.substring(0, 255);
@@ -44,7 +49,11 @@ public class Paper_v1_20 extends Paper_v1_17 {
 
     @Override
     public void setSkullOwner(Skull skull, String owner) {
-        if (owner != null && owner.length() >= 32 && owner.contains("-")) {
+        if (owner == null || owner.length() == 0) {
+            return;
+        }
+
+        if (owner.length() >= 32 && owner.contains("-")) {
             skull.setPlayerProfile(Bukkit.createProfile(UUID.fromString(owner)));
         }
         else {
@@ -54,7 +63,12 @@ public class Paper_v1_20 extends Paper_v1_17 {
 
     @Override
     public String getSkullSkin(Skull skull) {
-        URL skin = skull.getPlayerProfile().getTextures().getSkin();
+        PlayerProfile playerProfile = skull.getPlayerProfile();
+        if (playerProfile == null) {
+            return null;
+        }
+
+        URL skin = playerProfile.getTextures().getSkin();
         if (skin == null) {
             return null;
         }
@@ -65,9 +79,22 @@ public class Paper_v1_20 extends Paper_v1_17 {
     @Override
     public void setSkullSkin(Skull skull, String skin) {
         try {
+            if (skin == null || skin.length() == 0) {
+                return;
+            }
+
+            String skinUrl = SkullSkin.getSkinUrl(skin);
+            if (skinUrl == null) {
+                return;
+            }
+
             PlayerProfile playerProfile = skull.getPlayerProfile();
+            if (playerProfile == null) {
+                playerProfile = Bukkit.createProfile(UUID.randomUUID());
+            }
+
             PlayerTextures textures = playerProfile.getTextures();
-            textures.setSkin(URI.create(skin).toURL());
+            textures.setSkin(URI.create(skinUrl).toURL());
             playerProfile.setTextures(textures);
             skull.setPlayerProfile(playerProfile);
         }

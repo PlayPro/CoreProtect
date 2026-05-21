@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.Server;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
@@ -30,6 +31,7 @@ public class PaperAdapter implements PaperInterface {
     public static final int PAPER_V1_19 = BukkitAdapter.BUKKIT_V1_19;
     public static final int PAPER_V1_20 = BukkitAdapter.BUKKIT_V1_20;
     public static final int PAPER_V1_21 = BukkitAdapter.BUKKIT_V1_21;
+    public static final int PAPER_V26_0 = BukkitAdapter.BUKKIT_V26_0;
 
     public static void loadAdapter() {
         int paperVersion = ConfigHandler.SERVER_VERSION;
@@ -53,9 +55,14 @@ public class PaperAdapter implements PaperInterface {
                 PaperAdapter.ADAPTER = new Paper_v1_17();
                 break;
             case PAPER_V1_20:
-            case PAPER_V1_21:
-            default:
                 PaperAdapter.ADAPTER = new Paper_v1_20();
+                break;
+            case PAPER_V1_21:
+                PaperAdapter.ADAPTER = new Paper_v1_20();
+                break;
+            case PAPER_V26_0:
+            default:
+                PaperAdapter.ADAPTER = new Paper_26_0();
                 break;
         }
     }
@@ -82,7 +89,12 @@ public class PaperAdapter implements PaperInterface {
 
     @Override
     public String getSkullOwner(Skull skull) {
-        return skull.getOwningPlayer().getUniqueId().toString();
+        OfflinePlayer player = skull.getOwningPlayer();
+        if (player == null || player.getUniqueId() == null) {
+            return null;
+        }
+
+        return player.getUniqueId().toString();
     }
 
     @Override

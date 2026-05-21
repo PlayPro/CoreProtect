@@ -52,7 +52,7 @@ public class SkullStatement {
                 }
 
                 String skin = resultSet.getString("skin");
-                if (owner != null && skin != null && skin.length() > 0) {
+                if (skin != null && skin.length() > 0) {
                     PaperAdapter.ADAPTER.setSkullSkin(skull, skin);
                 }
             }

@@ -14,6 +14,7 @@ import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Extensions;
 import net.coreprotect.utility.VersionUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class CommandHandler implements CommandExecutor {
     private static CommandHandler instance;
@@ -156,7 +157,7 @@ public class CommandHandler implements CommandExecutor {
                                 }
                             }
                             catch (Exception e) {
-                                e.printStackTrace();
+                                ErrorReporter.report(e);
                             }
                         }
                     }

@@ -38,6 +38,7 @@ import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.DatabaseUtils;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class Rollback extends RollbackUtil {
 
@@ -332,7 +333,7 @@ public class Rollback extends RollbackUtil {
             return list;
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return null;
@@ -351,7 +352,7 @@ public class Rollback extends RollbackUtil {
                 future.complete(result);
             }
             catch (Exception e) {
-                e.printStackTrace();
+                ErrorReporter.report(e);
                 future.complete(false);
             }
         }, chunkLocation, 0);

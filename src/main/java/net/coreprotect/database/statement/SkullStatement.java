@@ -9,6 +9,7 @@ import org.bukkit.block.Skull;
 
 import net.coreprotect.database.Database;
 import net.coreprotect.paper.PaperAdapter;
+import net.coreprotect.utility.ErrorReporter;
 
 public class SkullStatement {
 
@@ -29,7 +30,7 @@ public class SkullStatement {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return null;
@@ -59,7 +60,7 @@ public class SkullStatement {
             resultSet.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 }

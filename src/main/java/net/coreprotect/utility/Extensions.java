@@ -38,7 +38,7 @@ public class Extensions {
             // plugin not compiled with extension
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 

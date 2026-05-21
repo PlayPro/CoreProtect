@@ -51,6 +51,7 @@ import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.Util;
 import net.coreprotect.utility.entity.HangingUtil;
+import net.coreprotect.utility.ErrorReporter;
 
 public class RollbackBlockHandler extends Queue {
 
@@ -493,7 +494,7 @@ public class RollbackBlockHandler extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         if ((rowType != Material.AIR) && changeBlock) {

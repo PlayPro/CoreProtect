@@ -18,6 +18,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public final class HopperPushListener {
 
@@ -64,7 +65,7 @@ public final class HopperPushListener {
                     }
                 }
                 catch (Exception e) {
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                 }
                 finally {
                     activeProcessors.decrementAndGet();

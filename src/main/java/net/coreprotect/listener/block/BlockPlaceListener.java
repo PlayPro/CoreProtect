@@ -32,6 +32,7 @@ import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public final class BlockPlaceListener extends Queue implements Listener {
 
@@ -131,7 +132,7 @@ public final class BlockPlaceListener extends Queue implements Listener {
                             }
                         }
                         catch (Exception e) {
-                            e.printStackTrace();
+                            ErrorReporter.report(e);
                         }
                     }
                 }

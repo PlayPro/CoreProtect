@@ -224,3 +224,6 @@ CoreProtect-TestAPI
 !/src/main/java/net/coreprotect/utility/extensions/Extensions.java
 /.apt_generated/
 /.apt_generated_tests/
+
+# Server side files
+server/*

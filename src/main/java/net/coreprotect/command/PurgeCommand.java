@@ -31,6 +31,7 @@ import net.coreprotect.utility.Color;
 import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.VersionUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class PurgeCommand extends Consumer {
 
@@ -316,7 +317,7 @@ public class PurgeCommand extends Consumer {
                                 preparedStmt.close();
                             }
                             catch (Exception e) {
-                                e.printStackTrace();
+                                ErrorReporter.report(e);
                             }
                         }
 
@@ -374,7 +375,7 @@ public class PurgeCommand extends Consumer {
                                 }
                                 catch (Exception e) {
                                     error = true;
-                                    e.printStackTrace();
+                                    ErrorReporter.report(e);
                                 }
                             }
 
@@ -389,7 +390,7 @@ public class PurgeCommand extends Consumer {
                                     preparedStmt.close();
                                 }
                                 catch (Exception e) {
-                                    e.printStackTrace();
+                                    ErrorReporter.report(e);
                                 }
 
                                 try {
@@ -399,7 +400,7 @@ public class PurgeCommand extends Consumer {
                                     preparedStmt.close();
                                 }
                                 catch (Exception e) {
-                                    e.printStackTrace();
+                                    ErrorReporter.report(e);
                                 }
 
                                 try {
@@ -410,7 +411,7 @@ public class PurgeCommand extends Consumer {
                                     preparedStmt.close();
                                 }
                                 catch (Exception e) {
-                                    e.printStackTrace();
+                                    ErrorReporter.report(e);
                                     abort = true;
                                     break;
                                 }
@@ -442,7 +443,7 @@ public class PurgeCommand extends Consumer {
                                     }
                                 }
                                 catch (Exception e) {
-                                    e.printStackTrace();
+                                    ErrorReporter.report(e);
                                 }
                             }
 
@@ -459,7 +460,7 @@ public class PurgeCommand extends Consumer {
                                     preparedStmt.close();
                                 }
                                 catch (Exception e) {
-                                    e.printStackTrace();
+                                    ErrorReporter.report(e);
                                 }
 
                                 int new_count = 0;
@@ -474,7 +475,7 @@ public class PurgeCommand extends Consumer {
                                     preparedStmt.close();
                                 }
                                 catch (Exception e) {
-                                    e.printStackTrace();
+                                    ErrorReporter.report(e);
                                 }
 
                                 removed = removed + (oldCount - new_count);
@@ -515,7 +516,7 @@ public class PurgeCommand extends Consumer {
                                     return;
                                 }
 
-                                e.printStackTrace();
+                                ErrorReporter.report(e);
                             }
                         }
                     }
@@ -555,7 +556,7 @@ public class PurgeCommand extends Consumer {
                 }
                 catch (Exception e) {
                     Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_FAILED));
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                 }
 
                 Consumer.isPaused = false;

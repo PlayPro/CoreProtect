@@ -19,6 +19,7 @@ import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.StringUtils;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 /**
  * Provides API methods for block-related lookups in the CoreProtect database.
@@ -97,7 +98,7 @@ public class BlockAPI {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return result;
@@ -177,7 +178,7 @@ public class BlockAPI {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return result;
@@ -244,7 +245,7 @@ public class BlockAPI {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return result;

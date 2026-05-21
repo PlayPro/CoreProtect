@@ -18,6 +18,7 @@ import org.bukkit.util.io.BukkitObjectOutputStream;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
+import net.coreprotect.utility.ErrorReporter;
 
 public class EntityStatement {
 
@@ -45,7 +46,7 @@ public class EntityStatement {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return null;
@@ -104,10 +105,8 @@ public class EntityStatement {
 
             resultSet.close();
         }
-        catch (Exception e) { // only display exception on development branch
-            if (ConfigHandler.EDITION_BRANCH.contains("-dev")) {
-                e.printStackTrace();
-            }
+        catch (Exception e) { // only print exception on development branch
+            ErrorReporter.report(e, ConfigHandler.EDITION_BRANCH.contains("-dev"));
         }
 
         return result;

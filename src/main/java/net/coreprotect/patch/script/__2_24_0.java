@@ -7,6 +7,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.ErrorReporter;
 
 public class __2_24_0 {
 
@@ -18,7 +19,7 @@ public class __2_24_0 {
                 }
                 catch (Exception e) {
                     Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, ConfigHandler.prefix + "sign", Selector.FIRST, Selector.FIRST));
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                     return false;
                 }
 
@@ -28,7 +29,7 @@ public class __2_24_0 {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
             return false;
         }
 
@@ -51,7 +52,7 @@ public class __2_24_0 {
         }
         catch (Exception e) {
             Chat.console(Phrase.build(Phrase.PATCH_SKIP_UPDATE, table, Selector.FIRST, Selector.FIRST));
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return false;

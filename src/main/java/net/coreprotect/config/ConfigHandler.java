@@ -40,6 +40,7 @@ import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.SystemUtils;
 import net.coreprotect.utility.VersionUtils;
+import net.coreprotect.utility.ErrorReporter;
 import oshi.hardware.CentralProcessor;
 
 public class ConfigHandler extends Queue {
@@ -210,7 +211,7 @@ public class ConfigHandler extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -237,7 +238,7 @@ public class ConfigHandler extends Queue {
             ConfigHandler.loadBlacklist(); // Load the blacklist file if it exists.
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -272,7 +273,7 @@ public class ConfigHandler extends Queue {
                 Class.forName("org.sqlite.JDBC");
             }
             catch (Exception e) {
-                e.printStackTrace();
+                ErrorReporter.report(e);
             }
         }
         else {
@@ -332,7 +333,7 @@ public class ConfigHandler extends Queue {
             rs.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -356,7 +357,7 @@ public class ConfigHandler extends Queue {
             rs.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -380,7 +381,7 @@ public class ConfigHandler extends Queue {
             rs.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -404,7 +405,7 @@ public class ConfigHandler extends Queue {
             rs.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -463,7 +464,7 @@ public class ConfigHandler extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return -1;
@@ -501,7 +502,7 @@ public class ConfigHandler extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -540,7 +541,7 @@ public class ConfigHandler extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return true;
@@ -561,7 +562,7 @@ public class ConfigHandler extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         try (Connection connection = Database.getConnection(true, 0)) {
@@ -596,7 +597,7 @@ public class ConfigHandler extends Queue {
             return validVersion && databaseLock;
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return false;
@@ -608,7 +609,7 @@ public class ConfigHandler extends Queue {
             ListenerHandler.unregisterNetworking(); // Unregister channels for networking API
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 

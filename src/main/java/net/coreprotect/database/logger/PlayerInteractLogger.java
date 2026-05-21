@@ -16,6 +16,7 @@ import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.utility.BlockTypeUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class PlayerInteractLogger {
 
@@ -59,7 +60,7 @@ public class PlayerInteractLogger {
             BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, type, data, null, blockData, LookupActions.INTERACTION, 0);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 

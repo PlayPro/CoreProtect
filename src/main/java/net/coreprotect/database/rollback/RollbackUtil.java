@@ -39,6 +39,7 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Lookup;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class RollbackUtil extends Lookup {
 
@@ -230,7 +231,7 @@ public class RollbackUtil extends Lookup {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return modifiedArmor;
@@ -261,7 +262,7 @@ public class RollbackUtil extends Lookup {
             inventory.setStorageContents(storageContents);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -280,7 +281,7 @@ public class RollbackUtil extends Lookup {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -479,7 +480,7 @@ public class RollbackUtil extends Lookup {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
         return new Object[] { slot, faceData, itemstack };
     }
@@ -496,7 +497,7 @@ public class RollbackUtil extends Lookup {
                 return populateItemStack(itemstack, metaList);
             }
             catch (Exception e) {
-                e.printStackTrace();
+                ErrorReporter.report(e);
             }
         }
 
@@ -525,7 +526,7 @@ public class RollbackUtil extends Lookup {
             return metaList;
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
             return null;
         }
     }

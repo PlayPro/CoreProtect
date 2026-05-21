@@ -7,6 +7,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.VersionUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 /**
  * Service responsible for checking compatibility of Minecraft, Java versions,
@@ -74,7 +75,7 @@ public class VersionCheckService {
             ConfigHandler.SERVER_VERSION = (major == 1 ? minor : major);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
             return false;
         }
 

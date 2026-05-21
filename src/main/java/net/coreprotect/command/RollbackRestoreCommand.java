@@ -31,6 +31,7 @@ import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class RollbackRestoreCommand {
     public static void runCommand(CommandSender player, Command command, boolean permission, String[] args, Location argLocation, long forceStart, long forceEnd) {
@@ -450,7 +451,7 @@ public class RollbackRestoreCommand {
                                     }
                                 }
                                 catch (Exception e) {
-                                    e.printStackTrace();
+                                    ErrorReporter.report(e);
                                 }
                                 if (ConfigHandler.activeRollbacks.get(player2.getName()) != null) {
                                     ConfigHandler.activeRollbacks.remove(player2.getName());
@@ -463,7 +464,7 @@ public class RollbackRestoreCommand {
                         thread.start();
                     }
                     catch (Exception e) {
-                        e.printStackTrace();
+                        ErrorReporter.report(e);
                     }
                 }
                 else {

@@ -15,6 +15,7 @@ import net.coreprotect.patch.Patch;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.Util;
+import net.coreprotect.utility.ErrorReporter;
 
 public class __2_20_0 {
 
@@ -101,7 +102,7 @@ public class __2_20_0 {
             Database.commitTransaction(statement, Config.getGlobal().MYSQL);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return true;

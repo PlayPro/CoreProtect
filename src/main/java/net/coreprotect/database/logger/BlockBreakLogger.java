@@ -19,6 +19,7 @@ import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.BlockTypeUtils;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class BlockBreakLogger {
 
@@ -82,7 +83,7 @@ public class BlockBreakLogger {
             BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, internalType, data, meta, blockData, LookupActions.BLOCK_BREAK, 0);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 

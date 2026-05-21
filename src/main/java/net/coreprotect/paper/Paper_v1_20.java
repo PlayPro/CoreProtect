@@ -13,6 +13,7 @@ import org.bukkit.profile.PlayerTextures;
 import com.destroystokyo.paper.profile.PlayerProfile;
 
 import net.coreprotect.config.Config;
+import net.coreprotect.utility.ErrorReporter;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 public class Paper_v1_20 extends Paper_v1_17 {
@@ -71,7 +72,7 @@ public class Paper_v1_20 extends Paper_v1_17 {
             skull.setPlayerProfile(playerProfile);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 

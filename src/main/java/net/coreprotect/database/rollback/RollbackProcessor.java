@@ -39,6 +39,7 @@ import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.Teleport;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class RollbackProcessor {
 
@@ -449,7 +450,7 @@ public class RollbackProcessor {
             return true;
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
             int[] rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
             int itemCount = rollbackHashData[0];
             int blockCount = rollbackHashData[1];

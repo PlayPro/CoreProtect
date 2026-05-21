@@ -22,6 +22,7 @@ import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
+import net.coreprotect.utility.ErrorReporter;
 
 public class ItemLogger {
 
@@ -116,7 +117,7 @@ public class ItemLogger {
             logTransaction(preparedStmt, batchCount, offset, user, location, itemBuys, ITEM_BUY);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -157,7 +158,7 @@ public class ItemLogger {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 

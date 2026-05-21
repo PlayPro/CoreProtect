@@ -15,6 +15,7 @@ import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.model.action.SignActions;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 /**
  * Provides API methods for sign text lookups.
@@ -71,7 +72,7 @@ public class SignAPI {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return result;

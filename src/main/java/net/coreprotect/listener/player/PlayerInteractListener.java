@@ -62,6 +62,7 @@ import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public final class PlayerInteractListener extends Queue implements Listener {
 
@@ -397,7 +398,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                     }
                                 }
                                 catch (Exception e) {
-                                    e.printStackTrace();
+                                    ErrorReporter.report(e);
                                 }
                             });
                             */
@@ -709,7 +710,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                     }
                                 }
                                 catch (Exception e) {
-                                    e.printStackTrace();
+                                    ErrorReporter.report(e);
                                 }
                             }, locationFinal);
                         }

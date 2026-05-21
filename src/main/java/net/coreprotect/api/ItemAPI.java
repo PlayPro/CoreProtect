@@ -13,6 +13,7 @@ import net.coreprotect.database.Database;
 import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 /**
  * Provides API methods for world item transaction lookups.
@@ -66,7 +67,7 @@ public class ItemAPI {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return result;

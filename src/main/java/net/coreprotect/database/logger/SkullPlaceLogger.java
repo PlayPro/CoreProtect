@@ -12,6 +12,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.SkullStatement;
 import net.coreprotect.paper.PaperAdapter;
+import net.coreprotect.utility.ErrorReporter;
 
 public class SkullPlaceLogger {
 
@@ -53,7 +54,7 @@ public class SkullPlaceLogger {
             BlockPlaceLogger.log(preparedStmt, batchCount, user, block, replaceType, replaceData, type, skullKey, true, null, null, null);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 

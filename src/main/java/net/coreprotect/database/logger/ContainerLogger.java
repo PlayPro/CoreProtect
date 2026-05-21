@@ -31,6 +31,7 @@ import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
+import net.coreprotect.utility.ErrorReporter;
 
 public class ContainerLogger extends Queue {
 
@@ -226,7 +227,7 @@ public class ContainerLogger extends Queue {
             ConfigHandler.oldContainer.put(loggingContainerId, oldList);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -284,7 +285,7 @@ public class ContainerLogger extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 

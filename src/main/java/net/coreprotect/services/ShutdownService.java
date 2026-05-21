@@ -17,6 +17,7 @@ import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Extensions;
 import net.coreprotect.utility.Teleport;
+import net.coreprotect.utility.ErrorReporter;
 
 /**
  * Service responsible for handling plugin shutdown operations
@@ -74,7 +75,7 @@ public class ShutdownService {
             Chat.console(Phrase.build(Phrase.DISABLE_SUCCESS, "CoreProtect v" + plugin.getDescription().getVersion()));
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 

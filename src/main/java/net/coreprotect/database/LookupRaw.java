@@ -26,6 +26,7 @@ import net.coreprotect.model.item.ItemTransactionActions;
 import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class LookupRaw extends Queue {
 
@@ -214,7 +215,7 @@ public class LookupRaw extends Queue {
             results.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         Consumer.isPaused = false;
@@ -698,7 +699,7 @@ public class LookupRaw extends Queue {
             results = statement.executeQuery(query);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return results;

@@ -10,6 +10,7 @@ import org.bukkit.inventory.ItemStack;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.model.item.ItemTransactionActions;
 import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class ContainerBreakLogger {
 
@@ -29,7 +30,7 @@ public class ContainerBreakLogger {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 

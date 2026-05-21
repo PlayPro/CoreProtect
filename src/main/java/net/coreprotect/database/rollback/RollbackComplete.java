@@ -18,6 +18,7 @@ import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.model.item.ItemTransactionActions;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
+import net.coreprotect.utility.ErrorReporter;
 
 public class RollbackComplete {
 
@@ -309,7 +310,7 @@ public class RollbackComplete {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 

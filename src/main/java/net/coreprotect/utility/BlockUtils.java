@@ -230,7 +230,7 @@ public class BlockUtils {
                 block.update();
             }
             catch (Exception e) {
-                e.printStackTrace();
+                ErrorReporter.report(e);
             }
         }, block.getLocation());
     }
@@ -253,7 +253,7 @@ public class BlockUtils {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
         return inventory;
     }
@@ -290,7 +290,7 @@ public class BlockUtils {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         if (meta.isEmpty()) {
@@ -305,7 +305,7 @@ public class BlockUtils {
             contents = new ItemStack[] { blockState.getRecord() };
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
         return contents;
     }

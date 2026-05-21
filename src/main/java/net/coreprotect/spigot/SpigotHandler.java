@@ -15,6 +15,7 @@ import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.StringUtils;
 import net.coreprotect.utility.Util;
+import net.coreprotect.utility.ErrorReporter;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.ClickEvent;
@@ -81,7 +82,7 @@ public class SpigotHandler extends SpigotAdapter implements SpigotInterface {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 

@@ -30,6 +30,7 @@ import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class Database extends Queue {
 
@@ -80,7 +81,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -104,7 +105,7 @@ public class Database extends Queue {
                     continue;
                 }
                 else {
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                 }
             }
 
@@ -127,7 +128,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -150,7 +151,7 @@ public class Database extends Queue {
                     }
                 }
                 catch (Exception e) {
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                 }
             }
         }
@@ -179,7 +180,7 @@ public class Database extends Queue {
                 catch (Exception e) {
                     ConfigHandler.databaseReachable = false;
                     Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.MYSQL_UNAVAILABLE));
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                 }
             }
             else {
@@ -204,7 +205,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return connection;
@@ -218,7 +219,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -236,7 +237,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -250,7 +251,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return preparedStatement;
@@ -272,7 +273,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return preparedStatement;
@@ -304,7 +305,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -337,7 +338,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
         if (!success && forceConnection == null) {
             Config.getGlobal().MYSQL = false;
@@ -431,7 +432,7 @@ public class Database extends Queue {
         catch (Exception e) {
             Chat.console(Phrase.build(Phrase.DATABASE_INDEX_ERROR));
             if (purge) {
-                e.printStackTrace();
+                ErrorReporter.report(e);
             }
         }
     }
@@ -538,7 +539,7 @@ public class Database extends Queue {
             statement.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -650,7 +651,7 @@ public class Database extends Queue {
         catch (Exception e) {
             Chat.console(Phrase.build(Phrase.DATABASE_INDEX_ERROR));
             if (purge) {
-                e.printStackTrace();
+                ErrorReporter.report(e);
             }
         }
     }

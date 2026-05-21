@@ -13,6 +13,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.ErrorReporter;
 
 public class CoreProtectEditSessionEvent {
     private static boolean initialized = false;
@@ -59,7 +60,7 @@ public class CoreProtectEditSessionEvent {
                 }
             }
             catch (Exception e) {
-                e.printStackTrace();
+                ErrorReporter.report(e);
             }
         });
     }

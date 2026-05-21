@@ -16,6 +16,7 @@ import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.model.rollback.RollbackUpdateTargets;
+import net.coreprotect.utility.ErrorReporter;
 
 public class Process {
 
@@ -65,7 +66,7 @@ public class Process {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -248,7 +249,7 @@ public class Process {
                             }
                         }
                         catch (Exception e) {
-                            e.printStackTrace();
+                            ErrorReporter.report(e);
                         }
                     }
                 }
@@ -281,7 +282,7 @@ public class Process {
             consumerData.clear();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         Consumer.consumer_id.put(processId, new Integer[] { 0, 0 });
@@ -307,7 +308,7 @@ public class Process {
             Database.commitTransaction(statement, Config.getGlobal().MYSQL);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 }

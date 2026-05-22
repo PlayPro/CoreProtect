@@ -39,7 +39,7 @@ The following permissions can be used to restrict functionality within the plugi
 * **coreprotect.consumer** *(default: op)*  
   Allows access to the CoreProtect consumer command.  
   &nbsp;
-* **coreprotect.give** *(default: op)*  
+* **coreprotect.give** *(default: false)*  
   Allows access to the CoreProtect give command.  
   &nbsp;
 * **coreprotect.networking** *(default: op)*  

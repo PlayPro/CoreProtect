@@ -197,4 +197,8 @@ public class ChatUtils {
     public static void sendConsoleComponentStartup(ConsoleCommandSender consoleSender, String string) {
         Chat.sendComponent(consoleSender, Color.RESET + "[CoreProtect] " + string + Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_POPUP + "| | " + Chat.COMPONENT_TAG_CLOSE);
     }
+
+    public static String filterComponent(boolean condition, String component) {
+        return condition ? component : "";
+    }
 } 

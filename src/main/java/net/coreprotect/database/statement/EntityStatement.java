@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import net.coreprotect.CoreProtect;
-import net.coreprotect.utility.serialize.Bytes;
 import org.bukkit.block.BlockState;
 import org.bukkit.util.io.BukkitObjectInputStream;
 
@@ -21,11 +20,11 @@ public class EntityStatement {
         throw new IllegalStateException("Database class");
     }
 
-    public static int insert(PreparedStatement preparedStmt, int time, String entityData) throws SQLException {
-        final int rowid = CoreProtect.getInstance().rowNumbers().nextRowId("entity", preparedStmt.getConnection());
+    public static long insert(PreparedStatement preparedStmt, int time, String entityData) throws SQLException {
+        final long rowid = CoreProtect.getInstance().rowNumbers().nextRowNumber("entity", preparedStmt.getConnection());
         preparedStmt.setInt(1, time);
         preparedStmt.setString(2, entityData);
-        preparedStmt.setInt(3, rowid);
+        preparedStmt.setLong(3, rowid);
         preparedStmt.execute();
 
         return rowid;

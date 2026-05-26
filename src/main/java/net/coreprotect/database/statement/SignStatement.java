@@ -39,7 +39,7 @@ public class SignStatement {
             preparedStmt.setString(18, line6);
             preparedStmt.setString(19, line7);
             preparedStmt.setString(20, line8);
-            preparedStmt.setInt(21, CoreProtect.getInstance().rowNumbers().nextRowId("sign", preparedStmt.getConnection()));
+            preparedStmt.setLong(21, CoreProtect.getInstance().rowNumbers().nextRowNumber("sign", preparedStmt.getConnection()));
             preparedStmt.addBatch();
 
             if (batchCount > 0 && batchCount % 1000 == 0) {

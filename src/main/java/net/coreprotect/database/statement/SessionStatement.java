@@ -19,7 +19,7 @@ public class SessionStatement {
             preparedStmt.setInt(5, y);
             preparedStmt.setInt(6, z);
             preparedStmt.setInt(7, action);
-            preparedStmt.setInt(8, CoreProtect.getInstance().rowNumbers().nextRowId("session", preparedStmt.getConnection()));
+            preparedStmt.setLong(8, CoreProtect.getInstance().rowNumbers().nextRowNumber("session", preparedStmt.getConnection()));
             preparedStmt.addBatch();
 
             if (batchCount > 0 && batchCount % 1000 == 0) {

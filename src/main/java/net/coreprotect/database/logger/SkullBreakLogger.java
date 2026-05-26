@@ -25,7 +25,7 @@ public class SkullBreakLogger {
             int time = (int) (System.currentTimeMillis() / 1000L);
             int type = MaterialUtils.getBlockId(block.getType().name(), true);
             Skull skull = (Skull) block;
-            int skullKey = 0;
+            long skullKey = 0;
             if (skull.hasOwner()) {
                 String skullOwner = PaperAdapter.ADAPTER.getSkullOwner(skull);
                 String skullSkin = PaperAdapter.ADAPTER.getSkullSkin(skull);

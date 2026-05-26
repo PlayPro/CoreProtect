@@ -20,7 +20,7 @@ public class ChatStatement {
             preparedStmt.setInt(6, z);
             preparedStmt.setString(7, message);
             preparedStmt.setBoolean(8, cancelled);
-            preparedStmt.setInt(9, CoreProtect.getInstance().rowNumbers().nextRowId("chat", preparedStmt.getConnection()));
+            preparedStmt.setLong(9, CoreProtect.getInstance().rowNumbers().nextRowNumber("chat", preparedStmt.getConnection()));
             preparedStmt.addBatch();
 
             if (batchCount > 0 && batchCount % 1000 == 0) {

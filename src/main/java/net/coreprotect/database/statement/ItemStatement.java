@@ -25,7 +25,7 @@ public class ItemStatement {
             preparedStmt.setInt(9, amount);
             preparedStmt.setInt(10, action);
             preparedStmt.setInt(11, 0); // rolled_back
-            preparedStmt.setInt(12, CoreProtect.getInstance().rowNumbers().nextRowId("item", preparedStmt.getConnection()));
+            preparedStmt.setLong(12, CoreProtect.getInstance().rowNumbers().nextRowNumber("item", preparedStmt.getConnection()));
             preparedStmt.addBatch();
 
             if (batchCount > 0 && batchCount % 1000 == 0) {

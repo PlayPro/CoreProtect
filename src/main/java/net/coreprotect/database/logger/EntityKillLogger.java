@@ -55,7 +55,7 @@ public class EntityKillLogger {
             int x = eventLocation.getBlockX();
             int y = eventLocation.getBlockY();
             int z = eventLocation.getBlockZ();
-            int entity_key = EntityStatement.insert(preparedStmt2, time, entityData);
+            long entity_key = EntityStatement.insert(preparedStmt2, time, entityData);
 
             BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, type, entity_key, null, null, 3, 0);
         }

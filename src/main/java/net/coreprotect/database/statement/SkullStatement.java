@@ -17,13 +17,13 @@ public class SkullStatement {
         throw new IllegalStateException("Database class");
     }
 
-    public static int insert(PreparedStatement preparedStmt, int time, String owner, String skin) throws SQLException {
-        final int rowid = CoreProtect.getInstance().rowNumbers().nextRowId("skull", preparedStmt.getConnection());
+    public static long insert(PreparedStatement preparedStmt, int time, String owner, String skin) throws SQLException {
+        final long rowid = CoreProtect.getInstance().rowNumbers().nextRowNumber("skull", preparedStmt.getConnection());
 
         preparedStmt.setInt(1, time);
         preparedStmt.setString(2, owner);
         preparedStmt.setString(3, skin);
-        preparedStmt.setInt(4, rowid);
+        preparedStmt.setLong(4, rowid);
         preparedStmt.execute();
 
         return rowid;

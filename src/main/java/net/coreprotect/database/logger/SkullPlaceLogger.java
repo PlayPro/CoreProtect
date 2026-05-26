@@ -24,7 +24,7 @@ public class SkullPlaceLogger {
             }
             int time = (int) (System.currentTimeMillis() / 1000L);
             Material type = block.getType();
-            int skullKey = 0;
+            long skullKey = 0;
 
             if (block instanceof Skull) {
                 Skull skull = (Skull) block;

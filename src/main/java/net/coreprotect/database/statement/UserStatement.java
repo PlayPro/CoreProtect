@@ -22,7 +22,7 @@ public class UserStatement {
 
         try (PreparedStatement preparedStmt = connection.prepareStatement("INSERT INTO " + ConfigHandler.prefix + "user (time, user, rowid) VALUES (?, ?, ?)")) {
             int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
-            id = CoreProtect.getInstance().rowNumbers().nextRowId("user", connection);
+            id = Math.toIntExact(CoreProtect.getInstance().rowNumbers().nextRowNumber("user", connection)); // still using toIntExact here, replacing all user id ints with longs would be a big change for something that won't happen in my lifetime
 
             preparedStmt.setInt(1, unixtimestamp);
             preparedStmt.setString(2, user);

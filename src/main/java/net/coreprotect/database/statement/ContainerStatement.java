@@ -24,7 +24,7 @@ public class ContainerStatement {
             preparedStmt.setString(10, itemData);
             preparedStmt.setInt(11, action);
             preparedStmt.setInt(12, rolledBack);
-            preparedStmt.setInt(13, CoreProtect.getInstance().rowNumbers().nextRowId("container", preparedStmt.getConnection()));
+            preparedStmt.setLong(13, CoreProtect.getInstance().rowNumbers().nextRowNumber("container", preparedStmt.getConnection()));
             preparedStmt.addBatch();
 
             if (batchCount > 0 && batchCount % 1000 == 0) {

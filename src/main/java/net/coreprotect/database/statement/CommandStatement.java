@@ -20,7 +20,7 @@ public class CommandStatement {
             preparedStmt.setInt(6, z);
             preparedStmt.setString(7, message);
             preparedStmt.setBoolean(8, cancelled);
-            preparedStmt.setInt(9, CoreProtect.getInstance().rowNumbers().nextRowId("command", preparedStmt.getConnection()));
+            preparedStmt.setLong(9, CoreProtect.getInstance().rowNumbers().nextRowNumber("command", preparedStmt.getConnection()));
             preparedStmt.addBatch();
 
             if (batchCount > 0 && batchCount % 1000 == 0) {

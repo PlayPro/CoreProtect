@@ -16,7 +16,7 @@ public class MaterialStatement {
         try {
             preparedStmt.setInt(1, id);
             preparedStmt.setString(2, name);
-            preparedStmt.setInt(3, CoreProtect.getInstance().rowNumbers().nextRowId(tableName, preparedStmt.getConnection()));
+            preparedStmt.setLong(3, CoreProtect.getInstance().rowNumbers().nextRowNumber(tableName, preparedStmt.getConnection()));
             preparedStmt.addBatch();
 
             if (batchCount > 0 && batchCount % 1000 == 0) {

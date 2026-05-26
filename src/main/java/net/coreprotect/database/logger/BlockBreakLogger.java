@@ -25,7 +25,7 @@ public class BlockBreakLogger {
         throw new IllegalStateException("Database class");
     }
 
-    public static void log(PreparedStatement preparedStmt, int batchCount, String user, Location location, int type, int data, SerializedBlockMeta meta, String blockData, String overrideData) {
+    public static void log(PreparedStatement preparedStmt, int batchCount, String user, Location location, int type, long data, SerializedBlockMeta meta, String blockData, String overrideData) {
         try {
             Material checkType = net.coreprotect.utility.MaterialUtils.getType(type);
             String blockKey = BlockTypeUtils.getBlockDataKey(blockData);

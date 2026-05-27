@@ -53,7 +53,7 @@ permissions:
             coreprotect.status: true
             coreprotect.consumer: true
             coreprotect.networking: true
-            coreprotect.give: true
+            coreprotect.give: false
     coreprotect.co:
         description: Has permission to access the CoreProtect /co command
         default: true

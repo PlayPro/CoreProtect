@@ -35,10 +35,9 @@ public class VersionCheckService {
                 return false;
             }
 
-            String minimumVersion = bukkitVersion[0] + "." + bukkitVersion[1];
-            String currentVersion = minimumVersion + (bukkitVersion.length > 2 && bukkitVersion[2].matches("\\d+") ? "." + bukkitVersion[2] : "");
+            String currentVersion = bukkitVersion[0] + "." + bukkitVersion[1] + (bukkitVersion.length > 2 && bukkitVersion[2].matches("\\d+") ? "." + bukkitVersion[2] : "");
 
-            if (VersionUtils.newVersion(minimumVersion, ConfigHandler.MINECRAFT_VERSION)) {
+            if (VersionUtils.newVersion(currentVersion, ConfigHandler.MINECRAFT_VERSION)) {
                 Chat.console(Phrase.build(Phrase.VERSION_REQUIRED, "Minecraft", ConfigHandler.MINECRAFT_VERSION));
                 return false;
             }

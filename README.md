@@ -8,7 +8,7 @@
 
 # CoreProtect
 
-CoreProtect is a fast, efficient, data logging and anti-griefing tool. Rollback and restore any amount of damage. Designed with large servers in mind, CoreProtect will record and manage data without impacting your server performance.
+CoreProtect is a fast, efficient data logging and anti-griefing tool. Inspect, lookup, rollback, and restore any amount of damage without impacting your server performance.
 
 CoreProtect is the [#1 anti-griefing plugin](https://bstats.org/plugin/bukkit/CoreProtect), and has been actively developed since early 2012.
 
@@ -61,74 +61,129 @@ To support the project and obtain a donation key, visit [coreprotect.net/donate]
 
 ## Core Features
 
-* Fast efficient data logging.
-* Fast rollbacks, with no lag while performing rollbacks or restores.
+* Fast, efficient data logging.
+* Rollbacks and restores with lag-free processing.
 * Multi-threaded to ensure server performance is never impacted.
-* No configuration required. Put the plugin on your server, and you're good to go.
-* SQLite based data storage.
+* No configuration required. Install the plugin, and you're good to go.
+* SQLite storage by default.
 * Optional MySQL support.
-* Easy to use commands.
-* Perform rollbacks and restores. Undo any rollback, anytime.
-* Easy to use block inspector.
-* Advanced search-based lookup tool.
-* Paginated logs with clickable pagination.
-* Automatic update checker.
+* Supports Bukkit, Spigot, Paper, Folia, MultiPaper, and more.
+* Permission system support.
+* Easy-to-use commands and inspector.
+* Advanced lookup filters.
+* Paginated results with clickable pagination.
+* Preview rollbacks and restores.
+* Rollback or restore specific users, multiple users, or global activity.
+* Limit operations by radius, world, or WorldEdit selection.
+* Undo rollbacks by restoring the same data.
+* Inventory rollback support.
+* Include or exclude specific blocks, items, entities, or users.
+* Purge old data by time, world, and block type.
 * Multi-world support.
-* Enable or disable any aspect of logging in the configuration file.
-* Rollback per-player, or perform a global rollback to all damage around you.
-* Specify certain block types to skip in rollbacks or restores.
-* Restrict rollbacks or restores to specific block types.
-* Rollback inventories of online players.
-* Log basic player actions, such as when a player opens a door.
-* Liquid tracking. Associate liquid flow with players.
-* Tree tracking. Trees grown from saplings show who originally planted the sapling.
-* Restrict rollbacks or restores to a radius area.
-* Supports Spigot's permission system.
-* Track blocks that fall off of other blocks. If a player breaks a block that had a sign on it, both the block and the sign can be rolled back.
-* Easily delete old log data.
+* Configurable logging settings.
+* Per-world logging settings.
 * Safe default parameters.
-* Rollback or restore multiple players at once.
-* Create per-world configuration files.
-* Lookup, rollback, or restore by a specific action.
-* Exclude multiple users or blocks.
-* Preview rollbacks or restores.
-* Use WorldEdit selections.
-* An easy to use API.
-* Works with Tekkit servers.
+* User, command, and block logging blacklists.
+* Advanced lookup permissions.
+* WorldEdit and supported FAWE logging.
+* Enhanced item lookup tooltips.
+* Localization and translation support.
+* Automatic update checker.
+* Automatic error reporting.
+* Developer API.
+* Networking API support.
 * *...and much more!*
 
 ## What does it log?
 
-* Blocks broken by players.
+### Blocks and World Changes
+
 * Blocks placed by players.
-* Natural block breakage, such as a sign popping off a dirt block that was broken.
+* Blocks broken by players.
+* Natural block breakage, such as attached blocks breaking when their support is removed.
+* Block movement, including falling sand and gravel.
+* Blocks moved by pistons.
 * Bucket usage.
-* Liquid flow.
-* Tree growth.
+* Water and lava placement or removal.
+* Water and lava flow.
+* Liquid tracking, associating flowing liquids with the player who placed the source.
+* Flint and steel, fire charge, and fire ignition.
+* Block burning.
+* Fire fade.
+* Optional natural fire extinguishing.
+* Explosions from TNT, Creepers, Ghasts, and other sources.
+* Removal of primed TNT.
+* Entities changing blocks, including Endermen and Ender Dragons.
+* Leaf decay.
+* Tree growth linked back to the player who planted the sapling.
 * Mushroom growth.
 * Vine growth.
-* Explosions, including TNT, Creepers, and Ghasts.
-* Flint and steel and fire charge usage.
-* Fire igniting blocks.
-* Blocks burning up in fires.
-* Entities changing blocks, including Endermen and Enderdragons.
-* Block movement, such as falling sand and gravel.
-* Leaf decay.
-* Player interactions.
-* Nether portal generation.
-* Blocks moved by pistons.
+* Amethyst, chorus, and bamboo growth.
+* Sculk spread from sculk catalysts.
+* Nether portal and other natural portal generation.
 * Crops trampled by players.
+* Turtle eggs trampled by players or entities.
 * Snow generated by snow golems.
-* Items taken from or placed in chests, furnaces, dispensers, and other containers.
-* Items crafted or traded with villages.
-* Items dropped or picked up by players.
-* Paintings and item frames. *(With rollback support!)*
-* Entities killed by players. *(Animals and monsters.)*
-* Chat messages and commands used by players.
-* Player sessions. *(Logins and logouts.)*
+* Liquid-formed blocks such as obsidian, cobblestone, and concrete.
+* Zombies breaking doors.
+* Flowers placed in flower pots.
+* Dragon egg teleportation.
+* Suspicious sand and gravel brushing.
+* Suspicious sand and gravel destruction.
+* Custom blocks, such as CraftEngine blocks.
+
+### Containers, Inventories, and Items
+
+* Items taken from or placed into containers.
+* Supported third-party containers.
+* Hopper transactions.
+* Items dropped into hoppers.
+* Dropper and dispenser transactions.
+* Items moved into other containers.
+* Supported block-removal actions.
+* Player inventory transactions.
+* Items dropped by players.
+* Items thrown by players.
+* Items shot by players.
+* Items picked up by players.
+* Items broken, created, or destroyed by players.
+* Items deposited or withdrawn by players.
+* Items placed on campfires.
+* Lectern book transactions.
+* Items stored in or removed from chiseled bookshelves.
+* Decorated pot and shelf inventory transactions.
+* Copper Golem chest transactions.
+* Jukebox transactions.
+* Crafter slot changes.
+* Bundle actions through the `#bundle` tag.
+* Items crafted or traded with villagers.
+* Allay item exchanges.
+* Paintings and item frames.
+
+### Entities and Player Activity
+
+* Entity deaths.
+* Detailed death reasons.
+* Player-caused entity kills, including animals and monsters.
+* Armor stands and End Crystals.
+* Villagers killed by lightning.
+* Villager gossip data.
+* Villager job-site memories.
+* Thrown eggs.
+* Player interactions.
+* Doors, buttons, and levers.
+* Container interactions.
+* Chiseled bookshelf interactions.
+* Jukebox interactions.
+* Sign text, color, glow, wax, and modern double-sided signs.
+* Player chat messages.
+* Commands used by players.
+* Player sessions, including logins and logouts.
 * Player deaths.
 * Username changes.
-* Changes made via WorldEdit.
+* Skull skin texture data on Paper servers.
+* Custom skull textures.
+* WorldEdit changes and supported FAWE clipboard pastes.
 * *...and the list is still expanding!*
 
 ## How to use the inspector
@@ -139,7 +194,7 @@ Once you have the inspector enabled with `/core inspect` or `/co i`, you can do 
 * Right-click a block to see what adjacent block was removed.
 * Right-click while placing a block in a location to see what block was removed at that location.
 * Right-click while placing a block in another block to see who placed it. For example, place dirt in water to see who placed the water.
-* Right-click a door, button, lever, chest, or similar block to see who last used it.
+* Right-click a door, button, lever, container, or similar block to see who last used it.
 
 ## A Few Reviews
 
@@ -183,6 +238,10 @@ https://github.com/PlayPro/CoreProtect/issues
 
 Thanks for your support!
 
+## bStats
+
+[![bStats Graph Data](https://bstats.org/signatures/bukkit/CoreProtect.svg)](https://bstats.org/plugin/bukkit/CoreProtect)
+
 ## Contributing
 
 CoreProtect is an open source project, and gladly accepts community contributions.
@@ -190,7 +249,3 @@ CoreProtect is an open source project, and gladly accepts community contribution
 If you'd like to contribute, please read our contributing guidelines here: [CONTRIBUTING.md](CONTRIBUTING.md)
 
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.0-4baaaa.svg)](CONTRIBUTING.md#code-of-conduct)
-
-## bStats
-
-[![bStats Graph Data](https://bstats.org/signatures/bukkit/CoreProtect.svg)](https://bstats.org/plugin/bukkit/CoreProtect)

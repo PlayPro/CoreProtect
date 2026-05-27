@@ -2,6 +2,8 @@
 
 For more information about CoreProtect, visit [coreprotect.net](http://coreprotect.net).
 
+Looking for another platform? Visit [CoreProtect for Fabric](https://coreprotect.net/fabric) or [CoreProtect for Hytale](https://coreprotect.net/hytale).
+
 ## Getting Started
 
 Please visit one of the following links for more information.

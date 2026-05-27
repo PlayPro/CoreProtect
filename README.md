@@ -20,6 +20,8 @@ For a detailed description of the plugin, please visit [coreprotect.net](https:/
 | CoreProtect Documentation: | [docs.coreprotect.net](https://docs.coreprotect.net) |
 | Downloads for MC 1.14 - 26.1: | [coreprotect.net/latest](https://coreprotect.net/latest/) |
 | Downloads for MC 1.8 - 1.12: | [coreprotect.net/legacy](https://coreprotect.net/legacy/) |
+| CoreProtect for Fabric: | [coreprotect.net/fabric](https://coreprotect.net/fabric) |
+| CoreProtect for Hytale: | [coreprotect.net/hytale](https://coreprotect.net/hytale) |
 
 bStats
 ------

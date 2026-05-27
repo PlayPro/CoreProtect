@@ -216,8 +216,10 @@ hs_err_pid*
 # Documentation dev folder
 docs/dev/
 
-# API Test Plugin
+# symlinks
 CoreProtect-TestAPI
+CoreProtect-Fabric
+CoreProtect-Hytale
 
 # Extensions
 /src/main/java/net/coreprotect/utility/extensions

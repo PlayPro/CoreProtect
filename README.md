@@ -93,7 +93,6 @@ To support the project and obtain a donation key, visit [coreprotect.net/donate]
 * Blocks placed or broken by players.
 * Natural block breakage, such as attached blocks breaking when their support is removed.
 * Block movement, including falling sand, gravel, and piston movement.
-* Bucket usage.
 * Water and lava placement, removal, and flow.
 * Liquid tracking, associating flowing liquids with the player who placed the source.
 * Fire ignition from flint and steel or fire charges, block burning, and fire fade.
@@ -140,7 +139,7 @@ To support the project and obtain a donation key, visit [coreprotect.net/donate]
 * Player sessions including logins and logouts, player deaths, and username changes.
 * Skull skin texture data on Paper servers and custom skull textures.
 * WorldEdit changes and supported FAWE clipboard pastes.
-* *...and the list is still expanding!*
+* *...and more!*
 
 ## How to use the inspector
 

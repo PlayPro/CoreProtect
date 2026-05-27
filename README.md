@@ -20,7 +20,31 @@ CoreProtect is the [#1 anti-griefing plugin](https://bstats.org/plugin/bukkit/Co
 | Downloads for MC 1.14 - 26.1: | [coreprotect.net/latest](https://coreprotect.net/latest/) |
 | Downloads for MC 1.8 - 1.12: | [coreprotect.net/legacy](https://coreprotect.net/legacy/) |
 | Downloads for Fabric: | [coreprotect.net/fabric](https://coreprotect.net/fabric) |
-| Downloads for Hytale: | [curseforge.com/hytale/mods/coreprotect](https://www.curseforge.com/hytale/mods/coreprotect) |
+| Downloads for Hytale: | [coreprotect.net/hytale](https://coreprotect.net/hytale) |
+
+## API
+
+### [API Documentation](https://docs.coreprotect.net/api/)
+
+### Dependency Information
+
+Maven:
+
+```xml
+<repository>
+    <id>playpro-repo</id>
+    <url>https://maven.playpro.com</url>
+</repository>
+```
+
+```xml
+<dependency>
+    <groupId>net.coreprotect</groupId>
+    <artifactId>coreprotect</artifactId>
+    <version>23.2</version>
+    <scope>provided</scope>
+</dependency>
+```
 
 ## Donation Keys
 
@@ -159,34 +183,6 @@ https://github.com/PlayPro/CoreProtect/issues
 
 Thanks for your support!
 
-## bStats
-
-[![bStats Graph Data](https://bstats.org/signatures/bukkit/CoreProtect.svg)](https://bstats.org/plugin/bukkit/CoreProtect)
-
-## API
-
-### [API Documentation](https://docs.coreprotect.net/api/)
-
-### Dependency Information
-
-Maven:
-
-```xml
-<repository>
-    <id>playpro-repo</id>
-    <url>https://maven.playpro.com</url>
-</repository>
-```
-
-```xml
-<dependency>
-    <groupId>net.coreprotect</groupId>
-    <artifactId>coreprotect</artifactId>
-    <version>23.2</version>
-    <scope>provided</scope>
-</dependency>
-```
-
 ## Contributing
 
 CoreProtect is an open source project, and gladly accepts community contributions.
@@ -194,3 +190,7 @@ CoreProtect is an open source project, and gladly accepts community contribution
 If you'd like to contribute, please read our contributing guidelines here: [CONTRIBUTING.md](CONTRIBUTING.md)
 
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.0-4baaaa.svg)](CONTRIBUTING.md#code-of-conduct)
+
+## bStats
+
+[![bStats Graph Data](https://bstats.org/signatures/bukkit/CoreProtect.svg)](https://bstats.org/plugin/bukkit/CoreProtect)

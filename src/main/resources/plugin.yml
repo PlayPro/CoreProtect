@@ -145,6 +145,6 @@ permissions:
     coreprotect.networking:
         description: Has permission to use the networking API
         default: op
-    coreproctect.give:
+    coreprotect.give:
         description: Has permission to use the give command
         default: false

@@ -220,6 +220,7 @@ docs/dev/
 CoreProtect-TestAPI
 CoreProtect-Fabric
 CoreProtect-Hytale
+publish/
 
 # Extensions
 /src/main/java/net/coreprotect/utility/extensions

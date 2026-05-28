@@ -132,7 +132,7 @@ To support the project and obtain a donation key, visit [coreprotect.net/donate]
 * Player-caused entity kills, including animals and monsters.
 * Armor stands and End Crystals.
 * Villagers killed by lightning, gossip data, and job-site memories.
-* Thrown eggs.
+* Thrown eggs, snowballs, potions, ender pearls, tridents, and wind charges.
 * Player interactions with doors, buttons, levers, containers, bookshelves, and jukeboxes.
 * Sign text, color, glow, wax, and modern double-sided signs.
 * Player chat messages and commands.

@@ -184,6 +184,8 @@ public class Language {
         phrases.put(Phrase.PATCH_SKIP_UPDATE, "Skipping {table|index} {update|creation|removal} on {0}.");
         phrases.put(Phrase.PATCH_STARTED, "Performing {0} upgrade. Please wait...");
         phrases.put(Phrase.PATCH_SUCCESS, "Successfully upgraded to {0}.");
+        phrases.put(Phrase.PATCH_TABLE_COMPLETED, "Successfully updated {0} table.");
+        phrases.put(Phrase.PATCH_TABLE_STARTED, "Updating {0} table. Please wait...");
         phrases.put(Phrase.PATCH_UPGRADING, "Database upgrade in progress. Please wait...");
         phrases.put(Phrase.PLEASE_SELECT, "Please select: \"{0}\" or \"{1}\".");
         phrases.put(Phrase.PREVIEW_CANCELLED, "Preview cancelled.");

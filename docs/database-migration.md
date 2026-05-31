@@ -2,7 +2,7 @@
 
 CoreProtect 23.0+ includes the ability to migrate your database between SQLite and MySQL without losing any data.
 
-> **Note:** Database migration functionality is exclusive to CoreProtect 23.0+ Patreon builds for Patron supporters.
+> **Note:** Database migration functionality is exclusive to CoreProtect 23.0+ [Patreon builds](http://patreon.com/coreprotect) for Patron supporters.
 
 ## Overview
 
@@ -82,7 +82,7 @@ The `/co migrate-db` command allows you to seamlessly transfer all your CoreProt
 
 * **Console only:** Cannot be executed from in-game chat
 * **Interruption handling:** If interrupted, the target database must be manually wiped before restarting
-* **Patreon exclusive:** Only available in CoreProtect 23.0+ Patreon builds
+* **Patreon exclusive:** Only available in CoreProtect 23.0+ [Patreon builds](http://patreon.com/coreprotect)
 
 ---
 
@@ -92,7 +92,7 @@ The `/co migrate-db` command allows you to seamlessly transfer all your CoreProt
 
 **Migration won't start:**
 
-* Verify you're using a CoreProtect 23.0+ Patreon build
+* Verify you're using a CoreProtect 23.0+ [Patreon build](http://patreon.com/coreprotect)
 * Ensure you're not trying to migrate to the same database type
 * Check that no other CoreProtect operations are running
 

@@ -7,12 +7,16 @@ import org.bukkit.Material;
 import org.bukkit.block.data.BlockData;
 
 import net.coreprotect.api.SessionLookup;
+import net.coreprotect.model.action.LookupActions;
+import net.coreprotect.model.action.SessionActions;
+import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.BlockTypeUtils;
 import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.StringUtils;
 import net.coreprotect.utility.WorldUtils;
 
-public class ParseResult {
+public class ParseResult implements CoreProtectResult {
     private final String[] parse;
 
     public ParseResult(String[] data) {
@@ -26,31 +30,10 @@ public class ParseResult {
     public String getActionString() {
         int actionID = Integer.parseInt(parse[7]);
         if (parse.length < 13 && Integer.parseInt(parse[6]) == SessionLookup.ID) {
-            switch (actionID) {
-                case 0:
-                    return "logout";
-                case 1:
-                    return "login";
-                default:
-                    return "unknown";
-            }
+            return SessionActions.getActionString(actionID);
         }
 
-        String result = "unknown";
-        if (actionID == 0) {
-            result = "break";
-        }
-        else if (actionID == 1) {
-            result = "place";
-        }
-        else if (actionID == 2) {
-            result = "click";
-        }
-        else if (actionID == 3) {
-            result = "kill";
-        }
-
-        return result;
+        return LookupActions.getActionString(actionID);
     }
 
     @Deprecated
@@ -84,7 +67,12 @@ public class ParseResult {
             typeName = EntityUtils.getEntityType(type).name();
         }
         else {
-            typeName = MaterialUtils.getType(type).name().toLowerCase(Locale.ROOT);
+            Material material = MaterialUtils.getType(type);
+            if (material == null) {
+                return null;
+            }
+
+            typeName = material.name().toLowerCase(Locale.ROOT);
             typeName = StringUtils.nameFilter(typeName, this.getData());
         }
 
@@ -98,9 +86,16 @@ public class ParseResult {
 
         String blockData = parse[12];
         if (blockData == null || blockData.length() == 0) {
-            return getType().createBlockData();
+            Material type = getType();
+            if (type != null) {
+                return type.createBlockData();
+            }
+
+            return BlockUtils.createBlockData(Integer.parseInt(parse[5]));
         }
-        return Bukkit.getServer().createBlockData(blockData);
+
+        BlockData result = BlockTypeUtils.createBlockDataFromString(blockData);
+        return result != null ? result : Bukkit.getServer().createBlockData(blockData);
     }
 
     public int getX() {

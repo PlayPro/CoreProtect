@@ -18,6 +18,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public final class HopperPullListener {
 
@@ -59,7 +60,7 @@ public final class HopperPullListener {
                     }
                 }
                 catch (Exception e) {
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                 }
                 finally {
                     activeProcessors.decrementAndGet();
@@ -142,6 +143,10 @@ public final class HopperPullListener {
         }
 
         Location destinationLocation = destinationHolder.getInventory().getLocation();
+        if (destinationLocation == null) {
+            return;
+        }
+
         List<Object> list = ConfigHandler.transactingChest.get(destinationLocation.getWorld().getUID().toString() + "." + destinationLocation.getBlockX() + "." + destinationLocation.getBlockY() + "." + destinationLocation.getBlockZ());
         if (list != null) {
             list.add(new ItemStack[] { null, movedItem });

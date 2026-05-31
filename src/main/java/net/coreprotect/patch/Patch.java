@@ -21,6 +21,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.VersionUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class Patch {
 
@@ -83,7 +84,7 @@ public class Patch {
             statement.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return last_version;
@@ -124,7 +125,7 @@ public class Patch {
             });
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return patches;
@@ -143,7 +144,7 @@ public class Patch {
             ConfigHandler.serverRunning = isRunning;
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -187,7 +188,7 @@ public class Patch {
                         }
                     }
                     catch (Exception e) {
-                        e.printStackTrace();
+                        ErrorReporter.report(e);
                     }
 
                     if (success) {
@@ -222,7 +223,7 @@ public class Patch {
             statement.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         patching = false;
@@ -273,7 +274,7 @@ public class Patch {
                             }
                         }
                         catch (Exception e) {
-                            e.printStackTrace();
+                            ErrorReporter.report(e);
                         }
                     }
                 }
@@ -298,7 +299,7 @@ public class Patch {
                             }
                         }
                         catch (Exception e) {
-                            e.printStackTrace();
+                            ErrorReporter.report(e);
                         }
                     }
                 }
@@ -319,7 +320,7 @@ public class Patch {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return true;

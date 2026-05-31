@@ -21,15 +21,31 @@ Secondary configuration files override the value specified in config.yml. If you
 To disable logging for specific users, blocks or commands, simply do the following:
 
 1. In the CoreProtect plugin directory, create a file named `blacklist.txt`.
-2. Enter the names of the users (or commands) you'd like to disable logging for (each username on a new line).
+2. Enter the names of the users, commands, blocks, or entities you'd like to disable logging for (each entry on a new line).
 3. Either restart your server, or type "/co reload" in-game.
 
-This can be used to disable logging for non-player users, such as "#creeper". For example, if you'd like to disable logging for the user "Notch", TNT explosions, stone blocks, and the "/help" command, the blacklist.txt file would look like this:
+The blacklist supports disabling logs for:
+
+- Users, which includes Players and non-player users, such as "#creeper"
+- Commands, such as `/help`
+- Blocks, such as minecraft:stone. Only `block` actions are affected.
+- Entities, such as minecraft:creeper, which will disable logging the death for that entity. *Note: renamed entities will be logged even if blacklisted.*
+- Filters can also be specified for a particular user, by using the `@` symbol after the specific item, block, or entity namespaced ID. The format is `id@user`. This will filter all `block`, `kill`, `item` and `container` actions involving that particular block, item or mob, only when caused by the specified player or non-player user. 
+- Items and container actions are only affected by filtered blacklist entries, not by generic item or block IDs.
+
+*Please note that you must include the namespace (e.g. minecraft:) for blocks, entities and items.*
+
+An example blacklist.txt file would look like this:
+
 ```text
-Notch
-#tnt
-/help
-minecraft:stone
+Notch ; User
+#tnt ; TNT explosions
+/help ; Help command
+minecraft:stone ; Stone blocks
+minecraft:creeper ; Creeper entity
+minecraft:shears@#dispenser ; Shears being dispensed
 ```
 
-*Please note that to disable logging for blocks, CoreProtect v23+ is required, and you must include the namespace. For example, to disable logging for dirt, you must add it as "minecraft:dirt".*
+
+*Please note that to disable logging for blocks, CoreProtect v23+ is required.*
+*To disable logging for entities or to use filtering, CoreProtect v23.4+ is required.*

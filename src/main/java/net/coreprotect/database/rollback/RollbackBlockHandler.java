@@ -51,6 +51,7 @@ import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.Util;
 import net.coreprotect.utility.entity.HangingUtil;
+import net.coreprotect.utility.ErrorReporter;
 
 public class RollbackBlockHandler extends Queue {
 
@@ -75,6 +76,16 @@ public class RollbackBlockHandler extends Queue {
                     rowType = (technicalPiston.getType() == org.bukkit.block.data.type.TechnicalPiston.Type.STICKY ? Material.STICKY_PISTON : Material.PISTON);
                     blockData = rowType.createBlockData();
                     ((Piston) blockData).setFacing(technicalPiston.getFacing());
+                }
+
+                if (rowType == null) {
+                    BlockData customBlockData = blockData != null ? blockData : rawBlockData;
+                    if (customBlockData != null) {
+                        BlockUtils.prepareTypeAndData(chunkChanges, block, null, customBlockData, true);
+                        return countBlock;
+                    }
+
+                    return false;
                 }
 
                 if ((rowType == Material.AIR) && ((BukkitAdapter.ADAPTER.isItemFrame(oldTypeMaterial)) || (oldTypeMaterial == Material.PAINTING))) {
@@ -201,11 +212,12 @@ public class RollbackBlockHandler extends Queue {
 
                     if (remove) {
                         boolean physics = true;
-                        if ((changeType == Material.NETHER_PORTAL) || changeBlockData instanceof MultipleFacing || changeBlockData instanceof Snow || changeBlockData instanceof Stairs || changeBlockData instanceof RedstoneWire || changeBlockData instanceof Chest) {
+                        BlockData removeBlockData = pendingChangeData != null ? pendingChangeData : changeBlockData;
+                        if ((changeType == Material.NETHER_PORTAL) || removeBlockData instanceof MultipleFacing || removeBlockData instanceof Snow || removeBlockData instanceof Stairs || removeBlockData instanceof RedstoneWire || removeBlockData instanceof Chest) {
                             physics = true;
                         }
-                        else if (changeBlockData instanceof Bisected && !(changeBlockData instanceof TrapDoor)) {
-                            Bisected bisected = (Bisected) changeBlockData;
+                        else if (removeBlockData instanceof Bisected && !(removeBlockData instanceof TrapDoor)) {
+                            Bisected bisected = (Bisected) removeBlockData;
                             Location bisectLocation = block.getLocation().clone();
                             if (bisected.getHalf() == Half.TOP) {
                                 bisectLocation.setY(bisectLocation.getY() - 1);
@@ -225,8 +237,8 @@ public class RollbackBlockHandler extends Queue {
                                 }
                             }
                         }
-                        else if (changeBlockData instanceof Bed) {
-                            Bed bed = (Bed) changeBlockData;
+                        else if (removeBlockData instanceof Bed) {
+                            Bed bed = (Bed) removeBlockData;
                             if (bed.getPart() == Part.FOOT) {
                                 Block adjacentBlock = block.getRelative(bed.getFacing());
                                 BlockUtils.prepareTypeAndData(chunkChanges, adjacentBlock, rowType, null, false);
@@ -300,6 +312,10 @@ public class RollbackBlockHandler extends Queue {
                     return false;
                 }
                 else if ((rowType == Material.WATER)) {
+                    if (bukkitWorld.getEnvironment() == World.Environment.NETHER) {
+                        return false;
+                    }
+
                     if (pendingChangeData instanceof Waterlogged) {
                         Waterlogged waterlogged = (Waterlogged) pendingChangeData;
                         waterlogged.setWaterlogged(true);
@@ -478,7 +494,7 @@ public class RollbackBlockHandler extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         if ((rowType != Material.AIR) && changeBlock) {

@@ -10,6 +10,7 @@ import com.sk89q.worldedit.regions.Region;
 import com.sk89q.worldedit.world.World;
 
 import net.coreprotect.worldedit.WorldEditLogger;
+import net.coreprotect.utility.ErrorReporter;
 
 public class WorldEditHandler {
 
@@ -49,7 +50,7 @@ public class WorldEditHandler {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
         return result;
     }

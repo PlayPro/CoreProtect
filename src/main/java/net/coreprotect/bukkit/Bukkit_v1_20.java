@@ -2,6 +2,7 @@ package net.coreprotect.bukkit;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.bukkit.Color;
@@ -17,6 +18,7 @@ import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionType;
@@ -304,4 +306,17 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
         // accoding to the Bukkit docs this will always return air
         return event.getExplodedBlockState().getType();
     }
+
+    @Override
+    public void addMerchantRecipeMeta(MerchantRecipe recipe, List<Object> recipeData) {
+        recipeData.add(recipe.getDemand());
+    }
+
+    @Override
+    public void setMerchantRecipeMeta(MerchantRecipe recipe, List<?> recipeData) {
+        if (recipeData.size() > 7 && recipeData.get(7) instanceof Number) {
+            recipe.setDemand(((Number) recipeData.get(7)).intValue());
+        }
+    }
+
 }

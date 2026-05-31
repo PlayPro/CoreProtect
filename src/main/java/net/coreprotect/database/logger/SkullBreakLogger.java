@@ -2,7 +2,6 @@ package net.coreprotect.database.logger;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.util.Locale;
 
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Skull;
@@ -12,6 +11,7 @@ import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.SkullStatement;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class SkullBreakLogger {
 
@@ -21,7 +21,7 @@ public class SkullBreakLogger {
 
     public static void log(PreparedStatement preparedStmt, PreparedStatement preparedStmt2, int batchCount, String user, BlockState block) {
         try {
-            if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null || block == null) {
+            if (ConfigHandler.isBlacklisted(user) || block == null) {
                 return;
             }
             int time = (int) (System.currentTimeMillis() / 1000L);
@@ -30,9 +30,9 @@ public class SkullBreakLogger {
             String skullOwner = "";
             String skullSkin = null;
             int skullKey = 0;
-            if (skull.hasOwner()) {
-                skullOwner = PaperAdapter.ADAPTER.getSkullOwner(skull);
-                skullSkin = PaperAdapter.ADAPTER.getSkullSkin(skull);
+            skullOwner = PaperAdapter.ADAPTER.getSkullOwner(skull);
+            skullSkin = PaperAdapter.ADAPTER.getSkullSkin(skull);
+            if ((skullOwner != null && skullOwner.length() > 0) || (skullSkin != null && skullSkin.length() > 0)) {
                 ResultSet resultSet = SkullStatement.insert(preparedStmt2, time, skullOwner, skullSkin);
                 if (Database.hasReturningKeys()) {
                     resultSet.next();
@@ -50,7 +50,7 @@ public class SkullBreakLogger {
             BlockBreakLogger.log(preparedStmt, batchCount, user, block.getLocation(), type, skullKey, null, block.getBlockData().getAsString(), null);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 

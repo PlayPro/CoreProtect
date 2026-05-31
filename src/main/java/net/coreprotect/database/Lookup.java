@@ -13,6 +13,7 @@ import org.bukkit.command.CommandSender;
 
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.utility.ErrorReporter;
 
 public class Lookup extends Queue {
 
@@ -35,7 +36,7 @@ public class Lookup extends Queue {
             results.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         Consumer.isPaused = false;
@@ -51,7 +52,7 @@ public class Lookup extends Queue {
             newList = LookupConverter.convertRawLookup(statement, lookupList);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return newList;
@@ -65,7 +66,7 @@ public class Lookup extends Queue {
             newList = LookupConverter.convertRawLookup(statement, lookupList);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return newList;

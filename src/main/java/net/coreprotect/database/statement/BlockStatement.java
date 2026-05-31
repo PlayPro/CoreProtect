@@ -5,6 +5,7 @@ import java.util.List;
 
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class BlockStatement {
 
@@ -40,7 +41,7 @@ public class BlockStatement {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 }

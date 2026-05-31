@@ -1,8 +1,10 @@
 package net.coreprotect.spigot;
 
+import java.util.List;
 import java.util.regex.Matcher;
 
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Villager;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
@@ -22,6 +24,7 @@ public class SpigotAdapter implements SpigotInterface {
     public static final int SPIGOT_V1_19 = BukkitAdapter.BUKKIT_V1_19;
     public static final int SPIGOT_V1_20 = BukkitAdapter.BUKKIT_V1_20;
     public static final int SPIGOT_V1_21 = BukkitAdapter.BUKKIT_V1_21;
+    public static final int SPIGOT_V26_0 = BukkitAdapter.BUKKIT_V26_0;
 
     public static void loadAdapter() {
         int spigotVersion = ConfigHandler.SERVER_VERSION;
@@ -42,6 +45,7 @@ public class SpigotAdapter implements SpigotInterface {
             case SPIGOT_V1_19:
             case SPIGOT_V1_20:
             case SPIGOT_V1_21:
+            case SPIGOT_V26_0:
             default:
                 SpigotAdapter.ADAPTER = new SpigotHandler();
                 break;
@@ -81,6 +85,20 @@ public class SpigotAdapter implements SpigotInterface {
         }
 
         Chat.sendMessage(sender, message.toString());
+    }
+
+    @Override
+    public boolean setVillagerReputations(Villager villager, List<?> reputations) {
+        return false;
+    }
+
+    @Override
+    public Object getVillagerGossipDecayTime(Villager villager) {
+        return null;
+    }
+
+    @Override
+    public void setVillagerGossipDecayTime(Villager villager, Object value) {
     }
 
     public String processComponent(String component) {

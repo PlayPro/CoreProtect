@@ -2,6 +2,8 @@ package net.coreprotect.language;
 
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.bukkit.ChatColor;
+
 public class Language {
 
     private static ConcurrentHashMap<Phrase, String> phrases = new ConcurrentHashMap<>();
@@ -21,10 +23,16 @@ public class Language {
     }
 
     protected static void setUserPhrase(Phrase phrase, String value) {
+        if (value != null) {
+            value = ChatColor.translateAlternateColorCodes('&', value);
+        }
         userPhrases.put(phrase, value);
     }
 
     protected static void setTranslatedPhrase(Phrase phrase, String value) {
+        if (value != null) {
+            value = ChatColor.translateAlternateColorCodes('&', value);
+        }
         translatedPhrases.put(phrase, value);
     }
 
@@ -95,6 +103,9 @@ public class Language {
         phrases.put(Phrase.HELP_PARAMS_7, "Exclude blocks/users from the {lookup|rollback|restore}.");
         phrases.put(Phrase.HELP_PURGE_1, "Delete data older than specified time.");
         phrases.put(Phrase.HELP_PURGE_2, "For example, \"{0}\" will delete all data older than one month, and only keep the last 30 days of data.");
+        phrases.put(Phrase.HELP_PURGE_3, "Specify the amount of time to purge.");
+        phrases.put(Phrase.HELP_PURGE_4, "Specify a world to limit the purge to.");
+        phrases.put(Phrase.HELP_PURGE_5, "Include specific blocks in the purge.");
         phrases.put(Phrase.HELP_PURGE_COMMAND, "Delete old block data.");
         phrases.put(Phrase.HELP_RADIUS_1, "Specify a radius area.");
         phrases.put(Phrase.HELP_RADIUS_2, "Examples: [r:10] (Only make changes within 10 blocks of you)");
@@ -123,6 +134,8 @@ public class Language {
         phrases.put(Phrase.INVALID_DONATION_KEY, "Invalid donation key.");
         phrases.put(Phrase.INVALID_INCLUDE, "\"{0}\" is an invalid block/entity name.");
         phrases.put(Phrase.INVALID_INCLUDE_COMBO, "That is an invalid block/entity combination.");
+        phrases.put(Phrase.INVALID_PARAMETER, "\"{0}\" is not a supported parameter.");
+        phrases.put(Phrase.INVALID_ITEM_ID, "Please enter a valid item id.");
         phrases.put(Phrase.INVALID_RADIUS, "Please enter a valid radius.");
         phrases.put(Phrase.INVALID_SELECTION, "{0} selection not found.");
         phrases.put(Phrase.INVALID_USERNAME, "\"{0}\" is an invalid username.");
@@ -171,6 +184,8 @@ public class Language {
         phrases.put(Phrase.PATCH_SKIP_UPDATE, "Skipping {table|index} {update|creation|removal} on {0}.");
         phrases.put(Phrase.PATCH_STARTED, "Performing {0} upgrade. Please wait...");
         phrases.put(Phrase.PATCH_SUCCESS, "Successfully upgraded to {0}.");
+        phrases.put(Phrase.PATCH_TABLE_COMPLETED, "Successfully updated {0} table.");
+        phrases.put(Phrase.PATCH_TABLE_STARTED, "Updating {0} table. Please wait...");
         phrases.put(Phrase.PATCH_UPGRADING, "Database upgrade in progress. Please wait...");
         phrases.put(Phrase.PLEASE_SELECT, "Please select: \"{0}\" or \"{1}\".");
         phrases.put(Phrase.PREVIEW_CANCELLED, "Preview cancelled.");
@@ -209,6 +224,7 @@ public class Language {
         phrases.put(Phrase.ROLLBACK_TIME, "Time range: {0}.");
         phrases.put(Phrase.ROLLBACK_WORLD_ACTION, "Restricted to {world|action} \"{0}\".");
         phrases.put(Phrase.SIGN_HEADER, "Sign Messages");
+        phrases.put(Phrase.STATUS_AUTO_PURGE, "Cleanup: {0} {row|rows} auto purged since restart.");
         phrases.put(Phrase.STATUS_CONSUMER, "Consumer: {0} {item|items} in queue.");
         phrases.put(Phrase.STATUS_DATABASE, "Database: Using {0}.");
         phrases.put(Phrase.STATUS_INTEGRATION, "{0}: Integration {enabled|disabled}.");

@@ -21,6 +21,9 @@ import net.coreprotect.utility.WorldUtils;
 
 public final class BlockFromToListener extends Queue implements Listener {
 
+    private static final int FLOW_DUPLICATE_THRESHOLD = 512;
+    private static final int FLOW_DUPLICATE_WINDOW_SECONDS = 900;
+
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onBlockFromTo(BlockFromToEvent event) {
         Block block = event.getBlock();
@@ -36,7 +39,8 @@ public final class BlockFromToListener extends Queue implements Listener {
             }
 
             World world = event.getBlock().getWorld();
-            if ((Config.getConfig(world).WATER_FLOW && type.equals(Material.WATER)) || (Config.getConfig(world).LAVA_FLOW && type.equals(Material.LAVA))) {
+            Config config = Config.getConfig(world);
+            if ((config.WATER_FLOW && type.equals(Material.WATER)) || (config.LAVA_FLOW && type.equals(Material.LAVA))) {
                 Block toBlock = event.getToBlock();
                 BlockState toBlockState = toBlock.getState();
 
@@ -67,14 +71,14 @@ public final class BlockFromToListener extends Queue implements Listener {
                 int y = toBlock.getY();
                 int z = toBlock.getZ();
                 int wid = WorldUtils.getWorldId(block.getWorld().getName());
-                if (Config.getConfig(world).LIQUID_TRACKING) {
+                if (config.LIQUID_TRACKING) {
                     String p = Lookup.whoPlacedCache(block);
                     if (p.length() > 0) {
                         f = p;
                     }
                 }
 
-                if (f.startsWith("#")) {
+                if (config.DUPLICATE_SUPPRESSION && f.startsWith("#")) {
                     String cacheId = toBlock.getX() + "." + toBlock.getY() + "." + toBlock.getZ() + "." + WorldUtils.getWorldId(toBlock.getWorld().getName());
                     int timestamp = (int) (System.currentTimeMillis() / 1000L);
                     Object[] cacheData = CacheHandler.spreadCache.get(cacheId);
@@ -82,6 +86,10 @@ public final class BlockFromToListener extends Queue implements Listener {
                     if (toBlockState == null && cacheData != null && ((Material) cacheData[1]) == type) {
                         return;
                     }
+                }
+
+                if (config.DUPLICATE_SUPPRESSION && shouldSuppressFlowDuplicate(f, block, toBlock, type, blockData, toBlockState)) {
+                    return;
                 }
 
                 CacheHandler.lookupCache.put("" + x + "." + y + "." + z + "." + wid + "", new Object[] { unixtimestamp, f, type });
@@ -121,6 +129,16 @@ public final class BlockFromToListener extends Queue implements Listener {
                 }
             }
         }
+    }
+
+    private boolean shouldSuppressFlowDuplicate(String user, Block sourceBlock, Block targetBlock, Material liquidType, BlockData blockData, BlockState replacedState) {
+        String replacedSignature = "-";
+        if (replacedState != null) {
+            replacedSignature = replacedState.getType().name() + ":" + replacedState.getBlockData().getAsString();
+        }
+
+        String signature = sourceBlock.getWorld().getUID().toString() + "." + sourceBlock.getX() + "." + sourceBlock.getY() + "." + sourceBlock.getZ() + ">" + targetBlock.getX() + "." + targetBlock.getY() + "." + targetBlock.getZ() + "." + user + "." + liquidType.name() + "." + blockData.getAsString() + "." + replacedSignature;
+        return CacheHandler.shouldSuppressRepeat(CacheHandler.flowDuplicateCache, signature, FLOW_DUPLICATE_THRESHOLD, FLOW_DUPLICATE_WINDOW_SECONDS);
     }
 
 }

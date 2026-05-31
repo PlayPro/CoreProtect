@@ -3,7 +3,6 @@ package net.coreprotect.api;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
 
 import org.bukkit.Location;
@@ -18,6 +17,7 @@ import net.coreprotect.consumer.process.Process;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.StringUtils;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 /**
  * Provides API methods for looking up block-related actions in the processing queue.
@@ -70,9 +70,7 @@ public class QueueLookup extends Queue {
             Location blockLocation = block.getLocation();
 
             // Check for block actions in the processing queue
-            ListIterator<Object[]> iterator = consumerData.listIterator();
-            while (iterator.hasNext()) {
-                Object[] data = iterator.next();
+            for (Object[] data : consumerData.toArray(Object[][]::new)) {
                 int id = (int) data[0];
                 int action = (int) data[1];
 
@@ -106,7 +104,7 @@ public class QueueLookup extends Queue {
             Collections.reverse(result);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return result;

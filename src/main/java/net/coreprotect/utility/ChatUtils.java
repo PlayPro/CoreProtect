@@ -185,8 +185,20 @@ public class ChatUtils {
         return message.append(Chat.COMPONENT_TAG_CLOSE).toString();
     }
 
+    public static String createGiveItemComponent(String phrase, String command, Integer itemId) {
+        if (itemId == null) {
+            return "";
+        }
+
+        return Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_COMMAND + "|/" + command + " give #" + itemId + "|" + phrase + Chat.COMPONENT_TAG_CLOSE;
+    }
+
     // This theoretically initializes the component code, to prevent gson adapter errors
     public static void sendConsoleComponentStartup(ConsoleCommandSender consoleSender, String string) {
         Chat.sendComponent(consoleSender, Color.RESET + "[CoreProtect] " + string + Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_POPUP + "| | " + Chat.COMPONENT_TAG_CLOSE);
+    }
+
+    public static String filterComponent(boolean condition, String component) {
+        return condition ? component : "";
     }
 } 

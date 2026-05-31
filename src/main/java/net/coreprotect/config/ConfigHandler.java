@@ -8,10 +8,12 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -37,6 +39,7 @@ import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.SystemUtils;
 import net.coreprotect.utility.VersionUtils;
+import net.coreprotect.utility.ErrorReporter;
 import oshi.hardware.CentralProcessor;
 
 public class ConfigHandler extends Queue {
@@ -51,9 +54,9 @@ public class ConfigHandler extends Queue {
     public static final String EDITION_NAME = VersionUtils.getPluginName();
     public static final String COMMUNITY_EDITION = "Community Edition";
     public static final String JAVA_VERSION = "11.0";
-    public static final String MINECRAFT_VERSION = "1.16";
-    public static final String PATCH_VERSION = "23.1";
-    public static final String LATEST_VERSION = "1.21.11";
+    public static final String MINECRAFT_VERSION = "1.16.5";
+    public static final String PATCH_VERSION = "24.0";
+    public static final String LATEST_VERSION = "26.1.2";
     public static String path = "plugins/CoreProtect/";
     public static String sqlite = "database.db";
     public static String host = "127.0.0.1";
@@ -64,6 +67,10 @@ public class ConfigHandler extends Queue {
     public static String prefix = "co_";
     public static String prefixConfig = "co_";
     public static int maximumPoolSize = 10;
+
+    public static final String BLACKLIST_COMMENT_SEPARATOR = ";";
+    public static final String BLACKLIST_FILTER_SEPARATOR = "@";
+    public static final String BLACKLIST_FILENAME = "blacklist.txt";
 
     public static HikariDataSource hikariDataSource = null;
     public static final CentralProcessor processorInfo = SystemUtils.getProcessorInfo();
@@ -82,6 +89,7 @@ public class ConfigHandler extends Queue {
     public static volatile int blockdataId = 0;
     public static volatile int entityId = 0;
     public static volatile int artId = 0;
+    public static final AtomicLong autoPurgeRowsPurged = new AtomicLong(0);
 
     private static <K, V> Map<K, V> syncMap() {
         return Collections.synchronizedMap(new HashMap<>());
@@ -100,6 +108,7 @@ public class ConfigHandler extends Queue {
     public static Map<String, int[]> rollbackHash = syncMap();
     public static Map<String, Boolean> inspecting = syncMap();
     public static Map<String, Boolean> blacklist = syncMap();
+    public static Map<String, HashSet<String>> FilteredBlacklist = syncMap();
     public static Map<String, Integer> loggingChest = syncMap();
     public static Map<String, Integer> loggingItem = syncMap();
     public static ConcurrentHashMap<String, List<Object>> transactingChest = new ConcurrentHashMap<>();
@@ -152,27 +161,56 @@ public class ConfigHandler extends Queue {
         }
     }
 
+    public static boolean isBlacklisted(String user) {
+        return ConfigHandler.blacklist.containsKey(user.toLowerCase(Locale.ROOT));
+    }
+
+    public static boolean isBlacklisted(String user, String object) {
+        if (ConfigHandler.blacklist.containsKey(object) || ConfigHandler.blacklist.containsKey(user.toLowerCase(Locale.ROOT))) {
+            return true;
+        }
+        return isFilterBlacklisted(user, object);
+    }
+
+    public static boolean isFilterBlacklisted(String user, String object) {
+        HashSet<String> blUserSet = FilteredBlacklist.get(object);
+        if (blUserSet == null) {
+            return false;
+        }
+        return blUserSet.contains(user.toLowerCase(Locale.ROOT));
+    }
+
     private static void loadBlacklist() {
         try {
             ConfigHandler.blacklist.clear();
-            String blacklist = ConfigHandler.path + "blacklist.txt";
-            boolean exists = (new File(blacklist)).exists();
-            if (exists) {
-                RandomAccessFile blfile = new RandomAccessFile(blacklist, "rw");
-                long blc = blfile.length();
-                if (blc > 0) {
-                    while (blfile.getFilePointer() < blfile.length()) {
-                        String blacklistUser = blfile.readLine().replaceAll(" ", "").toLowerCase(Locale.ROOT);
-                        if (blacklistUser.length() > 0) {
-                            ConfigHandler.blacklist.put(blacklistUser, true);
-                        }
+            ConfigHandler.FilteredBlacklist.clear();
+
+            File file = new File(ConfigHandler.path, BLACKLIST_FILENAME);
+            if (!file.exists()) {
+                return;
+            }
+            try (RandomAccessFile blfile = new RandomAccessFile(file, "r")) {
+                if (blfile.length() == 0) {
+                    return;
+                }
+                String blLine;
+                while ((blLine = blfile.readLine()) != null) {
+                    blLine = blLine.replace(" ", "").toLowerCase(Locale.ROOT).split(BLACKLIST_COMMENT_SEPARATOR)[0];
+                    if (blLine.isEmpty()) {
+                        continue;
+                    }
+                    String[] blSplit = blLine.split(BLACKLIST_FILTER_SEPARATOR);
+                    if (blSplit.length == 1) {
+                        ConfigHandler.blacklist.put(blLine, true);
+                    }
+                    else {
+                        ConfigHandler.FilteredBlacklist.computeIfAbsent(blSplit[0], k -> new HashSet<>()).add(blSplit[1]);
                     }
                 }
-                blfile.close();
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -199,7 +237,7 @@ public class ConfigHandler extends Queue {
             ConfigHandler.loadBlacklist(); // Load the blacklist file if it exists.
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -234,7 +272,7 @@ public class ConfigHandler extends Queue {
                 Class.forName("org.sqlite.JDBC");
             }
             catch (Exception e) {
-                e.printStackTrace();
+                ErrorReporter.report(e);
             }
         }
         else {
@@ -294,7 +332,7 @@ public class ConfigHandler extends Queue {
             rs.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -318,7 +356,7 @@ public class ConfigHandler extends Queue {
             rs.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -342,7 +380,7 @@ public class ConfigHandler extends Queue {
             rs.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -366,7 +404,7 @@ public class ConfigHandler extends Queue {
             rs.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -425,7 +463,7 @@ public class ConfigHandler extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return -1;
@@ -463,7 +501,7 @@ public class ConfigHandler extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -502,7 +540,7 @@ public class ConfigHandler extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return true;
@@ -523,7 +561,7 @@ public class ConfigHandler extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         try (Connection connection = Database.getConnection(true, 0)) {
@@ -558,7 +596,7 @@ public class ConfigHandler extends Queue {
             return validVersion && databaseLock;
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return false;
@@ -570,7 +608,7 @@ public class ConfigHandler extends Queue {
             ListenerHandler.unregisterNetworking(); // Unregister channels for networking API
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 

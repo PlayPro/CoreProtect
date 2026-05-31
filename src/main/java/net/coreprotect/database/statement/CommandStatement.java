@@ -1,6 +1,7 @@
 package net.coreprotect.database.statement;
 
 import java.sql.PreparedStatement;
+import net.coreprotect.utility.ErrorReporter;
 
 public class CommandStatement {
 
@@ -24,7 +25,7 @@ public class CommandStatement {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 }

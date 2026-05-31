@@ -31,7 +31,7 @@ public class WorldUtils extends Queue {
             id = ConfigHandler.worlds.get(name);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
         return id;
     }
@@ -44,7 +44,7 @@ public class WorldUtils extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
         return name;
     }
@@ -85,7 +85,7 @@ public class WorldUtils extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return id;

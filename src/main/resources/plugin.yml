@@ -6,7 +6,7 @@ api-version: 1.16
 folia-supported: true
 website: http://coreprotect.net
 author: Intelli
-softdepend: [WorldEdit,AdvancedChests]
+softdepend: [WorldEdit]
 description: >
              Provides block protection for your server.
 commands:
@@ -53,6 +53,7 @@ permissions:
             coreprotect.status: true
             coreprotect.consumer: true
             coreprotect.networking: true
+            coreprotect.give: false
     coreprotect.co:
         description: Has permission to access the CoreProtect /co command
         default: true
@@ -144,3 +145,6 @@ permissions:
     coreprotect.networking:
         description: Has permission to use the networking API
         default: op
+    coreprotect.give:
+        description: Has permission to use the give command
+        default: false

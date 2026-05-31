@@ -7,6 +7,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.channel.PluginChannelListener;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
+import net.coreprotect.utility.ErrorReporter;
 
 public class NetworkDebugCommand {
     protected static void runCommand(CommandSender player, boolean permission, String[] args) {
@@ -19,7 +20,7 @@ public class NetworkDebugCommand {
             PluginChannelListener.getInstance().sendTest(player, args.length == 2 ? args[1] : "");
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 }

@@ -1,5 +1,7 @@
 package net.coreprotect.worldedit;
 
+import java.util.Set;
+
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
@@ -88,6 +90,11 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
     }
 
     @Override
+    public <B extends BlockStateHolder<B>> int setBlocks(Region region, B block) throws MaxChangedBlocksException {
+        return this.setBlocks(region, (Pattern) block);
+    }
+
+    @Override
     public int setBlocks(Region region, Pattern pattern) throws MaxChangedBlocksException {
         org.bukkit.World world = BukkitAdapter.adapt(eventWorld);
         if (!Config.getConfig(world).WORLDEDIT) {
@@ -95,6 +102,31 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
         }
         processPatternToBlocks(world, region, pattern);
         return eventExtent.setBlocks(region, pattern);
+    }
+
+    @Override
+    public int setBlocks(Set<BlockVector3> vset, Pattern pattern) {
+        org.bukkit.World world = BukkitAdapter.adapt(eventWorld);
+        if (!Config.getConfig(world).WORLDEDIT) {
+            return eventExtent.setBlocks(vset, pattern);
+        }
+        processPatternToBlocks(world, vset, pattern);
+        return eventExtent.setBlocks(vset, pattern);
+    }
+
+    private void processPatternToBlocks(org.bukkit.World world, Set<BlockVector3> vset, Pattern pattern) {
+        for (BlockVector3 position : vset) {
+            BlockState oldBlock = eventExtent.getBlock(position);
+            Material oldType = BukkitAdapter.adapt(oldBlock.getBlockType());
+            Location location = new Location(world, position.getBlockX(), position.getBlockY(), position.getBlockZ());
+            BaseBlock baseBlock = WorldEditLogger.getBaseBlock(eventExtent, position, location, oldType, oldBlock);
+
+            // No clear way to get container content data from within the WorldEdit API
+            // Data may be available by converting oldBlock.toBaseBlock().getNbtData()
+            // e.g. BaseBlock block = eventWorld.getBlock(position);
+            ItemStack[] containerData = CoreProtectEditSessionEvent.isFAWE() ? null : ItemUtils.getContainerContents(oldType, null, location);
+            WorldEditLogger.postProcess(eventExtent, eventActor, position, location, pattern.applyBlock(position), baseBlock, oldType, oldBlock, containerData);
+        }
     }
 
     private void processPatternToBlocks(org.bukkit.World world, Region region, Mask mask, Pattern pattern) {

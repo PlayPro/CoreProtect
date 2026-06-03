@@ -2,16 +2,7 @@ package net.coreprotect.utility;
 
 import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Array;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -37,6 +28,7 @@ import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 
 public class ItemUtils {
+    private static final Map<ItemStack, Integer> GIVABLE_ITEMS = Collections.synchronizedMap(new LinkedHashMap<>());
 
     private static final Object UNSERIALIZABLE_VALUE = new Object();
     private static final Logger LOGGER = Logger.getLogger("CoreProtect");
@@ -68,6 +60,19 @@ public class ItemUtils {
 
     private ItemUtils() {
         throw new IllegalStateException("Utility class");
+    }
+
+    public static ItemStack getGivableItem(int id) {
+        //we can use skip here because it's a linked map from which elements are never removed
+        return GIVABLE_ITEMS.keySet().stream().skip(id).findFirst().orElse(null);
+    }
+
+    public static Integer makeGivableItem(ItemStack item) {
+        if (item == null) {
+          return null;
+        }
+
+        return GIVABLE_ITEMS.computeIfAbsent(item, k -> GIVABLE_ITEMS.size());
     }
 
     public static void mergeItems(Material material, ItemStack[] items) {
@@ -646,14 +651,21 @@ public class ItemUtils {
 
         return null;
     }
-    
-    public static String getEnchantments(byte[] metadata, int type, int amount) {
+
+    public static ItemStack getItemStack(byte[] metadata, int type, int amount) {
         if (metadata == null) {
-            return "";
+            return null;
         }
 
         ItemStack item = new ItemStack(MaterialUtils.getType(type), amount);
         item = (ItemStack) net.coreprotect.database.rollback.Rollback.populateItemStack(item, metadata)[2];
+        return item;
+    }
+
+    public static String getEnchantments(byte[] metadata, int type, int amount) {
+        var item = getItemStack(metadata, type, amount);
+        if (item == null) return "";
+
         String displayName = item.hasItemMeta() && item.getItemMeta().hasDisplayName() ? item.getItemMeta().getDisplayName() : "";
         StringBuilder message = new StringBuilder(Color.ITALIC + displayName + Color.GREY);
 
@@ -675,7 +687,7 @@ public class ItemUtils {
 
         return message.toString();
     }
-    
+
     public static Map<Integer, Object> serializeItemStackLegacy(ItemStack itemStack, String faceData, int slot) {
         Map<Integer, Object> result = new HashMap<>();
         Map<String, Object> itemMap = serializeItemStack(itemStack, faceData, slot);
@@ -730,4 +742,4 @@ public class ItemUtils {
 
         return result;
     }
-} 
+}

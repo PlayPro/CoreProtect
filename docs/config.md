@@ -48,4 +48,4 @@ minecraft:shears@#dispenser ; Shears being dispensed
 
 
 *Please note that to disable logging for blocks, CoreProtect v23+ is required.*
-*To disable logging for entities or to use filtering, CoreProtect v23.4+ is required.*
+*To disable logging for entities or to use filtering, CoreProtect v24+ is required.*

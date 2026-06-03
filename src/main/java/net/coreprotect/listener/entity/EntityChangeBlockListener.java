@@ -65,9 +65,7 @@ public final class EntityChangeBlockListener extends Queue implements Listener {
             e = "#zombie";
         }
         else if (entity instanceof Silverfish) {
-            if (newtype.equals(Material.AIR) || newtype.equals(Material.CAVE_AIR)) {
-                e = "#silverfish";
-            }
+            e = "#silverfish";
         }
         else if (entity.getType().name().equals("WIND_CHARGE")) {
             e = "#windcharge";

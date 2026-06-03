@@ -1,5 +1,7 @@
 package net.coreprotect.worldedit;
 
+import java.util.Set;
+
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
@@ -21,8 +23,6 @@ import com.sk89q.worldedit.world.block.BlockStateHolder;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.utility.ItemUtils;
-
-import java.util.Set;
 
 public class CoreProtectLogger extends AbstractDelegateExtent {
     private final Actor eventActor;

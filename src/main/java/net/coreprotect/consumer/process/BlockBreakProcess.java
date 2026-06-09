@@ -22,7 +22,8 @@ class BlockBreakProcess {
                 SkullBreakLogger.log(preparedStmt, preparedStmtSkulls, batchCount, user, block);
             }
             else {
-                BlockBreakLogger.log(preparedStmt, batchCount, user, block.getLocation(), MaterialUtils.getBlockId(blockType), blockDataId, meta, block.getBlockData().getAsString(), blockData);
+                String persistedBlockData = blockData != null ? blockData : block.getBlockData().getAsString();
+                BlockBreakLogger.log(preparedStmt, batchCount, user, block.getLocation(), MaterialUtils.getBlockId(blockType), blockDataId, meta, persistedBlockData, blockData);
             }
         }
     }

@@ -66,6 +66,7 @@ import org.bukkit.inventory.meta.LeatherArmorMeta;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.database.rollback.Rollback;
+import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.WorldUtils;
@@ -419,10 +420,12 @@ public class EntityUtil {
                                 MerchantRecipe merchantRecipe = new MerchantRecipe(result, uses, maxUses, experienceReward);
                                 if (recipe.size() > 6) {
                                     int villagerExperience = (int) recipe.get(5);
-                                    float priceMultiplier = (float) recipe.get(6);
+                                    float priceMultiplier = ((Number) recipe.get(6)).floatValue();
                                     merchantRecipe = new MerchantRecipe(result, uses, maxUses, experienceReward, villagerExperience, priceMultiplier);
                                 }
                                 merchantRecipe.setIngredients(merchantIngredients);
+                                BukkitAdapter.ADAPTER.setMerchantRecipeMeta(merchantRecipe, recipe);
+                                PaperAdapter.ADAPTER.setMerchantRecipeMeta(merchantRecipe, recipe);
                                 merchantRecipes.add(merchantRecipe);
                             }
                             if (!merchantRecipes.isEmpty()) {
@@ -442,6 +445,17 @@ public class EntityUtil {
                             }
                             else if (count == 5 && value instanceof List<?>) {
                                 restoreVillagerMemories(villager, (List<?>) value);
+                            }
+                            else if (count == 6 && value instanceof List<?>) {
+                                if (!PaperAdapter.ADAPTER.setVillagerReputations(villager, (List<?>) value)) {
+                                    //SpigotAdapter.ADAPTER.setVillagerReputations(villager, (List<?>) value);
+                                }
+                            }
+                            else if (count == 7) {
+                                PaperAdapter.ADAPTER.setVillagerRestocksToday(villager, value);
+                            }
+                            else if (count == 8) {
+                                //SpigotAdapter.ADAPTER.setVillagerGossipDecayTime(villager, value);
                             }
                         }
                     }

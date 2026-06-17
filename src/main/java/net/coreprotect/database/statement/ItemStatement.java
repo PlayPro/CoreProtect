@@ -5,6 +5,7 @@ import java.sql.PreparedStatement;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.utility.ItemUtils;
 import org.bukkit.inventory.ItemStack;
+import net.coreprotect.utility.ErrorReporter;
 
 public class ItemStatement {
 
@@ -33,7 +34,7 @@ public class ItemStatement {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 }

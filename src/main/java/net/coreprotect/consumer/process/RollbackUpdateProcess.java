@@ -11,6 +11,7 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.data.lookup.type.CommonLookupData;
+import net.coreprotect.model.rollback.RollbackUpdateTargets;
 import net.coreprotect.utility.MaterialUtils;
 
 class RollbackUpdateProcess {
@@ -45,8 +46,8 @@ class RollbackUpdateProcess {
 
                 for (CommonLookupData listRow : list) {
                     int rb = listRow.rolledBack();
-                    if (MaterialUtils.rolledBack(rb, (table == 2 || table == 3 || table == 4)) == action) { // 1 = restore, 0 = rollback
-                        int rolledBack = MaterialUtils.toggleRolledBack(rb, (table == 2 || table == 3 || table == 4)); // co_item, co_container, co_block
+                    if (MaterialUtils.rolledBack(rb, RollbackUpdateTargets.usesInventoryRollbackState(table)) == action) { // 1 = restore, 0 = rollback
+                        int rolledBack = MaterialUtils.toggleRolledBack(rb, RollbackUpdateTargets.usesInventoryRollbackState(table)); // co_item, co_container, co_block
 
                         preparedStatement.setLong(1, listRow.rowId());
                         preparedStatement.setLong(2, listRow.time());

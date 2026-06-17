@@ -6,6 +6,7 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.serialize.JsonSerialization;
 import net.coreprotect.utility.serialize.SerializedBlockMeta;
+import net.coreprotect.utility.ErrorReporter;
 
 public class BlockStatement {
 
@@ -35,7 +36,7 @@ public class BlockStatement {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 }

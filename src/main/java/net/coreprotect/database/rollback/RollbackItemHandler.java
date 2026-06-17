@@ -9,6 +9,7 @@ import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.util.io.BukkitObjectInputStream;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.utility.ErrorReporter;
 
 public class RollbackItemHandler {
 
@@ -34,7 +35,7 @@ public class RollbackItemHandler {
                 return RollbackUtil.populateItemStack(itemstack, metaList);
             }
             catch (Exception e) {
-                e.printStackTrace();
+                ErrorReporter.report(e);
             }
         }
 

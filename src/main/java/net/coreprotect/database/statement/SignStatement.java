@@ -10,6 +10,7 @@ import org.bukkit.block.Sign;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class SignStatement {
 
@@ -47,7 +48,7 @@ public class SignStatement {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -100,7 +101,7 @@ public class SignStatement {
             resultSet.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 }

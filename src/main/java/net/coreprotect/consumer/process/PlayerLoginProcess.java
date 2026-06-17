@@ -9,6 +9,7 @@ import org.bukkit.Location;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.logger.PlayerSessionLogger;
 import net.coreprotect.database.logger.UsernameLogger;
+import net.coreprotect.model.action.SessionActions;
 
 class PlayerLoginProcess {
 
@@ -20,7 +21,7 @@ class PlayerLoginProcess {
                 Location location = (Location) object;
                 UsernameLogger.log(connection, user, uuid, configUsernames, time);
                 if (configSessions == 1) {
-                    PlayerSessionLogger.log(preparedStmt, batchCount, user, location, time, 1);
+                    PlayerSessionLogger.log(preparedStmt, batchCount, user, location, time, SessionActions.LOGIN);
                 }
                 strings.remove(id);
             }

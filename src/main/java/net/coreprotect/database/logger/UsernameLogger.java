@@ -6,6 +6,7 @@ import java.sql.ResultSet;
 import java.util.Locale;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.utility.ErrorReporter;
 
 public class UsernameLogger {
 
@@ -90,7 +91,7 @@ public class UsernameLogger {
             ConfigHandler.uuidCacheReversed.put(uuid, user);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 

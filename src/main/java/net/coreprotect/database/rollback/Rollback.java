@@ -37,11 +37,14 @@ import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.model.action.LookupActions;
+import net.coreprotect.model.rollback.RollbackUpdateTargets;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.DatabaseUtils;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class Rollback extends RollbackUtil {
 
@@ -50,7 +53,7 @@ public class Rollback extends RollbackUtil {
             long timeStart = System.currentTimeMillis();
             LookupResult<?> rawLookupResult = null;
 
-            if (!actionList.contains(4) && !actionList.contains(5) && !checkUsers.contains("#container")) {
+            if (!actionList.contains(LookupActions.CONTAINER) && !actionList.contains(5) && !checkUsers.contains("#container")) {
                 rawLookupResult = Lookup.performLookup(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, null, startTime, endTime, -1, -1, restrictWorld, lookup, false);
             }
 
@@ -58,7 +61,7 @@ public class Rollback extends RollbackUtil {
             List<Object> itemRestrictList = new ArrayList<>(restrictList);
             Map<Object, Boolean> itemExcludeList = new HashMap<>(excludeList);
 
-            if (actionList.contains(1)) {
+            if (actionList.contains(LookupActions.BLOCK_PLACE)) {
                 for (Object target : restrictList) {
                     if (target instanceof Material) {
                         if (!excludeList.containsKey(target)) {
@@ -74,11 +77,11 @@ public class Rollback extends RollbackUtil {
             }
 
             CommonLookupResult itemLookupResult = null;
-            if (Config.getGlobal().ROLLBACK_ITEMS && !checkUsers.contains("#container") && (actionList.size() == 0 || actionList.contains(4) || ROLLBACK_ITEMS) && preview == 0) {
+            if (Config.getGlobal().ROLLBACK_ITEMS && !checkUsers.contains("#container") && (actionList.size() == 0 || actionList.contains(LookupActions.CONTAINER) || ROLLBACK_ITEMS) && preview == 0) {
                 List<Integer> itemActionList = new ArrayList<>(actionList);
 
-                if (!itemActionList.contains(4)) {
-                    itemActionList.add(4);
+                if (!itemActionList.contains(LookupActions.CONTAINER)) {
+                    itemActionList.add(LookupActions.CONTAINER);
                 }
 
                 itemExcludeList.entrySet().removeIf(entry -> Boolean.TRUE.equals(entry.getValue()));
@@ -97,7 +100,7 @@ public class Rollback extends RollbackUtil {
             TreeMap<Long, Integer> chunkList = new TreeMap<>();
             Map<Integer, Map<Long, List<CommonLookupData>>> dataList = new HashMap<>();
             Map<Integer, Map<Long, List<CommonLookupData>>> itemDataList = new HashMap<>();
-            boolean inventoryRollback = actionList.contains(11);
+            boolean inventoryRollback = actionList.contains(LookupActions.ITEM);
 
             int worldId = -1;
             int worldMin = 0;
@@ -185,7 +188,7 @@ public class Rollback extends RollbackUtil {
             String userString = "#server";
             if (user != null) {
                 userString = user.getName();
-                if (verbose && preview == 0 && !actionList.contains(11)) {
+                if (verbose && preview == 0 && !actionList.contains(LookupActions.ITEM)) {
                     int chunks = chunkList.size();
                     Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_CHUNKS_FOUND, Integer.toString(chunks), (chunks == 1 ? Selector.FIRST : Selector.SECOND)));
                 }
@@ -193,7 +196,7 @@ public class Rollback extends RollbackUtil {
 
             // Perform update transaction(s) in consumer
             if (preview == 0) {
-                if (actionList.contains(11) && itemLookupResult instanceof CommonLookupResult commonResult) {
+                if (actionList.contains(LookupActions.ITEM) && itemLookupResult instanceof CommonLookupResult commonResult) {
                     List<CommonLookupData> blockList = new ArrayList<>();
                     List<CommonLookupData> inventoryList = new ArrayList<>();
                     List<CommonLookupData> containerList = new ArrayList<>();
@@ -202,8 +205,8 @@ public class Rollback extends RollbackUtil {
                         Integer table = data.table();
 
                         List<CommonLookupData> addTo = switch (table) {
-                            case 2 -> inventoryList;
-                            case 1 -> containerList;
+                            case RollbackUpdateTargets.INVENTORY_ITEM -> inventoryList;
+                            case RollbackUpdateTargets.CONTAINER -> containerList;
                             case null, default -> blockList;
                         };
 
@@ -320,7 +323,7 @@ public class Rollback extends RollbackUtil {
                 entityCount = rollbackHashData[2];
                 ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount, blockCount, entityCount, 0, 0 });
 
-                if (verbose && user != null && preview == 0 && !actionList.contains(11)) {
+                if (verbose && user != null && preview == 0 && !actionList.contains(LookupActions.ITEM)) {
                     int chunks = chunkList.size();
                     Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_CHUNKS_MODIFIED, chunkCount.toString(), Integer.toString(chunks), (chunks == 1 ? Selector.FIRST : Selector.SECOND)));
                 }
@@ -344,7 +347,7 @@ public class Rollback extends RollbackUtil {
             return rawLookupResult;
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return null;
@@ -362,7 +365,7 @@ public class Rollback extends RollbackUtil {
                 future.complete(result);
             }
             catch (Exception e) {
-                e.printStackTrace();
+                ErrorReporter.report(e);
                 future.complete(false);
             }
         }, chunkLocation, 0);

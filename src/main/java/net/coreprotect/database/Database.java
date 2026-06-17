@@ -27,6 +27,7 @@ import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class Database extends Queue {
 
@@ -66,7 +67,7 @@ public class Database extends Queue {
     }
 
     public static void beginTransaction(Statement statement, boolean isMySQL) {
-        if (true) return; // TODO CH
+        if (true) return; // CH - transactions don't exist
         Consumer.transacting = true;
 
         try {
@@ -78,12 +79,12 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
     public static void commitTransaction(Statement statement, boolean isMySQL) throws Exception {
-        if (true) return; // TODO CH
+        if (true) return; // CH - transactions don't exist
         int count = 0;
 
         while (true) {
@@ -103,13 +104,24 @@ public class Database extends Queue {
                     continue;
                 }
                 else {
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                 }
             }
 
             Consumer.transacting = false;
             Consumer.interrupt = false;
             return;
+        }
+    }
+
+    public static void setMultiInt(PreparedStatement statement, int value, int count) {
+        try {
+            for (int i = 1; i <= count; i++) {
+                statement.setInt(i, value);
+            }
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
         }
     }
 
@@ -132,7 +144,7 @@ public class Database extends Queue {
                     }
                 }
                 catch (Exception e) {
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                 }
             }
         }
@@ -161,7 +173,7 @@ public class Database extends Queue {
                 catch (Exception e) {
                     ConfigHandler.databaseReachable = false;
                     Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.MYSQL_UNAVAILABLE));
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                 }
             }
             else {
@@ -186,7 +198,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return connection;
@@ -200,7 +212,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -223,7 +235,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return preparedStatement;
@@ -246,7 +258,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -273,7 +285,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
         if (!success && forceConnection == null) {
             throw new IllegalStateException("Failed to create default database structure, see error(s) above for details.");

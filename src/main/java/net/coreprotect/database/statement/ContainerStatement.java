@@ -3,6 +3,7 @@ package net.coreprotect.database.statement;
 import java.sql.PreparedStatement;
 
 import net.coreprotect.CoreProtect;
+import net.coreprotect.utility.ErrorReporter;
 
 public class ContainerStatement {
 
@@ -32,7 +33,7 @@ public class ContainerStatement {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 }

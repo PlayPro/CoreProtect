@@ -41,6 +41,7 @@ import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.Validate;
+import net.coreprotect.utility.ErrorReporter;
 import us.lynuxcraft.deadsilenceiv.advancedchests.AdvancedChestsAPI;
 import us.lynuxcraft.deadsilenceiv.advancedchests.chest.AdvancedChest;
 
@@ -75,7 +76,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -297,7 +298,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
                 onInventoryInteract(player.getName(), inventory, containerState, containerType, inventoryLocation, true);
             }
             catch (Exception e) {
-                e.printStackTrace();
+                ErrorReporter.report(e);
             }
         });
     }

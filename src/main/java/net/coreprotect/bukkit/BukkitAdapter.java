@@ -1,5 +1,6 @@
 package net.coreprotect.bukkit;
 
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -25,6 +26,7 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Painting;
+import org.bukkit.entity.Villager;
 import org.bukkit.event.Event;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.SignChangeEvent;
@@ -61,6 +63,11 @@ public class BukkitAdapter implements BukkitInterface {
     public static final int BUKKIT_V1_19 = 19;
     public static final int BUKKIT_V1_20 = 20;
     public static final int BUKKIT_V1_21 = 21;
+    public static final int BUKKIT_V26_0 = 2600;
+
+    public static int getAdapterVersion(int major, int minor) {
+        return major == 1 ? minor : (major * 100) + minor;
+    }
 
     /**
      * Initializes the appropriate Bukkit adapter based on the server version.
@@ -87,6 +94,7 @@ public class BukkitAdapter implements BukkitInterface {
                 ADAPTER = new Bukkit_v1_20();
                 break;
             case BUKKIT_V1_21:
+            case BUKKIT_V26_0:
             default:
                 ADAPTER = new Bukkit_v1_21();
                 break;
@@ -116,6 +124,25 @@ public class BukkitAdapter implements BukkitInterface {
     @Override
     public boolean setEntityMeta(Entity entity, Object value, int count) {
         return false;
+    }
+
+    @Override
+    public void addMerchantRecipeMeta(MerchantRecipe recipe, List<Object> recipeData) {
+    }
+
+    @Override
+    public void setMerchantRecipeMeta(MerchantRecipe recipe, List<?> recipeData) {
+    }
+
+    @Override
+    public void refreshVillagerBrain(Villager villager) {
+        try {
+            Object handle = villager.getClass().getMethod("getHandle").invoke(villager);
+            Object level = villager.getWorld().getClass().getMethod("getHandle").invoke(villager.getWorld());
+            invokeSingleArgumentMethod(handle, "refreshBrain", level);
+        }
+        catch (Exception e) {
+        }
     }
 
     @Override
@@ -185,6 +212,24 @@ public class BukkitAdapter implements BukkitInterface {
         }
 
         return itemStack;
+    }
+
+    private static void invokeSingleArgumentMethod(Object target, String methodName, Object argument) {
+        if (target == null || argument == null) {
+            return;
+        }
+
+        for (Method method : target.getClass().getMethods()) {
+            Class<?>[] parameterTypes = method.getParameterTypes();
+            if (method.getName().equals(methodName) && parameterTypes.length == 1 && parameterTypes[0].isInstance(argument)) {
+                try {
+                    method.invoke(target, argument);
+                }
+                catch (Exception e) {
+                }
+                return;
+            }
+        }
     }
 
     // -------------------- Block methods --------------------

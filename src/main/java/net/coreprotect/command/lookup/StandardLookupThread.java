@@ -30,13 +30,15 @@ import com.google.common.base.Strings;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.Lookup;
-import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.database.lookup.PlayerLookup;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
 import net.coreprotect.listener.channel.PluginChannelListener;
+import net.coreprotect.model.action.LookupActions;
+import net.coreprotect.model.action.SessionActions;
+import net.coreprotect.model.item.ItemTransactionActions;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.ChatUtils;
 import net.coreprotect.utility.Color;
@@ -45,6 +47,7 @@ import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.StringUtils;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class StandardLookupThread implements Runnable {
     private final CommandSender player;
@@ -127,12 +130,12 @@ public class StandardLookupThread implements Runnable {
             try (Statement statement = connection.createStatement()) {
                 String baduser = "";
                 for (String check : rollbackUsers) {
-                    if ((!check.equals("#global") && !check.equals("#container")) || actions.contains(9)) {
+                    if ((!check.equals("#global") && !check.equals("#container")) || actions.contains(LookupActions.USERNAME)) {
                         exists = PlayerLookup.playerExists(connection, check);
                         if (!exists) {
                             baduser = check;
                             break;
-                        } else if (actions.contains(9)) {
+                        } else if (actions.contains(LookupActions.USERNAME)) {
                             if (ConfigHandler.uuidCache.get(check.toLowerCase(Locale.ROOT)) != null) {
                                 String uuid = ConfigHandler.uuidCache.get(check.toLowerCase(Locale.ROOT));
                                 uuidList.add(uuid);
@@ -164,7 +167,7 @@ public class StandardLookupThread implements Runnable {
                 }
 
                 List<String> userList = new ArrayList<>();
-                if (!actions.contains(9)) {
+                if (!actions.contains(LookupActions.USERNAME)) {
                     userList = rollbackUsers;
                 }
 
@@ -251,7 +254,7 @@ public class StandardLookupThread implements Runnable {
                                 leftPadding = leftPadding + Color.WHITE + Strings.padStart("", (timeLength - 50) / 4, ' ');
                             }
 
-                            final boolean isLogin = data.action() == 1;
+                            final boolean isLogin = data.action() == SessionActions.LOGIN;
                             String tag = (isLogin ? Color.GREEN + "+" : Color.RED + "-");
                             Chat.sendComponent(player, timeAgo + " " + tag + " " + Color.DARK_AQUA + Phrase.build(Phrase.LOOKUP_LOGIN, Color.DARK_AQUA + data.playerName() + Color.WHITE, (isLogin ? Selector.FIRST : Selector.SECOND)));
                             Chat.sendComponent(player, Color.WHITE + leftPadding + Color.GREY + "^ " + ChatUtils.getCoordinates(command.getName(), data.worldId(), data.x(), data.y(), data.z(), true, true));
@@ -285,7 +288,7 @@ public class StandardLookupThread implements Runnable {
                         }
                     }
                     case CommonLookupResult commonResult -> {
-                        if (actions.contains(4) && actions.contains(11)) { // inventory transactions
+                        if (LookupActions.isInventoryLookup(actions)) { // inventory transactions
                             for (CommonLookupData data : commonResult.data()) {
                                 String dplayer = data.playerName();
                                 int dtype = data.type();
@@ -305,24 +308,25 @@ public class StandardLookupThread implements Runnable {
 
                                 String selector = Selector.FIRST;
                                 String tag = Color.WHITE + "-";
-                                if (daction == 2 || daction == 3) { // LOOKUP_ITEM
-                                    selector = (daction != 2 ? Selector.FIRST : Selector.SECOND);
-                                    tag = (daction != 2 ? Color.GREEN + "+" : Color.RED + "-");
-                                } else if (daction == 4 || daction == 5) { // LOOKUP_STORAGE
-                                    selector = (daction == 4 ? Selector.FIRST : Selector.SECOND);
-                                    tag = (daction == 4 ? Color.GREEN + "+" : Color.RED + "-");
-                                } else if (daction == 6 || daction == 7) { // LOOKUP_PROJECTILE
+                                if (daction == ItemTransactionActions.DROP || daction == ItemTransactionActions.PICKUP) {
+                                    selector = (daction != ItemTransactionActions.DROP ? Selector.FIRST : Selector.SECOND);
+                                    tag = (daction != ItemTransactionActions.DROP ? Color.GREEN + "+" : Color.RED + "-");
+                                } else if (daction == ItemTransactionActions.REMOVE_ENDER || daction == ItemTransactionActions.ADD_ENDER) {
+                                    selector = (daction == ItemTransactionActions.REMOVE_ENDER ? Selector.FIRST : Selector.SECOND);
+                                    tag = (daction == ItemTransactionActions.REMOVE_ENDER ? Color.GREEN + "+" : Color.RED + "-");
+                                } else if (daction == ItemTransactionActions.THROW || daction == ItemTransactionActions.SHOOT) {
                                     selector = Selector.SECOND;
                                     tag = Color.RED + "-";
-                                } else if (daction == ItemLogger.ITEM_BREAK || daction == ItemLogger.ITEM_DESTROY || daction == ItemLogger.ITEM_CREATE) {
-                                    selector = (daction == ItemLogger.ITEM_CREATE ? Selector.FIRST : Selector.SECOND);
-                                    tag = (daction == ItemLogger.ITEM_CREATE ? Color.GREEN + "+" : Color.RED + "-");
-                                } else if (daction == ItemLogger.ITEM_SELL || daction == ItemLogger.ITEM_BUY) { // LOOKUP_TRADE
-                                    selector = (daction == ItemLogger.ITEM_BUY ? Selector.FIRST : Selector.SECOND);
-                                    tag = (daction == ItemLogger.ITEM_BUY ? Color.GREEN + "+" : Color.RED + "-");
+                                } else if (daction == ItemTransactionActions.BREAK || daction == ItemTransactionActions.DESTROY || daction == ItemTransactionActions.CREATE) {
+                                    selector = (daction == ItemTransactionActions.CREATE ? Selector.FIRST : Selector.SECOND);
+                                    tag = (daction == ItemTransactionActions.CREATE ? Color.GREEN + "+" : Color.RED + "-");
+                                }
+                                else if (daction == ItemTransactionActions.SELL || daction == ItemTransactionActions.BUY) { // LOOKUP_TRADE
+                                    selector = (daction == ItemTransactionActions.BUY ? Selector.FIRST : Selector.SECOND);
+                                    tag = (daction == ItemTransactionActions.BUY ? Color.GREEN + "+" : Color.RED + "-");
                                 } else { // LOOKUP_CONTAINER
-                                    selector = (daction == 0 ? Selector.FIRST : Selector.SECOND);
-                                    tag = (daction == 0 ? Color.GREEN + "+" : Color.RED + "-");
+                                    selector = (daction == ItemTransactionActions.REMOVE ? Selector.FIRST : Selector.SECOND);
+                                    tag = (daction == ItemTransactionActions.REMOVE ? Color.GREEN + "+" : Color.RED + "-");
                                 }
 
                                 Chat.sendComponent(player, timeAgo + " " + tag + " " + Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rollbackDecoration + dplayer + Color.WHITE + rollbackDecoration, "x" + amount, ItemUtils.createItemTooltip(Color.DARK_AQUA + rollbackDecoration + dname, hover) + Color.WHITE, selector));
@@ -358,7 +362,7 @@ public class StandardLookupThread implements Runnable {
 
                                 String dname = "";
                                 boolean isPlayer = false;
-                                if (daction == 3 && !actions.contains(11) && amount == -1) {
+                                if (daction == LookupActions.ENTITY_KILL && !actions.contains(LookupActions.ITEM) && amount == -1) {
                                     if (dtype == 0) {
                                         String playerName = ConfigHandler.playerIdCacheReversed.get(ddata);
                                         if (playerName == null) {
@@ -389,44 +393,44 @@ public class StandardLookupThread implements Runnable {
                                 Phrase phrase = Phrase.LOOKUP_BLOCK;
                                 String selector = Selector.FIRST;
                                 String action = "a:block";
-                                if (actions.contains(4) || actions.contains(5) || actions.contains(11) || amount > -1) {
+                                if (actions.contains(LookupActions.CONTAINER) || actions.contains(5) || actions.contains(LookupActions.ITEM) || amount > -1) {
                                     String itemData = data.metadata();
-                                    String hover = ItemUtils.getItemHover(itemData, dtype, amount);
+                                    String hover = ItemUtils.getItemHover(itemData, dtype, amount); // todo: givable item
 
-                                    if (daction == 2 || daction == 3) {
+                                    if (daction == ItemTransactionActions.DROP || daction == ItemTransactionActions.PICKUP) {
                                         phrase = Phrase.LOOKUP_ITEM; // {picked up|dropped}
-                                        selector = (daction != 2 ? Selector.FIRST : Selector.SECOND);
-                                        tag = (daction != 2 ? Color.GREEN + "+" : Color.RED + "-");
+                                        selector = (daction != ItemTransactionActions.DROP ? Selector.FIRST : Selector.SECOND);
+                                        tag = (daction != ItemTransactionActions.DROP ? Color.GREEN + "+" : Color.RED + "-");
                                         action = "a:item";
-                                    } else if (daction == 4 || daction == 5) {
+                                    } else if (daction == ItemTransactionActions.REMOVE_ENDER || daction == ItemTransactionActions.ADD_ENDER) {
                                         phrase = Phrase.LOOKUP_STORAGE; // {deposited|withdrew}
-                                        selector = (daction != 4 ? Selector.FIRST : Selector.SECOND);
-                                        tag = (daction != 4 ? Color.RED + "-" : Color.GREEN + "+");
+                                        selector = (daction != ItemTransactionActions.REMOVE_ENDER ? Selector.FIRST : Selector.SECOND);
+                                        tag = (daction != ItemTransactionActions.REMOVE_ENDER ? Color.RED + "-" : Color.GREEN + "+");
                                         action = "a:item";
-                                    } else if (daction == 6 || daction == 7) {
+                                    } else if (daction == ItemTransactionActions.THROW || daction == ItemTransactionActions.SHOOT) {
                                         phrase = Phrase.LOOKUP_PROJECTILE; // {threw|shot}
-                                        selector = (daction != 7 ? Selector.FIRST : Selector.SECOND);
+                                        selector = (daction != ItemTransactionActions.SHOOT ? Selector.FIRST : Selector.SECOND);
                                         tag = Color.RED + "-";
                                         action = "a:item";
                                     } else {
                                         phrase = Phrase.LOOKUP_CONTAINER; // {added|removed}
-                                        selector = (daction != 0 ? Selector.FIRST : Selector.SECOND);
-                                        tag = (daction != 0 ? Color.GREEN + "+" : Color.RED + "-");
+                                        selector = (daction != ItemTransactionActions.REMOVE ? Selector.FIRST : Selector.SECOND);
+                                        tag = (daction != ItemTransactionActions.REMOVE ? Color.GREEN + "+" : Color.RED + "-");
                                         action = "a:container";
                                     }
 
                                     Chat.sendComponent(player, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rollbackDecoration + dplayer + Color.WHITE + rollbackDecoration, "x" + amount, ItemUtils.createItemTooltip(Color.DARK_AQUA + rollbackDecoration + dname, hover) + Color.WHITE, selector));
                                     PluginChannelListener.getInstance().sendData(player, data.time(), phrase, selector, dplayer, dname, (tag.contains("+") ? 1 : -1), dataX, dataY, dataZ, worldId, rollbackDecoration, action.contains("container"), tag.contains("+"));
                                 } else {
-                                    if (daction == 2 || daction == 3) {
+                                    if (daction == LookupActions.INTERACTION || daction == LookupActions.ENTITY_KILL) {
                                         phrase = Phrase.LOOKUP_INTERACTION; // {clicked|killed}
-                                        selector = (daction != 3 ? Selector.FIRST : Selector.SECOND);
-                                        tag = (daction != 3 ? Color.WHITE + "-" : Color.RED + "-");
-                                        action = (daction == 2 ? "a:click" : "a:kill");
+                                        selector = (daction != LookupActions.ENTITY_KILL ? Selector.FIRST : Selector.SECOND);
+                                        tag = (daction != LookupActions.ENTITY_KILL ? Color.WHITE + "-" : Color.RED + "-");
+                                        action = (daction == LookupActions.INTERACTION ? "a:click" : "a:kill");
                                     } else {
                                         phrase = Phrase.LOOKUP_BLOCK; // {placed|broke}
-                                        selector = (daction != 0 ? Selector.FIRST : Selector.SECOND);
-                                        tag = (daction != 0 ? Color.GREEN + "+" : Color.RED + "-");
+                                        selector = (daction != LookupActions.BLOCK_BREAK ? Selector.FIRST : Selector.SECOND);
+                                        tag = (daction != LookupActions.BLOCK_BREAK ? Color.GREEN + "+" : Color.RED + "-");
                                     }
 
                                     Chat.sendComponent(player, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rollbackDecoration + dplayer + Color.WHITE + rollbackDecoration, Color.DARK_AQUA + rollbackDecoration + dname + Color.WHITE, selector));
@@ -451,7 +455,7 @@ public class StandardLookupThread implements Runnable {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         } finally {
             ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
         }

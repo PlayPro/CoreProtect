@@ -11,6 +11,7 @@ import net.coreprotect.database.statement.CommandStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class CommandLogger {
 
@@ -42,7 +43,7 @@ public class CommandLogger {
             CommandStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, message, cancelled);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 

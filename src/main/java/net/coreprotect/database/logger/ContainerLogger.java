@@ -24,11 +24,13 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.statement.ContainerStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
+import net.coreprotect.model.item.ItemTransactionActions;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class ContainerLogger extends Queue {
 
@@ -212,19 +214,19 @@ public class ContainerLogger extends Queue {
             ItemUtils.mergeItems(type, newInventory);
 
             if (type != Material.ENDER_CHEST) {
-                logTransaction(preparedStmtContainer, batchCount, player, type, faceData, oldInventory, 0, location);
-                logTransaction(preparedStmtContainer, batchCount, player, type, faceData, newInventory, 1, location);
+                logTransaction(preparedStmtContainer, batchCount, player, type, faceData, oldInventory, ItemTransactionActions.REMOVE, location);
+                logTransaction(preparedStmtContainer, batchCount, player, type, faceData, newInventory, ItemTransactionActions.ADD, location);
             }
             else { // pass ender chest transactions to item logger
-                ItemLogger.logTransaction(preparedStmtItems, batchCount, 0, player, location, oldInventory, ItemLogger.ITEM_REMOVE_ENDER);
-                ItemLogger.logTransaction(preparedStmtItems, batchCount, 0, player, location, newInventory, ItemLogger.ITEM_ADD_ENDER);
+                ItemLogger.logTransaction(preparedStmtItems, batchCount, 0, player, location, oldInventory, ItemTransactionActions.REMOVE_ENDER);
+                ItemLogger.logTransaction(preparedStmtItems, batchCount, 0, player, location, newInventory, ItemTransactionActions.ADD_ENDER);
             }
 
             oldList.remove(0);
             ConfigHandler.oldContainer.put(loggingContainerId, oldList);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -278,7 +280,7 @@ public class ContainerLogger extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 

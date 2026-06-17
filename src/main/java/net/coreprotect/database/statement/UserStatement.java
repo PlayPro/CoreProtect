@@ -9,6 +9,7 @@ import java.util.Locale;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.utility.ErrorReporter;
 
 public class UserStatement {
     private static final Object INSERT_LOCK = new Object();
@@ -31,7 +32,7 @@ public class UserStatement {
             preparedStmt.execute();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
         return id;
     }
@@ -90,7 +91,7 @@ public class UserStatement {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return id;
@@ -126,7 +127,7 @@ public class UserStatement {
             statement.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return user;

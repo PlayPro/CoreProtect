@@ -47,6 +47,7 @@ permissions:
             coreprotect.consumer: true
             coreprotect.networking: true
             coreprotect.convert-clickhouse: true
+            coreprotect.give: false
     coreprotect.co:
         description: Has permission to access the CoreProtect /co command
         default: op
@@ -142,3 +143,6 @@ permissions:
     coreprotect.networking:
         description: Has permission to use the networking API
         default: op
+    coreprotect.give:
+        description: Has permission to use the give command
+        default: false

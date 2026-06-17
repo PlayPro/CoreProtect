@@ -82,12 +82,12 @@ public final class EntityDeathListener extends Queue implements Listener {
         }
 
         EntityDamageEvent damage = entity.getLastDamageCause();
-        if (damage == null) {
+        if (damage == null && e == null) {
             return;
         }
 
-        final EntityDamageEvent.DamageCause cause = damage.getCause();
-        boolean isCommand = cause == DamageCause.KILL || (cause == DamageCause.VOID && entity.getLocation().getBlockY() >= BukkitAdapter.ADAPTER.getMinHeight(entity.getWorld()));
+        EntityDamageEvent.DamageCause cause = damage == null ? null : damage.getCause();
+        boolean isCommand = (cause == DamageCause.VOID && entity.getLocation().getBlockY() >= BukkitAdapter.ADAPTER.getMinHeight(entity.getWorld()));
         if (e == null) {
             e = isCommand ? "#command" : "";
         }

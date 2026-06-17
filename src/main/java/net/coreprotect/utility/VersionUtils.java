@@ -116,7 +116,7 @@ public class VersionUtils {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return branch;
@@ -187,7 +187,7 @@ public class VersionUtils {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -281,7 +281,7 @@ public class VersionUtils {
             CoreProtectEditSessionEvent.unregister();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 

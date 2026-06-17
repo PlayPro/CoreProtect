@@ -15,9 +15,11 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.BlockStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
+import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.BlockTypeUtils;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class BlockBreakLogger {
 
@@ -59,7 +61,7 @@ public class BlockBreakLogger {
                 blockData = overrideData;
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.BLOCK_BREAK, 0, checkType, null, null);
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.BLOCK_BREAK, LookupActions.BLOCK_BREAK, checkType, null, null);
             if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
             }
@@ -78,10 +80,10 @@ public class BlockBreakLogger {
             }
 
             int internalType = blockKey.length() > 0 ? net.coreprotect.utility.MaterialUtils.getBlockId(blockKey, true) : type;
-            BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, internalType, data, meta, blockData, 0, 0);
+            BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, internalType, data, meta, blockData, LookupActions.BLOCK_BREAK, 0);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 

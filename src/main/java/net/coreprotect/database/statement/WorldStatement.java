@@ -3,6 +3,7 @@ package net.coreprotect.database.statement;
 import net.coreprotect.CoreProtect;
 
 import java.sql.PreparedStatement;
+import net.coreprotect.utility.ErrorReporter;
 
 public class WorldStatement {
 
@@ -22,7 +23,7 @@ public class WorldStatement {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 }

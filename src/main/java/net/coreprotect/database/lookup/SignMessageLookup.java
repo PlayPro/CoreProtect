@@ -16,9 +16,11 @@ import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.listener.channel.PluginChannelListener;
+import net.coreprotect.model.action.SignActions;
 import net.coreprotect.utility.ChatUtils;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class SignMessageLookup {
 
@@ -59,7 +61,7 @@ public class SignMessageLookup {
 
             int totalPages = (int) Math.ceil(count / (limit + 0.0));
 
-            String query = "SELECT count(*) over () as count, time,user,face,line_1,line_2,line_3,line_4,line_5,line_6,line_7,line_8 FROM " + ConfigHandler.prefix + "sign WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action = '1' AND (LENGTH(line_1) > 0 OR LENGTH(line_2) > 0 OR LENGTH(line_3) > 0 OR LENGTH(line_4) > 0 OR LENGTH(line_5) > 0 OR LENGTH(line_6) > 0 OR LENGTH(line_7) > 0 OR LENGTH(line_8) > 0) ORDER BY rowid DESC LIMIT " + limit + " OFFSET " + pageStart;
+            String query = "SELECT count(*) over () as count, time,user,face,line_1,line_2,line_3,line_4,line_5,line_6,line_7,line_8 FROM " + ConfigHandler.prefix + "sign WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action = '" + SignActions.PLACE + "' AND (LENGTH(line_1) > 0 OR LENGTH(line_2) > 0 OR LENGTH(line_3) > 0 OR LENGTH(line_4) > 0 OR LENGTH(line_5) > 0 OR LENGTH(line_6) > 0 OR LENGTH(line_7) > 0 OR LENGTH(line_8) > 0) ORDER BY rowid DESC LIMIT " + limit + " OFFSET " + pageStart;
 
             if (Config.getGlobal().SELECT_USE_FINAL) {
                 query += " SETTINGS final = 1";
@@ -175,7 +177,7 @@ public class SignMessageLookup {
             ConfigHandler.lookupCommand.put(commandSender.getName(), x + "." + y + "." + z + "." + worldId + ".8." + limit);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return result;

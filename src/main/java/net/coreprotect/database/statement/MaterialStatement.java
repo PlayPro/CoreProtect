@@ -5,6 +5,7 @@ import net.coreprotect.CoreProtect;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import net.coreprotect.utility.ErrorReporter;
 
 public class MaterialStatement {
 
@@ -24,7 +25,7 @@ public class MaterialStatement {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -39,7 +40,7 @@ public class MaterialStatement {
             resultSet.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return result;

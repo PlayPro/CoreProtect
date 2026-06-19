@@ -35,6 +35,7 @@ import net.coreprotect.listener.entity.EntityTransformListener;
 import net.coreprotect.listener.entity.HangingBreakByEntityListener;
 import net.coreprotect.listener.entity.HangingBreakListener;
 import net.coreprotect.listener.entity.HangingPlaceListener;
+import net.coreprotect.listener.entity.SulfurCubeDispenserListener;
 import net.coreprotect.listener.player.ArmorStandManipulateListener;
 import net.coreprotect.listener.player.CraftItemListener;
 import net.coreprotect.listener.player.FoodLevelChangeListener;
@@ -148,6 +149,13 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new HangingPlaceListener(), plugin);
         pluginManager.registerEvents(new HangingBreakListener(), plugin);
         pluginManager.registerEvents(new HangingBreakByEntityListener(), plugin);
+        try {
+            Class.forName("org.bukkit.event.entity.EntityDropItemEvent"); // Bukkit 1.13+
+            pluginManager.registerEvents(new SulfurCubeDispenserListener(), plugin);
+        }
+        catch (Exception e) {
+            // Ignore registration failures to remain compatible with older servers.
+        }
 
         // Paper Listeners / Fallbacks (Player Listeners)
         try {

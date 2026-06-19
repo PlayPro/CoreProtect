@@ -60,6 +60,7 @@ import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
+import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.ErrorReporter;
@@ -654,14 +655,11 @@ public final class PlayerInteractListener extends Queue implements Listener {
 
             if (event.useItemInHand() != Event.Result.DENY) {
                 List<Material> entityBlockTypes = new ArrayList<>(Arrays.asList(Material.ARMOR_STAND, Material.END_CRYSTAL, Material.BOW, Material.CROSSBOW, Material.TRIDENT, Material.EXPERIENCE_BOTTLE, Material.SPLASH_POTION, Material.LINGERING_POTION, Material.ENDER_PEARL, Material.FIREWORK_ROCKET, Material.EGG, Material.SNOWBALL));
-                try {
-                    entityBlockTypes.add(Material.valueOf("WIND_CHARGE"));
-                    entityBlockTypes.add(Material.valueOf("BLUE_EGG"));
-                    entityBlockTypes.add(Material.valueOf("BROWN_EGG"));
-                }
-                catch (Exception e) {
-                    // not running MC 1.21+
-                }
+                addMaterialIfPresent(entityBlockTypes, "WIND_CHARGE");
+                addMaterialIfPresent(entityBlockTypes, "BLUE_EGG");
+                addMaterialIfPresent(entityBlockTypes, "BROWN_EGG");
+                addMaterialIfPresent(entityBlockTypes, "SULFUR_CUBE_BUCKET");
+                addMaterialIfPresent(entityBlockTypes, "SULFUR_CUBE_SPAWN_EGG");
                 ItemStack handItem = null;
                 ItemStack mainHand = player.getInventory().getItemInMainHand();
                 ItemStack offHand = player.getInventory().getItemInOffHand();
@@ -722,7 +720,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                     Location blockLocation = relativeBlockLocation.clone();
                     blockLocation.setY(blockLocation.getY() + 1);
 
-                    if (handItem.getType() == Material.ARMOR_STAND || handItem.getType() == Material.FIREWORK_ROCKET) {
+                    if (handItem.getType() == Material.ARMOR_STAND || handItem.getType() == Material.FIREWORK_ROCKET || EntityUtils.isSulfurCubePlacementMaterial(handItem.getType())) {
                         if (block == null) {
                             return;
                         }
@@ -761,6 +759,13 @@ public final class PlayerInteractListener extends Queue implements Listener {
                 Queue.queueBlockBreak(player.getName(), block.getState(), block.getType(), block.getBlockData().getAsString(), 0);
                 Queue.queueBlockPlaceDelayed(player.getName(), block.getLocation(), block.getType(), null, null, 0);
             }
+        }
+    }
+
+    private static void addMaterialIfPresent(List<Material> materials, String name) {
+        Material material = Material.getMaterial(name);
+        if (material != null) {
+            materials.add(material);
         }
     }
 }

@@ -87,10 +87,36 @@ public class EntityUtils extends Queue {
             case "SNOWBALL":
                 return Material.SNOWBALL;
             case "WIND_CHARGE":
-                return Material.valueOf("WIND_CHARGE");
+                return Material.getMaterial("WIND_CHARGE");
+            case "SULFUR_CUBE":
+                return getSulfurCubeBucketMaterial();
             default:
                 return BukkitAdapter.ADAPTER.getFrameType(type);
         }
+    }
+
+    public static boolean isSulfurCube(EntityType type) {
+        return type != null && type.name().equals("SULFUR_CUBE");
+    }
+
+    public static Material getSulfurCubeBucketMaterial() {
+        return Material.getMaterial("SULFUR_CUBE_BUCKET");
+    }
+
+    public static Material getSulfurCubeSpawnEggMaterial() {
+        return Material.getMaterial("SULFUR_CUBE_SPAWN_EGG");
+    }
+
+    public static boolean isSulfurCubePlacementMaterial(Material material) {
+        return isMaterial(material, "SULFUR_CUBE_BUCKET") || isMaterial(material, "SULFUR_CUBE_SPAWN_EGG");
+    }
+
+    public static boolean isSulfurCubeBucket(Material material) {
+        return isMaterial(material, "SULFUR_CUBE_BUCKET");
+    }
+
+    private static boolean isMaterial(Material material, String name) {
+        return material != null && material.name().equals(name);
     }
 
     public static String getEntityName(int id) {

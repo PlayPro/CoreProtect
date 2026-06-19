@@ -24,7 +24,7 @@ public final class CreatureSpawnListener extends Queue implements Listener {
 
     @EventHandler
     public void onCreatureSpawn(CreatureSpawnEvent event) {
-        if (event.isCancelled() || !event.getEntityType().equals(EntityType.ARMOR_STAND)) {
+        if (event.isCancelled() || !isTrackedPlacementEntity(event.getEntityType())) {
             return;
         }
 
@@ -40,12 +40,23 @@ public final class CreatureSpawnListener extends Queue implements Listener {
             Map.Entry<String, Object[]> pair = it.next();
             String name = pair.getKey();
             Object[] data = pair.getValue();
-            if ((data[1].equals(key) || data[2].equals(key)) && EntityUtils.getEntityMaterial(event.getEntityType()) == ((ItemStack) data[3]).getType()) {
-                Block gravityLocation = BlockUtil.gravityScan(location, Material.ARMOR_STAND, name);
-                Queue.queueBlockPlace(name, gravityLocation.getState(), location.getBlock().getType(), location.getBlock().getState(), ((ItemStack) data[3]).getType(), (int) event.getEntity().getLocation().getYaw(), 1, null);
+            Material placedMaterial = ((ItemStack) data[3]).getType();
+            if ((data[1].equals(key) || data[2].equals(key)) && matchesPlacedEntityMaterial(event.getEntityType(), placedMaterial)) {
+                Block blockLocation = placedMaterial == Material.ARMOR_STAND ? BlockUtil.gravityScan(location, Material.ARMOR_STAND, name) : location.getBlock();
+                int forceData = placedMaterial == Material.ARMOR_STAND ? (int) event.getEntity().getLocation().getYaw() : -1;
+                Queue.queueBlockPlace(name, blockLocation.getState(), location.getBlock().getType(), location.getBlock().getState(), placedMaterial, forceData, 1, null);
                 it.remove();
             }
         }
+    }
+
+    private static boolean isTrackedPlacementEntity(EntityType type) {
+        return type == EntityType.ARMOR_STAND || EntityUtils.isSulfurCube(type);
+    }
+
+    private static boolean matchesPlacedEntityMaterial(EntityType type, Material material) {
+        Material entityMaterial = EntityUtils.getEntityMaterial(type);
+        return entityMaterial == material || (EntityUtils.isSulfurCube(type) && EntityUtils.isSulfurCubePlacementMaterial(material));
     }
 
 }

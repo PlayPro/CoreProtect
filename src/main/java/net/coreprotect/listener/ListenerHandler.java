@@ -40,6 +40,7 @@ import net.coreprotect.listener.player.FoodLevelChangeListener;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.listener.player.InventoryClickListener;
 import net.coreprotect.listener.player.PlayerBucketEmptyListener;
+import net.coreprotect.listener.player.PlayerBucketEntityListener;
 import net.coreprotect.listener.player.PlayerBucketFillListener;
 import net.coreprotect.listener.player.PlayerChatListener;
 import net.coreprotect.listener.player.PlayerCommandListener;
@@ -162,6 +163,13 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new InventoryChangeListener(), plugin);
         pluginManager.registerEvents(new InventoryClickListener(), plugin);
         pluginManager.registerEvents(new PlayerBucketEmptyListener(), plugin);
+        try {
+            Class.forName("org.bukkit.event.player.PlayerBucketEntityEvent"); // Bukkit 1.16.5+
+            pluginManager.registerEvents(new PlayerBucketEntityListener(), plugin);
+        }
+        catch (Exception e) {
+            // Ignore registration failures to remain compatible with older servers.
+        }
         pluginManager.registerEvents(new PlayerBucketFillListener(), plugin);
         pluginManager.registerEvents(new PlayerCommandListener(), plugin);
         pluginManager.registerEvents(new PlayerDeathListener(), plugin);

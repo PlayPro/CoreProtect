@@ -14,6 +14,7 @@ import net.coreprotect.listener.block.BlockFromToListener;
 import net.coreprotect.listener.block.BlockIgniteListener;
 import net.coreprotect.listener.block.BlockPistonListener;
 import net.coreprotect.listener.block.BlockPlaceListener;
+import net.coreprotect.listener.block.BlockShearEntityListener;
 import net.coreprotect.listener.block.BlockSpreadListener;
 import net.coreprotect.listener.block.CampfireStartListener;
 import net.coreprotect.listener.block.TNTPrimeListener;
@@ -52,6 +53,7 @@ import net.coreprotect.listener.player.PlayerItemBreakListener;
 import net.coreprotect.listener.player.PlayerJoinListener;
 import net.coreprotect.listener.player.PlayerPickupArrowListener;
 import net.coreprotect.listener.player.PlayerQuitListener;
+import net.coreprotect.listener.player.PlayerShearEntityListener;
 import net.coreprotect.listener.player.PlayerTakeLecternBookListener;
 import net.coreprotect.listener.player.ProjectileLaunchListener;
 import net.coreprotect.listener.player.SignChangeListener;
@@ -123,6 +125,13 @@ public final class ListenerHandler {
                 // Ignore registration failures to remain compatible with older servers.
             }
         }
+        try {
+            Class.forName("org.bukkit.event.block.BlockShearEntityEvent"); // Bukkit/Paper 1.21.5+
+            pluginManager.registerEvents(new BlockShearEntityListener(), plugin);
+        }
+        catch (Exception e) {
+            // Ignore registration failures to remain compatible with older servers.
+        }
 
         // Entity Listeners
         pluginManager.registerEvents(new CreatureSpawnListener(), plugin);
@@ -180,6 +189,13 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new PlayerItemBreakListener(), plugin);
         pluginManager.registerEvents(new PlayerJoinListener(), plugin);
         pluginManager.registerEvents(new PlayerQuitListener(), plugin);
+        try {
+            Class.forName("org.bukkit.event.player.PlayerShearEntityEvent"); // Bukkit 1.19+
+            pluginManager.registerEvents(new PlayerShearEntityListener(), plugin);
+        }
+        catch (Exception e) {
+            // Ignore registration failures to remain compatible with older servers.
+        }
         pluginManager.registerEvents(new SignChangeListener(), plugin);
         pluginManager.registerEvents(new PlayerTakeLecternBookListener(), plugin);
         pluginManager.registerEvents(new ProjectileLaunchListener(), plugin);

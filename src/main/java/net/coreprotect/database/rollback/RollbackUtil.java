@@ -40,6 +40,7 @@ import net.coreprotect.database.Lookup;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.serialize.SulfurCubeBucketData;
 
 public class RollbackUtil extends Lookup {
 
@@ -381,6 +382,9 @@ public class RollbackUtil extends Lookup {
                     }
 
                     itemstack.setItemMeta(itemMeta);
+                }
+                else if (SulfurCubeBucketData.apply(itemstack, mapData)) {
+                    // Sulfur cube bucket content is a Paper data component, not ItemMeta.
                 }
                 else if (itemCount == 0) {
                     ItemMeta meta = ItemUtils.deserializeItemMeta(itemstack.getItemMeta().getClass(), map.get(0));

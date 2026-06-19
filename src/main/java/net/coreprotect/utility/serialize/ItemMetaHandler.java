@@ -260,6 +260,8 @@ public class ItemMetaHandler {
             }
         }
 
+        SulfurCubeBucketData.appendMetadata(item, metadata);
+
         if (type != null && type.equals(Material.ARMOR_STAND)) {
             Map<String, Object> meta = new HashMap<>();
             meta.put("slot", slot);

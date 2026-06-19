@@ -78,6 +78,8 @@ import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.spigot.SpigotAdapter;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.EntityUtils;
+import net.coreprotect.utility.entity.SulfurCubeEntityData;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 
 public final class EntityDeathListener extends Queue implements Listener {
@@ -377,6 +379,9 @@ public final class EntityDeathListener extends Queue implements Listener {
             }
             else if (entity instanceof Skeleton) {
                 info.add(null);
+            }
+            else if (EntityUtils.isSulfurCube(entity.getType())) {
+                SulfurCubeEntityData.appendMetadata(entity, info);
             }
             else if (entity instanceof Slime) {
                 Slime slime = (Slime) entity;

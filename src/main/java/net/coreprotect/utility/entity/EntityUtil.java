@@ -69,6 +69,7 @@ import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.spigot.SpigotAdapter;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.ErrorReporter;
 
@@ -313,6 +314,9 @@ public class EntityUtil {
                             MushroomCow.Variant set = (MushroomCow.Variant) value;
                             mushroomCow.setVariant(set);
                         }
+                    }
+                    else if (EntityUtils.isSulfurCube(entity.getType())) {
+                        SulfurCubeEntityData.applyMetadata(entity, value, count);
                     }
                     else if (entity instanceof Slime) {
                         Slime slime = (Slime) entity;

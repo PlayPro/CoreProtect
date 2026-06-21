@@ -4,6 +4,7 @@ import java.util.Arrays;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -36,6 +37,11 @@ public final class BlockDispenseListener extends Queue implements Listener {
         Block block = event.getBlock();
         World world = block.getWorld();
         Config config = Config.getConfig(world);
+
+        if (config.DISABLE_HOPPER_CARPET_LOGGING && Tag.WOOL_CARPETS.isTagged(event.getItem().getType())) {
+            return;
+        }
+
         if (!event.isCancelled() && config.BLOCK_PLACE) {
             BlockData blockData = block.getBlockData();
             ItemStack item = event.getItem();

@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -576,7 +577,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
         }
 
         Item item = event.getItem();
-        if (item == null) {
+        if (item == null || (Config.getConfig(item.getWorld()).DISABLE_HOPPER_CARPET_LOGGING && Tag.WOOL_CARPETS.isTagged(item.getItemStack().getType()))) {
             return;
         }
 

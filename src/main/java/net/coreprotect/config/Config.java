@@ -42,6 +42,7 @@ public class Config extends Language {
     public String MYSQL_PASSWORD;
     public String PARTITIONING;
     public boolean SELECT_USE_FINAL;
+    public boolean DISABLE_HOPPER_CARPET_LOGGING;
     public String LANGUAGE;
     public String AUTO_PURGE;
     public String AUTO_PURGE_TIME;
@@ -228,6 +229,7 @@ public class Config extends Language {
         this.MYSQL_PASSWORD = this.getString("mysql-password");
         this.PARTITIONING = this.getString("clickhouse-partitioning");
         this.SELECT_USE_FINAL = this.getBoolean("clickhouse-select-use-final", false);
+        this.DISABLE_HOPPER_CARPET_LOGGING = this.getBoolean("clickhouse-disable-hopper-carpet-logging", false);
         this.LANGUAGE = this.getString("language");
         this.AUTO_PURGE = this.getString("auto-purge");
         this.AUTO_PURGE_TIME = this.getString("auto-purge-time");

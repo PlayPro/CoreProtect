@@ -17,7 +17,7 @@ CoreProtect is the [#1 anti-griefing plugin](https://bstats.org/plugin/bukkit/Co
 | CoreProtect Discord: | [discord.gg/b4DZ4jy](https://discord.gg/b4DZ4jy) |
 | CoreProtect Patreon: | [patreon.com/coreprotect](https://www.patreon.com/coreprotect) |
 | CoreProtect Documentation: | [docs.coreprotect.net](https://docs.coreprotect.net) |
-| Downloads for MC 1.14 - 26.1: | [coreprotect.net/latest](https://coreprotect.net/latest/) |
+| Downloads for MC 1.14 - 26.2: | [coreprotect.net/latest](https://coreprotect.net/latest/) |
 | Downloads for MC 1.8 - 1.12: | [coreprotect.net/legacy](https://coreprotect.net/legacy/) |
 | Downloads for Fabric: | [coreprotect.net/fabric](https://coreprotect.net/fabric) |
 | Downloads for Hytale: | [coreprotect.net/hytale](https://coreprotect.net/hytale) |

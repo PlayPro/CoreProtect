@@ -26,7 +26,7 @@ public class PlayerInteractLogger {
 
     public static void log(PreparedStatement preparedStmt, int batchCount, String user, BlockState block, Material blockType) {
         try {
-            String blockData = block.getBlockData().getAsString();
+            String blockData = blockType == null ? block.getBlockData().getAsString() : blockType.toString();
             String blockKey = BlockTypeUtils.getBlockDataKey(blockData);
             if (blockKey.length() == 0 && blockType != null) {
                 blockKey = blockType.getKey().toString();

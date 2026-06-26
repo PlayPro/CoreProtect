@@ -20,6 +20,7 @@ import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.BlockTypeUtils;
 import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.MaterialUtils;
 
 public class BlockBreakLogger {
 
@@ -53,6 +54,16 @@ public class BlockBreakLogger {
                 String cacheId = location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ() + "." + WorldUtils.getWorldId(location.getWorld().getName());
                 CacheHandler.spreadCache.remove(cacheId);
             }
+
+            
+            if (checkType != null && blockKey.length() > 0) {
+                Material blockDataType = MaterialUtils.getType(blockKey);
+                if (blockDataType != null && !blockDataType.equals(type)) {
+                    blockKey = checkType.getKey().toString();
+                    blockData = null;
+                }
+            }
+
 
             if (checkType == Material.LECTERN) {
                 blockData = blockData.replaceFirst("has_book=true", "has_book=false");

@@ -31,6 +31,7 @@ import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.model.PendingBlockChange;
 import net.coreprotect.model.item.ItemTransactionActions;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.BlockUtils;
@@ -79,7 +80,10 @@ public class RollbackProcessor {
             boolean clearInventories = Config.getGlobal().ROLLBACK_ITEMS;
             ArrayList<Object[]> data = blockList != null ? blockList : new ArrayList<>();
             ArrayList<Object[]> itemData = itemList != null ? itemList : new ArrayList<>();
-            Map<Block, BlockData> chunkChanges = new LinkedHashMap<>();
+            Map<Block, PendingBlockChange> chunkChanges = new LinkedHashMap<>();
+            Map<String, BlockData> parsedBlockDataCache = new HashMap<>();
+            Map<Integer, BlockData> defaultBlockDataCache = new HashMap<>();
+            loadChunk(bukkitRollbackWorld, finalChunkX, finalChunkZ, inventoryRollback);
 
             // Process blocks
             for (Object[] row : data) {
@@ -107,24 +111,13 @@ public class RollbackProcessor {
                     meta = RollbackUtil.deserializeMetadata(rowMeta);
                 }
 
-                BlockData blockData = null;
-                if (blockDataString != null && blockDataString.contains(":")) {
-                    try {
-                        blockData = BlockTypeUtils.createBlockDataFromString(blockDataString);
-                        if (blockData == null) {
-                            blockData = Bukkit.getServer().createBlockData(blockDataString);
-                        }
-                    }
-                    catch (Exception e) {
-                        // corrupt BlockData, let the server automatically set the BlockData instead
-                    }
-                }
+                BlockData blockData = getParsedBlockData(blockDataString, parsedBlockDataCache);
                 BlockData rawBlockData = null;
                 if (blockData != null) {
                     rawBlockData = blockData.clone();
                 }
                 if (rawBlockData == null) {
-                    rawBlockData = BlockUtils.createBlockData(rowTypeRaw);
+                    rawBlockData = getDefaultBlockData(rowTypeRaw, defaultBlockDataCache);
                 }
                 if (rowType == Material.NOTE_BLOCK) {
                     normalizeRollbackBlockData(blockData);
@@ -165,7 +158,7 @@ public class RollbackProcessor {
                             continue;
                         }
 
-                        Block block = new Location(bukkitWorld, rowX, rowY, rowZ).getBlock();
+                        Block block = bukkitWorld.getBlockAt(rowX, rowY, rowZ);
                         if (preview == 2) {
                             Material blockType = block.getType();
                             if (!BukkitAdapter.ADAPTER.isItemFrame(blockType) && !blockType.equals(Material.PAINTING) && !blockType.equals(Material.ARMOR_STAND) && !blockType.equals(Material.END_CRYSTAL)) {
@@ -199,15 +192,13 @@ public class RollbackProcessor {
                     }
 
                     Block block = bukkitWorld.getBlockAt(rowX, rowY, rowZ);
-                    if (!bukkitWorld.isChunkLoaded(block.getChunk())) {
-                        bukkitWorld.getChunkAt(block.getLocation());
-                    }
 
                     boolean changeBlock = true;
                     boolean countBlock = true;
                     Material changeType = block.getType();
                     BlockData changeBlockData = block.getBlockData();
-                    BlockData pendingChangeData = chunkChanges.get(block);
+                    PendingBlockChange pendingChange = chunkChanges.get(block);
+                    BlockData pendingChangeData = pendingChange != null ? pendingChange.blockData() : null;
                     Material pendingChangeType = changeType;
 
                     if (pendingChangeData != null) {
@@ -243,7 +234,7 @@ public class RollbackProcessor {
 
                     if ((pendingChangeType == Material.WATER) && (rowType != Material.AIR) && (rowType != Material.CAVE_AIR) && blockData != null) {
                         if (blockData instanceof org.bukkit.block.data.Waterlogged) {
-                            if (Material.WATER.createBlockData().equals(block.getBlockData())) {
+                            if (Material.WATER.createBlockData().equals(pendingChangeData)) {
                                 org.bukkit.block.data.Waterlogged waterlogged = (org.bukkit.block.data.Waterlogged) blockData;
                                 waterlogged.setWaterlogged(true);
                             }
@@ -357,9 +348,6 @@ public class RollbackProcessor {
                                 continue;
                             }
                             Block block = bukkitWorld.getBlockAt(rowX, rowY, rowZ);
-                            if (!bukkitWorld.isChunkLoaded(block.getChunk())) {
-                                bukkitWorld.getChunkAt(block.getLocation());
-                            }
 
                             if (BlockGroup.CONTAINERS.contains(block.getType())) {
                                 BlockState blockState = block.getState();
@@ -460,5 +448,49 @@ public class RollbackProcessor {
             ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount, blockCount, entityCount, 2, (scannedWorlds + 1) });
             return false;
         }
+    }
+
+    private static void loadChunk(World world, int chunkX, int chunkZ, boolean inventoryRollback) {
+        if (inventoryRollback || world == null) {
+            return;
+        }
+
+        if (!world.isChunkLoaded(chunkX, chunkZ)) {
+            world.getChunkAt(chunkX, chunkZ);
+        }
+    }
+
+    private static BlockData getParsedBlockData(String blockDataString, Map<String, BlockData> parsedBlockDataCache) {
+        if (blockDataString == null || !blockDataString.contains(":")) {
+            return null;
+        }
+
+        if (!parsedBlockDataCache.containsKey(blockDataString)) {
+            BlockData blockData = null;
+            try {
+                blockData = BlockTypeUtils.createBlockDataFromString(blockDataString);
+                if (blockData == null) {
+                    blockData = Bukkit.getServer().createBlockData(blockDataString);
+                }
+            }
+            catch (Exception e) {
+                // corrupt BlockData, let the server automatically set the BlockData instead
+            }
+            parsedBlockDataCache.put(blockDataString, blockData);
+        }
+
+        return cloneBlockData(parsedBlockDataCache.get(blockDataString));
+    }
+
+    private static BlockData getDefaultBlockData(int rowTypeRaw, Map<Integer, BlockData> defaultBlockDataCache) {
+        if (!defaultBlockDataCache.containsKey(rowTypeRaw)) {
+            defaultBlockDataCache.put(rowTypeRaw, BlockUtils.createBlockData(rowTypeRaw));
+        }
+
+        return cloneBlockData(defaultBlockDataCache.get(rowTypeRaw));
+    }
+
+    private static BlockData cloneBlockData(BlockData blockData) {
+        return blockData != null ? blockData.clone() : null;
     }
 }

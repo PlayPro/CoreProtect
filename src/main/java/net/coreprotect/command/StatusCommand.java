@@ -112,9 +112,9 @@ public class StatusCommand {
                     Chat.sendMessage(player, Color.DARK_AQUA + Phrase.build(Phrase.STATUS_AUTO_PURGE, Color.WHITE, String.format("%,d", autoPurgeRowsPurged), (autoPurgeRowsPurged == 1 ? Selector.FIRST : Selector.SECOND)));
 
                     try {
-                        String cpuInfo = "";
+                        String cpuInfo = "x" + Runtime.getRuntime().availableProcessors() + " " + Phrase.build(Phrase.CPU_CORES);
                         if (ConfigHandler.processorInfo != null) {
-                            String modelName = ConfigHandler.processorInfo.getProcessorIdentifier().getName();
+                            String modelName = ConfigHandler.processorInfo.getName();
                             if (modelName.contains(" CPU")) {
                                 String[] split = modelName.split(" CPU")[0].split(" ");
                                 modelName = split[split.length - 1];
@@ -124,7 +124,7 @@ public class StatusCommand {
                                 modelName = split[split.length - 1];
                             }
 
-                            String cpuSpeed = String.valueOf(ConfigHandler.processorInfo.getMaxFreq());
+                            String cpuSpeed = String.valueOf(ConfigHandler.processorInfo.getMaxFrequency());
                             double speedVal = Long.valueOf(cpuSpeed) / 1000000000.0;
 
                             // Fix for Apple Silicon processors reporting 0 GHz
@@ -136,10 +136,9 @@ public class StatusCommand {
                             }
 
                             cpuSpeed = String.format("%.2f", speedVal);
-                            cpuInfo = "x" + Runtime.getRuntime().availableProcessors() + " " + cpuSpeed + "GHz " + modelName + ".";
-                        }
-                        else {
-                            cpuInfo = "x" + Runtime.getRuntime().availableProcessors() + " " + Phrase.build(Phrase.CPU_CORES);
+                            if (speedVal >= 0.01) {
+                                cpuInfo = "x" + Runtime.getRuntime().availableProcessors() + " " + cpuSpeed + "GHz " + modelName + ".";
+                            }
                         }
 
                         int mb = 1024 * 1024;

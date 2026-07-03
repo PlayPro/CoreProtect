@@ -28,7 +28,12 @@ public final class EntityChangeBlockListener extends Queue implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onEntityChangeBlock(EntityChangeBlockEvent event) {
         World world = event.getBlock().getWorld();
-        if (event.isCancelled() || !Config.getConfig(world).ENTITY_CHANGE) {
+        if (event.isCancelled()) {
+            return;
+        }
+
+        Config config = Config.getConfig(world);
+        if (!config.ENTITY_CHANGE) {
             return;
         }
 
@@ -38,6 +43,10 @@ public final class EntityChangeBlockListener extends Queue implements Listener {
         Material type = event.getBlock().getType();
 
         if (entity instanceof FallingBlock) {
+            if (!config.BLOCK_MOVEMENT) {
+                CacheHandler.fallingBlockSpawnCache.remove(entity.getUniqueId().toString());
+                return;
+            }
             handleFallingBlock(event, (FallingBlock) entity, block, newtype, type, world);
             return;
         }

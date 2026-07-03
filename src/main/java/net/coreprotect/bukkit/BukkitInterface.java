@@ -5,9 +5,11 @@ import java.util.Map;
 import java.util.Set;
 
 import org.bukkit.Art;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 import org.bukkit.block.data.BlockData;
@@ -173,6 +175,8 @@ public interface BukkitInterface {
      * @return true if the material is a shelf, false otherwise
      */
     boolean isShelf(Material material);
+
+    List<Location> getShelfInteractionLocations(Block block, BlockFace blockFace);
 
 
     /**

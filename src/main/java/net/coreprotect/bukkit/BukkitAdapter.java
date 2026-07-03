@@ -2,6 +2,7 @@ package net.coreprotect.bukkit;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -11,10 +12,12 @@ import java.util.Set;
 import org.bukkit.Art;
 import org.bukkit.Color;
 import org.bukkit.DyeColor;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 import org.bukkit.block.data.BlockData;
@@ -470,6 +473,11 @@ public class BukkitAdapter implements BukkitInterface {
     @Override
     public boolean isShelf(Material material){
         return false;
+    }
+
+    @Override
+    public List<Location> getShelfInteractionLocations(Block block, BlockFace blockFace) {
+        return Collections.emptyList();
     }
 
     @Override

@@ -121,6 +121,7 @@ public final class HopperTransactionUtils {
 
         synchronized (transaction) {
             transaction.ownerMarks.remove(loggingId);
+            transaction.lastBatchItems.remove(loggingId);
             if (transaction.ownerMarks.isEmpty()) {
                 pendingTransactions.remove(transactionId);
                 return;
@@ -136,6 +137,19 @@ public final class HopperTransactionUtils {
 
     public static void recordItemRemoved(String transactionId, ItemStack item) {
         recordDelta(transactionId, item, true, item == null ? 0 : item.getAmount());
+    }
+
+    public static boolean shouldForceBatchBoundary(String transactionId, String loggingId, ItemStack item) {
+        if (item == null || item.getAmount() <= 0) {
+            return false;
+        }
+
+        PendingTransaction transaction = pendingTransactions.computeIfAbsent(transactionId, k -> new PendingTransaction());
+        synchronized (transaction) {
+            ItemStack previous = transaction.lastBatchItems.put(loggingId, item.clone());
+            Deque<Long> marks = transaction.ownerMarks.get(loggingId);
+            return previous != null && !previous.isSimilar(item) && marks != null && !marks.isEmpty();
+        }
     }
 
     public static ItemStack[] applyPendingChanges(ItemStack[] containerState, String transactionId, long sinceMark) {
@@ -257,6 +271,7 @@ public final class HopperTransactionUtils {
         private long lastMarkSeq;
         private final Deque<Delta> deltas = new ArrayDeque<>();
         private final Map<String, Deque<Long>> ownerMarks = new HashMap<>();
+        private final Map<String, ItemStack> lastBatchItems = new HashMap<>();
     }
 
     private static final class Delta {

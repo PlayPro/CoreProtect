@@ -150,7 +150,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
                         inventoryData = inventory.getContents();
                     }
 
-                    return queueContainerTransaction(user, playerLocation, type, inventory, inventoryData, null);
+                    return queueContainerTransaction(user, playerLocation, type, inventory, inventoryData, null, null);
                 }
             }
         }
@@ -158,7 +158,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
         return false;
     }
 
-    private static boolean queueContainerTransaction(String user, Location playerLocation, Material type, Object inventory, ItemStack[] inventoryData, ItemStack[] forceInventoryData) {
+    private static boolean queueContainerTransaction(String user, Location playerLocation, Material type, Object inventory, ItemStack[] inventoryData, ItemStack[] forceInventoryData, ItemStack batchItem) {
         String transactingChestId = HopperTransactionUtils.getTransactionId(playerLocation);
         String loggingChestIdSuffix = HopperTransactionUtils.getLoggingIdSuffix(playerLocation);
         String loggingChestId = HopperTransactionUtils.getLoggingId(user, loggingChestIdSuffix);
@@ -186,6 +186,13 @@ public final class InventoryChangeListener extends Queue implements Listener {
             }
         }
 
+        if (forceInventoryData == null && batchItem != null && HopperTransactionUtils.shouldForceBatchBoundary(transactingChestId, loggingChestId, batchItem)) {
+            forceInventoryData = inventoryData;
+        }
+        if (forceInventoryData != null) {
+            ConfigHandler.forceContainer.computeIfAbsent(loggingChestId, k -> new ArrayList<>()).add(ItemUtils.getContainerState(forceInventoryData));
+        }
+
         int chestId = getChestId(loggingChestId);
         if (chestId > 0) {
             List<ItemStack[]> forceList = ConfigHandler.forceContainer.get(loggingChestId);
@@ -208,12 +215,19 @@ public final class InventoryChangeListener extends Queue implements Listener {
             HopperTransactionUtils.registerSnapshot(transactingChestId, loggingChestId, true);
         }
 
-        if (forceInventoryData != null) {
-            ConfigHandler.forceContainer.computeIfAbsent(loggingChestId, k -> new ArrayList<>()).add(ItemUtils.getContainerState(forceInventoryData));
-        }
-
         Queue.queueContainerTransaction(user, playerLocation, type, inventory, chestId);
         return true;
+    }
+
+    static boolean onHopperInventoryInteract(String user, Inventory inventory, ItemStack[] inventoryData, Location location, ItemStack movedItem) {
+        if (inventory == null || location == null) {
+            return false;
+        }
+        if (!Config.getConfig(location.getWorld()).ITEM_TRANSACTIONS) {
+            return false;
+        }
+
+        return queueContainerTransaction(user, location, Material.CHEST, inventory, inventoryData, null, movedItem);
     }
 
     static void onInventoryInteractAsync(Player player, Inventory inventory, boolean enderChest) {
@@ -559,7 +573,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
             user = "#hopper";
         }
 
-        queueContainerTransaction(user, location, Material.HOPPER, newContents, oldContents, newContents);
+        queueContainerTransaction(user, location, Material.HOPPER, newContents, oldContents, newContents, null);
     }
 
     private static ItemStack[] addPickedItem(ItemStack[] contents, ItemStack itemStack, int inventoryMaxStackSize) {

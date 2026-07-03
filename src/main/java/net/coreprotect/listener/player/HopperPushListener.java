@@ -165,6 +165,6 @@ public final class HopperPushListener {
             }
         }
 
-        InventoryChangeListener.onInventoryInteract(user, destinationInventory, originalDestination, null, destinationInventory.getLocation(), true);
+        InventoryChangeListener.onHopperInventoryInteract(user, destinationInventory, originalDestination, destinationInventory.getLocation(), movedItem);
     }
 }

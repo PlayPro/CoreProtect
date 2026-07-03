@@ -18,6 +18,7 @@ import net.coreprotect.event.CoreProtectPreLogEvent;
 import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.BlockTypeUtils;
+import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.ErrorReporter;
 
@@ -29,13 +30,20 @@ public class BlockBreakLogger {
 
     public static void log(PreparedStatement preparedStmt, int batchCount, String user, Location location, int type, int data, List<Object> meta, String blockData, String overrideData) {
         try {
-            Material checkType = net.coreprotect.utility.MaterialUtils.getType(type);
+            Material checkType = MaterialUtils.getType(type);
             String blockKey = BlockTypeUtils.getBlockDataKey(blockData);
             if (blockKey.length() == 0 && checkType != null) {
                 blockKey = checkType.getKey().toString();
             }
             else if (checkType != null && (checkType == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(checkType) || checkType == Material.ARMOR_STAND || checkType == Material.END_CRYSTAL)) {
                 blockKey = checkType.getKey().toString();
+            }
+            if (checkType != null && blockKey.length() > 0) {
+                Material blockDataType = MaterialUtils.getType(blockKey);
+                if (blockDataType != null && !blockDataType.equals(checkType)) {
+                    blockKey = checkType.getKey().toString();
+                    blockData = null;
+                }
             }
 
             if (checkType == null && blockKey.length() == 0) {
@@ -54,7 +62,7 @@ public class BlockBreakLogger {
                 CacheHandler.spreadCache.remove(cacheId);
             }
 
-            if (checkType == Material.LECTERN) {
+            if (checkType == Material.LECTERN && blockData != null) {
                 blockData = blockData.replaceFirst("has_book=true", "has_book=false");
             }
             else if (checkType != null && (checkType == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(checkType))) {
@@ -79,7 +87,7 @@ public class BlockBreakLogger {
                 return;
             }
 
-            int internalType = blockKey.length() > 0 ? net.coreprotect.utility.MaterialUtils.getBlockId(blockKey, true) : type;
+            int internalType = blockKey.length() > 0 ? MaterialUtils.getBlockId(blockKey, true) : type;
             BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, internalType, data, meta, blockData, LookupActions.BLOCK_BREAK, 0);
         }
         catch (Exception e) {

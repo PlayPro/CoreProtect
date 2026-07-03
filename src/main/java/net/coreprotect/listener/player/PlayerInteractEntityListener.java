@@ -17,6 +17,7 @@ import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
+import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
@@ -64,7 +65,10 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
             }
 
             if (frame.getItem().getType() != Material.AIR && event.getHand().equals(EquipmentSlot.HAND) && Config.getConfig(player.getWorld()).PLAYER_INTERACTIONS) {
-                Queue.queuePlayerInteraction(player.getName(), entity.getLocation().getBlock().getState(), Material.ITEM_FRAME);
+                Material frameType = BukkitAdapter.ADAPTER.getFrameType(entity);
+                if (frameType != null) {
+                    Queue.queuePlayerInteraction(player.getName(), entity.getLocation().getBlock().getState(), frameType);
+                }
             }
 
             if (!Config.getConfig(player.getWorld()).ITEM_TRANSACTIONS) {

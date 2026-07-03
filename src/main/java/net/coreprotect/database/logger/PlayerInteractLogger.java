@@ -28,6 +28,13 @@ public class PlayerInteractLogger {
         try {
             String blockData = block.getBlockData().getAsString();
             String blockKey = BlockTypeUtils.getBlockDataKey(blockData);
+            if (blockType != null && blockKey.length() > 0) {
+                Material blockDataType = MaterialUtils.getType(blockKey);
+                if (BlockTypeUtils.isAir(blockKey) || (blockDataType != null && !blockDataType.equals(blockType))) {
+                    blockKey = blockType.getKey().toString();
+                    blockData = null;
+                }
+            }
             if (blockKey.length() == 0 && blockType != null) {
                 blockKey = blockType.getKey().toString();
             }

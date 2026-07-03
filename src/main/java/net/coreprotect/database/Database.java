@@ -28,6 +28,7 @@ import net.coreprotect.model.BlockGroup;
 import net.coreprotect.model.rollback.RollbackUpdateTargets;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
+import net.coreprotect.utility.HopperTransactionUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.ErrorReporter;
@@ -146,7 +147,7 @@ public class Database extends Queue {
                     if (contents != null) {
                         List<ItemStack[]> forceList = new ArrayList<>();
                         forceList.add(ItemUtils.getContainerState(contents));
-                        ConfigHandler.forceContainer.put(user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ(), forceList);
+                        ConfigHandler.forceContainer.put(HopperTransactionUtils.getLoggingId(user, location), forceList);
                         Queue.queueContainerBreak(user, location, type, contents);
                     }
                 }

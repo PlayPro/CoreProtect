@@ -110,7 +110,6 @@ public class ConfigHandler extends Queue {
     public static Map<String, HashSet<String>> FilteredBlacklist = syncMap();
     public static Map<String, Integer> loggingChest = syncMap();
     public static Map<String, Integer> loggingItem = syncMap();
-    public static ConcurrentHashMap<String, List<Object>> transactingChest = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, List<ItemStack[]>> oldContainer = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, List<ItemStack>> itemsPickup = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, List<ItemStack>> itemsDrop = new ConcurrentHashMap<>();

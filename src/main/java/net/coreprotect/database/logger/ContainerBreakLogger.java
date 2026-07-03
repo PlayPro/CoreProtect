@@ -1,7 +1,6 @@
 package net.coreprotect.database.logger;
 
 import java.sql.PreparedStatement;
-import java.util.Locale;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -9,6 +8,7 @@ import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.model.item.ItemTransactionActions;
+import net.coreprotect.utility.HopperTransactionUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.ErrorReporter;
 
@@ -22,7 +22,7 @@ public class ContainerBreakLogger {
         try {
             ItemUtils.mergeItems(type, oldInventory);
             ContainerLogger.logTransaction(preparedStmt, batchCount, player, type, null, oldInventory, ItemTransactionActions.REMOVE, l);
-            String loggingContainerId = player.toLowerCase(Locale.ROOT) + "." + l.getBlockX() + "." + l.getBlockY() + "." + l.getBlockZ();
+            String loggingContainerId = HopperTransactionUtils.getLoggingId(player, l);
 
             // If there was a pending chest transaction, it would have already been processed.
             if (ConfigHandler.forceContainer.get(loggingContainerId) != null) {

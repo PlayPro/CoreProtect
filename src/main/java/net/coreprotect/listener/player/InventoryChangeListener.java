@@ -1,7 +1,6 @@
 package net.coreprotect.listener.player;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,6 +38,7 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.HopperTransactionUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.Validate;
 import net.coreprotect.utility.ErrorReporter;
@@ -152,14 +152,11 @@ public final class InventoryChangeListener extends Queue implements Listener {
     }
 
     private static boolean queueContainerTransaction(String user, Location playerLocation, Material type, Object inventory, ItemStack[] inventoryData, ItemStack[] forceInventoryData) {
-        int x = playerLocation.getBlockX();
-        int y = playerLocation.getBlockY();
-        int z = playerLocation.getBlockZ();
-
-        String transactingChestId = playerLocation.getWorld().getUID().toString() + "." + x + "." + y + "." + z;
-        String loggingChestId = user.toLowerCase(Locale.ROOT) + "." + x + "." + y + "." + z;
+        String transactingChestId = HopperTransactionUtils.getTransactionId(playerLocation);
+        String loggingChestIdSuffix = HopperTransactionUtils.getLoggingIdSuffix(playerLocation);
+        String loggingChestId = HopperTransactionUtils.getLoggingId(user, playerLocation);
         for (String loggingChestIdViewer : ConfigHandler.oldContainer.keySet()) {
-            if (loggingChestIdViewer.equals(loggingChestId) || !loggingChestIdViewer.endsWith("." + x + "." + y + "." + z)) {
+            if (loggingChestIdViewer.equals(loggingChestId) || !loggingChestIdViewer.endsWith(loggingChestIdSuffix)) {
                 continue;
             }
 
@@ -171,49 +168,8 @@ public final class InventoryChangeListener extends Queue implements Listener {
                 if (list != null && list.size() < sizeOld) {
                     ItemStack[] containerState = ItemUtils.getContainerState(inventoryData);
 
-                    // If items have been removed by a hopper, merge into containerState
-                    List<Object> transactingChest = ConfigHandler.transactingChest.get(transactingChestId);
-                    if (transactingChest != null) {
-                        List<Object> transactingChestList = Collections.synchronizedList(new ArrayList<>(transactingChest));
-                        if (!transactingChestList.isEmpty()) {
-                            ItemStack[] newState = new ItemStack[containerState.length + transactingChestList.size()];
-                            int count = 0;
-
-                            for (int j = 0; j < containerState.length; j++) {
-                                newState[j] = containerState[j];
-                                count++;
-                            }
-
-                            for (Object item : transactingChestList) {
-                                ItemStack addItem = null;
-                                ItemStack removeItem = null;
-                                if (item instanceof ItemStack) {
-                                    addItem = (ItemStack) item;
-                                }
-                                else {
-                                    addItem = ((ItemStack[]) item)[0];
-                                    removeItem = ((ItemStack[]) item)[1];
-                                }
-
-                                // item was removed by hopper, add back to state
-                                if (addItem != null) {
-                                    newState[count] = addItem;
-                                    count++;
-                                }
-
-                                // item was added by hopper, remove from state
-                                if (removeItem != null) {
-                                    for (ItemStack check : newState) {
-                                        if (check != null && check.isSimilar(removeItem)) {
-                                            check.setAmount(check.getAmount() - 1);
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                            containerState = newState;
-                        }
-                    }
+                    long snapshotMark = HopperTransactionUtils.getSnapshotMark(transactingChestId, loggingChestIdViewer, list.size());
+                    containerState = HopperTransactionUtils.applyPendingChanges(containerState, transactingChestId, snapshotMark);
 
                     modifyForceContainer(loggingChestIdViewer, containerState);
                 }
@@ -230,6 +186,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
                 if (list != null && list.size() <= forceSize) {
                     list.add(ItemUtils.getContainerState(inventoryData));
                     ConfigHandler.oldContainer.put(loggingChestId, list);
+                    HopperTransactionUtils.registerSnapshot(transactingChestId, loggingChestId, false);
                 }
             }
         }
@@ -237,13 +194,13 @@ public final class InventoryChangeListener extends Queue implements Listener {
             List<ItemStack[]> list = new ArrayList<>();
             list.add(ItemUtils.getContainerState(inventoryData));
             ConfigHandler.oldContainer.put(loggingChestId, list);
+            HopperTransactionUtils.registerSnapshot(transactingChestId, loggingChestId, true);
         }
 
         if (forceInventoryData != null) {
             ConfigHandler.forceContainer.computeIfAbsent(loggingChestId, k -> new ArrayList<>()).add(ItemUtils.getContainerState(forceInventoryData));
         }
 
-        ConfigHandler.transactingChest.computeIfAbsent(transactingChestId, k -> Collections.synchronizedList(new ArrayList<>()));
         Queue.queueContainerTransaction(user, playerLocation, type, inventory, chestId);
         return true;
     }
@@ -546,8 +503,8 @@ public final class InventoryChangeListener extends Queue implements Listener {
             return;
         }
 
-        List<Object> list = ConfigHandler.transactingChest.get(location.getWorld().getUID().toString() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ());
-        if (list == null) {
+        String transactingChestId = HopperTransactionUtils.getTransactionId(location);
+        if (!HopperTransactionUtils.hasTransaction(transactingChestId)) {
             return;
         }
 

@@ -31,6 +31,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.HopperTransactionUtils;
 import net.coreprotect.utility.ItemUtils;
 
 public final class CopperGolemChestListener implements Listener {
@@ -522,7 +523,7 @@ public final class CopperGolemChestListener implements Listener {
             return;
         }
 
-        String loggingContainerId = USERNAME + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+        String loggingContainerId = HopperTransactionUtils.getLoggingId(USERNAME, location);
 
         List<ItemStack[]> forceList = ConfigHandler.forceContainer.get(loggingContainerId);
         List<ItemStack[]> oldList = ConfigHandler.oldContainer.get(loggingContainerId);

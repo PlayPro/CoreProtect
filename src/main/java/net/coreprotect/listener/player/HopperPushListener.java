@@ -2,7 +2,6 @@ package net.coreprotect.listener.player;
 
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -17,6 +16,7 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.HopperTransactionUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.ErrorReporter;
 
@@ -136,10 +136,7 @@ public final class HopperPushListener {
             ConfigHandler.hopperSuccess.put(loggingChestId, new Object[] { destinationContainer, movedItem });
         }
 
-        List<Object> list = ConfigHandler.transactingChest.get(location.getWorld().getUID().toString() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ());
-        if (list != null) {
-            list.add(movedItem);
-        }
+        HopperTransactionUtils.recordItemRemoved(HopperTransactionUtils.getTransactionId(location), movedItem);
 
         if (Config.getConfig(location.getWorld()).HOPPER_FILTER_META && !movedItem.hasItemMeta()) {
             return;

@@ -116,7 +116,8 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
         ItemStack[] contents = (ItemStack[]) ((Object[]) container)[0];
 
         String transactingChestId = HopperTransactionUtils.getTransactionId(location);
-        String loggingChestId = HopperTransactionUtils.getLoggingId(user, location);
+        String loggingChestIdSuffix = HopperTransactionUtils.getLoggingIdSuffix(location);
+        String loggingChestId = HopperTransactionUtils.getLoggingId(user, loggingChestIdSuffix);
         int chestId = Queue.getChestId(loggingChestId);
         if (chestId > 0) {
             if (ConfigHandler.forceContainer.get(loggingChestId) != null) {
@@ -134,6 +135,7 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
             List<ItemStack[]> list = new ArrayList<>();
             list.add(ItemUtils.getContainerState(contents));
             ConfigHandler.oldContainer.put(loggingChestId, list);
+            ConfigHandler.addOldContainerViewer(loggingChestIdSuffix, loggingChestId);
             HopperTransactionUtils.registerSnapshot(transactingChestId, loggingChestId, true);
         }
 

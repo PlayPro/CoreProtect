@@ -28,10 +28,12 @@ class ContainerTransactionProcess {
             Object inventory = inventories.remove(id);
             if (inventory != null) {
                 String transactingChestId = HopperTransactionUtils.getTransactionId(location);
-                String loggingChestId = HopperTransactionUtils.getLoggingId(user, location);
+                String loggingChestIdSuffix = HopperTransactionUtils.getLoggingIdSuffix(location);
+                String loggingChestId = HopperTransactionUtils.getLoggingId(user, loggingChestIdSuffix);
                 if (ConfigHandler.loggingChest.get(loggingChestId) != null) {
                     int current_chest = ConfigHandler.loggingChest.get(loggingChestId);
                     if (ConfigHandler.oldContainer.get(loggingChestId) == null) {
+                        ConfigHandler.removeOldContainerViewer(loggingChestIdSuffix, loggingChestId);
                         ConfigHandler.loggingChest.remove(loggingChestId);
                         ConfigHandler.forceContainer.remove(loggingChestId);
                         HopperTransactionUtils.removeOwner(transactingChestId, loggingChestId);
@@ -46,6 +48,7 @@ class ContainerTransactionProcess {
                         List<ItemStack[]> old = ConfigHandler.oldContainer.get(loggingChestId);
                         if (old.size() == 0) {
                             ConfigHandler.oldContainer.remove(loggingChestId);
+                            ConfigHandler.removeOldContainerViewer(loggingChestIdSuffix, loggingChestId);
                             ConfigHandler.loggingChest.remove(loggingChestId);
                             ConfigHandler.forceContainer.remove(loggingChestId);
                             HopperTransactionUtils.removeOwner(transactingChestId, loggingChestId);

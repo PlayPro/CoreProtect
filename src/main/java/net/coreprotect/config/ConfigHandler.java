@@ -12,6 +12,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -111,6 +112,7 @@ public class ConfigHandler extends Queue {
     public static Map<String, Integer> loggingChest = syncMap();
     public static Map<String, Integer> loggingItem = syncMap();
     public static ConcurrentHashMap<String, List<ItemStack[]>> oldContainer = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Set<String>> oldContainerViewers = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, List<ItemStack>> itemsPickup = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, List<ItemStack>> itemsDrop = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, List<ItemStack>> itemsThrown = new ConcurrentHashMap<>();
@@ -157,6 +159,23 @@ public class ConfigHandler extends Queue {
                 UserStatement.loadId(connection, player.getName(), player.getUniqueId().toString());
             }
         }
+    }
+
+    public static void addOldContainerViewer(String locationSuffix, String loggingId) {
+        ConfigHandler.oldContainerViewers.compute(locationSuffix, (key, viewers) -> {
+            if (viewers == null) {
+                viewers = ConcurrentHashMap.newKeySet();
+            }
+            viewers.add(loggingId);
+            return viewers;
+        });
+    }
+
+    public static void removeOldContainerViewer(String locationSuffix, String loggingId) {
+        ConfigHandler.oldContainerViewers.computeIfPresent(locationSuffix, (key, viewers) -> {
+            viewers.remove(loggingId);
+            return viewers.isEmpty() ? null : viewers;
+        });
     }
 
     public static boolean isBlacklisted(String user) {

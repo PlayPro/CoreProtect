@@ -28,7 +28,11 @@ public final class HopperTransactionUtils {
     }
 
     public static String getLoggingId(String user, Location location) {
-        return user.toLowerCase(Locale.ROOT) + getLoggingIdSuffix(location);
+        return getLoggingId(user, getLoggingIdSuffix(location));
+    }
+
+    public static String getLoggingId(String user, String locationSuffix) {
+        return user.toLowerCase(Locale.ROOT) + locationSuffix;
     }
 
     public static String getLoggingIdSuffix(Location location) {

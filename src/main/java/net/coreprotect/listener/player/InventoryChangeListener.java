@@ -3,6 +3,7 @@ package net.coreprotect.listener.player;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -81,14 +82,20 @@ public final class InventoryChangeListener extends Queue implements Listener {
     }
 
     public static boolean inventoryTransaction(String user, Location location, ItemStack[] inventoryData) {
-        if (user != null && location != null) {
+        if (location != null) {
+            return inventoryTransaction(user, location.getBlock().getState(), inventoryData);
+        }
+        return false;
+    }
+
+    public static boolean inventoryTransaction(String user, BlockState blockState, ItemStack[] inventoryData) {
+        if (user != null && blockState != null) {
             if (user.length() > 0) {
-                BlockState blockState = location.getBlock().getState();
                 Material type = blockState.getType();
 
                 if (BlockGroup.CONTAINERS.contains(type) && blockState instanceof InventoryHolder) {
                     InventoryHolder inventoryHolder = (InventoryHolder) blockState;
-                    return onInventoryInteract(user, inventoryHolder.getInventory(), inventoryData, null, location, false);
+                    return onInventoryInteract(user, inventoryHolder.getInventory(), inventoryData, null, blockState.getLocation(), false);
                 }
             }
         }
@@ -154,24 +161,27 @@ public final class InventoryChangeListener extends Queue implements Listener {
     private static boolean queueContainerTransaction(String user, Location playerLocation, Material type, Object inventory, ItemStack[] inventoryData, ItemStack[] forceInventoryData) {
         String transactingChestId = HopperTransactionUtils.getTransactionId(playerLocation);
         String loggingChestIdSuffix = HopperTransactionUtils.getLoggingIdSuffix(playerLocation);
-        String loggingChestId = HopperTransactionUtils.getLoggingId(user, playerLocation);
-        for (String loggingChestIdViewer : ConfigHandler.oldContainer.keySet()) {
-            if (loggingChestIdViewer.equals(loggingChestId) || !loggingChestIdViewer.endsWith(loggingChestIdSuffix)) {
-                continue;
-            }
+        String loggingChestId = HopperTransactionUtils.getLoggingId(user, loggingChestIdSuffix);
+        Set<String> locationViewers = ConfigHandler.oldContainerViewers.get(loggingChestIdSuffix);
+        if (locationViewers != null) {
+            for (String loggingChestIdViewer : locationViewers) {
+                if (loggingChestIdViewer.equals(loggingChestId)) {
+                    continue;
+                }
 
-            if (ConfigHandler.oldContainer.get(loggingChestIdViewer) != null) { // player has pending consumer item
-                int sizeOld = ConfigHandler.oldContainer.get(loggingChestIdViewer).size();
-                ConfigHandler.forceContainer.computeIfAbsent(loggingChestIdViewer, k -> new ArrayList<>());
-                List<ItemStack[]> list = ConfigHandler.forceContainer.get(loggingChestIdViewer);
+                List<ItemStack[]> viewerOldList = ConfigHandler.oldContainer.get(loggingChestIdViewer);
+                if (viewerOldList != null) { // viewer has pending consumer item
+                    int sizeOld = viewerOldList.size();
+                    List<ItemStack[]> list = ConfigHandler.forceContainer.computeIfAbsent(loggingChestIdViewer, k -> new ArrayList<>());
 
-                if (list != null && list.size() < sizeOld) {
-                    ItemStack[] containerState = ItemUtils.getContainerState(inventoryData);
+                    if (list.size() < sizeOld) {
+                        ItemStack[] containerState = ItemUtils.getContainerState(inventoryData);
 
-                    long snapshotMark = HopperTransactionUtils.getSnapshotMark(transactingChestId, loggingChestIdViewer, list.size());
-                    containerState = HopperTransactionUtils.applyPendingChanges(containerState, transactingChestId, snapshotMark);
+                        long snapshotMark = HopperTransactionUtils.getSnapshotMark(transactingChestId, loggingChestIdViewer, list.size());
+                        containerState = HopperTransactionUtils.applyPendingChanges(containerState, transactingChestId, snapshotMark);
 
-                    modifyForceContainer(loggingChestIdViewer, containerState);
+                        modifyForceContainer(loggingChestIdViewer, containerState);
+                    }
                 }
             }
         }
@@ -194,6 +204,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
             List<ItemStack[]> list = new ArrayList<>();
             list.add(ItemUtils.getContainerState(inventoryData));
             ConfigHandler.oldContainer.put(loggingChestId, list);
+            ConfigHandler.addOldContainerViewer(loggingChestIdSuffix, loggingChestId);
             HopperTransactionUtils.registerSnapshot(transactingChestId, loggingChestId, true);
         }
 

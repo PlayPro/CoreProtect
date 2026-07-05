@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.bukkit.Location;
 import org.bukkit.Server;
+import org.bukkit.World;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 import org.bukkit.entity.Entity;
@@ -18,9 +19,13 @@ public interface PaperInterface {
 
     public boolean isStopping(Server server);
 
+    public double getAverageTickTime(Server server);
+
     public String getLine(Sign sign, int line);
 
     public void teleportAsync(Entity entity, Location location);
+
+    public void prefetchChunk(World world, int chunkX, int chunkZ);
 
     public String getSkullOwner(Skull skull);
 

@@ -40,7 +40,6 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.model.PendingBlockChange;
@@ -56,7 +55,7 @@ import net.coreprotect.utility.ErrorReporter;
 
 public class RollbackBlockHandler extends Queue {
 
-    public static boolean processBlockChange(World bukkitWorld, Block block, Object[] row, int rollbackType, boolean clearInventories, Map<Block, PendingBlockChange> chunkChanges, boolean countBlock, Material oldTypeMaterial, Material pendingChangeType, BlockData pendingChangeData, String finalUserString, BlockData rawBlockData, Material changeType, boolean changeBlock, BlockData changeBlockData, ArrayList<Object> meta, BlockData blockData, String rowUser, Material rowType, int rowX, int rowY, int rowZ, int rowTypeRaw, int rowData, int rowAction, int rowWorldId, String blockDataString) {
+    public static boolean processBlockChange(World bukkitWorld, Block block, Object[] row, int rollbackType, boolean clearInventories, Map<Block, PendingBlockChange> chunkChanges, boolean countBlock, Material oldTypeMaterial, Material pendingChangeType, BlockData pendingChangeData, RollbackCounters counters, BlockData rawBlockData, Material changeType, boolean changeBlock, BlockData changeBlockData, ArrayList<Object> meta, BlockData blockData, String rowUser, Material rowType, int rowX, int rowY, int rowZ, int rowTypeRaw, int rowData, int rowAction, int rowWorldId, String blockDataString) {
         int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
 
         try {
@@ -234,7 +233,7 @@ public class RollbackBlockHandler extends Queue {
                                 BlockUtils.prepareTypeAndData(chunkChanges, bisectBlock, rowType, null, false);
 
                                 if (countBlock) {
-                                    updateBlockCount(finalUserString, 1);
+                                    counters.addBlocks(1);
                                 }
                             }
                         }
@@ -281,7 +280,7 @@ public class RollbackBlockHandler extends Queue {
                 else if (BlockGroup.SHULKER_BOXES.contains(rowType)) {
                     BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                     if (countBlock) {
-                        updateBlockCount(finalUserString, 1);
+                        counters.addBlocks(1);
                     }
                     if (meta != null) {
                         Inventory inventory = BlockUtils.getContainerInventory(block.getState(), false);
@@ -297,7 +296,7 @@ public class RollbackBlockHandler extends Queue {
                 else if (rowType == Material.COMMAND_BLOCK || rowType == Material.REPEATING_COMMAND_BLOCK || rowType == Material.CHAIN_COMMAND_BLOCK) { // command block
                     BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                     if (countBlock) {
-                        updateBlockCount(finalUserString, 1);
+                        counters.addBlocks(1);
                     }
 
                     if (meta != null) {
@@ -333,7 +332,7 @@ public class RollbackBlockHandler extends Queue {
                 }
                 else if (blockData == null && rowData > 0 && (rowType == Material.IRON_DOOR || BlockGroup.DOORS.contains(rowType))) {
                     if (countBlock) {
-                        updateBlockCount(finalUserString, 1);
+                        counters.addBlocks(1);
                     }
 
                     block.setType(rowType, false);
@@ -373,7 +372,7 @@ public class RollbackBlockHandler extends Queue {
                 }
                 else if (blockData == null && rowData > 0 && (rowType.name().endsWith("_BED"))) {
                     if (countBlock) {
-                        updateBlockCount(finalUserString, 1);
+                        counters.addBlocks(1);
                     }
 
                     block.setType(rowType, false);
@@ -404,7 +403,7 @@ public class RollbackBlockHandler extends Queue {
                 else if (rowType.name().endsWith("_BANNER")) {
                     BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                     if (countBlock) {
-                        updateBlockCount(finalUserString, 1);
+                        counters.addBlocks(1);
                     }
 
                     if (meta != null) {
@@ -463,7 +462,7 @@ public class RollbackBlockHandler extends Queue {
 
                     BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
                     if (countBlock) {
-                        updateBlockCount(finalUserString, 2);
+                        counters.addBlocks(2);
                     }
                     return false;
                 }
@@ -475,7 +474,7 @@ public class RollbackBlockHandler extends Queue {
                         bedData.setPart(Part.HEAD);
                         BlockUtils.prepareTypeAndData(chunkChanges, adjacentBlock, rowType, bedData, false);
                         if (countBlock) {
-                            updateBlockCount(finalUserString, 1);
+                            counters.addBlocks(1);
                         }
                     }
 
@@ -547,25 +546,6 @@ public class RollbackBlockHandler extends Queue {
 
     private static boolean requiresPhysics(BlockData blockData) {
         return blockData instanceof MultipleFacing || blockData instanceof Waterlogged || blockData instanceof Bisected || blockData instanceof Bed || blockData instanceof Chest || blockData instanceof RedstoneWire || blockData instanceof Snow || blockData instanceof Stairs || blockData instanceof TrapDoor || blockData instanceof Piston || blockData instanceof PistonHead || blockData instanceof TechnicalPiston || blockData instanceof org.bukkit.block.data.Rail;
-    }
-
-    /**
-     * Update the block count in the rollback hash
-     * 
-     * @param userString
-     *            The username for this rollback
-     * @param increment
-     *            The amount to increment the block count by
-     */
-    protected static void updateBlockCount(String userString, int increment) {
-        int[] rollbackHashData = ConfigHandler.rollbackHash.get(userString);
-        int itemCount = rollbackHashData[0];
-        int blockCount = rollbackHashData[1];
-        int entityCount = rollbackHashData[2];
-        int scannedWorlds = rollbackHashData[4];
-
-        blockCount += increment;
-        ConfigHandler.rollbackHash.put(userString, new int[] { itemCount, blockCount, entityCount, 0, scannedWorlds });
     }
 
     /**

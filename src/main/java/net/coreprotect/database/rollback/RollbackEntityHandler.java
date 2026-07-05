@@ -2,7 +2,6 @@ package net.coreprotect.database.rollback;
 
 import java.util.Arrays;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -13,7 +12,6 @@ import org.bukkit.entity.EntityType;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.EntityUtils;
-import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.ErrorReporter;
 
 public class RollbackEntityHandler {
@@ -21,12 +19,8 @@ public class RollbackEntityHandler {
     /**
      * Processes an entity-related rollback operation.
      *
-     * @param row
-     *            The database row containing entity data (used only for specific operations)
-     * @param rollbackType
-     *            The type of rollback (0 for rollback, 1 for restore)
-     * @param finalUserString
-     *            The user string for tracking operations
+     * @param bukkitWorld
+     *            The world the entity change belongs to
      * @param rowTypeRaw
      *            The raw type value
      * @param rowData
@@ -43,26 +37,14 @@ public class RollbackEntityHandler {
      *            The Z coordinate
      * @param rowWorldId
      *            The world ID
-     * @param rowUserId
-     *            The user ID
      * @param rowUser
      *            The username associated with this entity change
      * @return The number of entities affected (1 if successful, 0 otherwise)
      */
-    public static int processEntity(Object[] row, int rollbackType, String finalUserString, int oldTypeRaw, int rowTypeRaw, int rowData, int rowAction, int rowRolledBack, int rowX, int rowY, int rowZ, int rowWorldId, int rowUserId, String rowUser) {
+    public static int processEntity(World bukkitWorld, int oldTypeRaw, int rowTypeRaw, int rowData, int rowAction, int rowRolledBack, int rowX, int rowY, int rowZ, int rowWorldId, String rowUser) {
         try {
             // Entity kill
             if (rowAction == 3) {
-                String world = getWorldName(rowWorldId);
-                if (world.isEmpty()) {
-                    return 0;
-                }
-
-                World bukkitWorld = Bukkit.getServer().getWorld(world);
-                if (bukkitWorld == null) {
-                    return 0;
-                }
-
                 Block block = bukkitWorld.getBlockAt(rowX, rowY, rowZ);
                 if (!bukkitWorld.isChunkLoaded(block.getChunk())) {
                     bukkitWorld.getChunkAt(block.getLocation());
@@ -74,7 +56,6 @@ public class RollbackEntityHandler {
                         EntityType entityType = EntityUtils.getEntityType(rowTypeRaw);
                         // Use the spawnEntity method from the RollbackUtil class instead of Queue
                         spawnEntity(rowUser, block.getState(), entityType, rowData);
-                        updateEntityCount(finalUserString, 1);
                         return 1;
                     }
                 }
@@ -90,10 +71,10 @@ public class RollbackEntityHandler {
                         int zmin = rowZ - 5;
                         int zmax = rowZ + 5;
 
-                        boolean removed = removeMatchingEntity(Arrays.asList(block.getChunk().getEntities()), finalUserString, entityId, targetType, xmin, xmax, ymin, ymax, zmin, zmax, true);
+                        boolean removed = removeMatchingEntity(Arrays.asList(block.getChunk().getEntities()), entityId, targetType, xmin, xmax, ymin, ymax, zmin, zmax, true);
                         if (!removed && entityId > -1 && !ConfigHandler.isFolia) {
                             // On non-Folia, keep world-wide fallback for moved entities.
-                            removed = removeMatchingEntity(block.getWorld().getLivingEntities(), finalUserString, entityId, targetType, xmin, xmax, ymin, ymax, zmin, zmax, false);
+                            removed = removeMatchingEntity(block.getWorld().getLivingEntities(), entityId, targetType, xmin, xmax, ymin, ymax, zmin, zmax, false);
                         }
 
                         if (removed) {
@@ -110,17 +91,6 @@ public class RollbackEntityHandler {
         return 0;
     }
 
-    /**
-     * Gets the world name from a world ID.
-     *
-     * @param worldId
-     *            The world ID
-     * @return The world name
-     */
-    private static String getWorldName(int worldId) {
-        return WorldUtils.getWorldName(worldId);
-    }
-
     private static int getCachedEntityId(int rowX, int rowY, int rowZ, int rowWorldId, int oldTypeRaw) {
         String entityName = EntityUtils.getEntityType(oldTypeRaw).name();
         String token = rowX + "." + rowY + "." + rowZ + "." + rowWorldId + "." + entityName;
@@ -131,11 +101,10 @@ public class RollbackEntityHandler {
         return -1;
     }
 
-    private static boolean removeMatchingEntity(Iterable<? extends Entity> entities, String userString, int cachedEntityId, EntityType targetType, int xmin, int xmax, int ymin, int ymax, int zmin, int zmax, boolean useBounds) {
+    private static boolean removeMatchingEntity(Iterable<? extends Entity> entities, int cachedEntityId, EntityType targetType, int xmin, int xmax, int ymin, int ymax, int zmin, int zmax, boolean useBounds) {
         for (Entity entity : entities) {
             if (cachedEntityId > -1) {
                 if (entity.getEntityId() == cachedEntityId) {
-                    updateEntityCount(userString, 1);
                     entity.remove();
                     return true;
                 }
@@ -149,7 +118,6 @@ public class RollbackEntityHandler {
                 continue;
             }
 
-            updateEntityCount(userString, 1);
             entity.remove();
             return true;
         }
@@ -161,29 +129,6 @@ public class RollbackEntityHandler {
         int entityY = location.getBlockY();
         int entityZ = location.getBlockZ();
         return entityX >= xmin && entityX <= xmax && entityY >= ymin && entityY <= ymax && entityZ >= zmin && entityZ <= zmax;
-    }
-
-    /**
-     * Updates the entity count in the rollback hash for a specific user.
-     *
-     * @param userString
-     *            The user string identifier
-     * @param increment
-     *            The amount to increment the entity count by
-     */
-    public static void updateEntityCount(String userString, int increment) {
-        int[] rollbackHashData = ConfigHandler.rollbackHash.get(userString);
-        if (rollbackHashData != null) {
-            int itemCount = rollbackHashData[0];
-            int blockCount = rollbackHashData[1];
-            int entityCount = rollbackHashData[2];
-            int next = rollbackHashData[3];
-            int scannedWorlds = rollbackHashData[4];
-
-            entityCount += increment;
-
-            ConfigHandler.rollbackHash.put(userString, new int[] { itemCount, blockCount, entityCount, next, scannedWorlds });
-        }
     }
 
     /**

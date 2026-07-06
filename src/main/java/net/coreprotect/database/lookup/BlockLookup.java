@@ -6,6 +6,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.listener.channel.PluginChannelListener;
 import net.coreprotect.utility.*;
+import net.coreprotect.utility.ErrorReporter;
 import org.bukkit.Material;
 import org.bukkit.block.BlockState;
 import org.bukkit.command.CommandSender;
@@ -158,7 +159,7 @@ public class BlockLookup {
             ConfigHandler.lookupCommand.put(commandSender.getName(), x + "." + y + "." + z + "." + worldId + ".0." + limit);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
         return resultText;
     }

@@ -5,6 +5,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.type.Dispenser;
 import org.bukkit.event.EventHandler;
@@ -42,13 +43,17 @@ public final class BlockPreDispenseListener extends Queue implements Listener {
                 useForDroppers = true;
             }
 
+            if (!config.ITEM_TRANSACTIONS) {
+                return;
+            }
+
             // Safeguard against null items
             ItemStack item = event.getItemStack();
             if (item == null) {
                 return;
             }
 
-            String locationKey = block.getWorld().getUID().toString() + "." + block.getX() + "." + block.getY() + "." + block.getZ();
+            String locationKey = world.getUID().toString() + "." + block.getX() + "." + block.getY() + "." + block.getZ();
             if (config.DUPLICATE_SUPPRESSION) {
                 String eventKey = event.getSlot() + "." + item.getType().name() + ":" + item.getAmount();
 
@@ -79,8 +84,9 @@ public final class BlockPreDispenseListener extends Queue implements Listener {
 
             // Process the inventory transaction
             String user = "#dispenser";
-            ItemStack[] inventory = ((InventoryHolder) block.getState()).getInventory().getStorageContents();
-            InventoryChangeListener.inventoryTransaction(user, block.getLocation(), inventory);
+            BlockState blockState = block.getState();
+            ItemStack[] inventory = ((InventoryHolder) blockState).getInventory().getStorageContents();
+            InventoryChangeListener.inventoryTransaction(user, blockState, inventory);
         }
     }
 }

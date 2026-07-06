@@ -10,6 +10,7 @@ import java.util.Locale;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
+import net.coreprotect.utility.ErrorReporter;
 
 public class UserStatement {
 
@@ -51,7 +52,7 @@ public class UserStatement {
             preparedStmt.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
         return id;
     }
@@ -107,7 +108,7 @@ public class UserStatement {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return id;
@@ -143,7 +144,7 @@ public class UserStatement {
             statement.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return user;

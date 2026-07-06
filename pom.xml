@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>net.coreprotect</groupId>
   <artifactId>CoreProtect</artifactId>
-  <version>23.2</version>
+  <version>24.0</version>
   <properties>
     <project.branch></project.branch>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -77,12 +77,6 @@
                     <exclude>META-INF/versions/**/module-info.class</exclude>
                     <exclude>META-INF/maven/**/pom.properties</exclude>
                     <exclude>META-INF/services/**</exclude>
-                  </excludes>
-                </filter>
-                <filter>
-                  <artifact>com.github.oshi:oshi-common</artifact>
-                  <excludes>
-                    <exclude>**/*.class</exclude>
                   </excludes>
                 </filter>
               </filters>
@@ -224,7 +218,7 @@
     <dependency>
       <groupId>io.papermc.paper</groupId>
       <artifactId>paper-api</artifactId>
-      <version>26.1.2.build.9-alpha</version>
+      <version>26.2.build.48-alpha</version> <!-- https://repo.papermc.io/repository/maven-public/ -->
       <scope>provided</scope>
     </dependency>
     <dependency>
@@ -255,11 +249,6 @@
       <groupId>com.zaxxer</groupId>
       <artifactId>HikariCP</artifactId>
       <version>7.0.2</version>
-    </dependency>
-    <dependency>
-      <groupId>com.github.oshi</groupId>
-      <artifactId>oshi-core</artifactId>
-      <version>6.12.0</version>
     </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>

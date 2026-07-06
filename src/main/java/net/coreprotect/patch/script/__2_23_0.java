@@ -7,6 +7,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.ErrorReporter;
 
 public class __2_23_0 {
 
@@ -24,7 +25,7 @@ public class __2_23_0 {
             __2_23_1.patch(statement);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return true;

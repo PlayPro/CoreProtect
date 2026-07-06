@@ -2,7 +2,6 @@ package net.coreprotect.listener.player;
 
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -17,7 +16,9 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.HopperTransactionUtils;
 import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public final class HopperPullListener {
 
@@ -59,7 +60,7 @@ public final class HopperPullListener {
                     }
                 }
                 catch (Exception e) {
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                 }
                 finally {
                     activeProcessors.decrementAndGet();
@@ -134,10 +135,7 @@ public final class HopperPullListener {
 
         boolean hopperTransactions = Config.getConfig(location.getWorld()).HOPPER_TRANSACTIONS;
         if (!hopperTransactions) {
-            List<Object> list = ConfigHandler.transactingChest.get(location.getWorld().getUID().toString() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ());
-            if (list != null) {
-                list.add(movedItem);
-            }
+            HopperTransactionUtils.recordItemRemoved(HopperTransactionUtils.getTransactionId(location), movedItem);
             return;
         }
 
@@ -146,10 +144,7 @@ public final class HopperPullListener {
             return;
         }
 
-        List<Object> list = ConfigHandler.transactingChest.get(destinationLocation.getWorld().getUID().toString() + "." + destinationLocation.getBlockX() + "." + destinationLocation.getBlockY() + "." + destinationLocation.getBlockZ());
-        if (list != null) {
-            list.add(new ItemStack[] { null, movedItem });
-        }
+        HopperTransactionUtils.recordItemAdded(HopperTransactionUtils.getTransactionId(destinationLocation), movedItem);
 
         if (Config.getConfig(location.getWorld()).HOPPER_FILTER_META && !movedItem.hasItemMeta()) {
             return;

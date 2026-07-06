@@ -18,11 +18,11 @@ class BlockBreakProcess {
         if (object instanceof BlockState) {
             BlockState block = (BlockState) object;
             List<Object> meta = BlockUtils.processMeta(block);
-            if (block instanceof Skull) {
+            if (block instanceof Skull && blockType != null && blockType.equals(block.getType())) {
                 SkullBreakLogger.log(preparedStmt, preparedStmtSkulls, batchCount, user, block);
             }
             else {
-                BlockBreakLogger.log(preparedStmt, batchCount, user, block.getLocation(), MaterialUtils.getBlockId(blockType), blockDataId, meta, block.getBlockData().getAsString(), blockData);
+                BlockBreakLogger.log(preparedStmt, batchCount, user, block.getLocation(), MaterialUtils.getBlockId(blockType), blockDataId, meta, blockData, blockData);
             }
         }
     }

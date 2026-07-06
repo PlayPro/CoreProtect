@@ -7,6 +7,7 @@ import java.util.Locale;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.utility.ErrorReporter;
 
 public class PlayerLookup {
 
@@ -49,7 +50,7 @@ public class PlayerLookup {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return false;

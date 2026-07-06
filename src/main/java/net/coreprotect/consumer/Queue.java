@@ -32,6 +32,7 @@ import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class Queue {
 
@@ -103,7 +104,7 @@ public class Queue {
                 }
             }
             catch (Exception e) {
-                e.printStackTrace();
+                ErrorReporter.report(e);
             }
         }, block.getLocation(), ticks);
     }
@@ -194,7 +195,7 @@ public class Queue {
                 queueBlockPlace(user, placed.getBlock().getState(), type, replaced, null, -1, 0, blockData);
             }
             catch (Exception e) {
-                e.printStackTrace();
+                ErrorReporter.report(e);
             }
         }, placed, ticks);
     }
@@ -247,7 +248,7 @@ public class Queue {
                 }
             }
             catch (Exception e) {
-                e.printStackTrace();
+                ErrorReporter.report(e);
             }
         }, blockLocation.getLocation(), ticks);
     }

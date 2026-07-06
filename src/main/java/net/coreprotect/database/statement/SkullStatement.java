@@ -9,6 +9,7 @@ import org.bukkit.block.Skull;
 
 import net.coreprotect.database.Database;
 import net.coreprotect.paper.PaperAdapter;
+import net.coreprotect.utility.ErrorReporter;
 
 public class SkullStatement {
 
@@ -29,7 +30,7 @@ public class SkullStatement {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return null;
@@ -51,7 +52,7 @@ public class SkullStatement {
                 }
 
                 String skin = resultSet.getString("skin");
-                if (owner != null && skin != null && skin.length() > 0) {
+                if (skin != null && skin.length() > 0) {
                     PaperAdapter.ADAPTER.setSkullSkin(skull, skin);
                 }
             }
@@ -59,7 +60,7 @@ public class SkullStatement {
             resultSet.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 }

@@ -16,10 +16,12 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.BlockStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
+import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.BlockTypeUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class BlockPlaceLogger {
 
@@ -50,6 +52,13 @@ public class BlockPlaceLogger {
             else if (forceType != null && (type == null || !type.equals(forceType))) {
                 type = forceType;
                 data = forceData;
+            }
+            if (forceType != null && type != null && blockKey.length() > 0) {
+                Material blockDataType = MaterialUtils.getType(blockKey);
+                if (blockDataType != null && !blockDataType.equals(type)) {
+                    blockKey = type.getKey().toString();
+                    blockData = null;
+                }
             }
             if (blockKey.length() == 0) {
                 if (type == null) {
@@ -93,7 +102,7 @@ public class BlockPlaceLogger {
                 }
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, block.getLocation(), CoreProtectPreLogEvent.Action.BLOCK_PLACE, 1, type, null, null);
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, block.getLocation(), CoreProtectPreLogEvent.Action.BLOCK_PLACE, LookupActions.BLOCK_PLACE, type, null, null);
             if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
             }
@@ -119,13 +128,13 @@ public class BlockPlaceLogger {
             int internalType = MaterialUtils.getBlockId(blockKey, true);
             int replacedInternalType = MaterialUtils.getBlockId(replaceBlockData, MaterialUtils.getType(replacedType), true);
             if (replacedInternalType > 0 && !BlockTypeUtils.isAir(MaterialUtils.getBlockName(replacedInternalType))) {
-                BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, replacedInternalType, replacedData, null, replaceBlockData, 0, 0);
+                BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, replacedInternalType, replacedData, null, replaceBlockData, LookupActions.BLOCK_BREAK, 0);
             }
 
-            BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, internalType, data, meta, blockData, 1, 0);
+            BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, internalType, data, meta, blockData, LookupActions.BLOCK_PLACE, 0);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 

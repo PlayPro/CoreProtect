@@ -39,6 +39,9 @@ The following permissions can be used to restrict functionality within the plugi
 * **coreprotect.consumer** *(default: op)*  
   Allows access to the CoreProtect consumer command.  
   &nbsp;
+* **coreprotect.give** *(default: false)*  
+  Allows access to the CoreProtect give command.  
+  &nbsp;
 * **coreprotect.networking** *(default: op)*  
   Allows access to the CoreProtect networking API.  
   
@@ -46,7 +49,7 @@ The following permissions can be used to restrict functionality within the plugi
 
 ## Child Permissions
 
-> **Note:** Child permissions are not presently supported by CoreProtect Hytale Edition.
+> **Note:** Child permissions are not presently supported by [CoreProtect for Hytale](https://coreprotect.net/hytale).
 
 * **coreprotect.lookup.block** *(default: op)*  
   Can be optionally used as a negative permission to prevent block lookups.  

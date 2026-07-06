@@ -16,6 +16,7 @@ import net.coreprotect.database.lookup.SignMessageLookup;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
+import net.coreprotect.utility.ErrorReporter;
 
 public class BlockLookupThread implements Runnable {
     private final CommandSender player;
@@ -82,7 +83,7 @@ public class BlockLookupThread implements Runnable {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });

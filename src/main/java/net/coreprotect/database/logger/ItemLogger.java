@@ -16,27 +16,29 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.ItemStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
+import net.coreprotect.model.item.ItemTransactionActions;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
+import net.coreprotect.utility.ErrorReporter;
 
 public class ItemLogger {
 
-    public static final int ITEM_REMOVE = 0;
-    public static final int ITEM_ADD = 1;
-    public static final int ITEM_DROP = 2;
-    public static final int ITEM_PICKUP = 3;
-    public static final int ITEM_REMOVE_ENDER = 4;
-    public static final int ITEM_ADD_ENDER = 5;
-    public static final int ITEM_THROW = 6;
-    public static final int ITEM_SHOOT = 7;
-    public static final int ITEM_BREAK = 8;
-    public static final int ITEM_DESTROY = 9;
-    public static final int ITEM_CREATE = 10;
-    public static final int ITEM_SELL = 11;
-    public static final int ITEM_BUY = 12;
+    public static final int ITEM_REMOVE = ItemTransactionActions.REMOVE;
+    public static final int ITEM_ADD = ItemTransactionActions.ADD;
+    public static final int ITEM_DROP = ItemTransactionActions.DROP;
+    public static final int ITEM_PICKUP = ItemTransactionActions.PICKUP;
+    public static final int ITEM_REMOVE_ENDER = ItemTransactionActions.REMOVE_ENDER;
+    public static final int ITEM_ADD_ENDER = ItemTransactionActions.ADD_ENDER;
+    public static final int ITEM_THROW = ItemTransactionActions.THROW;
+    public static final int ITEM_SHOOT = ItemTransactionActions.SHOOT;
+    public static final int ITEM_BREAK = ItemTransactionActions.BREAK;
+    public static final int ITEM_DESTROY = ItemTransactionActions.DESTROY;
+    public static final int ITEM_CREATE = ItemTransactionActions.CREATE;
+    public static final int ITEM_SELL = ItemTransactionActions.SELL;
+    public static final int ITEM_BUY = ItemTransactionActions.BUY;
 
     private ItemLogger() {
         throw new IllegalStateException("Database class");
@@ -115,7 +117,7 @@ public class ItemLogger {
             logTransaction(preparedStmt, batchCount, offset, user, location, itemBuys, ITEM_BUY);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -156,7 +158,7 @@ public class ItemLogger {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 

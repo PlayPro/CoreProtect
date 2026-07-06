@@ -13,6 +13,7 @@ import net.coreprotect.database.statement.SignStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class SignTextLogger {
 
@@ -59,7 +60,7 @@ public class SignTextLogger {
             SignStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, action, color, colorSecondary, data, isWaxed ? 1 : 0, isFront ? 0 : 1, line1, line2, line3, line4, line5, line6, line7, line8);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 

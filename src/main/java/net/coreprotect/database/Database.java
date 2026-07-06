@@ -25,10 +25,12 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.consumer.process.Process;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.model.rollback.RollbackUpdateTargets;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
+import net.coreprotect.utility.HopperTransactionUtils;
 import net.coreprotect.utility.ItemUtils;
-import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class Database extends Queue {
 
@@ -46,6 +48,8 @@ public class Database extends Queue {
     public static final int ENTITY_MAP = 11;
     public static final int BLOCKDATA = 12;
     public static final int ITEM = 13;
+
+    private static final int ROLLED_BACK_UPDATE_BATCH_SIZE = 1000;
 
     private static final Map<Integer, String> SQL_QUERIES = new HashMap<>();
 
@@ -79,7 +83,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -103,7 +107,7 @@ public class Database extends Queue {
                     continue;
                 }
                 else {
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                 }
             }
 
@@ -126,7 +130,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -144,12 +148,12 @@ public class Database extends Queue {
                     if (contents != null) {
                         List<ItemStack[]> forceList = new ArrayList<>();
                         forceList.add(ItemUtils.getContainerState(contents));
-                        ConfigHandler.forceContainer.put(user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ(), forceList);
+                        ConfigHandler.forceContainer.put(HopperTransactionUtils.getLoggingId(user, location), forceList);
                         Queue.queueContainerBreak(user, location, type, contents);
                     }
                 }
                 catch (Exception e) {
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                 }
             }
         }
@@ -178,7 +182,7 @@ public class Database extends Queue {
                 catch (Exception e) {
                     ConfigHandler.databaseReachable = false;
                     Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.MYSQL_UNAVAILABLE));
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                 }
             }
             else {
@@ -203,7 +207,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return connection;
@@ -217,25 +221,39 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
-    public static void performUpdate(Statement statement, long id, int rb, int table) {
+    public static void performRolledBackUpdate(Statement statement, int rolledBack, List<Long> rowIds, int table) {
+        String tableName;
+        if (RollbackUpdateTargets.updatesContainerTable(table)) {
+            tableName = "container";
+        }
+        else if (RollbackUpdateTargets.updatesItemTable(table)) {
+            tableName = "item";
+        }
+        else {
+            tableName = "block";
+        }
+
         try {
-            int rolledBack = MaterialUtils.toggleRolledBack(rb, (table == 2 || table == 3 || table == 4)); // co_item, co_container, co_block
-            if (table == 1 || table == 3) {
-                statement.executeUpdate("UPDATE " + ConfigHandler.prefix + "container SET rolled_back='" + rolledBack + "' WHERE rowid='" + id + "'");
-            }
-            else if (table == 2) {
-                statement.executeUpdate("UPDATE " + ConfigHandler.prefix + "item SET rolled_back='" + rolledBack + "' WHERE rowid='" + id + "'");
-            }
-            else {
-                statement.executeUpdate("UPDATE " + ConfigHandler.prefix + "block SET rolled_back='" + rolledBack + "' WHERE rowid='" + id + "'");
+            int listSize = rowIds.size();
+            for (int startIndex = 0; startIndex < listSize; startIndex += ROLLED_BACK_UPDATE_BATCH_SIZE) {
+                int endIndex = Math.min(startIndex + ROLLED_BACK_UPDATE_BATCH_SIZE, listSize);
+                StringBuilder query = new StringBuilder("UPDATE " + ConfigHandler.prefix + tableName + " SET rolled_back='" + rolledBack + "' WHERE rowid IN(");
+                for (int index = startIndex; index < endIndex; index++) {
+                    if (index > startIndex) {
+                        query.append(",");
+                    }
+                    query.append(rowIds.get(index).longValue());
+                }
+                query.append(")");
+                statement.executeUpdate(query.toString());
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -249,7 +267,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return preparedStatement;
@@ -271,7 +289,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return preparedStatement;
@@ -303,7 +321,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -336,7 +354,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
         if (!success && forceConnection == null) {
             Config.getGlobal().MYSQL = false;
@@ -364,11 +382,11 @@ public class Database extends Queue {
 
         // Container
         index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(type,time)";
-        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "container(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, wid int, x int, y int, z int, type int, data int, amount int, metadata blob, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "container(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, wid int, x int, y int, z int, type int, data int, amount int, metadata mediumblob, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
         // Item
         index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(type,time)";
-        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "item(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, wid int, x int, y int, z int, type int, data blob, amount int, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "item(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, wid int, x int, y int, z int, type int, data mediumblob, amount int, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
         // Database lock
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "database_lock(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),status tinyint,time int) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
@@ -397,7 +415,7 @@ public class Database extends Queue {
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "sign(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int, z int, action tinyint, color int, color_secondary int, data tinyint, waxed tinyint, face tinyint, line_1 varchar(100), line_2 varchar(100), line_3 varchar(100), line_4 varchar(100), line_5 varchar(100), line_6 varchar(100), line_7 varchar(100), line_8 varchar(100)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
         // Skull
-        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "skull(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, owner varchar(255), skin varchar(255)) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "skull(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, owner varchar(255), skin text) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
         // User
         index = ", INDEX(user), INDEX(uuid)";
@@ -430,7 +448,7 @@ public class Database extends Queue {
         catch (Exception e) {
             Chat.console(Phrase.build(Phrase.DATABASE_INDEX_ERROR));
             if (purge) {
-                e.printStackTrace();
+                ErrorReporter.report(e);
             }
         }
     }
@@ -537,7 +555,7 @@ public class Database extends Queue {
             statement.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -649,7 +667,7 @@ public class Database extends Queue {
         catch (Exception e) {
             Chat.console(Phrase.build(Phrase.DATABASE_INDEX_ERROR));
             if (purge) {
-                e.printStackTrace();
+                ErrorReporter.report(e);
             }
         }
     }

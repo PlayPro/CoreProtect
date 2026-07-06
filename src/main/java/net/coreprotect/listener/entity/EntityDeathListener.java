@@ -74,6 +74,8 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.paper.PaperAdapter;
+import net.coreprotect.spigot.SpigotAdapter;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
@@ -130,24 +132,24 @@ public final class EntityDeathListener extends Queue implements Listener {
         }
 
         EntityDamageEvent damage = entity.getLastDamageCause();
-        if (damage == null) {
+        if (damage == null && e == null) {
             return;
         }
 
-        boolean isCommand = (damage.getCause() == DamageCause.VOID && entity.getLocation().getBlockY() >= BukkitAdapter.ADAPTER.getMinHeight(entity.getWorld()));
+        EntityDamageEvent.DamageCause cause = damage == null ? null : damage.getCause();
+        boolean isCommand = (cause == DamageCause.VOID && entity.getLocation().getBlockY() >= BukkitAdapter.ADAPTER.getMinHeight(entity.getWorld()));
         if (e == null) {
             e = isCommand ? "#command" : "";
         }
 
-        if (entity.getType().name().equals("GLOW_SQUID") && damage.getCause() == DamageCause.DROWNING) {
+        if (entity.getType().name().equals("GLOW_SQUID") && cause == DamageCause.DROWNING) {
             return;
         }
 
         List<DamageCause> validDamageCauses = Arrays.asList(DamageCause.SUICIDE, DamageCause.POISON, DamageCause.THORNS, DamageCause.MAGIC, DamageCause.WITHER);
 
         boolean skip = true;
-        EntityDamageEvent.DamageCause cause = damage.getCause();
-        if (!Config.getConfig(entity.getWorld()).SKIP_GENERIC_DATA || (!(entity instanceof Zombie) && !(entity instanceof Skeleton)) || (validDamageCauses.contains(cause) || cause.name().equals("KILL"))) {
+        if (cause != null && (!Config.getConfig(entity.getWorld()).SKIP_GENERIC_DATA || (!(entity instanceof Zombie) && !(entity instanceof Skeleton)) || (validDamageCauses.contains(cause) || cause.name().equals("KILL")))) {
             skip = false;
         }
 
@@ -195,7 +197,7 @@ public final class EntityDeathListener extends Queue implements Listener {
                 e = "#" + attacker.getType().name().toLowerCase(Locale.ROOT);
             }
         }
-        else {
+        else if (cause != null) {
             if (cause.equals(EntityDamageEvent.DamageCause.FIRE)) {
                 e = "#fire";
             }
@@ -424,6 +426,8 @@ public final class EntityDeathListener extends Queue implements Listener {
                     recipe.add(ingredients);
                     recipe.add(merchantRecipe.getVillagerExperience());
                     recipe.add(merchantRecipe.getPriceMultiplier());
+                    BukkitAdapter.ADAPTER.addMerchantRecipeMeta(merchantRecipe, recipe);
+                    PaperAdapter.ADAPTER.addMerchantRecipeMeta(merchantRecipe, recipe);
                     recipes.add(recipe);
                 }
 
@@ -435,6 +439,9 @@ public final class EntityDeathListener extends Queue implements Listener {
                     info.add(villager.getVillagerLevel());
                     info.add(villager.getVillagerExperience());
                     info.add(serializeVillagerMemories(villager));
+                    info.add(PaperAdapter.ADAPTER.getVillagerReputations(villager));
+                    info.add(PaperAdapter.ADAPTER.getVillagerRestocksToday(villager));
+                    info.add(SpigotAdapter.ADAPTER.getVillagerGossipDecayTime(villager));
                 }
                 else {
                     info.add(null);

@@ -14,6 +14,7 @@ import org.bukkit.inventory.ItemStack;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.process.Process;
+import net.coreprotect.utility.ErrorReporter;
 
 public class Consumer extends Process implements Runnable, Thread.UncaughtExceptionHandler {
 
@@ -51,7 +52,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
             Thread.sleep(30000); // 30 seconds
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -106,7 +107,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
         pausedSuccess = false;
     }
@@ -133,7 +134,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
                 Process.processConsumer(process_id, lastRun);
             }
             catch (Exception e) {
-                e.printStackTrace();
+                ErrorReporter.report(e);
                 errorDelay();
             }
         }
@@ -141,7 +142,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
 
     @Override
     public void uncaughtException(Thread thread, Throwable e) {
-        e.printStackTrace();
+        ErrorReporter.report(e);
         Bukkit.getPluginManager().disablePlugin(CoreProtect.getInstance());
     }
 

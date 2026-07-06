@@ -15,7 +15,9 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.player.PlayerQuitListener;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.Extensions;
 import net.coreprotect.utility.Teleport;
+import net.coreprotect.utility.ErrorReporter;
 
 /**
  * Service responsible for handling plugin shutdown operations
@@ -38,6 +40,8 @@ public class ShutdownService {
      */
     public static void safeShutdown(Plugin plugin) {
         try {
+            Extensions.stopBackgroundService();
+
             // Log disconnections of online players if server is stopping
             if (ConfigHandler.serverRunning && PaperAdapter.ADAPTER.isStopping(plugin.getServer())) {
                 for (Player player : plugin.getServer().getOnlinePlayers()) {
@@ -71,7 +75,7 @@ public class ShutdownService {
             Chat.console(Phrase.build(Phrase.DISABLE_SUCCESS, "CoreProtect v" + plugin.getDescription().getVersion()));
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 

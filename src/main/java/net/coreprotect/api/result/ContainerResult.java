@@ -2,12 +2,13 @@ package net.coreprotect.api.result;
 
 import org.bukkit.Material;
 
+import net.coreprotect.model.item.ItemTransactionActions;
 import net.coreprotect.utility.MaterialUtils;
 
 /**
  * Represents the result of a container action lookup with typed fields.
  */
-public class ContainerResult {
+public class ContainerResult implements CoreProtectResult {
     private final long time;
     private final String username;
     private final String world;
@@ -68,13 +69,7 @@ public class ContainerResult {
      * @return "remove", "add", or "unknown"
      */
     public String getActionString() {
-        if (action == 0) {
-            return "remove";
-        }
-        else if (action == 1) {
-            return "add";
-        }
-        return "unknown";
+        return ItemTransactionActions.getActionString(action);
     }
 
     /**

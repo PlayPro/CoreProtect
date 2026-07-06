@@ -10,6 +10,7 @@ import java.util.List;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 
+import net.coreprotect.api.result.BlockResult;
 import net.coreprotect.api.result.ContainerResult;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
@@ -18,6 +19,7 @@ import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.StringUtils;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 /**
  * Provides API methods for block-related lookups in the CoreProtect database.
@@ -96,7 +98,87 @@ public class BlockAPI {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
+        }
+
+        return result;
+    }
+
+    /**
+     * Performs a typed lookup of block-related actions at the specified block.
+     *
+     * @param block
+     *            The block to look up
+     * @param options
+     *            Lookup options. User, time, and limit are applied; location and radius are ignored because the block supplies the exact location.
+     * @return List of results in a BlockResult format
+     */
+    public static List<BlockResult> performLookup(Block block, LookupOptions options) {
+        List<BlockResult> result = new ArrayList<>();
+
+        if (!Config.getGlobal().API_ENABLED) {
+            return result;
+        }
+
+        if (block == null || block.getWorld() == null) {
+            return result;
+        }
+
+        if (options == null) {
+            options = LookupOptions.builder().build();
+        }
+
+        try (Connection connection = Database.getConnection(false, 1000)) {
+            if (connection == null) {
+                return result;
+            }
+
+            Integer userId = MessageAPI.getUserId(connection, options.getUser());
+            if (userId != null && userId == -1) {
+                return result;
+            }
+
+            int checkTime = 0;
+            if (options.getTime() > 0) {
+                checkTime = (int) (System.currentTimeMillis() / 1000L) - options.getTime();
+            }
+
+            int x = block.getX();
+            int y = block.getY();
+            int z = block.getZ();
+            String worldName = block.getWorld().getName();
+            int worldId = WorldUtils.getWorldId(worldName);
+
+            StringBuilder query = new StringBuilder("SELECT time,user,action,type,data,blockdata,rolled_back,wid,x,y,z FROM ");
+            query.append(ConfigHandler.prefix).append("block ").append(WorldUtils.getWidIndex("block"));
+            query.append("WHERE wid = ? AND x = ? AND z = ? AND y = ? AND time > ?");
+            if (userId != null) {
+                query.append(" AND user = ?");
+            }
+            query.append(" ORDER BY rowid DESC");
+            if (options.hasLimit()) {
+                query.append(" LIMIT ").append(options.getLimitOffset()).append(", ").append(options.getLimitCount());
+            }
+
+            try (PreparedStatement statement = connection.prepareStatement(query.toString())) {
+                statement.setInt(1, worldId);
+                statement.setInt(2, x);
+                statement.setInt(3, z);
+                statement.setInt(4, y);
+                statement.setInt(5, checkTime);
+                if (userId != null) {
+                    statement.setInt(6, userId);
+                }
+
+                try (ResultSet results = statement.executeQuery()) {
+                    while (results.next()) {
+                        result.add(parseBlockResult(connection, results, worldName));
+                    }
+                }
+            }
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
         }
 
         return result;
@@ -112,28 +194,24 @@ public class BlockAPI {
      * @return List of results in a ContainerResult format
      */
     public static List<ContainerResult> performContainerLookup(Location location, int offset) {
-        return performContainerLookup(location, offset, 0);
+        if (location == null) {
+            return new ArrayList<>();
+        }
+
+        return performContainerLookup(LookupOptions.builder().time(offset).location(location).build());
     }
 
     /**
-     * Performs a lookup of container transactions around the specified location.
-     * 
-     * @param location
-     *            The center location to look up
-     * @param offset
-     *            Time constraint in seconds (0 means no time constraint)
-     * @param radius
-     *            Radius to search in the X/Z plane (0 means exact location)
+     * Performs a lookup of container transactions using shared lookup options.
+     *
+     * @param options
+     *            Lookup options
      * @return List of results in a ContainerResult format
      */
-    public static List<ContainerResult> performContainerLookup(Location location, int offset, int radius) {
+    public static List<ContainerResult> performContainerLookup(LookupOptions options) {
         List<ContainerResult> result = new ArrayList<>();
 
         if (!Config.getGlobal().API_ENABLED) {
-            return result;
-        }
-
-        if (location == null || location.getWorld() == null) {
             return result;
         }
 
@@ -142,53 +220,38 @@ public class BlockAPI {
                 return result;
             }
 
-            int x = location.getBlockX();
-            int y = location.getBlockY();
-            int z = location.getBlockZ();
-            int time = (int) (System.currentTimeMillis() / 1000L);
-            int worldId = WorldUtils.getWorldId(location.getWorld().getName());
-            int checkTime = 0;
-
-            if (offset > 0) {
-                checkTime = time - offset;
+            LookupFilter filter = LookupFilter.fromOptions(connection, options);
+            if (filter.hasInvalidUser() || filter.hasInvalidLocation()) {
+                return result;
             }
 
-            String query = "SELECT time,user,action,type,data,amount,metadata,rolled_back,x,y,z FROM " + ConfigHandler.prefix + "container " + WorldUtils.getWidIndex("container") + "WHERE wid = ? AND x = ? AND z = ? AND y = ? AND time > ? ORDER BY rowid DESC";
-            if (radius > 0) {
-                query = "SELECT time,user,action,type,data,amount,metadata,rolled_back,x,y,z FROM " + ConfigHandler.prefix + "container " + WorldUtils.getWidIndex("container") + "WHERE wid = ? AND x >= ? AND x <= ? AND z >= ? AND z <= ? AND time > ? ORDER BY rowid DESC";
+            StringBuilder query = new StringBuilder("SELECT time,user,wid,x,y,z,action,type,data,amount,metadata,rolled_back FROM ");
+            query.append(ConfigHandler.prefix).append("container ");
+            if (filter.hasLocation()) {
+                query.append(WorldUtils.getWidIndex("container"));
             }
+            filter.appendWhere(query);
+            query.append(" ORDER BY rowid DESC");
+            filter.appendLimit(query);
 
-            try (PreparedStatement statement = connection.prepareStatement(query)) {
-                statement.setInt(1, worldId);
-                if (radius > 0) {
-                    statement.setInt(2, clampToInt((long) x - radius));
-                    statement.setInt(3, clampToInt((long) x + radius));
-                    statement.setInt(4, clampToInt((long) z - radius));
-                    statement.setInt(5, clampToInt((long) z + radius));
-                    statement.setInt(6, checkTime);
-                }
-                else {
-                    statement.setInt(2, x);
-                    statement.setInt(3, z);
-                    statement.setInt(4, y);
-                    statement.setInt(5, checkTime);
-                }
+            try (PreparedStatement statement = connection.prepareStatement(query.toString())) {
+                filter.bind(statement);
 
                 try (ResultSet results = statement.executeQuery()) {
                     while (results.next()) {
-                        result.add(parseContainerResult(connection, results, location.getWorld().getName()));
+                        result.add(parseContainerResult(connection, results));
                     }
                 }
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return result;
     }
 
-    private static ContainerResult parseContainerResult(Connection connection, ResultSet results, String worldName) throws Exception {
+    private static ContainerResult parseContainerResult(Connection connection, ResultSet results) throws Exception {
         int resultUserId = results.getInt("user");
         String resultUser = ConfigHandler.playerIdCacheReversed.get(resultUserId);
         if (resultUser == null) {
@@ -196,20 +259,26 @@ public class BlockAPI {
         }
 
         return new ContainerResult(
-                results.getLong("time"), resultUser, worldName, results.getInt("x"), results.getInt("y"), results.getInt("z"),
+                results.getLong("time"), resultUser, WorldUtils.getWorldName(results.getInt("wid")), results.getInt("x"), results.getInt("y"), results.getInt("z"),
                 results.getInt("type"), results.getInt("data"), results.getInt("amount"), results.getBytes("metadata"),
                 results.getInt("action"), results.getInt("rolled_back")
         );
     }
 
-    private static int clampToInt(long value) {
-        if (value > Integer.MAX_VALUE) {
-            return Integer.MAX_VALUE;
-        }
-        else if (value < Integer.MIN_VALUE) {
-            return Integer.MIN_VALUE;
+    private static BlockResult parseBlockResult(Connection connection, ResultSet results, String worldName) throws Exception {
+        int resultUserId = results.getInt("user");
+        String resultUser = ConfigHandler.playerIdCacheReversed.get(resultUserId);
+        if (resultUser == null) {
+            resultUser = UserStatement.loadName(connection, resultUserId);
         }
 
-        return (int) value;
+        int resultType = results.getInt("type");
+        String blockData = BlockUtils.byteDataToString(results.getBytes("blockdata"), resultType);
+
+        return new BlockResult(
+                results.getLong("time"), resultUser, worldName, results.getInt("x"), results.getInt("y"), results.getInt("z"),
+                resultType, results.getInt("data"), blockData, results.getInt("action"), results.getInt("rolled_back")
+        );
     }
+
 }

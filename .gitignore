@@ -216,8 +216,17 @@ hs_err_pid*
 # Documentation dev folder
 docs/dev/
 
+# symlinks
+CoreProtect-TestAPI
+CoreProtect-Fabric
+CoreProtect-Hytale
+publish/
+
 # Extensions
 /src/main/java/net/coreprotect/utility/extensions
 !/src/main/java/net/coreprotect/utility/extensions/Extensions.java
 /.apt_generated/
 /.apt_generated_tests/
+
+# Server side files
+server/*

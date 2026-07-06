@@ -21,6 +21,7 @@ import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.model.PendingBlockChange;
 import net.coreprotect.thread.Scheduler;
 
 public class BlockUtils {
@@ -176,7 +177,7 @@ public class BlockUtils {
         return BlockTypeUtils.createBlockData(MaterialUtils.getBlockName(type));
     }
 
-    public static void prepareTypeAndData(Map<Block, BlockData> map, Block block, Material type, BlockData blockData, boolean update) {
+    public static void prepareTypeAndData(Map<Block, PendingBlockChange> map, Block block, Material type, BlockData blockData, boolean update) {
         if (blockData == null) {
             blockData = createBlockData(type);
         }
@@ -189,7 +190,16 @@ public class BlockUtils {
             map.remove(block);
         }
         else {
-            map.put(block, blockData);
+            map.put(block, new PendingBlockChange(blockData, true));
+        }
+    }
+
+    public static void queueTypeAndData(Map<Block, PendingBlockChange> map, Block block, Material type, BlockData blockData, boolean applyPhysics) {
+        if (blockData == null) {
+            blockData = createBlockData(type);
+        }
+        if (blockData != null) {
+            map.put(block, new PendingBlockChange(blockData, applyPhysics));
         }
     }
 
@@ -199,7 +209,22 @@ public class BlockUtils {
         }
 
         if (blockData != null) {
-            block.setBlockData(blockData, update);
+            try {
+                block.setBlockData(blockData, update);
+            }
+            catch (RuntimeException e) {
+                if (!update) {
+                    throw e;
+                }
+
+                try {
+                    block.setBlockData(blockData, false);
+                }
+                catch (RuntimeException retryException) {
+                    e.addSuppressed(retryException);
+                    throw e;
+                }
+            }
         }
     }
 
@@ -215,7 +240,7 @@ public class BlockUtils {
                 block.update();
             }
             catch (Exception e) {
-                e.printStackTrace();
+                ErrorReporter.report(e);
             }
         }, block.getLocation());
     }
@@ -238,7 +263,7 @@ public class BlockUtils {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
         return inventory;
     }
@@ -275,7 +300,7 @@ public class BlockUtils {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         if (meta.isEmpty()) {
@@ -290,7 +315,7 @@ public class BlockUtils {
             contents = new ItemStack[] { blockState.getRecord() };
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
         return contents;
     }

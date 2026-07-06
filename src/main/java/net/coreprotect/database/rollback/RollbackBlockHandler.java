@@ -560,8 +560,10 @@ public class RollbackBlockHandler extends Queue {
      */
     public static void applyBlockChanges(Map<Block, PendingBlockChange> chunkChanges, int preview, Player user) {
         if (preview == 0 || user == null) {
-            applyBlockChanges(chunkChanges, false);
-            applyBlockChanges(chunkChanges, true);
+            applyBlockChanges(chunkChanges, true, true);
+            applyBlockChanges(chunkChanges, true, false);
+            applyBlockChanges(chunkChanges, false, false);
+            applyBlockChanges(chunkChanges, false, true);
             chunkChanges.clear();
             return;
         }
@@ -575,12 +577,18 @@ public class RollbackBlockHandler extends Queue {
         chunkChanges.clear();
     }
 
-    private static void applyBlockChanges(Map<Block, PendingBlockChange> chunkChanges, boolean applyPhysics) {
+    private static void applyBlockChanges(Map<Block, PendingBlockChange> chunkChanges, boolean airChange, boolean applyPhysics) {
         for (Entry<Block, PendingBlockChange> chunkChange : chunkChanges.entrySet()) {
             PendingBlockChange change = chunkChange.getValue();
-            if (change.applyPhysics() == applyPhysics) {
-                BlockUtils.setTypeAndData(chunkChange.getKey(), null, change.blockData(), applyPhysics);
+            boolean changeToAir = isAirChange(change);
+            if (changeToAir == airChange && change.applyPhysics() == applyPhysics) {
+                BlockUtils.setTypeAndData(chunkChange.getKey(), null, change.blockData(), !changeToAir && applyPhysics);
             }
         }
+    }
+
+    private static boolean isAirChange(PendingBlockChange change) {
+        BlockData blockData = change.blockData();
+        return blockData != null && BlockUtils.isAir(blockData.getMaterial());
     }
 }

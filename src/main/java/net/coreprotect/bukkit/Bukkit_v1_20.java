@@ -71,6 +71,8 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
 
         // Add all doors from tag
         addMissingTaggedBlocks(Tag.DOORS.getValues(), BlockGroup.DOORS);
+        addMissingTaggedBlocks(Tag.DOORS.getValues(), BlockGroup.INTERACT_BLOCKS);
+        addMissingTaggedBlocks(Tag.DOORS.getValues(), BlockGroup.SAFE_INTERACT_BLOCKS);
 
         // Add all fence gates to interaction blocks
         addMissingTaggedBlocks(Tag.FENCE_GATES.getValues(), BlockGroup.INTERACT_BLOCKS);

@@ -41,6 +41,7 @@ import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.ListenerHandler;
+import net.coreprotect.model.BlockGroup;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.patch.Patch;
 import net.coreprotect.utility.Chat;
@@ -507,6 +508,7 @@ public class ConfigHandler extends Queue {
         try {
             BukkitAdapter.loadAdapter();
             PaperAdapter.loadAdapter();
+            BlockGroup.initialize();
             MaterialParser.loadConfiguredTags(CoreProtect.getInstance());
 
             ConfigHandler.loadConfig(); // Load (or create) the configuration file.

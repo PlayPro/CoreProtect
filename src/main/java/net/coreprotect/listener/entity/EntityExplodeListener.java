@@ -80,7 +80,7 @@ public final class EntityExplodeListener extends Queue implements Listener {
             return "#end_crystal";
         }
 
-        return "#explosion";
+        return "#" + entity.getType().name().toLowerCase(Locale.ROOT);
     }
 
     private static String getFireballUser(Fireball fireball) {

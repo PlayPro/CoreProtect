@@ -60,6 +60,7 @@ import net.coreprotect.listener.world.PortalCreateListener;
 import net.coreprotect.listener.world.StructureGrowListener;
 import net.coreprotect.paper.listener.BlockPreDispenseListener;
 import net.coreprotect.paper.listener.CopperGolemChestListener;
+import net.coreprotect.paper.listener.CopperGolemTargetListener;
 import net.coreprotect.paper.listener.FlowerPotManipulateListener;
 import net.coreprotect.paper.listener.LegacyTNTPrimeListener;
 
@@ -79,8 +80,17 @@ public final class ListenerHandler {
         }
 
         try {
-            Class.forName("io.papermc.paper.event.entity.ItemTransportingEntityValidateTargetEvent"); // Paper 1.21.10+
-            pluginManager.registerEvents(new CopperGolemChestListener(plugin), plugin);
+            Class.forName("org.bukkit.entity.CopperGolem");
+            CopperGolemChestListener copperGolemListener = new CopperGolemChestListener(plugin);
+            pluginManager.registerEvents(copperGolemListener, plugin);
+
+            try {
+                Class.forName("io.papermc.paper.event.entity.ItemTransportingEntityValidateTargetEvent");
+                pluginManager.registerEvents(new CopperGolemTargetListener(copperGolemListener), plugin);
+            }
+            catch (Exception e) {
+                // Paper 26.1.x: GenericGameEvent fallback remains active.
+            }
         }
         catch (Exception e) {
             // Ignore registration failures to remain compatible with older servers.

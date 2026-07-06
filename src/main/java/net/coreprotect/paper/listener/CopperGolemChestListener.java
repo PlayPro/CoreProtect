@@ -55,6 +55,80 @@ public final class CopperGolemChestListener implements Listener {
         this.plugin = plugin;
     }
 
+    void captureTarget(CopperGolem golem, BlockState blockState) {
+        if (!(blockState instanceof InventoryHolder)) {
+            return;
+        }
+
+        Location containerLocation = blockState.getLocation();
+        if (containerLocation.getWorld() == null || !Config.getConfig(containerLocation.getWorld()).ITEM_TRANSACTIONS) {
+            return;
+        }
+
+        Material containerType = blockState.getType();
+        if (!isCopperChest(containerType) && containerType != Material.CHEST && containerType != Material.TRAPPED_CHEST) {
+            return;
+        }
+
+        InventoryHolder inventoryHolder = (InventoryHolder) blockState;
+        Inventory inventory = inventoryHolder.getInventory();
+        Location canonicalLocation = getCanonicalContainerLocation(containerLocation, inventory);
+        long now = System.currentTimeMillis();
+        cleanupOpenInteractions(now);
+        TransactionKey containerKey = TransactionKey.of(canonicalLocation);
+        UUID golemId = golem.getUniqueId();
+        OpenInteraction existing = openInteractions.get(golemId);
+        if (existing != null && existing.containerKey.equals(containerKey) && now - existing.openedAtMillis <= OPEN_INTERACTION_TIMEOUT_MILLIS) {
+            return;
+        }
+        if (existing != null) {
+            finalizeCapturedInteraction(golemId, golem, existing);
+        }
+        handleContainerOpen(golem, canonicalLocation, containerKey, containerType, inventoryHolder, now);
+        OpenInteraction captured = openInteractions.get(golemId);
+        if (captured != null && captured.containerKey.equals(containerKey)) {
+            scheduleTargetWatch(golemId, captured, 1);
+        }
+    }
+
+    private void scheduleTargetWatch(UUID golemId, OpenInteraction interaction, int attempt) {
+        Scheduler.scheduleSyncDelayedTask(plugin, () -> watchTarget(golemId, interaction, attempt), interaction.location, 1);
+    }
+
+    private void watchTarget(UUID golemId, OpenInteraction interaction, int attempt) {
+        if (openInteractions.get(golemId) != interaction) {
+            return;
+        }
+
+        Entity entity = plugin.getServer().getEntity(golemId);
+        if (entity instanceof CopperGolem && finalizeCapturedInteraction(golemId, (CopperGolem) entity, interaction)) {
+            return;
+        }
+
+        if (attempt < 80) {
+            scheduleTargetWatch(golemId, interaction, attempt + 1);
+        }
+    }
+
+    private boolean finalizeCapturedInteraction(UUID golemId, CopperGolem golem, OpenInteraction interaction) {
+        BlockState blockState = interaction.location.getBlock().getState();
+        if (!(blockState instanceof InventoryHolder)) {
+            return false;
+        }
+
+        ItemStack[] currentContents = ((InventoryHolder) blockState).getInventory().getContents();
+        if (!hasInventoryChanged(interaction.baselineState, currentContents) || !isAttributableToGolem(golem, interaction, currentContents)) {
+            return false;
+        }
+
+        if (openInteractions.remove(golemId, interaction)) {
+            openInteractionIndexByContainerKey.remove(interaction.containerKey, new OpenInteractionIndex(golemId, interaction.openedAtMillis));
+            recordForcedContainerState(interaction.location, currentContents);
+            InventoryChangeListener.inventoryTransaction(USERNAME, interaction.location, interaction.baselineState);
+        }
+        return true;
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onGenericGameEvent(GenericGameEvent event) {
         if (event == null) {

@@ -72,7 +72,8 @@ public class VersionCheckService {
             // Store Minecraft server version for later use
             int major = Integer.parseInt(bukkitVersion[0]);
             int minor = Integer.parseInt(bukkitVersion[1]);
-            ConfigHandler.SERVER_VERSION = BukkitAdapter.getAdapterVersion(major, minor);
+            int patch = bukkitVersion.length > 2 && bukkitVersion[2].matches("\\d+") ? Integer.parseInt(bukkitVersion[2]) : 0;
+            ConfigHandler.SERVER_VERSION = BukkitAdapter.getAdapterVersion(major, minor, patch);
         }
         catch (Exception e) {
             ErrorReporter.report(e);

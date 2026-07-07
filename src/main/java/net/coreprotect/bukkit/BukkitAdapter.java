@@ -66,10 +66,16 @@ public class BukkitAdapter implements BukkitInterface {
     public static final int BUKKIT_V1_19 = 19;
     public static final int BUKKIT_V1_20 = 20;
     public static final int BUKKIT_V1_21 = 21;
-    public static final int BUKKIT_V26_0 = 2600;
+    public static final int BUKKIT_V26_0 = 26000;
+    public static final int BUKKIT_V26_1 = 26010;
+    public static final int BUKKIT_V26_2 = 26020;
 
     public static int getAdapterVersion(int major, int minor) {
-        return major == 1 ? minor : (major * 100) + minor;
+        return getAdapterVersion(major, minor, 0);
+    }
+
+    public static int getAdapterVersion(int major, int minor, int patch) {
+        return major == 1 ? minor : (major * 1000) + (minor * 10) + patch;
     }
 
     /**
@@ -98,8 +104,14 @@ public class BukkitAdapter implements BukkitInterface {
                 break;
             case BUKKIT_V1_21:
             case BUKKIT_V26_0:
-            default:
+            case BUKKIT_V26_1:
                 ADAPTER = new Bukkit_v1_21();
+                break;
+            case BUKKIT_V26_2:
+                ADAPTER = new Bukkit_v26_2();
+                break;
+            default:
+                ADAPTER = ConfigHandler.SERVER_VERSION >= BUKKIT_V26_2 ? new Bukkit_v26_2() : new Bukkit_v1_21();
                 break;
         }
     }

@@ -103,6 +103,9 @@ public final class EntityChangeBlockListener extends Queue implements Listener {
             String coordKey = block.getX() + "." + block.getY() + "." + block.getZ() + "." + worldId;
             String user = lookupCachedUser(coordKey, type);
             if (user == null) {
+                if (isTrackedFallingAttachment(type)) {
+                    return;
+                }
                 user = "#gravity";
             }
 
@@ -136,6 +139,11 @@ public final class EntityChangeBlockListener extends Queue implements Listener {
             return null;
         }
         return (String) data[1];
+    }
+
+    private static boolean isTrackedFallingAttachment(Material type) {
+        String name = type.name();
+        return name.equals("POINTED_DRIPSTONE") || name.equals("SULFUR_SPIKE");
     }
 
 }

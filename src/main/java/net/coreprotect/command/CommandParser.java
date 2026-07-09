@@ -38,6 +38,14 @@ public class CommandParser {
         return ActionParser.parseAction(inputArguments);
     }
 
+    protected static List<Integer> parseAction(String[] inputArguments, boolean allowMultiple) {
+        return ActionParser.parseAction(inputArguments, allowMultiple);
+    }
+
+    protected static MessageFilterParser.ParseResult parseMessageFilters(String[] inputArguments) {
+        return MessageFilterParser.parse(inputArguments);
+    }
+
     /**
      * Parse coordinates from command arguments
      * 

@@ -1,9 +1,11 @@
 package net.coreprotect.database;
 
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -31,6 +33,10 @@ import net.coreprotect.utility.ErrorReporter;
 public class LookupRaw extends Queue {
 
     protected static List<Object[]> performLookupRaw(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup) {
+        return performLookupRaw(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, Collections.emptyList(), location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup);
+    }
+
+    protected static List<Object[]> performLookupRaw(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, List<String> messageFilters, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup) {
         List<Object[]> list = new ArrayList<>();
         List<Integer> invalidRollbackActions = new ArrayList<>();
         invalidRollbackActions.add(LookupActions.INTERACTION);
@@ -50,7 +56,7 @@ public class LookupRaw extends Queue {
 
             Consumer.isPaused = true;
 
-            ResultSet results = rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, false);
+            ResultSet results = rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, messageFilters, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, false);
 
             while (results.next()) {
                 if (actionList.contains(LookupActions.CHAT) || actionList.contains(LookupActions.COMMAND)) {
@@ -223,6 +229,10 @@ public class LookupRaw extends Queue {
     }
 
     static ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean count) {
+        return rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, Collections.emptyList(), location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, count);
+    }
+
+    static ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, List<String> messageFilters, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean count) {
         ResultSet results = null;
 
         try {
@@ -249,6 +259,7 @@ public class LookupRaw extends Queue {
             String unionLimit = "";
             String index = "";
             String query = "";
+            List<String> messageFilterBindings = new ArrayList<>();
 
             if (checkUuids.size() > 0) {
                 String list = "";
@@ -578,7 +589,7 @@ public class LookupRaw extends Queue {
                     rows += ",wid,x,y,z";
                 }
 
-                if (actionList.contains(LookupActions.COMMAND)) {
+                if (!actionList.contains(LookupActions.CHAT) && actionList.contains(LookupActions.COMMAND)) {
                     queryTable = "command";
                 }
             }
@@ -642,6 +653,21 @@ public class LookupRaw extends Queue {
                 }
             }
 
+            boolean chatLookup = actionList.contains(LookupActions.CHAT);
+            boolean commandLookup = actionList.contains(LookupActions.COMMAND);
+            if (chatLookup && commandLookup) {
+                String chatQuery = appendMessageFilters(baseQuery, messageFilters, "chat", messageFilterBindings);
+                String commandQuery = appendMessageFilters(baseQuery, messageFilters, "command", messageFilterBindings);
+                query = unionSelect + "SELECT '0' as tbl," + rows + " FROM " + ConfigHandler.prefix + "chat WHERE" + chatQuery + unionLimit + ") UNION ALL ";
+                query += unionSelect + "SELECT '1' as tbl," + rows + " FROM " + ConfigHandler.prefix + "command WHERE" + commandQuery + unionLimit + ")";
+                if (!count) {
+                    queryOrder = " ORDER BY time DESC, id DESC";
+                }
+            }
+            else if (chatLookup || commandLookup) {
+                baseQuery = appendMessageFilters(baseQuery, messageFilters, queryTable, messageFilterBindings);
+            }
+
             boolean itemLookup = inventoryQuery;
             if ((lookup && actionList.size() == 0) || (itemLookup && !actionList.contains(LookupActions.BLOCK_BREAK))) {
                 if (!count) {
@@ -696,13 +722,72 @@ public class LookupRaw extends Queue {
             }
 
             query = query + queryOrder + queryLimit + "";
-            results = statement.executeQuery(query);
+            results = executeQuery(statement, query, messageFilterBindings);
         }
         catch (Exception e) {
             ErrorReporter.report(e);
         }
 
         return results;
+    }
+
+    private static String appendMessageFilters(String baseQuery, List<String> messageFilters, String table, List<String> bindings) {
+        if (messageFilters == null || messageFilters.isEmpty()) {
+            return baseQuery;
+        }
+
+        String alias = table + "FilterRows";
+        StringBuilder query = new StringBuilder(baseQuery)
+                .append(" AND rowid IN (SELECT ").append(alias).append(".rowid FROM ")
+                .append(ConfigHandler.prefix).append(table).append(" ").append(alias).append(" WHERE (");
+        for (int index = 0; index < messageFilters.size(); index++) {
+            if (index > 0) {
+                query.append(" OR ");
+            }
+
+            String prefixExpression = Config.getGlobal().MYSQL ? alias + ".message" : "substr(" + alias + ".message,1,16)";
+            query.append("(").append(prefixExpression).append(" LIKE ? ESCAPE '~' AND ")
+                    .append(alias).append(".message LIKE ? ESCAPE '~')");
+
+            String filter = messageFilters.get(index) == null ? "" : messageFilters.get(index);
+            bindings.add(escapeLike(firstCodePoints(filter, 16)) + "%");
+            bindings.add(escapeLike(filter) + "%");
+        }
+        return query.append("))").toString();
+    }
+
+    private static String firstCodePoints(String value, int maximum) {
+        if (value == null) {
+            return "";
+        }
+        int codePoints = value.codePointCount(0, value.length());
+        if (codePoints <= maximum) {
+            return value;
+        }
+        return value.substring(0, value.offsetByCodePoints(0, maximum));
+    }
+
+    private static String escapeLike(String value) {
+        return value.replace("~", "~~").replace("%", "~%").replace("_", "~_");
+    }
+
+    private static ResultSet executeQuery(Statement statement, String query, List<String> bindings) throws Exception {
+        if (bindings.isEmpty()) {
+            return statement.executeQuery(query);
+        }
+
+        PreparedStatement preparedStatement = statement.getConnection().prepareStatement(query);
+        try {
+            for (int index = 0; index < bindings.size(); index++) {
+                preparedStatement.setString(index + 1, bindings.get(index));
+            }
+            preparedStatement.closeOnCompletion();
+            return preparedStatement.executeQuery();
+        }
+        catch (Exception e) {
+            preparedStatement.close();
+            throw e;
+        }
     }
 
 }

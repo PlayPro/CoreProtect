@@ -1,5 +1,6 @@
 package net.coreprotect.command;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -18,6 +19,7 @@ import org.bukkit.entity.Player;
 import net.coreprotect.command.lookup.BlockLookupThread;
 import net.coreprotect.command.lookup.ChestTransactionLookupThread;
 import net.coreprotect.command.lookup.StandardLookupThread;
+import net.coreprotect.command.parser.MessageFilterParser;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
@@ -32,13 +34,16 @@ import net.coreprotect.utility.ErrorReporter;
 public class LookupCommand {
     public static void runCommand(CommandSender player, Command command, boolean permission, String[] args) {
         int resultc = args.length;
+        MessageFilterParser.ParseResult messageFilterResult = CommandParser.parseMessageFilters(args);
+        args = messageFilterResult.getArguments();
+        List<String> argFilters = messageFilterResult.getFilters();
         args = CommandParser.parsePage(args);
         Location lo = CommandParser.parseLocation(player, args);
         // List<String> arg_uuids = new ArrayList<String>();
         List<String> argUsers = CommandParser.parseUsers(args);
         Integer[] argRadius = CommandParser.parseRadius(args, player, lo);
         int argNoisy = CommandParser.parseNoisy(args);
-        List<Integer> argAction = CommandParser.parseAction(args);
+        List<Integer> argAction = CommandParser.parseAction(args, messageFilterResult.isSpecified());
         List<Object> argBlocks = CommandParser.parseRestricted(player, args, argAction);
         Map<Object, Boolean> argExclude = CommandParser.parseExcluded(player, args, argAction);
         List<String> argExcludeUsers = CommandParser.parseExcludedUsers(player, args);
@@ -170,6 +175,16 @@ public class LookupCommand {
         if (argAction.contains(-1)) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_ACTION));
             return;
+        }
+        if (messageFilterResult.isSpecified()) {
+            if (messageFilterResult.hasInvalidLength()) {
+                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MESSAGE_FILTER_TOO_SHORT, Integer.toString(MessageFilterParser.MINIMUM_FILTER_CODE_POINTS)));
+                return;
+            }
+            if (argAction.isEmpty() || argAction.stream().anyMatch(action -> action != LookupActions.CHAT && action != LookupActions.COMMAND)) {
+                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INCOMPATIBLE_ACTION, "f:<filter>"));
+                return;
+            }
         }
         if (worldedit && argRadius == null) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_SELECTION, "WorldEdit"));
@@ -519,6 +534,7 @@ public class LookupCommand {
                     argExclude = ConfigHandler.lookupElist.get(player.getName());
                     argExcludeUsers = ConfigHandler.lookupEUserlist.get(player.getName());
                     argAction = ConfigHandler.lookupAlist.get(player.getName());
+                    argFilters = ConfigHandler.lookupFlist.getOrDefault(player.getName(), Collections.emptyList());
                     argRadius = ConfigHandler.lookupRadius.get(player.getName());
                     ts = ConfigHandler.lookupTime.get(player.getName());
                     startTime = 1;
@@ -597,7 +613,7 @@ public class LookupCommand {
                         }
                     }
 
-                    Runnable runnable = new StandardLookupThread(player, command, rollbackusers, argBlocks, argExclude, argExcludeUsers, argAction, argRadius, lo, x, y, z, wid, argWid, timeStart, timeEnd, argNoisy, argExcluded, argRestricted, pa, re, type, ts, count);
+                    Runnable runnable = new StandardLookupThread(player, command, rollbackusers, argBlocks, argExclude, argExcludeUsers, argAction, argFilters, argRadius, lo, x, y, z, wid, argWid, timeStart, timeEnd, argNoisy, argExcluded, argRestricted, pa, re, type, ts, count);
                     Thread thread = new Thread(runnable);
                     thread.start();
                 }

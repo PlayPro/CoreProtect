@@ -43,7 +43,7 @@ public class LookupCommand {
         List<String> argUsers = CommandParser.parseUsers(args);
         Integer[] argRadius = CommandParser.parseRadius(args, player, lo);
         int argNoisy = CommandParser.parseNoisy(args);
-        List<Integer> argAction = CommandParser.parseAction(args, messageFilterResult.isSpecified());
+        List<Integer> argAction = CommandParser.parseAction(args, true);
         List<Object> argBlocks = CommandParser.parseRestricted(player, args, argAction);
         Map<Object, Boolean> argExclude = CommandParser.parseExcluded(player, args, argAction);
         List<String> argExcludeUsers = CommandParser.parseExcludedUsers(player, args);

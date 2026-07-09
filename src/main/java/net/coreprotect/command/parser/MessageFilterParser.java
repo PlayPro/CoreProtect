@@ -106,7 +106,8 @@ public final class MessageFilterParser {
     private static boolean isControl(String normalized) {
         return normalized.equals("#count") || normalized.equals("#sum") || normalized.equals("count") || normalized.equals("sum")
                 || normalized.equals("n") || normalized.equals("noisy") || normalized.equals("v") || normalized.equals("verbose")
-                || normalized.equals("#v") || normalized.equals("#verbose") || normalized.equals("#silent");
+                || normalized.equals("#v") || normalized.equals("#verbose") || normalized.equals("#silent")
+                || normalized.equals("#container") || normalized.equals("#preview") || normalized.equals("#preview_cancel") || normalized.equals("#preview-cancel");
     }
 
     private static String normalize(String raw) {

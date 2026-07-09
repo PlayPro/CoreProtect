@@ -644,15 +644,9 @@ public class Database extends Queue {
             createSQLiteIndex(statement, indexData, attachDatabase, "chat_index", prefix + "chat(time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "chat_user_index", prefix + "chat(user,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "chat_wid_index", prefix + "chat(wid,x,z,time)");
-            if (createChatMessagePrefixIndex) {
-                createSQLiteIndex(statement, indexData, attachDatabase, "chat_message_prefix_index", prefix + "chat(substr(message,1,16) COLLATE NOCASE)");
-            }
             createSQLiteIndex(statement, indexData, attachDatabase, "command_index", prefix + "command(time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "command_user_index", prefix + "command(user,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "command_wid_index", prefix + "command(wid,x,z,time)");
-            if (createCommandMessagePrefixIndex) {
-                createSQLiteIndex(statement, indexData, attachDatabase, "command_message_prefix_index", prefix + "command(substr(message,1,16) COLLATE NOCASE)");
-            }
             createSQLiteIndex(statement, indexData, attachDatabase, "container_index", prefix + "container(wid,x,z,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "container_user_index", prefix + "container(user,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "container_type_index", prefix + "container(type,time)");
@@ -672,6 +666,12 @@ public class Database extends Queue {
             createSQLiteIndex(statement, indexData, attachDatabase, "uuid_index", prefix + "user(uuid)");
             createSQLiteIndex(statement, indexData, attachDatabase, "username_log_uuid_index", prefix + "username_log(uuid,user)");
             createSQLiteIndex(statement, indexData, attachDatabase, "world_id_index", prefix + "world(id)");
+            if (createChatMessagePrefixIndex) {
+                createSQLiteIndex(statement, indexData, attachDatabase, "chat_message_prefix_index", prefix + "chat(substr(message,1,16) COLLATE NOCASE)");
+            }
+            if (createCommandMessagePrefixIndex) {
+                createSQLiteIndex(statement, indexData, attachDatabase, "command_message_prefix_index", prefix + "command(substr(message,1,16) COLLATE NOCASE)");
+            }
         }
         catch (Exception e) {
             Chat.console(Phrase.build(Phrase.DATABASE_INDEX_ERROR));

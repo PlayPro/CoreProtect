@@ -41,7 +41,7 @@ Maven:
 <dependency>
     <groupId>net.coreprotect</groupId>
     <artifactId>coreprotect</artifactId>
-    <version>23.2</version>
+    <version>24.0</version>
     <scope>provided</scope>
 </dependency>
 ```

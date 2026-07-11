@@ -631,7 +631,7 @@ public class LookupRaw extends Queue {
             }
             else if (actionList.contains(LookupActions.ITEM)) {
                 queryTable = "item";
-                rows = "rowid as id,time,user,wid,x,y,z,type,toString(" + ConfigHandler.prefix + "item.data) as metadata,'0' as data,amount,action,0 as rolled_back,version";
+                rows = "rowid as id,time,user,wid,x,y,z,type,toString(" + ConfigHandler.prefix + "item.data) as metadata,'0' as data,amount,action,rolled_back,version";
             }
 
             String unionSelect = "SELECT * FROM (";

@@ -308,7 +308,7 @@ public class Patch {
             }
             else if (lastVersion[0] == 0) {
                 int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
-                statement.executeUpdate("INSERT INTO " + ConfigHandler.prefix + "version (time,version) VALUES ('" + unixtimestamp + "', '" + currentVersion[0] + "." + currentVersion[1] + "." + currentVersion[2] + "')");
+                statement.executeUpdate("INSERT INTO " + ConfigHandler.prefix + "version (rowid,time,version) VALUES ('" + CoreProtect.getInstance().rowNumbers().nextRowNumber("version", statement.getConnection()) + "', '" + unixtimestamp + "', '" + currentVersion[0] + "." + currentVersion[1] + "." + currentVersion[2] + "')");
             }
             else {
                 currentVersion[2] = 0;

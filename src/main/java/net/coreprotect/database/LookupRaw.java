@@ -635,8 +635,6 @@ public class LookupRaw extends Queue {
             }
 
             String unionSelect = "SELECT * FROM (";
-            String countQuery = countRows ? "count(*) over () as count," : "";
-            String baseSelect = countRows ? "SELECT count(*) over () as count, * FROM (" : unionSelect;
 
             boolean itemLookup = inventoryQuery;
             if ((lookup && actionList.isEmpty()) || (itemLookup && !actionList.contains(LookupActions.BLOCK_BREAK))) {
@@ -657,13 +655,13 @@ public class LookupRaw extends Queue {
                     baseQuery = baseQuery.replace("action NOT IN(-1)", "action NOT IN(" + LookupActions.ENTITY_KILL + ")"); // if block specified for include/exclude, filter out entity data
                 }
 
-                query = baseSelect + "(SELECT " + "'0' as tbl," + rows + " FROM " + ConfigHandler.prefix + "block " + index + "WHERE" + baseQuery + unionLimit + ") UNION ALL ";
+                query = unionSelect + "(SELECT " + "'0' as tbl," + rows + " FROM " + ConfigHandler.prefix + "block " + index + "WHERE" + baseQuery + unionLimit + ") UNION ALL ";
                 itemLookup = true;
             }
 
             if (itemLookup) {
                 rows = "rowid as id,time,user,wid,x,y,z,type,toString(metadata) as metadata,toString(data) as data,amount,action,rolled_back,version";
-                query += (query.isEmpty() ? baseSelect + "(" : unionSelect) + "SELECT '1' as tbl," + rows + " FROM " + ConfigHandler.prefix + "container WHERE" + queryBlock + unionLimit + ") UNION ALL ";
+                query += (query.isEmpty() ? unionSelect + "(" : unionSelect) + "SELECT '1' as tbl," + rows + " FROM " + ConfigHandler.prefix + "container WHERE" + queryBlock + unionLimit + ") UNION ALL ";
 
                 rows = "rowid as id,time,user,wid,x,y,z,type,toString(" + ConfigHandler.prefix + "item.data) as metadata,'0' as data,amount,action,rolled_back,version";
                 queryOrder = " ORDER BY time DESC, tbl DESC, id DESC";
@@ -680,18 +678,27 @@ public class LookupRaw extends Queue {
                     baseQuery = baseQuery.replace("action NOT IN(-1)", "action NOT IN(" + actionExclude + ")");
                 }
 
-                query = "SELECT " + countQuery + "'0' as tbl," + rows + " FROM " + ConfigHandler.prefix + queryTable + " " + index + "WHERE" + baseQuery;
+                query = "SELECT '0' as tbl," + rows + " FROM " + ConfigHandler.prefix + queryTable + " " + index + "WHERE" + baseQuery;
             }
 
             query = query.replace(" action NOT IN(-1) AND", ""); // Remove placeholders
-            if (query.startsWith(baseSelect)) {
+            if (query.startsWith(unionSelect)) {
                 query += ")";
             }
 
-            query += queryOrder + queryLimitOffset + " SETTINGS output_format_json_quote_64bit_integers=0";
+            String unboundedQuery = query;
+            String resultQuery = query + queryOrder + queryLimitOffset;
+            if (countRows) {
+                query = "SELECT totals.count AS count, results.* FROM (" + resultQuery + ") AS results "
+                        + "CROSS JOIN (SELECT count() AS count FROM (" + unboundedQuery + ")) AS totals";
+            }
+            else {
+                query = resultQuery;
+            }
 
+            query += " SETTINGS output_format_json_quote_64bit_integers=0";
             if (Config.getGlobal().SELECT_USE_FINAL) {
-                query += " SETTINGS final = 1";
+                query += ", final=1";
             }
 
             return statement.executeQuery(query);

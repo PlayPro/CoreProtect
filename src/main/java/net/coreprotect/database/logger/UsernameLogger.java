@@ -5,6 +5,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.Locale;
 
+import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.utility.ErrorReporter;
 
@@ -77,10 +78,11 @@ public class UsernameLogger {
             }
 
             if (update && configUsernames == 1) {
-                try (PreparedStatement preparedStmt = connection.prepareStatement("INSERT INTO " + ConfigHandler.prefix + "username_log (time, uuid, user) VALUES (?, ?, ?)")) {
+                try (PreparedStatement preparedStmt = connection.prepareStatement("INSERT INTO " + ConfigHandler.prefix + "username_log (time, uuid, user, rowid) VALUES (?, ?, ?, ?)")) {
                     preparedStmt.setInt(1, time);
                     preparedStmt.setString(2, uuid);
                     preparedStmt.setString(3, user);
+                    preparedStmt.setLong(4, CoreProtect.getInstance().rowNumbers().nextRowNumber("username_log", connection));
                     preparedStmt.executeUpdate();
                 }
             }

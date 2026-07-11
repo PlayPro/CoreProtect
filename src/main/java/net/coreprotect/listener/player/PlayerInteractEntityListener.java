@@ -1,9 +1,7 @@
 package net.coreprotect.listener.player;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -19,11 +17,13 @@ import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
+import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.utility.HopperTransactionUtils;
 import net.coreprotect.utility.ItemUtils;
 
 public final class PlayerInteractEntityListener extends Queue implements Listener {
@@ -65,7 +65,10 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
             }
 
             if (frame.getItem().getType() != Material.AIR && event.getHand().equals(EquipmentSlot.HAND) && Config.getConfig(player.getWorld()).PLAYER_INTERACTIONS) {
-                Queue.queuePlayerInteraction(player.getName(), entity.getLocation().getBlock().getState(), Material.ITEM_FRAME);
+                Material frameType = BukkitAdapter.ADAPTER.getFrameType(entity);
+                if (frameType != null) {
+                    Queue.queuePlayerInteraction(player.getName(), entity.getLocation().getBlock().getState(), frameType);
+                }
             }
 
             if (!Config.getConfig(player.getWorld()).ITEM_TRANSACTIONS) {
@@ -115,12 +118,10 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
 
     public static void queueContainerSpecifiedItems(String user, Material type, Object container, Location location, boolean logDrop) {
         ItemStack[] contents = (ItemStack[]) ((Object[]) container)[0];
-        int x = location.getBlockX();
-        int y = location.getBlockY();
-        int z = location.getBlockZ();
 
-        String transactingChestId = location.getWorld().getUID().toString() + "." + x + "." + y + "." + z;
-        String loggingChestId = user.toLowerCase(Locale.ROOT) + "." + x + "." + y + "." + z;
+        String transactingChestId = HopperTransactionUtils.getTransactionId(location);
+        String loggingChestIdSuffix = HopperTransactionUtils.getLoggingIdSuffix(location);
+        String loggingChestId = HopperTransactionUtils.getLoggingId(user, loggingChestIdSuffix);
         int chestId = Queue.getChestId(loggingChestId);
         if (chestId > 0) {
             if (ConfigHandler.forceContainer.get(loggingChestId) != null) {
@@ -130,6 +131,7 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
                 if (list.size() <= forceSize) {
                     list.add(ItemUtils.getContainerState(contents));
                     ConfigHandler.oldContainer.put(loggingChestId, list);
+                    HopperTransactionUtils.registerSnapshot(transactingChestId, loggingChestId, false);
                 }
             }
         }
@@ -137,9 +139,10 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
             List<ItemStack[]> list = new ArrayList<>();
             list.add(ItemUtils.getContainerState(contents));
             ConfigHandler.oldContainer.put(loggingChestId, list);
+            ConfigHandler.addOldContainerViewer(loggingChestIdSuffix, loggingChestId);
+            HopperTransactionUtils.registerSnapshot(transactingChestId, loggingChestId, true);
         }
 
-        ConfigHandler.transactingChest.computeIfAbsent(transactingChestId, k -> Collections.synchronizedList(new ArrayList<>()));
         Queue.queueContainerTransaction(user, location, type, container, chestId);
 
         if (logDrop) {

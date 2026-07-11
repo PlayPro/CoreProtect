@@ -57,6 +57,7 @@ public class StandardLookupThread implements Runnable {
     private final Map<Object, Boolean> excludedBlocks;
     private final List<String> excludedUsers;
     private final List<Integer> actions;
+    private final List<String> messageFilters;
     private final Integer[] radius;
     private final Location location;
     private final int x;
@@ -75,7 +76,7 @@ public class StandardLookupThread implements Runnable {
     private final String rtime;
     private final boolean count;
 
-    public StandardLookupThread(CommandSender player, Command command, List<String> rollbackUsers, List<Object> blockList, Map<Object, Boolean> excludedBlocks, List<String> excludedUsers, List<Integer> actions, Integer[] radius, Location location, int x, int y, int z, int worldId, int argWorldId, long timeStart, long timeEnd, int noisy, int excluded, int restricted, int page, int displayResults, int typeLookup, String rtime, boolean count) {
+    public StandardLookupThread(CommandSender player, Command command, List<String> rollbackUsers, List<Object> blockList, Map<Object, Boolean> excludedBlocks, List<String> excludedUsers, List<Integer> actions, List<String> messageFilters, Integer[] radius, Location location, int x, int y, int z, int worldId, int argWorldId, long timeStart, long timeEnd, int noisy, int excluded, int restricted, int page, int displayResults, int typeLookup, String rtime, boolean count) {
         this.player = player;
         this.command = command;
         this.rollbackUsers = rollbackUsers;
@@ -83,6 +84,7 @@ public class StandardLookupThread implements Runnable {
         this.excludedBlocks = excludedBlocks;
         this.excludedUsers = excludedUsers;
         this.actions = actions;
+        this.messageFilters = messageFilters;
         this.radius = radius;
         this.location = location;
         this.x = x;
@@ -120,6 +122,7 @@ public class StandardLookupThread implements Runnable {
             ConfigHandler.lookupBlist.put(player.getName(), blockList);
             ConfigHandler.lookupUlist.put(player.getName(), rollbackUsers);
             ConfigHandler.lookupAlist.put(player.getName(), actions);
+            ConfigHandler.lookupFlist.put(player.getName(), messageFilters);
             ConfigHandler.lookupRadius.put(player.getName(), radius);
 
             if (connection == null) {
@@ -199,7 +202,7 @@ public class StandardLookupThread implements Runnable {
                     }
                 }
 
-                final LookupResult<?> lookupResult = Lookup.performLookup(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, finalLocation, radius, rowData, timeStart, timeEnd, (int) pageStart, displayResults, restrict_world, true, checkRows);
+                final LookupResult<?> lookupResult = Lookup.performLookup(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, messageFilters, finalLocation, radius, rowData, timeStart, timeEnd, (int) pageStart, displayResults, restrict_world, true, checkRows);
                 if (lookupResult == null) {
                     Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- An error occurred while processing this lookup.");
                     return;

@@ -26,6 +26,7 @@ import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.VersionUtils;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.SystemUtils;
 
 public class StatusCommand {
     private static ConcurrentHashMap<String, Boolean> alert = new ConcurrentHashMap<>();
@@ -116,6 +117,51 @@ public class StatusCommand {
 
                     long autoPurgeRowsPurged = ConfigHandler.autoPurgeRowsPurged.get();
                     Chat.sendMessage(player, Color.DARK_AQUA + Phrase.build(Phrase.STATUS_AUTO_PURGE, Color.WHITE, String.format("%,d", autoPurgeRowsPurged), (autoPurgeRowsPurged == 1 ? Selector.FIRST : Selector.SECOND)));
+
+                    try {
+                        String cpuInfo = "x" + Runtime.getRuntime().availableProcessors() + " " + Phrase.build(Phrase.CPU_CORES);
+                        if (ConfigHandler.processorInfo != null) {
+                            String modelName = ConfigHandler.processorInfo.getName();
+                            if (modelName.contains(" CPU")) {
+                                String[] split = modelName.split(" CPU")[0].split(" ");
+                                modelName = split[split.length - 1];
+                            }
+                            else if (modelName.contains(" Processor")) {
+                                String[] split = modelName.split(" Processor")[0].split(" ");
+                                modelName = split[split.length - 1];
+                            }
+
+                            String cpuSpeed = String.valueOf(ConfigHandler.processorInfo.getMaxFrequency());
+                            double speedVal = Long.valueOf(cpuSpeed) / 1000000000.0;
+
+                            // Fix for Apple Silicon processors reporting 0 GHz
+                            if (speedVal < 0.01 && SystemUtils.isAppleSilicon()) {
+                                Double appleSiliconSpeed = SystemUtils.getAppleSiliconSpeed();
+                                if (appleSiliconSpeed != null) {
+                                    speedVal = appleSiliconSpeed;
+                                }
+                            }
+
+                            cpuSpeed = String.format("%.2f", speedVal);
+                            if (speedVal >= 0.01) {
+                                cpuInfo = "x" + Runtime.getRuntime().availableProcessors() + " " + cpuSpeed + "GHz " + modelName + ".";
+                            }
+                        }
+
+                        int mb = 1024 * 1024;
+                        Runtime runtime = Runtime.getRuntime();
+                        String usedRAM = String.format("%.2f", Double.valueOf((runtime.totalMemory() - runtime.freeMemory()) / mb) / 1000.0);
+                        String totalRAM = String.format("%.2f", Double.valueOf(runtime.maxMemory() / mb) / 1000.0);
+                        String systemInformation = Phrase.build(Phrase.RAM_STATS, usedRAM, totalRAM);
+                        if (cpuInfo.length() > 0) {
+                            systemInformation = cpuInfo + " (" + systemInformation + ")";
+                        }
+
+                        Chat.sendMessage(player, Color.DARK_AQUA + Phrase.build(Phrase.STATUS_SYSTEM, Color.WHITE, systemInformation));
+                    }
+                    catch (Exception e) {
+                        ErrorReporter.report(e);
+                    }
 
                     // Functions.sendMessage(player, Color.DARK_AQUA + "Website: " + Color.WHITE + "www.coreprotect.net/updates/");
 

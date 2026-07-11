@@ -5,7 +5,9 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import net.coreprotect.CoreProtect;
@@ -42,6 +44,10 @@ import net.coreprotect.utility.ErrorReporter;
 public class LookupRaw extends Queue {
 
     protected static LookupResult<?> performLookup(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean countRows) {
+        return performLookup(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, Collections.emptyList(), location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, countRows);
+    }
+
+    protected static LookupResult<?> performLookup(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, List<String> messageFilters, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean countRows) {
         List<Integer> invalidRollbackActions = new ArrayList<>();
         invalidRollbackActions.add(LookupActions.INTERACTION);
 
@@ -53,7 +59,7 @@ public class LookupRaw extends Queue {
             invalidRollbackActions.clear();
         }
 
-        try (final ResultSet results = rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, countRows)) {
+        try (final ResultSet results = rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, messageFilters, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, countRows)) {
             if (results == null) {
                 return null;
             }
@@ -253,6 +259,10 @@ public class LookupRaw extends Queue {
     }
 
     static @Nullable ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean countRows) {
+        return rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, Collections.emptyList(), location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, countRows);
+    }
+
+    static @Nullable ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, List<String> messageFilters, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean countRows) {
         String query = "";
 
         try {
@@ -605,6 +615,7 @@ public class LookupRaw extends Queue {
             else if (actionList.contains(LookupActions.CHAT) || actionList.contains(LookupActions.COMMAND)) {
                 queryTable = actionList.contains(LookupActions.COMMAND) ? "command" : "chat";
                 rows = "rowid as id,time,user,message,wid,x,y,z,cancelled";
+                baseQuery = appendMessageFilters(baseQuery, messageFilters);
             }
             else if (actionList.contains(LookupActions.SESSION)) {
                 queryTable = "session";
@@ -689,5 +700,24 @@ public class LookupRaw extends Queue {
             CoreProtect.getInstance().getSLF4JLogger().warn("An exception occurred while executing query '{}'", query, e);
             return null;
         }
+    }
+
+    private static String appendMessageFilters(String query, List<String> messageFilters) {
+        if (messageFilters == null || messageFilters.isEmpty()) {
+            return query;
+        }
+
+        StringBuilder result = new StringBuilder(query);
+        for (String rawFilter : messageFilters) {
+            String filter = rawFilter == null ? "" : rawFilter.trim();
+            if (!filter.isEmpty()) {
+                result.append(" AND lowerUTF8(message) LIKE '%").append(escapeSqlLike(filter.toLowerCase(Locale.ROOT))).append("%'");
+            }
+        }
+        return result.toString();
+    }
+
+    private static String escapeSqlLike(String value) {
+        return value.replace("\\", "\\\\").replace("'", "''").replace("%", "\\%").replace("_", "\\_");
     }
 }

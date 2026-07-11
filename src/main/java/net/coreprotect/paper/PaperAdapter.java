@@ -7,6 +7,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.Server;
+import org.bukkit.World;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 import org.bukkit.entity.Entity;
@@ -75,6 +76,11 @@ public class PaperAdapter implements PaperInterface {
     }
 
     @Override
+    public double getAverageTickTime(Server server) {
+        return -1.0D;
+    }
+
+    @Override
     public String getLine(Sign sign, int line) {
         return BukkitAdapter.ADAPTER.getLine(sign, line);
     }
@@ -82,6 +88,11 @@ public class PaperAdapter implements PaperInterface {
     @Override
     public void teleportAsync(Entity entity, Location location) {
         entity.teleport(location);
+    }
+
+    @Override
+    public void prefetchChunk(World world, int chunkX, int chunkZ) {
+        // chunk prefetching requires the Paper async chunk API
     }
 
     @Override

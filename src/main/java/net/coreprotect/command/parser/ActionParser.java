@@ -36,6 +36,10 @@ public class ActionParser {
      * @return A list of action integers
      */
     public static List<Integer> parseAction(String[] inputArguments) {
+        return parseAction(inputArguments, false);
+    }
+
+    public static List<Integer> parseAction(String[] inputArguments, boolean allowMultiple) {
         String[] argumentArray = inputArguments.clone();
         List<Integer> result = new ArrayList<>();
         int count = 0;
@@ -46,6 +50,9 @@ public class ActionParser {
                 argument = argument.replaceAll("\\\\", "");
                 argument = argument.replaceAll("'", "");
 
+                if (next == 1 && MessageFilterParser.isLookupTerminator(argument)) {
+                    next = 0;
+                }
                 if (argument.equals("a:") || argument.equals("action:")) {
                     next = 1;
                 }
@@ -55,6 +62,15 @@ public class ActionParser {
                     argument = argument.replaceAll("a:", "");
                     if (argument.startsWith("#")) {
                         argument = argument.replaceFirst("#", "");
+                    }
+                    if (allowMultiple && argument.contains(",")) {
+                        for (String action : argument.split(",", -1)) {
+                            if (!action.isEmpty()) {
+                                result.addAll(parseAction(new String[] { "lookup", "a:" + action }));
+                            }
+                        }
+                        next = 0;
+                        continue;
                     }
                     if (argument.equals("broke") || argument.equals("break") || argument.equals("remove") || argument.equals("destroy") || argument.equals("block-break") || argument.equals("block-remove") || argument.equals("-block") || argument.equals("-blocks") || argument.equals("block-")) {
                         result.add(LookupActions.BLOCK_BREAK);
@@ -87,7 +103,7 @@ public class ActionParser {
                         result.add(LookupActions.CONTAINER);
                         result.add(ItemTransactionActions.ADD);
                     }
-                    else if (argument.equals("chat") || argument.equals("chats")) {
+                    else if (argument.equals("chat") || argument.equals("chats") || argument.equals("message") || argument.equals("messages")) {
                         result.add(LookupActions.CHAT);
                     }
                     else if (argument.equals("command") || argument.equals("commands")) {

@@ -67,12 +67,13 @@ public final class BlockDispenseListener extends Queue implements Listener {
                         forceItem = true; // droppers always drop items
                     }
 
-                    ItemStack[] inventory = ((InventoryHolder) block.getState()).getInventory().getStorageContents();
+                    BlockState dispenserState = block.getState();
+                    ItemStack[] inventory = ((InventoryHolder) dispenserState).getInventory().getStorageContents();
                     if (forceItem) {
                         inventory = Arrays.copyOf(inventory, inventory.length + 1);
                         inventory[inventory.length - 1] = item;
                     }
-                    InventoryChangeListener.inventoryTransaction(user, block.getLocation(), inventory);
+                    InventoryChangeListener.inventoryTransaction(user, dispenserState, inventory);
                 }
 
                 if (material.equals(Material.WATER_BUCKET)) {

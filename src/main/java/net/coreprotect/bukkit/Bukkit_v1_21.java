@@ -1,5 +1,7 @@
 package net.coreprotect.bukkit;
 
+import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -10,10 +12,13 @@ import org.bukkit.Art;
 import org.bukkit.Bukkit;
 import org.bukkit.ExplosionResult;
 import org.bukkit.Keyed;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
 import org.bukkit.Tag;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockType;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.EntityType;
@@ -88,9 +93,13 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
      */
     public void initializeBundles(){
         if (BUNDLES.isEmpty()) {
-            Material bundle = Material.getMaterial("RED_BUNDLE");
-            if (bundle != null) {
-                BUNDLES.addAll(Tag.ITEMS_BUNDLES.getValues());
+            Tag<Material> bundleTag = getMaterialTag(Tag.REGISTRY_ITEMS, "bundles");
+            if (bundleTag != null) {
+                BUNDLES.addAll(bundleTag.getValues());
+            }
+
+            if (BUNDLES.isEmpty()) {
+                addMaterialsEndingWith(BUNDLES, "_BUNDLE");
             }
             BUNDLES.add(Material.BUNDLE);
         }
@@ -297,7 +306,7 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
 
     @Override
     public boolean isBundle(Material material) {
-        return Tag.ITEMS_BUNDLES.getValues().contains(material);
+        return BUNDLES.contains(material);
     }
 
 
@@ -326,13 +335,100 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
     @Override
     public Set<Material> shelfMaterials() {
         if (SHELVES.isEmpty()) {
-            Material shelf = Material.getMaterial("OAK_SHELF");
-            if (shelf != null) {
-                SHELVES.addAll(Tag.WOODEN_SHELVES.getValues());
+            Tag<Material> shelfTag = getMaterialTag(Tag.REGISTRY_BLOCKS, "wooden_shelves");
+            if (shelfTag != null) {
+                SHELVES.addAll(shelfTag.getValues());
+            }
+
+            if (SHELVES.isEmpty()) {
+                addMaterialsEndingWith(SHELVES, "_SHELF");
             }
         }
 
         return SHELVES;
+    }
+
+    @Override
+    public List<Location> getShelfInteractionLocations(Block block, BlockFace blockFace) {
+        List<Location> locations = new ArrayList<>();
+        BlockData blockData = block.getBlockData();
+        BlockFace facing = getShelfFacing(blockData);
+        if (facing == null) {
+            locations.add(block.getLocation());
+            return locations;
+        }
+
+        if (blockFace != facing) {
+            return locations;
+        }
+
+        String sideChain = getShelfSideChain(blockData);
+        if ("UNCONNECTED".equals(sideChain)) {
+            locations.add(block.getLocation());
+            return locations;
+        }
+
+        Block center = block;
+        int directionX = facing.getModX();
+        int directionZ = facing.getModZ();
+        if ("LEFT".equals(sideChain)) {
+            center = center.getRelative(directionZ, 0, -directionX);
+        }
+        else if ("RIGHT".equals(sideChain)) {
+            center = center.getRelative(-directionZ, 0, directionX);
+        }
+
+        String centerSideChain = getShelfSideChain(center.getBlockData());
+        if (centerSideChain == null) {
+            locations.add(block.getLocation());
+            return locations;
+        }
+
+        locations.add(center.getLocation());
+        if (!"CENTER".equals(centerSideChain)) {
+            locations.add(block.getLocation());
+            return locations;
+        }
+
+        locations.add(center.getRelative(-directionZ, 0, directionX).getLocation());
+        locations.add(center.getRelative(directionZ, 0, -directionX).getLocation());
+        return locations;
+    }
+
+    private static Tag<Material> getMaterialTag(String registry, String key) {
+        return Bukkit.getTag(registry, NamespacedKey.minecraft(key), Material.class);
+    }
+
+    private static void addMaterialsEndingWith(Set<Material> materials, String suffix) {
+        for (Material material : Material.values()) {
+            if (material.name().endsWith(suffix)) {
+                materials.add(material);
+            }
+        }
+    }
+
+    private static BlockFace getShelfFacing(BlockData blockData) {
+        Object facing = invokeNoArgumentMethod(blockData, "getFacing");
+        return facing instanceof BlockFace ? (BlockFace) facing : null;
+    }
+
+    private static String getShelfSideChain(BlockData blockData) {
+        Object sideChain = invokeNoArgumentMethod(blockData, "getSideChain");
+        return sideChain == null ? null : sideChain.toString();
+    }
+
+    private static Object invokeNoArgumentMethod(Object target, String methodName) {
+        if (target == null) {
+            return null;
+        }
+
+        try {
+            Method method = target.getClass().getMethod(methodName);
+            return method.invoke(target);
+        }
+        catch (ReflectiveOperationException | LinkageError e) {
+            return null;
+        }
     }
 
     @Override

@@ -8,6 +8,16 @@ import java.util.List;
 import java.util.Map;
 
 import net.coreprotect.data.lookup.LookupResult;
+import net.coreprotect.data.lookup.result.ChatLookupResult;
+import net.coreprotect.data.lookup.result.CommonLookupResult;
+import net.coreprotect.data.lookup.result.SessionLookupResult;
+import net.coreprotect.data.lookup.result.SignLookupResult;
+import net.coreprotect.data.lookup.result.UsernameHistoryLookupResult;
+import net.coreprotect.data.lookup.type.ChatLookupData;
+import net.coreprotect.data.lookup.type.CommonLookupData;
+import net.coreprotect.data.lookup.type.SessionLookupData;
+import net.coreprotect.data.lookup.type.SignLookupData;
+import net.coreprotect.data.lookup.type.UsernameHistoryData;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -54,12 +64,11 @@ public class Lookup extends Queue {
 
     @Deprecated
     public static List<String[]> performLookup(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, long startTime, long endTime, boolean restrictWorld, boolean lookup) {
-        if (true) throw new UnsupportedOperationException("Not supported yet."); // TODO CH
         List<String[]> newList = new ArrayList<>();
 
         try {
-            //List<Object[]> lookupList = LookupRaw.performLookupRaw(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, null, startTime, endTime, -1, -1, restrictWorld, lookup);
-            //newList = LookupConverter.convertRawLookup(statement, lookupList);
+            LookupResult<?> lookupResult = LookupRaw.performLookup(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, null, startTime, endTime, -1, -1, restrictWorld, lookup, false);
+            newList = convertLookupResult(statement, lookupResult);
         }
         catch (Exception e) {
             ErrorReporter.report(e);
@@ -78,12 +87,11 @@ public class Lookup extends Queue {
 
     @Deprecated
     public static List<String[]> performPartialLookup(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup) {
-        if (true) throw new UnsupportedOperationException("Not supported yet."); // TODO CH
         List<String[]> newList = new ArrayList<>();
 
         try {
-            //List<Object[]> lookupList = LookupRaw.performLookupRaw(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup);
-            //newList = LookupConverter.convertRawLookup(statement, lookupList);
+            LookupResult<?> lookupResult = LookupRaw.performLookup(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, false);
+            newList = convertLookupResult(statement, lookupResult);
         }
         catch (Exception e) {
             ErrorReporter.report(e);
@@ -110,12 +118,56 @@ public class Lookup extends Queue {
 
     // Maintain backward compatibility
     protected static List<Object[]> performLookupRaw(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup) {
-        throw new UnsupportedOperationException("Not supported yet."); // TODO CH
-        //return LookupRaw.performLookupRaw(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup);
+        LookupResult<?> lookupResult = LookupRaw.performLookup(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, false);
+        return convertLookupResultRaw(lookupResult);
     }
 
     // Maintain backward compatibility
     private static ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean count) {
         return LookupRaw.rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, Collections.emptyList(), location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, count);
+    }
+
+    public static List<String[]> convertLookupResult(Statement statement, LookupResult<?> lookupResult) {
+        return LookupConverter.convertRawLookup(statement, convertLookupResultRaw(lookupResult));
+    }
+
+    private static List<Object[]> convertLookupResultRaw(LookupResult<?> lookupResult) {
+        if (lookupResult == null) {
+            return null;
+        }
+
+        List<Object[]> result = new ArrayList<>();
+        if (lookupResult instanceof CommonLookupResult commonLookupResult) {
+            for (CommonLookupData data : commonLookupResult.data()) {
+                if (data.table() == null) {
+                    result.add(new Object[] { data.rowId(), (int) data.time(), data.userId(), data.x(), data.y(), data.z(), data.type(), data.data(), data.action(), data.rolledBack(), data.worldId(), data.amount(), data.metadata(), data.blockData() });
+                }
+                else {
+                    result.add(new Object[] { data.rowId(), (int) data.time(), data.userId(), data.x(), data.y(), data.z(), data.type(), data.data(), data.action(), data.rolledBack(), data.worldId(), data.amount(), data.metadata(), data.blockData(), data.table() });
+                }
+            }
+        }
+        else if (lookupResult instanceof ChatLookupResult chatLookupResult) {
+            for (ChatLookupData data : chatLookupResult.data()) {
+                result.add(new Object[] { data.rowId(), (int) data.time(), data.userId(), data.message() });
+            }
+        }
+        else if (lookupResult instanceof SessionLookupResult sessionLookupResult) {
+            for (SessionLookupData data : sessionLookupResult.data()) {
+                result.add(new Object[] { data.rowId(), (int) data.time(), data.userId(), data.worldId(), data.x(), data.y(), data.z(), data.action() });
+            }
+        }
+        else if (lookupResult instanceof SignLookupResult signLookupResult) {
+            for (SignLookupData data : signLookupResult.data()) {
+                result.add(new Object[] { data.rowId(), (int) data.time(), data.userId(), data.worldId(), data.x(), data.y(), data.z(), data.text() });
+            }
+        }
+        else if (lookupResult instanceof UsernameHistoryLookupResult usernameHistoryLookupResult) {
+            for (UsernameHistoryData data : usernameHistoryLookupResult.data()) {
+                result.add(new Object[] { data.rowId(), (int) data.time(), data.uuid(), data.username() });
+            }
+        }
+
+        return result;
     }
 }

@@ -38,6 +38,8 @@ import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.Lookup;
+import net.coreprotect.database.rollback.Rollback;
+import net.coreprotect.data.lookup.LookupResult;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.utility.Chat;
@@ -1103,8 +1105,8 @@ public class CoreProtectAPI extends Queue {
                 else {
                     if (!Bukkit.isPrimaryThread()) {
                         boolean verbose = false;
-                        if (true) throw new UnsupportedOperationException("Not supported yet."); // TODO CH
-                        // result = Rollback.performRollbackRestore(statement, null, uuids, restrictUsers, null, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, startTime, endTime, restrictWorld, false, verbose, action, 0);
+                        LookupResult<?> rollbackResult = Rollback.performRollbackRestore(statement, null, uuids, restrictUsers, null, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, startTime, endTime, restrictWorld, false, verbose, action, 0);
+                        result = Lookup.convertLookupResult(statement, rollbackResult);
                     }
                     else {
                         Chat.console(Phrase.build(Phrase.PRIMARY_THREAD_ERROR));

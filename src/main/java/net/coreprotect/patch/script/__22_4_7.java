@@ -29,13 +29,8 @@ public class __22_4_7 {
             return;
         }
 
-        try {
-            statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + table + " MODIFY ORDER BY (wid, y, x, z, time, user, type, rowid)");
-        }
-        catch (Exception e) {
-            CoreProtect.getInstance().getSLF4JLogger().warn("Could not modify ORDER BY for {}{} in-place, rebuilding table instead.", ConfigHandler.prefix, table, e);
-            rebuildRollbackTable(statement, table);
-        }
+        CoreProtect.getInstance().getSLF4JLogger().info("Rebuilding {}{} to include rowid in the ClickHouse sorting key.", ConfigHandler.prefix, table);
+        rebuildRollbackTable(statement, table);
     }
 
     private static boolean sortingKeyIncludesRowId(Statement statement, String table) throws Exception {

@@ -681,22 +681,32 @@ public class ItemUtils {
     }
 
     public static String getItemHover(String itemData, int type, int amount) {
-        if (itemData == null || itemData.isEmpty()) {
-            return "";
-        }
-
         final SerializedItem serializedItem = deserializeItem(itemData, MaterialUtils.getType(type), amount);
-        if (serializedItem == null || serializedItem.itemStack() == null) {
+        if (serializedItem != null && serializedItem.itemStack() != null && !BlockUtils.isAir(serializedItem.itemStack().getType())) {
+            if (serializedItem.itemStack().getAmount() > 99) {
+                // need to limit the size in this case
+                serializedItem.itemStack().setAmount(99);
+            }
+
+            // Returns a string like <hover:show_item:...>
+            return MiniMessage.miniMessage().serialize(Component.text().hoverEvent(serializedItem.itemStack()).build());
+        }
+
+        String itemKey = itemKeyFromSerializedData(itemData);
+        if (itemKey == null || itemKey.isEmpty() || "minecraft:air".equals(itemKey)) {
+            itemKey = MaterialUtils.getBlockName(type);
+        }
+
+        if (itemKey == null || itemKey.isEmpty() || "minecraft:air".equals(itemKey)) {
             return "";
         }
 
-        if (serializedItem.itemStack().getAmount() > 99) {
-            // need to limit the size in this case
-            serializedItem.itemStack().setAmount(99);
+        if (!itemKey.contains(":")) {
+            itemKey = "minecraft:" + itemKey.toLowerCase(Locale.ROOT);
         }
 
-        // Returns a string like <hover:show_item:...>
-        return MiniMessage.miniMessage().serialize(Component.text().hoverEvent(serializedItem.itemStack()).build());
+        int hoverAmount = Math.max(1, Math.min(amount, 99));
+        return "<hover:show_item:'" + escapeMiniMessageQuoted(itemKey.toLowerCase(Locale.ROOT)) + "':" + hoverAmount + ">";
     }
 
     public static String createItemTooltip(String phrase, String hover) {
@@ -706,6 +716,28 @@ public class ItemUtils {
 
         // The opening tag is already included as part of the hover string, so we only need to close it.
         return hover + phrase + "</hover>";
+    }
+
+    private static @Nullable String itemKeyFromSerializedData(@Nullable String itemData) {
+        if (itemData == null || itemData.isEmpty() || "{}".equals(itemData) || "0".equals(itemData)) {
+            return null;
+        }
+
+        try {
+            JsonObject object = JsonSerialization.DEFAULT_GSON.fromJson(itemData, JsonObject.class);
+            if (object != null && object.has("id")) {
+                return object.get("id").getAsString();
+            }
+        }
+        catch (Exception ignored) {
+            // The metadata may be legacy or corrupt. Fall back to the stored material id.
+        }
+
+        return null;
+    }
+
+    private static String escapeMiniMessageQuoted(String value) {
+        return value.replace("\\", "\\\\").replace("'", "\\'");
     }
     
     public static Map<Integer, Object> serializeItemStackLegacy(ItemStack itemStack, String faceData, int slot) {

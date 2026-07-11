@@ -12,7 +12,9 @@ import com.google.gson.JsonSyntaxException;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.utility.serialize.JsonSerialization;
 import net.coreprotect.utility.serialize.SerializedItem;
+import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -38,6 +40,7 @@ import org.jspecify.annotations.Nullable;
 
 public class ItemUtils {
     private static final Object UNSERIALIZABLE_VALUE = new Object();
+    private static final String HOVER_SERIALIZE_TOKEN = "__coreprotect_hover_text__";
     private static final Logger LOGGER = Logger.getLogger("CoreProtect");
     private static final int MAX_SANITIZE_ATTEMPTS = 2;
     private static final Pattern TYPE_TOKEN_PATTERN = Pattern.compile("([A-Za-z_$][A-Za-z0-9_$\\.]*)\\{");
@@ -706,7 +709,7 @@ public class ItemUtils {
         }
 
         int hoverAmount = Math.max(1, Math.min(amount, 99));
-        return "<hover:show_item:'" + escapeMiniMessageQuoted(itemKey.toLowerCase(Locale.ROOT)) + "':" + hoverAmount + ">";
+        return serializeItemHoverOpening(itemKey.toLowerCase(Locale.ROOT), hoverAmount);
     }
 
     public static String createItemTooltip(String phrase, String hover) {
@@ -738,6 +741,22 @@ public class ItemUtils {
 
     private static String escapeMiniMessageQuoted(String value) {
         return value.replace("\\", "\\\\").replace("'", "\\'");
+    }
+
+    private static String serializeItemHoverOpening(String itemKey, int amount) {
+        try {
+            HoverEvent<HoverEvent.ShowItem> hoverEvent = HoverEvent.showItem(Key.key(itemKey), amount);
+            String serialized = MiniMessage.miniMessage().serialize(Component.text(HOVER_SERIALIZE_TOKEN).hoverEvent(hoverEvent));
+            int tokenIndex = serialized.indexOf(HOVER_SERIALIZE_TOKEN);
+            if (tokenIndex > 0) {
+                return serialized.substring(0, tokenIndex);
+            }
+        }
+        catch (Exception ignored) {
+            // Fall back to a manually escaped MiniMessage tag below.
+        }
+
+        return "<hover:show_item:'" + escapeMiniMessageQuoted(itemKey) + "':" + amount + ">";
     }
     
     public static Map<Integer, Object> serializeItemStackLegacy(ItemStack itemStack, String faceData, int slot) {

@@ -262,12 +262,18 @@ public class RollbackUtil extends Lookup {
                 if (slot >= 0 && slot < contents.length) {
                     ItemStack existing = contents[slot];
                     if (existing == null || existing.getType() == Material.AIR) {
-                        contents[slot] = remaining;
+                        int maxStackSize = Math.min(remaining.getMaxStackSize(), inventory.getMaxStackSize());
+                        if (maxStackSize <= 0) {
+                            maxStackSize = remaining.getMaxStackSize();
+                        }
+                        int moveAmount = Math.min(remaining.getAmount(), maxStackSize);
+                        ItemStack slottedItem = remaining.clone();
+                        slottedItem.setAmount(moveAmount);
+                        contents[slot] = slottedItem;
+                        remaining.setAmount(remaining.getAmount() - moveAmount);
                         inventory.setStorageContents(contents);
-                        return originalAmount;
                     }
-
-                    if (existing.isSimilar(remaining)) {
+                    else if (existing.isSimilar(remaining)) {
                         int maxStackSize = Math.min(existing.getMaxStackSize(), inventory.getMaxStackSize());
                         int moveAmount = Math.min(remaining.getAmount(), Math.max(0, maxStackSize - existing.getAmount()));
                         if (moveAmount > 0) {

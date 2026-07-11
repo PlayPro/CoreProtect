@@ -805,14 +805,18 @@ public class ItemUtils {
         return deserializeItem(itemString, null, 0);
     }
 
+    private static @Nullable SerializedItem fallbackSerializedItem(@Nullable Material type, int amount, @Nullable Integer slot, @Nullable BlockFace faceData) {
+        if (type != null && amount > 0 && type.isItem()) {
+            return new SerializedItem(ItemStack.of(type, amount), slot, faceData);
+        }
+
+        return null;
+    }
+
     @SuppressWarnings("deprecation")
     public static SerializedItem deserializeItem(@Nullable String itemString, @Nullable Material type, int amount) {
         if (itemString == null || itemString.isEmpty() || "{}".equals(itemString) || "0".equals(itemString)) {
-            if (type != null && amount > 0 && type.isItem()) {
-                return SerializedItem.of(ItemStack.of(type, amount));
-            } else {
-                return null;
-            }
+            return fallbackSerializedItem(type, amount, null, null);
         }
 
         final JsonObject object;
@@ -841,6 +845,13 @@ public class ItemUtils {
 
         try {
             final ItemStack itemStack = Bukkit.getUnsafe().deserializeItemFromJson(object);
+            if (BlockUtils.isAir(itemStack.getType())) {
+                SerializedItem fallback = fallbackSerializedItem(type, amount, slot, faceData);
+                if (fallback != null) {
+                    return fallback;
+                }
+            }
+
             if (itemStack.getAmount() < amount) {
                 // can only serialize items with up to 99 items, try to restore the original size
                 itemStack.setAmount(amount);
@@ -849,7 +860,7 @@ public class ItemUtils {
             return new SerializedItem(itemStack, slot, faceData);
         } catch (Exception e) {
             CoreProtect.getInstance().getSLF4JLogger().warn("Failed to deserialize item from json {}", object, e);
-            return type != null && amount > 0 && type.isItem() ? new SerializedItem(ItemStack.of(type, amount), slot, faceData) : null;
+            return fallbackSerializedItem(type, amount, slot, faceData);
         }
     }
 

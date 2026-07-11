@@ -237,6 +237,114 @@ public class RollbackUtil extends Lookup {
         return modifiedArmor;
     }
 
+    protected static int modifyContainerSlotItems(Material type, Object container, int slot, ItemStack itemstack, int action) {
+        if (itemstack == null || itemstack.getType() == Material.AIR || itemstack.getAmount() <= 0) {
+            return 0;
+        }
+
+        if (type == Material.ARMOR_STAND || type == Material.ITEM_FRAME || type == Material.JUKEBOX || container instanceof PlayerInventory) {
+            int originalAmount = itemstack.getAmount();
+            modifyContainerItems(type, container, slot, itemstack, action);
+            return originalAmount;
+        }
+
+        try {
+            Inventory inventory = (Inventory) container;
+            if (inventory == null) {
+                return 0;
+            }
+
+            int originalAmount = itemstack.getAmount();
+            if (action == 1) {
+                ItemStack remaining = itemstack.clone();
+                ItemStack[] contents = inventory.getStorageContents();
+
+                if (slot >= 0 && slot < contents.length) {
+                    ItemStack existing = contents[slot];
+                    if (existing == null || existing.getType() == Material.AIR) {
+                        contents[slot] = remaining;
+                        inventory.setStorageContents(contents);
+                        return originalAmount;
+                    }
+
+                    if (existing.isSimilar(remaining)) {
+                        int maxStackSize = Math.min(existing.getMaxStackSize(), inventory.getMaxStackSize());
+                        int moveAmount = Math.min(remaining.getAmount(), Math.max(0, maxStackSize - existing.getAmount()));
+                        if (moveAmount > 0) {
+                            existing.setAmount(existing.getAmount() + moveAmount);
+                            remaining.setAmount(remaining.getAmount() - moveAmount);
+                            contents[slot] = existing;
+                            inventory.setStorageContents(contents);
+                        }
+                    }
+                }
+
+                if (remaining.getAmount() > 0) {
+                    Map<Integer, ItemStack> leftovers = inventory.addItem(remaining);
+                    int leftoverAmount = leftovers.values().stream().mapToInt(ItemStack::getAmount).sum();
+                    return originalAmount - leftoverAmount;
+                }
+
+                return originalAmount;
+            }
+
+            int removeAmount = originalAmount;
+            ItemStack removeMatch = itemstack.clone();
+            removeMatch.setAmount(1);
+            ItemStack[] contents = inventory.getStorageContents();
+
+            if (slot >= 0 && slot < contents.length && contents[slot] != null) {
+                ItemStack existing = contents[slot].clone();
+                int existingAmount = existing.getAmount();
+                existing.setAmount(1);
+                if (existing.toString().equals(removeMatch.toString())) {
+                    int moveAmount = Math.min(removeAmount, existingAmount);
+                    removeAmount -= moveAmount;
+                    int remainingAmount = existingAmount - moveAmount;
+                    contents[slot] = remainingAmount > 0 ? contents[slot] : null;
+                    if (contents[slot] != null) {
+                        contents[slot].setAmount(remainingAmount);
+                    }
+                    inventory.setStorageContents(contents);
+                }
+            }
+
+            if (removeAmount > 0) {
+                ItemStack[] refreshedContents = inventory.getStorageContents().clone();
+                for (int i = refreshedContents.length - 1; i >= 0 && removeAmount > 0; i--) {
+                    if (refreshedContents[i] == null) {
+                        continue;
+                    }
+
+                    ItemStack existing = refreshedContents[i].clone();
+                    int existingAmount = existing.getAmount();
+                    existing.setAmount(1);
+                    if (!existing.toString().equals(removeMatch.toString())) {
+                        continue;
+                    }
+
+                    int moveAmount = Math.min(removeAmount, existingAmount);
+                    removeAmount -= moveAmount;
+                    int remainingAmount = existingAmount - moveAmount;
+                    if (remainingAmount > 0) {
+                        refreshedContents[i].setAmount(remainingAmount);
+                    }
+                    else {
+                        refreshedContents[i] = null;
+                    }
+                }
+                inventory.setStorageContents(refreshedContents);
+            }
+
+            return originalAmount - removeAmount;
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+        }
+
+        return 0;
+    }
+
     public static void sortContainerItems(PlayerInventory inventory, List<Integer> modifiedArmorSlots) {
         try {
             ItemStack[] armorContents = inventory.getArmorContents();

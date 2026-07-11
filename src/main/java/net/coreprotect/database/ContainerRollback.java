@@ -143,7 +143,8 @@ public class ContainerRollback extends Rollback {
                                     }
                                 }
 
-                                Rollback.modifyContainerItems(type, container, slot != null ? slot : 0, itemstack, action);
+                                int modifiedAmount = Rollback.modifyContainerSlotItems(type, container, slot != null ? slot : 0, itemstack, action);
+                                modifyCount = modifyCount - rowAmount + modifiedAmount;
                             }
                         }
                     }

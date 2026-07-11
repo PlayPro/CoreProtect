@@ -410,8 +410,8 @@ public class RollbackProcessor {
                                 action = 1;
                             }
 
-                            RollbackUtil.modifyContainerItems(containerType, container, slot, item.itemStack(), action);
-                            itemCount1 = itemCount1 + rowAmount;
+                            int modifiedAmount = RollbackUtil.modifyContainerSlotItems(containerType, container, slot, item.itemStack(), action);
+                            itemCount1 = itemCount1 + modifiedAmount;
                         }
                         containerInit = true;
                     }

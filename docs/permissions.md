@@ -75,6 +75,9 @@ The following permissions can be used to restrict functionality within the plugi
 * **coreprotect.lookup.kill** *(default: op)*  
   Can be optionally used as a negative permission to prevent entity kill lookups.  
   &nbsp;
+* **coreprotect.lookup.spawn** *(default: op)*  
+  Can be optionally used as a negative permission to prevent entity spawn lookups.  
+  &nbsp;
 * **coreprotect.lookup.near** *(default: op)*  
   Can be optionally used as a negative permission to prevent lookups via the near command.  
   &nbsp;

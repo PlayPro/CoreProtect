@@ -79,6 +79,7 @@ import net.coreprotect.spigot.SpigotAdapter;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
+import net.coreprotect.utility.EntitySpawnTracking;
 
 public final class EntityDeathListener extends Queue implements Listener {
 
@@ -566,6 +567,9 @@ public final class EntityDeathListener extends Queue implements Listener {
             data.add(entity.getCustomName());
             data.add(attributes);
             data.add(details);
+            if (EntitySpawnTracking.isTracked(entity)) {
+                data.add(entity.getUniqueId().toString());
+            }
 
             if (!(entity instanceof Player)) {
                 Queue.queueEntityKill(e, entity.getLocation(), data, type);
@@ -639,6 +643,11 @@ public final class EntityDeathListener extends Queue implements Listener {
         LivingEntity entity = event.getEntity();
         if (entity == null) {
             return;
+        }
+
+        if (EntitySpawnTracking.isTracked(entity)) {
+            Queue.queueEntitySpawnRemoved(entity.getUniqueId(), entity.getLocation());
+            EntitySpawnTracking.forget(entity.getUniqueId());
         }
 
         logEntityDeath(entity, null);

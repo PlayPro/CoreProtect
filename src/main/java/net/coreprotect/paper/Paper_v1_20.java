@@ -16,7 +16,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.utility.ErrorReporter;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
-public class Paper_v1_20 extends Paper_v1_17 {
+public class Paper_v1_20 extends Paper_v1_19 {
 
     @Override
     public String getLine(Sign sign, int line) {

@@ -48,6 +48,8 @@ public class Database extends Queue {
     public static final int ENTITY_MAP = 11;
     public static final int BLOCKDATA = 12;
     public static final int ITEM = 13;
+    public static final int ENTITY_SPAWN = 14;
+    public static final int ENTITY_CONTAINER = 15;
 
     private static final int ROLLED_BACK_UPDATE_BATCH_SIZE = 1000;
 
@@ -69,11 +71,13 @@ public class Database extends Queue {
         SQL_QUERIES.put(ART, "INSERT INTO %sprefix%art_map (id, art) VALUES (?, ?)");
         SQL_QUERIES.put(ENTITY_MAP, "INSERT INTO %sprefix%entity_map (id, entity) VALUES (?, ?)");
         SQL_QUERIES.put(BLOCKDATA, "INSERT INTO %sprefix%blockdata_map (id, data) VALUES (?, ?)");
+        SQL_QUERIES.put(ENTITY_SPAWN, "INSERT INTO %sprefix%entity_spawn (time, uuid, wid, current_wid, origin_x, origin_y, origin_z, x, y, z, yaw, pitch, data, removed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        SQL_QUERIES.put(ENTITY_CONTAINER, "INSERT INTO %sprefix%entity_container (time, user, entity_spawn_rowid, wid, x, y, z, type, data, amount, metadata, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     }
 
-    public static void beginTransaction(Statement statement, boolean isMySQL) {
+    public static void beginTransaction(Statement statement, boolean isMySQL) throws SQLException {
         Consumer.transacting = true;
-
+        boolean started = false;
         try {
             if (isMySQL) {
                 statement.executeUpdate("START TRANSACTION");
@@ -81,13 +85,21 @@ public class Database extends Queue {
             else {
                 statement.executeUpdate("BEGIN TRANSACTION");
             }
+            started = true;
         }
-        catch (Exception e) {
-            ErrorReporter.report(e);
+        finally {
+            if (!started) {
+                Consumer.transacting = false;
+                Consumer.interrupt = false;
+            }
         }
     }
 
     public static void commitTransaction(Statement statement, boolean isMySQL) throws Exception {
+        commitTransactionChecked(statement, isMySQL);
+    }
+
+    public static boolean commitTransactionChecked(Statement statement, boolean isMySQL) throws Exception {
         int count = 0;
 
         while (true) {
@@ -98,22 +110,58 @@ public class Database extends Queue {
                 else {
                     statement.executeUpdate("COMMIT TRANSACTION");
                 }
+                Consumer.transacting = false;
+                Consumer.interrupt = false;
+                return true;
             }
             catch (Exception e) {
-                if (e.getMessage().startsWith("[SQLITE_BUSY]") && count < 30) {
+                if (e.getMessage() != null && e.getMessage().startsWith("[SQLITE_BUSY]") && count < 30) {
                     Thread.sleep(1000);
                     count++;
 
                     continue;
                 }
-                else {
-                    ErrorReporter.report(e);
-                }
+                ErrorReporter.report(e);
+                Consumer.transacting = false;
+                Consumer.interrupt = false;
+                return false;
             }
+        }
+    }
 
+    public static void rollbackTransaction(Statement statement, boolean isMySQL) {
+        try {
+            statement.executeUpdate(isMySQL ? "ROLLBACK" : "ROLLBACK TRANSACTION");
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+        }
+        finally {
             Consumer.transacting = false;
             Consumer.interrupt = false;
-            return;
+        }
+    }
+
+    public static void executeSavepoint(Statement statement, String name, SavepointOperation operation) throws Exception {
+        statement.execute("SAVEPOINT " + name);
+        try {
+            operation.execute();
+            statement.execute("RELEASE SAVEPOINT " + name);
+        }
+        catch (Exception e) {
+            try {
+                statement.execute("ROLLBACK TO SAVEPOINT " + name);
+            }
+            catch (Exception rollbackException) {
+                e.addSuppressed(rollbackException);
+            }
+            try {
+                statement.execute("RELEASE SAVEPOINT " + name);
+            }
+            catch (Exception releaseException) {
+                e.addSuppressed(releaseException);
+            }
+            throw e;
         }
     }
 
@@ -226,16 +274,7 @@ public class Database extends Queue {
     }
 
     public static void performRolledBackUpdate(Statement statement, int rolledBack, List<Long> rowIds, int table) {
-        String tableName;
-        if (RollbackUpdateTargets.updatesContainerTable(table)) {
-            tableName = "container";
-        }
-        else if (RollbackUpdateTargets.updatesItemTable(table)) {
-            tableName = "item";
-        }
-        else {
-            tableName = "block";
-        }
+        String tableName = getRolledBackTableName(table);
 
         try {
             int listSize = rowIds.size();
@@ -255,6 +294,48 @@ public class Database extends Queue {
         catch (Exception e) {
             ErrorReporter.report(e);
         }
+    }
+
+    public static void performRolledBackUpdateChecked(Statement statement, int rolledBack, List<Long> rowIds, int table) throws SQLException {
+        String tableName = getRolledBackTableName(table);
+        int listSize = rowIds.size();
+        for (int startIndex = 0; startIndex < listSize; startIndex += ROLLED_BACK_UPDATE_BATCH_SIZE) {
+            int endIndex = Math.min(startIndex + ROLLED_BACK_UPDATE_BATCH_SIZE, listSize);
+            StringBuilder rowIdsSql = new StringBuilder();
+            for (int index = startIndex; index < endIndex; index++) {
+                if (index > startIndex) {
+                    rowIdsSql.append(',');
+                }
+                rowIdsSql.append(rowIds.get(index).longValue());
+            }
+
+            String where = "rowid IN(" + rowIdsSql + ")";
+            int expected = endIndex - startIndex;
+            int updated = statement.executeUpdate("UPDATE " + ConfigHandler.prefix + tableName + " SET rolled_back='" + rolledBack + "' WHERE " + where);
+            if (updated == expected) {
+                continue;
+            }
+
+            try (ResultSet resultSet = statement.executeQuery("SELECT COUNT(*) FROM " + ConfigHandler.prefix + tableName + " WHERE " + where + " AND rolled_back='" + rolledBack + "'")) {
+                if (resultSet.next() && resultSet.getInt(1) == expected) {
+                    continue;
+                }
+            }
+            throw new SQLException("Expected " + expected + " rolled-back row updates in " + tableName + ", updated " + updated);
+        }
+    }
+
+    private static String getRolledBackTableName(int table) {
+        if (table == RollbackUpdateTargets.ENTITY_CONTAINER) {
+            return "entity_container";
+        }
+        if (RollbackUpdateTargets.updatesContainerTable(table)) {
+            return "container";
+        }
+        if (RollbackUpdateTargets.updatesItemTable(table)) {
+            return "item";
+        }
+        return "block";
     }
 
     public static PreparedStatement prepareStatement(Connection connection, int type, boolean keys) {
@@ -325,7 +406,7 @@ public class Database extends Queue {
         }
     }
 
-    private static final List<String> DATABASE_TABLES = Arrays.asList("art_map", "block", "chat", "command", "container", "item", "database_lock", "entity", "entity_map", "material_map", "blockdata_map", "session", "sign", "skull", "user", "username_log", "version", "world");
+    private static final List<String> DATABASE_TABLES = Arrays.asList("art_map", "block", "chat", "command", "container", "entity_container", "item", "database_lock", "entity", "entity_spawn", "entity_map", "material_map", "blockdata_map", "session", "sign", "skull", "user", "username_log", "version", "world");
 
     public static void createDatabaseTables(String prefix, boolean forcePrefix, Connection forceConnection, boolean mySQL, boolean purge) {
         ConfigHandler.databaseTables.clear();
@@ -384,6 +465,10 @@ public class Database extends Queue {
         index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(type,time)";
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "container(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, wid int, x int, y int, z int, type int, data int, amount int, metadata mediumblob, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
+        // Entity container
+        index = ", INDEX(wid,x,z,time), INDEX(entity_spawn_rowid,time), INDEX(user,time), INDEX(type,time)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_container(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, entity_spawn_rowid int NOT NULL, wid int, x int, y int, z int, type int, data int, amount int, metadata mediumblob, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+
         // Item
         index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(type,time)";
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "item(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, wid int, x int, y int, z int, type int, data mediumblob, amount int, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
@@ -392,7 +477,11 @@ public class Database extends Queue {
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "database_lock(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),status tinyint,time int) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
         // Entity
-        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, data blob) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, data mediumblob) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+
+        // Entity spawn tracking
+        index = ", UNIQUE INDEX(uuid), UNIQUE INDEX entity_spawn_kill_rowid_index(kill_rowid), INDEX(time), INDEX(wid), INDEX(current_wid,x,z)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_spawn(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int,block_rowid bigint,kill_rowid int,uuid varchar(36),wid int,current_wid int,origin_x double,origin_y double,origin_z double,x double,y double,z double,yaw float,pitch float,data mediumblob NULL,removed tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
         // Entity map
         index = ", INDEX(id)";
@@ -441,6 +530,10 @@ public class Database extends Queue {
             ensureMySQLIndex(statement, prefix + "container", "wid", "x", "z", "time");
             ensureMySQLIndex(statement, prefix + "container", "user", "time");
             ensureMySQLIndex(statement, prefix + "container", "type", "time");
+            ensureMySQLIndex(statement, prefix + "entity_container", "wid", "x", "z", "time");
+            ensureMySQLIndex(statement, prefix + "entity_container", "entity_spawn_rowid", "time");
+            ensureMySQLIndex(statement, prefix + "entity_container", "user", "time");
+            ensureMySQLIndex(statement, prefix + "entity_container", "type", "time");
             ensureMySQLIndex(statement, prefix + "item", "wid", "x", "z", "time");
             ensureMySQLIndex(statement, prefix + "item", "user", "time");
             ensureMySQLIndex(statement, prefix + "item", "type", "time");
@@ -593,6 +686,9 @@ public class Database extends Queue {
         if (!tableData.contains(prefix + "container")) {
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "container (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, data INTEGER, amount INTEGER, metadata BLOB, action INTEGER, rolled_back INTEGER);");
         }
+        if (!tableData.contains(prefix + "entity_container")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_container (time INTEGER, user INTEGER, entity_spawn_rowid INTEGER NOT NULL, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, data INTEGER, amount INTEGER, metadata BLOB, action INTEGER, rolled_back INTEGER);");
+        }
         if (!tableData.contains(prefix + "item")) {
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "item (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, data BLOB, amount INTEGER, action INTEGER, rolled_back INTEGER);");
         }
@@ -601,6 +697,9 @@ public class Database extends Queue {
         }
         if (!tableData.contains(prefix + "entity")) {
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity (id INTEGER PRIMARY KEY ASC, time INTEGER, data BLOB);");
+        }
+        if (!tableData.contains(prefix + "entity_spawn")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_spawn (id INTEGER PRIMARY KEY ASC, time INTEGER, block_rowid INTEGER, kill_rowid INTEGER, uuid TEXT UNIQUE, wid INTEGER, current_wid INTEGER, origin_x REAL, origin_y REAL, origin_z REAL, x REAL, y REAL, z REAL, yaw REAL, pitch REAL, data BLOB, removed INTEGER);");
         }
         if (!tableData.contains(prefix + "entity_map")) {
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_map (id INTEGER, entity TEXT);");
@@ -650,10 +749,18 @@ public class Database extends Queue {
             createSQLiteIndex(statement, indexData, attachDatabase, "container_index", prefix + "container(wid,x,z,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "container_user_index", prefix + "container(user,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "container_type_index", prefix + "container(type,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_container_index", prefix + "entity_container(wid,x,z,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_container_spawn_index", prefix + "entity_container(entity_spawn_rowid,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_container_user_index", prefix + "entity_container(user,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_container_type_index", prefix + "entity_container(type,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "item_index", prefix + "item(wid,x,z,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "item_user_index", prefix + "item(user,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "item_type_index", prefix + "item(type,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "entity_map_id_index", prefix + "entity_map(id)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_spawn_time_index", prefix + "entity_spawn(time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_spawn_wid_index", prefix + "entity_spawn(wid)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_spawn_current_location_index", prefix + "entity_spawn(current_wid,x,z)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_spawn_kill_rowid_index", prefix + "entity_spawn(kill_rowid)", true);
             createSQLiteIndex(statement, indexData, attachDatabase, "material_map_id_index", prefix + "material_map(id)");
             createSQLiteIndex(statement, indexData, attachDatabase, "session_index", prefix + "session(wid,x,z,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "session_action_index", prefix + "session(action,time)");
@@ -682,9 +789,19 @@ public class Database extends Queue {
     }
 
     private static void createSQLiteIndex(Statement statement, List<String> indexData, String attachDatabase, String indexName, String indexColumns) throws SQLException {
+        createSQLiteIndex(statement, indexData, attachDatabase, indexName, indexColumns, false);
+    }
+
+    private static void createSQLiteIndex(Statement statement, List<String> indexData, String attachDatabase, String indexName, String indexColumns, boolean unique) throws SQLException {
         if (!indexData.contains(indexName)) {
-            statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + indexName + " ON " + indexColumns + ";");
+            statement.executeUpdate("CREATE " + (unique ? "UNIQUE " : "") + "INDEX IF NOT EXISTS " + attachDatabase + indexName + " ON " + indexColumns + ";");
         }
+    }
+
+    @FunctionalInterface
+    public interface SavepointOperation {
+
+        void execute() throws Exception;
     }
 
 }

@@ -15,6 +15,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.bukkit.BukkitAdapter;
@@ -22,11 +23,18 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.logger.ItemLogger;
+import net.coreprotect.language.Phrase;
+import net.coreprotect.listener.player.inspector.ContainerInspector;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.Color;
+import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.HopperTransactionUtils;
 import net.coreprotect.utility.ItemUtils;
 
 public final class PlayerInteractEntityListener extends Queue implements Listener {
+
+    private final ContainerInspector containerInspector = new ContainerInspector();
 
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
@@ -36,6 +44,29 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
 
         Player player = event.getPlayer();
         final Entity entity = event.getRightClicked(); // change item in ItemFrame, etc
+        if (Boolean.TRUE.equals(ConfigHandler.inspecting.get(player.getName())) && EntitySpawnTracking.isPlacedEntity(entity) && entity instanceof InventoryHolder) {
+            String playerUuid = player.getUniqueId().toString();
+            long now = System.currentTimeMillis();
+            Object[] previousInspection = PlayerInteractListener.lastInspectorEvent.get(playerUuid);
+            if (previousInspection != null && now - (long) previousInspection[0] < 100L) {
+                event.setCancelled(true);
+                return;
+            }
+            PlayerInteractListener.lastInspectorEvent.put(playerUuid, new Object[] { now, event.getHand() });
+
+            if (!player.hasPermission("coreprotect.inspect")) {
+                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
+                ConfigHandler.inspecting.put(player.getName(), false);
+                event.setCancelled(true);
+                return;
+            }
+            if (Config.getConfig(player.getWorld()).ITEM_TRANSACTIONS) {
+                containerInspector.performEntityContainerLookup(player, entity.getUniqueId(), entity.getLocation());
+                event.setCancelled(true);
+                return;
+            }
+        }
+
         if (entity instanceof ItemFrame) {
             ItemFrame frame = (ItemFrame) entity;
             ItemStack handItem = new ItemStack(Material.AIR);

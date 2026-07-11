@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -35,12 +36,15 @@ import net.coreprotect.api.result.SignResult;
 import net.coreprotect.api.result.SessionResult;
 import net.coreprotect.api.result.UsernameResult;
 import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.Lookup;
 import net.coreprotect.database.rollback.Rollback;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.player.InventoryChangeListener;
+import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.ErrorReporter;
@@ -56,7 +60,8 @@ public class CoreProtectAPI extends Queue {
     /**
      * Current version of the API
      */
-    private static final int API_VERSION = 12;
+    private static final int API_VERSION = 13;
+    private static final AtomicLong API_ROLLBACK_SEQUENCE = new AtomicLong();
 
     public static class ParseResult extends net.coreprotect.api.result.ParseResult {
 
@@ -94,6 +99,10 @@ public class CoreProtectAPI extends Queue {
         }
 
         return result;
+    }
+
+    private static boolean isSupportedLegacyAction(Integer action) {
+        return action != null && (action == LookupActions.BLOCK_BREAK || action == LookupActions.BLOCK_PLACE || action == LookupActions.INTERACTION || action == LookupActions.ENTITY_KILL || action == LookupActions.ENTITY_SPAWN);
     }
 
     /**
@@ -991,16 +1000,15 @@ public class CoreProtectAPI extends Queue {
         List<String[]> result = new ArrayList<>();
         List<String> uuids = new ArrayList<>();
 
-        if (restrictUsers == null) {
-            restrictUsers = new ArrayList<>();
-        }
-
-        if (excludeUsers == null) {
-            excludeUsers = new ArrayList<>();
-        }
-
-        if (actionList == null) {
-            actionList = new ArrayList<>();
+        restrictUsers = restrictUsers == null ? new ArrayList<>() : new ArrayList<>(restrictUsers);
+        excludeUsers = excludeUsers == null ? new ArrayList<>() : new ArrayList<>(excludeUsers);
+        boolean explicitActions = actionList != null && !actionList.isEmpty();
+        actionList = actionList == null ? new ArrayList<>() : new ArrayList<>(actionList);
+        if (explicitActions) {
+            actionList.removeIf(actionListItem -> !isSupportedLegacyAction(actionListItem));
+            if (actionList.isEmpty()) {
+                return result;
+            }
         }
 
         List<Object> restrictBlocks = new ArrayList<>(restrictBlocksMap.keySet());
@@ -1010,23 +1018,21 @@ public class CoreProtectAPI extends Queue {
 
             for (Object argBlock : restrictBlocks) {
                 if (argBlock instanceof Material && !addedMaterial) {
-                    actionList.add(0);
-                    actionList.add(1);
+                    actionList.add(LookupActions.BLOCK_BREAK);
+                    actionList.add(LookupActions.BLOCK_PLACE);
                     addedMaterial = true;
                 }
                 else if (argBlock instanceof EntityType && !addedEntity) {
-                    actionList.add(3);
+                    actionList.add(LookupActions.ENTITY_KILL);
                     addedEntity = true;
                 }
             }
         }
 
         if (actionList.isEmpty()) {
-            actionList.add(0);
-            actionList.add(1);
+            actionList.add(LookupActions.BLOCK_BREAK);
+            actionList.add(LookupActions.BLOCK_PLACE);
         }
-
-        actionList.removeIf(actionListItem -> actionListItem > 3);
 
         if (restrictUsers.isEmpty()) {
             restrictUsers.add("#global");
@@ -1084,8 +1090,19 @@ public class CoreProtectAPI extends Queue {
                 }
                 else {
                     if (!Bukkit.isPrimaryThread()) {
-                        boolean verbose = false;
-                        result = Rollback.performRollbackRestore(statement, null, uuids, restrictUsers, null, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, startTime, endTime, restrictWorld, false, verbose, action, 0);
+                        String rollbackKey = "#api-" + API_ROLLBACK_SEQUENCE.incrementAndGet();
+                        if (Consumer.claimRollback(rollbackKey) == Consumer.OperationStartResult.STARTED) {
+                            try {
+                                boolean verbose = false;
+                                result = Rollback.performRollbackRestore(statement, null, uuids, restrictUsers, null, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, startTime, endTime, restrictWorld, false, verbose, action, 0);
+                            }
+                            finally {
+                                Consumer.releaseRollback(rollbackKey);
+                            }
+                        }
+                        else { // only print exception on development branch
+                            ErrorReporter.report(new IllegalStateException("API rollback skipped: database purge in progress"), ConfigHandler.EDITION_BRANCH.contains("-dev"));
+                        }
                     }
                     else {
                         Chat.console(Phrase.build(Phrase.PRIMARY_THREAD_ERROR));

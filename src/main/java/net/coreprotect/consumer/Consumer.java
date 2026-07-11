@@ -18,7 +18,15 @@ import net.coreprotect.utility.ErrorReporter;
 
 public class Consumer extends Process implements Runnable, Thread.UncaughtExceptionHandler {
 
+    public enum OperationStartResult {
+        STARTED,
+        PURGE_RUNNING,
+        ROLLBACK_RUNNING
+    }
+
     private static Thread consumerThread = null;
+    private static final Object rollbackPurgeGate = new Object();
+    private static long pendingRollbackPublications = 0;
     public static volatile int currentConsumer = 0;
     public static volatile boolean isPaused = false;
     public static volatile boolean transacting = false;
@@ -56,10 +64,29 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         }
     }
 
-    protected static int newConsumerId(int consumer) {
-        int id = Consumer.consumer_id.get(consumer)[0];
-        Consumer.consumer_id.put(consumer, new Integer[] { id + 1, 1 });
-        return id;
+    protected static long reserveConsumer() {
+        return reserveConsumers(1);
+    }
+
+    protected static long reserveConsumers(int count) {
+        synchronized (Consumer.consumer_id) {
+            int consumer = Consumer.currentConsumer;
+            Integer[] state = Consumer.consumer_id.get(consumer);
+            int id = state[0];
+            Consumer.consumer_id.put(consumer, new Integer[] { id + count, state[1] + count });
+            return ((long) consumer << 32) | (id & 0xffffffffL);
+        }
+    }
+
+    protected static void completeReservation(long reservation, int count) {
+        int consumer = (int) (reservation >>> 32);
+        synchronized (Consumer.consumer_id) {
+            Integer[] state = Consumer.consumer_id.get(consumer);
+            if (count <= 0 || state == null || state[1] < count) {
+                throw new IllegalStateException("Invalid consumer reservation completion");
+            }
+            Consumer.consumer_id.put(consumer, new Integer[] { state[0], state[1] - count });
+        }
     }
 
     public static int getConsumerSize(int id) {
@@ -99,9 +126,68 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         return consumerThread != null && consumerThread.isAlive();
     }
 
+    public static OperationStartResult claimPurge() {
+        synchronized (rollbackPurgeGate) {
+            if (ConfigHandler.purgeRunning) {
+                return OperationStartResult.PURGE_RUNNING;
+            }
+            if (!ConfigHandler.activeRollbacks.isEmpty() || pendingRollbackPublications > 0) {
+                return OperationStartResult.ROLLBACK_RUNNING;
+            }
+            ConfigHandler.purgeRunning = true;
+            return OperationStartResult.STARTED;
+        }
+    }
+
+    public static void releasePurge() {
+        synchronized (rollbackPurgeGate) {
+            ConfigHandler.purgeRunning = false;
+        }
+    }
+
+    public static OperationStartResult claimRollback(String user) {
+        synchronized (rollbackPurgeGate) {
+            if (ConfigHandler.purgeRunning) {
+                return OperationStartResult.PURGE_RUNNING;
+            }
+            if (ConfigHandler.activeRollbacks.containsKey(user)) {
+                return OperationStartResult.ROLLBACK_RUNNING;
+            }
+            ConfigHandler.activeRollbacks.put(user, true);
+            return OperationStartResult.STARTED;
+        }
+    }
+
+    public static void releaseRollback(String user) {
+        synchronized (rollbackPurgeGate) {
+            ConfigHandler.activeRollbacks.remove(user);
+        }
+    }
+
+    public static void registerRollbackPublications(int count) {
+        if (count <= 0) {
+            return;
+        }
+        synchronized (rollbackPurgeGate) {
+            pendingRollbackPublications += count;
+        }
+    }
+
+    public static void completeRollbackPublications(int count) {
+        if (count <= 0) {
+            return;
+        }
+        synchronized (rollbackPurgeGate) {
+            if (pendingRollbackPublications < count) {
+                throw new IllegalStateException("Invalid rollback publication completion");
+            }
+            pendingRollbackPublications -= count;
+        }
+    }
+
     private static void pauseConsumer(int process_id) {
         try {
-            while ((ConfigHandler.serverRunning || ConfigHandler.converterRunning || ConfigHandler.migrationRunning) && (Consumer.isPaused || ConfigHandler.pauseConsumer || ConfigHandler.purgeRunning || Consumer.consumer_id.get(process_id)[1] == 1)) {
+            while (Consumer.consumer_id.get(process_id)[1] > 0 || ((ConfigHandler.serverRunning || ConfigHandler.converterRunning || ConfigHandler.migrationRunning) && (Consumer.isPaused || ConfigHandler.pauseConsumer || ConfigHandler.purgeRunning))) {
                 pausedSuccess = true;
                 Thread.sleep(100);
             }
@@ -122,12 +208,14 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
             }
             try {
                 int process_id = 0;
-                if (currentConsumer == 0) {
-                    currentConsumer = 1;
-                }
-                else {
-                    process_id = 1;
-                    currentConsumer = 0;
+                synchronized (Consumer.consumer_id) {
+                    if (currentConsumer == 0) {
+                        currentConsumer = 1;
+                    }
+                    else {
+                        process_id = 1;
+                        currentConsumer = 0;
+                    }
                 }
                 Thread.sleep(500);
                 pauseConsumer(process_id);

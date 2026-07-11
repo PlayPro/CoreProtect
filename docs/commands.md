@@ -203,6 +203,7 @@ ___
 | `a:+item` | items picked up or withdrawn by players |
 | `a:-item` | items dropped, thrown, or deposited by players |
 | `a:kill` | mobs/animals killed |
+| `a:spawn` | entities placed or spawned by players |
 | `a:session` | player logins/logouts |
 | `a:+session` | player logins |
 | `a:-session` | player logouts |

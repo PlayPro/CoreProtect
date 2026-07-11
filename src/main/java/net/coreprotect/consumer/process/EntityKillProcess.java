@@ -14,7 +14,7 @@ import net.coreprotect.utility.EntityUtils;
 
 class EntityKillProcess {
 
-    static void process(PreparedStatement preparedStmt, PreparedStatement preparedStmtEntities, int batchCount, int processId, int id, Object object, String user) {
+    static void process(PreparedStatement preparedStmt, PreparedStatement preparedStmtEntities, PreparedStatement preparedStmtEntityKillLinks, int batchCount, int processId, int id, Object object, String user) {
         if (object instanceof Object[]) {
             Object[] values = (Object[]) object;
             if (values.length <= 1 || !isLocationData(values[0]) || !(values[1] instanceof EntityType)) {
@@ -27,7 +27,7 @@ class EntityKillProcess {
             if (objectLists != null && objectLists.get(id) != null) {
                 List<Object> objectList = objectLists.get(id);
                 int entityId = EntityUtils.getEntityId(type);
-                EntityKillLogger.log(preparedStmt, preparedStmtEntities, batchCount, user, location, objectList, entityId);
+                EntityKillLogger.log(preparedStmt, preparedStmtEntities, preparedStmtEntityKillLinks, batchCount, user, location, objectList, entityId);
                 objectLists.remove(id);
             }
         }

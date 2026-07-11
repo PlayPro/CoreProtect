@@ -16,6 +16,7 @@ import net.coreprotect.listener.player.PlayerQuitListener;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Extensions;
+import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.Teleport;
 import net.coreprotect.utility.ErrorReporter;
 
@@ -52,6 +53,10 @@ public class ShutdownService {
             // Revert any teleport blocks if not using Folia
             if (!ConfigHandler.isFolia) {
                 revertTeleportBlocks();
+            }
+
+            if (ConfigHandler.serverRunning) {
+                EntitySpawnTracking.queueLoadedLocationsForShutdown();
             }
 
             ConfigHandler.serverRunning = false;

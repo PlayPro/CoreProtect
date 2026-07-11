@@ -2,13 +2,18 @@ package net.coreprotect.database.statement;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.StringJoiner;
 
 import org.bukkit.attribute.Attribute;
 import org.bukkit.block.BlockState;
@@ -22,22 +27,20 @@ import net.coreprotect.utility.ErrorReporter;
 
 public class EntityStatement {
 
+    private static final int SELECT_BATCH_SIZE = 500;
+
     private EntityStatement() {
         throw new IllegalStateException("Database class");
     }
 
     public static ResultSet insert(PreparedStatement preparedStmt, int time, List<Object> data) {
         try {
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            BukkitObjectOutputStream oos = new BukkitObjectOutputStream(bos);
-            oos.writeObject(sanitizeData(data));
-            oos.flush();
-            oos.close();
-            bos.close();
-
-            byte[] byte_data = bos.toByteArray();
+            byte[] serializedData = serializeData(data);
+            if (serializedData == null) {
+                return null;
+            }
             preparedStmt.setInt(1, time);
-            preparedStmt.setObject(2, byte_data);
+            preparedStmt.setObject(2, serializedData);
             if (Database.hasReturningKeys()) {
                 return preparedStmt.executeQuery();
             }
@@ -50,6 +53,22 @@ public class EntityStatement {
         }
 
         return null;
+    }
+
+    public static byte[] serializeData(List<Object> data) {
+        if (data == null) {
+            return null;
+        }
+
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream(); BukkitObjectOutputStream objectOutput = new BukkitObjectOutputStream(output)) {
+            objectOutput.writeObject(sanitizeData(data));
+            objectOutput.flush();
+            return output.toByteArray();
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+            return null;
+        }
     }
 
     private static List<Object> sanitizeData(List<Object> data) {
@@ -93,19 +112,62 @@ public class EntityStatement {
         try {
             ResultSet resultSet = statement.executeQuery(query);
             while (resultSet.next()) {
-                byte[] data = resultSet.getBytes("data");
-                ByteArrayInputStream bais = new ByteArrayInputStream(data);
-                BukkitObjectInputStream ins = new BukkitObjectInputStream(bais);
-                @SuppressWarnings("unchecked")
-                List<Object> input = (List<Object>) ins.readObject();
-                ins.close();
-                bais.close();
-                result = input;
+                result = deserializeData(resultSet.getBytes("data"));
             }
 
             resultSet.close();
         }
         catch (Exception e) { // only print exception on development branch
+            ErrorReporter.report(e, ConfigHandler.EDITION_BRANCH.contains("-dev"));
+        }
+
+        return result;
+    }
+
+    public static Map<Integer, List<Object>> loadData(Connection connection, Collection<Integer> rowIds) throws SQLException {
+        Map<Integer, List<Object>> result = new HashMap<>();
+        if (rowIds.isEmpty()) {
+            return result;
+        }
+
+        List<Integer> ids = new ArrayList<>(rowIds);
+        for (int offset = 0; offset < ids.size(); offset += SELECT_BATCH_SIZE) {
+            int end = Math.min(offset + SELECT_BATCH_SIZE, ids.size());
+            StringJoiner placeholders = new StringJoiner(",");
+            for (int ignored = offset; ignored < end; ignored++) {
+                placeholders.add("?");
+            }
+
+            String query = "SELECT rowid,data FROM " + ConfigHandler.prefix + "entity WHERE rowid IN(" + placeholders + ")";
+            try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+                for (int index = offset; index < end; index++) {
+                    preparedStatement.setInt(index - offset + 1, ids.get(index));
+                }
+                try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                    while (resultSet.next()) {
+                        List<Object> data = deserializeData(resultSet.getBytes("data"));
+                        if (!data.isEmpty()) {
+                            result.put(resultSet.getInt("rowid"), data);
+                        }
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    public static List<Object> deserializeData(byte[] data) {
+        List<Object> result = new ArrayList<>();
+        if (data == null) {
+            return result;
+        }
+
+        try (ByteArrayInputStream bais = new ByteArrayInputStream(data); BukkitObjectInputStream input = new BukkitObjectInputStream(bais)) {
+            @SuppressWarnings("unchecked")
+            List<Object> values = (List<Object>) input.readObject();
+            result = values;
+        }
+        catch (Exception e) {
             ErrorReporter.report(e, ConfigHandler.EDITION_BRANCH.contains("-dev"));
         }
 

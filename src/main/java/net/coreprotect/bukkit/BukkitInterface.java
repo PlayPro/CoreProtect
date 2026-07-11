@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.bukkit.Art;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -276,6 +277,15 @@ public interface BukkitInterface {
     // --------------------------------------------------------------------------
     // Entity methods
     // --------------------------------------------------------------------------
+
+    /**
+     * Checks whether a loaded chunk's entity data is ready to query.
+     *
+     * @param chunk
+     *            The loaded chunk
+     * @return true when entity data is ready
+     */
+    boolean isChunkEntitiesLoaded(Chunk chunk);
 
     /**
      * Gets metadata from a living entity.

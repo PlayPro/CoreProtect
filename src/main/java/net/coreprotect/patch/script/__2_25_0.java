@@ -1,8 +1,8 @@
 package net.coreprotect.patch.script;
 
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 
 import net.coreprotect.config.Config;
@@ -12,10 +12,13 @@ import net.coreprotect.utility.ErrorReporter;
 
 public class __2_25_0 {
 
+    private static final int MYSQL_DUPLICATE_KEY_NAME = 1061;
+
     protected static boolean patch(Statement statement) {
         if (Config.getGlobal().MYSQL) {
             return createMySQLMessagePrefixIndex(statement, ConfigHandler.prefix + "chat")
-                    && createMySQLMessagePrefixIndex(statement, ConfigHandler.prefix + "command");
+                    && createMySQLMessagePrefixIndex(statement, ConfigHandler.prefix + "command")
+                    && widenMySQLEntityData(statement, ConfigHandler.prefix + "entity");
         }
 
         Connection connection = null;
@@ -45,25 +48,33 @@ public class __2_25_0 {
 
     private static boolean createMySQLMessagePrefixIndex(Statement statement, String table) {
         try {
-            if (hasMySQLMessagePrefixIndex(statement, table)) {
-                return true;
-            }
             statement.executeUpdate("CREATE INDEX message_prefix_index ON " + table + "(message(16))");
             return true;
         }
-        catch (Exception e) {
+        catch (SQLException e) {
+            if (e.getErrorCode() == MYSQL_DUPLICATE_KEY_NAME) {
+                return true;
+            }
+
             ErrorReporter.report(e);
             return false;
         }
     }
 
-    private static boolean hasMySQLMessagePrefixIndex(Statement statement, String table) throws Exception {
-        String query = "SELECT 1 FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = 'message' AND SUB_PART = 16 LIMIT 1";
-        try (PreparedStatement preparedStatement = statement.getConnection().prepareStatement(query)) {
-            preparedStatement.setString(1, table);
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                return resultSet.next();
+    private static boolean widenMySQLEntityData(Statement statement, String table) {
+        try {
+            try (ResultSet resultSet = statement.executeQuery("SHOW COLUMNS FROM " + table + " LIKE 'data'")) {
+                if (resultSet.next() && "mediumblob".equalsIgnoreCase(resultSet.getString("Type"))) {
+                    return true;
+                }
             }
+
+            statement.executeUpdate("ALTER TABLE " + table + " MODIFY data MEDIUMBLOB");
+            return true;
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+            return false;
         }
     }
 

@@ -15,6 +15,7 @@ import org.bukkit.entity.Villager;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.MerchantRecipe;
+import org.bukkit.plugin.Plugin;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
@@ -52,8 +53,10 @@ public class PaperAdapter implements PaperInterface {
                 break;
             case PAPER_V1_17:
             case PAPER_V1_18:
-            case PAPER_V1_19:
                 PaperAdapter.ADAPTER = new Paper_v1_17();
+                break;
+            case PAPER_V1_19:
+                PaperAdapter.ADAPTER = new Paper_v1_19();
                 break;
             case PAPER_V1_20:
                 PaperAdapter.ADAPTER = new Paper_v1_20();
@@ -96,6 +99,26 @@ public class PaperAdapter implements PaperInterface {
     @Override
     public void prefetchChunk(World world, int chunkX, int chunkZ) {
         // chunk prefetching requires the Paper async chunk API
+    }
+
+    @Override
+    public boolean isOwnedByCurrentRegion(Entity entity) {
+        return true;
+    }
+
+    @Override
+    public boolean isOwnedByCurrentRegion(World world, int chunkX, int chunkZ) {
+        return true;
+    }
+
+    @Override
+    public boolean executeEntityTask(Plugin plugin, Entity entity, Runnable task, Runnable retiredTask) {
+        return false;
+    }
+
+    @Override
+    public boolean executeEntityTask(Plugin plugin, Entity entity, Runnable task, Runnable retiredTask, long delayTicks) {
+        return false;
     }
 
     @Override

@@ -205,7 +205,8 @@ public class BlockAPI {
      * Performs a lookup of container transactions using shared lookup options.
      *
      * @param options
-     *            Lookup options
+     *            Lookup options. Tracked entity-container rows match their original or persisted current/final location and return the persisted
+     *            current/final location.
      * @return List of results in a ContainerResult format
      */
     public static List<ContainerResult> performContainerLookup(LookupOptions options) {
@@ -225,17 +226,23 @@ public class BlockAPI {
                 return result;
             }
 
-            StringBuilder query = new StringBuilder("SELECT time,user,wid,x,y,z,action,type,data,amount,metadata,rolled_back FROM ");
-            query.append(ConfigHandler.prefix).append("container ");
-            if (filter.hasLocation()) {
-                query.append(WorldUtils.getWidIndex("container"));
-            }
-            filter.appendWhere(query);
-            query.append(" ORDER BY rowid DESC");
+            StringBuilder containerWhere = new StringBuilder();
+            filter.appendWhere(containerWhere, "container_rows");
+            StringBuilder entityWhere = new StringBuilder();
+            filter.appendEntityContainerWhere(entityWhere, "entity_rows");
+
+            StringBuilder query = new StringBuilder("SELECT * FROM (");
+            query.append("SELECT 0 AS source,container_rows.rowid AS id,container_rows.time,container_rows.user,container_rows.wid,container_rows.x,container_rows.y,container_rows.z,container_rows.action,container_rows.type,container_rows.data,container_rows.amount,container_rows.metadata,container_rows.rolled_back FROM ")
+                    .append(ConfigHandler.prefix).append("container container_rows ").append(containerWhere);
+            query.append(" UNION ALL ");
+            query.append("SELECT 1 AS source,entity_rows.rowid AS id,entity_rows.time,entity_rows.user,spawn_rows.current_wid AS wid,spawn_rows.x,spawn_rows.y,spawn_rows.z,entity_rows.action,entity_rows.type,entity_rows.data,entity_rows.amount,entity_rows.metadata,entity_rows.rolled_back FROM ")
+                    .append(ConfigHandler.prefix).append("entity_container entity_rows JOIN ").append(ConfigHandler.prefix).append("entity_spawn spawn_rows ON spawn_rows.rowid=entity_rows.entity_spawn_rowid ").append(entityWhere);
+            query.append(") AS container_lookup ORDER BY time DESC,source DESC,id DESC");
             filter.appendLimit(query);
 
             try (PreparedStatement statement = connection.prepareStatement(query.toString())) {
-                filter.bind(statement);
+                int parameterIndex = filter.bind(statement);
+                filter.bindEntityContainer(statement, parameterIndex);
 
                 try (ResultSet results = statement.executeQuery()) {
                     while (results.next()) {
@@ -259,7 +266,7 @@ public class BlockAPI {
         }
 
         return new ContainerResult(
-                results.getLong("time"), resultUser, WorldUtils.getWorldName(results.getInt("wid")), results.getInt("x"), results.getInt("y"), results.getInt("z"),
+                results.getLong("time"), resultUser, WorldUtils.getWorldName(results.getInt("wid")), (int) Math.floor(results.getDouble("x")), (int) Math.floor(results.getDouble("y")), (int) Math.floor(results.getDouble("z")),
                 results.getInt("type"), results.getInt("data"), results.getInt("amount"), results.getBytes("metadata"),
                 results.getInt("action"), results.getInt("rolled_back")
         );

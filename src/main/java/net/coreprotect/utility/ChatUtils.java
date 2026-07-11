@@ -17,19 +17,25 @@ public class ChatUtils {
     }
 
     public static String getCoordinates(String command, int worldId, int x, int y, int z, boolean displayWorld, boolean italic) {
+        String display = Color.GREY + (italic ? Color.ITALIC : "") + formatCoordinates(worldId, x, y, z, displayWorld);
+        return getCoordinateComponent(command, worldId, x, y, z, display);
+    }
+
+    public static String getCoordinateTooltip(int worldId, int x, int y, int z, String label, boolean italic) {
+        String tooltip = Color.GREY + label + ": " + Color.WHITE + formatCoordinates(worldId, x, y, z, true);
+        return createTooltip(Color.GREY + (italic ? Color.ITALIC : "") + " ⓘ", tooltip);
+    }
+
+    private static String formatCoordinates(int worldId, int x, int y, int z, boolean displayWorld) {
+        String world = displayWorld ? "/" + WorldUtils.getWorldName(worldId) : "";
+        return "(x" + x + "/y" + y + "/z" + z + world + ")";
+    }
+
+    private static String getCoordinateComponent(String command, int worldId, int x, int y, int z, String display) {
         StringBuilder message = new StringBuilder(Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_COMMAND);
-
-        StringBuilder worldDisplay = new StringBuilder();
-        if (displayWorld) {
-            worldDisplay.append("/" + WorldUtils.getWorldName(worldId));
-        }
-
-        // command
         DecimalFormat decimalFormat = new DecimalFormat("#.##", new DecimalFormatSymbols(Locale.ROOT));
         message.append("|/" + command + " teleport wid:" + worldId + " " + decimalFormat.format(x + 0.50) + " " + y + " " + decimalFormat.format(z + 0.50) + "|");
-
-        // chat output
-        message.append(Color.GREY + (italic ? Color.ITALIC : "") + "(x" + x + "/y" + y + "/z" + z + worldDisplay.toString() + ")");
+        message.append(display);
 
         return message.append(Chat.COMPONENT_TAG_CLOSE).toString();
     }
@@ -201,4 +207,4 @@ public class ChatUtils {
     public static String filterComponent(boolean condition, String component) {
         return condition ? component : "";
     }
-} 
+}

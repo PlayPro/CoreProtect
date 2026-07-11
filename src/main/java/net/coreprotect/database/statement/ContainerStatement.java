@@ -36,4 +36,31 @@ public class ContainerStatement {
             ErrorReporter.report(e);
         }
     }
+
+    public static void insertEntity(PreparedStatement preparedStmt, int batchCount, int time, int id, int entitySpawnRowId, int wid, int x, int y, int z, int type, int data, int amount, Object metadata, int action, int rolledBack) {
+        try {
+            byte[] byteData = ItemUtils.convertByteData(metadata);
+            preparedStmt.setInt(1, time);
+            preparedStmt.setInt(2, id);
+            preparedStmt.setInt(3, entitySpawnRowId);
+            preparedStmt.setInt(4, wid);
+            preparedStmt.setInt(5, x);
+            preparedStmt.setInt(6, y);
+            preparedStmt.setInt(7, z);
+            preparedStmt.setInt(8, type);
+            preparedStmt.setInt(9, data);
+            preparedStmt.setInt(10, amount);
+            preparedStmt.setObject(11, byteData);
+            preparedStmt.setInt(12, action);
+            preparedStmt.setInt(13, rolledBack);
+            preparedStmt.addBatch();
+
+            if (batchCount > 0 && batchCount % 1000 == 0) {
+                preparedStmt.executeBatch();
+            }
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+        }
+    }
 }

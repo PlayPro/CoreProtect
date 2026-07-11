@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.bukkit.Art;
+import org.bukkit.Chunk;
 import org.bukkit.Color;
 import org.bukkit.DyeColor;
 import org.bukkit.Location;
@@ -130,6 +131,11 @@ public class BukkitAdapter implements BukkitInterface {
     }
 
     // -------------------- Entity methods --------------------
+
+    @Override
+    public boolean isChunkEntitiesLoaded(Chunk chunk) {
+        return true;
+    }
 
     @Override
     public boolean getEntityMeta(LivingEntity entity, List<Object> info) {

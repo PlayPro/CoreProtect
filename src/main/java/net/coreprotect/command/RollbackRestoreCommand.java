@@ -19,14 +19,17 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 
+import net.coreprotect.command.parser.ActionParser;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.ContainerRollback;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.lookup.PlayerLookup;
 import net.coreprotect.database.rollback.Rollback;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
+import net.coreprotect.model.action.EntityActionFilter;
 import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
@@ -40,7 +43,9 @@ public class RollbackRestoreCommand {
         List<String> argUsers = CommandParser.parseUsers(args);
         Integer[] argRadius = CommandParser.parseRadius(args, player, lo);
         int argNoisy = CommandParser.parseNoisy(args);
-        List<Integer> argAction = CommandParser.parseAction(args);
+        ActionParser.ParseResult actionResult = CommandParser.parseActions(args, false);
+        List<Integer> argAction = actionResult.getActions();
+        EntityActionFilter argEntityActionFilter = actionResult.getEntityActionFilter();
         List<Object> argBlocks = CommandParser.parseRestricted(player, args, argAction);
         Map<Object, Boolean> argExclude = CommandParser.parseExcluded(player, args, argAction);
         List<String> argExcludeUsers = CommandParser.parseExcludedUsers(player, args);
@@ -70,8 +75,9 @@ public class RollbackRestoreCommand {
                 hasEntity = true;
                 if (argAction.size() == 0) {
                     argAction.add(LookupActions.ENTITY_KILL);
+                    argAction.add(LookupActions.ENTITY_SPAWN);
                 }
-                else if (!argAction.contains(LookupActions.ENTITY_KILL)) {
+                else if (!argEntityActionFilter.includesAnyEntity(argAction, true)) {
                     Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE_COMBO));
                     return;
                 }
@@ -87,8 +93,9 @@ public class RollbackRestoreCommand {
                 hasEntity = true;
                 if (argAction.size() == 0) {
                     argAction.add(LookupActions.ENTITY_KILL);
+                    argAction.add(LookupActions.ENTITY_SPAWN);
                 }
-                else if (!argAction.contains(LookupActions.ENTITY_KILL)) {
+                else if (!argEntityActionFilter.includesAnyEntity(argAction, true)) {
                     Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE_COMBO));
                     return;
                 }
@@ -156,7 +163,8 @@ public class RollbackRestoreCommand {
             final int finalAction = a;
 
             int DEFAULT_RADIUS = Config.getGlobal().DEFAULT_RADIUS;
-            if ((player instanceof Player || player instanceof BlockCommandSender) && argRadius == null && DEFAULT_RADIUS > 0 && !forceglobal && !argAction.contains(LookupActions.ITEM)) {
+            boolean exactEntityContainer = argUsers.contains("#container") && ConfigHandler.lookupEntityContainer.get(player.getName()) != null;
+            if ((player instanceof Player || player instanceof BlockCommandSender) && argRadius == null && DEFAULT_RADIUS > 0 && !forceglobal && !argAction.contains(LookupActions.ITEM) && !argAction.contains(5) && !exactEntityContainer) {
                 Location location = lo;
                 int xmin = location.getBlockX() - DEFAULT_RADIUS;
                 int xmax = location.getBlockX() + DEFAULT_RADIUS;
@@ -219,7 +227,7 @@ public class RollbackRestoreCommand {
                             return;
                         }
                     }
-                    if (argAction.contains(LookupActions.SESSION) || (argAction.contains(LookupActions.ITEM) && !argAction.contains(LookupActions.CONTAINER)) || (!argAction.contains(LookupActions.BLOCK_BREAK) && !argAction.contains(LookupActions.BLOCK_PLACE) && !argAction.contains(LookupActions.ENTITY_KILL) && !argAction.contains(LookupActions.CONTAINER))) {
+                    if (argAction.contains(LookupActions.SESSION) || (argAction.contains(LookupActions.ITEM) && !argAction.contains(LookupActions.CONTAINER)) || (!argAction.contains(LookupActions.BLOCK_BREAK) && !argAction.contains(LookupActions.BLOCK_PLACE) && !argAction.contains(LookupActions.ENTITY_KILL) && !argAction.contains(LookupActions.ENTITY_SPAWN) && !argAction.contains(LookupActions.CONTAINER))) {
                         if (finalAction == 0) {
                             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ACTION_NOT_SUPPORTED));
                         }
@@ -293,19 +301,21 @@ public class RollbackRestoreCommand {
                             argRadius = null;
                             argWid = 0;
                             lo = new Location(Bukkit.getServer().getWorld(WorldUtils.getWorldName(wid)), x, y, z);
-                            Block block = lo.getBlock();
-                            if (block.getState() instanceof Chest) {
-                                BlockFace[] blockFaces = new BlockFace[] { BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST };
-                                for (BlockFace face : blockFaces) {
-                                    if (block.getRelative(face, 1).getState() instanceof Chest) {
-                                        Block relative = block.getRelative(face, 1);
-                                        int x2 = relative.getX();
-                                        int z2 = relative.getZ();
-                                        double newX = (x + x2) / 2.0;
-                                        double newZ = (z + z2) / 2.0;
-                                        lo.setX(newX);
-                                        lo.setZ(newZ);
-                                        break;
+                            if (!exactEntityContainer) {
+                                Block block = lo.getBlock();
+                                if (block.getState() instanceof Chest) {
+                                    BlockFace[] blockFaces = new BlockFace[] { BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST };
+                                    for (BlockFace face : blockFaces) {
+                                        if (block.getRelative(face, 1).getState() instanceof Chest) {
+                                            Block relative = block.getRelative(face, 1);
+                                            int x2 = relative.getX();
+                                            int z2 = relative.getZ();
+                                            double newX = (x + x2) / 2.0;
+                                            double newZ = (z + z2) / 2.0;
+                                            lo.setX(newX);
+                                            lo.setZ(newZ);
+                                            break;
+                                        }
                                     }
                                 }
                             }
@@ -340,10 +350,16 @@ public class RollbackRestoreCommand {
                         final Location locationFinal = lo;
                         final int finalArgWid = argWid;
                         final List<Integer> finalArgAction = argAction;
+                        final EntityActionFilter finalEntityActionFilter = argEntityActionFilter;
                         final String[] finalArgs = args;
                         final int finalPreview = preview;
 
-                        ConfigHandler.activeRollbacks.put(player.getName(), true);
+                        Consumer.OperationStartResult startResult = Consumer.claimRollback(player.getName());
+                        if (startResult != Consumer.OperationStartResult.STARTED) {
+                            Phrase phrase = startResult == Consumer.OperationStartResult.PURGE_RUNNING ? Phrase.PURGE_IN_PROGRESS : Phrase.ROLLBACK_IN_PROGRESS;
+                            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(phrase));
+                            return;
+                        }
 
                         class BasicThread2 implements Runnable {
                             @Override
@@ -426,13 +442,14 @@ public class RollbackRestoreCommand {
                                                 Chat.sendMessage(player2, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_STARTED, users, Selector.SECOND));
                                             }
 
-                                            if (finalArgAction.contains(5)) {
+                                            boolean completed = true;
+                                            if (finalArgAction.contains(5) && ConfigHandler.lookupEntityContainer.get(player2.getName()) == null) {
                                                 ContainerRollback.performContainerRollbackRestore(statement, player2, uuidList, rollbackusers2, rtime, blist, elist, euserlist, finalArgAction, location, radius, finalTimeStart, finalTimeEnd, restrictWorld, false, verbose, action);
                                             }
                                             else {
-                                                Rollback.performRollbackRestore(statement, player2, uuidList, rollbackusers2, rtime, blist, elist, euserlist, finalArgAction, location, radius, finalTimeStart, finalTimeEnd, restrictWorld, false, verbose, action, finalPreview);
+                                                completed = Rollback.performRollbackRestore(statement, player2, uuidList, rollbackusers2, rtime, blist, elist, euserlist, finalArgAction, finalEntityActionFilter, location, radius, finalTimeStart, finalTimeEnd, restrictWorld, false, verbose, action, finalPreview) != null;
                                             }
-                                            if (finalPreview < 2) {
+                                            if (completed && finalPreview < 2) {
                                                 List<Object> list = new ArrayList<>();
                                                 list.add(finalTimeStart);
                                                 list.add(finalTimeEnd);
@@ -453,15 +470,21 @@ public class RollbackRestoreCommand {
                                 catch (Exception e) {
                                     ErrorReporter.report(e);
                                 }
-                                if (ConfigHandler.activeRollbacks.get(player2.getName()) != null) {
-                                    ConfigHandler.activeRollbacks.remove(player2.getName());
+                                finally {
+                                    Consumer.releaseRollback(player2.getName());
+                                    ConfigHandler.lookupThrottle.put(player2.getName(), new Object[] { false, System.currentTimeMillis() });
                                 }
-                                ConfigHandler.lookupThrottle.put(player2.getName(), new Object[] { false, System.currentTimeMillis() });
                             }
                         }
                         Runnable runnable = new BasicThread2();
                         Thread thread = new Thread(runnable);
-                        thread.start();
+                        try {
+                            thread.start();
+                        }
+                        catch (Exception e) {
+                            Consumer.releaseRollback(player.getName());
+                            throw e;
+                        }
                     }
                     catch (Exception e) {
                         ErrorReporter.report(e);

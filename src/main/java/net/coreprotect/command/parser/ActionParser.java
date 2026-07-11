@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import net.coreprotect.model.action.EntityActionFilter;
 import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.model.action.SessionActions;
 import net.coreprotect.model.item.ItemTransactionActions;
@@ -40,8 +41,13 @@ public class ActionParser {
     }
 
     public static List<Integer> parseAction(String[] inputArguments, boolean allowMultiple) {
+        return parseActions(inputArguments, allowMultiple).getActions();
+    }
+
+    public static ParseResult parseActions(String[] inputArguments, boolean allowMultiple) {
         String[] argumentArray = inputArguments.clone();
         List<Integer> result = new ArrayList<>();
+        EntityActionFilter entityActionFilter = EntityActionFilter.DEFAULT;
         int count = 0;
         int next = 0;
         for (String argument : argumentArray) {
@@ -58,6 +64,7 @@ public class ActionParser {
                 }
                 else if (next == 1 || argument.startsWith("a:") || argument.startsWith("action:")) {
                     result.clear();
+                    entityActionFilter = EntityActionFilter.NONE;
                     argument = argument.replaceAll("action:", "");
                     argument = argument.replaceAll("a:", "");
                     if (argument.startsWith("#")) {
@@ -66,7 +73,9 @@ public class ActionParser {
                     if (allowMultiple && argument.contains(",")) {
                         for (String action : argument.split(",", -1)) {
                             if (!action.isEmpty()) {
-                                result.addAll(parseAction(new String[] { "lookup", "a:" + action }));
+                                ParseResult parsedAction = parseActions(new String[] { "lookup", "a:" + action }, false);
+                                result.addAll(parsedAction.getActions());
+                                entityActionFilter = entityActionFilter.merge(parsedAction.getEntityActionFilter());
                             }
                         }
                         next = 0;
@@ -74,19 +83,26 @@ public class ActionParser {
                     }
                     if (argument.equals("broke") || argument.equals("break") || argument.equals("remove") || argument.equals("destroy") || argument.equals("block-break") || argument.equals("block-remove") || argument.equals("-block") || argument.equals("-blocks") || argument.equals("block-")) {
                         result.add(LookupActions.BLOCK_BREAK);
+                        entityActionFilter = EntityActionFilter.ALIASED;
                     }
                     else if (argument.equals("placed") || argument.equals("place") || argument.equals("block-place") || argument.equals("+block") || argument.equals("+blocks") || argument.equals("block+")) {
                         result.add(LookupActions.BLOCK_PLACE);
+                        entityActionFilter = EntityActionFilter.ALIASED;
                     }
                     else if (argument.equals("block") || argument.equals("blocks") || argument.equals("block-change") || argument.equals("change") || argument.equals("changes")) {
                         result.add(LookupActions.BLOCK_BREAK);
                         result.add(LookupActions.BLOCK_PLACE);
+                        entityActionFilter = EntityActionFilter.ALIASED;
                     }
                     else if (argument.equals("click") || argument.equals("clicks") || argument.equals("interact") || argument.equals("interaction") || argument.equals("player-interact") || argument.equals("player-interaction") || argument.equals("player-click")) {
                         result.add(LookupActions.INTERACTION);
                     }
                     else if (argument.equals("death") || argument.equals("deaths") || argument.equals("entity-death") || argument.equals("entity-deaths") || argument.equals("kill") || argument.equals("kills") || argument.equals("entity-kill") || argument.equals("entity-kills")) {
                         result.add(LookupActions.ENTITY_KILL);
+                    }
+                    else if (argument.equals("spawn") || argument.equals("spawns") || argument.equals("entity-spawn") || argument.equals("entity-spawns")) {
+                        result.add(LookupActions.ENTITY_SPAWN);
+                        entityActionFilter = EntityActionFilter.SPAWNED;
                     }
                     else if (argument.equals("container") || argument.equals("container-change") || argument.equals("containers") || argument.equals("chest") || argument.equals("transaction") || argument.equals("transactions")) {
                         result.add(LookupActions.CONTAINER);
@@ -158,7 +174,26 @@ public class ActionParser {
             }
             count++;
         }
-        return result;
+        return new ParseResult(result, entityActionFilter);
+    }
+
+    public static final class ParseResult {
+
+        private final List<Integer> actions;
+        private final EntityActionFilter entityActionFilter;
+
+        private ParseResult(List<Integer> actions, EntityActionFilter entityActionFilter) {
+            this.actions = actions;
+            this.entityActionFilter = entityActionFilter;
+        }
+
+        public List<Integer> getActions() {
+            return actions;
+        }
+
+        public EntityActionFilter getEntityActionFilter() {
+            return entityActionFilter;
+        }
     }
 
     /**

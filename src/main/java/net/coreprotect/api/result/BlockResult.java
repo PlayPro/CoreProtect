@@ -66,7 +66,7 @@ public class BlockResult implements CoreProtectResult {
     }
 
     public Material getType() {
-        if (actionId == LookupActions.ENTITY_KILL) {
+        if (isEntityAction()) {
             return null;
         }
 
@@ -80,11 +80,11 @@ public class BlockResult implements CoreProtectResult {
     }
 
     public EntityType getEntityType() {
-        if (actionId != LookupActions.ENTITY_KILL) {
+        if (!isEntityAction()) {
             return null;
         }
 
-        if (type == 0) {
+        if (actionId == LookupActions.ENTITY_KILL && type == 0) {
             return EntityType.PLAYER;
         }
 
@@ -92,7 +92,7 @@ public class BlockResult implements CoreProtectResult {
     }
 
     public BlockData getBlockData() {
-        if (actionId == LookupActions.ENTITY_KILL) {
+        if (isEntityAction()) {
             return null;
         }
 
@@ -123,6 +123,10 @@ public class BlockResult implements CoreProtectResult {
 
     public boolean isRolledBack() {
         return rolledBack == 1 || rolledBack == 3;
+    }
+
+    private boolean isEntityAction() {
+        return actionId == LookupActions.ENTITY_KILL || actionId == LookupActions.ENTITY_SPAWN;
     }
 
     public String worldName() {

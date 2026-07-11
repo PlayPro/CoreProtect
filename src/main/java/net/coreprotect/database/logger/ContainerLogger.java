@@ -21,15 +21,17 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.statement.ContainerStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
+import net.coreprotect.model.entity.EntityContainerTransaction;
+import net.coreprotect.model.entity.EntitySpawnIdentity;
 import net.coreprotect.model.item.ItemTransactionActions;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.BlockUtils;
-import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.HopperTransactionUtils;
+import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
-import net.coreprotect.utility.ErrorReporter;
 
 public class ContainerLogger extends Queue {
 
@@ -152,27 +154,7 @@ public class ContainerLogger extends Queue {
                 return;
             }
 
-            for (ItemStack oldi : oldInventory) {
-                for (ItemStack newi : newInventory) {
-                    if (oldi != null && newi != null) {
-                        if (oldi.isSimilar(newi) && !BlockUtils.isAir(oldi.getType())) { // Ignores amount
-                            int oldAmount = oldi.getAmount();
-                            int newAmount = newi.getAmount();
-                            if (newAmount >= oldAmount) {
-                                newAmount = newAmount - oldAmount;
-                                oldi.setAmount(0);
-                                newi.setAmount(newAmount);
-                            }
-                            else {
-                                oldAmount = oldAmount - newAmount;
-                                oldi.setAmount(oldAmount);
-                                newi.setAmount(0);
-                            }
-                        }
-                    }
-                }
-            }
-
+            subtractSharedItems(oldInventory, newInventory);
             ItemUtils.mergeItems(type, oldInventory);
             ItemUtils.mergeItems(type, newInventory);
 
@@ -188,6 +170,30 @@ public class ContainerLogger extends Queue {
             oldList.remove(0);
             ConfigHandler.oldContainer.put(loggingContainerId, oldList);
             HopperTransactionUtils.consumeSnapshot(transactingChestId, loggingContainerId);
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+        }
+    }
+
+    public static void logEntity(PreparedStatement preparedStmtContainer, int batchCount, String player, EntitySpawnIdentity identity, EntityContainerTransaction transaction) {
+        try {
+            if (identity == null || transaction == null || ConfigHandler.isBlacklisted(player)) {
+                return;
+            }
+
+            ItemStack[] oldInventory = transaction.getOldContents();
+            ItemStack[] newInventory = transaction.getNewContents();
+            Location currentLocation = transaction.getCurrentLocation();
+            if (oldInventory == null || newInventory == null || currentLocation == null || currentLocation.getWorld() == null || ItemUtils.compareContainers(oldInventory, newInventory)) {
+                return;
+            }
+
+            subtractSharedItems(oldInventory, newInventory);
+            ItemUtils.mergeItems(Material.CHEST, oldInventory);
+            ItemUtils.mergeItems(Material.CHEST, newInventory);
+            logEntityTransaction(preparedStmtContainer, batchCount, player, identity, currentLocation, oldInventory, ItemTransactionActions.REMOVE);
+            logEntityTransaction(preparedStmtContainer, batchCount, player, identity, currentLocation, newInventory, ItemTransactionActions.ADD);
         }
         catch (Exception e) {
             ErrorReporter.report(e);
@@ -249,6 +255,75 @@ public class ContainerLogger extends Queue {
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+        }
+    }
+
+    private static void logEntityTransaction(PreparedStatement preparedStmt, int batchCount, String user, EntitySpawnIdentity identity, Location currentLocation, ItemStack[] items, int action) {
+        try {
+            int slot = 0;
+            for (ItemStack item : items) {
+                if (item == null || item.getAmount() <= 0 || BlockUtils.isAir(item.getType())) {
+                    slot++;
+                    continue;
+                }
+                if (ConfigHandler.isFilterBlacklisted(user, item.getType().getKey().toString())) {
+                    slot++;
+                    continue;
+                }
+
+                List<List<Map<String, Object>>> metadata = ItemMetaHandler.serialize(item, Material.CHEST, null, slot);
+                if (metadata.isEmpty()) {
+                    metadata = null;
+                }
+
+                Location initialEventLocation = currentLocation.clone();
+                CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, initialEventLocation.clone(), CoreProtectPreLogEvent.Action.CONTAINER_TRANSACTION, action, item.getType(), null, null);
+                if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
+                    CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+                }
+                if (event.isCancelled()) {
+                    return;
+                }
+
+                int wid = identity.getOriginalWorldId();
+                int x = identity.getOriginalX();
+                int y = identity.getOriginalY();
+                int z = identity.getOriginalZ();
+                Location loggedLocation = event.getLocation();
+                if (!samePosition(initialEventLocation, loggedLocation)) {
+                    wid = WorldUtils.getWorldId(loggedLocation.getWorld().getName());
+                    x = loggedLocation.getBlockX();
+                    y = loggedLocation.getBlockY();
+                    z = loggedLocation.getBlockZ();
+                }
+
+                int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
+                int time = (int) (System.currentTimeMillis() / 1000L);
+                int typeId = MaterialUtils.getBlockId(item.getType().name(), true);
+                ContainerStatement.insertEntity(preparedStmt, batchCount, time, userId, identity.getRowId(), wid, x, y, z, typeId, 0, item.getAmount(), metadata, action, 0);
+                slot++;
+            }
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+        }
+    }
+
+    private static boolean samePosition(Location first, Location second) {
+        return first != null && second != null && first.getWorld() != null && second.getWorld() != null && first.getWorld().getUID().equals(second.getWorld().getUID()) && Double.compare(first.getX(), second.getX()) == 0 && Double.compare(first.getY(), second.getY()) == 0 && Double.compare(first.getZ(), second.getZ()) == 0;
+    }
+
+    private static void subtractSharedItems(ItemStack[] oldInventory, ItemStack[] newInventory) {
+        for (ItemStack oldItem : oldInventory) {
+            for (ItemStack newItem : newInventory) {
+                if (oldItem == null || newItem == null || !oldItem.isSimilar(newItem) || BlockUtils.isAir(oldItem.getType())) {
+                    continue;
+                }
+
+                int sharedAmount = Math.min(oldItem.getAmount(), newItem.getAmount());
+                oldItem.setAmount(oldItem.getAmount() - sharedAmount);
+                newItem.setAmount(newItem.getAmount() - sharedAmount);
+            }
         }
     }
 

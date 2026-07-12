@@ -16,6 +16,7 @@ import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
+import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.logger.ContainerLogger;
 import net.coreprotect.model.entity.EntityContainerTransaction;
 import net.coreprotect.model.entity.EntitySpawnIdentity;
@@ -46,14 +47,11 @@ class ContainerTransactionProcess {
                     if (ConfigHandler.oldContainer.get(loggingChestId) == null) {
                         ConfigHandler.removeOldContainerViewer(loggingChestIdSuffix, loggingChestId);
                         ConfigHandler.loggingChest.remove(loggingChestId);
-                        ConfigHandler.forceContainer.remove(loggingChestId);
+                        Queue.removeForceContainer(loggingChestId);
                         HopperTransactionUtils.removeOwner(transactingChestId, loggingChestId);
                         return;
                     }
-                    int force_size = 0;
-                    if (ConfigHandler.forceContainer.get(loggingChestId) != null) {
-                        force_size = ConfigHandler.forceContainer.get(loggingChestId).size();
-                    }
+                    int force_size = Queue.getForceContainerSize(loggingChestId);
                     if (current_chest == forceData || force_size > 0) { // This prevents client side chest sorting mods from messing things up.
                         ContainerLogger.log(preparedStmtContainer, preparedStmtItems, batchCount, user, type, inventory, location);
                         List<ItemStack[]> old = ConfigHandler.oldContainer.get(loggingChestId);
@@ -61,7 +59,7 @@ class ContainerTransactionProcess {
                             ConfigHandler.oldContainer.remove(loggingChestId);
                             ConfigHandler.removeOldContainerViewer(loggingChestIdSuffix, loggingChestId);
                             ConfigHandler.loggingChest.remove(loggingChestId);
-                            ConfigHandler.forceContainer.remove(loggingChestId);
+                            Queue.removeForceContainer(loggingChestId);
                             HopperTransactionUtils.removeOwner(transactingChestId, loggingChestId);
                         }
                     }

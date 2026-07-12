@@ -186,7 +186,8 @@ public final class InventoryChangeListener extends Queue implements Listener {
                         long snapshotMark = HopperTransactionUtils.getSnapshotMark(transactingChestId, loggingChestIdViewer, forceSize);
                         containerState = HopperTransactionUtils.applyPendingChanges(containerState, transactingChestId, snapshotMark);
 
-                        addForceContainer(loggingChestIdViewer, containerState);
+                        ItemStack[] previousState = viewerOldList.get(forceSize);
+                        addForceContainer(loggingChestIdViewer, ItemUtils.getSharedContainerState(containerState, previousState));
                     }
                 }
             }
@@ -195,8 +196,14 @@ public final class InventoryChangeListener extends Queue implements Listener {
         if (forceInventoryData == null && batchItem != null && HopperTransactionUtils.shouldForceBatchBoundary(transactingChestId, loggingChestId, batchItem)) {
             forceInventoryData = inventoryData;
         }
+        List<ItemStack[]> existingOldList = ConfigHandler.oldContainer.get(loggingChestId);
+        ItemStack[] previousState = existingOldList == null || existingOldList.isEmpty() ? null : existingOldList.get(existingOldList.size() - 1);
+        ItemStack[] oldState = null;
+        ItemStack[] forceState = null;
         if (forceInventoryData != null) {
-            addForceContainer(loggingChestId, ItemUtils.getContainerState(forceInventoryData));
+            oldState = ItemUtils.getSharedContainerState(inventoryData, previousState);
+            forceState = forceInventoryData == inventoryData ? oldState : ItemUtils.getSharedContainerState(forceInventoryData, oldState);
+            addForceContainer(loggingChestId, forceState);
         }
 
         int chestId = getChestId(loggingChestId);
@@ -206,7 +213,10 @@ public final class InventoryChangeListener extends Queue implements Listener {
                 List<ItemStack[]> list = ConfigHandler.oldContainer.get(loggingChestId);
 
                 if (list != null && list.size() <= forceSize) {
-                    list.add(ItemUtils.getContainerState(inventoryData));
+                    if (oldState == null) {
+                        oldState = ItemUtils.getSharedContainerState(inventoryData, previousState);
+                    }
+                    list.add(oldState);
                     ConfigHandler.oldContainer.put(loggingChestId, list);
                     HopperTransactionUtils.registerSnapshot(transactingChestId, loggingChestId, false);
                 }
@@ -214,7 +224,10 @@ public final class InventoryChangeListener extends Queue implements Listener {
         }
         else {
             List<ItemStack[]> list = new ArrayList<>();
-            list.add(ItemUtils.getContainerState(inventoryData));
+            if (oldState == null) {
+                oldState = ItemUtils.getSharedContainerState(inventoryData, previousState);
+            }
+            list.add(oldState);
             ConfigHandler.oldContainer.put(loggingChestId, list);
             ConfigHandler.addOldContainerViewer(loggingChestIdSuffix, loggingChestId);
             HopperTransactionUtils.registerSnapshot(transactingChestId, loggingChestId, true);

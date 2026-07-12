@@ -1,7 +1,6 @@
 package net.coreprotect.listener.player;
 
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -29,7 +28,7 @@ public final class HopperPullListener {
     private static final AtomicInteger activeProcessors = new AtomicInteger(0);
 
     static void processHopperPull(Location location, String user, InventoryHolder sourceHolder, InventoryHolder destinationHolder, ItemStack item) {
-        String loggingChestId = "#hopper-pull." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+        String loggingChestId = HopperTransactionUtils.getHopperPullId(location);
         Object[] lastAbort = ConfigHandler.hopperAbort.get(loggingChestId);
         if (lastAbort != null) {
             ItemStack[] destinationContents = destinationHolder.getInventory().getContents();
@@ -118,14 +117,8 @@ public final class HopperPullListener {
         }
 
         if (abort) {
-            Set<ItemStack> movedItems = new HashSet<>();
             ItemStack[] destinationContents = destinationHolder.getInventory().getContents();
-            if (lastAbort != null && Arrays.equals(destinationContents, (ItemStack[]) lastAbort[1])) {
-                ((Set<?>) lastAbort[0]).forEach(itemStack -> movedItems.add((ItemStack) itemStack));
-            }
-            movedItems.add(movedItem);
-
-            ConfigHandler.hopperAbort.put(loggingChestId, new Object[] { movedItems, ItemUtils.getContainerState(destinationContents) });
+            ConfigHandler.hopperAbort.put(loggingChestId, HopperTransactionUtils.createAbortState(lastAbort, destinationContents, movedItem));
             return;
         }
 

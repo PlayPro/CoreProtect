@@ -1,7 +1,6 @@
 package net.coreprotect.listener.player;
 
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -36,7 +35,7 @@ public final class HopperPushListener {
             return;
         }
 
-        String loggingChestId = "#hopper-push." + destinationLocation.getBlockX() + "." + destinationLocation.getBlockY() + "." + destinationLocation.getBlockZ();
+        String loggingChestId = HopperTransactionUtils.getHopperPushId(destinationLocation);
         Object[] lastAbort = ConfigHandler.hopperAbort.get(loggingChestId);
         if (lastAbort != null) {
             ItemStack[] destinationContents = destinationHolder.getInventory().getContents();
@@ -123,18 +122,9 @@ public final class HopperPushListener {
         }
 
         if (abort) {
-            Set<ItemStack> movedItems = new HashSet<>();
             ItemStack[] destinationContents = destinationHolder.getInventory().getContents();
-            if (lastAbort != null && Arrays.equals(destinationContents, (ItemStack[]) lastAbort[1])) {
-                ((Set<?>) lastAbort[0]).forEach(itemStack -> movedItems.add((ItemStack) itemStack));
-            }
-            movedItems.add(movedItem);
-
-            ConfigHandler.hopperAbort.put(loggingChestId, new Object[] { movedItems, ItemUtils.getContainerState(destinationContents) });
+            ConfigHandler.hopperAbort.put(loggingChestId, HopperTransactionUtils.createAbortState(lastAbort, destinationContents, movedItem));
             return;
-        }
-        else {
-            ConfigHandler.hopperSuccess.put(loggingChestId, new Object[] { destinationContainer, movedItem });
         }
 
         HopperTransactionUtils.recordItemRemoved(HopperTransactionUtils.getTransactionId(location), movedItem);
@@ -143,6 +133,8 @@ public final class HopperPushListener {
         if ((config.HOPPER_FILTER_META && !movedItem.hasItemMeta()) || (config.DISABLE_HOPPER_CARPET_LOGGING && Tag.WOOL_CARPETS.isTagged(movedItem.getType()))) {
             return;
         }
+
+        ConfigHandler.hopperSuccess.put(loggingChestId, new Object[] { destinationContainer, movedItem });
 
         Inventory destinationInventory = destinationHolder.getInventory();
         ItemStack[] originalDestination = destinationInventory.getContents().clone();

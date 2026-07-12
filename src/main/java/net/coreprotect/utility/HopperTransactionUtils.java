@@ -2,11 +2,14 @@ package net.coreprotect.utility;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Location;
@@ -14,7 +17,6 @@ import org.bukkit.inventory.ItemStack;
 
 public final class HopperTransactionUtils {
 
-    private static final int MAX_PENDING_DELTAS = 1000000;
     private static final long APPLY_ALL_MARK = -1L;
 
     private static final ConcurrentHashMap<String, PendingTransaction> pendingTransactions = new ConcurrentHashMap<>();
@@ -37,6 +39,14 @@ public final class HopperTransactionUtils {
 
     public static String getLoggingIdSuffix(Location location) {
         return "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ() + "." + location.getWorld().getUID().toString();
+    }
+
+    public static String getHopperPushId(Location location) {
+        return "#hopper-push" + getLoggingIdSuffix(location);
+    }
+
+    public static String getHopperPullId(Location location) {
+        return "#hopper-pull" + getLoggingIdSuffix(location);
     }
 
     public static boolean hasTransaction(String transactionId) {
@@ -152,6 +162,22 @@ public final class HopperTransactionUtils {
         }
     }
 
+    public static Object[] createAbortState(Object[] previous, ItemStack[] destinationContents, ItemStack movedItem) {
+        Set<ItemStack> movedItems = new HashSet<>();
+        if (previous != null && previous.length >= 2 && previous[0] instanceof Set && previous[1] instanceof ItemStack[] && Arrays.equals(destinationContents, (ItemStack[]) previous[1])) {
+            for (Object item : (Set<?>) previous[0]) {
+                if (item instanceof ItemStack) {
+                    movedItems.add((ItemStack) item);
+                }
+            }
+        }
+        if (movedItem != null) {
+            movedItems.add(movedItem.clone());
+        }
+
+        return new Object[] { movedItems, ItemUtils.getContainerState(destinationContents) };
+    }
+
     public static ItemStack[] applyPendingChanges(ItemStack[] containerState, String transactionId, long sinceMark) {
         if (containerState == null) {
             return null;
@@ -198,7 +224,7 @@ public final class HopperTransactionUtils {
                 count++;
             }
             else {
-                removeFirstSimilarItem(result, item);
+                removeSimilarItems(result, item);
             }
         }
 
@@ -220,12 +246,14 @@ public final class HopperTransactionUtils {
 
             Delta tail = transaction.deltas.peekLast();
             if (tail != null && tail.addBack == addBack && tail.seq > transaction.lastMarkSeq && tail.item.isSimilar(item)) {
-                tail.amount = (int) Math.min((long) tail.amount + amount, Integer.MAX_VALUE);
-                return;
-            }
+                long combinedAmount = (long) tail.amount + amount;
+                if (combinedAmount <= Integer.MAX_VALUE) {
+                    tail.amount = (int) combinedAmount;
+                    return;
+                }
 
-            if (transaction.deltas.size() >= MAX_PENDING_DELTAS) {
-                return;
+                tail.amount = Integer.MAX_VALUE;
+                amount = (int) (combinedAmount - Integer.MAX_VALUE);
             }
 
             transaction.deltas.addLast(new Delta(item.clone(), addBack, amount, transaction.nextSeq));
@@ -255,14 +283,22 @@ public final class HopperTransactionUtils {
         }
     }
 
-    private static void removeFirstSimilarItem(ItemStack[] items, ItemStack item) {
-        for (ItemStack check : items) {
-            if (check == null || !check.isSimilar(item)) {
+    private static void removeSimilarItems(ItemStack[] items, ItemStack item) {
+        int remaining = item.getAmount();
+        for (int i = 0; i < items.length; i++) {
+            if (remaining <= 0) {
+                return;
+            }
+            ItemStack check = items[i];
+            if (check == null || check.getAmount() <= 0 || !check.isSimilar(item)) {
                 continue;
             }
 
-            check.setAmount(check.getAmount() - item.getAmount());
-            return;
+            int removed = Math.min(remaining, check.getAmount());
+            ItemStack updated = check.clone();
+            updated.setAmount(check.getAmount() - removed);
+            items[i] = updated;
+            remaining -= removed;
         }
     }
 

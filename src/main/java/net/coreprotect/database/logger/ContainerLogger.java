@@ -69,6 +69,9 @@ public class ContainerLogger extends Queue {
             String loggingContainerId = HopperTransactionUtils.getLoggingId(player, location);
             String transactingChestId = HopperTransactionUtils.getTransactionId(location);
             List<ItemStack[]> oldList = ConfigHandler.oldContainer.get(loggingContainerId);
+            if (oldList == null || oldList.isEmpty()) {
+                return;
+            }
             ItemStack[] oi1 = oldList.get(0);
             ItemStack[] oldInventory = ItemUtils.getContainerState(oi1);
             ItemStack[] newInventory = ItemUtils.getContainerState(contents);
@@ -78,7 +81,7 @@ public class ContainerLogger extends Queue {
             boolean duplicateSuppression = Config.getConfig(location.getWorld()).DUPLICATE_SUPPRESSION;
 
             // Check if this is a dispenser with no actual changes
-            if (duplicateSuppression && "#dispenser".equals(player) && ItemUtils.compareContainers(oldInventory, newInventory)) {
+            if (duplicateSuppression && "#dispenser".equals(player) && getForceContainerSize(loggingContainerId) == 0 && ItemUtils.compareContainers(oldInventory, newInventory)) {
                 // No changes detected, mark this dispenser in the dispenserNoChange map
                 // Extract the location key from the loggingContainerId
                 // Format: #dispenser.x.y.z
@@ -101,6 +104,9 @@ public class ContainerLogger extends Queue {
                         ConfigHandler.dispenserNoChange.computeIfAbsent(locationKey, k -> new ConcurrentHashMap<>()).put(eventKey, System.currentTimeMillis());
                     }
                 }
+                oldList.remove(0);
+                ConfigHandler.oldContainer.put(loggingContainerId, oldList);
+                HopperTransactionUtils.consumeSnapshot(transactingChestId, loggingContainerId);
                 return;
             }
 
@@ -123,7 +129,7 @@ public class ContainerLogger extends Queue {
                 }
             }
 
-            ItemStack[] forceState = pollForceContainer(loggingContainerId);
+            ItemStack[] forceState = peekForceContainer(loggingContainerId);
             if (forceState != null) {
                 newInventory = ItemUtils.getContainerState(forceState);
             }
@@ -133,11 +139,14 @@ public class ContainerLogger extends Queue {
             }
 
             if (duplicateSuppression && shouldSuppressContainerDuplicate(player, location, oldInventory, newInventory)) {
+                if (forceState != null) {
+                    pollForceContainer(loggingContainerId);
+                }
                 oldList.remove(0);
                 ConfigHandler.oldContainer.put(loggingContainerId, oldList);
                 HopperTransactionUtils.consumeSnapshot(transactingChestId, loggingContainerId);
                 if ("#hopper".equals(player)) {
-                    String hopperPush = "#hopper-push." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+                    String hopperPush = HopperTransactionUtils.getHopperPushId(location);
                     ConfigHandler.hopperSuccess.remove(hopperPush);
                     ConfigHandler.hopperAbort.remove(hopperPush);
                 }
@@ -177,6 +186,9 @@ public class ContainerLogger extends Queue {
                 ItemLogger.logTransaction(preparedStmtItems, batchCount, 0, player, location, newInventory, ItemTransactionActions.ADD_ENDER);
             }
 
+            if (forceState != null) {
+                pollForceContainer(loggingContainerId);
+            }
             oldList.remove(0);
             ConfigHandler.oldContainer.put(loggingContainerId, oldList);
             HopperTransactionUtils.consumeSnapshot(transactingChestId, loggingContainerId);
@@ -230,7 +242,7 @@ public class ContainerLogger extends Queue {
             }
 
             if (success && user.equals("#hopper")) {
-                String hopperPush = "#hopper-push." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+                String hopperPush = HopperTransactionUtils.getHopperPushId(location);
                 ConfigHandler.hopperSuccess.remove(hopperPush);
                 ConfigHandler.hopperAbort.remove(hopperPush);
             }

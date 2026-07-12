@@ -223,6 +223,26 @@ public class ActionParser {
     }
 
     /**
+     * Parse summary output flag from command arguments
+     *
+     * @param inputArguments
+     *            The command arguments
+     * @return true if the summary flag is present
+     */
+    public static boolean parseSummary(String[] inputArguments) {
+        if (parseCount(inputArguments)) {
+            return true;
+        }
+        for (int index = 1; index < inputArguments.length; index++) {
+            String argument = inputArguments[index].trim().toLowerCase(Locale.ROOT).replace("\\", "").replace("'", "");
+            if (argument.equals("#summary")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Parse noisy flag from command arguments
      * 
      * @param inputArguments

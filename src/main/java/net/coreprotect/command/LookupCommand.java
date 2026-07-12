@@ -27,6 +27,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.model.action.EntityActionFilter;
 import net.coreprotect.model.action.LookupActions;
+import net.coreprotect.model.lookup.LookupOutputMode;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.ChatMessage;
 import net.coreprotect.utility.Color;
@@ -57,7 +58,8 @@ public class LookupCommand {
         long endTime = argTime[1];
         int argWid = CommandParser.parseWorld(args, true, true);
         int parseRows = CommandParser.parseRows(args);
-        boolean count = CommandParser.parseCount(args);
+        boolean summary = CommandParser.parseSummary(args);
+        LookupOutputMode outputMode = summary ? LookupOutputMode.SUMMARY : LookupOutputMode.DETAIL;
         boolean worldedit = CommandParser.parseWorldEdit(args);
         boolean forceglobal = CommandParser.parseForceGlobal(args);
         boolean pageLookup = false;
@@ -430,8 +432,8 @@ public class LookupCommand {
         else if (type == 4 || type == 5) {
             boolean defaultRe = true;
             int pa = 1;
-            int re = 4;
-            if (argAction.contains(LookupActions.CHAT) || argAction.contains(LookupActions.COMMAND) || argAction.contains(LookupActions.USERNAME) || LookupActions.isInventoryLookup(argAction)) {
+            int re = outputMode == LookupOutputMode.SUMMARY ? 8 : 4;
+            if (outputMode != LookupOutputMode.SUMMARY && (argAction.contains(LookupActions.CHAT) || argAction.contains(LookupActions.COMMAND) || argAction.contains(LookupActions.USERNAME) || LookupActions.isInventoryLookup(argAction))) {
                 re = 7;
             }
             if (parseRows > 0) {
@@ -548,6 +550,7 @@ public class LookupCommand {
                     argFilters = ConfigHandler.lookupFlist.getOrDefault(player.getName(), Collections.emptyList());
                     argRadius = ConfigHandler.lookupRadius.get(player.getName());
                     ts = ConfigHandler.lookupTime.get(player.getName());
+                    outputMode = ConfigHandler.lookupOutputMode.getOrDefault(player.getName(), LookupOutputMode.DETAIL);
                     startTime = 1;
                     endTime = 0;
                 }
@@ -607,8 +610,6 @@ public class LookupCommand {
                 }
 
                 try {
-                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Color.ITALIC + Phrase.build(Phrase.LOOKUP_SEARCHING));
-
                     if (timeStart == -1) {
                         if (startTime <= 0) {
                             timeStart = 0;
@@ -624,7 +625,14 @@ public class LookupCommand {
                         }
                     }
 
-                    Runnable runnable = new StandardLookupThread(player, command, rollbackusers, argBlocks, argExclude, argExcludeUsers, argAction, argEntityActionFilter, argFilters, argRadius, lo, x, y, z, wid, argWid, timeStart, timeEnd, argNoisy, argExcluded, argRestricted, pa, re, type, ts, count);
+                    if (outputMode == LookupOutputMode.SUMMARY && !isValidSummaryScope(timeStart, rollbackusers, argBlocks, argRadius)) {
+                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co l t:<time> u:<user>|i:<block>|r:<radius> #summary"));
+                        return;
+                    }
+
+                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Color.ITALIC + Phrase.build(Phrase.LOOKUP_SEARCHING));
+
+                    Runnable runnable = new StandardLookupThread(player, command, rollbackusers, argBlocks, argExclude, argExcludeUsers, argAction, argEntityActionFilter, argFilters, argRadius, lo, x, y, z, wid, argWid, timeStart, timeEnd, argNoisy, argExcluded, argRestricted, pa, re, type, ts, outputMode);
                     Thread thread = new Thread(runnable);
                     thread.start();
                 }
@@ -650,5 +658,15 @@ public class LookupCommand {
         else {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co l <params>"));
         }
+    }
+
+    private static boolean isValidSummaryScope(long timeStart, List<String> users, List<Object> includedTypes, Integer[] radius) {
+        if (timeStart <= 0) {
+            return false;
+        }
+        if (radius != null || !includedTypes.isEmpty() || users.contains("#container")) {
+            return true;
+        }
+        return users.stream().anyMatch(user -> !user.startsWith("#"));
     }
 }

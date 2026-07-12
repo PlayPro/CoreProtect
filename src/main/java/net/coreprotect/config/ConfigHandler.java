@@ -34,6 +34,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.ListenerHandler;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.model.action.EntityActionFilter;
+import net.coreprotect.model.lookup.LookupOutputMode;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.patch.Patch;
 import net.coreprotect.spigot.SpigotAdapter;
@@ -132,6 +133,7 @@ public class ConfigHandler extends Queue {
     public static Map<String, Object[]> lookupThrottle = syncMap();
     public static Map<String, Object[]> teleportThrottle = syncMap();
     public static Map<String, Integer> lookupPage = syncMap();
+    public static Map<String, LookupOutputMode> lookupOutputMode = syncMap();
     public static Map<String, String> lookupCommand = syncMap();
     public static Map<String, Integer> lookupEntityContainer = syncMap();
     public static Map<String, List<Object>> lookupBlist = syncMap();

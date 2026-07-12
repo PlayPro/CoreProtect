@@ -1,5 +1,6 @@
 package net.coreprotect.database;
 
+import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -17,6 +18,9 @@ import org.bukkit.command.CommandSender;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.model.action.EntityActionFilter;
+import net.coreprotect.model.action.LookupActions;
+import net.coreprotect.model.lookup.LookupSummaryPage;
+import net.coreprotect.model.lookup.LookupSummaryRow;
 import net.coreprotect.utility.ErrorReporter;
 
 public class Lookup extends Queue {
@@ -62,6 +66,138 @@ public class Lookup extends Queue {
         Consumer.isPaused = false;
 
         return rows;
+    }
+
+    public static long countSummaryRows(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, Set<UUID> loadedEntityUuids, Set<UUID> loadedEntityCandidates, Location location, Integer[] radius, long startTime, long endTime, boolean restrictWorld, Integer entityContainerId) {
+        if (!hasSummaryActions(actionList)) {
+            return 0L;
+        }
+
+        boolean paused = false;
+        try {
+            while (Consumer.isPaused) {
+                Thread.sleep(1);
+            }
+            Consumer.isPaused = true;
+            paused = true;
+            try (ResultSet results = LookupRaw.rawSummaryResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, summaryActions(actionList), entityActionFilter, loadedEntityUuids, loadedEntityCandidates, location, radius, startTime, endTime, -1, -1, restrictWorld, entityContainerId, true)) {
+                return results.next() ? results.getLong("count") : 0L;
+            }
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+            return 0L;
+        }
+        finally {
+            if (paused) {
+                Consumer.isPaused = false;
+            }
+        }
+    }
+
+    public static List<LookupSummaryRow> performSummaryLookup(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, Set<UUID> loadedEntityUuids, Set<UUID> loadedEntityCandidates, Location location, Integer[] radius, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, Integer entityContainerId) {
+        if (!hasSummaryActions(actionList)) {
+            return Collections.emptyList();
+        }
+
+        List<LookupSummaryRow> rows = new ArrayList<>();
+        boolean paused = false;
+        try {
+            while (Consumer.isPaused) {
+                Thread.sleep(1);
+            }
+            Consumer.isPaused = true;
+            paused = true;
+            try (ResultSet results = LookupRaw.rawSummaryResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, summaryActions(actionList), entityActionFilter, loadedEntityUuids, loadedEntityCandidates, location, radius, startTime, endTime, limitOffset, limitCount, restrictWorld, entityContainerId, false)) {
+                while (results.next()) {
+                    rows.add(summaryRow(results));
+                }
+            }
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+        }
+        finally {
+            if (paused) {
+                Consumer.isPaused = false;
+            }
+        }
+        return rows;
+    }
+
+    public static LookupSummaryPage performSummaryLookupPage(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, Set<UUID> loadedEntityUuids, Set<UUID> loadedEntityCandidates, Location location, Integer[] radius, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, Integer entityContainerId) {
+        if (!hasSummaryActions(actionList)) {
+            return new LookupSummaryPage(0L, Collections.emptyList());
+        }
+
+        List<LookupSummaryRow> rows = new ArrayList<>();
+        long totalRows = 0L;
+        boolean paused = false;
+        try {
+            while (Consumer.isPaused) {
+                Thread.sleep(1);
+            }
+            Consumer.isPaused = true;
+            paused = true;
+            try (ResultSet results = LookupRaw.rawSummaryPageResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, summaryActions(actionList), entityActionFilter, loadedEntityUuids, loadedEntityCandidates, location, radius, startTime, endTime, limitOffset, limitCount, restrictWorld, entityContainerId)) {
+                while (results.next()) {
+                    if (rows.isEmpty()) {
+                        totalRows = results.getLong("total_count");
+                    }
+                    rows.add(summaryRow(results));
+                }
+            }
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+        }
+        finally {
+            if (paused) {
+                Consumer.isPaused = false;
+            }
+        }
+        return new LookupSummaryPage(totalRows, rows);
+    }
+
+    public static boolean supportsSummaryWindowFunctions(Statement statement) {
+        try {
+            DatabaseMetaData metadata = statement.getConnection().getMetaData();
+            String product = metadata.getDatabaseProductName().toLowerCase(java.util.Locale.ROOT);
+            int major = metadata.getDatabaseMajorVersion();
+            int minor = metadata.getDatabaseMinorVersion();
+            if (product.contains("sqlite")) {
+                return major > 3 || (major == 3 && minor >= 25);
+            }
+            if (product.contains("mariadb")) {
+                return major > 10 || (major == 10 && minor >= 2);
+            }
+            return product.contains("mysql") && major >= 8;
+        }
+        catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static LookupSummaryRow summaryRow(ResultSet results) throws Exception {
+        return new LookupSummaryRow(results.getInt("user"), results.getInt("type"), results.getLong("removed_amount"), results.getLong("placed_amount"), results.getLong("amount"));
+    }
+
+    private static boolean hasSummaryActions(List<Integer> actionList) {
+        return actionList.isEmpty() || actionList.contains(LookupActions.BLOCK_BREAK) || actionList.contains(LookupActions.BLOCK_PLACE) || actionList.contains(LookupActions.CONTAINER) || actionList.contains(LookupActions.ITEM);
+    }
+
+    private static List<Integer> summaryActions(List<Integer> actionList) {
+        if (actionList.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Integer> actions = new ArrayList<>();
+        for (Integer action : actionList) {
+            if ((action == LookupActions.BLOCK_BREAK || action == LookupActions.BLOCK_PLACE || action == LookupActions.CONTAINER || action == LookupActions.ITEM) && !actions.contains(action)) {
+                actions.add(action);
+            }
+        }
+        return actions;
     }
 
     public static List<String[]> performLookup(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, long startTime, long endTime, boolean restrictWorld, boolean lookup) {

@@ -13,6 +13,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -38,6 +39,9 @@ import net.coreprotect.model.action.SessionActions;
 import net.coreprotect.model.entity.EntitySpawnRecord;
 import net.coreprotect.model.item.InventorySources;
 import net.coreprotect.model.item.ItemTransactionActions;
+import net.coreprotect.model.lookup.LookupOutputMode;
+import net.coreprotect.model.lookup.LookupSummaryPage;
+import net.coreprotect.model.lookup.LookupSummaryRow;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.ChatUtils;
 import net.coreprotect.utility.Color;
@@ -50,6 +54,9 @@ import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.ErrorReporter;
 
 public class StandardLookupThread implements Runnable {
+    private static final int SUMMARY_QUERY_TIMEOUT_SECONDS = 30;
+    private static final AtomicBoolean SUMMARY_LOOKUP_ACTIVE = new AtomicBoolean(false);
+
     private final CommandSender player;
     private final Command command;
     private final List<String> rollbackUsers;
@@ -75,9 +82,9 @@ public class StandardLookupThread implements Runnable {
     private final int displayResults;
     private final int typeLookup;
     private final String rtime;
-    private final boolean count;
+    private final LookupOutputMode outputMode;
 
-    public StandardLookupThread(CommandSender player, Command command, List<String> rollbackUsers, List<Object> blockList, Map<Object, Boolean> excludedBlocks, List<String> excludedUsers, List<Integer> actions, EntityActionFilter entityActionFilter, List<String> messageFilters, Integer[] radius, Location location, int x, int y, int z, int worldId, int argWorldId, long timeStart, long timeEnd, int noisy, int excluded, int restricted, int page, int displayResults, int typeLookup, String rtime, boolean count) {
+    public StandardLookupThread(CommandSender player, Command command, List<String> rollbackUsers, List<Object> blockList, Map<Object, Boolean> excludedBlocks, List<String> excludedUsers, List<Integer> actions, EntityActionFilter entityActionFilter, List<String> messageFilters, Integer[] radius, Location location, int x, int y, int z, int worldId, int argWorldId, long timeStart, long timeEnd, int noisy, int excluded, int restricted, int page, int displayResults, int typeLookup, String rtime, LookupOutputMode outputMode) {
         this.player = player;
         this.command = command;
         this.rollbackUsers = rollbackUsers;
@@ -103,11 +110,17 @@ public class StandardLookupThread implements Runnable {
         this.displayResults = displayResults;
         this.typeLookup = typeLookup;
         this.rtime = rtime;
-        this.count = count;
+        this.outputMode = outputMode;
     }
 
     @Override
     public void run() {
+        boolean summaryLookup = outputMode == LookupOutputMode.SUMMARY;
+        if (summaryLookup && !SUMMARY_LOOKUP_ACTIVE.compareAndSet(false, true)) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
+            return;
+        }
+
         try (Connection connection = Database.getConnection(true)) {
             ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
 
@@ -131,9 +144,13 @@ public class StandardLookupThread implements Runnable {
             ConfigHandler.lookupEntityActionFilter.put(player.getName(), entityActionFilter);
             ConfigHandler.lookupFlist.put(player.getName(), messageFilters);
             ConfigHandler.lookupRadius.put(player.getName(), radius);
+            ConfigHandler.lookupOutputMode.put(player.getName(), outputMode == LookupOutputMode.COUNT ? LookupOutputMode.DETAIL : outputMode);
 
             if (connection != null) {
                 Statement statement = connection.createStatement();
+                if (summaryLookup) {
+                    statement.setQueryTimeout(SUMMARY_QUERY_TIMEOUT_SECONDS);
+                }
                 String baduser = "";
                 for (String check : rollbackUsers) {
                     if ((!check.equals("#global") && !check.equals("#container")) || actions.contains(LookupActions.USERNAME)) {
@@ -206,7 +223,9 @@ public class StandardLookupThread implements Runnable {
                     long rowMax = (long) page * displayResults;
                     long pageStart = rowMax - displayResults;
                     long rows = 0L;
+                    long recordRows = 0L;
                     boolean checkRows = true;
+                    List<LookupSummaryRow> summaryRows = null;
 
                     if (typeLookup == 5 && page > 1) {
                         rowData = ConfigHandler.lookupRows.get(player.getName());
@@ -214,6 +233,9 @@ public class StandardLookupThread implements Runnable {
                             rowData = new Long[] { 0L, 0L, 0L, 0L, 0L };
                         }
                         rows = rowData[4];
+                        if (outputMode == LookupOutputMode.SUMMARY) {
+                            recordRows = rowData[0];
+                        }
 
                         if (pageStart < rows) {
                             checkRows = false;
@@ -221,13 +243,38 @@ public class StandardLookupThread implements Runnable {
                     }
 
                     if (checkRows) {
-                        rows = Lookup.countLookupRows(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, entityActionFilter, messageFilters, loadedEntityUuids, loadedEntityCandidates, finalLocation, radius, rowData, timeStart, timeEnd, restrict_world, true, entityContainerId);
+                        if (outputMode == LookupOutputMode.SUMMARY) {
+                            if (pageStart == 0 && Lookup.supportsSummaryWindowFunctions(statement)) {
+                                LookupSummaryPage summaryPage = Lookup.performSummaryLookupPage(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, entityActionFilter, loadedEntityUuids, loadedEntityCandidates, finalLocation, radius, timeStart, timeEnd, (int) pageStart, displayResults, restrict_world, entityContainerId);
+                                rows = summaryPage.getTotalRows();
+                                summaryRows = summaryPage.getRows();
+                            }
+                            else {
+                                rows = Lookup.countSummaryRows(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, entityActionFilter, loadedEntityUuids, loadedEntityCandidates, finalLocation, radius, timeStart, timeEnd, restrict_world, entityContainerId);
+                            }
+                            if (rows > 0) {
+                                recordRows = Lookup.countLookupRows(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, entityActionFilter, messageFilters, loadedEntityUuids, loadedEntityCandidates, finalLocation, radius, rowData, timeStart, timeEnd, restrict_world, true, entityContainerId);
+                                rowData[0] = recordRows;
+                                rowData[1] = 0L;
+                                rowData[2] = 0L;
+                                rowData[3] = 0L;
+                            }
+                        }
+                        else {
+                            rows = Lookup.countLookupRows(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, entityActionFilter, messageFilters, loadedEntityUuids, loadedEntityCandidates, finalLocation, radius, rowData, timeStart, timeEnd, restrict_world, true, entityContainerId);
+                        }
                         rowData[4] = rows;
                         ConfigHandler.lookupRows.put(player.getName(), rowData);
                     }
-                    if (count) {
+                    if (outputMode == LookupOutputMode.COUNT) {
                         String row_format = NumberFormat.getInstance().format(rows);
                         Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.LOOKUP_ROWS_FOUND, row_format, (rows == 1 ? Selector.FIRST : Selector.SECOND)));
+                    }
+                    else if (outputMode == LookupOutputMode.SUMMARY && pageStart < rows) {
+                        if (summaryRows == null) {
+                            summaryRows = Lookup.performSummaryLookup(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, entityActionFilter, loadedEntityUuids, loadedEntityCandidates, finalLocation, radius, timeStart, timeEnd, (int) pageStart, displayResults, restrict_world, entityContainerId);
+                        }
+                        outputSummary(connection, summaryRows, rows, recordRows);
                     }
                     else if (pageStart < rows) {
                         List<String[]> lookupList = Lookup.performPartialLookup(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, entityActionFilter, messageFilters, loadedEntityUuids, loadedEntityCandidates, finalLocation, radius, rowData, timeStart, timeEnd, (int) pageStart, displayResults, restrict_world, true, entityContainerId);
@@ -567,8 +614,53 @@ public class StandardLookupThread implements Runnable {
         catch (Exception e) {
             ErrorReporter.report(e);
         }
+        finally {
+            if (summaryLookup) {
+                SUMMARY_LOOKUP_ACTIVE.set(false);
+            }
+            ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
+        }
+    }
 
-        ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
+    private void outputSummary(Connection connection, List<LookupSummaryRow> summaryRows, long totalRows, long recordRows) {
+        if (summaryRows.isEmpty()) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS));
+            return;
+        }
+
+        NumberFormat numberFormat = NumberFormat.getInstance();
+        String rowsFound = Phrase.build(Phrase.LOOKUP_ROWS_FOUND, numberFormat.format(recordRows), recordRows == 1 ? Selector.FIRST : Selector.SECOND);
+        Chat.sendMessage(player, Color.WHITE + "----- " + Color.DARK_AQUA + "CoreProtect" + Color.WHITE + " | " + Color.DARK_AQUA + rowsFound + Color.WHITE + " -----");
+        for (LookupSummaryRow row : summaryRows) {
+            String userName = UserStatement.loadName(connection, row.getUserId());
+            if (userName == null || userName.isEmpty()) {
+                userName = "unknown";
+            }
+
+            String materialName = MaterialUtils.getBlockDisplayName(row.getMaterialId(), 0);
+            if (materialName == null || materialName.isEmpty()) {
+                materialName = MaterialUtils.getBlockNameShort(row.getMaterialId());
+            }
+            if (materialName == null || materialName.isEmpty()) {
+                materialName = "#" + row.getMaterialId();
+            }
+            if (materialName.startsWith("minecraft:")) {
+                materialName = materialName.substring("minecraft:".length());
+            }
+
+            long removedAmount = row.getRemovedAmount();
+            long placedAmount = row.getPlacedAmount();
+            long netAmount = row.getAmount();
+            String formattedNetAmount = (netAmount >= 0 ? "+" : "") + numberFormat.format(netAmount);
+            Chat.sendComponent(player, Color.DARK_AQUA + userName + Color.WHITE + ": " + Color.RED + "-" + numberFormat.format(removedAmount)
+                    + Color.GREY + " / " + Color.GREEN + "+" + numberFormat.format(placedAmount) + Color.WHITE + " = " + formattedNetAmount
+                    + Color.WHITE + " " + Color.DARK_AQUA + materialName + Color.WHITE);
+        }
+
+        if (totalRows > displayResults) {
+            int totalPages = (int) Math.ceil(totalRows / (displayResults + 0.0));
+            Chat.sendComponent(player, ChatUtils.getPageNavigation(command.getName(), page, totalPages));
+        }
     }
 
     private static EntityDisplayLocation resolveEntityDisplayLocation(String[] data, Map<Integer, EntitySpawnRecord> records, Map<UUID, Location> loadedLocations) {

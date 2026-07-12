@@ -76,6 +76,10 @@ public class CommandParser {
         return ActionParser.parseCount(inputArguments);
     }
 
+    protected static boolean parseSummary(String[] inputArguments) {
+        return ActionParser.parseSummary(inputArguments);
+    }
+
     /**
      * Parse excluded materials and entities from command arguments
      * 

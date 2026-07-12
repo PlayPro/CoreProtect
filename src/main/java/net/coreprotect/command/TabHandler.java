@@ -155,6 +155,7 @@ public class TabHandler implements TabCompleter {
         boolean hasTime;
         boolean hasContainer;
         boolean hasCount;
+        boolean hasSummary;
         boolean hasPreview;
         boolean hasPage;
         boolean validContainer;
@@ -176,6 +177,9 @@ public class TabHandler implements TabCompleter {
             }
             else if (arg.equals("#count") || arg.equals("#sum")) {
                 state.hasCount = true;
+            }
+            else if (arg.equals("#summary")) {
+                state.hasSummary = true;
             }
             else if (arg.equals("#preview")) {
                 state.hasPreview = true;
@@ -503,8 +507,12 @@ public class TabHandler implements TabCompleter {
             params.add("page:");
         }
         else if (!firstParam && argument.startsWith("#")) {
-            if (!state.hasCount) {
+            if (!state.hasCount && !state.hasSummary) {
                 params.add("#count");
+                params.add("#sum");
+            }
+            if (!state.hasCount && !state.hasSummary && (lastArgument.equals("l") || lastArgument.equals("lookup"))) {
+                params.add("#summary");
             }
             if (!state.hasPreview) {
                 params.add("#preview");

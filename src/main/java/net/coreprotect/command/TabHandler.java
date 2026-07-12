@@ -43,7 +43,7 @@ public class TabHandler implements TabCompleter {
         String currentArg = args[args.length - 1].toLowerCase(Locale.ROOT).trim();
         String lastArg = args.length > 1 ? args[args.length - 2].toLowerCase(Locale.ROOT).trim() : "";
 
-        ParamState paramState = getParamState(args);
+        ParamState paramState = getParamState(sender, args);
 
         // Handle param-specific completions
         if (isActionParam(lastArg, currentArg) && hasLookupPermission(sender)) {
@@ -161,10 +161,11 @@ public class TabHandler implements TabCompleter {
         boolean pageLookup;
     }
 
-    private ParamState getParamState(String[] args) {
+    private ParamState getParamState(CommandSender sender, String[] args) {
         ParamState state = new ParamState();
+        String senderName = sender.getName();
 
-        if (ConfigHandler.lookupType.get(args[0]) != null && ConfigHandler.lookupPage.get(args[0]) != null) {
+        if (ConfigHandler.lookupType.get(senderName) != null && ConfigHandler.lookupPage.get(senderName) != null) {
             state.pageLookup = true;
         }
 
@@ -206,13 +207,14 @@ public class TabHandler implements TabCompleter {
         }
 
         if (!state.hasContainer) {
-            if (ConfigHandler.lookupType.get(args[0]) != null) {
-                int lookupType = ConfigHandler.lookupType.get(args[0]);
+            Integer lookupType = ConfigHandler.lookupType.get(senderName);
+            if (lookupType != null) {
                 if (lookupType == 1) {
                     state.validContainer = true;
                 }
                 else if (lookupType == 5) {
-                    if (ConfigHandler.lookupUlist.get(args[0]).contains("#container")) {
+                    List<String> lookupUsers = ConfigHandler.lookupUlist.get(senderName);
+                    if (lookupUsers != null && lookupUsers.contains("#container")) {
                         state.validContainer = true;
                     }
                 }

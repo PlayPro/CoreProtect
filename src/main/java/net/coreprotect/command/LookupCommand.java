@@ -18,6 +18,7 @@ import org.bukkit.entity.Player;
 
 import net.coreprotect.command.lookup.BlockLookupThread;
 import net.coreprotect.command.lookup.ChestTransactionLookupThread;
+import net.coreprotect.command.lookup.EntityInteractionLookupThread;
 import net.coreprotect.command.lookup.StandardLookupThread;
 import net.coreprotect.command.parser.ActionParser;
 import net.coreprotect.command.parser.MessageFilterParser;
@@ -89,7 +90,7 @@ public class LookupCommand {
                     argAction.add(LookupActions.ENTITY_KILL);
                     argAction.add(LookupActions.ENTITY_SPAWN);
                 }
-                else if (!argEntityActionFilter.includesAnyEntity(argAction, true)) {
+                else if (!argEntityActionFilter.includesAnyEntity(argAction, true) && !argAction.contains(LookupActions.INTERACTION)) {
                     Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE_COMBO));
                     return;
                 }
@@ -107,7 +108,7 @@ public class LookupCommand {
                     argAction.add(LookupActions.ENTITY_KILL);
                     argAction.add(LookupActions.ENTITY_SPAWN);
                 }
-                else if (!argEntityActionFilter.includesAnyEntity(argAction, true)) {
+                else if (!argEntityActionFilter.includesAnyEntity(argAction, true) && !argAction.contains(LookupActions.INTERACTION)) {
                     Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE_COMBO));
                     return;
                 }
@@ -367,7 +368,7 @@ public class LookupCommand {
             Thread thread = new Thread(runnable);
             thread.start();
         }
-        else if (type == 2 || type == 3 || type == 7 || type == 8) {
+        else if (type == 2 || type == 3 || type == 7 || type == 8 || type == 9) {
             boolean defaultRe = true;
             int page = 1;
             int re = 7;
@@ -409,6 +410,13 @@ public class LookupCommand {
             }
 
             // String bc = x+"."+y+"."+z+"."+wid+"."+rstring+"."+lookup_user;
+            if (type == 9) {
+                Runnable runnable = new EntityInteractionLookupThread(player, command, page, re);
+                Thread thread = new Thread(runnable);
+                thread.start();
+                return;
+            }
+
             String lcommand = ConfigHandler.lookupCommand.get(player.getName());
             String[] data = lcommand.split("\\.");
             int x = Integer.parseInt(data[0]);

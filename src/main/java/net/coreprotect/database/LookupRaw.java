@@ -30,11 +30,11 @@ import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.model.action.SignActions;
 import net.coreprotect.model.item.InventorySources;
 import net.coreprotect.model.item.ItemTransactionActions;
-import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.EntitySpawnTracking;
+import net.coreprotect.utility.EntityUtils;
+import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
-import net.coreprotect.utility.ErrorReporter;
 
 public class LookupRaw extends Queue {
 
@@ -208,7 +208,7 @@ public class LookupRaw extends Queue {
                     int resultWorldId = results.getInt("wid");
 
                     boolean hasTbl = false;
-                    if ((lookup && actionList.size() == 0) || actionList.contains(LookupActions.CONTAINER) || actionList.contains(5) || actionList.contains(LookupActions.ITEM)) {
+                    if ((lookup && actionList.size() == 0) || actionList.contains(LookupActions.INTERACTION) || actionList.contains(LookupActions.CONTAINER) || actionList.contains(5) || actionList.contains(LookupActions.ITEM)) {
                         resultData = results.getInt("data");
                         resultAmount = results.getInt("amount");
                         resultMeta = results.getBytes("metadata");
@@ -283,10 +283,13 @@ public class LookupRaw extends Queue {
             }
 
             boolean inventoryQuery = LookupActions.isInventoryLookup(actionList);
+            boolean standardActionLookup = !actionList.contains(LookupActions.CONTAINER) && !actionList.contains(5) && !actionList.contains(LookupActions.ITEM) && !actionList.contains(LookupActions.CHAT) && !actionList.contains(LookupActions.COMMAND) && !actionList.contains(LookupActions.SESSION) && !actionList.contains(LookupActions.USERNAME) && !actionList.contains(LookupActions.SIGN);
+            boolean includeEntityInteractions = !summary && lookup && standardActionLookup && (actionList.isEmpty() || actionList.contains(LookupActions.INTERACTION));
             boolean includeEntityContainers = entityContainerId != null || actionList.contains(LookupActions.CONTAINER) || inventoryQuery || (lookup && actionList.isEmpty());
             boolean includeEntitySpawnLocations = entityActionFilter.includesAnySpawn(actionList, lookup || Config.getGlobal().ROLLBACK_ENTITIES);
             boolean entitySpawnLocation = restrictWorld && location != null && location.getWorld() != null && includeEntitySpawnLocations;
             boolean entityContainerLocation = restrictWorld && location != null && location.getWorld() != null && includeEntityContainers;
+            boolean entityInteractionLocation = restrictWorld && location != null && location.getWorld() != null && includeEntityInteractions;
             boolean entitySpawnRadius = entitySpawnLocation && radius != null;
             boolean entityContainerRadius = entityContainerLocation && radius != null;
             boolean currentEntityRadius = !lookup && (entitySpawnRadius || entityContainerRadius);
@@ -309,6 +312,7 @@ public class LookupRaw extends Queue {
             String query = "";
             String entitySpawnLocationQuery = "";
             String entityContainerLocationQuery = "";
+            String entityInteractionLocationQuery = "";
             String standardLocationQuery = "";
             List<String> messageFilterBindings = new ArrayList<>();
 
@@ -550,7 +554,7 @@ public class LookupRaw extends Queue {
                 }
             }
 
-            if (entitySpawnLocation || entityContainerLocation) {
+            if (entitySpawnLocation || entityContainerLocation || entityInteractionLocation) {
                 int wid = WorldUtils.getWorldId(location.getWorld().getName());
                 String originalLocation = "(wid=" + wid + (bounds.isEmpty() ? "" : " AND " + bounds) + ")";
                 String entityBounds = "";
@@ -593,6 +597,12 @@ public class LookupRaw extends Queue {
                     entityContainerLocationQuery = lookup ? "(" + originalLocation + " OR " + currentLocation + ")" : currentLocation;
                 }
 
+                if (entityInteractionLocation) {
+                    String entitySpawnRows = "SELECT rowid FROM " + ConfigHandler.prefix + "entity_spawn WHERE (" + databaseLocation + ")";
+                    String currentLocation = "entity_spawn_rowid IN(" + entitySpawnRows + ")";
+                    entityInteractionLocationQuery = "(" + originalLocation + " OR " + currentLocation + ")";
+                }
+
                 standardLocationQuery = originalLocation;
                 queryBlock = queryBlock + " " + (entitySpawnLocation ? entitySpawnLocationQuery : originalLocation) + " AND";
             }
@@ -616,8 +626,10 @@ public class LookupRaw extends Queue {
                 queryBlock = queryBlock + " wid=" + worldId + " AND (x = '" + x + "' OR x = '" + x2 + "') AND (z = '" + z + "' OR z = '" + z2 + "') AND y = '" + location.getBlockY() + "' AND";
             }
 
+            String actionPredicate = "";
             if (validAction) {
-                queryBlock = queryBlock + " " + buildActionPredicate(action, actionList, entityActionFilter) + " AND";
+                actionPredicate = buildActionPredicate(action, actionList, entityActionFilter);
+                queryBlock = queryBlock + " " + actionPredicate + " AND";
             }
             else if (inventoryQuery || actionExclude.length() > 0 || includeBlock.length() > 0 || includeEntity.length() > 0 || excludeBlock.length() > 0 || excludeEntity.length() > 0) {
                 queryBlock = queryBlock + " action NOT IN(-1) AND";
@@ -682,8 +694,19 @@ public class LookupRaw extends Queue {
             if (excludeBlock.length() > 0 || excludeEntity.length() > 0) {
                 queryEntity = queryEntity.replace("type NOT IN(" + (excludeBlock.length() > 0 ? excludeBlock : "0") + ")", "type NOT IN(" + (excludeEntity.length() > 0 ? excludeEntity : "0") + ")");
             }
+            String queryEntityInteraction = queryEntity;
+            if (!entitySpawnLocationQuery.isEmpty()) {
+                queryEntityInteraction = queryEntityInteraction.replace(entitySpawnLocationQuery, standardLocationQuery);
+            }
+            if (!entityInteractionLocationQuery.isEmpty()) {
+                queryEntityInteraction = queryEntityInteraction.replace(standardLocationQuery, entityInteractionLocationQuery);
+            }
+            if (!actionPredicate.isEmpty()) {
+                queryEntityInteraction = queryEntityInteraction.replace(actionPredicate, "1");
+            }
 
             String baseQuery = ((!includeEntity.isEmpty() || !excludeEntity.isEmpty()) ? queryEntity : queryBlock);
+            String blockSourceQuery = actionList.size() == 1 && actionList.contains(LookupActions.INTERACTION) ? queryBlock : baseQuery;
             if (!summary && limitOffset > -1 && limitCount > -1) {
                 queryLimit = " LIMIT " + limitOffset + ", " + limitCount + "";
                 unionLimit = " ORDER BY time DESC, id DESC LIMIT " + (limitOffset + limitCount) + "";
@@ -726,7 +749,7 @@ public class LookupRaw extends Queue {
 
             if (count) {
                 rows = "COUNT(*) as count";
-                queryLimit = " LIMIT 0, 4";
+                queryLimit = " LIMIT 0, 5";
                 queryOrder = "";
                 unionLimit = "";
             }
@@ -851,6 +874,23 @@ public class LookupRaw extends Queue {
                     }
                     query += unionSelect + "SELECT '" + InventorySources.ENTITY_CONTAINER + "' as tbl," + rows + " FROM " + ConfigHandler.prefix + "entity_container WHERE" + queryEntityContainer + unionLimit + ")";
                 }
+                if (!count) {
+                    queryOrder = " ORDER BY time DESC, tbl DESC, id DESC";
+                }
+            }
+
+            if (includeEntityInteractions) {
+                if (query.isEmpty()) {
+                    if (!count) {
+                        rows = "rowid as id,time,user,wid,x,y,z,type,meta as metadata,data,-1 as amount,action,rolled_back,0 as entity_spawn_rowid";
+                    }
+                    query = unionSelect + "SELECT '0' as tbl," + rows + " FROM " + ConfigHandler.prefix + "block " + index + "WHERE" + blockSourceQuery + unionLimit + ")";
+                }
+
+                if (!count) {
+                    rows = "rowid as id,time,user,wid,x,y,z,type,metadata,action as data,-1 as amount," + LookupActions.INTERACTION + " as action,rolled_back,entity_spawn_rowid";
+                }
+                query += " UNION ALL " + unionSelect + "SELECT '" + InventorySources.ENTITY_INTERACTION + "' as tbl," + rows + " FROM " + ConfigHandler.prefix + "entity_interaction WHERE" + queryEntityInteraction + unionLimit + ")";
                 if (!count) {
                     queryOrder = " ORDER BY time DESC, tbl DESC, id DESC";
                 }

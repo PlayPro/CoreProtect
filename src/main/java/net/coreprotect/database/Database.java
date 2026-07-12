@@ -50,6 +50,7 @@ public class Database extends Queue {
     public static final int ITEM = 13;
     public static final int ENTITY_SPAWN = 14;
     public static final int ENTITY_CONTAINER = 15;
+    public static final int ENTITY_INTERACTION = 16;
 
     private static final int ROLLED_BACK_UPDATE_BATCH_SIZE = 1000;
 
@@ -73,6 +74,7 @@ public class Database extends Queue {
         SQL_QUERIES.put(BLOCKDATA, "INSERT INTO %sprefix%blockdata_map (id, data) VALUES (?, ?)");
         SQL_QUERIES.put(ENTITY_SPAWN, "INSERT INTO %sprefix%entity_spawn (time, uuid, wid, current_wid, origin_x, origin_y, origin_z, x, y, z, yaw, pitch, data, removed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         SQL_QUERIES.put(ENTITY_CONTAINER, "INSERT INTO %sprefix%entity_container (time, user, entity_spawn_rowid, wid, x, y, z, type, data, amount, metadata, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        SQL_QUERIES.put(ENTITY_INTERACTION, "INSERT INTO %sprefix%entity_interaction (time, user, entity_spawn_rowid, wid, x, y, z, type, action, metadata, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     }
 
     public static void beginTransaction(Statement statement, boolean isMySQL) throws SQLException {
@@ -404,7 +406,7 @@ public class Database extends Queue {
         }
     }
 
-    private static final List<String> DATABASE_TABLES = Arrays.asList("art_map", "block", "chat", "command", "container", "entity_container", "item", "database_lock", "entity", "entity_spawn", "entity_map", "material_map", "blockdata_map", "session", "sign", "skull", "user", "username_log", "version", "world");
+    private static final List<String> DATABASE_TABLES = Arrays.asList("art_map", "block", "chat", "command", "container", "entity_container", "entity_interaction", "item", "database_lock", "entity", "entity_spawn", "entity_map", "material_map", "blockdata_map", "session", "sign", "skull", "user", "username_log", "version", "world");
 
     public static void createDatabaseTables(String prefix, boolean forcePrefix, Connection forceConnection, boolean mySQL, boolean purge) {
         ConfigHandler.databaseTables.clear();
@@ -466,6 +468,10 @@ public class Database extends Queue {
         // Entity container
         index = ", INDEX(wid,x,z,time), INDEX(entity_spawn_rowid,time), INDEX(user,time), INDEX(type,time)";
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_container(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, entity_spawn_rowid int NOT NULL, wid int, x int, y int, z int, type int, data int, amount int, metadata mediumblob, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+
+        // Entity interaction
+        index = ", INDEX(wid,x,z,time), INDEX(entity_spawn_rowid,time), INDEX(user,time), INDEX(type,time), INDEX(action,time)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_interaction(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, entity_spawn_rowid int NOT NULL, wid int, x int, y int, z int, type int, action tinyint, metadata mediumblob, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
         // Item
         index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(type,time)";
@@ -532,6 +538,11 @@ public class Database extends Queue {
             ensureMySQLIndex(statement, prefix + "entity_container", "entity_spawn_rowid", "time");
             ensureMySQLIndex(statement, prefix + "entity_container", "user", "time");
             ensureMySQLIndex(statement, prefix + "entity_container", "type", "time");
+            ensureMySQLIndex(statement, prefix + "entity_interaction", "wid", "x", "z", "time");
+            ensureMySQLIndex(statement, prefix + "entity_interaction", "entity_spawn_rowid", "time");
+            ensureMySQLIndex(statement, prefix + "entity_interaction", "user", "time");
+            ensureMySQLIndex(statement, prefix + "entity_interaction", "type", "time");
+            ensureMySQLIndex(statement, prefix + "entity_interaction", "action", "time");
             ensureMySQLIndex(statement, prefix + "item", "wid", "x", "z", "time");
             ensureMySQLIndex(statement, prefix + "item", "user", "time");
             ensureMySQLIndex(statement, prefix + "item", "type", "time");
@@ -688,6 +699,9 @@ public class Database extends Queue {
         if (!tableData.contains(prefix + "entity_container")) {
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_container (time INTEGER, user INTEGER, entity_spawn_rowid INTEGER NOT NULL, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, data INTEGER, amount INTEGER, metadata BLOB, action INTEGER, rolled_back INTEGER);");
         }
+        if (!tableData.contains(prefix + "entity_interaction")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_interaction (time INTEGER, user INTEGER, entity_spawn_rowid INTEGER NOT NULL, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, action INTEGER, metadata BLOB, rolled_back INTEGER);");
+        }
         if (!tableData.contains(prefix + "item")) {
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "item (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, data BLOB, amount INTEGER, action INTEGER, rolled_back INTEGER);");
         }
@@ -752,6 +766,11 @@ public class Database extends Queue {
             createSQLiteIndex(statement, indexData, attachDatabase, "entity_container_spawn_index", prefix + "entity_container(entity_spawn_rowid,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "entity_container_user_index", prefix + "entity_container(user,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "entity_container_type_index", prefix + "entity_container(type,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_interaction_index", prefix + "entity_interaction(wid,x,z,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_interaction_spawn_index", prefix + "entity_interaction(entity_spawn_rowid,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_interaction_user_index", prefix + "entity_interaction(user,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_interaction_type_index", prefix + "entity_interaction(type,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_interaction_action_index", prefix + "entity_interaction(action,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "item_index", prefix + "item(wid,x,z,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "item_user_index", prefix + "item(user,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "item_type_index", prefix + "item(type,time)");

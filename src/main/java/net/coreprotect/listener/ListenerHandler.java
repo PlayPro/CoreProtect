@@ -42,6 +42,7 @@ import net.coreprotect.listener.entity.TrackedEntityRemoveListener;
 import net.coreprotect.listener.entity.TrackedEntityTeleportListener;
 import net.coreprotect.listener.player.ArmorStandManipulateListener;
 import net.coreprotect.listener.player.CraftItemListener;
+import net.coreprotect.listener.player.EntityInteractionListener;
 import net.coreprotect.listener.player.FoodLevelChangeListener;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.listener.player.InventoryClickListener;
@@ -181,6 +182,7 @@ public final class ListenerHandler {
         // Player Listeners
         pluginManager.registerEvents(new ArmorStandManipulateListener(), plugin);
         pluginManager.registerEvents(new CraftItemListener(), plugin);
+        pluginManager.registerEvents(new EntityInteractionListener(), plugin);
         pluginManager.registerEvents(new FoodLevelChangeListener(), plugin);
         pluginManager.registerEvents(new InventoryChangeListener(), plugin);
         pluginManager.registerEvents(new InventoryClickListener(), plugin);

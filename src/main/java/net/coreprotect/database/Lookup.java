@@ -54,7 +54,9 @@ public class Lookup extends Queue {
             while (results.next()) {
                 int resultTable = results.getInt("tbl");
                 long count = results.getLong("count");
-                rowData[resultTable] = count;
+                if (rowData != null && resultTable >= 0 && resultTable < rowData.length) {
+                    rowData[resultTable] = count;
+                }
                 rows += count;
             }
             results.close();

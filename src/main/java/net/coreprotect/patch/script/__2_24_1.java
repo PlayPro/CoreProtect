@@ -11,15 +11,16 @@ public class __2_24_1 {
         try {
             Integer[] last_version = Patch.getDatabaseVersion(statement.getConnection(), true);
             if (last_version[0] == 2 && last_version[1] == 24 && last_version[2] == 0) {
-                return __2_24_0.updateItemMetadataColumns(statement) && __2_24_0.updateSkullSkinColumn(statement);
+                if (!__2_24_0.updateItemMetadataColumns(statement) || !__2_24_0.updateSkullSkinColumn(statement)) {
+                    return false;
+                }
             }
+            return true;
         }
         catch (Exception e) {
             ErrorReporter.report(e);
             return false;
         }
-
-        return true;
     }
 
 }

@@ -43,6 +43,9 @@ public final class CreatureSpawnListener extends Queue implements Listener {
                 Queue.queueEntitySpawnLog(user, event.getEntity().getUniqueId(), event.getEntityType(), event.getEntity().getLocation());
             }
         }
+        if (Config.getConfig(world).PLAYER_INTERACTIONS) {
+            EntitySpawnTracking.seedOrigin(event.getEntity());
+        }
 
         if (!event.getEntityType().equals(EntityType.ARMOR_STAND)) {
             return;

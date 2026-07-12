@@ -17,6 +17,7 @@ import org.bukkit.block.data.Bisected.Half;
 import org.bukkit.block.data.Waterlogged;
 import org.bukkit.block.data.type.Bed;
 import org.bukkit.block.data.type.Bed.Part;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -30,13 +31,17 @@ import net.coreprotect.listener.block.BlockUtil;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.model.entity.EntityContainerRollbackUpdate;
 import net.coreprotect.model.entity.EntityContainerTransaction;
+import net.coreprotect.model.entity.EntityInteraction;
+import net.coreprotect.model.entity.EntityInteractionAction;
+import net.coreprotect.model.entity.EntityInteractionOrigin;
 import net.coreprotect.model.entity.EntitySpawnData;
-import net.coreprotect.thread.Scheduler;
 import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.EntityUtils;
-import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.WorldUtils;
 
 public class Queue {
 
@@ -329,6 +334,30 @@ public class Queue {
             return;
         }
         queueStandardData(new Object[] { null, Process.ENTITY_CONTAINER_TRANSACTION, null, 0, null, 0, 0, null }, new String[] { user, null }, transaction, false, Consumer.reserveConsumer());
+    }
+
+    public static void queueEntityInteraction(String user, Entity entity, EntityInteractionAction action) {
+        queueEntityInteraction(user, entity, action, null);
+    }
+
+    public static void queueEntityInteraction(String user, Entity entity, EntityInteractionAction action, byte[] metadata) {
+        if (user == null || user.trim().isEmpty() || entity == null || action == null) {
+            return;
+        }
+
+        Location currentLocation = entity.getLocation();
+        EntityInteractionOrigin origin = EntitySpawnTracking.getOrCreateInteractionOrigin(entity);
+        if (origin == null || currentLocation.getWorld() == null) {
+            return;
+        }
+        queueEntityInteraction(user, new EntityInteraction(entity.getUniqueId(), entity.getType(), origin, currentLocation, action, metadata));
+    }
+
+    public static void queueEntityInteraction(String user, EntityInteraction interaction) {
+        if (user == null || user.trim().isEmpty() || interaction == null) {
+            return;
+        }
+        queueStandardData(new Object[] { null, Process.ENTITY_INTERACTION, null, 0, null, 0, 0, null }, new String[] { user, null }, interaction, false, Consumer.reserveConsumer());
     }
 
     protected static void queueItemTransaction(String user, Location location, int time, int offset, int itemId) {

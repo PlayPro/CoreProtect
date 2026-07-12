@@ -37,7 +37,7 @@ import net.coreprotect.utility.ErrorReporter;
 
 public class PurgeCommand extends Consumer {
 
-    public static final List<String> PURGE_TABLES = Arrays.asList("sign", "container", "entity_container", "item", "skull", "session", "chat", "command", "entity", "block");
+    public static final List<String> PURGE_TABLES = Arrays.asList("sign", "container", "entity_container", "entity_interaction", "item", "skull", "session", "chat", "command", "entity", "block");
 
     private static String findUnsupportedPurgeArgument(String[] args) {
         boolean includeContinuation = false;
@@ -340,7 +340,7 @@ public class PurgeCommand extends Consumer {
                         Database.createDatabaseTables(purgePrefix, false, null, Config.getGlobal().MYSQL, true);
                     }
 
-                    List<String> worldTables = Arrays.asList("sign", "container", "entity_container", "item", "session", "chat", "command", "block");
+                    List<String> worldTables = Arrays.asList("sign", "container", "entity_container", "entity_interaction", "item", "session", "chat", "command", "block");
                     List<String> restrictTables = Arrays.asList("block");
                     List<String> excludeTables = Arrays.asList("database_lock"); // don't insert data into these tables
                     for (String table : ConfigHandler.databaseTables) {
@@ -375,7 +375,7 @@ public class PurgeCommand extends Consumer {
                                     boolean purge = true;
                                     String timeLimit = "";
                                     if (table.equals("entity_spawn")) {
-                                        timeLimit = " WHERE removed=0 OR block_rowid IN(SELECT rowid FROM " + purgePrefix + "block) OR kill_rowid IN(SELECT rowid FROM " + purgePrefix + "entity) OR rowid IN(SELECT entity_spawn_rowid FROM " + purgePrefix + "entity_container)";
+                                        timeLimit = " WHERE removed=0 OR block_rowid IN(SELECT rowid FROM " + purgePrefix + "block) OR kill_rowid IN(SELECT rowid FROM " + purgePrefix + "entity) OR rowid IN(SELECT entity_spawn_rowid FROM " + purgePrefix + "entity_container) OR rowid IN(SELECT entity_spawn_rowid FROM " + purgePrefix + "entity_interaction)";
                                     }
                                     else if (PURGE_TABLES.contains(table)) {
                                         String blockRestriction = "(";
@@ -387,7 +387,7 @@ public class PurgeCommand extends Consumer {
                                         }
 
                                         if (argWid > 0 && worldTables.contains(table)) {
-                                            if (table.equals("entity_container")) {
+                                            if (table.equals("entity_container") || table.equals("entity_interaction")) {
                                                 if (purge) {
                                                     String worldMatch = "(wid = '" + argWid + "' OR entity_spawn_rowid IN(SELECT rowid FROM " + ConfigHandler.prefix + "entity_spawn WHERE current_wid = '" + argWid + "'))";
                                                     timeLimit = " WHERE (" + worldMatch + " AND (time >= '" + timeEnd + "' OR time < '" + timeStart + "')) OR NOT " + worldMatch;
@@ -462,7 +462,7 @@ public class PurgeCommand extends Consumer {
 
                                     String worldRestriction = "";
                                     if (argWid > 0 && worldTables.contains(table)) {
-                                        if (table.equals("entity_container")) {
+                                        if (table.equals("entity_container") || table.equals("entity_interaction")) {
                                             worldRestriction = " AND (wid = '" + argWid + "' OR entity_spawn_rowid IN(SELECT rowid FROM " + ConfigHandler.prefix + "entity_spawn WHERE current_wid = '" + argWid + "'))";
                                         }
                                         else {
@@ -534,7 +534,7 @@ public class PurgeCommand extends Consumer {
 
                                 String worldRestriction = "";
                                 if (argWid > 0 && worldTables.contains(table)) {
-                                    if (table.equals("entity_container")) {
+                                    if (table.equals("entity_container") || table.equals("entity_interaction")) {
                                         worldRestriction = " AND (wid = '" + argWid + "' OR entity_spawn_rowid IN(SELECT rowid FROM " + ConfigHandler.prefix + "entity_spawn WHERE current_wid = '" + argWid + "'))";
                                     }
                                     else {
@@ -575,7 +575,19 @@ public class PurgeCommand extends Consumer {
                     preparedStmt.executeUpdate();
                     preparedStmt.close();
 
-                    query = "DELETE FROM " + retainedPrefix + "entity_spawn WHERE removed=1 AND block_rowid IS NULL AND kill_rowid IS NULL AND NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity_container WHERE " + retainedPrefix + "entity_container.entity_spawn_rowid=" + retainedPrefix + "entity_spawn.rowid)";
+                    query = "DELETE FROM " + retainedPrefix + "entity_interaction WHERE NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity_spawn WHERE " + retainedPrefix + "entity_spawn.rowid=" + retainedPrefix + "entity_interaction.entity_spawn_rowid)";
+                    preparedStmt = connection.prepareStatement(query);
+                    preparedStmt.executeUpdate();
+                    removed = removed + preparedStmt.getUpdateCount();
+                    preparedStmt.close();
+
+                    query = "DELETE FROM " + retainedPrefix + "entity_container WHERE NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity_spawn WHERE " + retainedPrefix + "entity_spawn.rowid=" + retainedPrefix + "entity_container.entity_spawn_rowid)";
+                    preparedStmt = connection.prepareStatement(query);
+                    preparedStmt.executeUpdate();
+                    removed = removed + preparedStmt.getUpdateCount();
+                    preparedStmt.close();
+
+                    query = "DELETE FROM " + retainedPrefix + "entity_spawn WHERE removed=1 AND block_rowid IS NULL AND kill_rowid IS NULL AND NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity_container WHERE " + retainedPrefix + "entity_container.entity_spawn_rowid=" + retainedPrefix + "entity_spawn.rowid) AND NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity_interaction WHERE " + retainedPrefix + "entity_interaction.entity_spawn_rowid=" + retainedPrefix + "entity_spawn.rowid)";
                     preparedStmt = connection.prepareStatement(query);
                     preparedStmt.executeUpdate();
                     removed = removed + preparedStmt.getUpdateCount();

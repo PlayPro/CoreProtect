@@ -16,7 +16,8 @@ public class __2_25_0 {
 
     protected static boolean patch(Statement statement) {
         if (Config.getGlobal().MYSQL) {
-            if (!createMySQLPrefixIndex(statement, ConfigHandler.prefix + "chat", "message_prefix_index", "message(16)")
+            if (!createEntityInteractionTable(statement)
+                    || !createMySQLPrefixIndex(statement, ConfigHandler.prefix + "chat", "message_prefix_index", "message(16)")
                     || !createMySQLPrefixIndex(statement, ConfigHandler.prefix + "command", "message_prefix_index", "message(16)")) {
                 return false;
             }
@@ -34,6 +35,10 @@ public class __2_25_0 {
             connection = statement.getConnection();
             autoCommit = connection.getAutoCommit();
             connection.setAutoCommit(false);
+            if (!createEntityInteractionTable(statement)) {
+                connection.rollback();
+                return false;
+            }
             String[] indexQueries = new String[10];
             indexQueries[0] = "CREATE INDEX IF NOT EXISTS chat_message_prefix_index ON " + ConfigHandler.prefix + "chat(substr(message,1,16) COLLATE NOCASE)";
             indexQueries[1] = "CREATE INDEX IF NOT EXISTS command_message_prefix_index ON " + ConfigHandler.prefix + "command(substr(message,1,16) COLLATE NOCASE)";
@@ -57,6 +62,29 @@ public class __2_25_0 {
         }
         finally {
             restoreAutoCommit(connection, autoCommit);
+        }
+    }
+
+    private static boolean createEntityInteractionTable(Statement statement) {
+        String table = ConfigHandler.prefix + "entity_interaction";
+        try {
+            if (Config.getGlobal().MYSQL) {
+                String indexes = ", INDEX(wid,x,z,time), INDEX(entity_spawn_rowid,time), INDEX(user,time), INDEX(type,time), INDEX(action,time)";
+                statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + table + "(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, entity_spawn_rowid int NOT NULL, wid int, x int, y int, z int, type int, action tinyint, metadata mediumblob, rolled_back tinyint" + indexes + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+            }
+            else {
+                statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + table + " (time INTEGER, user INTEGER, entity_spawn_rowid INTEGER NOT NULL, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, action INTEGER, metadata BLOB, rolled_back INTEGER)");
+                statement.executeUpdate("CREATE INDEX IF NOT EXISTS entity_interaction_index ON " + table + "(wid,x,z,time)");
+                statement.executeUpdate("CREATE INDEX IF NOT EXISTS entity_interaction_spawn_index ON " + table + "(entity_spawn_rowid,time)");
+                statement.executeUpdate("CREATE INDEX IF NOT EXISTS entity_interaction_user_index ON " + table + "(user,time)");
+                statement.executeUpdate("CREATE INDEX IF NOT EXISTS entity_interaction_type_index ON " + table + "(type,time)");
+                statement.executeUpdate("CREATE INDEX IF NOT EXISTS entity_interaction_action_index ON " + table + "(action,time)");
+            }
+            return true;
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+            return false;
         }
     }
 

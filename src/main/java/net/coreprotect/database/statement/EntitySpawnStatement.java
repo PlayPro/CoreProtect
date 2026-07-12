@@ -25,6 +25,7 @@ import net.coreprotect.database.Database;
 import net.coreprotect.database.rollback.EntitySpawnRollbackHandler;
 import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.model.entity.EntityContainerRollbackUpdate;
+import net.coreprotect.model.entity.EntityInteractionOrigin;
 import net.coreprotect.model.entity.EntitySpawnData;
 import net.coreprotect.model.entity.EntitySpawnIdentity;
 import net.coreprotect.model.entity.EntitySpawnRecord;
@@ -74,6 +75,45 @@ public final class EntitySpawnStatement {
             }
             return resultSet.getInt(1);
         }
+    }
+
+    public static EntitySpawnIdentity insertIdentity(PreparedStatement statement, int time, UUID uuid, EntityInteractionOrigin origin, Location currentLocation) throws Exception {
+        statement.setInt(1, time);
+        statement.setString(2, uuid.toString());
+        statement.setInt(3, origin.getWorldId());
+        statement.setInt(4, WorldUtils.getWorldId(currentLocation.getWorld().getName()));
+        statement.setDouble(5, origin.getX());
+        statement.setDouble(6, origin.getY());
+        statement.setDouble(7, origin.getZ());
+        statement.setDouble(8, currentLocation.getX());
+        statement.setDouble(9, currentLocation.getY());
+        statement.setDouble(10, currentLocation.getZ());
+        statement.setFloat(11, currentLocation.getYaw());
+        statement.setFloat(12, currentLocation.getPitch());
+        statement.setNull(13, Types.BLOB);
+        statement.setInt(14, 0);
+
+        int rowId;
+        if (Database.hasReturningKeys()) {
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    throw new SQLException("Entity identity insert did not return a row id");
+                }
+                rowId = resultSet.getInt(1);
+            }
+        }
+        else {
+            if (statement.executeUpdate() != 1) {
+                throw new SQLException("Entity identity insert did not insert one row");
+            }
+            try (ResultSet resultSet = statement.getGeneratedKeys()) {
+                if (!resultSet.next()) {
+                    throw new SQLException("Entity identity insert did not generate a row id");
+                }
+                rowId = resultSet.getInt(1);
+            }
+        }
+        return new EntitySpawnIdentity(rowId, uuid, origin.getWorldId(), origin.getX(), origin.getY(), origin.getZ());
     }
 
     public static PreparedStatement prepareBlockLink(Connection connection) throws SQLException {
@@ -306,8 +346,8 @@ public final class EntitySpawnStatement {
             location = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=? WHERE uuid=? AND removed=0");
             removed = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,removed=1 WHERE uuid=? AND removed=0");
             revived = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET uuid=?,current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,removed=0 WHERE uuid=? AND removed=1");
-            rollback = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=?,removed=1 WHERE rowid=?");
-            restore = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET uuid=?,current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,removed=0 WHERE rowid=?");
+            rollback = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=?,kill_rowid=NULL,removed=1 WHERE rowid=?");
+            restore = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET uuid=?,current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,kill_rowid=NULL,removed=0 WHERE rowid=?");
             killRollback = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET uuid=?,current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,removed=0 WHERE rowid=? AND kill_rowid=?");
             killRestore = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,removed=1 WHERE rowid=? AND kill_rowid=?");
             compositeRollback = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=?,removed=1 WHERE rowid=? AND kill_rowid=?");

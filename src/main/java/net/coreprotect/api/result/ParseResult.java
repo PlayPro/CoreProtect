@@ -10,6 +10,7 @@ import org.bukkit.entity.EntityType;
 import net.coreprotect.api.SessionLookup;
 import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.model.action.SessionActions;
+import net.coreprotect.model.item.InventorySources;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.BlockTypeUtils;
 import net.coreprotect.utility.EntityUtils;
@@ -137,6 +138,9 @@ public class ParseResult implements CoreProtectResult {
     }
 
     private boolean isEntityAction(int actionId) {
-        return actionId == LookupActions.ENTITY_KILL || actionId == LookupActions.ENTITY_SPAWN;
+        if (actionId == LookupActions.ENTITY_KILL || actionId == LookupActions.ENTITY_SPAWN) {
+            return true;
+        }
+        return actionId == LookupActions.INTERACTION && parse.length > 14 && parse[13] != null && Integer.parseInt(parse[13]) == InventorySources.ENTITY_INTERACTION;
     }
 }

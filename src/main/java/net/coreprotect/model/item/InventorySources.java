@@ -5,6 +5,7 @@ public final class InventorySources {
     public static final int CONTAINER = 1;
     public static final int ITEM = 2;
     public static final int ENTITY_CONTAINER = 3;
+    public static final int ENTITY_INTERACTION = 4;
 
     private InventorySources() {
         throw new IllegalStateException("Model class");
@@ -19,6 +20,8 @@ public final class InventorySources {
                 return "container";
             case ITEM:
                 return "item";
+            case ENTITY_INTERACTION:
+                return "interaction";
             default:
                 return "unknown";
         }

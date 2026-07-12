@@ -100,7 +100,7 @@ public class HelpCommand {
                     Chat.sendMessage(player, Color.GREY + Color.ITALIC + Phrase.build(Phrase.HELP_ACTION_2));
                 }
                 else if (helpcommand.equals("f") || helpcommand.equals("filter") || helpcommand.equals("ffilter")) {
-                    Chat.sendMessage(player, Color.DARK_AQUA + "/co lookup a:<chat|command> f:<filter> " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_FILTER_1));
+                    Chat.sendMessage(player, Color.DARK_AQUA + "/co lookup a:<chat|command|sign> f:<filter> " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_FILTER_1));
                     Chat.sendMessage(player, Color.GREY + Color.ITALIC + Phrase.build(Phrase.HELP_FILTER_2));
                 }
                 else if (helpcommand.equals("i") || helpcommand.equals("include") || helpcommand.equals("iinclude") || helpcommand.equals("b") || helpcommand.equals("block") || helpcommand.equals("blocks") || helpcommand.equals("bblock") || helpcommand.equals("bblocks")) {

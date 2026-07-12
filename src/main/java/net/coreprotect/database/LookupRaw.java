@@ -781,6 +781,9 @@ public class LookupRaw extends Queue {
             else if (chatLookup || commandLookup) {
                 baseQuery = appendMessageFilters(baseQuery, messageFilters, queryTable, messageFilterBindings);
             }
+            else if (actionList.contains(LookupActions.SIGN)) {
+                baseQuery = appendSignMessageFilters(baseQuery, messageFilters, messageFilterBindings);
+            }
 
             boolean itemLookup = inventoryQuery;
             if ((lookup && actionList.size() == 0) || (itemLookup && !actionList.contains(LookupActions.BLOCK_BREAK))) {
@@ -963,6 +966,37 @@ public class LookupRaw extends Queue {
             bindings.add(escapeLike(filter) + "%");
         }
         return query.append("))").toString();
+    }
+
+    private static String appendSignMessageFilters(String baseQuery, List<String> messageFilters, List<String> bindings) {
+        if (messageFilters == null || messageFilters.isEmpty()) {
+            return baseQuery;
+        }
+
+        String alias = "signFilterRows";
+        StringBuilder query = new StringBuilder(baseQuery).append(" AND rowid IN (");
+        boolean union = false;
+        for (String filter : messageFilters) {
+            String prefix = escapeLike(firstCodePoints(filter, 16)) + "%";
+            String message = escapeLike(filter) + "%";
+            for (int line = 1; line <= 8; line++) {
+                if (union) {
+                    query.append(" UNION ALL ");
+                }
+
+                String column = "line_" + line;
+                String prefixExpression = Config.getGlobal().MYSQL ? alias + "." + column : "substr(" + alias + "." + column + ",1,16)";
+                query.append("SELECT ").append(alias).append(".rowid FROM ")
+                        .append(ConfigHandler.prefix).append("sign ").append(alias)
+                        .append(" WHERE ").append(alias).append(line <= 4 ? ".face = 0" : ".face <> 0")
+                        .append(" AND (").append(prefixExpression).append(" LIKE ? ESCAPE '~' AND ")
+                        .append(alias).append(".").append(column).append(" LIKE ? ESCAPE '~')");
+                bindings.add(prefix);
+                bindings.add(message);
+                union = true;
+            }
+        }
+        return query.append(")").toString();
     }
 
     private static String firstCodePoints(String value, int maximum) {

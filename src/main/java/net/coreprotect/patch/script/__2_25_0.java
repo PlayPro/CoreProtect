@@ -16,9 +16,16 @@ public class __2_25_0 {
 
     protected static boolean patch(Statement statement) {
         if (Config.getGlobal().MYSQL) {
-            return createMySQLMessagePrefixIndex(statement, ConfigHandler.prefix + "chat")
-                    && createMySQLMessagePrefixIndex(statement, ConfigHandler.prefix + "command")
-                    && widenMySQLEntityData(statement, ConfigHandler.prefix + "entity");
+            if (!createMySQLPrefixIndex(statement, ConfigHandler.prefix + "chat", "message_prefix_index", "message(16)")
+                    || !createMySQLPrefixIndex(statement, ConfigHandler.prefix + "command", "message_prefix_index", "message(16)")) {
+                return false;
+            }
+            for (int line = 1; line <= 8; line++) {
+                if (!createMySQLPrefixIndex(statement, ConfigHandler.prefix + "sign", "line_" + line + "_prefix_index", "line_" + line + "(16)")) {
+                    return false;
+                }
+            }
+            return widenMySQLEntityData(statement, ConfigHandler.prefix + "entity");
         }
 
         Connection connection = null;
@@ -27,12 +34,19 @@ public class __2_25_0 {
             connection = statement.getConnection();
             autoCommit = connection.getAutoCommit();
             connection.setAutoCommit(false);
-            statement.executeUpdate("CREATE INDEX IF NOT EXISTS chat_message_prefix_index ON " + ConfigHandler.prefix + "chat(substr(message,1,16) COLLATE NOCASE)");
-            if (!Patch.continuePatch()) {
-                connection.rollback();
-                return false;
+            String[] indexQueries = new String[10];
+            indexQueries[0] = "CREATE INDEX IF NOT EXISTS chat_message_prefix_index ON " + ConfigHandler.prefix + "chat(substr(message,1,16) COLLATE NOCASE)";
+            indexQueries[1] = "CREATE INDEX IF NOT EXISTS command_message_prefix_index ON " + ConfigHandler.prefix + "command(substr(message,1,16) COLLATE NOCASE)";
+            for (int line = 1; line <= 8; line++) {
+                indexQueries[line + 1] = "CREATE INDEX IF NOT EXISTS sign_line_" + line + "_prefix_index ON " + ConfigHandler.prefix + "sign(substr(line_" + line + ",1,16) COLLATE NOCASE)";
             }
-            statement.executeUpdate("CREATE INDEX IF NOT EXISTS command_message_prefix_index ON " + ConfigHandler.prefix + "command(substr(message,1,16) COLLATE NOCASE)");
+            for (String query : indexQueries) {
+                statement.executeUpdate(query);
+                if (!Patch.continuePatch()) {
+                    connection.rollback();
+                    return false;
+                }
+            }
             connection.commit();
             return true;
         }
@@ -46,9 +60,9 @@ public class __2_25_0 {
         }
     }
 
-    private static boolean createMySQLMessagePrefixIndex(Statement statement, String table) {
+    private static boolean createMySQLPrefixIndex(Statement statement, String table, String index, String column) {
         try {
-            statement.executeUpdate("CREATE INDEX message_prefix_index ON " + table + "(message(16))");
+            statement.executeUpdate("CREATE INDEX " + index + " ON " + table + "(" + column + ")");
             return true;
         }
         catch (SQLException e) {

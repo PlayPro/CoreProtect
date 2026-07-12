@@ -498,7 +498,7 @@ public class Database extends Queue {
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "session(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int (3), z int, action tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
         // Sign
-        index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(time)";
+        index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(time), INDEX line_1_prefix_index(line_1(16)), INDEX line_2_prefix_index(line_2(16)), INDEX line_3_prefix_index(line_3(16)), INDEX line_4_prefix_index(line_4(16)), INDEX line_5_prefix_index(line_5(16)), INDEX line_6_prefix_index(line_6(16)), INDEX line_7_prefix_index(line_7(16)), INDEX line_8_prefix_index(line_8(16))";
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "sign(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int, z int, action tinyint, color int, color_secondary int, data tinyint, waxed tinyint, face tinyint, line_1 varchar(100), line_2 varchar(100), line_3 varchar(100), line_4 varchar(100), line_5 varchar(100), line_6 varchar(100), line_7 varchar(100), line_8 varchar(100)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
         // Skull
@@ -640,8 +640,9 @@ public class Database extends Queue {
             String tablePrefix = forcePrefix ? prefix : ConfigHandler.prefix;
             boolean createChatMessagePrefixIndex = !tableData.contains(tablePrefix + "chat");
             boolean createCommandMessagePrefixIndex = !tableData.contains(tablePrefix + "command");
+            boolean createSignMessagePrefixIndexes = !tableData.contains(tablePrefix + "sign");
             createSQLiteTableStructures(prefix, statement, tableData);
-            createSQLiteIndexes(tablePrefix, statement, indexData, attachDatabase, purge, createChatMessagePrefixIndex, createCommandMessagePrefixIndex);
+            createSQLiteIndexes(tablePrefix, statement, indexData, attachDatabase, purge, createChatMessagePrefixIndex, createCommandMessagePrefixIndex, createSignMessagePrefixIndexes);
 
             if (!purge && forceConnection == null) {
                 initializeTables(prefix, statement);
@@ -731,7 +732,7 @@ public class Database extends Queue {
         }
     }
 
-    private static void createSQLiteIndexes(String prefix, Statement statement, List<String> indexData, String attachDatabase, boolean purge, boolean createChatMessagePrefixIndex, boolean createCommandMessagePrefixIndex) {
+    private static void createSQLiteIndexes(String prefix, Statement statement, List<String> indexData, String attachDatabase, boolean purge, boolean createChatMessagePrefixIndex, boolean createCommandMessagePrefixIndex, boolean createSignMessagePrefixIndexes) {
         try {
             createSQLiteIndex(statement, indexData, attachDatabase, "art_map_id_index", prefix + "art_map(id)");
             createSQLiteIndex(statement, indexData, attachDatabase, "block_index", prefix + "block(wid,x,z,time)");
@@ -776,6 +777,11 @@ public class Database extends Queue {
             }
             if (createCommandMessagePrefixIndex) {
                 createSQLiteIndex(statement, indexData, attachDatabase, "command_message_prefix_index", prefix + "command(substr(message,1,16) COLLATE NOCASE)");
+            }
+            if (createSignMessagePrefixIndexes) {
+                for (int line = 1; line <= 8; line++) {
+                    createSQLiteIndex(statement, indexData, attachDatabase, "sign_line_" + line + "_prefix_index", prefix + "sign(substr(line_" + line + ",1,16) COLLATE NOCASE)");
+                }
             }
         }
         catch (Exception e) {

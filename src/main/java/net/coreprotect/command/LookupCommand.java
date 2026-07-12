@@ -627,11 +627,6 @@ public class LookupCommand {
                         }
                     }
 
-                    if (outputMode == LookupOutputMode.SUMMARY && !isValidSummaryScope(timeStart, rollbackusers, argBlocks, argRadius)) {
-                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co l t:<time> u:<user>|i:<block>|r:<radius> #summary"));
-                        return;
-                    }
-
                     Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Color.ITALIC + Phrase.build(Phrase.LOOKUP_SEARCHING));
 
                     Runnable runnable = new StandardLookupThread(player, command, rollbackusers, argBlocks, argExclude, argExcludeUsers, argAction, argEntityActionFilter, argFilters, argRadius, lo, x, y, z, wid, argWid, timeStart, timeEnd, argNoisy, argExcluded, argRestricted, pa, re, type, ts, outputMode);
@@ -662,13 +657,4 @@ public class LookupCommand {
         }
     }
 
-    private static boolean isValidSummaryScope(long timeStart, List<String> users, List<Object> includedTypes, Integer[] radius) {
-        if (timeStart <= 0) {
-            return false;
-        }
-        if (radius != null || !includedTypes.isEmpty() || users.contains("#container")) {
-            return true;
-        }
-        return users.stream().anyMatch(user -> !user.startsWith("#"));
-    }
 }

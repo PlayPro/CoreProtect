@@ -123,16 +123,9 @@ public class ContainerLogger extends Queue {
                 }
             }
 
-            List<ItemStack[]> forceList = ConfigHandler.forceContainer.get(loggingContainerId);
-            if (forceList != null) {
-                int forceSize = 0;
-                if (!forceList.isEmpty()) {
-                    newInventory = ItemUtils.getContainerState(forceList.get(0));
-                    forceSize = modifyForceContainer(loggingContainerId, null);
-                }
-                if (forceSize == 0) {
-                    ConfigHandler.forceContainer.remove(loggingContainerId);
-                }
+            ItemStack[] forceState = pollForceContainer(loggingContainerId);
+            if (forceState != null) {
+                newInventory = ItemUtils.getContainerState(forceState);
             }
             else {
                 long snapshotMark = HopperTransactionUtils.peekSnapshotMark(transactingChestId, loggingContainerId);

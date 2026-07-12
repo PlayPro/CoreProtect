@@ -124,8 +124,8 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
         String loggingChestId = HopperTransactionUtils.getLoggingId(user, loggingChestIdSuffix);
         int chestId = Queue.getChestId(loggingChestId);
         if (chestId > 0) {
-            if (ConfigHandler.forceContainer.get(loggingChestId) != null) {
-                int forceSize = ConfigHandler.forceContainer.get(loggingChestId).size();
+            int forceSize = Queue.getForceContainerSize(loggingChestId);
+            if (forceSize > 0) {
                 List<ItemStack[]> list = ConfigHandler.oldContainer.get(loggingChestId);
 
                 if (list.size() <= forceSize) {

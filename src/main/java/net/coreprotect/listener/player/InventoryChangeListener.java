@@ -173,15 +173,15 @@ public final class InventoryChangeListener extends Queue implements Listener {
                 List<ItemStack[]> viewerOldList = ConfigHandler.oldContainer.get(loggingChestIdViewer);
                 if (viewerOldList != null) { // viewer has pending consumer item
                     int sizeOld = viewerOldList.size();
-                    List<ItemStack[]> list = ConfigHandler.forceContainer.computeIfAbsent(loggingChestIdViewer, k -> new ArrayList<>());
+                    int forceSize = getForceContainerSize(loggingChestIdViewer);
 
-                    if (list.size() < sizeOld) {
+                    if (forceSize < sizeOld) {
                         ItemStack[] containerState = ItemUtils.getContainerState(inventoryData);
 
-                        long snapshotMark = HopperTransactionUtils.getSnapshotMark(transactingChestId, loggingChestIdViewer, list.size());
+                        long snapshotMark = HopperTransactionUtils.getSnapshotMark(transactingChestId, loggingChestIdViewer, forceSize);
                         containerState = HopperTransactionUtils.applyPendingChanges(containerState, transactingChestId, snapshotMark);
 
-                        modifyForceContainer(loggingChestIdViewer, containerState);
+                        addForceContainer(loggingChestIdViewer, containerState);
                     }
                 }
             }
@@ -191,14 +191,13 @@ public final class InventoryChangeListener extends Queue implements Listener {
             forceInventoryData = inventoryData;
         }
         if (forceInventoryData != null) {
-            ConfigHandler.forceContainer.computeIfAbsent(loggingChestId, k -> new ArrayList<>()).add(ItemUtils.getContainerState(forceInventoryData));
+            addForceContainer(loggingChestId, ItemUtils.getContainerState(forceInventoryData));
         }
 
         int chestId = getChestId(loggingChestId);
         if (chestId > 0) {
-            List<ItemStack[]> forceList = ConfigHandler.forceContainer.get(loggingChestId);
-            if (forceList != null) {
-                int forceSize = forceList.size();
+            int forceSize = getForceContainerSize(loggingChestId);
+            if (forceSize > 0) {
                 List<ItemStack[]> list = ConfigHandler.oldContainer.get(loggingChestId);
 
                 if (list != null && list.size() <= forceSize) {

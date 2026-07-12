@@ -6,7 +6,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 
-import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Queue;
 import net.coreprotect.model.item.ItemTransactionActions;
 import net.coreprotect.utility.HopperTransactionUtils;
 import net.coreprotect.utility.ItemUtils;
@@ -25,9 +25,7 @@ public class ContainerBreakLogger {
             String loggingContainerId = HopperTransactionUtils.getLoggingId(player, l);
 
             // If there was a pending chest transaction, it would have already been processed.
-            if (ConfigHandler.forceContainer.get(loggingContainerId) != null) {
-                ConfigHandler.forceContainer.remove(loggingContainerId);
-            }
+            Queue.removeForceContainer(loggingContainerId);
         }
         catch (Exception e) {
             ErrorReporter.report(e);

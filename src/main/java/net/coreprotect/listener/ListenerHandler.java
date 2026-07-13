@@ -38,6 +38,7 @@ import net.coreprotect.listener.entity.HangingBreakByEntityListener;
 import net.coreprotect.listener.entity.HangingBreakListener;
 import net.coreprotect.listener.entity.HangingPlaceListener;
 import net.coreprotect.listener.entity.VehicleDestroyListener;
+import net.coreprotect.listener.entity.VehiclePlaceListener;
 import net.coreprotect.listener.entity.TrackedEntityRemoveListener;
 import net.coreprotect.listener.entity.TrackedEntityTeleportListener;
 import net.coreprotect.listener.player.ArmorStandManipulateListener;
@@ -155,6 +156,7 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new HangingPlaceListener(), plugin);
         pluginManager.registerEvents(new HangingBreakListener(), plugin);
         pluginManager.registerEvents(new HangingBreakByEntityListener(), plugin);
+        pluginManager.registerEvents(new VehiclePlaceListener(), plugin);
 
         pluginManager.registerEvents(new PlayerChatListener(), plugin);
         try {

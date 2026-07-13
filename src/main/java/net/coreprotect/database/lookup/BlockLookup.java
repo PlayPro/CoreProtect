@@ -66,7 +66,7 @@ public class BlockLookup {
             String blockName = block.getType().name().toLowerCase(Locale.ROOT);
             String actionPredicate = "(action IN(0,1," + LookupActions.ENTITY_SPAWN + ") OR (action=" + LookupActions.ENTITY_KILL + " AND type IN(" + placedEntityTypeIds() + ")))";
 
-            String query = "SELECT count(*) over () as count, time,user,action,type,data,rolled_back FROM " + ConfigHandler.prefix + "block WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action IN(0,1) AND time >= '" + checkTime + "' ORDER BY rowid DESC LIMIT " + limit + " OFFSET " + page_start;
+            String query = "SELECT count(*) over () as count, time,user,action,type,data,rolled_back FROM " + ConfigHandler.prefix + "block WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND " + actionPredicate + " AND time >= '" + checkTime + "' ORDER BY rowid DESC LIMIT " + limit + " OFFSET " + page_start;
 
             if (Config.getGlobal().SELECT_USE_FINAL) {
                 query += " SETTINGS final = 1";
@@ -100,7 +100,12 @@ public class BlockLookup {
                     Phrase phrase = Phrase.LOOKUP_BLOCK;
                     String selector = Selector.FIRST;
                     String tag = Color.WHITE + "-";
-                    if (resultAction == 2 || resultAction == 3) {
+                    if (resultAction == LookupActions.ENTITY_SPAWN) {
+                        phrase = Phrase.LOOKUP_ENTITY_SPAWN;
+                        selector = Selector.FIRST;
+                        tag = Color.GREEN + "+";
+                    }
+                    else if (resultAction == 2 || resultAction == 3) {
                         phrase = Phrase.LOOKUP_INTERACTION; // {clicked|killed}
                         selector = (resultAction != 3 ? Selector.FIRST : Selector.SECOND);
                         tag = (resultAction != 3 ? Color.WHITE + "-" : Color.RED + "-");
@@ -116,8 +121,8 @@ public class BlockLookup {
                     }
 
                     String target;
-                    if (resultAction == 3) {
-                        target = EntityUtils.getEntityType(resultType).name();
+                    if (resultAction == LookupActions.ENTITY_SPAWN || resultAction == LookupActions.ENTITY_KILL) {
+                        target = EntityUtils.getEntityType(resultType).name().toLowerCase(Locale.ROOT);
                     } else {
                         target = MaterialUtils.getBlockDisplayName(resultType, resultData);
                         if (target.length() > 0 && !target.contains(":")) {

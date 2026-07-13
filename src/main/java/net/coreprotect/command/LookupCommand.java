@@ -19,6 +19,7 @@ import org.bukkit.entity.Player;
 
 import net.coreprotect.command.lookup.BlockLookupThread;
 import net.coreprotect.command.lookup.ChestTransactionLookupThread;
+import net.coreprotect.command.lookup.EntityInteractionLookupThread;
 import net.coreprotect.command.lookup.StandardLookupThread;
 import net.coreprotect.command.parser.ActionParser;
 import net.coreprotect.command.parser.MessageFilterParser;
@@ -392,7 +393,7 @@ public class LookupCommand {
             Thread thread = new Thread(runnable);
             thread.start();
         }
-        else if (type == 2 || type == 3 || type == 7 || type == 8) {
+        else if (type == 2 || type == 3 || type == 7 || type == 8 || type == 9) {
             boolean defaultRe = true;
             int page = 1;
             int re = 7;
@@ -431,6 +432,13 @@ public class LookupCommand {
             }
             if (re > 100 && !(player instanceof ConsoleCommandSender)) {
                 re = 100;
+            }
+
+            if (type == 9) {
+                Runnable runnable = new EntityInteractionLookupThread(player, command, page, re);
+                Thread thread = new Thread(runnable);
+                thread.start();
+                return;
             }
 
             // String bc = x+"."+y+"."+z+"."+wid+"."+rstring+"."+lookup_user;

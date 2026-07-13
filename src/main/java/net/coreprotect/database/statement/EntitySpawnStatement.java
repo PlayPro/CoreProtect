@@ -27,6 +27,7 @@ import net.coreprotect.database.Database;
 import net.coreprotect.database.rollback.EntitySpawnRollbackHandler;
 import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.model.entity.EntityContainerRollbackUpdate;
+import net.coreprotect.model.entity.EntityInteractionOrigin;
 import net.coreprotect.model.entity.EntitySpawnData;
 import net.coreprotect.model.entity.EntitySpawnIdentity;
 import net.coreprotect.model.entity.EntitySpawnRecord;
@@ -52,6 +53,26 @@ public final class EntitySpawnStatement {
             throw new SQLException("Entity spawn tracking insert did not insert one row");
         }
         return rowid;
+    }
+
+    public static EntitySpawnIdentity insertIdentity(PreparedStatement statement, int time, UUID uuid, EntityInteractionOrigin origin, Location currentLocation) throws Exception {
+        int rowid = Math.toIntExact(CoreProtect.getInstance().rowNumbers().nextRowNumber("entity_spawn", statement.getConnection()));
+        setInsertValues(statement, rowid, time, 0, 0, uuid.toString(), origin.getWorldId(), WorldUtils.getWorldId(currentLocation.getWorld().getName()), origin.getX(), origin.getY(), origin.getZ(), currentLocation.getX(), currentLocation.getY(), currentLocation.getZ(), currentLocation.getYaw(), currentLocation.getPitch(), null, 0);
+        if (statement.executeUpdate() != 1) {
+            throw new SQLException("Entity identity insert did not insert one row");
+        }
+        return new EntitySpawnIdentity(rowid, uuid, origin.getWorldId(), origin.getX(), origin.getY(), origin.getZ());
+    }
+
+    public static void checkpoint(PreparedStatement statement, EntitySpawnIdentity identity, Location location) throws Exception {
+        EntitySpawnRecord record = loadRecord(statement.getConnection(), identity.getRowId());
+        if (record == null || record.isRemoved()) {
+            throw new SQLException("Entity interaction could not checkpoint its tracking row");
+        }
+        setInsertValues(statement, record.getRowId(), (int) (System.currentTimeMillis() / 1000L), record.getBlockRowId(), record.getKillRowId(), record.getUuid().toString(), record.getOriginalWorldId(), WorldUtils.getWorldId(location.getWorld().getName()), record.getOriginalX(), record.getOriginalY(), record.getOriginalZ(), location.getX(), location.getY(), location.getZ(), location.getYaw(), location.getPitch(), stateString(record.getState()), 0);
+        if (statement.executeUpdate() != 1) {
+            throw new SQLException("Entity interaction checkpoint did not insert one tracking version");
+        }
     }
 
     public static PreparedStatement prepareBlockLink(Connection connection) throws SQLException {

@@ -1,5 +1,6 @@
 package net.coreprotect.utility;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -19,11 +20,13 @@ import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.TreeSpecies;
 import org.bukkit.World;
+import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Boat;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Minecart;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
@@ -33,6 +36,7 @@ import org.bukkit.persistence.PersistentDataType;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.model.entity.EntityInteractionOrigin;
 import net.coreprotect.model.entity.EntitySpawnData;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.Scheduler;
@@ -40,6 +44,8 @@ import net.coreprotect.thread.Scheduler;
 public final class EntitySpawnTracking {
 
     private static final String TRACKING_KEY = "spawn";
+    private static final String ORIGIN_SEED_KEY = "entity_origin";
+    private static final int ORIGIN_SEED_SIZE = Integer.BYTES + Double.BYTES * 3;
     private static final int KILL_LOCATION_INDEX = 8;
     private static final long PENDING_CLEAR_TTL_MILLIS = 300_000L;
     private static final long UNLOADED_CACHE_RETENTION_MILLIS = 300_000L;
@@ -49,10 +55,12 @@ public final class EntitySpawnTracking {
     private static final long ENTITY_SCAN_TIMEOUT_SECONDS = 30L;
     private static final Map<UUID, TrackedLocation> trackedLocations = new ConcurrentHashMap<>();
     private static final Map<UUID, PendingClear> pendingClear = new ConcurrentHashMap<>();
+    private static final Map<UUID, PendingIdentityConfirmation> pendingIdentityConfirmations = new ConcurrentHashMap<>();
     private static final Set<UUID> coreProtectRemovals = ConcurrentHashMap.newKeySet();
     private static final AtomicLong verificationEpoch = new AtomicLong();
     private static final AtomicLong nextCleanup = new AtomicLong();
     private static volatile NamespacedKey trackingKey;
+    private static volatile NamespacedKey originSeedKey;
 
     private EntitySpawnTracking() {
         throw new IllegalStateException("Utility class");
@@ -99,8 +107,96 @@ public final class EntitySpawnTracking {
         UUID uuid = entity.getUniqueId();
         Location location = entity.getLocation();
         pendingClear.remove(uuid);
+        pendingIdentityConfirmations.remove(uuid);
         entity.getPersistentDataContainer().set(getKey(), PersistentDataType.BYTE, (byte) 1);
+        entity.getPersistentDataContainer().remove(getOriginSeedKey());
         trackedLocations.compute(uuid, (key, previous) -> TrackedLocation.from(location, true, verificationEpoch.get()));
+    }
+
+    public static void seedOrigin(Entity entity) {
+        if (!isEligibleInteractionEntity(entity) || isTracked(entity)) {
+            return;
+        }
+        byte[] existingSeed = entity.getPersistentDataContainer().get(getOriginSeedKey(), PersistentDataType.BYTE_ARRAY);
+        if (existingSeed != null && existingSeed.length == ORIGIN_SEED_SIZE) {
+            return;
+        }
+
+        Location location = entity.getLocation();
+        if (location.getWorld() == null) {
+            return;
+        }
+        int worldId = WorldUtils.getWorldId(location.getWorld().getName());
+        if (worldId < 0) {
+            return;
+        }
+        ByteBuffer buffer = ByteBuffer.allocate(ORIGIN_SEED_SIZE);
+        buffer.putInt(worldId);
+        buffer.putDouble(location.getX());
+        buffer.putDouble(location.getY());
+        buffer.putDouble(location.getZ());
+        entity.getPersistentDataContainer().set(getOriginSeedKey(), PersistentDataType.BYTE_ARRAY, buffer.array());
+    }
+
+    public static EntityInteractionOrigin getOrCreateInteractionOrigin(Entity entity) {
+        if (entity == null) {
+            return null;
+        }
+        seedOrigin(entity);
+        byte[] data = entity.getPersistentDataContainer().get(getOriginSeedKey(), PersistentDataType.BYTE_ARRAY);
+        if (data == null || data.length != ORIGIN_SEED_SIZE) {
+            Location location = entity.getLocation();
+            if (location.getWorld() == null) {
+                return null;
+            }
+            int worldId = WorldUtils.getWorldId(location.getWorld().getName());
+            return worldId < 0 ? null : new EntityInteractionOrigin(worldId, location.getX(), location.getY(), location.getZ());
+        }
+
+        ByteBuffer buffer = ByteBuffer.wrap(data);
+        int worldId = buffer.getInt();
+        double x = buffer.getDouble();
+        double y = buffer.getDouble();
+        double z = buffer.getDouble();
+        return new EntityInteractionOrigin(worldId, x, y, z);
+    }
+
+    public static boolean isEligibleInteractionEntity(Entity entity) {
+        return entity instanceof LivingEntity && !(entity instanceof Player) && !(entity instanceof ArmorStand);
+    }
+
+    public static void confirmDatabaseIdentity(UUID uuid, Location location) {
+        if (uuid == null || location == null || location.getWorld() == null) {
+            return;
+        }
+
+        scheduleCleanup();
+        PendingIdentityConfirmation confirmation = new PendingIdentityConfirmation(location, System.currentTimeMillis() + PENDING_CLEAR_TTL_MILLIS);
+        pendingIdentityConfirmations.put(uuid, confirmation);
+        CoreProtect plugin = CoreProtect.getInstance();
+        if (plugin == null || !plugin.isEnabled()) {
+            return;
+        }
+
+        try {
+            Scheduler.runTask(plugin, () -> {
+                Entity entity = Bukkit.getEntity(uuid);
+                if (entity == null) {
+                    return;
+                }
+                Runnable confirm = () -> applyIdentityConfirmation(entity, confirmation);
+                if (ConfigHandler.isFolia && !PaperAdapter.ADAPTER.isOwnedByCurrentRegion(entity)) {
+                    PaperAdapter.ADAPTER.executeEntityTask(plugin, entity, confirm, () -> {
+                    });
+                }
+                else {
+                    confirm.run();
+                }
+            }, location);
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+        }
     }
 
     public static void trackRevivedEntity(Entity entity, UUID previousUuid) {
@@ -111,6 +207,10 @@ public final class EntitySpawnTracking {
     public static void handleLoad(Entity entity) {
         if (clearPendingTracking(entity)) {
             return;
+        }
+        PendingIdentityConfirmation confirmation = pendingIdentityConfirmations.get(entity.getUniqueId());
+        if (confirmation != null && !confirmation.isExpired(System.currentTimeMillis())) {
+            applyIdentityConfirmation(entity, confirmation);
         }
         if (isTracked(entity)) {
             observe(entity, true);
@@ -485,6 +585,7 @@ public final class EntitySpawnTracking {
 
     public static void clearTracking(UUID uuid) {
         scheduleCleanup();
+        pendingIdentityConfirmations.remove(uuid);
         PendingClear request = new PendingClear(System.currentTimeMillis() + PENDING_CLEAR_TTL_MILLIS);
         pendingClear.put(uuid, request);
         Location location = getCachedLocation(uuid);
@@ -855,6 +956,40 @@ public final class EntitySpawnTracking {
         return key;
     }
 
+    private static NamespacedKey getOriginSeedKey() {
+        NamespacedKey key = originSeedKey;
+        if (key == null) {
+            synchronized (EntitySpawnTracking.class) {
+                key = originSeedKey;
+                if (key == null) {
+                    key = new NamespacedKey(CoreProtect.getInstance(), ORIGIN_SEED_KEY);
+                    originSeedKey = key;
+                }
+            }
+        }
+        return key;
+    }
+
+    private static void applyIdentityConfirmation(Entity entity, PendingIdentityConfirmation confirmation) {
+        UUID uuid = entity.getUniqueId();
+        if (!pendingIdentityConfirmations.remove(uuid, confirmation)) {
+            return;
+        }
+        if (pendingClear.containsKey(uuid)) {
+            return;
+        }
+
+        entity.getPersistentDataContainer().set(getKey(), PersistentDataType.BYTE, (byte) 1);
+        entity.getPersistentDataContainer().remove(getOriginSeedKey());
+        Location location = entity.getLocation();
+        long epoch = verificationEpoch.get();
+        boolean locationConfirmed = TrackedLocation.from(confirmation.location, true, epoch).matches(location);
+        trackedLocations.put(uuid, TrackedLocation.from(location, true, locationConfirmed ? epoch : -1L));
+        if (!locationConfirmed) {
+            Queue.queueEntitySpawnLocation(uuid, location, epoch);
+        }
+    }
+
     private static boolean clearPendingTracking(Entity entity) {
         UUID uuid = entity.getUniqueId();
         PendingClear request = pendingClear.get(uuid);
@@ -869,6 +1004,7 @@ public final class EntitySpawnTracking {
             return false;
         }
 
+        pendingIdentityConfirmations.remove(uuid);
         entity.getPersistentDataContainer().remove(getKey());
         forget(uuid);
         return true;
@@ -999,6 +1135,26 @@ public final class EntitySpawnTracking {
             if (entry.getValue().isExpired(now)) {
                 trackedLocations.remove(entry.getKey(), entry.getValue());
             }
+        }
+        for (Map.Entry<UUID, PendingIdentityConfirmation> entry : pendingIdentityConfirmations.entrySet()) {
+            if (entry.getValue().isExpired(now)) {
+                pendingIdentityConfirmations.remove(entry.getKey(), entry.getValue());
+            }
+        }
+    }
+
+    private static final class PendingIdentityConfirmation {
+
+        private final Location location;
+        private final long expiry;
+
+        private PendingIdentityConfirmation(Location location, long expiry) {
+            this.location = location.clone();
+            this.expiry = expiry;
+        }
+
+        private boolean isExpired(long now) {
+            return expiry < now;
         }
     }
 

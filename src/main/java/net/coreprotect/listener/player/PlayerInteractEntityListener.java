@@ -25,6 +25,7 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.player.inspector.ContainerInspector;
+import net.coreprotect.listener.player.inspector.EntityInteractionInspector;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
@@ -35,6 +36,7 @@ import net.coreprotect.utility.ItemUtils;
 public final class PlayerInteractEntityListener extends Queue implements Listener {
 
     private final ContainerInspector containerInspector = new ContainerInspector();
+    private final EntityInteractionInspector entityInteractionInspector = new EntityInteractionInspector();
 
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
@@ -44,7 +46,7 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
 
         Player player = event.getPlayer();
         final Entity entity = event.getRightClicked(); // change item in ItemFrame, etc
-        if (Boolean.TRUE.equals(ConfigHandler.inspecting.get(player.getName())) && EntitySpawnTracking.isPlacedEntity(entity) && entity instanceof InventoryHolder) {
+        if (Boolean.TRUE.equals(ConfigHandler.inspecting.get(player.getName())) && EntitySpawnTracking.isPlacedEntity(entity) && entity instanceof InventoryHolder && Config.getConfig(player.getWorld()).ITEM_TRANSACTIONS) {
             String playerUuid = player.getUniqueId().toString();
             long now = System.currentTimeMillis();
             Object[] previousInspection = PlayerInteractListener.lastInspectorEvent.get(playerUuid);
@@ -60,11 +62,9 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
                 event.setCancelled(true);
                 return;
             }
-            if (Config.getConfig(player.getWorld()).ITEM_TRANSACTIONS) {
-                containerInspector.performEntityContainerLookup(player, entity.getUniqueId(), entity.getLocation());
-                event.setCancelled(true);
-                return;
-            }
+            containerInspector.performEntityContainerLookup(player, entity.getUniqueId(), entity.getLocation());
+            event.setCancelled(true);
+            return;
         }
 
         if (entity instanceof ItemFrame) {
@@ -114,6 +114,23 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
                 }
                 queueContainerSpecifiedItems(player.getName(), Material.ITEM_FRAME, new Object[] { oldState, newState, frame.getFacing() }, frame.getLocation(), false);
             }
+        }
+        else if (Boolean.TRUE.equals(ConfigHandler.inspecting.get(player.getName()))) {
+            String playerUuid = player.getUniqueId().toString();
+            long now = System.currentTimeMillis();
+            Object[] previousInspection = PlayerInteractListener.lastInspectorEvent.get(playerUuid);
+            if (previousInspection == null || now - (long) previousInspection[0] >= 100L) {
+                PlayerInteractListener.lastInspectorEvent.put(playerUuid, new Object[] { now, event.getHand() });
+                if (!player.hasPermission("coreprotect.inspect")) {
+                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
+                    ConfigHandler.inspecting.put(player.getName(), false);
+                }
+                else {
+                    entityInteractionInspector.performLookup(player, entity.getUniqueId(), entity.getLocation());
+                }
+            }
+            event.setCancelled(true);
+            return;
         }
         else if (!event.isCancelled() && entity instanceof Creature && entity.getType().name().equals("ALLAY")) {
             ItemStack handItem = new ItemStack(Material.AIR);

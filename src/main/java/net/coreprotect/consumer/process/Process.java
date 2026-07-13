@@ -22,10 +22,13 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.logger.EntityInteractionLogger;
+import net.coreprotect.database.statement.EntityInteractionStatement;
 import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.model.entity.EntityContainerRollbackUpdate;
 import net.coreprotect.model.entity.EntityContainerTransaction;
+import net.coreprotect.model.entity.EntityInteraction;
 import net.coreprotect.model.entity.EntitySpawnData;
 import net.coreprotect.model.entity.EntitySpawnIdentity;
 import net.coreprotect.model.rollback.RollbackUpdateTargets;
@@ -67,6 +70,7 @@ public class Process {
     public static final int ENTITY_CONTAINER_TRANSACTION = 32;
     public static final int ENTITY_CONTAINER_ROLLBACK_UPDATE = 33;
     public static final int ENTITY_CONTAINER_TRANSITION_UPDATE = 34;
+    public static final int ENTITY_INTERACTION = 35;
 
     public static int lastLockUpdate = 0;
     private static volatile int currentConsumerSize = 0;
@@ -117,6 +121,9 @@ public class Process {
 
         Map<UUID, Location> pendingEntitySpawnLogs = new LinkedHashMap<>();
         Map<UUID, EntitySpawnIdentity> entitySpawnIdentities = new LinkedHashMap<>();
+        Map<UUID, Location> pendingEntityIdentityConfirmations = new LinkedHashMap<>();
+        Set<UUID> promotedEntityIdentities = new HashSet<>();
+        List<PendingEntityInteraction> pendingEntityInteractions = new ArrayList<>();
         List<EntityContainerRollbackRetry> pendingEntityContainerRollbacks = new ArrayList<>();
         EntitySpawnStatement.Updates entitySpawnUpdates = null;
         ArrayList<Object[]> consumerData = null;
@@ -150,6 +157,7 @@ public class Process {
             boolean hasEntitySpawnUpdates = false;
             boolean hasEntityKills = false;
             boolean hasEntityContainerTransactions = false;
+            boolean hasEntityInteractions = false;
             Set<UUID> entityIdentityUuids = new HashSet<>();
             Set<Integer> entityIdentityRowIds = new HashSet<>();
             for (int index = 0; index < consumerDataSize; index++) {
@@ -162,11 +170,18 @@ public class Process {
                 hasEntitySpawnUpdates |= action == Process.ENTITY_SPAWN_UPDATE || action == Process.ENTITY_CONTAINER_TRANSITION_UPDATE;
                 hasEntityKills |= action == Process.ENTITY_KILL;
                 hasEntityContainerTransactions |= action == Process.ENTITY_CONTAINER_TRANSACTION;
+                hasEntityInteractions |= action == Process.ENTITY_INTERACTION;
 
                 if (action == Process.ENTITY_CONTAINER_TRANSACTION) {
                     Object object = consumerObject.get((int) data[0]);
                     if (object instanceof EntityContainerTransaction) {
                         entityIdentityUuids.add(((EntityContainerTransaction) object).getEntityUuid());
+                    }
+                }
+                else if (action == Process.ENTITY_INTERACTION) {
+                    Object object = consumerObject.get((int) data[0]);
+                    if (object instanceof EntityInteraction) {
+                        entityIdentityUuids.add(((EntityInteraction) object).getEntityUuid());
                     }
                 }
                 else if (action == Process.ENTITY_SPAWN_UPDATE || action == Process.ENTITY_CONTAINER_TRANSITION_UPDATE) {
@@ -207,7 +222,7 @@ public class Process {
                 return;
             }
 
-            if (hasEntityContainerTransactions) {
+            if (hasEntityContainerTransactions || hasEntityInteractions) {
                 entitySpawnIdentities.putAll(EntitySpawnStatement.loadIdentities(connection, entityIdentityUuids));
                 Map<Integer, EntitySpawnIdentity> identitiesByRowId = EntitySpawnStatement.loadIdentitiesByRowIds(connection, entityIdentityRowIds);
                 bindPendingEntitySpawnIdentities(consumerData, consumerObject, entitySpawnIdentities, identitiesByRowId);
@@ -229,7 +244,9 @@ public class Process {
             PreparedStatement preparedStmtEntity = Database.prepareStatement(connection, Database.ENTITY_MAP);
             PreparedStatement preparedStmtBlockdata = Database.prepareStatement(connection, Database.BLOCKDATA);
             PreparedStatement preparedStmtEntityContainers = hasEntityContainerTransactions ? Database.prepareStatement(connection, Database.ENTITY_CONTAINER) : null;
-            PreparedStatement preparedStmtEntitySpawns = hasEntitySpawnLogs ? Database.prepareStatement(connection, Database.ENTITY_SPAWN) : null;
+            PreparedStatement preparedStmtEntitySpawns = hasEntitySpawnLogs || hasEntityInteractions ? Database.prepareStatement(connection, Database.ENTITY_SPAWN) : null;
+            PreparedStatement preparedStmtEntityInteractions = hasEntityInteractions ? Database.prepareStatement(connection, Database.ENTITY_INTERACTION) : null;
+            PreparedStatement preparedStmtEntityInteractionCheckpoints = hasEntityInteractions ? Database.prepareStatement(connection, Database.ENTITY_SPAWN) : null;
             PreparedStatement preparedStmtEntitySpawnBlocks = hasEntitySpawnLogs ? Database.prepareStatement(connection, Database.BLOCK) : null;
             PreparedStatement preparedStmtEntitySpawnLinks = hasEntitySpawnLogs ? EntitySpawnStatement.prepareBlockLink(connection) : null;
             PreparedStatement preparedStmtEntityKillLinks = hasEntityKills ? EntitySpawnStatement.prepareKillLink(connection) : null;
@@ -283,6 +300,36 @@ public class Process {
                                     if (!ContainerTransactionProcess.processEntity(preparedStmtEntityContainers, i, user, transaction, identity)) {
                                         retryEntityContainerTransaction(user, transaction);
                                     }
+                                    break;
+                                case Process.ENTITY_INTERACTION:
+                                    EntityInteraction interaction = (EntityInteraction) object;
+                                    EntityInteractionLogger.LogContext logContext = EntityInteractionLogger.prepare(user, interaction);
+                                    if (logContext == null) {
+                                        break;
+                                    }
+
+                                    EntitySpawnIdentity existingIdentity = entitySpawnIdentities.get(interaction.getEntityUuid());
+                                    EntitySpawnIdentity[] loggedIdentity = { existingIdentity };
+                                    try {
+                                        Database.executeSavepoint(statement, "entity_interaction_log", () -> {
+                                            if (loggedIdentity[0] == null) {
+                                                int time = (int) (System.currentTimeMillis() / 1000L);
+                                                loggedIdentity[0] = EntitySpawnStatement.insertIdentity(preparedStmtEntitySpawns, time, interaction.getEntityUuid(), interaction.getOrigin(), interaction.getCurrentLocation());
+                                            }
+                                            EntityInteractionLogger.log(preparedStmtEntityInteractions, preparedStmtEntityInteractionCheckpoints, loggedIdentity[0], interaction, logContext);
+                                        });
+                                    }
+                                    catch (Exception e) {
+                                        retryEntityInteraction(user, interaction);
+                                        throw e;
+                                    }
+
+                                    entitySpawnIdentities.put(interaction.getEntityUuid(), loggedIdentity[0]);
+                                    pendingEntityInteractions.add(new PendingEntityInteraction(user, interaction));
+                                    if (existingIdentity == null) {
+                                        promotedEntityIdentities.add(interaction.getEntityUuid());
+                                    }
+                                    pendingEntityIdentityConfirmations.put(interaction.getEntityUuid(), interaction.getCurrentLocation());
                                     break;
                                 case Process.ITEM_TRANSACTION:
                                     ItemTransactionProcess.process(preparedStmtItems, i, processId, id, forceData, replaceData, blockData, user, object);
@@ -391,6 +438,7 @@ public class Process {
                                     entitySpawnUpdates.afterCommit(false);
                                 }
                                 retryEntityContainerRollbacks(pendingEntityContainerRollbacks, false);
+                                completeEntityInteractions(pendingEntityInteractions, pendingEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, false);
                                 discardProcessedConsumerData(processId, consumerData, users, consumerObject, i + 1);
                                 deferConsumerRetry();
                                 completeEntitySpawnLogs(pendingEntitySpawnLogs, false);
@@ -399,11 +447,12 @@ public class Process {
 
                             // If interrupt requested, commit data, sleep, and resume processing
                             if (Consumer.interrupt) {
-                                boolean committed = commit(statement, preparedStmtSigns, preparedStmtBlocks, preparedStmtSkulls, preparedStmtContainers, preparedStmtEntityContainers, preparedStmtItems, preparedStmtWorlds, preparedStmtChat, preparedStmtCommand, preparedStmtSession, preparedStmtEntities, preparedStmtMaterials, preparedStmtArt, preparedStmtEntity, preparedStmtBlockdata, preparedStmtEntityKillLinks);
+                                boolean committed = commit(statement, preparedStmtSigns, preparedStmtBlocks, preparedStmtSkulls, preparedStmtContainers, preparedStmtEntityContainers, preparedStmtEntityInteractions, preparedStmtItems, preparedStmtWorlds, preparedStmtChat, preparedStmtCommand, preparedStmtSession, preparedStmtEntities, preparedStmtMaterials, preparedStmtArt, preparedStmtEntity, preparedStmtBlockdata, preparedStmtEntityKillLinks);
                                 if (entitySpawnUpdates != null) {
                                     entitySpawnUpdates.afterCommit(committed);
                                 }
                                 retryEntityContainerRollbacks(pendingEntityContainerRollbacks, committed);
+                                completeEntityInteractions(pendingEntityInteractions, pendingEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, committed);
                                 completeEntitySpawnLogs(pendingEntitySpawnLogs, committed);
                                 processedThrough = i + 1;
                                 Thread.sleep(500);
@@ -423,7 +472,7 @@ public class Process {
             }
 
             // commit data to database
-            boolean committed = commit(statement, preparedStmtSigns, preparedStmtBlocks, preparedStmtSkulls, preparedStmtContainers, preparedStmtEntityContainers, preparedStmtItems, preparedStmtWorlds, preparedStmtChat, preparedStmtCommand, preparedStmtSession, preparedStmtEntities, preparedStmtMaterials, preparedStmtArt, preparedStmtEntity, preparedStmtBlockdata, preparedStmtEntityKillLinks);
+            boolean committed = commit(statement, preparedStmtSigns, preparedStmtBlocks, preparedStmtSkulls, preparedStmtContainers, preparedStmtEntityContainers, preparedStmtEntityInteractions, preparedStmtItems, preparedStmtWorlds, preparedStmtChat, preparedStmtCommand, preparedStmtSession, preparedStmtEntities, preparedStmtMaterials, preparedStmtArt, preparedStmtEntity, preparedStmtBlockdata, preparedStmtEntityKillLinks);
             try {
                 try {
                     if (entitySpawnUpdates != null) {
@@ -432,6 +481,7 @@ public class Process {
                 }
                 finally {
                     retryEntityContainerRollbacks(pendingEntityContainerRollbacks, committed);
+                    completeEntityInteractions(pendingEntityInteractions, pendingEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, committed);
                     completeEntitySpawnLogs(pendingEntitySpawnLogs, committed);
                 }
             }
@@ -448,6 +498,10 @@ public class Process {
             if (preparedStmtEntityContainers != null) {
                 preparedStmtEntityContainers.close();
             }
+            if (preparedStmtEntityInteractions != null) {
+                preparedStmtEntityInteractions.close();
+                preparedStmtEntityInteractionCheckpoints.close();
+            }
             preparedStmtItems.close();
             preparedStmtWorlds.close();
             preparedStmtChat.close();
@@ -460,8 +514,10 @@ public class Process {
             preparedStmtBlockdata.close();
             if (preparedStmtEntitySpawns != null) {
                 preparedStmtEntitySpawns.close();
-                preparedStmtEntitySpawnBlocks.close();
-                preparedStmtEntitySpawnLinks.close();
+                if (preparedStmtEntitySpawnBlocks != null) {
+                    preparedStmtEntitySpawnBlocks.close();
+                    preparedStmtEntitySpawnLinks.close();
+                }
             }
             if (preparedStmtEntityKillLinks != null) {
                 preparedStmtEntityKillLinks.close();
@@ -479,6 +535,7 @@ public class Process {
                         entitySpawnUpdates.afterCommit(false);
                     }
                     retryEntityContainerRollbacks(pendingEntityContainerRollbacks, false);
+                    completeEntityInteractions(pendingEntityInteractions, pendingEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, false);
                     clearConsumerData(processId, consumerData, users, consumerObject);
                     consumerDataCleared = true;
                 }
@@ -498,6 +555,7 @@ public class Process {
                 }
             }
         }
+        completeEntityInteractions(pendingEntityInteractions, pendingEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, false);
         completeEntitySpawnLogs(pendingEntitySpawnLogs, false);
 
         if (consumerDataCleared) {
@@ -557,6 +615,40 @@ public class Process {
         else { // only print exception on development branch
             ErrorReporter.report(new IllegalStateException("Dropped entity container transaction without tracking row: " + transaction.getEntityUuid()), ConfigHandler.EDITION_BRANCH.contains("-dev"));
         }
+    }
+
+    private static void retryEntityInteraction(String user, EntityInteraction interaction) {
+        EntityInteraction retry = interaction.retry();
+        if (retry != null) {
+            Queue.queueEntityInteraction(user, retry);
+        }
+        else {
+            ErrorReporter.report(new IllegalStateException("Dropped entity interaction after repeated persistence failures: " + interaction.getEntityUuid()), ConfigHandler.EDITION_BRANCH.contains("-dev"));
+        }
+    }
+
+    private static void completeEntityInteractions(List<PendingEntityInteraction> interactions, Map<UUID, Location> identityConfirmations, Set<UUID> promotedIdentities, Map<UUID, EntitySpawnIdentity> identities, boolean committed) {
+        if (committed) {
+            for (Map.Entry<UUID, Location> entry : identityConfirmations.entrySet()) {
+                EntitySpawnTracking.confirmDatabaseIdentity(entry.getKey(), entry.getValue());
+            }
+        }
+        else {
+            for (PendingEntityInteraction pending : interactions) {
+                try {
+                    retryEntityInteraction(pending.user, pending.interaction);
+                }
+                catch (Exception e) {
+                    ErrorReporter.report(e);
+                }
+            }
+            for (UUID uuid : promotedIdentities) {
+                identities.remove(uuid);
+            }
+        }
+        interactions.clear();
+        identityConfirmations.clear();
+        promotedIdentities.clear();
     }
 
     private static void retryEntityContainerRollbacks(List<EntityContainerRollbackRetry> updates, boolean committed) {
@@ -638,8 +730,11 @@ public class Process {
     }
 
     private static void completeEntitySpawnLogs(Map<UUID, Location> pendingEntitySpawnLogs, boolean committed) {
-        if (!committed) {
-            for (Map.Entry<UUID, Location> entry : pendingEntitySpawnLogs.entrySet()) {
+        for (Map.Entry<UUID, Location> entry : pendingEntitySpawnLogs.entrySet()) {
+            if (committed) {
+                EntitySpawnTracking.confirmDatabaseIdentity(entry.getKey(), entry.getValue());
+            }
+            else {
                 try {
                     EntitySpawnTracking.reverifyDatabaseRow(entry.getKey(), entry.getValue());
                 }
@@ -651,7 +746,7 @@ public class Process {
         pendingEntitySpawnLogs.clear();
     }
 
-    private static boolean commit(Statement statement, PreparedStatement preparedStmtSigns, PreparedStatement preparedStmtBlocks, PreparedStatement preparedStmtSkulls, PreparedStatement preparedStmtContainers, PreparedStatement preparedStmtEntityContainers, PreparedStatement preparedStmtItems, PreparedStatement preparedStmtWorlds, PreparedStatement preparedStmtChat, PreparedStatement preparedStmtCommand, PreparedStatement preparedStmtSession, PreparedStatement preparedStmtEntities, PreparedStatement preparedStmtMaterials, PreparedStatement preparedStmtArt, PreparedStatement preparedStmtEntity, PreparedStatement preparedStmtBlockdata, PreparedStatement preparedStmtEntityKillLinks) {
+    private static boolean commit(Statement statement, PreparedStatement preparedStmtSigns, PreparedStatement preparedStmtBlocks, PreparedStatement preparedStmtSkulls, PreparedStatement preparedStmtContainers, PreparedStatement preparedStmtEntityContainers, PreparedStatement preparedStmtEntityInteractions, PreparedStatement preparedStmtItems, PreparedStatement preparedStmtWorlds, PreparedStatement preparedStmtChat, PreparedStatement preparedStmtCommand, PreparedStatement preparedStmtSession, PreparedStatement preparedStmtEntities, PreparedStatement preparedStmtMaterials, PreparedStatement preparedStmtArt, PreparedStatement preparedStmtEntity, PreparedStatement preparedStmtBlockdata, PreparedStatement preparedStmtEntityKillLinks) {
         try {
             preparedStmtSigns.executeBatch();
             preparedStmtBlocks.executeBatch();
@@ -659,6 +754,9 @@ public class Process {
             preparedStmtContainers.executeBatch();
             if (preparedStmtEntityContainers != null) {
                 preparedStmtEntityContainers.executeBatch();
+            }
+            if (preparedStmtEntityInteractions != null) {
+                preparedStmtEntityInteractions.executeBatch();
             }
             preparedStmtItems.executeBatch();
             preparedStmtWorlds.executeBatch();
@@ -708,6 +806,17 @@ public class Process {
             }
             this.rollbackType = rollbackType;
             this.inventoryRollback = inventoryRollback;
+        }
+    }
+
+    private static final class PendingEntityInteraction {
+
+        private final String user;
+        private final EntityInteraction interaction;
+
+        private PendingEntityInteraction(String user, EntityInteraction interaction) {
+            this.user = user;
+            this.interaction = interaction;
         }
     }
 }

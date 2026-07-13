@@ -48,6 +48,7 @@ public class Database extends Queue {
     public static final int ITEM = 13;
     public static final int ENTITY_SPAWN = 14;
     public static final int ENTITY_CONTAINER = 15;
+    public static final int ENTITY_INTERACTION = 16;
 
     private static final Map<Integer, String> SQL_QUERIES = new HashMap<>();
 
@@ -69,6 +70,7 @@ public class Database extends Queue {
         SQL_QUERIES.put(BLOCKDATA, "INSERT INTO %sprefix%blockdata_map (id, data, rowid) VALUES (?, ?, ?)");
         SQL_QUERIES.put(ENTITY_SPAWN, "INSERT INTO %sprefix%entity_spawn (rowid, version, time, block_rowid, kill_rowid, uuid, wid, current_wid, origin_x, origin_y, origin_z, x, y, z, yaw, pitch, data, removed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         SQL_QUERIES.put(ENTITY_CONTAINER, "INSERT INTO %sprefix%entity_container (time, user, entity_spawn_rowid, wid, x, y, z, type, data, amount, metadata, action, rolled_back, rowid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        SQL_QUERIES.put(ENTITY_INTERACTION, "INSERT INTO %sprefix%entity_interaction (rowid, time, user, entity_spawn_rowid, wid, x, y, z, type, action, metadata, rolled_back, version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     }
 
     public static void beginTransaction(Statement statement, boolean isMySQL) {
@@ -335,7 +337,7 @@ public class Database extends Queue {
         }
     }
 
-    private static final List<String> DATABASE_TABLES = Arrays.asList("art_map", "block", "chat", "command", "container", "entity_container", "item", "database_lock", "entity", "entity_spawn", "entity_map", "material_map", "blockdata_map", "session", "sign", "skull", "user", "username_log", "version", "world");
+    private static final List<String> DATABASE_TABLES = Arrays.asList("art_map", "block", "chat", "command", "container", "entity_container", "entity_interaction", "item", "database_lock", "entity", "entity_spawn", "entity_map", "material_map", "blockdata_map", "session", "sign", "skull", "user", "username_log", "version", "world");
 
     public static void createDatabaseTables(String prefix, boolean forcePrefix, Connection forceConnection, boolean mySQL, boolean purge) {
         ConfigHandler.databaseTables.clear();
@@ -392,6 +394,10 @@ public class Database extends Queue {
         // Entity container
         orderBy = "ORDER BY (wid, y, x, z, time, user, type, rowid)";
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_container(rowid UInt64, time UInt32, user UInt32, entity_spawn_rowid UInt64, wid UInt32, x Int32, y Int16, z Int32, type UInt32, data UInt32, amount UInt32, metadata String, action UInt8, rolled_back UInt8, version UInt8) ENGINE = ReplacingMergeTree(version) " + orderBy + partitionBy);
+
+        // Entity interaction
+        orderBy = "ORDER BY (wid, y, x, z, time, user, type, rowid)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_interaction(rowid UInt64, time UInt32, user UInt32, entity_spawn_rowid UInt64, wid UInt32, x Int32, y Int16, z Int32, type UInt32, action UInt8, metadata String, rolled_back UInt8, version UInt8) ENGINE = ReplacingMergeTree(version) " + orderBy + partitionBy);
 
         // Item
         orderBy = "ORDER BY (wid, y, x, z, time, user, type, rowid)";

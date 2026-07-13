@@ -35,6 +35,7 @@ import com.google.common.base.Strings;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.Lookup;
+import net.coreprotect.database.lookup.EntityInteractionLookup;
 import net.coreprotect.database.lookup.PlayerLookup;
 import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.database.statement.UserStatement;
@@ -428,7 +429,13 @@ public class StandardLookupThread implements Runnable {
 
                                 String dname = "";
                                 boolean isPlayer = false;
-                                if (daction == LookupActions.ENTITY_KILL && !actions.contains(LookupActions.ITEM) && amount == -1) {
+                                if (data.table() == InventorySources.ENTITY_INTERACTION) {
+                                    dname = EntityInteractionLookup.entityName(dtype);
+                                }
+                                else if (daction == LookupActions.ENTITY_SPAWN) {
+                                    dname = EntityInteractionLookup.entityName(dtype);
+                                }
+                                else if (daction == LookupActions.ENTITY_KILL && !actions.contains(LookupActions.ITEM) && amount == -1) {
                                     if (dtype == 0) {
                                         String playerName = ConfigHandler.playerIdCacheReversed.get(ddata);
                                         if (playerName == null) {
@@ -488,7 +495,17 @@ public class StandardLookupThread implements Runnable {
                                     Chat.sendComponent(player, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rollbackDecoration + dplayer + Color.WHITE + rollbackDecoration, "x" + amount, ItemUtils.createItemTooltip(Color.DARK_AQUA + rollbackDecoration + dname, hover) + Color.WHITE, selector));
                                     PluginChannelListener.getInstance().sendData(player, data.time(), phrase, selector, dplayer, dname, (tag.contains("+") ? 1 : -1), dataX, dataY, dataZ, worldId, rollbackDecoration, action.contains("container"), tag.contains("+"));
                                 } else {
-                                    if (daction == LookupActions.INTERACTION || daction == LookupActions.ENTITY_KILL) {
+                                    if (data.table() == InventorySources.ENTITY_INTERACTION) {
+                                        phrase = Phrase.LOOKUP_ENTITY_INTERACTION;
+                                        selector = EntityInteractionLookup.actionSelector(ddata);
+                                        tag = Color.WHITE + "-";
+                                        action = "a:click";
+                                    } else if (daction == LookupActions.ENTITY_SPAWN) {
+                                        phrase = Phrase.LOOKUP_ENTITY_SPAWN;
+                                        selector = Selector.FIRST;
+                                        tag = Color.GREEN + "+";
+                                        action = "a:entity";
+                                    } else if (daction == LookupActions.INTERACTION || daction == LookupActions.ENTITY_KILL) {
                                         phrase = Phrase.LOOKUP_INTERACTION; // {clicked|killed}
                                         selector = (daction != LookupActions.ENTITY_KILL ? Selector.FIRST : Selector.SECOND);
                                         tag = (daction != LookupActions.ENTITY_KILL ? Color.WHITE + "-" : Color.RED + "-");

@@ -234,7 +234,9 @@ public enum Phrase {
     VERSION_REQUIRED,
     WORLD_NOT_FOUND,
     LOOKUP_ENTITY_SPAWN,
-    LOOKUP_ENTITY_ORIGIN;
+    LOOKUP_ENTITY_ORIGIN,
+    LOOKUP_ENTITY_INTERACTION,
+    LOOKUP_ENTITY_INTERACTION_ORIGIN;
 
     final private static Set<Phrase> HEADERS = new HashSet<>(Arrays.asList(Phrase.CONTAINER_HEADER, Phrase.HELP_HEADER, Phrase.INTERACTIONS_HEADER, Phrase.LOOKUP_HEADER, Phrase.SIGN_HEADER, Phrase.UPDATE_HEADER));
     final private static Set<String> COLORS = new HashSet<>(Arrays.asList(Color.WHITE, Color.DARK_AQUA));

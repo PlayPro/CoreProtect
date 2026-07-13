@@ -37,6 +37,7 @@ import com.zaxxer.hikari.HikariDataSource;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.model.lookup.LookupRollbackState;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
@@ -147,6 +148,7 @@ public class ConfigHandler extends Queue {
     public static Map<String, List<String>> lookupUlist = syncMap();
     public static Map<String, List<Integer>> lookupAlist = syncMap();
     public static Map<String, List<String>> lookupFlist = syncMap();
+    public static Map<String, LookupRollbackState> lookupRollbackState = syncMap();
     public static Map<String, Integer[]> lookupRadius = syncMap();
     public static Map<String, String> lookupTime = syncMap();
     public static Map<String, Long[]> lookupRows = syncMap();

@@ -50,6 +50,10 @@ public class CommandParser {
         return MessageFilterParser.parse(inputArguments);
     }
 
+    protected static RollbackStateParser.ParseResult parseRollbackState(String[] inputArguments) {
+        return RollbackStateParser.parse(inputArguments);
+    }
+
     /**
      * Parse coordinates from command arguments
      * 

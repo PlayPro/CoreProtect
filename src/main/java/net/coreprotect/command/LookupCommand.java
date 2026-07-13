@@ -22,6 +22,7 @@ import net.coreprotect.command.lookup.EntityInteractionLookupThread;
 import net.coreprotect.command.lookup.StandardLookupThread;
 import net.coreprotect.command.parser.ActionParser;
 import net.coreprotect.command.parser.MessageFilterParser;
+import net.coreprotect.command.parser.RollbackStateParser;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
@@ -29,6 +30,7 @@ import net.coreprotect.language.Selector;
 import net.coreprotect.model.action.EntityActionFilter;
 import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.model.lookup.LookupOutputMode;
+import net.coreprotect.model.lookup.LookupRollbackState;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.ChatMessage;
 import net.coreprotect.utility.Color;
@@ -61,11 +63,18 @@ public class LookupCommand {
         int parseRows = CommandParser.parseRows(args);
         boolean summary = CommandParser.parseSummary(args);
         LookupOutputMode outputMode = summary ? LookupOutputMode.SUMMARY : LookupOutputMode.DETAIL;
+        RollbackStateParser.ParseResult rollbackStateResult = CommandParser.parseRollbackState(args);
+        LookupRollbackState rollbackState = rollbackStateResult.getState();
         boolean worldedit = CommandParser.parseWorldEdit(args);
         boolean forceglobal = CommandParser.parseForceGlobal(args);
         boolean pageLookup = false;
 
         if (argBlocks == null || argExclude == null || argExcludeUsers == null) {
+            return;
+        }
+
+        if (rollbackStateResult.isConflicting()) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, "#rolledback + #restored"));
             return;
         }
 
@@ -183,6 +192,10 @@ public class LookupCommand {
         }
         if (argAction.contains(-1)) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_ACTION));
+            return;
+        }
+        if (rollbackState != LookupRollbackState.ANY && (argAction.contains(LookupActions.CHAT) || argAction.contains(LookupActions.COMMAND) || argAction.contains(LookupActions.SESSION) || argAction.contains(LookupActions.USERNAME) || argAction.contains(LookupActions.SIGN))) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INCOMPATIBLE_ACTION, rollbackState == LookupRollbackState.ROLLED_BACK ? "#rolledback" : "#restored"));
             return;
         }
         if (messageFilterResult.isSpecified()) {
@@ -561,6 +574,7 @@ public class LookupCommand {
                     argRadius = ConfigHandler.lookupRadius.get(player.getName());
                     ts = ConfigHandler.lookupTime.get(player.getName());
                     outputMode = ConfigHandler.lookupOutputMode.getOrDefault(player.getName(), LookupOutputMode.DETAIL);
+                    rollbackState = ConfigHandler.lookupRollbackState.getOrDefault(player.getName(), LookupRollbackState.ANY);
                     startTime = 1;
                     endTime = 0;
                 }
@@ -637,7 +651,7 @@ public class LookupCommand {
 
                     Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Color.ITALIC + Phrase.build(Phrase.LOOKUP_SEARCHING));
 
-                    Runnable runnable = new StandardLookupThread(player, command, rollbackusers, argBlocks, argExclude, argExcludeUsers, argAction, argEntityActionFilter, argFilters, argRadius, lo, x, y, z, wid, argWid, timeStart, timeEnd, argNoisy, argExcluded, argRestricted, pa, re, type, ts, outputMode);
+                    Runnable runnable = new StandardLookupThread(player, command, rollbackusers, argBlocks, argExclude, argExcludeUsers, argAction, argEntityActionFilter, argFilters, argRadius, lo, x, y, z, wid, argWid, timeStart, timeEnd, argNoisy, argExcluded, argRestricted, pa, re, type, ts, outputMode, rollbackState);
                     Thread thread = new Thread(runnable);
                     thread.start();
                 }

@@ -26,6 +26,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
+import net.coreprotect.utility.HopperTransactionUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.ErrorReporter;
 

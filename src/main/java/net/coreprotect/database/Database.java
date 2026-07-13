@@ -24,11 +24,11 @@ import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.consumer.process.Process;
 import net.coreprotect.language.Phrase;
+import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.model.rollback.RollbackUpdateTargets;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
-import net.coreprotect.utility.HopperTransactionUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.ErrorReporter;
 
@@ -189,15 +189,19 @@ public class Database extends Queue {
     }
 
     public static void containerBreakCheck(String user, Material type, Object container, ItemStack[] contents, Location location) {
-        if (BlockGroup.CONTAINERS.contains(type) && !BlockGroup.SHULKER_BOXES.contains(type)) {
+        if (BlockGroup.CONTAINERS.contains(type)) {
             if (Config.getConfig(location.getWorld()).ITEM_TRANSACTIONS) {
                 try {
                     if (contents == null) {
                         contents = ItemUtils.getContainerContents(type, container, location);
                     }
                     if (contents != null) {
-                        setForceContainer(HopperTransactionUtils.getLoggingId(user, location), ItemUtils.getContainerState(contents));
-                        Queue.queueContainerBreak(user, location, type, contents);
+                        if (BlockGroup.SHULKER_BOXES.contains(type)) {
+                            InventoryChangeListener.flushPendingContainer(location, contents);
+                        }
+                        else {
+                            InventoryChangeListener.queueContainerBreak(user, location, type, contents);
+                        }
                     }
                 }
                 catch (Exception e) {

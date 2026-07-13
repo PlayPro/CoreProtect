@@ -181,6 +181,7 @@ CLAUDE.md
 .clinerules
 context.json
 context.yml
+issues.md
 run.sh
 run_*.sh
 no-log4j2.xml

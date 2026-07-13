@@ -142,7 +142,7 @@ public final class HopperTransactionUtils {
     }
 
     public static void recordItemAdded(String transactionId, ItemStack item) {
-        recordDelta(transactionId, item, false, 1);
+        recordDelta(transactionId, item, false, item == null ? 0 : item.getAmount());
     }
 
     public static void recordItemRemoved(String transactionId, ItemStack item) {

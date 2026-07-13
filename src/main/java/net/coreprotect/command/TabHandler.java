@@ -513,7 +513,7 @@ public class TabHandler implements TabCompleter {
             params.add("page:");
         }
         else if (!firstParam && argument.startsWith("#")) {
-            if (!state.hasCount) {
+            if (!state.hasCount && (lastArgument.equals("l") || lastArgument.equals("lookup"))) {
                 params.add("#count");
             }
             if (!state.hasPreview) {

@@ -512,10 +512,6 @@ public class TabHandler implements TabCompleter {
             params.add("page:");
         }
         if (argument.startsWith("#")) {
-            if (!state.hasCount && !state.hasSummary) {
-                params.add("#count");
-                params.add("#sum");
-            }
             if (!state.hasCount && !state.hasSummary && (lastArgument.equals("l") || lastArgument.equals("lookup"))) {
                 params.add("#summary");
             }

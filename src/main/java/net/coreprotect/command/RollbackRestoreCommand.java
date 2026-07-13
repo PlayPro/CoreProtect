@@ -38,6 +38,12 @@ import net.coreprotect.utility.ErrorReporter;
 
 public class RollbackRestoreCommand {
     public static void runCommand(CommandSender player, Command command, boolean permission, String[] args, Location argLocation, long forceStart, long forceEnd) {
+        String lookupOnlyFlag = findLookupOnlyFlag(args);
+        if (lookupOnlyFlag != null) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, lookupOnlyFlag));
+            return;
+        }
+
         Location lo = (argLocation != null ? argLocation : CommandParser.parseLocation(player, args));
         List<String> argUuids = new ArrayList<>();
         List<String> argUsers = CommandParser.parseUsers(args);
@@ -54,7 +60,6 @@ public class RollbackRestoreCommand {
         long startTime = argTime[0];
         long endTime = argTime[1];
         int argWid = CommandParser.parseWorld(args, true, true);
-        boolean count = CommandParser.parseCount(args);
         boolean worldedit = CommandParser.parseWorldEdit(args);
         boolean forceglobal = CommandParser.parseForceGlobal(args);
         int preview = CommandParser.parsePreview(args);
@@ -107,10 +112,6 @@ public class RollbackRestoreCommand {
             return;
         }
 
-        if (count) {
-            LookupCommand.runCommand(player, command, permission, args);
-            return;
-        }
         if (ConfigHandler.converterRunning) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
             return;
@@ -511,5 +512,16 @@ public class RollbackRestoreCommand {
         else {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
         }
+    }
+
+    private static String findLookupOnlyFlag(String[] args) {
+        for (int index = 1; index < args.length; index++) {
+            String raw = args[index];
+            String argument = raw.trim().toLowerCase(Locale.ROOT).replace("\\", "").replace("'", "");
+            if (argument.equals("#count") || argument.equals("#sum") || argument.equals("#summary") || argument.equals("count") || argument.equals("sum")) {
+                return raw.trim();
+            }
+        }
+        return null;
     }
 }

@@ -628,6 +628,7 @@ public class LookupRaw extends Queue {
             else if (actionList.contains(LookupActions.SIGN)) {
                 queryTable = "sign";
                 rows = "rowid as id,time,user,wid,x,y,z,face,line_1,line_2,line_3,line_4,line_5,line_6,line_7,line_8";
+                baseQuery = appendSignMessageFilters(baseQuery, messageFilters);
             }
             else if (actionList.contains(LookupActions.ITEM)) {
                 queryTable = "item";
@@ -720,6 +721,31 @@ public class LookupRaw extends Queue {
             if (!filter.isEmpty()) {
                 result.append(" AND lowerUTF8(message) LIKE '%").append(escapeSqlLike(filter.toLowerCase(Locale.ROOT))).append("%'");
             }
+        }
+        return result.toString();
+    }
+
+    private static String appendSignMessageFilters(String query, List<String> messageFilters) {
+        if (messageFilters == null || messageFilters.isEmpty()) {
+            return query;
+        }
+
+        StringBuilder result = new StringBuilder(query);
+        for (String rawFilter : messageFilters) {
+            String filter = rawFilter == null ? "" : rawFilter.trim();
+            if (filter.isEmpty()) {
+                continue;
+            }
+
+            String escaped = escapeSqlLike(filter.toLowerCase(Locale.ROOT));
+            result.append(" AND (");
+            for (int line = 1; line <= 8; line++) {
+                if (line > 1) {
+                    result.append(" OR ");
+                }
+                result.append("lowerUTF8(line_").append(line).append(") LIKE '%").append(escaped).append("%'");
+            }
+            result.append(")");
         }
         return result.toString();
     }

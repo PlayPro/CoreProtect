@@ -57,6 +57,7 @@ public class LookupCommand {
         int argWid = CommandParser.parseWorld(args, true, true);
         int parseRows = CommandParser.parseRows(args);
         boolean count = CommandParser.parseCount(args);
+        boolean summary = CommandParser.parseSummary(args);
         RollbackStateParser.ParseResult rollbackStateResult = CommandParser.parseRollbackState(args);
         LookupRollbackState rollbackState = rollbackStateResult.getState();
         boolean worldedit = CommandParser.parseWorldEdit(args);
@@ -194,6 +195,14 @@ public class LookupCommand {
         }
         if (rollbackState != LookupRollbackState.ANY && (argAction.contains(LookupActions.CHAT) || argAction.contains(LookupActions.COMMAND) || argAction.contains(LookupActions.SESSION) || argAction.contains(LookupActions.USERNAME) || argAction.contains(LookupActions.SIGN))) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INCOMPATIBLE_ACTION, rollbackState == LookupRollbackState.ROLLED_BACK ? "#rolledback" : "#restored"));
+            return;
+        }
+        if (summary && count) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, "#count + #summary"));
+            return;
+        }
+        if (summary && (argAction.contains(LookupActions.CHAT) || argAction.contains(LookupActions.COMMAND) || argAction.contains(LookupActions.SESSION) || argAction.contains(LookupActions.USERNAME) || argAction.contains(LookupActions.SIGN))) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INCOMPATIBLE_ACTION, "#summary"));
             return;
         }
         if (messageFilterResult.isSpecified()) {
@@ -555,6 +564,7 @@ public class LookupCommand {
                     argExcludeUsers = ConfigHandler.lookupEUserlist.get(player.getName());
                     argAction = ConfigHandler.lookupAlist.get(player.getName());
                     argFilters = ConfigHandler.lookupFlist.getOrDefault(player.getName(), Collections.emptyList());
+                    summary = ConfigHandler.lookupSummary.getOrDefault(player.getName(), false);
                     rollbackState = ConfigHandler.lookupRollbackState.getOrDefault(player.getName(), LookupRollbackState.ANY);
                     argRadius = ConfigHandler.lookupRadius.get(player.getName());
                     ts = ConfigHandler.lookupTime.get(player.getName());
@@ -634,7 +644,7 @@ public class LookupCommand {
                         }
                     }
 
-                    Runnable runnable = new StandardLookupThread(player, command, rollbackusers, argBlocks, argExclude, argExcludeUsers, argAction, argFilters, argRadius, lo, x, y, z, wid, argWid, timeStart, timeEnd, argNoisy, argExcluded, argRestricted, pa, re, type, ts, count, rollbackState);
+                    Runnable runnable = new StandardLookupThread(player, command, rollbackusers, argBlocks, argExclude, argExcludeUsers, argAction, argFilters, argRadius, lo, x, y, z, wid, argWid, timeStart, timeEnd, argNoisy, argExcluded, argRestricted, pa, re, type, ts, count, summary, rollbackState);
                     Thread thread = new Thread(runnable);
                     thread.start();
                 }

@@ -191,6 +191,24 @@ public class ActionParser {
         return result;
     }
 
+    public static boolean parseSummary(String[] inputArguments) {
+        String[] argumentArray = inputArguments.clone();
+        boolean result = false;
+        int count = 0;
+        for (String argument : argumentArray) {
+            if (count > 0) {
+                argument = argument.trim().toLowerCase(Locale.ROOT);
+                argument = argument.replaceAll("\\\\", "");
+                argument = argument.replaceAll("'", "");
+                if (argument.equals("#summary") || argument.equals("summary")) {
+                    result = true;
+                }
+            }
+            count++;
+        }
+        return result;
+    }
+
     /**
      * Parse noisy flag from command arguments
      * 

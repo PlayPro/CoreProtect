@@ -19,6 +19,7 @@ import net.coreprotect.data.lookup.type.SessionLookupData;
 import net.coreprotect.data.lookup.type.SignLookupData;
 import net.coreprotect.data.lookup.type.UsernameHistoryData;
 import net.coreprotect.model.lookup.LookupRollbackState;
+import net.coreprotect.model.lookup.LookupSummaryRow;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -88,6 +89,14 @@ public class Lookup extends Queue {
 
     public static LookupResult<?> performLookup(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, List<String> messageFilters, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean countRows, LookupRollbackState rollbackState) {
         return LookupRaw.performLookup(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, messageFilters, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, countRows, rollbackState);
+    }
+
+    public static long countSummaryRows(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, long startTime, long endTime, boolean restrictWorld, LookupRollbackState rollbackState) {
+        return LookupRaw.countSummaryRows(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, startTime, endTime, restrictWorld, rollbackState);
+    }
+
+    public static List<LookupSummaryRow> performSummaryLookup(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, LookupRollbackState rollbackState) {
+        return LookupRaw.performSummaryLookup(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, startTime, endTime, limitOffset, limitCount, restrictWorld, rollbackState);
     }
 
     @Deprecated

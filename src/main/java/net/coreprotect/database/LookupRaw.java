@@ -40,6 +40,7 @@ import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.model.action.SignActions;
 import net.coreprotect.model.item.ItemTransactionActions;
 import net.coreprotect.model.lookup.LookupRollbackState;
+import net.coreprotect.model.lookup.LookupSummaryRow;
 import net.coreprotect.utility.ErrorReporter;
 
 public class LookupRaw extends Queue {
@@ -263,6 +264,43 @@ public class LookupRaw extends Queue {
         return null;
     }
 
+    protected static long countSummaryRows(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, long startTime, long endTime, boolean restrictWorld, LookupRollbackState rollbackState) {
+        try (ResultSet results = rawSummaryResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, startTime, endTime, -1, -1, restrictWorld, true, true, rollbackState)) {
+            if (results != null && results.next()) {
+                return results.getLong("count");
+            }
+        }
+        catch (SQLException e) {
+            ErrorReporter.report(e);
+        }
+        return 0;
+    }
+
+    protected static List<LookupSummaryRow> performSummaryLookup(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, LookupRollbackState rollbackState) {
+        List<LookupSummaryRow> rows = new ArrayList<>();
+        try (ResultSet results = rawSummaryResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, startTime, endTime, limitOffset, limitCount, restrictWorld, true, false, rollbackState)) {
+            if (results == null) {
+                return rows;
+            }
+
+            while (results.next()) {
+                rows.add(new LookupSummaryRow(results.getInt("user"), results.getInt("type"), results.getLong("removed_amount"), results.getLong("placed_amount"), results.getLong("amount")));
+            }
+        }
+        catch (SQLException e) {
+            ErrorReporter.report(e);
+        }
+        return rows;
+    }
+
+    private static @Nullable ResultSet rawSummaryResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean countGroups) {
+        return rawSummaryResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, countGroups, LookupRollbackState.ANY);
+    }
+
+    private static @Nullable ResultSet rawSummaryResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean countGroups, LookupRollbackState rollbackState) {
+        return rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, Collections.emptyList(), location, radius, null, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, false, rollbackState, true, countGroups);
+    }
+
     static @Nullable ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean countRows) {
         return rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, Collections.emptyList(), location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, countRows);
     }
@@ -272,6 +310,10 @@ public class LookupRaw extends Queue {
     }
 
     static @Nullable ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, List<String> messageFilters, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean countRows, LookupRollbackState rollbackState) {
+        return rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, messageFilters, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, countRows, rollbackState, false, false);
+    }
+
+    private static @Nullable ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, List<String> messageFilters, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean countRows, LookupRollbackState rollbackState, boolean summary, boolean countGroups) {
         String query = "";
 
         try {
@@ -703,7 +745,10 @@ public class LookupRaw extends Queue {
 
             String unboundedQuery = query;
             String resultQuery = query + queryOrder + queryLimitOffset;
-            if (countRows) {
+            if (summary) {
+                query = buildSummaryQuery(unboundedQuery, inventoryQuery, countGroups, limitOffset, limitCount);
+            }
+            else if (countRows) {
                 query = "SELECT totals.count AS count, results.* FROM (" + resultQuery + ") AS results "
                         + "CROSS JOIN (SELECT count() AS count FROM (" + unboundedQuery + ")) AS totals";
             }
@@ -773,6 +818,30 @@ public class LookupRaw extends Queue {
             return rollbackState == LookupRollbackState.ROLLED_BACK ? "rolled_back IN(2,3)" : "rolled_back IN(0,1)";
         }
         return rollbackState == LookupRollbackState.ROLLED_BACK ? "rolled_back IN(1,3)" : "rolled_back IN(0,2)";
+    }
+
+    private static String buildSummaryQuery(String sourceQuery, boolean inventoryQuery, boolean countGroups, int limitOffset, int limitCount) {
+        int blockPositiveAction = inventoryQuery ? LookupActions.BLOCK_BREAK : LookupActions.BLOCK_PLACE;
+        int transactionPositiveAction = inventoryQuery ? ItemTransactionActions.REMOVE : ItemTransactionActions.ADD;
+        String positiveActions = transactionPositiveAction + "," + ItemTransactionActions.PICKUP + "," + ItemTransactionActions.REMOVE_ENDER + "," + ItemTransactionActions.CREATE + "," + ItemTransactionActions.BUY;
+        String delta = "CASE WHEN amount=-1 THEN CASE WHEN action=" + blockPositiveAction + " THEN 1 ELSE -1 END "
+                + "WHEN action IN(" + positiveActions + ") THEN amount ELSE -amount END";
+        String eligible = "((amount=-1 AND action IN(" + LookupActions.BLOCK_BREAK + "," + LookupActions.BLOCK_PLACE + ")) OR "
+                + "(amount<>-1 AND action BETWEEN " + ItemTransactionActions.REMOVE + " AND " + ItemTransactionActions.BUY + "))";
+        String contributions = "SELECT user,type," + delta + " AS delta FROM (" + sourceQuery + ") summary_source WHERE " + eligible;
+        String grouped = "SELECT user,type,sum(CASE WHEN delta<0 THEN -delta ELSE 0 END) AS removed_amount,"
+                + "sum(CASE WHEN delta>0 THEN delta ELSE 0 END) AS placed_amount,sum(delta) AS amount "
+                + "FROM (" + contributions + ") summary_contributions GROUP BY user,type";
+
+        if (countGroups) {
+            return "SELECT count() AS count FROM (" + grouped + ") summary_groups";
+        }
+
+        String query = "SELECT user,type,removed_amount,placed_amount,amount FROM (" + grouped + ") summary_groups ORDER BY abs(amount) DESC,user ASC,type ASC";
+        if (limitOffset > -1 && limitCount > -1) {
+            query += " LIMIT " + limitCount + (limitOffset > 0 ? (" OFFSET " + limitOffset) : "");
+        }
+        return query;
     }
 
     private static String escapeSqlLike(String value) {

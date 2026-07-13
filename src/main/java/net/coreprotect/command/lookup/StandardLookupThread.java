@@ -40,6 +40,7 @@ import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.model.action.SessionActions;
 import net.coreprotect.model.item.ItemTransactionActions;
 import net.coreprotect.model.lookup.LookupRollbackState;
+import net.coreprotect.model.lookup.LookupSummaryRow;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.ChatUtils;
 import net.coreprotect.utility.Color;
@@ -76,13 +77,18 @@ public class StandardLookupThread implements Runnable {
     private final int typeLookup;
     private final String rtime;
     private final boolean count;
+    private final boolean summary;
     private final LookupRollbackState rollbackState;
 
     public StandardLookupThread(CommandSender player, Command command, List<String> rollbackUsers, List<Object> blockList, Map<Object, Boolean> excludedBlocks, List<String> excludedUsers, List<Integer> actions, List<String> messageFilters, Integer[] radius, Location location, int x, int y, int z, int worldId, int argWorldId, long timeStart, long timeEnd, int noisy, int excluded, int restricted, int page, int displayResults, int typeLookup, String rtime, boolean count) {
-        this(player, command, rollbackUsers, blockList, excludedBlocks, excludedUsers, actions, messageFilters, radius, location, x, y, z, worldId, argWorldId, timeStart, timeEnd, noisy, excluded, restricted, page, displayResults, typeLookup, rtime, count, LookupRollbackState.ANY);
+        this(player, command, rollbackUsers, blockList, excludedBlocks, excludedUsers, actions, messageFilters, radius, location, x, y, z, worldId, argWorldId, timeStart, timeEnd, noisy, excluded, restricted, page, displayResults, typeLookup, rtime, count, false, LookupRollbackState.ANY);
     }
 
     public StandardLookupThread(CommandSender player, Command command, List<String> rollbackUsers, List<Object> blockList, Map<Object, Boolean> excludedBlocks, List<String> excludedUsers, List<Integer> actions, List<String> messageFilters, Integer[] radius, Location location, int x, int y, int z, int worldId, int argWorldId, long timeStart, long timeEnd, int noisy, int excluded, int restricted, int page, int displayResults, int typeLookup, String rtime, boolean count, LookupRollbackState rollbackState) {
+        this(player, command, rollbackUsers, blockList, excludedBlocks, excludedUsers, actions, messageFilters, radius, location, x, y, z, worldId, argWorldId, timeStart, timeEnd, noisy, excluded, restricted, page, displayResults, typeLookup, rtime, count, false, rollbackState);
+    }
+
+    public StandardLookupThread(CommandSender player, Command command, List<String> rollbackUsers, List<Object> blockList, Map<Object, Boolean> excludedBlocks, List<String> excludedUsers, List<Integer> actions, List<String> messageFilters, Integer[] radius, Location location, int x, int y, int z, int worldId, int argWorldId, long timeStart, long timeEnd, int noisy, int excluded, int restricted, int page, int displayResults, int typeLookup, String rtime, boolean count, boolean summary, LookupRollbackState rollbackState) {
         this.player = player;
         this.command = command;
         this.rollbackUsers = rollbackUsers;
@@ -108,6 +114,7 @@ public class StandardLookupThread implements Runnable {
         this.typeLookup = typeLookup;
         this.rtime = rtime;
         this.count = count;
+        this.summary = summary;
         this.rollbackState = rollbackState == null ? LookupRollbackState.ANY : rollbackState;
     }
 
@@ -130,6 +137,7 @@ public class StandardLookupThread implements Runnable {
             ConfigHandler.lookupUlist.put(player.getName(), rollbackUsers);
             ConfigHandler.lookupAlist.put(player.getName(), actions);
             ConfigHandler.lookupFlist.put(player.getName(), messageFilters);
+            ConfigHandler.lookupSummary.put(player.getName(), summary);
             ConfigHandler.lookupRollbackState.put(player.getName(), rollbackState);
             ConfigHandler.lookupRadius.put(player.getName(), radius);
 
@@ -208,6 +216,32 @@ public class StandardLookupThread implements Runnable {
                     if (pageStart < cachedRows) {
                         checkRows = false;
                     }
+                }
+
+                if (summary) {
+                    long rows;
+                    if (checkRows) {
+                        rows = Lookup.countSummaryRows(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, finalLocation, radius, timeStart, timeEnd, restrict_world, rollbackState);
+                        rowData[3] = rows;
+                        ConfigHandler.lookupRows.put(player.getName(), rowData);
+                    }
+                    else {
+                        rows = rowData[3];
+                    }
+
+                    if (pageStart >= rows) {
+                        if (rows > 0) {
+                            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS_PAGE, Selector.FIRST));
+                        }
+                        else {
+                            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS));
+                        }
+                        return;
+                    }
+
+                    List<LookupSummaryRow> summaryRows = Lookup.performSummaryLookup(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, finalLocation, radius, timeStart, timeEnd, (int) pageStart, displayResults, restrict_world, rollbackState);
+                    outputSummary(connection, summaryRows, rows);
+                    return;
                 }
 
                 final LookupResult<?> lookupResult = Lookup.performLookup(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, messageFilters, finalLocation, radius, rowData, timeStart, timeEnd, (int) pageStart, displayResults, restrict_world, true, checkRows, rollbackState);
@@ -469,6 +503,48 @@ public class StandardLookupThread implements Runnable {
             ErrorReporter.report(e);
         } finally {
             ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
+        }
+    }
+
+    private void outputSummary(Connection connection, List<LookupSummaryRow> summaryRows, long totalRows) {
+        if (summaryRows.isEmpty()) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS));
+            return;
+        }
+
+        NumberFormat numberFormat = NumberFormat.getInstance();
+        String rowsFound = Phrase.build(Phrase.LOOKUP_ROWS_FOUND, numberFormat.format(totalRows), totalRows == 1 ? Selector.FIRST : Selector.SECOND);
+        Chat.sendMessage(player, Color.WHITE + "----- " + Color.DARK_AQUA + "CoreProtect" + Color.WHITE + " | " + Color.DARK_AQUA + rowsFound + Color.WHITE + " -----");
+
+        for (LookupSummaryRow row : summaryRows) {
+            String userName = UserStatement.loadName(connection, row.getUserId());
+            if (userName == null || userName.isEmpty()) {
+                userName = "unknown";
+            }
+
+            String materialName = MaterialUtils.getBlockDisplayName(row.getMaterialId(), 0);
+            if (materialName == null || materialName.isEmpty()) {
+                materialName = MaterialUtils.getBlockNameShort(row.getMaterialId());
+            }
+            if (materialName == null || materialName.isEmpty()) {
+                materialName = "#" + row.getMaterialId();
+            }
+            if (materialName.contains("minecraft:")) {
+                materialName = materialName.split(":", 2)[1];
+            }
+
+            long removedAmount = row.getRemovedAmount();
+            long placedAmount = row.getPlacedAmount();
+            long netAmount = row.getNetAmount();
+            String formattedNetAmount = (netAmount >= 0 ? "+" : "") + numberFormat.format(netAmount);
+            Chat.sendComponent(player, Color.DARK_AQUA + userName + Color.WHITE + ": " + Color.RED + "-" + numberFormat.format(removedAmount)
+                    + Color.GREY + " / " + Color.GREEN + "+" + numberFormat.format(placedAmount) + Color.WHITE + " = " + formattedNetAmount
+                    + Color.WHITE + " " + Color.DARK_AQUA + materialName + Color.WHITE);
+        }
+
+        if (totalRows > displayResults) {
+            int totalPages = (int) Math.ceil(totalRows / (displayResults + 0.0));
+            Chat.sendComponent(player, ChatUtils.getPageNavigation(command.getName(), page, totalPages));
         }
     }
 }

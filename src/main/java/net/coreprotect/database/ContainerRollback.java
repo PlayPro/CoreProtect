@@ -19,6 +19,7 @@ import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.CoreProtect;
@@ -28,6 +29,7 @@ import net.coreprotect.consumer.process.Process;
 import net.coreprotect.database.rollback.Rollback;
 import net.coreprotect.database.rollback.RollbackComplete;
 import net.coreprotect.language.Phrase;
+import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.BlockUtils;
@@ -97,6 +99,9 @@ public class ContainerRollback extends Rollback {
 
                     int modifyCount = 0;
                     if (container != null) {
+                        if (container instanceof Inventory) {
+                            InventoryChangeListener.flushPendingContainer((Inventory) container, location);
+                        }
                         for (final CommonLookupData row : lookupResult.data()) {
                             // int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
                             // int rowId = lookupRow[0];

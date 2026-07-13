@@ -226,14 +226,17 @@ public class StandardLookupThread implements Runnable {
                     finalLocation = new Location(Bukkit.getServer().getWorld(WorldUtils.getWorldName(worldId)), x, y, z);
                 }
 
-                Long[] rowData = new Long[] { 0L, 0L, 0L, 0L };
+                Long[] rowData = new Long[] { 0L, 0L, 0L, 0L, 0L };
                 long rowMax = (long) page * displayResults;
                 long pageStart = rowMax - displayResults;
                 boolean checkRows = true;
 
                 if (typeLookup == 5 && page > 1) {
                     rowData = ConfigHandler.lookupRows.get(player.getName());
-                    long cachedRows = rowData[3];
+                    if (rowData == null || rowData.length < 5) {
+                        rowData = new Long[] { 0L, 0L, 0L, 0L, 0L };
+                    }
+                    long cachedRows = rowData[4];
 
                     if (pageStart < cachedRows) {
                         checkRows = false;
@@ -242,13 +245,22 @@ public class StandardLookupThread implements Runnable {
 
                 if (summary) {
                     long rows;
+                    long recordRows = 0L;
                     if (checkRows) {
                         rows = Lookup.countSummaryRows(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, finalLocation, radius, timeStart, timeEnd, restrict_world, rollbackState);
-                        rowData[3] = rows;
+                        if (rows > 0) {
+                            recordRows = Lookup.countLookupRows(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, entityActionFilter, messageFilters, Collections.emptySet(), Collections.emptySet(), finalLocation, radius, rowData, timeStart, timeEnd, restrict_world, true, entityContainerId, rollbackState);
+                            rowData[0] = recordRows;
+                            rowData[1] = 0L;
+                            rowData[2] = 0L;
+                            rowData[3] = 0L;
+                        }
+                        rowData[4] = rows;
                         ConfigHandler.lookupRows.put(player.getName(), rowData);
                     }
                     else {
-                        rows = rowData[3];
+                        rows = rowData[4];
+                        recordRows = rowData[0];
                     }
 
                     if (pageStart >= rows) {
@@ -262,7 +274,7 @@ public class StandardLookupThread implements Runnable {
                     }
 
                     List<LookupSummaryRow> summaryRows = Lookup.performSummaryLookup(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, finalLocation, radius, timeStart, timeEnd, (int) pageStart, displayResults, restrict_world, rollbackState);
-                    outputSummary(connection, summaryRows, rows);
+                    outputSummary(connection, summaryRows, rows, recordRows);
                     return;
                 }
 
@@ -275,11 +287,11 @@ public class StandardLookupThread implements Runnable {
                 long rows = lookupResult.totalResultSize();
 
                 if (checkRows) {
-                    rowData[3] = rows;
+                    rowData[4] = rows;
                     ConfigHandler.lookupRows.put(player.getName(), rowData);
                 } else {
                     // retrieve cached rows
-                    rows = rowData[3];
+                    rows = rowData[4];
                 }
 
                 if (count) {
@@ -544,14 +556,14 @@ public class StandardLookupThread implements Runnable {
         }
     }
 
-    private void outputSummary(Connection connection, List<LookupSummaryRow> summaryRows, long totalRows) {
+    private void outputSummary(Connection connection, List<LookupSummaryRow> summaryRows, long totalRows, long recordRows) {
         if (summaryRows.isEmpty()) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS));
             return;
         }
 
         NumberFormat numberFormat = NumberFormat.getInstance();
-        String rowsFound = Phrase.build(Phrase.LOOKUP_ROWS_FOUND, numberFormat.format(totalRows), totalRows == 1 ? Selector.FIRST : Selector.SECOND);
+        String rowsFound = Phrase.build(Phrase.LOOKUP_ROWS_FOUND, numberFormat.format(recordRows), recordRows == 1 ? Selector.FIRST : Selector.SECOND);
         Chat.sendMessage(player, Color.WHITE + "----- " + Color.DARK_AQUA + "CoreProtect" + Color.WHITE + " | " + Color.DARK_AQUA + rowsFound + Color.WHITE + " -----");
 
         for (LookupSummaryRow row : summaryRows) {

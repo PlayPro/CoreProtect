@@ -62,7 +62,8 @@ public class LookupCommand {
         int argWid = CommandParser.parseWorld(args, true, true);
         int parseRows = CommandParser.parseRows(args);
         boolean count = CommandParser.parseCount(args);
-        boolean summary = CommandParser.parseSummary(args);
+        boolean explicitSummary = CommandParser.parseSummary(args);
+        boolean summary = explicitSummary;
         RollbackStateParser.ParseResult rollbackStateResult = CommandParser.parseRollbackState(args);
         LookupRollbackState rollbackState = rollbackStateResult.getState();
         boolean worldedit = CommandParser.parseWorldEdit(args);
@@ -204,11 +205,11 @@ public class LookupCommand {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INCOMPATIBLE_ACTION, rollbackState == LookupRollbackState.ROLLED_BACK ? "#rolledback" : "#restored"));
             return;
         }
-        if (summary && count) {
-            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, "#count + #summary"));
-            return;
+        boolean summaryIncompatible = argAction.contains(LookupActions.CHAT) || argAction.contains(LookupActions.COMMAND) || argAction.contains(LookupActions.SESSION) || argAction.contains(LookupActions.USERNAME) || argAction.contains(LookupActions.SIGN);
+        if (count && !summaryIncompatible) {
+            summary = true;
         }
-        if (summary && (argAction.contains(LookupActions.CHAT) || argAction.contains(LookupActions.COMMAND) || argAction.contains(LookupActions.SESSION) || argAction.contains(LookupActions.USERNAME) || argAction.contains(LookupActions.SIGN))) {
+        if (explicitSummary && summaryIncompatible) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INCOMPATIBLE_ACTION, "#summary"));
             return;
         }

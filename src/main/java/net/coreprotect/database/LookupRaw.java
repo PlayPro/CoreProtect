@@ -330,6 +330,10 @@ public class LookupRaw extends Queue {
         return rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, messageFilters, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, countRows, entityActionFilter, loadedEntityUuids, loadedEntityCandidates, entityContainerId, LookupRollbackState.ANY, false, false);
     }
 
+    static @Nullable ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, List<String> messageFilters, Set<UUID> loadedEntityUuids, Set<UUID> loadedEntityCandidates, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean countRows, Integer entityContainerId, LookupRollbackState rollbackState) {
+        return rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, messageFilters, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, countRows, entityActionFilter, loadedEntityUuids, loadedEntityCandidates, entityContainerId, rollbackState, false, false);
+    }
+
     private static @Nullable ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, List<String> messageFilters, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean countRows, EntityActionFilter entityActionFilter, Set<UUID> loadedEntityUuids, Set<UUID> loadedEntityCandidates, Integer entityContainerId, LookupRollbackState rollbackState, boolean summary, boolean countGroups) {
         String query = "";
 

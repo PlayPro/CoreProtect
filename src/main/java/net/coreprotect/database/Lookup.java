@@ -53,6 +53,10 @@ public class Lookup extends Queue {
     }
 
     public static long countLookupRows(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, List<String> messageFilters, Set<UUID> loadedEntityUuids, Set<UUID> loadedEntityCandidates, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, boolean restrictWorld, boolean lookup, Integer entityContainerId) {
+        return countLookupRows(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, loadedEntityUuids, loadedEntityCandidates, location, radius, rowData, startTime, endTime, restrictWorld, lookup, entityContainerId, LookupRollbackState.ANY);
+    }
+
+    public static long countLookupRows(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, List<String> messageFilters, Set<UUID> loadedEntityUuids, Set<UUID> loadedEntityCandidates, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, boolean restrictWorld, boolean lookup, Integer entityContainerId, LookupRollbackState rollbackState) {
         Long rows = 0L;
 
         try {
@@ -61,11 +65,17 @@ public class Lookup extends Queue {
             }
             Consumer.isPaused = true;
 
-            ResultSet results = LookupRaw.rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, loadedEntityUuids, loadedEntityCandidates, location, radius, null, startTime, endTime, -1, -1, restrictWorld, lookup, true, entityContainerId);
+            ResultSet results = LookupRaw.rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, loadedEntityUuids, loadedEntityCandidates, location, radius, null, startTime, endTime, -1, -1, restrictWorld, lookup, true, entityContainerId, rollbackState);
+            if (results == null) {
+                Consumer.isPaused = false;
+                return 0L;
+            }
             while (results.next()) {
                 int resultTable = results.getInt("tbl");
                 long count = results.getLong("count");
-                rowData[resultTable] = count;
+                if (rowData != null && resultTable >= 0 && resultTable < rowData.length) {
+                    rowData[resultTable] = count;
+                }
                 rows += count;
             }
             results.close();

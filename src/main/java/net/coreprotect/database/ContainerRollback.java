@@ -75,11 +75,12 @@ public class ContainerRollback extends Rollback {
                         block.getWorld().getChunkAt(block.getLocation());
                     }
                     Object container = null;
-                    Material type = block.getType();
+                    Block containerBlock = BlockUtils.getRollbackContainerBlock(block);
+                    Material type = containerBlock != null ? containerBlock.getType() : block.getType();
                     List<ItemFrame> matchingFrames = new ArrayList<>();
 
-                    if (BlockGroup.CONTAINERS.contains(type)) {
-                        container = BlockUtils.getContainerInventory(block.getState(), false);
+                    if (containerBlock != null && BlockGroup.CONTAINERS.contains(type)) {
+                        container = BlockUtils.getContainerInventory(containerBlock.getState(), false);
                     }
                     else {
                         for (Entity entity : block.getChunk().getEntities()) {
@@ -100,7 +101,7 @@ public class ContainerRollback extends Rollback {
                     int modifyCount = 0;
                     if (container != null) {
                         if (container instanceof Inventory) {
-                            InventoryChangeListener.flushPendingContainer((Inventory) container, location);
+                            InventoryChangeListener.flushPendingContainer((Inventory) container, containerBlock != null ? containerBlock.getLocation() : location);
                         }
                         for (final CommonLookupData row : lookupResult.data()) {
                             // int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);

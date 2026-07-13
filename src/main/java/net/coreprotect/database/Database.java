@@ -46,6 +46,8 @@ public class Database extends Queue {
     public static final int ENTITY_MAP = 11;
     public static final int BLOCKDATA = 12;
     public static final int ITEM = 13;
+    public static final int ENTITY_SPAWN = 14;
+    public static final int ENTITY_CONTAINER = 15;
 
     private static final Map<Integer, String> SQL_QUERIES = new HashMap<>();
 
@@ -65,12 +67,39 @@ public class Database extends Queue {
         SQL_QUERIES.put(ART, "INSERT INTO %sprefix%art_map (id, art, rowid) VALUES (?, ?, ?)");
         SQL_QUERIES.put(ENTITY_MAP, "INSERT INTO %sprefix%entity_map (id, entity, rowid) VALUES (?, ?, ?)");
         SQL_QUERIES.put(BLOCKDATA, "INSERT INTO %sprefix%blockdata_map (id, data, rowid) VALUES (?, ?, ?)");
+        SQL_QUERIES.put(ENTITY_SPAWN, "INSERT INTO %sprefix%entity_spawn (rowid, version, time, block_rowid, kill_rowid, uuid, wid, current_wid, origin_x, origin_y, origin_z, x, y, z, yaw, pitch, data, removed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        SQL_QUERIES.put(ENTITY_CONTAINER, "INSERT INTO %sprefix%entity_container (time, user, entity_spawn_rowid, wid, x, y, z, type, data, amount, metadata, action, rolled_back, rowid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     }
 
     public static void beginTransaction(Statement statement, boolean isMySQL) {
-        if (true) return; // CH - transactions don't exist
+        // ClickHouse has no OLTP transaction scope for these inserts.
         Consumer.transacting = true;
+        Consumer.interrupt = false;
+    }
 
+    public static void commitTransaction(Statement statement, boolean isMySQL) throws Exception {
+        commitTransactionChecked(statement, isMySQL);
+    }
+
+    public static boolean commitTransactionChecked(Statement statement, boolean isMySQL) {
+        Consumer.transacting = false;
+        Consumer.interrupt = false;
+        return true;
+    }
+
+    public static void rollbackTransaction(Statement statement, boolean isMySQL) {
+        Consumer.transacting = false;
+        Consumer.interrupt = false;
+    }
+
+    public static void executeSavepoint(Statement statement, String name, SavepointOperation operation) throws Exception {
+        operation.execute();
+    }
+
+    /*
+    public static void beginTransaction(Statement statement, boolean isMySQL) {
+        Consumer.transacting = true;
+        boolean started = false;
         try {
             if (isMySQL) {
                 statement.executeUpdate("START TRANSACTION");
@@ -78,9 +107,13 @@ public class Database extends Queue {
             else {
                 statement.executeUpdate("BEGIN TRANSACTION");
             }
+            started = true;
         }
-        catch (Exception e) {
-            ErrorReporter.report(e);
+        finally {
+            if (!started) {
+                Consumer.transacting = false;
+                Consumer.interrupt = false;
+            }
         }
     }
 
@@ -96,24 +129,61 @@ public class Database extends Queue {
                 else {
                     statement.executeUpdate("COMMIT TRANSACTION");
                 }
+                Consumer.transacting = false;
+                Consumer.interrupt = false;
+                return true;
             }
             catch (Exception e) {
-                if (e.getMessage().startsWith("[SQLITE_BUSY]") && count < 30) {
+                if (e.getMessage() != null && e.getMessage().startsWith("[SQLITE_BUSY]") && count < 30) {
                     Thread.sleep(1000);
                     count++;
 
                     continue;
                 }
-                else {
-                    ErrorReporter.report(e);
-                }
+                ErrorReporter.report(e);
+                Consumer.transacting = false;
+                Consumer.interrupt = false;
+                return false;
             }
-
-            Consumer.transacting = false;
-            Consumer.interrupt = false;
-            return;
         }
     }
+
+    public static void rollbackTransaction(Statement statement, boolean isMySQL) {
+        try {
+            statement.executeUpdate(isMySQL ? "ROLLBACK" : "ROLLBACK TRANSACTION");
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+        }
+        finally {
+            Consumer.transacting = false;
+            Consumer.interrupt = false;
+        }
+    }
+
+    public static void executeSavepoint(Statement statement, String name, SavepointOperation operation) throws Exception {
+        statement.execute("SAVEPOINT " + name);
+        try {
+            operation.execute();
+            statement.execute("RELEASE SAVEPOINT " + name);
+        }
+        catch (Exception e) {
+            try {
+                statement.execute("ROLLBACK TO SAVEPOINT " + name);
+            }
+            catch (Exception rollbackException) {
+                e.addSuppressed(rollbackException);
+            }
+            try {
+                statement.execute("RELEASE SAVEPOINT " + name);
+            }
+            catch (Exception releaseException) {
+                e.addSuppressed(releaseException);
+            }
+            throw e;
+        }
+    }
+    */
 
     public static void setMultiInt(PreparedStatement statement, int value, int count) {
         try {
@@ -265,7 +335,7 @@ public class Database extends Queue {
         }
     }
 
-    private static final List<String> DATABASE_TABLES = Arrays.asList("art_map", "block", "chat", "command", "container", "item", "database_lock", "entity", "entity_map", "material_map", "blockdata_map", "session", "sign", "skull", "user", "username_log", "version", "world");
+    private static final List<String> DATABASE_TABLES = Arrays.asList("art_map", "block", "chat", "command", "container", "entity_container", "item", "database_lock", "entity", "entity_spawn", "entity_map", "material_map", "blockdata_map", "session", "sign", "skull", "user", "username_log", "version", "world");
 
     public static void createDatabaseTables(String prefix, boolean forcePrefix, Connection forceConnection, boolean mySQL, boolean purge) {
         ConfigHandler.databaseTables.clear();
@@ -319,6 +389,10 @@ public class Database extends Queue {
         orderBy = "ORDER BY (wid, y, x, z, time, user, type, rowid)";
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "container(rowid UInt64, time UInt32, user UInt32, wid UInt32, x Int32, y Int16, z Int32, type UInt32, data UInt32, amount UInt32, metadata String, action UInt8, rolled_back UInt8, version UInt8) ENGINE = ReplacingMergeTree(version) " + orderBy + partitionBy);
 
+        // Entity container
+        orderBy = "ORDER BY (wid, y, x, z, time, user, type, rowid)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_container(rowid UInt64, time UInt32, user UInt32, entity_spawn_rowid UInt64, wid UInt32, x Int32, y Int16, z Int32, type UInt32, data UInt32, amount UInt32, metadata String, action UInt8, rolled_back UInt8, version UInt8) ENGINE = ReplacingMergeTree(version) " + orderBy + partitionBy);
+
         // Item
         orderBy = "ORDER BY (wid, y, x, z, time, user, type, rowid)";
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "item(rowid UInt64, time UInt32, user UInt32, wid UInt32, x Int32, y Int16, z Int32, type UInt32, data String, amount UInt32, action UInt8, rolled_back UInt8, version UInt8) ENGINE = ReplacingMergeTree(version) " + orderBy + partitionBy);
@@ -330,6 +404,10 @@ public class Database extends Queue {
         // Entity
         orderBy = "ORDER BY (rowid)";
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity(rowid UInt64, time UInt32, data String) ENGINE = MergeTree " + orderBy + partitionBy);
+
+        // Entity spawn tracking
+        orderBy = "ORDER BY (rowid)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_spawn(rowid UInt64, version UInt64, time UInt32, block_rowid UInt64, kill_rowid UInt64, uuid String, wid UInt32, current_wid UInt32, origin_x Float64, origin_y Float64, origin_z Float64, x Float64, y Float64, z Float64, yaw Float32, pitch Float32, data String, removed UInt8) ENGINE = ReplacingMergeTree(version) " + orderBy + partitionBy);
 
         // Entity map
         orderBy = "ORDER BY rowid";
@@ -370,5 +448,11 @@ public class Database extends Queue {
         // World
         orderBy = "ORDER BY rowid";
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "world(rowid UInt64, id UInt32, world LowCardinality(String)) ENGINE = MergeTree " + orderBy);
+    }
+
+    @FunctionalInterface
+    public interface SavepointOperation {
+
+        void execute() throws Exception;
     }
 }

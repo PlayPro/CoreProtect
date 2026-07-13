@@ -108,8 +108,14 @@ public class RollbackComplete {
             else if (actionList.contains(LookupActions.BLOCK_PLACE)) {
                 Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "+block", Selector.SECOND));
             }
+            else if (actionList.contains(LookupActions.ENTITY_KILL) && actionList.contains(LookupActions.ENTITY_SPAWN)) {
+                Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "kill, spawn", Selector.SECOND));
+            }
             else if (actionList.contains(LookupActions.ENTITY_KILL)) {
                 Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "kill", Selector.SECOND));
+            }
+            else if (actionList.contains(LookupActions.ENTITY_SPAWN)) {
+                Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_WORLD_ACTION, "spawn", Selector.SECOND));
             }
 
             if (restrictList.size() > 0) {

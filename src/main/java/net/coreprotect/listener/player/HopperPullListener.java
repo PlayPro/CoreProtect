@@ -16,6 +16,7 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.HopperTransactionUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.ErrorReporter;
@@ -56,7 +57,7 @@ public final class HopperPullListener {
             return;
         }
 
-        Location destinationLocation = destinationInventory.getLocation();
+        Location destinationLocation = BlockUtils.getCanonicalContainerLocation(destinationInventory.getLocation(), destinationInventory);
         if (destinationLocation == null) {
             return;
         }

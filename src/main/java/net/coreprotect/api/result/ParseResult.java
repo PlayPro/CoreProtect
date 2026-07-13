@@ -5,6 +5,7 @@ import java.util.Locale;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.entity.EntityType;
 
 import net.coreprotect.api.SessionLookup;
 import net.coreprotect.model.action.LookupActions;
@@ -60,27 +61,27 @@ public class ParseResult implements CoreProtectResult {
         }
 
         int actionID = this.getActionId();
+        if (isEntityAction(actionID)) {
+            return null;
+        }
+
         int type = Integer.parseInt(parse[5]);
-        String typeName;
-
-        if (actionID == 3) {
-            typeName = EntityUtils.getEntityType(type).name();
-        }
-        else {
-            Material material = MaterialUtils.getType(type);
-            if (material == null) {
-                return null;
-            }
-
-            typeName = material.name().toLowerCase(Locale.ROOT);
-            typeName = StringUtils.nameFilter(typeName, this.getData());
+        Material material = MaterialUtils.getType(type);
+        if (material == null) {
+            return null;
         }
 
+        String typeName = material.name().toLowerCase(Locale.ROOT);
+        typeName = StringUtils.nameFilter(typeName, this.getData());
         return MaterialUtils.getType(typeName);
     }
 
     public BlockData getBlockData() {
         if (parse.length < 13) {
+            return null;
+        }
+
+        if (isEntityAction(this.getActionId())) {
             return null;
         }
 
@@ -96,6 +97,19 @@ public class ParseResult implements CoreProtectResult {
 
         BlockData result = BlockTypeUtils.createBlockDataFromString(blockData);
         return result != null ? result : Bukkit.getServer().createBlockData(blockData);
+    }
+
+    public EntityType getEntityType() {
+        if (parse.length < 13 || !isEntityAction(this.getActionId())) {
+            return null;
+        }
+
+        int type = Integer.parseInt(parse[5]);
+        if (this.getActionId() == LookupActions.ENTITY_KILL && type == 0) {
+            return EntityType.PLAYER;
+        }
+
+        return EntityUtils.getEntityType(type);
     }
 
     public int getX() {
@@ -120,5 +134,9 @@ public class ParseResult implements CoreProtectResult {
 
     public String worldName() {
         return WorldUtils.getWorldName(Integer.parseInt(parse.length < 13 ? parse[5] : parse[9]));
+    }
+
+    private boolean isEntityAction(int actionId) {
+        return actionId == LookupActions.ENTITY_KILL || actionId == LookupActions.ENTITY_SPAWN;
     }
 }

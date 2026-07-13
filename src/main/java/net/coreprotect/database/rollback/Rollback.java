@@ -2,6 +2,7 @@ package net.coreprotect.database.rollback;
 
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -9,6 +10,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -37,6 +39,7 @@ import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.model.action.EntityActionFilter;
 import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.model.rollback.RollbackUpdateTargets;
 import net.coreprotect.thread.Scheduler;
@@ -47,6 +50,10 @@ import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.ErrorReporter;
 
 public class Rollback extends RollbackUtil {
+
+    public static LookupResult<?> performRollbackRestore(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, String timeString, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, Location location, Integer[] radius, long startTime, long endTime, boolean restrictWorld, boolean lookup, boolean verbose, final int rollbackType, final int preview) {
+        return performRollbackRestore(statement, user, checkUuids, checkUsers, timeString, restrictList, excludeList, excludeUserList, actionList, location, radius, startTime, endTime, restrictWorld, lookup, verbose, rollbackType, preview);
+    }
 
     public static LookupResult<?> performRollbackRestore(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, String timeString, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, long startTime, long endTime, boolean restrictWorld, boolean lookup, boolean verbose, final int rollbackType, final int preview) {
         try {
@@ -77,7 +84,8 @@ public class Rollback extends RollbackUtil {
             }
 
             CommonLookupResult itemLookupResult = null;
-            if (Config.getGlobal().ROLLBACK_ITEMS && !checkUsers.contains("#container") && (actionList.size() == 0 || actionList.contains(LookupActions.CONTAINER) || ROLLBACK_ITEMS) && preview == 0) {
+            boolean includeContainerTransactions = shouldIncludeContainerTransactions(checkUsers, actionList, ROLLBACK_ITEMS);
+            if (!checkUsers.contains("#container") && includeContainerTransactions && preview == 0) {
                 List<Integer> itemActionList = new ArrayList<>(actionList);
 
                 if (!itemActionList.contains(LookupActions.CONTAINER)) {
@@ -353,6 +361,12 @@ public class Rollback extends RollbackUtil {
         return null;
     }
 
+    private static boolean shouldIncludeContainerTransactions(List<String> checkUsers, List<Integer> actionList, boolean restrictedContainerBlock) {
+        return Config.getGlobal().ROLLBACK_ITEMS
+                && !checkUsers.contains("#container")
+                && (actionList.isEmpty() || actionList.contains(LookupActions.CONTAINER) || restrictedContainerBlock);
+    }
+
     private static CompletableFuture<Boolean> scheduleChunkTask(int chunkX, int chunkZ, long chunkKey, Map<Long, List<CommonLookupData>> blockList, Map<Long, List<CommonLookupData>> itemList, int rollbackType, int preview, String userString, CommandSender user, World world, boolean inventoryRollback) {
         CompletableFuture<Boolean> future = new CompletableFuture<>();
         Location chunkLocation = new Location(world, (chunkX << 4), 0, (chunkZ << 4));
@@ -384,5 +398,37 @@ public class Rollback extends RollbackUtil {
         } catch (TimeoutException | ExecutionException ignored) {
             return false;
         }
+    }
+
+    private static void warnMissingEntityRows(String message, Set<Integer> requiredRowIds, Set<Integer> loadedRowIds) {
+        List<Integer> missingRowIds = new ArrayList<>();
+        for (Integer rowId : requiredRowIds) {
+            if (!loadedRowIds.contains(rowId)) {
+                missingRowIds.add(rowId);
+            }
+        }
+        warnSkippedEntityRows(message, missingRowIds);
+    }
+
+    static void warnSkippedEntityRows(String message, Collection<Integer> skippedRowIds) {
+        if (skippedRowIds == null || skippedRowIds.isEmpty()) {
+            return;
+        }
+
+        List<Integer> sortedRowIds = new ArrayList<>(skippedRowIds);
+        Collections.sort(sortedRowIds);
+        StringBuilder rowIds = new StringBuilder();
+        int displayLimit = Math.min(sortedRowIds.size(), 10);
+        for (int index = 0; index < displayLimit; index++) {
+            if (index > 0) {
+                rowIds.append(",");
+            }
+            rowIds.append(sortedRowIds.get(index));
+        }
+        if (sortedRowIds.size() > displayLimit) {
+            rowIds.append(",...");
+        }
+
+        CoreProtect.getInstance().getSLF4JLogger().warn("{}: {}", message, rowIds);
     }
 }

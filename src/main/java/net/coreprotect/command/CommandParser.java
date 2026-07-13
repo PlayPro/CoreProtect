@@ -42,6 +42,10 @@ public class CommandParser {
         return ActionParser.parseAction(inputArguments, allowMultiple);
     }
 
+    protected static ActionParser.ParseResult parseActions(String[] inputArguments, boolean allowMultiple) {
+        return ActionParser.parseActions(inputArguments, allowMultiple);
+    }
+
     protected static MessageFilterParser.ParseResult parseMessageFilters(String[] inputArguments) {
         return MessageFilterParser.parse(inputArguments);
     }

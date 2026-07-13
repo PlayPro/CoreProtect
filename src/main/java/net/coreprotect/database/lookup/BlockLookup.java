@@ -6,6 +6,7 @@ import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.listener.channel.PluginChannelListener;
+import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.utility.ChatUtils;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.EntityUtils;
@@ -21,6 +22,7 @@ import org.bukkit.command.CommandSender;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Locale;
+import java.util.StringJoiner;
 
 public class BlockLookup {
 
@@ -62,6 +64,7 @@ public class BlockLookup {
             }
 
             String blockName = block.getType().name().toLowerCase(Locale.ROOT);
+            String actionPredicate = "(action IN(0,1," + LookupActions.ENTITY_SPAWN + ") OR (action=" + LookupActions.ENTITY_KILL + " AND type IN(" + placedEntityTypeIds() + ")))";
 
             String query = "SELECT count(*) over () as count, time,user,action,type,data,rolled_back FROM " + ConfigHandler.prefix + "block WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action IN(0,1) AND time >= '" + checkTime + "' ORDER BY rowid DESC LIMIT " + limit + " OFFSET " + page_start;
 
@@ -167,6 +170,14 @@ public class BlockLookup {
             ErrorReporter.report(e);
         }
         return resultText;
+    }
+
+    private static String placedEntityTypeIds() {
+        StringJoiner ids = new StringJoiner(",");
+        for (Integer id : EntitySpawnTracking.getPlacedEntityTypeIds()) {
+            ids.add(Integer.toString(id));
+        }
+        return ids.length() == 0 ? "0" : ids.toString();
     }
 
 }

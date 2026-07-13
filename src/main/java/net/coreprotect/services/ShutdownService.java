@@ -17,6 +17,7 @@ import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Extensions;
+import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.Teleport;
 import net.coreprotect.utility.ErrorReporter;
 

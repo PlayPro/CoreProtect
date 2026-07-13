@@ -11,6 +11,7 @@ import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.HopperTransactionUtils;
 import net.coreprotect.utility.ItemUtils;
 
@@ -26,7 +27,7 @@ public final class HopperPushListener {
         }
 
         Inventory destinationInventory = destinationHolder.getInventory();
-        Location destinationLocation = destinationInventory.getLocation();
+        Location destinationLocation = BlockUtils.getCanonicalContainerLocation(destinationInventory.getLocation(), destinationInventory);
         if (destinationLocation == null || destinationLocation.getWorld() == null) {
             return;
         }

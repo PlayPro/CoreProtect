@@ -74,6 +74,7 @@ public class Config extends Language {
     public boolean EXPLOSIONS;
     public boolean ENTITY_CHANGE;
     public boolean ENTITY_KILLS;
+    public boolean ENTITY_SPAWNS;
     public boolean SIGN_TEXT;
     public boolean BUCKETS;
     public boolean LEAF_DECAY;
@@ -135,6 +136,7 @@ public class Config extends Language {
         DEFAULT_VALUES.put("explosions", "true");
         DEFAULT_VALUES.put("entity-change", "true");
         DEFAULT_VALUES.put("entity-kills", "true");
+        DEFAULT_VALUES.put("entity-spawns", "true");
         DEFAULT_VALUES.put("sign-text", "true");
         DEFAULT_VALUES.put("buckets", "true");
         DEFAULT_VALUES.put("leaf-decay", "true");
@@ -171,7 +173,7 @@ public class Config extends Language {
         HEADERS.put("default-radius", new String[] { "# If no radius is specified in a rollback or restore, this value will be", "# used as the radius. Set to \"0\" to disable automatically adding a radius." });
         HEADERS.put("max-radius", new String[] { "# The maximum radius that can be used in a command. Set to \"0\" to disable.", "# To run a rollback or restore without a radius, you can use \"r:#global\"." });
         HEADERS.put("rollback-items", new String[] { "# If enabled, items taken from containers (etc) will be included in rollbacks." });
-        HEADERS.put("rollback-entities", new String[] { "# If enabled, entities, such as killed animals, will be included in rollbacks." });
+        HEADERS.put("rollback-entities", new String[] { "# If enabled, entity kills and player-attributed entity spawns will be included in rollbacks." });
         HEADERS.put("skip-generic-data", new String[] { "# If enabled, generic data, like zombies burning in daylight, won't be logged." });
         HEADERS.put("block-place", new String[] { "# Logs blocks placed by players." });
         HEADERS.put("block-break", new String[] { "# Logs blocks broken by players." });
@@ -184,6 +186,7 @@ public class Config extends Language {
         HEADERS.put("explosions", new String[] { "# Logs explosions, such as TNT and Creepers." });
         HEADERS.put("entity-change", new String[] { "# Track when an entity changes a block, such as an Enderman destroying blocks." });
         HEADERS.put("entity-kills", new String[] { "# Logs killed entities, such as killed cows and enderman." });
+        HEADERS.put("entity-spawns", new String[] { "# Logs entities placed or spawned by players, such as boats and spawn-egg mobs." });
         HEADERS.put("sign-text", new String[] { "# Logs text on signs. If disabled, signs will be blank when rolled back." });
         HEADERS.put("buckets", new String[] { "# Logs lava and water sources placed/removed by players who are using buckets." });
         HEADERS.put("leaf-decay", new String[] { "# Logs natural tree leaf decay." });
@@ -253,6 +256,7 @@ public class Config extends Language {
         this.EXPLOSIONS = this.getBoolean("explosions");
         this.ENTITY_CHANGE = this.getBoolean("entity-change");
         this.ENTITY_KILLS = this.getBoolean("entity-kills");
+        this.ENTITY_SPAWNS = this.getBoolean("entity-spawns");
         this.SIGN_TEXT = this.getBoolean("sign-text");
         this.BUCKETS = this.getBoolean("buckets");
         this.LEAF_DECAY = this.getBoolean("leaf-decay");

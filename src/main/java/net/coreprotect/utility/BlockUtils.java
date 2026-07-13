@@ -15,16 +15,19 @@ import org.bukkit.block.Banner;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.CommandBlock;
+import org.bukkit.block.DoubleChest;
 import org.bukkit.block.Jukebox;
 import org.bukkit.block.ShulkerBox;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Waterlogged;
 import org.bukkit.inventory.BlockInventoryHolder;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.model.BlockGroup;
 import net.coreprotect.thread.Scheduler;
 
 public class BlockUtils {
@@ -265,6 +268,174 @@ public class BlockUtils {
             ErrorReporter.report(e);
         }
         return inventory;
+    }
+
+    public static Location getCanonicalContainerLocation(Location location, Inventory inventory) {
+        Location fallback = toBlockLocation(location);
+        try {
+            if (inventory != null) {
+                Location holderLocation = getInventoryHolderLocation(inventory.getHolder(), fallback);
+                if (holderLocation != null) {
+                    return holderLocation;
+                }
+
+                Location inventoryLocation = toBlockLocation(inventory.getLocation());
+                if (inventoryLocation != null) {
+                    return inventoryLocation;
+                }
+            }
+
+            if (location != null && location.getWorld() != null) {
+                BlockState state = location.getBlock().getState();
+                if (state instanceof InventoryHolder) {
+                    Inventory stateInventory = ((InventoryHolder) state).getInventory();
+                    Location holderLocation = getInventoryHolderLocation(stateInventory.getHolder(), fallback);
+                    if (holderLocation != null) {
+                        return holderLocation;
+                    }
+                }
+            }
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+        }
+
+        return fallback;
+    }
+
+    public static Location getCanonicalContainerLocation(Location location) {
+        return getCanonicalContainerLocation(location, null);
+    }
+
+    public static ItemStack[] normalizeDoubleChestBreakContents(Location location, ItemStack[] contents) {
+        if (location == null || location.getWorld() == null || contents == null || contents.length != 27) {
+            return contents;
+        }
+
+        try {
+            Block block = location.getBlock();
+            BlockState state = block.getState();
+            if (!(state instanceof org.bukkit.block.Chest)) {
+                return contents;
+            }
+
+            Inventory inventory = ((org.bukkit.block.Chest) state).getInventory();
+            if (!(inventory.getHolder() instanceof DoubleChest)) {
+                return contents;
+            }
+
+            int offset = getDoubleChestSlotOffset(block, inventory);
+            if (offset <= 0) {
+                return contents;
+            }
+
+            ItemStack[] normalized = new ItemStack[54];
+            for (int i = 0; i < contents.length; i++) {
+                normalized[offset + i] = contents[i];
+            }
+            return normalized;
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+        }
+
+        return contents;
+    }
+
+    public static int getDoubleChestSlotOffset(Block block, Inventory inventory) {
+        if (block == null || inventory == null || !(inventory.getHolder() instanceof DoubleChest)) {
+            return 0;
+        }
+
+        DoubleChest doubleChest = (DoubleChest) inventory.getHolder();
+        Location rightLocation = getInventoryHolderLocation(doubleChest.getRightSide(), block.getLocation());
+        if (sameBlock(block.getLocation(), rightLocation)) {
+            return 27;
+        }
+
+        return 0;
+    }
+
+    public static Block getRollbackContainerBlock(Block block) {
+        if (block == null) {
+            return null;
+        }
+        if (BlockGroup.CONTAINERS.contains(block.getType())) {
+            return block;
+        }
+        if (!isChestLike(block.getType())) {
+            for (org.bukkit.block.BlockFace face : new org.bukkit.block.BlockFace[] { org.bukkit.block.BlockFace.NORTH, org.bukkit.block.BlockFace.EAST, org.bukkit.block.BlockFace.SOUTH, org.bukkit.block.BlockFace.WEST }) {
+                Block relative = block.getRelative(face);
+                if (isChestLike(relative.getType())) {
+                    return relative;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static Location getInventoryHolderLocation(InventoryHolder holder, Location fallback) {
+        if (holder instanceof DoubleChest) {
+            return getCanonicalDoubleChestLocation((DoubleChest) holder, fallback);
+        }
+        if (holder instanceof BlockInventoryHolder) {
+            return toBlockLocation(((BlockInventoryHolder) holder).getBlock().getLocation());
+        }
+        if (holder instanceof BlockState) {
+            return toBlockLocation(((BlockState) holder).getLocation());
+        }
+        return null;
+    }
+
+    private static Location getCanonicalDoubleChestLocation(DoubleChest doubleChest, Location fallback) {
+        Location left = getInventoryHolderLocation(doubleChest.getLeftSide(), fallback);
+        Location right = getInventoryHolderLocation(doubleChest.getRightSide(), fallback);
+        Location canonical = minBlockLocation(left, right);
+        if (canonical != null) {
+            return canonical;
+        }
+        Location doubleChestLocation = toBlockLocation(doubleChest.getLocation());
+        return doubleChestLocation != null ? doubleChestLocation : toBlockLocation(fallback);
+    }
+
+    private static Location minBlockLocation(Location first, Location second) {
+        if (first == null) {
+            return second == null ? null : second.clone();
+        }
+        if (second == null) {
+            return first.clone();
+        }
+        if (first.getWorld() == null || second.getWorld() == null || !first.getWorld().equals(second.getWorld())) {
+            return first.clone();
+        }
+        if (second.getBlockX() < first.getBlockX()) {
+            return second.clone();
+        }
+        if (second.getBlockX() > first.getBlockX()) {
+            return first.clone();
+        }
+        if (second.getBlockZ() < first.getBlockZ()) {
+            return second.clone();
+        }
+        if (second.getBlockZ() > first.getBlockZ()) {
+            return first.clone();
+        }
+        return second.getBlockY() < first.getBlockY() ? second.clone() : first.clone();
+    }
+
+    private static Location toBlockLocation(Location location) {
+        if (location == null || location.getWorld() == null) {
+            return null;
+        }
+        return new Location(location.getWorld(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
+    }
+
+    private static boolean sameBlock(Location first, Location second) {
+        return first != null && second != null && first.getWorld() != null && first.getWorld().equals(second.getWorld()) && first.getBlockX() == second.getBlockX() && first.getBlockY() == second.getBlockY() && first.getBlockZ() == second.getBlockZ();
+    }
+
+    private static boolean isChestLike(Material type) {
+        return type == Material.CHEST || type == Material.TRAPPED_CHEST || BukkitAdapter.ADAPTER.isCopperChest(type);
     }
 
     public static SerializedBlockMeta processMeta(BlockState block) {

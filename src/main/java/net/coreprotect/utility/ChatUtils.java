@@ -38,6 +38,12 @@ public class ChatUtils {
         return message.append("</click></hover>").toString();
     }
 
+    public static String getCoordinateTooltip(int worldId, int x, int y, int z, String label, boolean italic) {
+        String coordinates = "(x" + x + "/y" + y + "/z" + z + "/" + WorldUtils.getWorldName(worldId) + ")";
+        String tooltip = Color.GREY + label + ": " + Color.WHITE + coordinates;
+        return "<hover:show_text:'" + tooltip.replace("'", "\\'") + "'>" + Color.GREY + (italic ? Color.ITALIC : "") + " ⓘ</hover>";
+    }
+
     // Use <extra> to insert text inside the hover
     public static String formatHoverCoordinates(String usedCommand, int worldId, int x, int y, int z) {
         final String command = "'/" + usedCommand + " teleport wid:" + worldId + " " + DECIMAL_FORMAT.format(x + 0.50) + " " + y + " " + DECIMAL_FORMAT.format(z + 0.50) + "'";
@@ -183,4 +189,4 @@ public class ChatUtils {
 
         return message.toString();
     }
-} 
+}

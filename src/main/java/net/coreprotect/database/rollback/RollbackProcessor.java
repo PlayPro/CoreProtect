@@ -366,19 +366,20 @@ public class RollbackProcessor {
                                 bukkitWorld.getChunkAt(block.getLocation());
                             }
 
-                            if (BlockGroup.CONTAINERS.contains(block.getType())) {
-                                BlockState blockState = block.getState();
+                            Block containerBlock = BlockUtils.getRollbackContainerBlock(block);
+                            if (containerBlock != null && BlockGroup.CONTAINERS.contains(containerBlock.getType())) {
+                                BlockState blockState = containerBlock.getState();
                                 if (blockState instanceof Jukebox) {
                                     container = blockState;
                                 }
                                 else {
                                     container = BlockUtils.getContainerInventory(blockState, false);
                                     if (container instanceof Inventory) {
-                                        InventoryChangeListener.flushPendingContainer((Inventory) container, block.getLocation());
+                                        InventoryChangeListener.flushPendingContainer((Inventory) container, containerBlock.getLocation());
                                     }
                                 }
 
-                                containerType = block.getType();
+                                containerType = containerBlock.getType();
                             }
                             else if (BlockGroup.CONTAINERS.contains(Material.ARMOR_STAND) || BlockGroup.CONTAINERS.contains(Material.ITEM_FRAME)) {
                                 for (Entity entity : block.getChunk().getEntities()) {

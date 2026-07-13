@@ -8,6 +8,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Location;
+import org.bukkit.World;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.utility.ErrorReporter;
@@ -31,7 +32,11 @@ public class CacheHandler implements Runnable {
         if (location == null || location.getWorld() == null) {
             return "";
         }
-        return location.getWorld().getUID() + ":" + location.getBlockX() + ":" + location.getBlockY() + ":" + location.getBlockZ();
+        return locationKey(location.getWorld(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
+    }
+
+    public static String locationKey(World world, int x, int y, int z) {
+        return world.getUID() + ":" + x + ":" + y + ":" + z;
     }
 
     public static boolean shouldSuppressRepeat(ConcurrentHashMap<String, Object[]> cache, String cacheId, int threshold, int resetWindowSeconds) {

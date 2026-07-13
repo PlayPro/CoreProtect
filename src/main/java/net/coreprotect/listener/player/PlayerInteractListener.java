@@ -55,6 +55,7 @@ import net.coreprotect.model.action.SignActions;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.ItemUtils;
@@ -195,7 +196,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
 
                             if (inventoryHolder instanceof DoubleChest) {
                                 DoubleChest doubleChest = (DoubleChest) inventoryHolder;
-                                location = doubleChest.getLocation();
+                                location = BlockUtils.getCanonicalContainerLocation(doubleChest.getLocation(), chest.getInventory());
                             }
                             else {
                                 location = chest.getLocation();

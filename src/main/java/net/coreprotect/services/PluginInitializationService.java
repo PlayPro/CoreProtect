@@ -23,6 +23,7 @@ import net.coreprotect.thread.TickTimeMonitor;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.ChatUtils;
 import net.coreprotect.utility.Extensions;
+import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.ErrorReporter;
 
 /**
@@ -156,6 +157,7 @@ public class PluginInitializationService {
 
         // Start consumer
         Consumer.startConsumer();
+        EntitySpawnTracking.initializeLoadedEntities();
 
         Extensions.startBackgroundService();
     }

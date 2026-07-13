@@ -3,9 +3,12 @@ package net.coreprotect.consumer.process;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
@@ -86,5 +89,54 @@ class RollbackUpdateProcess {
                 CoreProtect.getInstance().getSLF4JLogger().warn("Exception while batch updating rolled_back column for table {}", tableName, e);
             }
         }
+    }
+
+    static void process(Statement statement, List<Object[]> list, int action, int table, boolean inventoryRollback) {
+        Map<Integer, List<Long>> rowIdsByValue = groupRowIdsByValue(list, action, inventoryRollback);
+        for (Entry<Integer, List<Long>> entry : rowIdsByValue.entrySet()) {
+            try {
+                performRolledBackInsert(statement, entry.getKey(), entry.getValue(), table);
+            }
+            catch (SQLException e) {
+                CoreProtect.getInstance().getSLF4JLogger().warn("Exception while updating entity rollback state", e);
+            }
+        }
+    }
+
+    static void processChecked(Statement statement, List<Object[]> list, int action, int table, boolean inventoryRollback) throws SQLException {
+        Map<Integer, List<Long>> rowIdsByValue = groupRowIdsByValue(list, action, inventoryRollback);
+        for (Entry<Integer, List<Long>> entry : rowIdsByValue.entrySet()) {
+            performRolledBackInsert(statement, entry.getKey(), entry.getValue(), table);
+        }
+    }
+
+    private static void performRolledBackInsert(Statement statement, int rolledBack, List<Long> rowIds, int table) throws SQLException {
+        if (rowIds.isEmpty()) {
+            return;
+        }
+        if (table != RollbackUpdateTargets.ENTITY_CONTAINER) {
+            return;
+        }
+
+        String rows = "rowid,time,user,entity_spawn_rowid,wid,x,y,z,type,data,amount,metadata,action,rolled_back,version";
+        String tableName = ConfigHandler.prefix + "entity_container";
+        String rowIdList = rowIds.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
+        String query = "INSERT INTO " + tableName + " (" + rows + ") "
+                + "SELECT rowid,time,user,entity_spawn_rowid,wid,x,y,z,type,data,amount,metadata,action," + rolledBack + ",version + 1 "
+                + "FROM " + tableName + " FINAL WHERE rowid IN(" + rowIdList + ")";
+        statement.executeUpdate(query);
+    }
+
+    private static Map<Integer, List<Long>> groupRowIdsByValue(List<Object[]> list, int action, boolean inventoryRollback) {
+        Map<Integer, List<Long>> rowIdsByValue = new HashMap<>();
+        for (Object[] listRow : list) {
+            long rowid = (Long) listRow[0];
+            int rolledBack = (Integer) listRow[9];
+            if (MaterialUtils.rolledBack(rolledBack, inventoryRollback) == action) { // 1 = restore, 0 = rollback
+                int toggledValue = MaterialUtils.toggleRolledBack(rolledBack, inventoryRollback);
+                rowIdsByValue.computeIfAbsent(toggledValue, key -> new ArrayList<>()).add(rowid);
+            }
+        }
+        return rowIdsByValue;
     }
 }

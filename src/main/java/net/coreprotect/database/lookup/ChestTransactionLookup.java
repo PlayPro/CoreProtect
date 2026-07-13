@@ -3,31 +3,42 @@ package net.coreprotect.database.lookup;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
 
 import net.coreprotect.config.Config;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.listener.channel.PluginChannelListener;
+import net.coreprotect.model.entity.EntitySpawnRecord;
 import net.coreprotect.utility.ChatUtils;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
-import net.coreprotect.utility.StringUtils;
 import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.EntitySpawnTracking;
 
 public class ChestTransactionLookup {
 
     public static List<String> performLookup(String command, Statement statement, Location l, CommandSender commandSender, int page, int limit, boolean exact) {
+        return performLookup(command, statement, l, commandSender, page, limit, exact, null);
+    }
+
+    public static List<String> performLookup(String command, Statement statement, Location l, CommandSender commandSender, int page, int limit, boolean exact, Integer entitySpawnRowId) {
         List<String> result = new ArrayList<>();
+        if (entitySpawnRowId == null) {
+            ConfigHandler.lookupEntityContainer.remove(commandSender.getName());
+        }
 
         try {
             if (l == null) {
@@ -58,6 +69,10 @@ public class ChestTransactionLookup {
             int z2 = (int) Math.ceil(l.getZ());
             long time = (System.currentTimeMillis() / 1000L);
             int worldId = WorldUtils.getWorldId(l.getWorld().getName());
+            int displayWorldId = worldId;
+            int displayX = l.getBlockX();
+            int displayY = l.getBlockY();
+            int displayZ = l.getBlockZ();
             int count = 0;
             int rowMax = page * limit;
             int pageStart = rowMax - limit;
@@ -139,7 +154,14 @@ public class ChestTransactionLookup {
 
             ConfigHandler.lookupType.put(commandSender.getName(), 1);
             ConfigHandler.lookupPage.put(commandSender.getName(), page);
-            ConfigHandler.lookupCommand.put(commandSender.getName(), x + "." + y + "." + z + "." + worldId + "." + x2 + "." + y2 + "." + z2 + "." + limit);
+            String lookupCommand = x + "." + y + "." + z + "." + worldId + "." + x2 + "." + y2 + "." + z2 + "." + limit;
+            if (entitySpawnRowId != null) {
+                lookupCommand = displayX + "." + displayY + "." + displayZ + "." + displayWorldId + "." + displayX + "." + displayY + "." + displayZ + "." + limit;
+            }
+            ConfigHandler.lookupCommand.put(commandSender.getName(), lookupCommand);
+            if (entitySpawnRowId != null) {
+                ConfigHandler.lookupEntityContainer.put(commandSender.getName(), entitySpawnRowId);
+            }
         }
         catch (Exception e) {
             ErrorReporter.report(e);

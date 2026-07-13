@@ -11,7 +11,6 @@ import org.bukkit.GameEvent;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.BlockState;
-import org.bukkit.block.DoubleChest;
 import org.bukkit.entity.CopperGolem;
 import org.bukkit.entity.Entity;
 import org.bukkit.event.EventHandler;
@@ -30,6 +29,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.HopperTransactionUtils;
 import net.coreprotect.utility.ItemUtils;
 
@@ -203,22 +203,8 @@ public final class CopperGolemChestListener implements Listener {
             return containerLocation;
         }
 
-        InventoryHolder holder = inventory.getHolder();
-        if (!(holder instanceof DoubleChest)) {
-            return containerLocation;
-        }
-
-        Location doubleChestLocation = ((DoubleChest) holder).getLocation();
-        if (doubleChestLocation == null) {
-            return containerLocation;
-        }
-
-        Location canonical = new Location(containerLocation.getWorld(), doubleChestLocation.getBlockX(), doubleChestLocation.getBlockY(), doubleChestLocation.getBlockZ());
-        if (canonical.getWorld() == null) {
-            return containerLocation;
-        }
-
-        return canonical;
+        Location canonical = BlockUtils.getCanonicalContainerLocation(containerLocation, inventory);
+        return canonical == null ? containerLocation : canonical;
     }
 
     private static boolean isCopperChest(Material material) {

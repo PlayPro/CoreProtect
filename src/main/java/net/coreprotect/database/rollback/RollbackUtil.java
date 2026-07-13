@@ -258,6 +258,7 @@ public class RollbackUtil extends Lookup {
             if (action == 1) {
                 ItemStack remaining = itemstack.clone();
                 ItemStack[] contents = inventory.getStorageContents();
+                slot = normalizeContainerSlot(inventory, slot, contents.length);
 
                 if (slot >= 0 && slot < contents.length) {
                     ItemStack existing = contents[slot];
@@ -298,6 +299,7 @@ public class RollbackUtil extends Lookup {
             ItemStack removeMatch = itemstack.clone();
             removeMatch.setAmount(1);
             ItemStack[] contents = inventory.getStorageContents();
+            slot = normalizeContainerSlot(inventory, slot, contents.length);
 
             if (slot >= 0 && slot < contents.length && contents[slot] != null) {
                 ItemStack existing = contents[slot].clone();
@@ -349,6 +351,13 @@ public class RollbackUtil extends Lookup {
         }
 
         return 0;
+    }
+
+    private static int normalizeContainerSlot(Inventory inventory, int slot, int storageSize) {
+        if (inventory != null && storageSize == 27 && slot >= 27 && slot < 54) {
+            return slot - 27;
+        }
+        return slot;
     }
 
     public static void sortContainerItems(PlayerInventory inventory, List<Integer> modifiedArmorSlots) {

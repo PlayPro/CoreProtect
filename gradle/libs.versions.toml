@@ -1,6 +1,7 @@
 [versions]
-minecraft = "1.21.11"
-paper = "1.21.11"
+minecraft = "26.1.2"
+paper = "26.1.2.build.72-stable"
+paperdevbundle = "26.1.2.build.72-stable"
 hikaricp = "7.0.2"
 
 [libraries]

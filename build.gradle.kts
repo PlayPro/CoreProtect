@@ -1,7 +1,7 @@
 plugins {
     `java-library`
     `maven-publish`
-    id("io.papermc.paperweight.userdev") version "2.0.0-beta.19"
+    id("io.papermc.paperweight.userdev") version "2.0.0-beta.21"
     id("com.gradleup.shadow") version "9.3.0"
     id("xyz.jpenilla.run-paper") version "3.0.2"
     id("com.gorylenko.gradle-git-properties") version "2.5.2"
@@ -23,12 +23,12 @@ earthmcPublish {
 }
 
 dependencies {
-    paperweight.paperDevBundle("${libs.versions.minecraft.get()}-R0.1-SNAPSHOT")
+    paperweight.paperDevBundle(libs.versions.paperdevbundle.get())
 
     // the minimal version we target with userdev may be different from the maximum supported api version
     val paperVersion = libs.versions.paper.get()
     if (paperVersion != libs.versions.minecraft.get()) {
-        compileOnly("io.papermc.paper:paper-api:${paperVersion}-R0.1-SNAPSHOT")
+        compileOnly("io.papermc.paper:paper-api:$paperVersion")
     }
 
     implementation(libs.hikaricp) {
@@ -58,7 +58,7 @@ configurations.all {
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_21
+    sourceCompatibility = JavaVersion.toVersion(25)
 }
 
 tasks {
@@ -93,7 +93,7 @@ tasks {
 
     compileJava {
         options.encoding = Charsets.UTF_8.name()
-        options.release.set(21)
+        options.release.set(25)
     }
 
     processResources {
@@ -115,7 +115,7 @@ tasks.withType(xyz.jpenilla.runtask.task.AbstractRun::class) {
     javaLauncher = javaToolchains.launcherFor {
         @Suppress("UnstableApiUsage")
         vendor = JvmVendorSpec.JETBRAINS
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(25)
     }
     jvmArgs("-XX:+AllowEnhancedClassRedefinition")
 }

@@ -69,6 +69,7 @@ public class BukkitAdapter implements BukkitInterface {
     public static final int BUKKIT_V1_21 = 21;
     public static final int BUKKIT_V26_0 = 26000;
     public static final int BUKKIT_V26_1 = 26010;
+    public static final int BUKKIT_V26_1_2 = 26012;
     public static final int BUKKIT_V26_2 = 26020;
 
     public static int getAdapterVersion(int major, int minor) {
@@ -108,11 +109,14 @@ public class BukkitAdapter implements BukkitInterface {
             case BUKKIT_V26_1:
                 ADAPTER = new Bukkit_v1_21();
                 break;
+            case BUKKIT_V26_1_2:
+                ADAPTER = new Bukkit_v26_1_2();
+                break;
             case BUKKIT_V26_2:
                 ADAPTER = new Bukkit_v26_2();
                 break;
             default:
-                ADAPTER = ConfigHandler.SERVER_VERSION >= BUKKIT_V26_2 ? new Bukkit_v26_2() : new Bukkit_v1_21();
+                ADAPTER = ConfigHandler.SERVER_VERSION >= BUKKIT_V26_2 ? new Bukkit_v26_2() : (ConfigHandler.SERVER_VERSION >= BUKKIT_V26_1_2 ? new Bukkit_v26_1_2() : new Bukkit_v1_21());
                 break;
         }
     }

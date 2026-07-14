@@ -708,7 +708,8 @@ public class StandardLookupThread implements Runnable {
             currentZ = loadedLocation.getBlockZ();
         }
 
-        return new EntityDisplayLocation(currentWorldId, currentX, currentY, currentZ, data.worldId(), data.x(), data.y(), data.z());
+        boolean interactionOrigin = Integer.valueOf(InventorySources.ENTITY_INTERACTION).equals(data.table());
+        return new EntityDisplayLocation(currentWorldId, currentX, currentY, currentZ, data.worldId(), data.x(), data.y(), data.z(), interactionOrigin);
     }
 
     private static final class EntityDisplayLocation {
@@ -720,8 +721,9 @@ public class StandardLookupThread implements Runnable {
         private final int originX;
         private final int originY;
         private final int originZ;
+        private final boolean interactionOrigin;
 
-        private EntityDisplayLocation(int worldId, int x, int y, int z, int originWorldId, int originX, int originY, int originZ) {
+        private EntityDisplayLocation(int worldId, int x, int y, int z, int originWorldId, int originX, int originY, int originZ, boolean interactionOrigin) {
             this.worldId = worldId;
             this.x = x;
             this.y = y;
@@ -730,13 +732,12 @@ public class StandardLookupThread implements Runnable {
             this.originX = originX;
             this.originY = originY;
             this.originZ = originZ;
+            this.interactionOrigin = interactionOrigin;
         }
 
         private String getOriginTooltip() {
-            if (worldId == originWorldId && x == originX && y == originY && z == originZ) {
-                return "";
-            }
-            return ChatUtils.getCoordinateTooltip(originWorldId, originX, originY, originZ, Phrase.build(Phrase.LOOKUP_ENTITY_ORIGIN), true);
+            Phrase originPhrase = interactionOrigin ? Phrase.LOOKUP_ENTITY_INTERACTION_ORIGIN : Phrase.LOOKUP_ENTITY_ORIGIN;
+            return ChatUtils.getCoordinateTooltip(originWorldId, originX, originY, originZ, Phrase.build(originPhrase), true);
         }
     }
 }

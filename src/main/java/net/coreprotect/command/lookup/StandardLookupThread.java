@@ -226,6 +226,18 @@ public class StandardLookupThread implements Runnable {
                     finalLocation = new Location(Bukkit.getServer().getWorld(WorldUtils.getWorldName(worldId)), x, y, z);
                 }
 
+                Set<UUID> loadedEntityUuids = Collections.emptySet();
+                Set<UUID> loadedEntityCandidates = Collections.emptySet();
+                boolean includeEntitySpawns = entityActionFilter.includesAnySpawn(actions, true);
+                boolean includeEntityContainers = entityContainerId != null || actions.contains(LookupActions.CONTAINER) || LookupActions.isInventoryLookup(actions) || actions.isEmpty();
+                boolean includeEntityInteractions = actions.isEmpty() || actions.contains(LookupActions.INTERACTION);
+                if ((includeEntitySpawns || includeEntityContainers || includeEntityInteractions) && radius != null && finalLocation != null && finalLocation.getWorld() != null) {
+                    Set<UUID> databaseCandidates = includeEntityContainers || includeEntityInteractions ? EntitySpawnStatement.loadActiveUuids(connection, finalLocation, radius) : EntitySpawnStatement.loadActiveUuids(connection, finalLocation, radius, timeStart, timeEnd);
+                    EntitySpawnTracking.LoadedEntityRadius loadedEntities = EntitySpawnTracking.findLoadedEntities(finalLocation, radius, databaseCandidates);
+                    loadedEntityUuids = loadedEntities.getInside();
+                    loadedEntityCandidates = loadedEntities.getLoadedCandidates();
+                }
+
                 Long[] rowData = new Long[] { 0L, 0L, 0L, 0L, 0L };
                 long rowMax = (long) page * displayResults;
                 long pageStart = rowMax - displayResults;
@@ -249,7 +261,7 @@ public class StandardLookupThread implements Runnable {
                     if (checkRows) {
                         rows = Lookup.countSummaryRows(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, finalLocation, radius, timeStart, timeEnd, restrict_world, rollbackState);
                         if (rows > 0) {
-                            recordRows = Lookup.countLookupRows(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, entityActionFilter, messageFilters, Collections.emptySet(), Collections.emptySet(), finalLocation, radius, rowData, timeStart, timeEnd, restrict_world, true, entityContainerId, rollbackState);
+                            recordRows = Lookup.countLookupRows(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, entityActionFilter, messageFilters, loadedEntityUuids, loadedEntityCandidates, finalLocation, radius, rowData, timeStart, timeEnd, restrict_world, true, entityContainerId, rollbackState);
                             rowData[0] = recordRows;
                             rowData[1] = 0L;
                             rowData[2] = 0L;
@@ -278,7 +290,7 @@ public class StandardLookupThread implements Runnable {
                     return;
                 }
 
-                final LookupResult<?> lookupResult = Lookup.performLookup(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, entityActionFilter, messageFilters, Collections.emptySet(), Collections.emptySet(), finalLocation, radius, rowData, timeStart, timeEnd, (int) pageStart, displayResults, restrict_world, true, checkRows, rollbackState, entityContainerId);
+                final LookupResult<?> lookupResult = Lookup.performLookup(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, entityActionFilter, messageFilters, loadedEntityUuids, loadedEntityCandidates, finalLocation, radius, rowData, timeStart, timeEnd, (int) pageStart, displayResults, restrict_world, true, checkRows, rollbackState, entityContainerId);
                 if (lookupResult == null) {
                     Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- An error occurred while processing this lookup.");
                     return;
@@ -367,6 +379,7 @@ public class StandardLookupThread implements Runnable {
                         }
                     }
                     case CommonLookupResult commonResult -> {
+                        Map<CommonLookupData, EntityDisplayLocation> entityDisplayLocations = resolveEntityDisplayLocations(connection, commonResult.data());
                         if (LookupActions.isInventoryLookup(actions)) { // inventory transactions
                             for (CommonLookupData data : commonResult.data()) {
                                 String dplayer = data.playerName();
@@ -378,12 +391,20 @@ public class StandardLookupThread implements Runnable {
                                 int dataX = data.x();
                                 int dataY = data.y();
                                 int dataZ = data.z();
+                                EntityDisplayLocation entityLocation = entityDisplayLocations.get(data);
+                                if (entityLocation != null) {
+                                    wid = entityLocation.worldId;
+                                    dataX = entityLocation.x;
+                                    dataY = entityLocation.y;
+                                    dataZ = entityLocation.z;
+                                }
                                 String rollbackDecoration = ((data.rolledBack() == 2 || data.rolledBack() == 3) ? Color.STRIKETHROUGH : "");
                                 String timeAgo = ChatUtils.getTimeSince(data.time(), currentUnixSeconds, true);
-                                Material blockType = ItemUtils.itemFilter(MaterialUtils.getType(dtype), data.table() == 0);
+                                Material blockType = ItemUtils.itemFilter(MaterialUtils.getType(dtype), Integer.valueOf(0).equals(data.table()));
                                 String dname = StringUtils.nameFilter(blockType.name().toLowerCase(Locale.ROOT), ddata);
                                 String itemData = data.metadata();
                                 String hover = ItemUtils.getItemHover(itemData, dtype, amount);
+                                String coordinateInfo = entityLocation == null ? "" : entityLocation.getOriginTooltip();
 
                                 String selector = Selector.FIRST;
                                 String tag = Color.WHITE + "-";
@@ -408,7 +429,7 @@ public class StandardLookupThread implements Runnable {
                                     tag = (daction == ItemTransactionActions.REMOVE ? Color.GREEN + "+" : Color.RED + "-");
                                 }
 
-                                Chat.sendComponent(player, timeAgo + " " + tag + " " + Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rollbackDecoration + dplayer + Color.WHITE + rollbackDecoration, "x" + amount, ItemUtils.createItemTooltip(Color.DARK_AQUA + rollbackDecoration + dname, hover) + Color.WHITE, selector));
+                                Chat.sendComponent(player, timeAgo + " " + tag + " " + Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rollbackDecoration + dplayer + Color.WHITE + rollbackDecoration, "x" + amount, ItemUtils.createItemTooltip(Color.DARK_AQUA + rollbackDecoration + dname, hover) + coordinateInfo + Color.WHITE, selector));
                                 PluginChannelListener.getInstance().sendData(player, data.time(), Phrase.LOOKUP_CONTAINER, selector, dplayer, dname, amount, dataX, dataY, dataZ, wid, rollbackDecoration, true, tag.contains("+"));
                             }
                         } else {
@@ -428,6 +449,13 @@ public class StandardLookupThread implements Runnable {
                                 int daction = data.action();
                                 int worldId = data.worldId();
                                 int amount = data.amount();
+                                EntityDisplayLocation entityLocation = entityDisplayLocations.get(data);
+                                if (entityLocation != null) {
+                                    worldId = entityLocation.worldId;
+                                    dataX = entityLocation.x;
+                                    dataY = entityLocation.y;
+                                    dataZ = entityLocation.z;
+                                }
                                 String tag = Color.WHITE + "-";
 
                                 String timeago = ChatUtils.getTimeSince(data.time(), currentUnixSeconds, true);
@@ -442,6 +470,8 @@ public class StandardLookupThread implements Runnable {
                                 String dname = "";
                                 boolean isPlayer = false;
                                 boolean entityInteraction = Integer.valueOf(InventorySources.ENTITY_INTERACTION).equals(data.table());
+                                boolean placedEntitySpawn = daction == LookupActions.ENTITY_SPAWN && EntitySpawnTracking.isPlacedEntityType(EntityUtils.getEntityType(dtype));
+                                boolean placedEntityKill = daction == LookupActions.ENTITY_KILL && EntitySpawnTracking.isPlacedEntityType(EntityUtils.getEntityType(dtype));
                                 if (entityInteraction) {
                                     dname = EntityInteractionLookup.entityName(dtype);
                                 }
@@ -514,15 +544,23 @@ public class StandardLookupThread implements Runnable {
                                         tag = Color.WHITE + "-";
                                         action = "a:click";
                                     } else if (daction == LookupActions.ENTITY_SPAWN) {
-                                        phrase = Phrase.LOOKUP_ENTITY_SPAWN;
+                                        phrase = placedEntitySpawn ? Phrase.LOOKUP_BLOCK : Phrase.LOOKUP_ENTITY_SPAWN;
                                         selector = Selector.FIRST;
                                         tag = Color.GREEN + "+";
-                                        action = "a:entity";
+                                        action = placedEntitySpawn ? "a:block" : "a:spawn";
                                     } else if (daction == LookupActions.INTERACTION || daction == LookupActions.ENTITY_KILL) {
-                                        phrase = Phrase.LOOKUP_INTERACTION; // {clicked|killed}
-                                        selector = (daction != LookupActions.ENTITY_KILL ? Selector.FIRST : Selector.SECOND);
-                                        tag = (daction != LookupActions.ENTITY_KILL ? Color.WHITE + "-" : Color.RED + "-");
-                                        action = (daction == LookupActions.INTERACTION ? "a:click" : "a:kill");
+                                        if (placedEntityKill) {
+                                            phrase = Phrase.LOOKUP_BLOCK;
+                                            selector = Selector.SECOND;
+                                            tag = Color.RED + "-";
+                                            action = "a:block";
+                                        }
+                                        else {
+                                            phrase = Phrase.LOOKUP_INTERACTION; // {clicked|killed}
+                                            selector = (daction != LookupActions.ENTITY_KILL ? Selector.FIRST : Selector.SECOND);
+                                            tag = (daction != LookupActions.ENTITY_KILL ? Color.WHITE + "-" : Color.RED + "-");
+                                            action = (daction == LookupActions.INTERACTION ? "a:click" : "a:kill");
+                                        }
                                     } else {
                                         phrase = Phrase.LOOKUP_BLOCK; // {placed|broke}
                                         selector = (daction != LookupActions.BLOCK_BREAK ? Selector.FIRST : Selector.SECOND);
@@ -534,7 +572,9 @@ public class StandardLookupThread implements Runnable {
                                 }
 
                                 action = (actions.isEmpty() ? " (" + action + ")" : "");
-                                Chat.sendComponent(player, Color.WHITE + leftPadding + Color.GREY + "^ " + ChatUtils.getCoordinates(command.getName(), worldId, dataX, dataY, dataZ, true, true) + Color.GREY + Color.ITALIC + action);
+                                String coordinates = ChatUtils.getCoordinates(command.getName(), worldId, dataX, dataY, dataZ, true, true);
+                                String coordinateInfo = entityLocation == null ? "" : entityLocation.getOriginTooltip();
+                                Chat.sendComponent(player, Color.WHITE + leftPadding + Color.GREY + "^ " + coordinates + Color.GREY + Color.ITALIC + action + coordinateInfo);
                             }
                         }
                     }
@@ -599,19 +639,55 @@ public class StandardLookupThread implements Runnable {
         }
     }
 
-    private static EntityDisplayLocation resolveEntityDisplayLocation(String[] data, Map<Integer, EntitySpawnRecord> records, Map<UUID, Location> loadedLocations) {
-        if (data.length <= 14 || data[7] == null) {
-            return null;
+    private static Map<CommonLookupData, EntityDisplayLocation> resolveEntityDisplayLocations(Connection connection, List<CommonLookupData> rows) {
+        Set<Integer> entitySpawnRowIds = new HashSet<>();
+        for (CommonLookupData data : rows) {
+            int trackingRowId = getEntitySpawnRowId(data);
+            if (trackingRowId > 0) {
+                entitySpawnRowIds.add(trackingRowId);
+            }
         }
 
-        int trackingRowId = 0;
-        if (data[13] != null && Integer.parseInt(data[13]) == InventorySources.ENTITY_CONTAINER && data[14] != null) {
-            trackingRowId = Integer.parseInt(data[14]);
+        if (entitySpawnRowIds.isEmpty()) {
+            return Collections.emptyMap();
         }
-        else if (data[6] != null && Integer.parseInt(data[7]) == LookupActions.ENTITY_SPAWN) {
-            trackingRowId = Integer.parseInt(data[6]);
+
+        try {
+            Map<Integer, EntitySpawnRecord> records = EntitySpawnStatement.loadLocationRecords(connection, entitySpawnRowIds);
+            Set<UUID> entitySpawnUuids = new HashSet<>();
+            for (EntitySpawnRecord record : records.values()) {
+                entitySpawnUuids.add(record.getUuid());
+            }
+
+            Map<UUID, Location> loadedLocations = EntitySpawnTracking.findLoadedLocations(entitySpawnUuids);
+            Map<CommonLookupData, EntityDisplayLocation> result = new IdentityHashMap<>();
+            for (CommonLookupData data : rows) {
+                EntityDisplayLocation displayLocation = resolveEntityDisplayLocation(data, records, loadedLocations);
+                if (displayLocation != null) {
+                    result.put(data, displayLocation);
+                }
+            }
+            return result;
         }
-        if (trackingRowId == 0) {
+        catch (Exception e) {
+            ErrorReporter.report(e);
+            return Collections.emptyMap();
+        }
+    }
+
+    private static int getEntitySpawnRowId(CommonLookupData data) {
+        if (Integer.valueOf(InventorySources.ENTITY_CONTAINER).equals(data.table()) || Integer.valueOf(InventorySources.ENTITY_INTERACTION).equals(data.table())) {
+            return data.entitySpawnRowId();
+        }
+        if (data.action() == LookupActions.ENTITY_SPAWN) {
+            return data.data();
+        }
+        return 0;
+    }
+
+    private static EntityDisplayLocation resolveEntityDisplayLocation(CommonLookupData data, Map<Integer, EntitySpawnRecord> records, Map<UUID, Location> loadedLocations) {
+        int trackingRowId = getEntitySpawnRowId(data);
+        if (trackingRowId <= 0) {
             return null;
         }
 
@@ -632,7 +708,7 @@ public class StandardLookupThread implements Runnable {
             currentZ = loadedLocation.getBlockZ();
         }
 
-        return new EntityDisplayLocation(currentWorldId, currentX, currentY, currentZ, Integer.parseInt(data[9]), Integer.parseInt(data[2]), Integer.parseInt(data[3]), Integer.parseInt(data[4]));
+        return new EntityDisplayLocation(currentWorldId, currentX, currentY, currentZ, data.worldId(), data.x(), data.y(), data.z());
     }
 
     private static final class EntityDisplayLocation {

@@ -24,7 +24,8 @@ public record CommonLookupData(
         @Nullable String metadata,
         @Nullable String blockData,
         @Nullable Integer table,
-        int version
+        int version,
+        int entitySpawnRowId
 ) {
     public String playerName() {
         return PlayerLookup.playerName(this.userId);

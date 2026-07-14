@@ -245,12 +245,16 @@ public class LookupRaw extends Queue {
                     int resultZ = results.getInt("z");
                     int resultWorldId = results.getInt("wid");
                     int version = results.getInt("version");
+                    int resultEntitySpawnRowId = 0;
 
                     if ((lookup && actionList.isEmpty()) || actionList.contains(LookupActions.INTERACTION) || actionList.contains(LookupActions.CONTAINER) || actionList.contains(5) || actionList.contains(LookupActions.ITEM)) {
                         resultData = results.getInt("data");
                         resultAmount = results.getInt("amount");
                         resultMeta = results.getString("metadata");
                         resultTable = results.getInt("tbl");
+                        if (resultTable == InventorySources.ENTITY_CONTAINER || resultTable == InventorySources.ENTITY_INTERACTION) {
+                            resultEntitySpawnRowId = results.getInt("entity_spawn_rowid");
+                        }
                     } else {
                         resultData = results.getInt("data");
                         resultMeta = results.getString("meta");
@@ -263,7 +267,7 @@ public class LookupRaw extends Queue {
                     }
 
                     if (valid) {
-                        data.add(new CommonLookupData(resultId, resultTime, resultUserId, resultX, resultY, resultZ, resultType, resultData, resultAction, resultRolledBack, resultWorldId, resultAmount, resultMeta, resultBlockData, resultTable, version));
+                        data.add(new CommonLookupData(resultId, resultTime, resultUserId, resultX, resultY, resultZ, resultType, resultData, resultAction, resultRolledBack, resultWorldId, resultAmount, resultMeta, resultBlockData, resultTable, version, resultEntitySpawnRowId));
                     }
                 }
 
@@ -809,7 +813,7 @@ public class LookupRaw extends Queue {
             }
 
             String unionSelect = "SELECT * FROM (";
-            String emptyEntitySpawnRow = includeEntityInteractions ? ",0 as entity_spawn_rowid" : "";
+            String emptyEntitySpawnRow = (includeEntityInteractions || includeEntityContainers) ? ",0 as entity_spawn_rowid" : "";
 
             boolean itemLookup = inventoryQuery;
             if ((lookup && actionList.isEmpty()) || (itemLookup && !actionList.contains(LookupActions.BLOCK_BREAK))) {
@@ -837,6 +841,11 @@ public class LookupRaw extends Queue {
             if (itemLookup) {
                 rows = "rowid as id,time,user,wid,x,y,z,type,toString(metadata) as metadata,toString(data) as data,amount,action,rolled_back,version" + emptyEntitySpawnRow;
                 query += (query.isEmpty() ? unionSelect + "(" : unionSelect) + "SELECT '1' as tbl," + rows + " FROM " + ConfigHandler.prefix + "container WHERE" + queryBlock + unionLimit + ") UNION ALL ";
+
+                if (includeEntityContainers) {
+                    rows = "rowid as id,time,user,wid,x,y,z,type,metadata,data,amount,action,rolled_back,version,entity_spawn_rowid";
+                    query += unionSelect + "SELECT '" + InventorySources.ENTITY_CONTAINER + "' as tbl," + rows + " FROM " + ConfigHandler.prefix + "entity_container FINAL WHERE" + queryEntityContainer + unionLimit + ") UNION ALL ";
+                }
 
                 rows = "rowid as id,time,user,wid,x,y,z,type,toString(" + ConfigHandler.prefix + "item.data) as metadata,'0' as data,amount,action,rolled_back,version" + emptyEntitySpawnRow;
                 queryOrder = " ORDER BY time DESC, tbl DESC, id DESC";

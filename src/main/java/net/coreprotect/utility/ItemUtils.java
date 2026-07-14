@@ -709,6 +709,8 @@ public class ItemUtils {
     }
 
     public static String getItemHover(String itemData, int type, int amount) {
+        String itemKey = null;
+        int hoverAmount = Math.max(1, Math.min(amount, 99));
         final SerializedItem serializedItem = deserializeItem(itemData, MaterialUtils.getType(type), amount);
         if (serializedItem != null && serializedItem.itemStack() != null && !BlockUtils.isAir(serializedItem.itemStack().getType())) {
             if (serializedItem.itemStack().getAmount() > 99) {
@@ -716,11 +718,21 @@ public class ItemUtils {
                 serializedItem.itemStack().setAmount(99);
             }
 
-            // Returns a string like <hover:show_item:...>
-            return MiniMessage.miniMessage().serialize(Component.text().hoverEvent(serializedItem.itemStack()).build());
+            hoverAmount = Math.max(1, Math.min(serializedItem.itemStack().getAmount(), 99));
+            itemKey = serializedItem.itemStack().getType().getKey().toString();
+            try {
+                // Returns a string like <hover:show_item:...>
+                return MiniMessage.miniMessage().serialize(Component.text().hoverEvent(serializedItem.itemStack()).build());
+            }
+            catch (Exception ignored) {
+                // Adventure can fail to serialize newly added/removed data components.
+                // Fall back to a simple item hover so lookups still render.
+            }
         }
 
-        String itemKey = itemKeyFromSerializedData(itemData);
+        if (itemKey == null) {
+            itemKey = itemKeyFromSerializedData(itemData);
+        }
         if (itemKey == null || itemKey.isEmpty() || "minecraft:air".equals(itemKey)) {
             itemKey = MaterialUtils.getBlockName(type);
         }
@@ -733,7 +745,6 @@ public class ItemUtils {
             itemKey = "minecraft:" + itemKey.toLowerCase(Locale.ROOT);
         }
 
-        int hoverAmount = Math.max(1, Math.min(amount, 99));
         return serializeItemHoverOpening(itemKey.toLowerCase(Locale.ROOT), hoverAmount);
     }
 

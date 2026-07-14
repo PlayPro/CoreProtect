@@ -858,16 +858,12 @@ public class LookupRaw extends Queue {
             }
 
             if (!itemLookup && (actionList.contains(LookupActions.CONTAINER) || actionList.contains(5))) {
-                if (!countRows) {
-                    rows = "rowid as id,time,user,wid,x,y,z,type,metadata,data,amount,action,rolled_back,version,0 as entity_spawn_rowid";
-                }
+                rows = "rowid as id,time,user,wid,x,y,z,type,metadata,data,amount,action,rolled_back,version,0 as entity_spawn_rowid";
                 if (entityContainerId == null) {
                     query = unionSelect + "(SELECT '0' as tbl," + rows + " FROM " + ConfigHandler.prefix + "container WHERE" + queryNonBlock + unionLimit + ")";
                 }
                 if (includeEntityContainers) {
-                    if (!countRows) {
-                        rows = "rowid as id,time,user,wid,x,y,z,type,metadata,data,amount,action,rolled_back,version,entity_spawn_rowid";
-                    }
+                    rows = "rowid as id,time,user,wid,x,y,z,type,metadata,data,amount,action,rolled_back,version,entity_spawn_rowid";
                     String entityContainerSelect = "(SELECT '" + InventorySources.ENTITY_CONTAINER + "' as tbl," + rows + " FROM " + ConfigHandler.prefix + "entity_container FINAL WHERE" + queryEntityContainer + unionLimit + ")";
                     if (!query.isEmpty()) {
                         query += " UNION ALL " + entityContainerSelect;
@@ -876,9 +872,7 @@ public class LookupRaw extends Queue {
                         query = unionSelect + entityContainerSelect;
                     }
                 }
-                if (!countRows) {
-                    queryOrder = " ORDER BY time DESC, tbl DESC, id DESC";
-                }
+                queryOrder = " ORDER BY time DESC, tbl DESC, id DESC";
             }
 
             if (includeEntityInteractions) {

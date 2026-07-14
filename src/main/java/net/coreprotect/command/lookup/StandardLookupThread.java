@@ -441,7 +441,8 @@ public class StandardLookupThread implements Runnable {
 
                                 String dname = "";
                                 boolean isPlayer = false;
-                                if (data.table() == InventorySources.ENTITY_INTERACTION) {
+                                boolean entityInteraction = Integer.valueOf(InventorySources.ENTITY_INTERACTION).equals(data.table());
+                                if (entityInteraction) {
                                     dname = EntityInteractionLookup.entityName(dtype);
                                 }
                                 else if (daction == LookupActions.ENTITY_SPAWN) {
@@ -507,7 +508,7 @@ public class StandardLookupThread implements Runnable {
                                     Chat.sendComponent(player, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rollbackDecoration + dplayer + Color.WHITE + rollbackDecoration, "x" + amount, ItemUtils.createItemTooltip(Color.DARK_AQUA + rollbackDecoration + dname, hover) + Color.WHITE, selector));
                                     PluginChannelListener.getInstance().sendData(player, data.time(), phrase, selector, dplayer, dname, (tag.contains("+") ? 1 : -1), dataX, dataY, dataZ, worldId, rollbackDecoration, action.contains("container"), tag.contains("+"));
                                 } else {
-                                    if (data.table() == InventorySources.ENTITY_INTERACTION) {
+                                    if (entityInteraction) {
                                         phrase = Phrase.LOOKUP_ENTITY_INTERACTION;
                                         selector = EntityInteractionLookup.actionSelector(ddata);
                                         tag = Color.WHITE + "-";

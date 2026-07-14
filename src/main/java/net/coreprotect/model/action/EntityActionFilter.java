@@ -23,7 +23,7 @@ public enum EntityActionFilter {
         if (!explicit) {
             return includesExactAction(actions, LookupActions.ENTITY_SPAWN, includeByDefault);
         }
-        return aliased && actions.contains(LookupActions.BLOCK_PLACE);
+        return (aliased && actions.contains(LookupActions.BLOCK_PLACE)) || (spawned && actions.contains(LookupActions.ENTITY_SPAWN));
     }
 
     public boolean includesSpawnedEntity(Collection<Integer> actions, boolean includeByDefault) {

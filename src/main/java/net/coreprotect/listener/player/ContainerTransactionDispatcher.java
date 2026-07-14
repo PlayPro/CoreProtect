@@ -13,6 +13,7 @@ import net.coreprotect.utility.HopperTransactionUtils;
 final class ContainerTransactionDispatcher {
 
     private static final int STRIPE_COUNT = 4;
+    private static final int MAX_TASKS_PER_DRAIN = 256;
     private static final Stripe[] STRIPES = new Stripe[STRIPE_COUNT];
 
     static {
@@ -63,14 +64,15 @@ final class ContainerTransactionDispatcher {
                 return;
             }
 
-            Scheduler.runTaskAsynchronously(CoreProtect.getInstance(), this::drain);
+            Scheduler.runTask(CoreProtect.getInstance(), this::drain);
         }
 
         private void drain() {
             synchronized (this) {
                 try {
                     Runnable task;
-                    while ((task = queue.poll()) != null) {
+                    int processed = 0;
+                    while (processed++ < MAX_TASKS_PER_DRAIN && (task = queue.poll()) != null) {
                         try {
                             task.run();
                         }

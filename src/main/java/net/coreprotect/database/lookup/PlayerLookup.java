@@ -18,29 +18,34 @@ public class PlayerLookup {
         try {
             int id = -1;
             String uuid = null;
+            String storedUser = user;
 
             if (ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT)) != null) {
                 return true;
             }
 
-            try (PreparedStatement preparedStmt = connection.prepareStatement("SELECT rowid as id, uuid FROM " + ConfigHandler.prefix + "user WHERE lower(user) = ? LIMIT 1")) {
+            try (PreparedStatement preparedStmt = connection.prepareStatement("SELECT rowid as id, uuid, user FROM " + ConfigHandler.prefix + "user WHERE lower(user) = ? LIMIT 1")) {
                 preparedStmt.setString(1, user.toLowerCase(Locale.ROOT));
 
                 ResultSet results = preparedStmt.executeQuery();
                 if (results.next()) {
                     id = results.getInt("id");
                     uuid = results.getString("uuid");
+                    storedUser = results.getString("user");
+                    if (storedUser == null || storedUser.isEmpty()) {
+                        storedUser = user;
+                    }
                 }
             }
 
             if (id > -1) {
                 if (uuid != null) {
-                    ConfigHandler.uuidCache.put(user.toLowerCase(Locale.ROOT), uuid);
-                    ConfigHandler.uuidCacheReversed.put(uuid, user);
+                    ConfigHandler.uuidCache.put(storedUser.toLowerCase(Locale.ROOT), uuid);
+                    ConfigHandler.uuidCacheReversed.put(uuid, storedUser);
                 }
 
-                ConfigHandler.playerIdCache.put(user.toLowerCase(Locale.ROOT), id);
-                ConfigHandler.playerIdCacheReversed.put(id, user);
+                ConfigHandler.playerIdCache.put(storedUser.toLowerCase(Locale.ROOT), id);
+                ConfigHandler.playerIdCacheReversed.put(id, storedUser);
                 return true;
             }
         }

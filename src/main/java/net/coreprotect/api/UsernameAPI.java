@@ -6,13 +6,14 @@ import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 import net.coreprotect.api.result.UsernameResult;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.statement.UserStatement;
+import net.coreprotect.utility.DatabaseUtils;
 import net.coreprotect.utility.ErrorReporter;
 
 /**
@@ -54,7 +55,7 @@ public class UsernameAPI {
                 checkTime = (int) (System.currentTimeMillis() / 1000L) - options.getTime();
             }
 
-            StringBuilder query = new StringBuilder("SELECT time,uuid,user FROM ");
+            StringBuilder query = new StringBuilder("SELECT time,uuid," + ConfigHandler.databaseType.getUserColumn() + " FROM ");
             query.append(ConfigHandler.prefix).append("username_log WHERE time > ?");
             if (!uuids.isEmpty()) {
                 query.append(" AND uuid IN (");
@@ -63,7 +64,7 @@ public class UsernameAPI {
             }
             query.append(" ORDER BY rowid DESC");
             if (options.hasLimit()) {
-                query.append(" LIMIT ").append(options.getLimitOffset()).append(", ").append(options.getLimitCount());
+                query.append(" LIMIT ").append(options.getLimitCount()).append(" OFFSET ").append(options.getLimitOffset());
             }
 
             try (PreparedStatement statement = connection.prepareStatement(query.toString())) {
@@ -75,7 +76,7 @@ public class UsernameAPI {
 
                 try (ResultSet results = statement.executeQuery()) {
                     while (results.next()) {
-                        result.add(parseUsernameResult(results));
+                        result.add(parseUsernameResult(connection, results));
                     }
                 }
             }
@@ -103,13 +104,8 @@ public class UsernameAPI {
             return result;
         }
 
-        String cachedUuid = ConfigHandler.uuidCache.get(user.toLowerCase(Locale.ROOT));
-        if (cachedUuid != null) {
-            result.add(cachedUuid);
-        }
-
-        String collate = Config.getGlobal().MYSQL ? "" : " COLLATE NOCASE";
-        try (PreparedStatement statement = connection.prepareStatement("SELECT uuid FROM " + ConfigHandler.prefix + "user WHERE user = ?" + collate)) {
+        String userMatch = DatabaseUtils.caseInsensitiveEquals(ConfigHandler.databaseType.getUserColumn());
+        try (PreparedStatement statement = connection.prepareStatement("SELECT uuid FROM " + ConfigHandler.prefix + "user WHERE " + userMatch)) {
             statement.setString(1, user);
             try (ResultSet results = statement.executeQuery()) {
                 while (results.next()) {
@@ -118,7 +114,7 @@ public class UsernameAPI {
             }
         }
 
-        try (PreparedStatement statement = connection.prepareStatement("SELECT uuid FROM " + ConfigHandler.prefix + "username_log WHERE user = ?" + collate)) {
+        try (PreparedStatement statement = connection.prepareStatement("SELECT uuid FROM " + ConfigHandler.prefix + "username_log WHERE " + userMatch)) {
             statement.setString(1, user);
             try (ResultSet results = statement.executeQuery()) {
                 while (results.next()) {
@@ -138,10 +134,10 @@ public class UsernameAPI {
         return value.length() == 36 && value.charAt(8) == '-' && value.charAt(13) == '-' && value.charAt(18) == '-' && value.charAt(23) == '-';
     }
 
-    private static UsernameResult parseUsernameResult(ResultSet results) throws Exception {
+    private static UsernameResult parseUsernameResult(Connection connection, ResultSet results) throws Exception {
         String uuid = results.getString("uuid");
         String username = results.getString("user");
-        String player = ConfigHandler.uuidCacheReversed.get(uuid);
+        String player = UserStatement.getNameByUuid(uuid);
         if (player == null) {
             player = username;
         }

@@ -1,9 +1,10 @@
 package net.coreprotect.database.statement;
 
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
-import net.coreprotect.utility.ErrorReporter;
+
+import net.coreprotect.database.ConsumerWriteBatch;
+import net.coreprotect.database.Database;
 
 public class MaterialStatement {
 
@@ -11,18 +12,12 @@ public class MaterialStatement {
         throw new IllegalStateException("Database class");
     }
 
-    public static void insert(PreparedStatement preparedStmt, int batchCount, int id, String name) {
+    public static void insert(ConsumerWriteBatch batch, ConsumerWriteBatch.ReferenceKind kind, int batchCount, int id, String name) {
         try {
-            preparedStmt.setInt(1, id);
-            preparedStmt.setString(2, name);
-            preparedStmt.addBatch();
-
-            if (batchCount > 0 && batchCount % 1000 == 0) {
-                preparedStmt.executeBatch();
-            }
+            batch.addReference(kind, batchCount, id, name);
         }
         catch (Exception e) {
-            ErrorReporter.report(e);
+            Database.handleWriteFailure(e);
         }
     }
 
@@ -37,7 +32,7 @@ public class MaterialStatement {
             resultSet.close();
         }
         catch (Exception e) {
-            ErrorReporter.report(e);
+            Database.handleWriteFailure(e);
         }
 
         return result;

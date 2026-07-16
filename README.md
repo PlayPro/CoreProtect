@@ -65,7 +65,7 @@ To support the project and obtain a donation key, visit [coreprotect.net/donate]
 * Rollbacks and restores with lag-free processing.
 * Multi-threaded to ensure server performance is never impacted.
 * No configuration required. Install the plugin, and you're good to go.
-* SQLite storage by default, with optional MySQL support.
+* Embedded DuckDB columnar storage by default, with optional ClickHouse, SQLite, and MySQL support.
 * Supports Bukkit, Spigot, Paper, Folia, MultiPaper, and more.
 * Permission system support and advanced lookup permissions.
 * Easy-to-use commands and inspector.

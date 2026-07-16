@@ -54,11 +54,15 @@ public class Language {
         phrases.put(Phrase.CONTAINER_HEADER, "Container Transactions");
         phrases.put(Phrase.CPU_CORES, "CPU cores.");
         phrases.put(Phrase.DATABASE_BUSY, "Database busy. Please try again later.");
+        phrases.put(Phrase.DATABASE_FALLBACK, "Unable to load {0}. Using {1}; config.yml updated.");
         phrases.put(Phrase.DATABASE_INDEX_ERROR, "Unable to validate database indexes.");
         phrases.put(Phrase.DATABASE_LOCKED_1, "Database locked. Waiting up to 15 seconds...");
         phrases.put(Phrase.DATABASE_LOCKED_2, "Database is already in use. Please try again.");
         phrases.put(Phrase.DATABASE_LOCKED_3, "To disable database locking, set \"database-lock: false\".");
         phrases.put(Phrase.DATABASE_LOCKED_4, "Disabling database locking can result in data corruption.");
+        phrases.put(Phrase.DATABASE_PERSISTENCE_HALTED, "Database writes halted. Please restart the server.");
+        phrases.put(Phrase.DATABASE_QUEUE_LOSS, "Queued data will be lost when the server stops.");
+        phrases.put(Phrase.DATABASE_TYPE_OVERRIDE, "Option \"database-type\" overrides \"use-mysql\".");
         phrases.put(Phrase.DATABASE_UNREACHABLE, "Database is unreachable. Discarding data and shutting down.");
         phrases.put(Phrase.DEVELOPMENT_BRANCH, "Development branch detected, skipping patch scripts.");
         phrases.put(Phrase.DIRT_BLOCK, "Placed a temporary safety block under you.");
@@ -215,6 +219,7 @@ public class Language {
         phrases.put(Phrase.PURGE_SUCCESS, "Data purge successful.");
         phrases.put(Phrase.RAM_STATS, "{0}GB / {1}GB RAM");
         phrases.put(Phrase.RELOAD_STARTED, "Reloading configuration - please wait.");
+        phrases.put(Phrase.RELOAD_FAILED, "Database reload failed. Please try again.");
         phrases.put(Phrase.RELOAD_SUCCESS, "Configuration successfully reloaded.");
         phrases.put(Phrase.ROLLBACK_ABORTED, "Rollback or restore aborted.");
         phrases.put(Phrase.ROLLBACK_CHUNKS_FOUND, "Found {0} {chunk|chunks} to modify.");
@@ -234,6 +239,7 @@ public class Language {
         phrases.put(Phrase.STATUS_AUTO_PURGE, "Cleanup: {0} {row|rows} auto purged since restart.");
         phrases.put(Phrase.STATUS_CONSUMER, "Consumer: {0} {item|items} in queue.");
         phrases.put(Phrase.STATUS_DATABASE, "Database: Using {0}.");
+        phrases.put(Phrase.STATUS_DATABASE_STATE, "({writes halted|unreachable})");
         phrases.put(Phrase.STATUS_INTEGRATION, "{0}: Integration {enabled|disabled}.");
         phrases.put(Phrase.STATUS_LICENSE, "License: {0}");
         phrases.put(Phrase.STATUS_SYSTEM, "System: {0}");
@@ -255,6 +261,7 @@ public class Language {
         phrases.put(Phrase.UPGRADE_IN_PROGRESS, "Upgrade in progress. Please try again later.");
         phrases.put(Phrase.USER_NOT_FOUND, "User \"{0}\" not found.");
         phrases.put(Phrase.USER_OFFLINE, "The user \"{0}\" is not online.");
+        phrases.put(Phrase.USING_DATABASE, "Using {0} for data storage.");
         phrases.put(Phrase.USING_MYSQL, "Using MySQL for data storage.");
         phrases.put(Phrase.USING_SQLITE, "Using SQLite for data storage.");
         phrases.put(Phrase.VALID_DONATION_KEY, "Valid donation key.");

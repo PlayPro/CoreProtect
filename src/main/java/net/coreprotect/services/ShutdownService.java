@@ -8,6 +8,7 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
+import net.coreprotect.command.PurgeCommand;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.process.Process;
@@ -62,22 +63,26 @@ public class ShutdownService {
 
             InventoryChangeListener.flushPendingTransactionsForShutdown();
 
-            ConfigHandler.serverRunning = false;
             long shutdownTime = System.currentTimeMillis();
-            long nextAlertTime = shutdownTime + ALERT_INTERVAL_MS;
+            PurgeCommand.cancelForShutdown();
+            waitForPurgeCancellation(shutdownTime);
+            ConfigHandler.shutdownDrainRunning = true;
+            try {
+                ConfigHandler.serverRunning = false;
+                long nextAlertTime = System.currentTimeMillis() + ALERT_INTERVAL_MS;
 
-            if (ConfigHandler.converterRunning) {
-                Chat.console(Phrase.build(Phrase.FINISHING_CONVERSION));
-            }
-            else {
-                Chat.console(Phrase.build(Phrase.FINISHING_LOGGING));
-            }
+                if (ConfigHandler.converterRunning) {
+                    Chat.console(Phrase.build(Phrase.FINISHING_CONVERSION));
+                }
+                else {
+                    Chat.console(Phrase.build(Phrase.FINISHING_LOGGING));
+                }
 
-            if (ConfigHandler.migrationRunning) {
-                ConfigHandler.purgeRunning = false;
+                waitForPendingOperations(shutdownTime, nextAlertTime);
             }
-
-            waitForPendingOperations(shutdownTime, nextAlertTime);
+            finally {
+                ConfigHandler.shutdownDrainRunning = false;
+            }
 
             ConfigHandler.performDisable();
             Chat.console(Phrase.build(Phrase.DISABLE_SUCCESS, "CoreProtect v" + plugin.getDescription().getVersion()));
@@ -96,7 +101,8 @@ public class ShutdownService {
      *            The time for the next status message
      */
     private static void waitForPendingOperations(long shutdownTime, long nextAlertTime) throws InterruptedException {
-        while ((Consumer.isRunning() || ConfigHandler.converterRunning) && !ConfigHandler.purgeRunning) {
+        while (Consumer.isRunning() || ConfigHandler.converterRunning || ConfigHandler.purgeRunning || ConfigHandler.migrationRunning
+                || Consumer.isDatabaseReloadRunning() || Consumer.isBackgroundPurgeRunning() || PurgeCommand.isPurgeWorkerRunning()) {
             long currentTime = System.currentTimeMillis();
 
             if (currentTime >= nextAlertTime) {
@@ -116,6 +122,15 @@ public class ShutdownService {
                 break;
             }
 
+            Thread.sleep(100);
+        }
+    }
+
+    private static void waitForPurgeCancellation(long shutdownTime) throws InterruptedException {
+        while (ConfigHandler.purgeRunning || Consumer.isBackgroundPurgeRunning() || PurgeCommand.isPurgeWorkerRunning()) {
+            if ((System.currentTimeMillis() - shutdownTime) >= MAX_SHUTDOWN_WAIT_MS) {
+                return;
+            }
             Thread.sleep(100);
         }
     }

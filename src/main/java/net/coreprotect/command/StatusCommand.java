@@ -67,16 +67,18 @@ public class StatusCommand {
 
                     // Using MySQL/SQLite (Database Size: 587MB)
 
-                    String firstVersion = Patch.getFirstVersion();
+                    String firstVersion = ConfigHandler.databaseType.isClickHouse() ? "" : Patch.getFirstVersion();
                     if (firstVersion.length() > 0) {
                         firstVersion = " (" + Phrase.build(Phrase.FIRST_VERSION, firstVersion) + ")";
                     }
-                    if (Config.getGlobal().MYSQL) {
-                        Chat.sendMessage(player, Color.DARK_AQUA + Phrase.build(Phrase.STATUS_DATABASE, Color.WHITE, "MySQL") + firstVersion);
+                    String databaseName = ConfigHandler.databaseType.getDisplayName();
+                    if (Consumer.isPersistenceHalted()) {
+                        databaseName += " " + Color.RED + Phrase.build(Phrase.STATUS_DATABASE_STATE, Selector.FIRST) + Color.WHITE;
                     }
-                    else {
-                        Chat.sendMessage(player, Color.DARK_AQUA + Phrase.build(Phrase.STATUS_DATABASE, Color.WHITE, "SQLite") + firstVersion);
+                    else if (!ConfigHandler.databaseReachable) {
+                        databaseName += " " + Color.RED + Phrase.build(Phrase.STATUS_DATABASE_STATE, Selector.SECOND) + Color.WHITE;
                     }
+                    Chat.sendMessage(player, Color.DARK_AQUA + Phrase.build(Phrase.STATUS_DATABASE, Color.WHITE, databaseName) + firstVersion);
 
                     if (ConfigHandler.worldeditEnabled) {
                         Chat.sendMessage(player, Color.DARK_AQUA + Phrase.build(Phrase.STATUS_INTEGRATION, Color.WHITE, "WorldEdit", Selector.FIRST));

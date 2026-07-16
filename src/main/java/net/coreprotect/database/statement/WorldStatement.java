@@ -1,7 +1,7 @@
 package net.coreprotect.database.statement;
 
-import java.sql.PreparedStatement;
-import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.database.ConsumerWriteBatch;
+import net.coreprotect.database.Database;
 
 public class WorldStatement {
 
@@ -9,18 +9,12 @@ public class WorldStatement {
         throw new IllegalStateException("Database class");
     }
 
-    public static void insert(PreparedStatement preparedStmt, int batchCount, int id, String world) {
+    public static void insert(ConsumerWriteBatch batch, int batchCount, int id, String world) {
         try {
-            preparedStmt.setInt(1, id);
-            preparedStmt.setString(2, world);
-            preparedStmt.addBatch();
-
-            if (batchCount > 0 && batchCount % 1000 == 0) {
-                preparedStmt.executeBatch();
-            }
+            batch.addReference(ConsumerWriteBatch.ReferenceKind.WORLD, batchCount, id, world);
         }
         catch (Exception e) {
-            ErrorReporter.report(e);
+            Database.handleWriteFailure(e);
         }
     }
 }

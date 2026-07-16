@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.bukkit.Bukkit;
 import org.bukkit.block.BlockState;
@@ -14,6 +15,9 @@ import org.bukkit.inventory.ItemStack;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.process.Process;
+import net.coreprotect.language.Phrase;
+import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.Color;
 import net.coreprotect.utility.ErrorReporter;
 
 public class Consumer extends Process implements Runnable, Thread.UncaughtExceptionHandler {
@@ -21,17 +25,26 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
     public enum OperationStartResult {
         STARTED,
         PURGE_RUNNING,
-        ROLLBACK_RUNNING
+        ROLLBACK_RUNNING,
+        RELOAD_RUNNING,
+        PERSISTENCE_HALTED,
+        INTERRUPTED
     }
 
     private static Thread consumerThread = null;
+    private static final ReentrantReadWriteLock databaseLifecycle = new ReentrantReadWriteLock(true);
     private static final Object rollbackPurgeGate = new Object();
     private static long pendingRollbackPublications = 0;
+    private static volatile boolean backgroundPurgeRunning = false;
+    private static volatile boolean backgroundPurgePausesPersistence = false;
+    private static volatile boolean databaseReloadPaused = false;
+    private static volatile boolean databaseReloadRunning = false;
     public static volatile int currentConsumer = 0;
     public static volatile boolean isPaused = false;
     public static volatile boolean transacting = false;
     public static volatile boolean interrupt = false;
     protected static volatile boolean pausedSuccess = false;
+    private static volatile boolean persistenceHalted = false;
 
     public static ConcurrentHashMap<Integer, ArrayList<Object[]>> consumer = new ConcurrentHashMap<>(4, 0.75f, 2);
     // public static ConcurrentHashMap<Integer, Integer[]> consumer_id = new ConcurrentHashMap<>();
@@ -98,6 +111,14 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
     }
 
     public static void initialize() {
+        synchronized (rollbackPurgeGate) {
+            persistenceHalted = false;
+            pendingRollbackPublications = 0;
+        }
+        databaseReloadPaused = false;
+        databaseReloadRunning = false;
+        backgroundPurgeRunning = false;
+        backgroundPurgePausesPersistence = false;
         Consumer.consumer.put(0, new ArrayList<>());
         Consumer.consumer.put(1, new ArrayList<>());
         Consumer.consumer_id.put(0, new Integer[] { 0, 0 });
@@ -126,9 +147,120 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         return consumerThread != null && consumerThread.isAlive();
     }
 
+    public static boolean isPersistenceHalted() {
+        return persistenceHalted;
+    }
+
+    public static void lockDatabaseAccess() {
+        databaseLifecycle.readLock().lock();
+    }
+
+    public static void unlockDatabaseAccess() {
+        databaseLifecycle.readLock().unlock();
+    }
+
+    public static void lockDatabaseMaintenance() {
+        databaseLifecycle.writeLock().lock();
+    }
+
+    public static void lockDatabaseMaintenanceInterruptibly() throws InterruptedException {
+        databaseLifecycle.writeLock().lockInterruptibly();
+    }
+
+    public static void unlockDatabaseMaintenance() {
+        databaseLifecycle.writeLock().unlock();
+    }
+
+    public static boolean isDatabaseReloadBlocked() {
+        return databaseReloadPaused && !databaseLifecycle.isWriteLockedByCurrentThread();
+    }
+
+    public static boolean isDatabaseReloadPaused() {
+        return databaseReloadPaused;
+    }
+
+    public static boolean isDatabaseReloadRunning() {
+        return databaseReloadRunning;
+    }
+
+    public static boolean isBackgroundPurgeRunning() {
+        return backgroundPurgeRunning;
+    }
+
+    public static void requireDatabaseReload() {
+        synchronized (rollbackPurgeGate) {
+            databaseReloadPaused = true;
+        }
+    }
+
+    public static OperationStartResult beginDatabaseReload() {
+        synchronized (rollbackPurgeGate) {
+            if (persistenceHalted) {
+                return OperationStartResult.PERSISTENCE_HALTED;
+            }
+            if (databaseReloadRunning) {
+                return OperationStartResult.RELOAD_RUNNING;
+            }
+            if (ConfigHandler.purgeRunning || backgroundPurgeRunning) {
+                return OperationStartResult.PURGE_RUNNING;
+            }
+            if (!ConfigHandler.activeRollbacks.isEmpty() || pendingRollbackPublications > 0) {
+                return OperationStartResult.ROLLBACK_RUNNING;
+            }
+            databaseReloadRunning = true;
+            databaseReloadPaused = true;
+        }
+        return OperationStartResult.STARTED;
+    }
+
+    public static void lockDatabaseReload() {
+        databaseLifecycle.writeLock().lock();
+    }
+
+    public static boolean lockDatabaseReload(long timeoutMillis) throws InterruptedException {
+        return databaseLifecycle.writeLock().tryLock(Math.max(0L, timeoutMillis), java.util.concurrent.TimeUnit.MILLISECONDS);
+    }
+
+    public static void endDatabaseReload(boolean resumePersistence) {
+        try {
+            synchronized (rollbackPurgeGate) {
+                databaseReloadRunning = false;
+                if (resumePersistence) {
+                    databaseReloadPaused = false;
+                    if (!ConfigHandler.converterRunning) {
+                        isPaused = false;
+                    }
+                }
+            }
+        }
+        finally {
+            if (databaseLifecycle.isWriteLockedByCurrentThread()) {
+                databaseLifecycle.writeLock().unlock();
+            }
+        }
+    }
+
+    public static synchronized void haltPersistence() {
+        synchronized (rollbackPurgeGate) {
+            if (persistenceHalted) {
+                return;
+            }
+            persistenceHalted = true;
+        }
+        ConfigHandler.databaseReachable = false;
+        Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.DATABASE_PERSISTENCE_HALTED));
+        Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.DATABASE_QUEUE_LOSS));
+    }
+
     public static OperationStartResult claimPurge() {
         synchronized (rollbackPurgeGate) {
-            if (ConfigHandler.purgeRunning) {
+            if (persistenceHalted) {
+                return OperationStartResult.PERSISTENCE_HALTED;
+            }
+            if (databaseReloadPaused) {
+                return OperationStartResult.RELOAD_RUNNING;
+            }
+            if (ConfigHandler.purgeRunning || backgroundPurgeRunning) {
                 return OperationStartResult.PURGE_RUNNING;
             }
             if (!ConfigHandler.activeRollbacks.isEmpty() || pendingRollbackPublications > 0) {
@@ -145,9 +277,97 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         }
     }
 
-    public static OperationStartResult claimRollback(String user) {
+    public static OperationStartResult claimBackgroundPurge() {
+        boolean pausePersistence;
         synchronized (rollbackPurgeGate) {
-            if (ConfigHandler.purgeRunning) {
+            pausePersistence = ConfigHandler.databaseType.isClickHouse();
+            OperationStartResult result = beginBackgroundPurge(pausePersistence);
+            if (result != OperationStartResult.STARTED) {
+                return result;
+            }
+        }
+        return lockBackgroundPurge(pausePersistence);
+    }
+
+    public static OperationStartResult claimBackgroundPurge(boolean pausePersistence) {
+        synchronized (rollbackPurgeGate) {
+            OperationStartResult result = beginBackgroundPurge(pausePersistence);
+            if (result != OperationStartResult.STARTED) {
+                return result;
+            }
+        }
+        return lockBackgroundPurge(pausePersistence);
+    }
+
+    private static OperationStartResult beginBackgroundPurge(boolean pausePersistence) {
+        if (persistenceHalted) {
+            return OperationStartResult.PERSISTENCE_HALTED;
+        }
+        if (databaseReloadPaused) {
+            return OperationStartResult.RELOAD_RUNNING;
+        }
+        if (ConfigHandler.purgeRunning || backgroundPurgeRunning) {
+            return OperationStartResult.PURGE_RUNNING;
+        }
+        if (!ConfigHandler.activeRollbacks.isEmpty() || pendingRollbackPublications > 0) {
+            return OperationStartResult.ROLLBACK_RUNNING;
+        }
+        backgroundPurgeRunning = true;
+        backgroundPurgePausesPersistence = pausePersistence;
+        return OperationStartResult.STARTED;
+    }
+
+    private static OperationStartResult lockBackgroundPurge(boolean pausePersistence) {
+        if (pausePersistence) {
+            try {
+                databaseLifecycle.writeLock().lockInterruptibly();
+            }
+            catch (InterruptedException exception) {
+                synchronized (rollbackPurgeGate) {
+                    backgroundPurgePausesPersistence = false;
+                    backgroundPurgeRunning = false;
+                }
+                Thread.currentThread().interrupt();
+                return OperationStartResult.INTERRUPTED;
+            }
+            synchronized (rollbackPurgeGate) {
+                if (persistenceHalted) {
+                    databaseLifecycle.writeLock().unlock();
+                    backgroundPurgePausesPersistence = false;
+                    backgroundPurgeRunning = false;
+                    return OperationStartResult.PERSISTENCE_HALTED;
+                }
+            }
+        }
+        return OperationStartResult.STARTED;
+    }
+
+    public static void releaseBackgroundPurge() {
+        synchronized (rollbackPurgeGate) {
+            if (!backgroundPurgeRunning) {
+                return;
+            }
+            if (backgroundPurgePausesPersistence) {
+                databaseLifecycle.writeLock().unlock();
+            }
+            backgroundPurgePausesPersistence = false;
+            backgroundPurgeRunning = false;
+        }
+    }
+
+    public static OperationStartResult claimRollback(String user) {
+        return claimRollback(user, true);
+    }
+
+    public static OperationStartResult claimRollback(String user, boolean requiresPersistence) {
+        synchronized (rollbackPurgeGate) {
+            if (requiresPersistence && persistenceHalted) {
+                return OperationStartResult.PERSISTENCE_HALTED;
+            }
+            if (databaseReloadPaused) {
+                return OperationStartResult.RELOAD_RUNNING;
+            }
+            if (ConfigHandler.purgeRunning || backgroundPurgeRunning) {
                 return OperationStartResult.PURGE_RUNNING;
             }
             if (ConfigHandler.activeRollbacks.containsKey(user)) {
@@ -206,6 +426,12 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
             if (!ConfigHandler.serverRunning && !ConfigHandler.converterRunning) {
                 lastRun = true;
             }
+            if (persistenceHalted) {
+                if (!lastRun) {
+                    errorDelay();
+                }
+                continue;
+            }
             try {
                 int process_id = 0;
                 synchronized (Consumer.consumer_id) {
@@ -219,7 +445,15 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
                 }
                 Thread.sleep(500);
                 pauseConsumer(process_id);
-                Process.processConsumer(process_id, lastRun);
+                databaseLifecycle.readLock().lock();
+                try {
+                    if (!databaseReloadPaused && !isPaused && !persistenceHalted) {
+                        Process.processConsumer(process_id, lastRun);
+                    }
+                }
+                finally {
+                    databaseLifecycle.readLock().unlock();
+                }
             }
             catch (Exception e) {
                 ErrorReporter.report(e);

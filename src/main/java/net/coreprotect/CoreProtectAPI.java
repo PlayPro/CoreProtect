@@ -1101,7 +1101,7 @@ public class CoreProtectAPI extends Queue {
                             }
                         }
                         else { // only print exception on development branch
-                            ErrorReporter.report(new IllegalStateException("API rollback skipped: database purge in progress"), ConfigHandler.EDITION_BRANCH.contains("-dev"));
+                            ErrorReporter.report(new IllegalStateException("API rollback skipped: another database operation is active or persistence is halted"), ConfigHandler.EDITION_BRANCH.contains("-dev"));
                         }
                     }
                     else {

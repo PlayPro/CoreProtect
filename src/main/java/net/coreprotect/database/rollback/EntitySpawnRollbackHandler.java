@@ -29,6 +29,7 @@ import org.bukkit.inventory.ItemStack;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.statement.EntityStatement;
 import net.coreprotect.listener.player.InventoryChangeListener;
@@ -1452,7 +1453,7 @@ public final class EntitySpawnRollbackHandler {
 
         boolean isCancelled() {
             int[] rollbackData = ConfigHandler.rollbackHash.get(userString);
-            return cancelled.get() || (rollbackData != null && rollbackData[3] == 2);
+            return cancelled.get() || (preview == 0 && Consumer.isPersistenceHalted()) || (rollbackData != null && rollbackData[3] == 2);
         }
 
         void cancel() {

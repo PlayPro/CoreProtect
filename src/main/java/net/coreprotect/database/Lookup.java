@@ -48,12 +48,14 @@ public class Lookup extends Queue {
 
     public static long countLookupRows(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, List<String> messageFilters, Set<UUID> loadedEntityUuids, Set<UUID> loadedEntityCandidates, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, boolean restrictWorld, boolean lookup, Integer entityContainerId, LookupRollbackState rollbackState) {
         Long rows = 0L;
+        boolean paused = false;
 
         try {
-            while (Consumer.isPaused) {
+            while (Consumer.isPaused && !Consumer.isPersistenceHalted()) {
                 Thread.sleep(1);
             }
             Consumer.isPaused = true;
+            paused = true;
 
             ResultSet results = LookupRaw.rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, loadedEntityUuids, loadedEntityCandidates, location, radius, null, startTime, endTime, -1, -1, restrictWorld, lookup, true, entityContainerId, rollbackState);
             while (results.next()) {
@@ -69,8 +71,11 @@ public class Lookup extends Queue {
         catch (Exception e) {
             ErrorReporter.report(e);
         }
-
-        Consumer.isPaused = false;
+        finally {
+            if (paused && !Consumer.isPersistenceHalted()) {
+                Consumer.isPaused = false;
+            }
+        }
 
         return rows;
     }
@@ -86,7 +91,7 @@ public class Lookup extends Queue {
 
         boolean paused = false;
         try {
-            while (Consumer.isPaused) {
+            while (Consumer.isPaused && !Consumer.isPersistenceHalted()) {
                 Thread.sleep(1);
             }
             Consumer.isPaused = true;
@@ -100,7 +105,7 @@ public class Lookup extends Queue {
             return 0L;
         }
         finally {
-            if (paused) {
+            if (paused && !Consumer.isPersistenceHalted()) {
                 Consumer.isPaused = false;
             }
         }
@@ -118,7 +123,7 @@ public class Lookup extends Queue {
         List<LookupSummaryRow> rows = new ArrayList<>();
         boolean paused = false;
         try {
-            while (Consumer.isPaused) {
+            while (Consumer.isPaused && !Consumer.isPersistenceHalted()) {
                 Thread.sleep(1);
             }
             Consumer.isPaused = true;
@@ -133,7 +138,7 @@ public class Lookup extends Queue {
             ErrorReporter.report(e);
         }
         finally {
-            if (paused) {
+            if (paused && !Consumer.isPersistenceHalted()) {
                 Consumer.isPaused = false;
             }
         }
@@ -153,7 +158,7 @@ public class Lookup extends Queue {
         long totalRows = 0L;
         boolean paused = false;
         try {
-            while (Consumer.isPaused) {
+            while (Consumer.isPaused && !Consumer.isPersistenceHalted()) {
                 Thread.sleep(1);
             }
             Consumer.isPaused = true;
@@ -171,7 +176,7 @@ public class Lookup extends Queue {
             ErrorReporter.report(e);
         }
         finally {
-            if (paused) {
+            if (paused && !Consumer.isPersistenceHalted()) {
                 Consumer.isPaused = false;
             }
         }
@@ -182,6 +187,9 @@ public class Lookup extends Queue {
         try {
             DatabaseMetaData metadata = statement.getConnection().getMetaData();
             String product = metadata.getDatabaseProductName().toLowerCase(java.util.Locale.ROOT);
+            if (product.contains("clickhouse") || product.contains("duckdb")) {
+                return true;
+            }
             int major = metadata.getDatabaseMajorVersion();
             int minor = metadata.getDatabaseMinorVersion();
             if (product.contains("sqlite")) {

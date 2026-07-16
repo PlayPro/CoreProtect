@@ -1,6 +1,6 @@
 package net.coreprotect.consumer.process;
 
-import java.sql.PreparedStatement;
+import net.coreprotect.database.ConsumerWriteBatch;
 
 import net.coreprotect.database.logger.EntitySpawnLogger;
 import net.coreprotect.model.entity.EntitySpawnData;
@@ -11,10 +11,10 @@ final class EntitySpawnLogProcess {
     private EntitySpawnLogProcess() {
     }
 
-    static EntitySpawnIdentity process(PreparedStatement blockStatement, PreparedStatement entitySpawnStatement, PreparedStatement blockLinkStatement, Object object, String user) {
+    static EntitySpawnIdentity process(ConsumerWriteBatch batch, Object object, String user) throws Exception {
         if (object instanceof EntitySpawnData) {
             EntitySpawnData data = (EntitySpawnData) object;
-            return EntitySpawnLogger.logIdentity(blockStatement, entitySpawnStatement, blockLinkStatement, user, data);
+            return EntitySpawnLogger.logIdentity(batch, user, data);
         }
         return null;
     }

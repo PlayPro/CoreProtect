@@ -1,6 +1,5 @@
 package net.coreprotect.database.logger;
 
-import java.sql.PreparedStatement;
 import java.util.Locale;
 
 import org.bukkit.Bukkit;
@@ -9,11 +8,12 @@ import org.bukkit.Location;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
+import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.statement.CommandStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
 import net.coreprotect.utility.WorldUtils;
-import net.coreprotect.utility.ErrorReporter;
 
 public class CommandLogger {
 
@@ -21,7 +21,7 @@ public class CommandLogger {
         throw new IllegalStateException("Database class");
     }
 
-    public static void log(PreparedStatement preparedStmt, int batchCount, long time, Location location, String user, String message) {
+    public static void log(ConsumerWriteBatch preparedStmt, int batchCount, long time, Location location, String user, String message) {
         try {
             if (ConfigHandler.isBlacklisted(user)) {
                 return;
@@ -48,7 +48,7 @@ public class CommandLogger {
             CommandStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, message);
         }
         catch (Exception e) {
-            ErrorReporter.report(e);
+            Database.handleWriteFailure(e);
         }
     }
 

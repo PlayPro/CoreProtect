@@ -90,16 +90,18 @@ public class MaterialUtils extends Queue {
     public static String getBlockDataString(int id) {
         // Internal ID pulled from DB
         String blockdata = "";
-        if (ConfigHandler.blockdataReversed.get(id) != null) {
-            blockdata = ConfigHandler.blockdataReversed.get(id);
+        String cachedBlockdata = ConfigHandler.blockdataReversed.get(id);
+        if (cachedBlockdata != null) {
+            blockdata = cachedBlockdata;
         }
         return blockdata;
     }
 
     public static String getBlockName(int id) {
         String name = "";
-        if (ConfigHandler.materialsReversed.get(id) != null) {
-            name = ConfigHandler.materialsReversed.get(id);
+        String cachedName = ConfigHandler.materialsReversed.get(id);
+        if (cachedName != null) {
+            name = cachedName;
         }
         return name;
     }
@@ -125,8 +127,9 @@ public class MaterialUtils extends Queue {
     public static Material getType(int id) {
         // Internal ID pulled from DB
         Material material = null;
-        if (ConfigHandler.materialsReversed.get(id) != null && id > 0) {
-            String name = ConfigHandler.materialsReversed.get(id).toUpperCase(Locale.ROOT);
+        String blockName = getBlockName(id);
+        if (!blockName.isEmpty() && id > 0) {
+            String name = blockName.toUpperCase(Locale.ROOT);
             if (name.contains(NAMESPACE.toUpperCase(Locale.ROOT))) {
                 name = name.split(":")[1];
             }
@@ -190,8 +193,9 @@ public class MaterialUtils extends Queue {
     public static String getArtName(int id) {
         // Internal ID pulled from DB
         String artname = "";
-        if (ConfigHandler.artReversed.get(id) != null) {
-            artname = ConfigHandler.artReversed.get(id);
+        String cachedName = ConfigHandler.artReversed.get(id);
+        if (cachedName != null) {
+            artname = cachedName;
         }
         return artname;
     }

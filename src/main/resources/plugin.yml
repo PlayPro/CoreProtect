@@ -9,6 +9,8 @@ author: Intelli
 softdepend: [WorldEdit]
 description: >
              Provides block protection for your server.
+libraries:
+  - org.duckdb:duckdb_jdbc:${duckdb.version}
 commands:
   co:
     description: Utilize the plugin

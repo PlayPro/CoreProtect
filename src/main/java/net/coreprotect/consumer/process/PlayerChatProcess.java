@@ -1,6 +1,6 @@
 package net.coreprotect.consumer.process;
 
-import java.sql.PreparedStatement;
+import net.coreprotect.database.ConsumerWriteBatch;
 import java.util.Map;
 
 import org.bukkit.Location;
@@ -10,7 +10,7 @@ import net.coreprotect.database.logger.ChatLogger;
 
 class PlayerChatProcess {
 
-    static void process(PreparedStatement preparedStmt, int batchCount, int processId, int id, Object object, String user) {
+    static void process(ConsumerWriteBatch preparedStmt, int batchCount, int processId, int id, Object object, String user) {
         if (!(object instanceof Object[])) {
             return;
         }
@@ -23,7 +23,6 @@ class PlayerChatProcess {
                 Long timestamp = (Long) data[0];
                 Location location = (Location) data[1];
                 ChatLogger.log(preparedStmt, batchCount, timestamp, location, user, message);
-                strings.remove(id);
             }
         }
     }

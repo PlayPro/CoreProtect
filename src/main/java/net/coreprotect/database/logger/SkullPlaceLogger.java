@@ -1,7 +1,5 @@
 package net.coreprotect.database.logger;
 
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 
 import org.bukkit.Material;
 import org.bukkit.block.BlockState;
@@ -9,9 +7,9 @@ import org.bukkit.block.Skull;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.statement.SkullStatement;
 import net.coreprotect.paper.PaperAdapter;
-import net.coreprotect.utility.ErrorReporter;
 
 public class SkullPlaceLogger {
 
@@ -19,7 +17,7 @@ public class SkullPlaceLogger {
         throw new IllegalStateException("Database class");
     }
 
-    public static void log(PreparedStatement preparedStmt, PreparedStatement preparedStmt2, int batchCount, String user, BlockState block, int replaceType, int replaceData) {
+    public static void log(ConsumerWriteBatch preparedStmt, ConsumerWriteBatch preparedStmt2, int batchCount, String user, BlockState block, int replaceType, int replaceData) {
         try {
             if (ConfigHandler.isBlacklisted(user) || block == null) {
                 return;
@@ -35,25 +33,14 @@ public class SkullPlaceLogger {
                 skullOwner = PaperAdapter.ADAPTER.getSkullOwner(skull);
                 skullSkin = PaperAdapter.ADAPTER.getSkullSkin(skull);
                 if ((skullOwner != null && skullOwner.length() > 0) || (skullSkin != null && skullSkin.length() > 0)) {
-                    ResultSet resultSet = SkullStatement.insert(preparedStmt2, time, skullOwner, skullSkin);
-                    if (Database.hasReturningKeys()) {
-                        resultSet.next();
-                        skullKey = resultSet.getInt(1);
-                        resultSet.close();
-                    }
-                    else {
-                        ResultSet keys = preparedStmt2.getGeneratedKeys();
-                        keys.next();
-                        skullKey = keys.getInt(1);
-                        keys.close();
-                    }
+                    skullKey = SkullStatement.insert(preparedStmt2, time, skullOwner, skullSkin);
                 }
             }
 
             BlockPlaceLogger.log(preparedStmt, batchCount, user, block, replaceType, replaceData, type, skullKey, true, null, null, null);
         }
         catch (Exception e) {
-            ErrorReporter.report(e);
+            Database.handleWriteFailure(e);
         }
     }
 

@@ -1,6 +1,5 @@
 package net.coreprotect.database.logger;
 
-import java.sql.PreparedStatement;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -8,6 +7,7 @@ import org.bukkit.Location;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.statement.EntityInteractionStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
@@ -34,18 +34,18 @@ public final class EntityInteractionLogger {
         return event.isCancelled() ? null : new LogContext(event);
     }
 
-    public static void log(PreparedStatement interactionStatement, PreparedStatement checkpointStatement, EntitySpawnIdentity identity, EntityInteraction interaction, LogContext context) throws Exception {
+    public static void log(ConsumerWriteBatch batch, EntitySpawnIdentity identity, EntityInteraction interaction, LogContext context) throws Exception {
         Location currentLocation = interaction.getCurrentLocation();
-        EntityInteractionStatement.checkpoint(checkpointStatement, identity, currentLocation);
+        EntityInteractionStatement.checkpoint(batch, identity, currentLocation);
 
         int worldId = identity.getOriginalWorldId();
         int x = identity.getOriginalX();
         int y = identity.getOriginalY();
         int z = identity.getOriginalZ();
 
-        int userId = UserStatement.getId(interactionStatement, context.event.getUser(), true);
+        int userId = UserStatement.getId(batch, context.event.getUser(), true);
         int time = (int) (System.currentTimeMillis() / 1000L);
-        EntityInteractionStatement.insert(interactionStatement, time, userId, identity, worldId, x, y, z, interaction);
+        EntityInteractionStatement.insert(batch, time, userId, identity, worldId, x, y, z, interaction);
     }
 
     public static final class LogContext {

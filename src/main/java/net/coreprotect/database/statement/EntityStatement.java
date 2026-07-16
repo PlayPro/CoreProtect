@@ -22,7 +22,9 @@ import org.bukkit.util.io.BukkitObjectOutputStream;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.Database;
+import net.coreprotect.utility.DatabaseUtils;
 import net.coreprotect.utility.ErrorReporter;
 
 public class EntityStatement {
@@ -33,26 +35,19 @@ public class EntityStatement {
         throw new IllegalStateException("Database class");
     }
 
-    public static ResultSet insert(PreparedStatement preparedStmt, int time, List<Object> data) {
+    public static int insert(ConsumerWriteBatch batch, int time, List<Object> data) {
         try {
             byte[] serializedData = serializeData(data);
             if (serializedData == null) {
-                return null;
+                return 0;
             }
-            preparedStmt.setInt(1, time);
-            preparedStmt.setObject(2, serializedData);
-            if (Database.hasReturningKeys()) {
-                return preparedStmt.executeQuery();
-            }
-            else {
-                preparedStmt.executeUpdate();
-            }
+            return batch.addEntity(time, serializedData);
         }
         catch (Exception e) {
-            ErrorReporter.report(e);
+            Database.handleWriteFailure(e);
         }
 
-        return null;
+        return 0;
     }
 
     public static byte[] serializeData(List<Object> data) {
@@ -66,7 +61,7 @@ public class EntityStatement {
             return output.toByteArray();
         }
         catch (Exception e) {
-            ErrorReporter.report(e);
+            ErrorReporter.report(e, ConfigHandler.EDITION_BRANCH.contains("-dev"));
             return null;
         }
     }
@@ -112,7 +107,7 @@ public class EntityStatement {
         try {
             ResultSet resultSet = statement.executeQuery(query);
             while (resultSet.next()) {
-                result = deserializeData(resultSet.getBytes("data"));
+                result = deserializeData(DatabaseUtils.getBytes(resultSet, "data"));
             }
 
             resultSet.close();
@@ -145,7 +140,7 @@ public class EntityStatement {
                 }
                 try (ResultSet resultSet = preparedStatement.executeQuery()) {
                     while (resultSet.next()) {
-                        List<Object> data = deserializeData(resultSet.getBytes("data"));
+                        List<Object> data = deserializeData(DatabaseUtils.getBytes(resultSet, "data"));
                         if (!data.isEmpty()) {
                             result.put(resultSet.getInt("rowid"), data);
                         }

@@ -1,6 +1,5 @@
 package net.coreprotect.consumer.process;
 
-import java.sql.PreparedStatement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -14,27 +13,39 @@ import org.bukkit.inventory.ItemStack;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.logger.ContainerLogger;
 import net.coreprotect.model.entity.EntityContainerTransaction;
 import net.coreprotect.model.entity.EntitySpawnIdentity;
+import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.HopperTransactionUtils;
 
 class ContainerTransactionProcess {
 
-    static boolean processEntity(PreparedStatement preparedStmtContainer, int batchCount, String user, Object object, EntitySpawnIdentity identity) {
+    static boolean processEntity(ConsumerWriteBatch preparedStmtContainer, int batchCount, String user, Object object, EntitySpawnIdentity identity) throws Exception {
         if (!(object instanceof EntityContainerTransaction) || identity == null) {
             return false;
         }
 
-        ContainerLogger.logEntity(preparedStmtContainer, batchCount, user, identity, (EntityContainerTransaction) object);
+        if (ConfigHandler.databaseType.isColumnar()) {
+            preparedStmtContainer.executeAtomically("entity_container_transaction", () -> ContainerLogger.logEntity(preparedStmtContainer, batchCount, user, identity, (EntityContainerTransaction) object));
+        }
+        else {
+            try {
+                ContainerLogger.logEntity(preparedStmtContainer, batchCount, user, identity, (EntityContainerTransaction) object);
+            }
+            catch (Exception e) {
+                ErrorReporter.report(e);
+            }
+        }
         return true;
     }
 
-    static void process(PreparedStatement preparedStmtContainer, PreparedStatement preparedStmtItems, int batchCount, int processId, int id, Material type, int forceData, String user, Object object) {
+    static void process(ConsumerWriteBatch preparedStmtContainer, ConsumerWriteBatch preparedStmtItems, int batchCount, int processId, int id, Material type, int forceData, String user, Object object) {
         if (object instanceof Location) {
             Location location = (Location) object;
             Map<Integer, Object> inventories = Consumer.consumerInventories.get(processId);
-            Object inventory = inventories.remove(id);
+            Object inventory = inventories.get(id);
             if (inventory != null) {
                 String transactingChestId = HopperTransactionUtils.getTransactionId(location);
                 String loggingChestIdSuffix = HopperTransactionUtils.getLoggingIdSuffix(location);

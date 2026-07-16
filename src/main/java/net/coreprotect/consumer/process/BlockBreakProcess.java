@@ -1,6 +1,6 @@
 package net.coreprotect.consumer.process;
 
-import java.sql.PreparedStatement;
+import net.coreprotect.database.ConsumerWriteBatch;
 import java.util.List;
 
 import org.bukkit.Material;
@@ -14,7 +14,7 @@ import net.coreprotect.utility.MaterialUtils;
 
 class BlockBreakProcess {
 
-    static void process(PreparedStatement preparedStmt, PreparedStatement preparedStmtSkulls, int batchCount, int processId, int id, Material blockType, int blockDataId, Material replaceType, int forceData, String user, Object object, String blockData) {
+    static void process(ConsumerWriteBatch preparedStmt, ConsumerWriteBatch preparedStmtSkulls, int batchCount, int processId, int id, Material blockType, int blockDataId, Material replaceType, int forceData, String user, Object object, String blockData) {
         if (object instanceof BlockState) {
             BlockState block = (BlockState) object;
             List<Object> meta = BlockUtils.processMeta(block);

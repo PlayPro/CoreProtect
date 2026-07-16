@@ -355,9 +355,11 @@ public class RollbackRestoreCommand {
                         final String[] finalArgs = args;
                         final int finalPreview = preview;
 
-                        Consumer.OperationStartResult startResult = Consumer.claimRollback(player.getName());
+                        Consumer.OperationStartResult startResult = Consumer.claimRollback(player.getName(), finalPreview == 0);
                         if (startResult != Consumer.OperationStartResult.STARTED) {
-                            Phrase phrase = startResult == Consumer.OperationStartResult.PURGE_RUNNING ? Phrase.PURGE_IN_PROGRESS : Phrase.ROLLBACK_IN_PROGRESS;
+                            Phrase phrase = startResult == Consumer.OperationStartResult.PURGE_RUNNING ? Phrase.PURGE_IN_PROGRESS
+                                    : startResult == Consumer.OperationStartResult.PERSISTENCE_HALTED ? Phrase.DATABASE_PERSISTENCE_HALTED
+                                            : startResult == Consumer.OperationStartResult.RELOAD_RUNNING ? Phrase.DATABASE_BUSY : Phrase.ROLLBACK_IN_PROGRESS;
                             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(phrase));
                             return;
                         }
@@ -445,7 +447,7 @@ public class RollbackRestoreCommand {
 
                                             boolean completed = true;
                                             if (finalArgAction.contains(5) && ConfigHandler.lookupEntityContainer.get(player2.getName()) == null) {
-                                                ContainerRollback.performContainerRollbackRestore(statement, player2, uuidList, rollbackusers2, rtime, blist, elist, euserlist, finalArgAction, location, radius, finalTimeStart, finalTimeEnd, restrictWorld, false, verbose, action);
+                                                completed = ContainerRollback.performContainerRollbackRestore(statement, player2, uuidList, rollbackusers2, rtime, blist, elist, euserlist, finalArgAction, location, radius, finalTimeStart, finalTimeEnd, restrictWorld, false, verbose, action);
                                             }
                                             else {
                                                 completed = Rollback.performRollbackRestore(statement, player2, uuidList, rollbackusers2, rtime, blist, elist, euserlist, finalArgAction, finalEntityActionFilter, location, radius, finalTimeStart, finalTimeEnd, restrictWorld, false, verbose, action, finalPreview) != null;

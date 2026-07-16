@@ -6,7 +6,6 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 import net.coreprotect.api.result.SessionResult;
 import net.coreprotect.config.Config;
@@ -66,8 +65,10 @@ public class SessionLookup {
             int time = (int) (System.currentTimeMillis() / 1000L);
             int checkTime = calculateCheckTime(time, offset);
 
-            // Get user ID from cache or load it
-            int userId = getUserId(connection, user);
+            Integer userId = MessageAPI.getUserId(connection, user);
+            if (userId == null || userId < 0) {
+                return result;
+            }
 
             // Query session data from database
             try (Statement statement = connection.createStatement()) {
@@ -112,7 +113,7 @@ public class SessionLookup {
                 return result;
             }
 
-            StringBuilder query = new StringBuilder("SELECT time,user,wid,x,y,z,action FROM ");
+            StringBuilder query = new StringBuilder("SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,action FROM ");
             query.append(ConfigHandler.prefix).append("session ");
             if (filter.hasLocation()) {
                 query.append(WorldUtils.getWidIndex("session"));
@@ -152,26 +153,6 @@ public class SessionLookup {
     }
 
     /**
-     * Gets the user ID for the specified username.
-     * If the user ID is not in the cache, it will be loaded from the database.
-     * 
-     * @param connection
-     *            The database connection
-     * @param username
-     *            The username to get the ID for
-     * @return The user ID
-     */
-    private static int getUserId(Connection connection, String username) {
-        String lowerUsername = username.toLowerCase(Locale.ROOT);
-
-        if (ConfigHandler.playerIdCache.get(lowerUsername) == null) {
-            UserStatement.loadId(connection, username, null);
-        }
-
-        return ConfigHandler.playerIdCache.get(lowerUsername);
-    }
-
-    /**
      * Builds the SQL query for retrieving session data.
      * 
      * @param userId
@@ -181,7 +162,7 @@ public class SessionLookup {
      * @return The SQL query string
      */
     private static String buildSessionQuery(int userId, int checkTime) {
-        return "SELECT time,user,wid,x,y,z,action FROM " + ConfigHandler.prefix + "session WHERE user = '" + userId + "' AND time > '" + checkTime + "' ORDER BY rowid DESC";
+        return "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,action FROM " + ConfigHandler.prefix + "session WHERE " + ConfigHandler.databaseType.getUserColumn() + " = " + userId + " AND time > " + checkTime + " ORDER BY rowid DESC";
     }
 
     /**
@@ -206,11 +187,7 @@ public class SessionLookup {
         String resultZ = results.getString("z");
         String resultAction = results.getString("action");
 
-        // Get username from cache or load it
-        if (ConfigHandler.playerIdCacheReversed.get(resultUserId) == null) {
-            UserStatement.loadName(connection, resultUserId);
-        }
-        String resultUser = ConfigHandler.playerIdCacheReversed.get(resultUserId);
+        String resultUser = UserStatement.getName(connection, resultUserId);
 
         // Create and return the session data array
         return new String[] { resultTime, resultUser, resultX, resultY, resultZ, resultWorldId, type, resultAction };
@@ -218,10 +195,7 @@ public class SessionLookup {
 
     private static SessionResult parseSessionResult(Connection connection, ResultSet results) throws Exception {
         int userId = results.getInt("user");
-        String username = ConfigHandler.playerIdCacheReversed.get(userId);
-        if (username == null) {
-            username = UserStatement.loadName(connection, userId);
-        }
+        String username = UserStatement.getName(connection, userId);
 
         return new SessionResult(
                 results.getLong("time"), username, WorldUtils.getWorldName(results.getInt("wid")),

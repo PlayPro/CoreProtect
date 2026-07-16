@@ -14,6 +14,14 @@ public class __2_25_0 {
 
     private static final int MYSQL_DUPLICATE_KEY_NAME = 1061;
 
+    protected static boolean patchClickHouse(Statement statement) {
+        return true;
+    }
+
+    protected static boolean patchDuckDB(Statement statement) {
+        return true;
+    }
+
     protected static boolean patch(Statement statement) {
         if (Config.getGlobal().MYSQL) {
             if (!createEntityInteractionTable(statement)

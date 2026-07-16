@@ -45,6 +45,8 @@ import net.coreprotect.utility.WorldUtils;
 
 public class Queue {
 
+    private static final int MAX_ROLLBACK_ROWS_PER_RECORD = 100_000;
+
     public static synchronized void addForceContainer(String id, ItemStack[] container) {
         if (container == null) {
             return;
@@ -108,9 +110,16 @@ public class Queue {
     }
 
     private static synchronized <T> void queueStandardData(Object[] data, String[] user, Object object, boolean first, Map<Integer, ? extends Map<Integer, T>> additionalMaps, T additionalData, long reservation) {
+        boolean rollbackPublication = Process.isRollbackPublication((int) data[1], object);
+        if (Consumer.isPersistenceHalted()) {
+            Consumer.completeReservation(reservation, 1);
+            if (rollbackPublication) {
+                throw new IllegalStateException("Database persistence halted before rollback state could be queued");
+            }
+            return;
+        }
         int currentConsumer = (int) (reservation >>> 32);
         int consumerId = (int) reservation;
-        boolean rollbackPublication = Process.isRollbackPublication((int) data[1], object);
         boolean published = false;
         if (rollbackPublication) {
             Consumer.registerRollbackPublications(1);
@@ -344,7 +353,6 @@ public class Queue {
         if (user == null || user.trim().isEmpty() || entity == null || action == null) {
             return;
         }
-
         Location currentLocation = entity.getLocation();
         EntityInteractionOrigin origin = EntitySpawnTracking.getOrCreateInteractionOrigin(entity);
         if (origin == null || currentLocation.getWorld() == null) {
@@ -377,7 +385,11 @@ public class Queue {
     }
 
     public static void queueEntitySpawnLog(String user, java.util.UUID uuid, EntityType type, Location location) {
-        queueStandardData(new Object[] { null, Process.ENTITY_SPAWN_LOG, null, 0, null, 0, 0, null }, new String[] { user, null }, EntitySpawnData.log(uuid, type, location), false, Consumer.reserveConsumer());
+        queueEntitySpawnLog(user, EntitySpawnData.log(uuid, type, location));
+    }
+
+    public static void queueEntitySpawnLog(String user, EntitySpawnData spawnData) {
+        queueStandardData(new Object[] { null, Process.ENTITY_SPAWN_LOG, null, 0, null, 0, 0, null }, new String[] { user, null }, spawnData, false, Consumer.reserveConsumer());
     }
 
     public static void queueEntitySpawnLocation(java.util.UUID uuid, Location location, long verificationEpoch) {
@@ -447,14 +459,14 @@ public class Queue {
             location = new Location(Bukkit.getServer().getWorlds().get(0), 0, 0, 0);
         }
 
-        queueStandardData(new Object[] { null, table, null, 0, null, 0, action, null }, new String[] { user, null }, location, false, Consumer.consumerObjectArrayList, list, Consumer.reserveConsumer());
+        queueRollbackUpdates(user, location, list, table, action, false);
     }
 
     public static void queueEntityContainerRollbackUpdate(String user, Location location, List<Object[]> rows, int rollbackType, boolean inventoryRollback) {
         if (location == null) {
             location = new Location(Bukkit.getServer().getWorlds().get(0), 0, 0, 0);
         }
-        queueStandardData(new Object[] { null, Process.ENTITY_CONTAINER_ROLLBACK_UPDATE, null, inventoryRollback ? 1 : 0, null, 0, rollbackType, null }, new String[] { user, null }, location, false, Consumer.consumerObjectArrayList, rows, Consumer.reserveConsumer());
+        queueRollbackUpdates(user, location, rows, Process.ENTITY_CONTAINER_ROLLBACK_UPDATE, rollbackType, inventoryRollback);
     }
 
     public static void queueEntityContainerRollbackUpdate(String user, EntitySpawnData transition, List<Object[]> rows, int rollbackType, boolean inventoryRollback) {
@@ -463,6 +475,9 @@ public class Queue {
     }
 
     public static synchronized void queueEntityRetriesFirst(List<EntityContainerRollbackUpdate> containerUpdates, List<EntitySpawnData> spawnUpdates) {
+        if (Consumer.isPersistenceHalted()) {
+            return;
+        }
         List<EntityContainerRollbackUpdate> containerRetries = new ArrayList<>(containerUpdates);
         List<EntitySpawnData> spawnRetries = new ArrayList<>(spawnUpdates);
         int updateCount = containerRetries.size() + spawnRetries.size();
@@ -515,6 +530,57 @@ public class Queue {
             }
             finally {
                 Consumer.completeReservation(reservation, updateCount);
+            }
+        }
+    }
+
+    private static synchronized void queueRollbackUpdates(String user, Location location, List<Object[]> rows, int table, int action, boolean inventoryRollback) {
+        Objects.requireNonNull(rows, "rows");
+        if (rows.isEmpty()) {
+            return;
+        }
+        int recordCount = ((rows.size() - 1) / MAX_ROLLBACK_ROWS_PER_RECORD) + 1;
+        long reservation = Consumer.reserveConsumers(recordCount);
+        int currentConsumer = (int) (reservation >>> 32);
+        int firstConsumerId = (int) reservation;
+        List<Object[]> records = new ArrayList<>(recordCount);
+        boolean registered = false;
+        boolean published = false;
+        try {
+            if (Consumer.isPersistenceHalted()) {
+                throw new IllegalStateException("Database persistence halted before rollback state could be queued");
+            }
+            Consumer.registerRollbackPublications(recordCount);
+            registered = true;
+            for (int recordIndex = 0; recordIndex < recordCount; recordIndex++) {
+                int fromIndex = recordIndex * MAX_ROLLBACK_ROWS_PER_RECORD;
+                int toIndex = Math.min(fromIndex + MAX_ROLLBACK_ROWS_PER_RECORD, rows.size());
+                int consumerId = firstConsumerId + recordIndex;
+                records.add(new Object[] { consumerId, table, null, inventoryRollback ? 1 : 0, null, 0, action, null });
+                Consumer.consumerUsers.get(currentConsumer).put(consumerId, new String[] { user, null });
+                Consumer.consumerObjects.get(currentConsumer).put(consumerId, location);
+                Consumer.consumerObjectArrayList.get(currentConsumer).put(consumerId, new ArrayList<>(rows.subList(fromIndex, toIndex)));
+            }
+            Consumer.consumer.get(currentConsumer).addAll(records);
+            published = true;
+        }
+        finally {
+            try {
+                if (!published) {
+                    Consumer.consumer.get(currentConsumer).removeAll(records);
+                    for (int recordIndex = 0; recordIndex < recordCount; recordIndex++) {
+                        int consumerId = firstConsumerId + recordIndex;
+                        Consumer.consumerUsers.get(currentConsumer).remove(consumerId);
+                        Consumer.consumerObjects.get(currentConsumer).remove(consumerId);
+                        Consumer.consumerObjectArrayList.get(currentConsumer).remove(consumerId);
+                    }
+                    if (registered) {
+                        Consumer.completeRollbackPublications(recordCount);
+                    }
+                }
+            }
+            finally {
+                Consumer.completeReservation(reservation, recordCount);
             }
         }
     }

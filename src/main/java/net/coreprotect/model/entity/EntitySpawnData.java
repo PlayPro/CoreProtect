@@ -7,6 +7,8 @@ import org.bukkit.entity.EntityType;
 
 public final class EntitySpawnData {
 
+    private static final int MAX_PERSISTENCE_ATTEMPTS = 3;
+
     public enum Operation {
         VERIFY,
         LOCATION,
@@ -33,8 +35,13 @@ public final class EntitySpawnData {
     private final long verificationEpoch;
     private final int killRowId;
     private final long pairedBlockRowId;
+    private final int persistenceAttempts;
 
     private EntitySpawnData(Operation operation, UUID uuid, UUID previousUuid, EntityType entityType, Location location, long blockRowId, int trackingRowId, byte[] state, int rolledBack, long verificationEpoch, int killRowId, long pairedBlockRowId) {
+        this(operation, uuid, previousUuid, entityType, location, blockRowId, trackingRowId, state, rolledBack, verificationEpoch, killRowId, pairedBlockRowId, 0);
+    }
+
+    private EntitySpawnData(Operation operation, UUID uuid, UUID previousUuid, EntityType entityType, Location location, long blockRowId, int trackingRowId, byte[] state, int rolledBack, long verificationEpoch, int killRowId, long pairedBlockRowId, int persistenceAttempts) {
         this.operation = operation;
         this.uuid = uuid;
         this.previousUuid = previousUuid;
@@ -47,6 +54,7 @@ public final class EntitySpawnData {
         this.verificationEpoch = verificationEpoch;
         this.killRowId = killRowId;
         this.pairedBlockRowId = pairedBlockRowId;
+        this.persistenceAttempts = persistenceAttempts;
     }
 
     public static EntitySpawnData log(UUID uuid, EntityType entityType, Location location) {
@@ -143,5 +151,12 @@ public final class EntitySpawnData {
 
     public long getPairedBlockRowId() {
         return pairedBlockRowId;
+    }
+
+    public EntitySpawnData retryLog() {
+        if (operation != null || persistenceAttempts >= MAX_PERSISTENCE_ATTEMPTS) {
+            return null;
+        }
+        return new EntitySpawnData(null, uuid, null, entityType, location, 0, 0, null, 0, -1L, 0, 0, persistenceAttempts + 1);
     }
 }

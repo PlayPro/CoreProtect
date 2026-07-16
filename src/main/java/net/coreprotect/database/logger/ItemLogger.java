@@ -1,6 +1,5 @@
 package net.coreprotect.database.logger;
 
-import java.sql.PreparedStatement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -13,6 +12,8 @@ import org.bukkit.inventory.ItemStack;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
+import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.statement.ItemStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
@@ -22,7 +23,6 @@ import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
-import net.coreprotect.utility.ErrorReporter;
 
 public class ItemLogger {
 
@@ -44,7 +44,7 @@ public class ItemLogger {
         throw new IllegalStateException("Database class");
     }
 
-    public static void log(PreparedStatement preparedStmt, int batchCount, Location location, int offset, String user) {
+    public static void log(ConsumerWriteBatch preparedStmt, int batchCount, Location location, int offset, String user) {
         try {
             if (ConfigHandler.isBlacklisted(user)) {
                 return;
@@ -55,47 +55,38 @@ public class ItemLogger {
             List<ItemStack> pickupList = ConfigHandler.itemsPickup.getOrDefault(loggingItemId, new ArrayList<>());
             ItemStack[] itemPickups = new ItemStack[pickupList.size()];
             itemPickups = pickupList.toArray(itemPickups);
-            pickupList.clear();
 
             List<ItemStack> dropList = ConfigHandler.itemsDrop.getOrDefault(loggingItemId, new ArrayList<>());
             ItemStack[] itemDrops = new ItemStack[dropList.size()];
             itemDrops = dropList.toArray(itemDrops);
-            dropList.clear();
 
             List<ItemStack> thrownList = ConfigHandler.itemsThrown.getOrDefault(loggingItemId, new ArrayList<>());
             ItemStack[] itemThrows = new ItemStack[thrownList.size()];
             itemThrows = thrownList.toArray(itemThrows);
-            thrownList.clear();
 
             List<ItemStack> shotList = ConfigHandler.itemsShot.getOrDefault(loggingItemId, new ArrayList<>());
             ItemStack[] itemShots = new ItemStack[shotList.size()];
             itemShots = shotList.toArray(itemShots);
-            shotList.clear();
 
             List<ItemStack> breakList = ConfigHandler.itemsBreak.getOrDefault(loggingItemId, new ArrayList<>());
             ItemStack[] itemBreaks = new ItemStack[breakList.size()];
             itemBreaks = breakList.toArray(itemBreaks);
-            breakList.clear();
 
             List<ItemStack> destroyList = ConfigHandler.itemsDestroy.getOrDefault(loggingItemId, new ArrayList<>());
             ItemStack[] itemDestroys = new ItemStack[destroyList.size()];
             itemDestroys = destroyList.toArray(itemDestroys);
-            destroyList.clear();
 
             List<ItemStack> createList = ConfigHandler.itemsCreate.getOrDefault(loggingItemId, new ArrayList<>());
             ItemStack[] itemCreates = new ItemStack[createList.size()];
             itemCreates = createList.toArray(itemCreates);
-            createList.clear();
 
             List<ItemStack> sellList = ConfigHandler.itemsSell.getOrDefault(loggingItemId, new ArrayList<>());
             ItemStack[] itemSells = new ItemStack[sellList.size()];
             itemSells = sellList.toArray(itemSells);
-            sellList.clear();
 
             List<ItemStack> buyList = ConfigHandler.itemsBuy.getOrDefault(loggingItemId, new ArrayList<>());
             ItemStack[] itemBuys = new ItemStack[buyList.size()];
             itemBuys = buyList.toArray(itemBuys);
-            buyList.clear();
 
             ItemUtils.mergeItems(null, itemPickups);
             ItemUtils.mergeItems(null, itemDrops);
@@ -117,11 +108,11 @@ public class ItemLogger {
             logTransaction(preparedStmt, batchCount, offset, user, location, itemBuys, ITEM_BUY);
         }
         catch (Exception e) {
-            ErrorReporter.report(e);
+            Database.handleWriteFailure(e);
         }
     }
 
-    protected static void logTransaction(PreparedStatement preparedStmt, int batchCount, int offset, String user, Location location, ItemStack[] items, int action) {
+    protected static void logTransaction(ConsumerWriteBatch preparedStmt, int batchCount, int offset, String user, Location location, ItemStack[] items, int action) {
         try {
             for (ItemStack item : items) {
                 if (item != null && item.getAmount() > 0 && !BlockUtils.isAir(item.getType())) {
@@ -158,7 +149,7 @@ public class ItemLogger {
             }
         }
         catch (Exception e) {
-            ErrorReporter.report(e);
+            Database.handleWriteFailure(e);
         }
     }
 

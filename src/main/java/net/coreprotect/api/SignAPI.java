@@ -51,7 +51,7 @@ public class SignAPI {
                 return result;
             }
 
-            StringBuilder query = new StringBuilder("SELECT time,user,wid,x,y,z,action,color,color_secondary,data,waxed,face,line_1,line_2,line_3,line_4,line_5,line_6,line_7,line_8 FROM ");
+            StringBuilder query = new StringBuilder("SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,action,color,color_secondary,data,waxed,face,line_1,line_2,line_3,line_4,line_5,line_6,line_7,line_8 FROM ");
             query.append(ConfigHandler.prefix).append("sign ");
             if (filter.hasLocation()) {
                 query.append(WorldUtils.getWidIndex("sign"));
@@ -80,10 +80,7 @@ public class SignAPI {
 
     private static SignResult parseSignResult(Connection connection, ResultSet results) throws Exception {
         int userId = results.getInt("user");
-        String username = ConfigHandler.playerIdCacheReversed.get(userId);
-        if (username == null) {
-            username = UserStatement.loadName(connection, userId);
-        }
+        String username = UserStatement.getName(connection, userId);
 
         String[] lines = new String[] {
                 valueOrEmpty(results.getString("line_1")),

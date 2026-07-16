@@ -13,6 +13,7 @@ import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
@@ -25,6 +26,7 @@ import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.DatabaseUtils;
 import net.coreprotect.utility.EntitySpawnTracking;
 
 public class ChestTransactionLookup {
@@ -77,12 +79,12 @@ public class ChestTransactionLookup {
             int pageStart = rowMax - limit;
 
             String table = ConfigHandler.prefix + "container";
-            String where = "wid = '" + worldId + "' AND (x = '" + x + "' OR x = '" + x2 + "') AND (z = '" + z + "' OR z = '" + z2 + "') AND y = '" + y + "'";
+            String where = "wid = " + worldId + " AND (x = " + x + " OR x = " + x2 + ") AND (z = " + z + " OR z = " + z2 + ") AND y = " + y;
             String index = WorldUtils.getWidIndex("container");
             String order = "rowid DESC";
             if (entitySpawnRowId != null) {
                 table = ConfigHandler.prefix + "entity_container";
-                where = "entity_spawn_rowid = '" + entitySpawnRowId + "'";
+                where = "entity_spawn_rowid = " + entitySpawnRowId;
                 index = "";
                 order = "time DESC,rowid DESC";
 
@@ -103,10 +105,10 @@ public class ChestTransactionLookup {
                 }
             }
             else if (exact) {
-                where = "wid = '" + worldId + "' AND x = '" + l.getBlockX() + "' AND z = '" + l.getBlockZ() + "' AND y = '" + y + "'";
+                where = "wid = " + worldId + " AND x = " + l.getBlockX() + " AND z = " + l.getBlockZ() + " AND y = " + y;
             }
 
-            String query = "SELECT COUNT(*) as count FROM " + table + " " + index + "WHERE " + where + " LIMIT 0, 1";
+            String query = "SELECT COUNT(*) as count FROM " + table + " " + index + "WHERE " + where + " LIMIT 1 OFFSET 0";
             ResultSet results = statement.executeQuery(query);
 
             while (results.next()) {
@@ -116,7 +118,7 @@ public class ChestTransactionLookup {
 
             int totalPages = (int) Math.ceil(count / (limit + 0.0));
 
-            query = "SELECT time,user,wid,x,y,z,action,type,data,amount,metadata,rolled_back FROM " + table + " " + index + "WHERE " + where + " ORDER BY " + order + " LIMIT " + pageStart + ", " + limit;
+            query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,action,type,data,amount,metadata,rolled_back FROM " + table + " " + index + "WHERE " + where + " ORDER BY " + order + " LIMIT " + limit + " OFFSET " + pageStart;
             results = statement.executeQuery(query);
             while (results.next()) {
                 int resultUserId = results.getInt("user");
@@ -130,14 +132,10 @@ public class ChestTransactionLookup {
                 int resultX = results.getInt("x");
                 int resultY = results.getInt("y");
                 int resultZ = results.getInt("z");
-                byte[] resultMetadata = results.getBytes("metadata");
+                byte[] resultMetadata = DatabaseUtils.getBytes(results, "metadata");
                 String tooltip = ItemUtils.getEnchantments(resultMetadata, resultType, resultAmount);
 
-                if (ConfigHandler.playerIdCacheReversed.get(resultUserId) == null) {
-                    UserStatement.loadName(statement.getConnection(), resultUserId);
-                }
-
-                String resultUser = ConfigHandler.playerIdCacheReversed.get(resultUserId);
+                String resultUser = UserStatement.getName(statement.getConnection(), resultUserId);
                 String timeAgo = ChatUtils.getTimeSince(resultTime, time, true);
 
                 if (!found) {

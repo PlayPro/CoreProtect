@@ -166,8 +166,8 @@ public class StandardLookupThread implements Runnable {
                             break;
                         }
                         else if (actions.contains(LookupActions.USERNAME)) {
-                            if (ConfigHandler.uuidCache.get(check.toLowerCase(Locale.ROOT)) != null) {
-                                String uuid = ConfigHandler.uuidCache.get(check.toLowerCase(Locale.ROOT));
+                            String uuid = UserStatement.getUuid(connection, check);
+                            if (uuid != null) {
                                 uuidList.add(uuid);
                             }
                         }
@@ -366,7 +366,7 @@ public class StandardLookupThread implements Runnable {
                         else if (actions.contains(LookupActions.USERNAME)) {
                             for (String[] data : lookupList) {
                                 String time = data[0];
-                                String user = ConfigHandler.uuidCacheReversed.get(data[1]);
+                                String user = UserStatement.getNameByUuid(data[1]);
                                 String username = data[2];
                                 String timeago = ChatUtils.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
                                 Chat.sendComponent(player, timeago + " " + Color.WHITE + "- " + Phrase.build(Phrase.LOOKUP_USERNAME, Color.DARK_AQUA + user + Color.WHITE, Color.DARK_AQUA + username + Color.WHITE));
@@ -503,10 +503,7 @@ public class StandardLookupThread implements Runnable {
                                 }
                                 else if ((daction == LookupActions.ENTITY_KILL || daction == LookupActions.ENTITY_SPAWN) && !actions.contains(LookupActions.ITEM) && amount == -1) {
                                     if (daction == LookupActions.ENTITY_KILL && dtype == 0) {
-                                        if (ConfigHandler.playerIdCacheReversed.get(ddata) == null) {
-                                            UserStatement.loadName(connection, ddata);
-                                        }
-                                        dname = ConfigHandler.playerIdCacheReversed.get(ddata);
+                                        dname = UserStatement.getName(connection, ddata);
                                         isPlayer = true;
                                     }
                                     else {
@@ -651,7 +648,7 @@ public class StandardLookupThread implements Runnable {
         String rowsFound = Phrase.build(Phrase.LOOKUP_ROWS_FOUND, numberFormat.format(recordRows), recordRows == 1 ? Selector.FIRST : Selector.SECOND);
         Chat.sendMessage(player, Color.WHITE + "----- " + Color.DARK_AQUA + "CoreProtect" + Color.WHITE + " | " + Color.DARK_AQUA + rowsFound + Color.WHITE + " -----");
         for (LookupSummaryRow row : summaryRows) {
-            String userName = UserStatement.loadName(connection, row.getUserId());
+            String userName = UserStatement.getName(connection, row.getUserId());
             if (userName == null || userName.isEmpty()) {
                 userName = "unknown";
             }

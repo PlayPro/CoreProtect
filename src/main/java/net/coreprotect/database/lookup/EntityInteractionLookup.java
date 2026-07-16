@@ -52,7 +52,7 @@ public final class EntityInteractionLookup {
             int rowMax = page * limit;
             int pageStart = rowMax - limit;
             int count;
-            String where = "entity_spawn_rowid='" + entitySpawnRowId + "'";
+            String where = "entity_spawn_rowid=" + entitySpawnRowId;
 
             try (ResultSet results = statement.executeQuery("SELECT COUNT(*) AS count FROM " + ConfigHandler.prefix + "entity_interaction WHERE " + where)) {
                 count = results.next() ? results.getInt("count") : 0;
@@ -61,14 +61,11 @@ public final class EntityInteractionLookup {
             EntitySpawnRecord record = EntitySpawnStatement.loadLocationRecords(statement.getConnection(), Collections.singleton(entitySpawnRowId)).get(entitySpawnRowId);
             DisplayLocation displayLocation = resolveDisplayLocation(record, liveLocation);
             boolean found = false;
-            String query = "SELECT time,user,wid,x,y,z,type,action,rolled_back FROM " + ConfigHandler.prefix + "entity_interaction WHERE " + where + " ORDER BY time DESC,rowid DESC LIMIT " + pageStart + ", " + limit;
+            String query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,type,action,rolled_back FROM " + ConfigHandler.prefix + "entity_interaction WHERE " + where + " ORDER BY time DESC,rowid DESC LIMIT " + limit + " OFFSET " + pageStart;
             try (ResultSet results = statement.executeQuery(query)) {
                 while (results.next()) {
                     int userId = results.getInt("user");
-                    String resultUser = ConfigHandler.playerIdCacheReversed.get(userId);
-                    if (resultUser == null) {
-                        resultUser = UserStatement.loadName(statement.getConnection(), userId);
-                    }
+                    String resultUser = UserStatement.getName(statement.getConnection(), userId);
 
                     int originWorldId = results.getInt("wid");
                     int originX = results.getInt("x");

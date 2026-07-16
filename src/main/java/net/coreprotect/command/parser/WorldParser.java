@@ -45,7 +45,8 @@ public class WorldParser {
                     else if (inputProcessed.startsWith("#")) {
                         world_id = WorldUtils.matchWorld(inputProcessed);
                         if (world_id == -1 && !requireLoaded) {
-                            world_id = ConfigHandler.worlds.getOrDefault(argument.replaceFirst("#", ""), -1);
+                            String worldName = argument.replaceFirst("#", "");
+                            world_id = ConfigHandler.worlds.getOrDefault(worldName, -1);
                         }
                     }
                     next = 0;

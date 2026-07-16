@@ -27,10 +27,10 @@ class SignUpdateProcess {
             int userid = ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT));
             String query = "";
             if (action == 0) {
-                query = "SELECT color, color_secondary, data, waxed, face, line_1, line_2, line_3, line_4, line_5, line_6, line_7, line_8 FROM " + ConfigHandler.prefix + "sign WHERE user='" + userid + "' AND wid='" + wid + "' AND x='" + x + "' AND z='" + z + "' AND y='" + y + "' AND time < '" + time + "' ORDER BY rowid DESC LIMIT 0, 1";
+                query = "SELECT color, color_secondary, data, waxed, face, line_1, line_2, line_3, line_4, line_5, line_6, line_7, line_8 FROM " + ConfigHandler.prefix + "sign WHERE " + ConfigHandler.databaseType.getUserColumn() + "=" + userid + " AND wid=" + wid + " AND x=" + x + " AND z=" + z + " AND y=" + y + " AND time < " + time + " ORDER BY rowid DESC LIMIT 1 OFFSET 0";
             }
             else {
-                query = "SELECT color, color_secondary, data, waxed, face, line_1, line_2, line_3, line_4, line_5, line_6, line_7, line_8 FROM " + ConfigHandler.prefix + "sign WHERE user='" + userid + "' AND wid='" + wid + "' AND x='" + x + "' AND z='" + z + "' AND y='" + y + "' AND time >= '" + time + "' ORDER BY rowid ASC LIMIT 0, 1";
+                query = "SELECT color, color_secondary, data, waxed, face, line_1, line_2, line_3, line_4, line_5, line_6, line_7, line_8 FROM " + ConfigHandler.prefix + "sign WHERE " + ConfigHandler.databaseType.getUserColumn() + "=" + userid + " AND wid=" + wid + " AND x=" + x + " AND z=" + z + " AND y=" + y + " AND time >= " + time + " ORDER BY rowid ASC LIMIT 1 OFFSET 0";
             }
             SignStatement.getData(statement, block, query);
             BlockUtils.updateBlock(block);

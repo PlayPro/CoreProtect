@@ -26,6 +26,7 @@ import org.bukkit.entity.Player;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.consumer.process.Process;
 import net.coreprotect.database.Lookup;
@@ -87,6 +88,7 @@ public class Rollback extends RollbackUtil {
             }
 
             if (lookupList == null) {
+                sendAborted(user);
                 return null;
             }
 
@@ -188,6 +190,10 @@ public class Rollback extends RollbackUtil {
                     loadedEntityCandidates = loadedEntities.getLoadedCandidates();
                 }
                 itemList = Lookup.performLookupRaw(statement, user, checkUuids, checkUsers, itemRestrictList, itemExcludeList, excludeUserList, itemActionList, EntityActionFilter.DEFAULT, loadedEntityUuids, loadedEntityCandidates, location, radius, null, startTime, endTime, -1, -1, restrictWorld, lookup);
+                if (itemList == null) {
+                    sendAborted(user);
+                    return null;
+                }
 
                 Iterator<Object[]> itemIterator = itemList.iterator();
                 while (itemIterator.hasNext()) {
@@ -249,9 +255,7 @@ public class Rollback extends RollbackUtil {
                         chunkList.put(chunkKey, distance);
                     }
 
-                    if (ConfigHandler.playerIdCacheReversed.get(userId) == null) {
-                        UserStatement.loadName(statement.getConnection(), userId);
-                    }
+                    UserStatement.getName(statement.getConnection(), userId);
 
                     HashMap<Integer, HashMap<Long, ArrayList<Object[]>>> modifyList = dataList;
                     if (listC == 1) {
@@ -318,6 +322,11 @@ public class Rollback extends RollbackUtil {
             }
             // Perform update transaction(s) in consumer
             if (preview == 0) {
+                if (Consumer.isPersistenceHalted()) {
+                    entitySpawnContext.cancel();
+                    sendAborted(user);
+                    return null;
+                }
                 if (actionList.contains(LookupActions.ITEM)) {
                     List<Object[]> blockList = new ArrayList<>();
                     List<Object[]> inventoryList = new ArrayList<>();
@@ -450,7 +459,7 @@ public class Rollback extends RollbackUtil {
         Chat.console(message + " (rowid: " + rowIds + ").");
     }
 
-    private static void sendAborted(CommandSender user) {
+    protected static void sendAborted(CommandSender user) {
         if (user == null) {
             Chat.console(Phrase.build(Phrase.ROLLBACK_ABORTED));
         }
@@ -869,6 +878,9 @@ public class Rollback extends RollbackUtil {
     }
 
     private static boolean processChunkWorld(int chunkX, int chunkZ, long chunkKey, int worldId, HashMap<Long, ArrayList<Object[]>> blockList, HashMap<Long, ArrayList<Object[]>> itemList, int rollbackType, int preview, String userString, CommandSender user, World world, boolean inventoryRollback, RollbackBlockDataCache blockDataCache, EntitySpawnRollbackHandler.Context entitySpawnContext) {
+        if (preview == 0 && Consumer.isPersistenceHalted()) {
+            return false;
+        }
         ArrayList<Object[]> blockData = blockList != null ? blockList.getOrDefault(chunkKey, new ArrayList<>()) : new ArrayList<>();
         ArrayList<Object[]> itemData = itemList != null ? itemList.getOrDefault(chunkKey, new ArrayList<>()) : new ArrayList<>();
         List<EntitySpawnRollbackHandler.Work> entitySpawnWork = entitySpawnContext.getWork(worldId, chunkKey);

@@ -60,7 +60,7 @@ final class LookupFilter {
         query.append("WHERE ").append(qualifier).append("time > ?");
 
         if (userId != null) {
-            query.append(" AND ").append(qualifier).append("user = ?");
+            query.append(" AND ").append(qualifier).append(ConfigHandler.databaseType.getUserColumn()).append(" = ?");
         }
 
         if (location != null) {
@@ -79,7 +79,7 @@ final class LookupFilter {
         String entity = "current_spawn_rows.";
         query.append("WHERE ").append(transaction).append("time > ?");
         if (userId != null) {
-            query.append(" AND ").append(transaction).append("user = ?");
+            query.append(" AND ").append(transaction).append(ConfigHandler.databaseType.getUserColumn()).append(" = ?");
         }
         if (location == null) {
             return;
@@ -106,7 +106,7 @@ final class LookupFilter {
 
     void appendLimit(StringBuilder query) {
         if (limitOffset >= 0 && limitCount >= 0) {
-            query.append(" LIMIT ").append(limitOffset).append(", ").append(limitCount);
+            query.append(" LIMIT ").append(limitCount).append(" OFFSET ").append(limitOffset);
         }
     }
 

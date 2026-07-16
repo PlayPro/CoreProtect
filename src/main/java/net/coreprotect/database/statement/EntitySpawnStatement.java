@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
@@ -20,9 +19,11 @@ import java.util.UUID;
 import org.bukkit.Location;
 
 import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.ConsumerEntitySpawnUpdates;
+import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.Database;
-import net.coreprotect.database.rollback.EntitySpawnRollbackHandler;
+import net.coreprotect.database.EntitySpawnUpdateCoordinator;
+import net.coreprotect.utility.DatabaseUtils;
 import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.model.entity.EntityContainerRollbackUpdate;
 import net.coreprotect.model.entity.EntityInteractionOrigin;
@@ -30,7 +31,6 @@ import net.coreprotect.model.entity.EntitySpawnData;
 import net.coreprotect.model.entity.EntitySpawnIdentity;
 import net.coreprotect.model.entity.EntitySpawnRecord;
 import net.coreprotect.utility.ErrorReporter;
-import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.WorldUtils;
 
 public final class EntitySpawnStatement {
@@ -41,101 +41,22 @@ public final class EntitySpawnStatement {
         throw new IllegalStateException("Database class");
     }
 
-    public static int insert(PreparedStatement statement, int time, EntitySpawnData data, Location loggedLocation) throws Exception {
+    public static int insert(ConsumerWriteBatch batch, int time, EntitySpawnData data, Location loggedLocation) throws Exception {
         Location currentLocation = data.getLocation();
-        statement.setInt(1, time);
-        statement.setString(2, data.getUuid().toString());
-        statement.setInt(3, WorldUtils.getWorldId(loggedLocation.getWorld().getName()));
-        statement.setInt(4, WorldUtils.getWorldId(currentLocation.getWorld().getName()));
-        statement.setDouble(5, loggedLocation.getX());
-        statement.setDouble(6, loggedLocation.getY());
-        statement.setDouble(7, loggedLocation.getZ());
-        statement.setDouble(8, currentLocation.getX());
-        statement.setDouble(9, currentLocation.getY());
-        statement.setDouble(10, currentLocation.getZ());
-        statement.setFloat(11, currentLocation.getYaw());
-        statement.setFloat(12, currentLocation.getPitch());
-        statement.setNull(13, Types.BLOB);
-        statement.setInt(14, 0);
-        if (Database.hasReturningKeys()) {
-            try (ResultSet resultSet = statement.executeQuery()) {
-                if (!resultSet.next()) {
-                    throw new SQLException("Entity spawn tracking insert did not return a row id");
-                }
-                return resultSet.getInt(1);
-            }
-        }
-
-        if (statement.executeUpdate() != 1) {
-            throw new SQLException("Entity spawn tracking insert did not insert one row");
-        }
-        try (ResultSet resultSet = statement.getGeneratedKeys()) {
-            if (!resultSet.next()) {
-                throw new SQLException("Entity spawn tracking insert did not generate a row id");
-            }
-            return resultSet.getInt(1);
-        }
+        return batch.addEntitySpawn(time, null, null, data.getUuid(), WorldUtils.getWorldId(loggedLocation.getWorld().getName()), WorldUtils.getWorldId(currentLocation.getWorld().getName()), loggedLocation.getX(), loggedLocation.getY(), loggedLocation.getZ(), currentLocation.getX(), currentLocation.getY(), currentLocation.getZ(), currentLocation.getYaw(), currentLocation.getPitch(), null, 0);
     }
 
-    public static EntitySpawnIdentity insertIdentity(PreparedStatement statement, int time, UUID uuid, EntityInteractionOrigin origin, Location currentLocation) throws Exception {
-        statement.setInt(1, time);
-        statement.setString(2, uuid.toString());
-        statement.setInt(3, origin.getWorldId());
-        statement.setInt(4, WorldUtils.getWorldId(currentLocation.getWorld().getName()));
-        statement.setDouble(5, origin.getX());
-        statement.setDouble(6, origin.getY());
-        statement.setDouble(7, origin.getZ());
-        statement.setDouble(8, currentLocation.getX());
-        statement.setDouble(9, currentLocation.getY());
-        statement.setDouble(10, currentLocation.getZ());
-        statement.setFloat(11, currentLocation.getYaw());
-        statement.setFloat(12, currentLocation.getPitch());
-        statement.setNull(13, Types.BLOB);
-        statement.setInt(14, 0);
-
-        int rowId;
-        if (Database.hasReturningKeys()) {
-            try (ResultSet resultSet = statement.executeQuery()) {
-                if (!resultSet.next()) {
-                    throw new SQLException("Entity identity insert did not return a row id");
-                }
-                rowId = resultSet.getInt(1);
-            }
-        }
-        else {
-            if (statement.executeUpdate() != 1) {
-                throw new SQLException("Entity identity insert did not insert one row");
-            }
-            try (ResultSet resultSet = statement.getGeneratedKeys()) {
-                if (!resultSet.next()) {
-                    throw new SQLException("Entity identity insert did not generate a row id");
-                }
-                rowId = resultSet.getInt(1);
-            }
-        }
+    public static EntitySpawnIdentity insertIdentity(ConsumerWriteBatch batch, int time, UUID uuid, EntityInteractionOrigin origin, Location currentLocation) throws Exception {
+        int rowId = batch.addEntitySpawn(time, null, null, uuid, origin.getWorldId(), WorldUtils.getWorldId(currentLocation.getWorld().getName()), origin.getX(), origin.getY(), origin.getZ(), currentLocation.getX(), currentLocation.getY(), currentLocation.getZ(), currentLocation.getYaw(), currentLocation.getPitch(), null, 0);
         return new EntitySpawnIdentity(rowId, uuid, origin.getWorldId(), origin.getX(), origin.getY(), origin.getZ());
     }
 
-    public static PreparedStatement prepareBlockLink(Connection connection) throws SQLException {
-        return connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET block_rowid=? WHERE rowid=? AND block_rowid IS NULL");
+    public static void linkBlock(ConsumerWriteBatch batch, int trackingRowId, long blockRowId) throws Exception {
+        batch.linkEntitySpawnBlock(trackingRowId, blockRowId);
     }
 
-    public static void linkBlock(PreparedStatement statement, int trackingRowId, long blockRowId) throws SQLException {
-        statement.setLong(1, blockRowId);
-        statement.setInt(2, trackingRowId);
-        if (statement.executeUpdate() != 1) {
-            throw new SQLException("Entity spawn tracking row did not link to its block row");
-        }
-    }
-
-    public static PreparedStatement prepareKillLink(Connection connection) throws SQLException {
-        return connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET kill_rowid=? WHERE uuid=?");
-    }
-
-    public static void addKillLink(PreparedStatement statement, String uuid, int killRowId) throws SQLException {
-        statement.setInt(1, killRowId);
-        statement.setString(2, uuid);
-        statement.addBatch();
+    public static void addKillLink(ConsumerWriteBatch batch, String uuid, int killRowId) throws Exception {
+        batch.linkEntitySpawnKill(UUID.fromString(uuid), killRowId);
     }
 
     public static Map<Integer, EntitySpawnRecord> loadRecords(Connection connection, Collection<Integer> rowIds) throws SQLException {
@@ -271,8 +192,8 @@ public final class EntitySpawnStatement {
                     int killRowId = resultSet.getInt("kill_rowid");
                     List<Object> state = null;
                     if (includeState) {
-                        byte[] serializedState = resultSet.getBytes("data");
-                        state = serializedState == null ? null : EntityStatement.deserializeData(serializedState);
+                        byte[] serializedState = DatabaseUtils.getBytes(resultSet, "data");
+                        state = serializedState == null || serializedState.length == 0 ? null : EntityStatement.deserializeData(serializedState);
                         if (state != null && state.size() < 4) {
                             state = null;
                         }
@@ -312,7 +233,7 @@ public final class EntitySpawnStatement {
         }
     }
 
-    public static final class Updates implements AutoCloseable {
+    public static final class Updates implements ConsumerEntitySpawnUpdates {
 
         private final PreparedStatement location;
         private final PreparedStatement removed;
@@ -329,18 +250,7 @@ public final class EntitySpawnStatement {
         private final PreparedStatement trackingKillStateMatches;
         private final PreparedStatement blockStateMatches;
         private final Statement transitionStatement;
-        private final Map<UUID, LocationConfirmation> locationConfirmations = new LinkedHashMap<>();
-        private final Map<UUID, Long> verificationConfirmations = new LinkedHashMap<>();
-        private final Set<UUID> missingRows = new HashSet<>();
-        private final List<EntitySpawnData> lifecycleData = new ArrayList<>();
-        private final Set<EntitySpawnData> appliedLifecycleData = new HashSet<>();
-        private final Set<UUID> deferredLifecycleUuids = new HashSet<>();
-        private final Map<Integer, EntitySpawnData> transitionData = new LinkedHashMap<>();
-        private final Set<Integer> transitionRows = new HashSet<>();
-        private final Set<Integer> permanentTransitionRows = new HashSet<>();
-        private final Map<Integer, EntityContainerRollbackUpdate> combinedTransitionData = new LinkedHashMap<>();
-        private final Set<Integer> combinedTransitionRows = new HashSet<>();
-        private final Set<Integer> permanentCombinedTransitionRows = new HashSet<>();
+        private final EntitySpawnUpdateCoordinator coordinator = new EntitySpawnUpdateCoordinator();
 
         public Updates(Connection connection) throws Exception {
             location = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=? WHERE uuid=? AND removed=0");
@@ -361,46 +271,27 @@ public final class EntitySpawnStatement {
         }
 
         public void apply(EntitySpawnData data) {
-            boolean lifecycleUpdate = data.getOperation() == EntitySpawnData.Operation.VERIFY || data.getOperation() == EntitySpawnData.Operation.LOCATION || data.getOperation() == EntitySpawnData.Operation.REMOVED || data.getOperation() == EntitySpawnData.Operation.REVIVED;
-            if (lifecycleUpdate && dependsOnDeferredLifecycle(data)) {
-                deferLifecycle(data);
-                try {
-                    Queue.queueEntitySpawnUpdate(data);
-                }
-                catch (Exception e) {
-                    lifecycleData.add(data);
-                    ErrorReporter.report(e);
-                }
+            if (!coordinator.begin(data)) {
                 return;
-            }
-            if (lifecycleUpdate) {
-                lifecycleData.add(data);
-            }
-            if (data.getOperation() == EntitySpawnData.Operation.ROLLBACK || data.getOperation() == EntitySpawnData.Operation.RESTORE || data.getOperation() == EntitySpawnData.Operation.KILL_ROLLBACK || data.getOperation() == EntitySpawnData.Operation.KILL_RESTORE || data.getOperation() == EntitySpawnData.Operation.COMPOSITE_ROLLBACK || data.getOperation() == EntitySpawnData.Operation.COMPOSITE_RESTORE || data.getOperation() == EntitySpawnData.Operation.CLAIM_RELEASE) {
-                transitionData.put(data.getTrackingRowId(), data);
             }
             try {
                 switch (data.getOperation()) {
                     case VERIFY:
                         if (exists(data.getUuid())) {
-                            missingRows.remove(data.getUuid());
-                            verificationConfirmations.put(data.getUuid(), data.getVerificationEpoch());
+                            coordinator.verificationFound(data);
                         }
                         else {
-                            verificationConfirmations.remove(data.getUuid());
-                            missingRows.add(data.getUuid());
+                            coordinator.verificationMissing(data.getUuid());
                         }
                         break;
                     case LOCATION:
                         setLocation(location, data.getLocation(), 1);
                         location.setString(7, data.getUuid().toString());
                         if (location.executeUpdate() > 0 || exists(data.getUuid())) {
-                            missingRows.remove(data.getUuid());
-                            locationConfirmations.put(data.getUuid(), new LocationConfirmation(data));
+                            coordinator.locationFound(data);
                         }
                         else {
-                            locationConfirmations.remove(data.getUuid());
-                            missingRows.add(data.getUuid());
+                            coordinator.locationMissing(data.getUuid());
                         }
                         break;
                     case REMOVED:
@@ -413,10 +304,10 @@ public final class EntitySpawnStatement {
                         setLocation(revived, data.getLocation(), 2);
                         revived.setString(8, data.getPreviousUuid().toString());
                         if (revived.executeUpdate() > 0 || exists(data.getUuid())) {
-                            missingRows.remove(data.getUuid());
+                            coordinator.entityFound(data.getUuid());
                         }
                         else {
-                            missingRows.add(data.getUuid());
+                            coordinator.entityMissing(data.getUuid());
                         }
                         break;
                     case ROLLBACK:
@@ -441,55 +332,45 @@ public final class EntitySpawnStatement {
                         if (!trackingRowExists(data.getTrackingRowId())) {
                             throw new PermanentTransitionException("Missing entity spawn tracking row for claim release");
                         }
-                        transitionRows.add(data.getTrackingRowId());
+                        coordinator.transitionApplied(data.getTrackingRowId());
                         break;
                     default:
                         break;
                 }
-                if (lifecycleUpdate) {
-                    appliedLifecycleData.add(data);
-                }
+                coordinator.applied(data);
             }
             catch (PermanentTransitionException e) {
-                permanentTransitionRows.add(data.getTrackingRowId());
+                if (coordinator.permanentTransitionFailed(data, e)) {
+                    Database.acknowledgeRollbackOnlyTransaction();
+                }
                 ErrorReporter.report(e);
             }
             catch (Exception e) {
-                if (lifecycleUpdate || introducesTrackedUuid(data)) {
-                    deferLifecycle(data);
-                }
-                ErrorReporter.report(e);
+                coordinator.failed(data);
+                Database.handleWriteFailure(e);
             }
         }
 
         public void applyCombined(EntityContainerRollbackUpdate update, Database.SavepointOperation rowUpdate) {
             EntitySpawnData data = update.getTransition();
             int trackingRowId = data.getTrackingRowId();
-            combinedTransitionData.put(trackingRowId, update);
+            coordinator.beginCombined(update);
             try {
                 Database.executeSavepoint(transitionStatement, "entity_container_transition", () -> {
                     applyCombinedTransition(data);
                     rowUpdate.execute();
                 });
-                transitionRows.remove(trackingRowId);
-                combinedTransitionRows.add(trackingRowId);
+                coordinator.combinedApplied(trackingRowId);
             }
             catch (PermanentTransitionException e) {
-                transitionRows.remove(trackingRowId);
-                if (e.getSuppressed().length == 0) {
-                    permanentCombinedTransitionRows.add(trackingRowId);
-                }
-                else if (introducesTrackedUuid(data)) {
-                    deferLifecycle(data);
+                if (coordinator.permanentCombinedFailed(data, e)) {
+                    Database.acknowledgeRollbackOnlyTransaction();
                 }
                 ErrorReporter.report(e);
             }
             catch (Exception e) {
-                transitionRows.remove(trackingRowId);
-                if (introducesTrackedUuid(data)) {
-                    deferLifecycle(data);
-                }
-                ErrorReporter.report(e);
+                coordinator.combinedFailed(data);
+                Database.handleWriteFailure(e);
             }
         }
 
@@ -517,28 +398,11 @@ public final class EntitySpawnStatement {
                     if (!trackingRowExists(data.getTrackingRowId())) {
                         throw new PermanentTransitionException("Missing entity spawn tracking row for claim release");
                     }
-                    transitionRows.add(data.getTrackingRowId());
+                    coordinator.transitionApplied(data.getTrackingRowId());
                     break;
                 default:
                     throw new PermanentTransitionException("Unsupported combined entity spawn transition " + data.getOperation());
             }
-        }
-
-        private boolean dependsOnDeferredLifecycle(EntitySpawnData data) {
-            return deferredLifecycleUuids.contains(data.getUuid()) || (data.getOperation() == EntitySpawnData.Operation.REVIVED && data.getPreviousUuid() != null && deferredLifecycleUuids.contains(data.getPreviousUuid()));
-        }
-
-        private void deferLifecycle(EntitySpawnData data) {
-            if (data.getUuid() != null) {
-                deferredLifecycleUuids.add(data.getUuid());
-            }
-            if (data.getOperation() == EntitySpawnData.Operation.REVIVED && data.getPreviousUuid() != null) {
-                deferredLifecycleUuids.add(data.getPreviousUuid());
-            }
-        }
-
-        private boolean introducesTrackedUuid(EntitySpawnData data) {
-            return data.getOperation() == EntitySpawnData.Operation.RESTORE || data.getOperation() == EntitySpawnData.Operation.KILL_ROLLBACK;
         }
 
         private void applyRollback(EntitySpawnData data) throws Exception {
@@ -551,7 +415,7 @@ public final class EntitySpawnStatement {
                 requireTrackingUpdate(rollback.executeUpdate(), data.getTrackingRowId(), "entity spawn tracking rollback");
                 updateBlockState(data.getBlockRowId(), data.getRolledBack(), LookupActions.ENTITY_SPAWN);
             });
-            transitionRows.add(data.getTrackingRowId());
+            coordinator.transitionApplied(data.getTrackingRowId());
         }
 
         private void applyRestore(EntitySpawnData data) throws Exception {
@@ -562,8 +426,8 @@ public final class EntitySpawnStatement {
                 requireTrackingUpdate(restore.executeUpdate(), data.getTrackingRowId(), "entity spawn tracking restore");
                 updateBlockState(data.getBlockRowId(), data.getRolledBack(), LookupActions.ENTITY_SPAWN);
             });
-            missingRows.remove(data.getUuid());
-            transitionRows.add(data.getTrackingRowId());
+            coordinator.entityFound(data.getUuid());
+            coordinator.transitionApplied(data.getTrackingRowId());
         }
 
         private void applyKillRollback(EntitySpawnData data) throws Exception {
@@ -575,8 +439,8 @@ public final class EntitySpawnStatement {
                 requireTrackingKillUpdate(killRollback.executeUpdate(), data.getTrackingRowId(), data.getKillRowId(), false, data.getUuid(), "tracked entity kill rollback");
                 updateBlockState(data.getBlockRowId(), data.getRolledBack(), LookupActions.ENTITY_KILL);
             });
-            missingRows.remove(data.getUuid());
-            transitionRows.add(data.getTrackingRowId());
+            coordinator.entityFound(data.getUuid());
+            coordinator.transitionApplied(data.getTrackingRowId());
         }
 
         private void applyKillRestore(EntitySpawnData data) throws Exception {
@@ -587,7 +451,7 @@ public final class EntitySpawnStatement {
                 requireTrackingKillUpdate(killRestore.executeUpdate(), data.getTrackingRowId(), data.getKillRowId(), true, null, "tracked entity kill restore");
                 updateBlockState(data.getBlockRowId(), data.getRolledBack(), LookupActions.ENTITY_KILL);
             });
-            transitionRows.add(data.getTrackingRowId());
+            coordinator.transitionApplied(data.getTrackingRowId());
         }
 
         private void applyCompositeRestore(EntitySpawnData data) throws Exception {
@@ -598,7 +462,7 @@ public final class EntitySpawnStatement {
                 updateBlockState(data.getBlockRowId(), 0, LookupActions.ENTITY_SPAWN);
                 updateBlockState(data.getPairedBlockRowId(), 0, LookupActions.ENTITY_KILL);
             });
-            transitionRows.add(data.getTrackingRowId());
+            coordinator.transitionApplied(data.getTrackingRowId());
         }
 
         private void applyCompositeRollback(EntitySpawnData data) throws Exception {
@@ -611,7 +475,7 @@ public final class EntitySpawnStatement {
                 updateBlockState(data.getBlockRowId(), 1, LookupActions.ENTITY_SPAWN);
                 updateBlockState(data.getPairedBlockRowId(), 1, LookupActions.ENTITY_KILL);
             });
-            transitionRows.add(data.getTrackingRowId());
+            coordinator.transitionApplied(data.getTrackingRowId());
         }
 
         private void updateBlockState(long blockRowId, int rolledBack, int action) throws Exception {
@@ -690,169 +554,17 @@ public final class EntitySpawnStatement {
         }
 
         public void afterCommit(boolean committed) {
-            List<EntitySpawnData> lifecycleRetries = new ArrayList<>();
-            List<EntityContainerRollbackUpdate> combinedRetries = new ArrayList<>();
-            Set<UUID> deferredUuids = new HashSet<>();
-            for (EntitySpawnData data : lifecycleData) {
-                if (!committed || !appliedLifecycleData.contains(data)) {
-                    lifecycleRetries.add(data);
-                    deferLifecycle(data);
-                    if (data.getUuid() != null) {
-                        deferredUuids.add(data.getUuid());
-                    }
-                    if (data.getOperation() == EntitySpawnData.Operation.REVIVED && data.getPreviousUuid() != null) {
-                        deferredUuids.add(data.getPreviousUuid());
-                    }
-                }
-            }
-            for (Map.Entry<Integer, EntitySpawnData> transition : transitionData.entrySet()) {
-                EntitySpawnData data = transition.getValue();
-                if (!permanentTransitionRows.contains(transition.getKey()) && (data.getOperation() == EntitySpawnData.Operation.RESTORE || data.getOperation() == EntitySpawnData.Operation.KILL_ROLLBACK) && (!committed || !transitionRows.contains(transition.getKey()))) {
-                    deferLifecycle(data);
-                    deferredUuids.add(data.getUuid());
-                }
-            }
-            for (Map.Entry<Integer, EntityContainerRollbackUpdate> transition : combinedTransitionData.entrySet()) {
-                EntitySpawnData data = transition.getValue().getTransition();
-                if (!permanentCombinedTransitionRows.contains(transition.getKey()) && introducesTrackedUuid(data) && (!committed || !combinedTransitionRows.contains(transition.getKey()))) {
-                    deferLifecycle(data);
-                    deferredUuids.add(data.getUuid());
-                }
-            }
+            coordinator.afterCommit(committed);
+        }
 
-            try {
-                if (committed) {
-                    for (LocationConfirmation confirmation : locationConfirmations.values()) {
-                        if (deferredUuids.contains(confirmation.uuid)) {
-                            continue;
-                        }
-                        try {
-                            EntitySpawnTracking.confirmDatabaseLocation(confirmation.uuid, confirmation.location, confirmation.epoch);
-                        }
-                        catch (Exception e) {
-                            ErrorReporter.report(e);
-                        }
-                    }
-                    for (Map.Entry<UUID, Long> confirmation : verificationConfirmations.entrySet()) {
-                        if (deferredUuids.contains(confirmation.getKey())) {
-                            continue;
-                        }
-                        try {
-                            EntitySpawnTracking.confirmDatabaseVerification(confirmation.getKey(), confirmation.getValue());
-                        }
-                        catch (Exception e) {
-                            ErrorReporter.report(e);
-                        }
-                    }
-                    for (UUID uuid : missingRows) {
-                        if (deferredUuids.contains(uuid)) {
-                            continue;
-                        }
-                        try {
-                            EntitySpawnTracking.clearTracking(uuid);
-                        }
-                        catch (Exception e) {
-                            ErrorReporter.report(e);
-                        }
-                    }
-                }
-            }
-            finally {
-                List<EntitySpawnData> retries = new ArrayList<>();
-                List<EntitySpawnData> transitionRetries = new ArrayList<>();
-                for (Map.Entry<Integer, EntitySpawnData> transition : transitionData.entrySet()) {
-                    int trackingRowId = transition.getKey();
-                    if (permanentTransitionRows.contains(trackingRowId)) {
-                        EntitySpawnData data = transition.getValue();
-                        if (data.getUuid() != null) {
-                            try {
-                                EntitySpawnTracking.clearTracking(data.getUuid());
-                            }
-                            catch (Exception e) {
-                                ErrorReporter.report(e);
-                            }
-                        }
-                        EntitySpawnRollbackHandler.releaseTrackingRow(trackingRowId);
-                    }
-                    else if (committed && transitionRows.contains(trackingRowId)) {
-                        EntitySpawnRollbackHandler.releaseTrackingRow(trackingRowId);
-                    }
-                    else {
-                        EntitySpawnData data = transition.getValue();
-                        retries.add(data);
-                        transitionRetries.add(data);
-                    }
-                }
-                for (Map.Entry<Integer, EntityContainerRollbackUpdate> transition : combinedTransitionData.entrySet()) {
-                    int trackingRowId = transition.getKey();
-                    EntityContainerRollbackUpdate update = transition.getValue();
-                    EntitySpawnData data = update.getTransition();
-                    if (permanentCombinedTransitionRows.contains(trackingRowId)) {
-                        if (data.getUuid() != null) {
-                            try {
-                                EntitySpawnTracking.clearTracking(data.getUuid());
-                            }
-                            catch (Exception e) {
-                                ErrorReporter.report(e);
-                            }
-                        }
-                        EntitySpawnRollbackHandler.releaseTrackingRow(trackingRowId);
-                    }
-                    else if (committed && combinedTransitionRows.contains(trackingRowId)) {
-                        EntitySpawnRollbackHandler.releaseTrackingRow(trackingRowId);
-                    }
-                    else {
-                        combinedRetries.add(update);
-                    }
-                }
-                retries.addAll(lifecycleRetries);
-                try {
-                    Queue.queueEntityRetriesFirst(combinedRetries, retries);
-                }
-                catch (Exception e) {
-                    for (EntitySpawnData data : transitionRetries) {
-                        try {
-                            EntitySpawnRollbackHandler.releaseTrackingRow(data.getTrackingRowId());
-                            if (data.getUuid() != null) {
-                                EntitySpawnTracking.clearTracking(data.getUuid());
-                            }
-                        }
-                        catch (Exception cleanupException) {
-                            e.addSuppressed(cleanupException);
-                        }
-                    }
-                    for (EntityContainerRollbackUpdate update : combinedRetries) {
-                        EntitySpawnData data = update.getTransition();
-                        try {
-                            EntitySpawnRollbackHandler.releaseTrackingRow(data.getTrackingRowId());
-                            if (data.getUuid() != null) {
-                                EntitySpawnTracking.clearTracking(data.getUuid());
-                            }
-                        }
-                        catch (Exception cleanupException) {
-                            e.addSuppressed(cleanupException);
-                        }
-                    }
-                    ErrorReporter.report(e);
-                }
-                locationConfirmations.clear();
-                verificationConfirmations.clear();
-                missingRows.clear();
-                lifecycleData.clear();
-                appliedLifecycleData.clear();
-                transitionData.clear();
-                transitionRows.clear();
-                permanentTransitionRows.clear();
-                combinedTransitionData.clear();
-                combinedTransitionRows.clear();
-                permanentCombinedTransitionRows.clear();
-            }
+        public void afterRetain() {
+            coordinator.afterRetain();
         }
 
         @Override
         public void close() throws Exception {
             afterCommit(false);
-            deferredLifecycleUuids.clear();
+            coordinator.clearDeferred();
             location.close();
             removed.close();
             revived.close();
@@ -868,19 +580,6 @@ public final class EntitySpawnStatement {
             trackingKillStateMatches.close();
             blockStateMatches.close();
             transitionStatement.close();
-        }
-
-        private static final class LocationConfirmation {
-
-            private final UUID uuid;
-            private final Location location;
-            private final long epoch;
-
-            private LocationConfirmation(EntitySpawnData data) {
-                uuid = data.getUuid();
-                location = data.getLocation();
-                epoch = data.getVerificationEpoch();
-            }
         }
 
         private static final class PermanentTransitionException extends SQLException {

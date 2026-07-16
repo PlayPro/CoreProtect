@@ -21,7 +21,7 @@ A list of all language codes that can be used with CoreProtect.
 Log your own block changes, perform lookups, rollbacks, restores, and more.  
 
 [**Database Migration**](/database-migration/)  
-Migrate your CoreProtect database between SQLite and MySQL.  
+Migrate your CoreProtect database between supported backends.
 
 [**Automatic Purging**](/auto-purge/)  
 Automatically remove old CoreProtect data on a daily schedule.  

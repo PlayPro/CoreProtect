@@ -2,7 +2,7 @@
 
 Automatic purging removes old CoreProtect data on a daily schedule, helping keep database growth under control without requiring manual `/co purge` runs.
 
-> **Note:** Automatic purging is not enabled by default. This feature is exclusive to CoreProtect 24.0+ [Patreon builds](http://patreon.com/coreprotect).
+> **Note:** Automatic purging is not enabled by default. This feature is exclusive to CoreProtect 24.0+ [Patreon builds](https://patreon.com/coreprotect).
 
 ## Configuration
 
@@ -29,9 +29,9 @@ When automatic purging is enabled, CoreProtect logs the next scheduled run when 
 
 ## How It Works
 
-Automatic purging runs in the background and removes old data incrementally in small chunks, with short pauses between database work. The server can continue to be used normally while it runs.
+Automatic purging runs in the background. SQLite, MySQL, and DuckDB remove old rows incrementally in small chunks with short pauses between database work. ClickHouse uses its columnar retention path, dropping fully covered monthly partitions for an unfiltered time purge and synchronously removing rows from any partially covered partition.
 
-Automatic purging uses the same CoreProtect data tables as manual purging, but it does not rebuild the SQLite database or optimize MySQL tables. It deletes old rows in place, which helps maintain the current database size over time but may not immediately reduce the database file size or table size on disk.
+Automatic purging does not rebuild SQLite, optimize MySQL, or run a ClickHouse `OPTIMIZE FINAL`. DuckDB performs a checkpoint after cleanup. Deleting rows helps control future growth, but it may not immediately reduce the database file or table size on disk.
 
 Only one automatic purge can run at a time. If the server shuts down, a manual purge starts, a database migration or conversion starts, or the consumer is manually paused, the automatic purge stops safely and can continue during the next scheduled run.
 
@@ -58,6 +58,8 @@ For MySQL, add `#optimize` if you want to reclaim disk space during the initial 
 ```
 
 This lets the manual purge reduce the existing database size, while automatic purging helps keep the database from growing beyond the configured retention period afterward.
+
+ClickHouse normally reclaims complete old partitions without `#optimize`. A manual ClickHouse purge accepts `#optimize`, but it runs the expensive `OPTIMIZE TABLE ... FINAL` operation and is generally unnecessary. DuckDB checkpoints automatically after a manual or automatic purge; `#optimize` has no additional effect for DuckDB.
 
 ## Status
 

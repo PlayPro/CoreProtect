@@ -1,12 +1,12 @@
 package net.coreprotect.database.statement;
 
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Skull;
 
+import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.Database;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.utility.ErrorReporter;
@@ -17,23 +17,15 @@ public class SkullStatement {
         throw new IllegalStateException("Database class");
     }
 
-    public static ResultSet insert(PreparedStatement preparedStmt, int time, String owner, String skin) {
+    public static int insert(ConsumerWriteBatch batch, int time, String owner, String skin) {
         try {
-            preparedStmt.setInt(1, time);
-            preparedStmt.setString(2, owner);
-            preparedStmt.setString(3, skin);
-            if (Database.hasReturningKeys()) {
-                return preparedStmt.executeQuery();
-            }
-            else {
-                preparedStmt.executeUpdate();
-            }
+            return batch.addSkull(time, owner, skin);
         }
         catch (Exception e) {
-            ErrorReporter.report(e);
+            Database.handleWriteFailure(e);
         }
 
-        return null;
+        return 0;
     }
 
     public static void getData(Statement statement, BlockState block, String query) {

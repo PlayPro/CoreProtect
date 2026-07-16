@@ -29,10 +29,7 @@ public class LookupConverter {
                     if (i == 2) {
                         if (map[i] instanceof Integer) {
                             int userId = (Integer) map[i];
-                            if (ConfigHandler.playerIdCacheReversed.get(userId) == null) {
-                                UserStatement.loadName(statement.getConnection(), userId);
-                            }
-                            String userResult = ConfigHandler.playerIdCacheReversed.get(userId);
+                            String userResult = UserStatement.getName(statement.getConnection(), userId);
                             results[newId] = userResult;
                         }
                         else {

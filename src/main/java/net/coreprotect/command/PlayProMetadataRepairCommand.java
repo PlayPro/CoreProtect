@@ -72,9 +72,8 @@ public final class PlayProMetadataRepairCommand {
         repairThread.setName("CoreProtect PlayPro Metadata Repair");
         repairThread.setUncaughtExceptionHandler((thread, throwable) -> {
             CoreProtect.getInstance().getSLF4JLogger().error("Unhandled PlayPro metadata repair failure", throwable);
-            ConfigHandler.pauseConsumer = false;
             ConfigHandler.migrationRunning = false;
-            error(sender, "Repair failed unexpectedly. See console for details.");
+            error(sender, "Repair failed unexpectedly. Logging remains paused; keep the server in maintenance and see console for details.");
         });
         repairThread.start();
         ok(sender, "Started PlayPro item metadata repair in " + options.database + " using prefix " + options.prefix + ".");
@@ -100,12 +99,10 @@ public final class PlayProMetadataRepairCommand {
         catch (Exception e) {
             CoreProtect.getInstance().getSLF4JLogger().error("PlayPro metadata repair failed", e);
             error(sender, "Repair failed: " + e.getMessage());
+            error(sender, "Logging remains paused. Keep the server in maintenance until repair succeeds.");
         }
         finally {
             ConfigHandler.migrationRunning = false;
-            if (!success) {
-                ConfigHandler.pauseConsumer = false;
-            }
         }
     }
 

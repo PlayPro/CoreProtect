@@ -85,9 +85,8 @@ public final class PlayProMigrationCommand {
         migrationThread.setName("CoreProtect PlayPro Migration");
         migrationThread.setUncaughtExceptionHandler((thread, throwable) -> {
             CoreProtect.getInstance().getSLF4JLogger().error("Unhandled PlayPro migration failure", throwable);
-            ConfigHandler.pauseConsumer = false;
             ConfigHandler.migrationRunning = false;
-            error(sender, "Migration failed unexpectedly. See console for details.");
+            error(sender, "Migration failed unexpectedly. Logging remains paused; keep the server in maintenance and see console for details.");
         });
         migrationThread.start();
         ok(sender, "Started in-place PlayPro migration in " + options.database + ". Old tables will be archived as " + options.archivePrefix + "*.");
@@ -122,12 +121,10 @@ public final class PlayProMigrationCommand {
         catch (Exception e) {
             CoreProtect.getInstance().getSLF4JLogger().error("PlayPro migration failed", e);
             error(sender, "Migration failed: " + e.getMessage());
+            error(sender, "Logging remains paused. Keep the server in maintenance until migration or repair succeeds.");
         }
         finally {
             ConfigHandler.migrationRunning = false;
-            if (!success) {
-                ConfigHandler.pauseConsumer = false;
-            }
         }
     }
 

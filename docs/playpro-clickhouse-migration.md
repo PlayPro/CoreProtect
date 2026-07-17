@@ -27,6 +27,10 @@ When you run the command, the plugin:
   - `co_event_data`
 - renames the old fork tables from `co_*` to `co_migrate_*`;
 - imports supported history into `co_event_data`;
+- converts the fork's JSON/SNBT metadata to PlayPro's binary serialization;
+- verifies every imported family row count;
+- recreates and validates all official compatibility views, including every
+  `Array(Int8)` binary column used by PlayPro's JDBC lookups;
 - writes high-water rows so official PlayPro continues after imported row IDs;
 - leaves logging paused so you can stop the server and swap jars.
 
@@ -57,6 +61,22 @@ table-prefix: co_
 
 On the next startup, official PlayPro will create its compatibility views such
 as `co_block`, `co_container`, and `co_item` over `co_event_data`.
+
+## Repairing an already migrated database
+
+If the migration was already run with an older build, temporarily start the
+server with this fork jar and run from console with no players online:
+
+```text
+co repair-playpro-items database:coreprotect_art prefix:co_
+```
+
+The repair keeps `co_event_data` intact until a fully repaired replacement has
+been copied. It then swaps the tables in one `RENAME TABLE` statement, retains
+the previous table as `co_event_data_backup_repair_*`, recreates every official
+view, and fails if any expected view or binary column type is incompatible.
+After the success message, stop the server and put the official PlayPro jar
+back.
 
 ## Required permissions
 

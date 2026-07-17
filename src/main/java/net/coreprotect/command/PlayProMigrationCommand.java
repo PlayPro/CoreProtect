@@ -12,6 +12,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.bukkit.Bukkit;
@@ -35,6 +36,36 @@ public final class PlayProMigrationCommand {
             "entity_interaction", "item", "database_lock", "entity", "entity_spawn",
             "entity_map", "material_map", "blockdata_map", "session", "sign", "skull",
             "user", "username_log", "version", "world");
+    private static final List<String> MIGRATED_FAMILIES = List.of(
+            "art_map", "block", "chat", "command", "container", "entity_container",
+            "entity_interaction", "item", "entity", "entity_spawn", "entity_map",
+            "material_map", "blockdata_map", "session", "sign", "skull", "user",
+            "username_log", "world");
+    private static final Set<String> FINAL_SOURCE_FAMILIES = Set.of(
+            "block", "container", "entity_container", "entity_interaction", "item", "entity_spawn");
+    private static final List<ExpectedColumn> EVENT_DATA_COLUMNS = List.of(
+            new ExpectedColumn("event_data", "dataset_id", "UUID"),
+            new ExpectedColumn("event_data", "producer_id", "UUID"),
+            new ExpectedColumn("event_data", "producer_sequence", "UInt64"),
+            new ExpectedColumn("event_data", "batch_id", "UUID"),
+            new ExpectedColumn("event_data", "batch_ordinal", "UInt32"),
+            new ExpectedColumn("event_data", "family", "LowCardinality(String)"),
+            new ExpectedColumn("event_data", "rowid", "UInt64"),
+            new ExpectedColumn("event_data", "payload", "Nullable(String)"),
+            new ExpectedColumn("event_data", "meta", "Nullable(String)"),
+            new ExpectedColumn("event_data", "blockdata", "Nullable(String)"),
+            new ExpectedColumn("event_data", "metadata", "Nullable(String)"),
+            new ExpectedColumn("event_data", "entity_data", "Nullable(String)"),
+            new ExpectedColumn("event_data", "entity_data_present", "Nullable(UInt8)"));
+    private static final List<ExpectedColumn> BINARY_VIEW_COLUMNS = List.of(
+            new ExpectedColumn("block", "meta", "Array(Int8)"),
+            new ExpectedColumn("block", "blockdata", "Array(Int8)"),
+            new ExpectedColumn("container", "metadata", "Array(Int8)"),
+            new ExpectedColumn("entity_container", "metadata", "Array(Int8)"),
+            new ExpectedColumn("entity_interaction", "metadata", "Array(Int8)"),
+            new ExpectedColumn("item", "data", "Array(Int8)"),
+            new ExpectedColumn("entity", "data", "Array(Int8)"),
+            new ExpectedColumn("entity_spawn", "data", "Array(Int8)"));
 
     private PlayProMigrationCommand() {
         throw new IllegalStateException("Command class");
@@ -113,6 +144,8 @@ public final class PlayProMigrationCommand {
                 recreateCompatibilityViews(connection, options.database, options.livePrefix);
                 ok(sender, "Created official PlayPro compatibility views.");
                 runMigrationSql(connection, options, sender);
+                verifyMigratedRows(connection, options);
+                ok(sender, "Verified migrated row counts for every PlayPro event family.");
                 PlayProMetadataRepairCommand.repair(connection, options.database, options.livePrefix, sender);
             }
 
@@ -189,9 +222,81 @@ public final class PlayProMigrationCommand {
     }
 
     static void recreateCompatibilityViews(Connection connection, String database, String prefix) throws SQLException {
+        validateEventDataSchema(connection, database, prefix);
+        requireCompatibilityTargetsReplaceable(connection, database, prefix);
         try (Statement statement = connection.createStatement()) {
             for (String sql : compatibilityViewSql(database, prefix)) {
                 statement.execute(sql);
+            }
+        }
+        validateCompatibilityViews(connection, database, prefix);
+    }
+
+    private static void validateEventDataSchema(Connection connection, String database, String prefix) throws SQLException {
+        String table = prefix + "event_data";
+        String engine = tableEngine(connection, database, table);
+        if (!"CoalescingMergeTree".equals(engine)) {
+            throw new SQLException("Official PlayPro event table " + table + " must use CoalescingMergeTree, found " + String.valueOf(engine));
+        }
+        validateColumns(connection, database, prefix, EVENT_DATA_COLUMNS);
+    }
+
+    private static void requireCompatibilityTargetsReplaceable(Connection connection, String database, String prefix) throws SQLException {
+        for (String family : ARCHIVE_TABLES) {
+            String table = prefix + family;
+            String engine = tableEngine(connection, database, table);
+            if (engine != null && !"View".equals(engine)) {
+                throw new SQLException("Cannot create PlayPro compatibility view " + table + ": existing object uses engine " + engine);
+            }
+        }
+    }
+
+    static void validateCompatibilityViews(Connection connection, String database, String prefix) throws SQLException {
+        for (String family : ARCHIVE_TABLES) {
+            String table = prefix + family;
+            String engine = tableEngine(connection, database, table);
+            if (!"View".equals(engine)) {
+                throw new SQLException("Missing official PlayPro compatibility view " + table + " (engine=" + String.valueOf(engine) + ")");
+            }
+        }
+        validateColumns(connection, database, prefix, BINARY_VIEW_COLUMNS);
+    }
+
+    private static void validateColumns(Connection connection, String database, String prefix, List<ExpectedColumn> expectedColumns) throws SQLException {
+        String sql = "SELECT type FROM system.columns WHERE database=? AND table=? AND name=? LIMIT 2";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            for (ExpectedColumn expected : expectedColumns) {
+                String table = prefix + expected.tableSuffix;
+                statement.setString(1, database);
+                statement.setString(2, table);
+                statement.setString(3, expected.name);
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    if (!resultSet.next()) {
+                        throw new SQLException("Missing required PlayPro column " + table + "." + expected.name);
+                    }
+                    String actualType = resultSet.getString(1);
+                    if (!expected.type.equals(actualType) || resultSet.next()) {
+                        throw new SQLException("Incompatible PlayPro column " + table + "." + expected.name
+                                + ": expected " + expected.type + ", found " + actualType);
+                    }
+                }
+            }
+        }
+    }
+
+    private static String tableEngine(Connection connection, String database, String table) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("SELECT engine FROM system.tables WHERE database=? AND name=? LIMIT 2")) {
+            statement.setString(1, database);
+            statement.setString(2, table);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return null;
+                }
+                String engine = resultSet.getString(1);
+                if (resultSet.next()) {
+                    throw new SQLException("Ambiguous ClickHouse object " + database + "." + table);
+                }
+                return engine;
             }
         }
     }
@@ -291,6 +396,40 @@ public final class PlayProMigrationCommand {
                 else {
                     CoreProtect.getInstance().getSLF4JLogger().info("PlayPro migration statement {} completed.", index);
                 }
+            }
+        }
+    }
+
+    private static void verifyMigratedRows(Connection connection, MigrationOptions options) throws SQLException {
+        String events = qualified(options.database, options.livePrefix + "event_data");
+        for (String family : MIGRATED_FAMILIES) {
+            String source = qualified(options.database, options.archivePrefix + family);
+            long sourceRows = count(connection, source + (FINAL_SOURCE_FAMILIES.contains(family) ? " FINAL" : ""));
+            long targetRows;
+            try (PreparedStatement statement = connection.prepareStatement("SELECT count() FROM " + events + " WHERE family=?")) {
+                statement.setString(1, family);
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    if (!resultSet.next()) {
+                        throw new SQLException("ClickHouse did not return a target count for family " + family);
+                    }
+                    targetRows = resultSet.getLong(1);
+                }
+            }
+            if (sourceRows != targetRows) {
+                throw new SQLException("PlayPro migration row mismatch for " + family + ": source=" + sourceRows + ", target=" + targetRows);
+            }
+        }
+
+        String familyList = MIGRATED_FAMILIES.stream().map(value -> "'" + value + "'").collect(Collectors.joining(","));
+        String duplicateSql = "SELECT count() FROM (SELECT family,rowid FROM " + events + " WHERE family IN(" + familyList
+                + ") GROUP BY family,rowid HAVING count()>1)";
+        try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery(duplicateSql)) {
+            if (!resultSet.next()) {
+                throw new SQLException("ClickHouse did not return duplicate row verification results");
+            }
+            long duplicates = resultSet.getLong(1);
+            if (duplicates > 0) {
+                throw new SQLException("PlayPro migration produced " + duplicates + " duplicate family/rowid keys");
             }
         }
     }
@@ -579,6 +718,9 @@ public final class PlayProMigrationCommand {
 
     private static void usage(CommandSender sender) {
         sender.sendMessage(Component.text("Usage: /co migrate-playpro [database:kostya] [prefix:co_] [archive-prefix:co_migrate_]", NamedTextColor.YELLOW));
+    }
+
+    private record ExpectedColumn(String tableSuffix, String name, String type) {
     }
 
     private record MigrationOptions(String database, String livePrefix, String archivePrefix) {

@@ -35,10 +35,24 @@ public final class ClickHouseIdentityAllocator implements ClickHouseRowIdAllocat
     public long nextRowId(ClickHouseFamily family) {
         Objects.requireNonNull(family, "family");
         long rowId = increment(rowIds.get(family), family.getTableName() + " row ID");
+        validateRowId(family, rowId);
+        return rowId;
+    }
+
+    @Override
+    public void observeRowId(ClickHouseFamily family, long rowId) {
+        Objects.requireNonNull(family, "family");
+        validateRowId(family, rowId);
+        rowIds.get(family).accumulateAndGet(rowId, Math::max);
+    }
+
+    private static void validateRowId(ClickHouseFamily family, long rowId) {
+        if (rowId < 1) {
+            throw new IllegalArgumentException("ClickHouse compatibility row IDs must be positive");
+        }
         if (family != ClickHouseFamily.BLOCK && rowId > Integer.MAX_VALUE) {
             throw new IllegalStateException("ClickHouse " + family.getTableName() + " row IDs exceed CoreProtect's signed 32-bit compatibility range");
         }
-        return rowId;
     }
 
     private static long increment(AtomicLong value, String name) {

@@ -60,6 +60,10 @@ public class Database extends Queue {
     public static final int ENTITY_CONTAINER = 15;
     public static final int ENTITY_INTERACTION = 16;
 
+    public static final int DATABASE_LOCK_INACTIVE = 0;
+    public static final int DATABASE_LOCK_ACTIVE = 1;
+    public static final int DATABASE_LOCK_MIGRATION_INCOMPLETE = 2;
+
     private static final int ROLLED_BACK_UPDATE_BATCH_SIZE = 1000;
     private static final int DUCKDB_ROLLED_BACK_UPDATE_BATCH_SIZE = 5000;
     private static final long CLICKHOUSE_CONNECTION_ERROR_INTERVAL_NANOS = 30_000_000_000L;
@@ -524,6 +528,56 @@ public class Database extends Queue {
         clickHouseDatabase = initialized;
         ConfigHandler.databaseTables.clear();
         ConfigHandler.databaseTables.addAll(DATABASE_TABLES);
+    }
+
+    public static synchronized ClickHouseDatabase detachClickHouseDatabase() throws SQLException {
+        ClickHouseDatabase database = clickHouseDatabase;
+        if (database == null) {
+            throw new SQLException("ClickHouse is not initialized");
+        }
+        clickHouseDatabase = null;
+        return database;
+    }
+
+    public static synchronized void installClickHouseDatabase(ClickHouseDatabase database) throws SQLException {
+        if (database == null) {
+            throw new IllegalArgumentException("ClickHouse database cannot be null");
+        }
+        if (clickHouseDatabase != database) {
+            closeClickHouseChecked();
+            clickHouseDatabase = database;
+        }
+        ConfigHandler.databaseTables.clear();
+        ConfigHandler.databaseTables.addAll(DATABASE_TABLES);
+    }
+
+    public static boolean hasIncompleteMigrationMarker() throws SQLException {
+        Connection connection;
+        if (ConfigHandler.databaseType.isMySQL()) {
+            connection = ConfigHandler.hikariDataSource.getConnection();
+        }
+        else if (ConfigHandler.databaseType.isDuckDB()) {
+            try {
+                connection = DuckDBDatabase.getConnection();
+            }
+            catch (Exception exception) {
+                if (exception instanceof SQLException) {
+                    throw (SQLException) exception;
+                }
+                throw new SQLException("Unable to inspect the DuckDB migration marker", exception);
+            }
+        }
+        else if (ConfigHandler.databaseType.isClickHouse()) {
+            connection = requireClickHouseDatabase().openConnection();
+        }
+        else {
+            connection = DriverManager.getConnection("jdbc:sqlite:" + ConfigHandler.path + ConfigHandler.sqlite);
+        }
+
+        String sql = "SELECT 1 FROM " + ConfigHandler.prefix + "database_lock WHERE rowid=1 AND status=" + DATABASE_LOCK_MIGRATION_INCOMPLETE + " LIMIT 1";
+        try (Connection checkedConnection = connection; Statement statement = checkedConnection.createStatement(); ResultSet resultSet = statement.executeQuery(sql)) {
+            return resultSet.next();
+        }
     }
 
     public static ConsumerWriteBatch openConsumerWriteBatch(Connection connection) throws SQLException {

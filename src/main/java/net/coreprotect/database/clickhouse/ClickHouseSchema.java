@@ -112,6 +112,8 @@ public final class ClickHouseSchema {
 
     public static final List<String> EVENT_COLUMNS = eventColumns();
     public static final List<String> EVENT_COLUMN_TYPES = eventColumnTypes();
+    static final List<String> RETENTION_HIGH_WATER_COLUMNS = columnNames(RETENTION_HIGH_WATER_COLUMN_DEFINITIONS);
+    static final List<String> RETENTION_HIGH_WATER_COLUMN_TYPES = columnTypes(RETENTION_HIGH_WATER_COLUMN_DEFINITIONS);
     static final int PHYSICAL_TABLE_COUNT = 4;
 
     private ClickHouseSchema() {
@@ -136,7 +138,7 @@ public final class ClickHouseSchema {
         validateTable(connection, database, names.rawTable("writer_registration"), "MergeTree", "(registration_order,writer_id)", "", WRITER_REGISTRATION_COLUMN_DEFINITIONS,
                 "fsync_after_insert=1", "fsync_part_directory=1");
         validateTable(connection, database, names.rawTable("retention_high_water"), "MergeTree", "(dataset_id,family,producer_sequence,rowid)", "", RETENTION_HIGH_WATER_COLUMN_DEFINITIONS,
-                "fsync_after_insert=1", "fsync_part_directory=1");
+                "fsync_after_insert=1", "fsync_part_directory=1", "non_replicated_deduplication_window=1000");
         validateTable(connection, database, names.rawTable("event_data"), "CoalescingMergeTree", EVENT_SORTING_KEY, EVENT_PARTITION_KEY, EVENT_COLUMN_DEFINITIONS,
                 "fsync_after_insert=1", "fsync_part_directory=1", "non_replicated_deduplication_window=1000");
         validateDataSkippingIndexes(connection, database, names.rawTable("event_data"), EVENT_DATA_SKIPPING_INDEX_DEFINITIONS);
@@ -230,7 +232,7 @@ public final class ClickHouseSchema {
         return table(names.retentionHighWater, columnDefinitions(RETENTION_HIGH_WATER_COLUMN_DEFINITIONS))
                 + " ENGINE = MergeTree"
                 + " ORDER BY (dataset_id,family,producer_sequence,rowid)"
-                + " SETTINGS fsync_after_insert=1,fsync_part_directory=1";
+                + " SETTINGS fsync_after_insert=1,fsync_part_directory=1,non_replicated_deduplication_window=1000";
     }
 
     private static String createEventData(Names names) {
@@ -341,11 +343,7 @@ public final class ClickHouseSchema {
     }
 
     private static List<String> eventColumns() {
-        List<String> columns = new ArrayList<>(EVENT_COLUMN_DEFINITIONS.length);
-        for (String[] definition : EVENT_COLUMN_DEFINITIONS) {
-            columns.add(definition[0]);
-        }
-        return Collections.unmodifiableList(columns);
+        return columnNames(EVENT_COLUMN_DEFINITIONS);
     }
 
     private static List<String> eventColumnTypes() {
@@ -362,6 +360,14 @@ public final class ClickHouseSchema {
             types.add(columnType(column[1]));
         }
         return Collections.unmodifiableList(types);
+    }
+
+    private static List<String> columnNames(String[][] columns) {
+        List<String> names = new ArrayList<>(columns.length);
+        for (String[] definition : columns) {
+            names.add(definition[0]);
+        }
+        return Collections.unmodifiableList(names);
     }
 
     private static String columnType(String definition) {

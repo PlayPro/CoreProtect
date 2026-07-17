@@ -4,6 +4,7 @@ import java.io.InputStream;
 import java.sql.SQLException;
 import java.util.EnumMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -224,6 +225,47 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         return addNamedMap(ClickHouseFamily.WORLD, id, world);
     }
 
+    public void addCompatibilityRow(ClickHouseFamily family, long rowId, Map<String, ?> values) throws SQLException {
+        Objects.requireNonNull(family, "family");
+        Objects.requireNonNull(values, "values");
+        if (family == ClickHouseFamily.DATABASE_LOCK || family == ClickHouseFamily.VERSION) {
+            throw new IllegalArgumentException("ClickHouse core data requires a dedicated writer: " + family.getTableName());
+        }
+        int time = numberOrZero(values.get("time")).intValue();
+        beginRow(family, rowId, time);
+        if (family == ClickHouseFamily.ENTITY_SPAWN) {
+            set("x", originKey(values.get("origin_x")));
+            set("z", originKey(values.get("origin_z")));
+        }
+        for (Map.Entry<String, ?> entry : values.entrySet()) {
+            String canonicalColumn = Objects.requireNonNull(entry.getKey(), "compatibility column");
+            if (canonicalColumn.equals("time")) {
+                continue;
+            }
+            if (isReservedCompatibilityColumn(canonicalColumn)) {
+                throw new IllegalArgumentException("Reserved ClickHouse compatibility column: " + canonicalColumn);
+            }
+            Object value = entry.getValue();
+            String physicalColumn = compatibilityColumn(family, canonicalColumn);
+            if (physicalColumn.equals("wid") || (family != ClickHouseFamily.ENTITY_SPAWN && (physicalColumn.equals("x") || physicalColumn.equals("z")))) {
+                value = numberOrZero(value);
+            }
+            set(physicalColumn, value);
+            if (family == ClickHouseFamily.ENTITY_SPAWN) {
+                if (canonicalColumn.equals("block_rowid")) {
+                    set("block_rowid_present", value == null ? 0 : 1);
+                }
+                else if (canonicalColumn.equals("kill_rowid")) {
+                    set("kill_rowid_present", value == null ? 0 : 1);
+                }
+                else if (canonicalColumn.equals("data")) {
+                    set("entity_data_present", value == null ? 0 : 1);
+                }
+            }
+        }
+        commitRow(family, rowId);
+    }
+
     public int size() {
         return eventCount;
     }
@@ -322,6 +364,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         if (rowId < 1) {
             throw new IllegalArgumentException("ClickHouse compatibility row IDs must be positive");
         }
+        rowIdAllocator.observeRowId(family, rowId);
         rows.beginRow();
         currentTime = time;
         currentWorldId = 0;
@@ -389,6 +432,63 @@ public final class ClickHouseEventBatch implements AutoCloseable {
 
     private static boolean isVersionedFamily(ClickHouseFamily family) {
         return family == ClickHouseFamily.DATABASE_LOCK || family == ClickHouseFamily.USER || family == ClickHouseFamily.VERSION;
+    }
+
+    private static Number numberOrZero(Object value) {
+        return value == null ? Integer.valueOf(0) : (Number) value;
+    }
+
+    private static int originKey(Object value) {
+        return value == null ? 0 : (int) Math.floor(((Number) value).doubleValue());
+    }
+
+    private static boolean isReservedCompatibilityColumn(String column) {
+        switch (column) {
+            case "dataset_id":
+            case "producer_id":
+            case "producer_sequence":
+            case "batch_id":
+            case "batch_ordinal":
+            case "family":
+            case "rowid":
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static String compatibilityColumn(ClickHouseFamily family, String column) {
+        if (column.equals("user")) {
+            return family == ClickHouseFamily.USER || family == ClickHouseFamily.USERNAME_LOG ? "user_name" : "user_id";
+        }
+        if (column.equals("data")) {
+            if (family == ClickHouseFamily.ITEM || family == ClickHouseFamily.ENTITY) {
+                return "payload";
+            }
+            if (family == ClickHouseFamily.ENTITY_SPAWN) {
+                return "entity_data";
+            }
+            if (family == ClickHouseFamily.BLOCKDATA_MAP) {
+                return "text";
+            }
+            if (family == ClickHouseFamily.SIGN) {
+                return "sign_data";
+            }
+        }
+        if (family == ClickHouseFamily.ENTITY_SPAWN && (column.equals("x") || column.equals("y") || column.equals("z"))) {
+            return "current_" + column;
+        }
+        if ((family == ClickHouseFamily.ART_MAP && column.equals("art"))
+                || (family == ClickHouseFamily.ENTITY_MAP && column.equals("entity"))
+                || (family == ClickHouseFamily.MATERIAL_MAP && column.equals("material"))
+                || (family == ClickHouseFamily.WORLD && column.equals("world"))
+                || (family == ClickHouseFamily.SKULL && column.equals("owner"))) {
+            return "name";
+        }
+        if (family == ClickHouseFamily.SKULL && column.equals("skin")) {
+            return "text";
+        }
+        return column;
     }
 
     private void ensureWritable() {

@@ -6,6 +6,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -25,6 +26,7 @@ public final class ClickHouseDatabase implements AutoCloseable {
     private final ClickHouseIdentityAllocator identityAllocator;
     private final ClickHouseNativeClient nativeClient;
     private final ClickHouseBatchPublisher publisher;
+    private final ClickHouseHighWaterPublisher highWaterPublisher;
     private final ClickHouseRetention retention;
     private final ClickHouseTargetResolver targetResolver;
     private final ClickHouseWriterRegistration writerRegistration;
@@ -40,6 +42,7 @@ public final class ClickHouseDatabase implements AutoCloseable {
         this.identityAllocator = identityAllocator;
         this.writerRegistration = writerRegistration;
         publisher = new ClickHouseBatchPublisher(jdbc, nativeClient, writerRegistration, database, prefix);
+        highWaterPublisher = new ClickHouseHighWaterPublisher(jdbc, nativeClient, writerRegistration, database, prefix);
         retention = new ClickHouseRetention(jdbc, database, prefix, datasetId);
         targetResolver = new ClickHouseTargetResolver(jdbc, database, prefix, datasetId);
     }
@@ -126,6 +129,21 @@ public final class ClickHouseDatabase implements AutoCloseable {
     public ClickHouseBatchReceipt publish(ClickHouseWriteBatch batch) throws SQLException {
         ensureOpen();
         return publisher.publish(batch);
+    }
+
+    public void preserveCompatibilityHighWaterMarks(Map<ClickHouseFamily, Long> highWaterMarks) throws SQLException {
+        ensureOpen();
+        Objects.requireNonNull(highWaterMarks, "highWaterMarks");
+        EnumMap<ClickHouseFamily, Long> marks = new EnumMap<>(ClickHouseFamily.class);
+        for (Map.Entry<ClickHouseFamily, Long> entry : highWaterMarks.entrySet()) {
+            ClickHouseFamily family = Objects.requireNonNull(entry.getKey(), "event family");
+            long rowId = Objects.requireNonNull(entry.getValue(), "compatibility row ID");
+            identityAllocator.observeRowId(family, rowId);
+            marks.merge(family, rowId, Math::max);
+        }
+        if (!marks.isEmpty()) {
+            highWaterPublisher.publish(identityAllocator.nextBatchIdentity(), marks);
+        }
     }
 
     public Map<Long, ClickHouseEventPointer> resolveEventPointers(ClickHouseFamily family, List<Long> rowIds) throws SQLException {

@@ -11,8 +11,8 @@ import net.coreprotect.config.ConfigHandler;
 final class ClickHouseBatchPublisher {
 
     private static final long MAX_INSERT_ROWS = 1_000_000;
-    private static final int MAX_PUBLICATION_ATTEMPTS = 3;
-    private static final int MAX_RECONCILIATION_ATTEMPTS = 3;
+    static final int MAX_PUBLICATION_ATTEMPTS = 3;
+    static final int MAX_RECONCILIATION_ATTEMPTS = 3;
     private static final long RETRY_DELAY_MILLIS = 100L;
     private static final long MAX_RETRY_DELAY_MILLIS = 30_000L;
 
@@ -126,7 +126,7 @@ final class ClickHouseBatchPublisher {
         return new SQLException("ClickHouse batch is partial or conflicting for producer sequence " + receipt.getProducerSequence());
     }
 
-    private static SQLException interrupted(String operation, SQLException failure) {
+    static SQLException interrupted(String operation, SQLException failure) {
         InterruptedException interruption = new InterruptedException("Interrupted while " + operation);
         SQLException exception = new SQLException(interruption.getMessage(), interruption);
         if (failure != null) {
@@ -135,7 +135,7 @@ final class ClickHouseBatchPublisher {
         return exception;
     }
 
-    private static void pauseBeforeRetry(int attempt, String operation) throws SQLException {
+    static void pauseBeforeRetry(int attempt, String operation) throws SQLException {
         try {
             int shift = Math.min(Math.max(0, attempt - 1), 8);
             Thread.sleep(Math.min(RETRY_DELAY_MILLIS << shift, MAX_RETRY_DELAY_MILLIS));
@@ -146,7 +146,7 @@ final class ClickHouseBatchPublisher {
         }
     }
 
-    private static boolean shouldContinueRecovery() {
+    static boolean shouldContinueRecovery() {
         return ConfigHandler.serverRunning || ConfigHandler.shutdownDrainRunning;
     }
 

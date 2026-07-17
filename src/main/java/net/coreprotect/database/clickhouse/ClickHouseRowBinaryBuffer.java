@@ -5,9 +5,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.UUID;
 
 import com.clickhouse.data.format.BinaryStreamUtils;
@@ -180,6 +182,9 @@ final class ClickHouseRowBinaryBuffer implements AutoCloseable {
             case "Float64":
                 BinaryStreamUtils.writeFloat64(rows, ((Number) value).doubleValue());
                 return;
+            case "DateTime64(3, 'UTC')":
+                BinaryStreamUtils.writeDateTime64(rows, (LocalDateTime) value, 3, TimeZone.getTimeZone("UTC"));
+                return;
             default:
                 throw new IllegalArgumentException("Unsupported ClickHouse RowBinary type: " + declaredType);
         }
@@ -232,6 +237,9 @@ final class ClickHouseRowBinaryBuffer implements AutoCloseable {
         }
         if (type.equals("Float64")) {
             return 0.0d;
+        }
+        if (type.equals("DateTime64(3, 'UTC')")) {
+            return LocalDateTime.of(1970, 1, 1, 0, 0);
         }
         if (type.equals("UInt64") || type.equals("Int64")) {
             return 0L;

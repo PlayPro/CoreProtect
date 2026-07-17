@@ -33,6 +33,7 @@ import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.DatabaseType;
 import net.coreprotect.database.DuckDBNativeSupport;
+import net.coreprotect.database.clickhouse.ClickHouseDatabase;
 import net.coreprotect.database.clickhouse.ClickHouseJdbcConfig;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
@@ -346,15 +347,41 @@ public class ConfigHandler extends Queue {
     }
 
     public static void loadDatabase() {
+        loadDatabase(null, false);
+    }
+
+    public static void loadMigrationDatabase(ClickHouseDatabase preparedClickHouse) {
+        if (preparedClickHouse == null) {
+            throw new IllegalArgumentException("Prepared ClickHouse database cannot be null");
+        }
+        loadDatabase(preparedClickHouse, true);
+    }
+
+    private static void loadDatabase(ClickHouseDatabase preparedClickHouse, boolean migrationActivation) {
+        if (preparedClickHouse != null && !ConfigHandler.databaseType.isClickHouse()) {
+            throw new IllegalArgumentException("A prepared ClickHouse database can only activate a ClickHouse target");
+        }
         ConfigHandler.databaseReachable = false;
         Database.closeConnection();
         try {
-            initializeDatabase();
+            if (preparedClickHouse != null) {
+                Database.installClickHouseDatabase(preparedClickHouse);
+            }
+            else {
+                initializeDatabase();
+            }
+            if (!migrationActivation && Database.hasIncompleteMigrationMarker()) {
+                throw new IllegalStateException("Database contains an incomplete CoreProtect migration and cannot be activated");
+            }
             ConfigHandler.databaseReachable = true;
         }
-        catch (RuntimeException exception) {
+        catch (Exception exception) {
             Database.closeConnection();
-            throw exception;
+            ConfigHandler.databaseReachable = false;
+            if (exception instanceof RuntimeException) {
+                throw (RuntimeException) exception;
+            }
+            throw new IllegalStateException("Failed to initialize database", exception);
         }
     }
 
@@ -629,7 +656,8 @@ public class ConfigHandler extends Queue {
                     locked = false;
                     unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
                     int checkTime = unixtimestamp - 15;
-                    String query = "SELECT * FROM " + ConfigHandler.prefix + "database_lock WHERE rowid='1' AND status='1' AND time >= '" + checkTime + "' LIMIT 1";
+                    String query = "SELECT * FROM " + ConfigHandler.prefix + "database_lock WHERE rowid='1' AND (status='" + Database.DATABASE_LOCK_MIGRATION_INCOMPLETE
+                            + "' OR (status='" + Database.DATABASE_LOCK_ACTIVE + "' AND time >= '" + checkTime + "')) LIMIT 1";
                     ResultSet rs = statement.executeQuery(query);
                     while (rs.next()) {
                         if (unixtimestamp < waitTime) {

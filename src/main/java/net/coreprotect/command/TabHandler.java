@@ -92,6 +92,7 @@ public class TabHandler implements TabCompleter {
         addCompletionIfPermitted(sender, "coreprotect.lookup.near", "near", completions);
         addCompletionIfPermitted(sender, "coreprotect.restore", "undo", completions);
         addCompletionIfPermitted(sender, "coreprotect.migrate-playpro", "migrate-playpro", completions);
+        addCompletionIfPermitted(sender, "coreprotect.repair-playpro-items", "repair-playpro-items", completions);
 
         return StringUtil.copyPartialMatches(arg, completions, new ArrayList<>(completions.size()));
     }
@@ -458,6 +459,10 @@ public class TabHandler implements TabCompleter {
         }
         else if (argument0.equals("migrate-playpro") && sender.hasPermission("coreprotect.migrate-playpro")) {
             List<String> completions = new ArrayList<>(Arrays.asList("database:" + ConfigHandler.database, "prefix:" + ConfigHandler.prefix, "archive-prefix:" + ConfigHandler.prefix + "migrate_"));
+            return StringUtil.copyPartialMatches(argument1, completions, new ArrayList<>(completions.size()));
+        }
+        else if (argument0.equals("repair-playpro-items") && sender.hasPermission("coreprotect.repair-playpro-items")) {
+            List<String> completions = new ArrayList<>(Arrays.asList("database:" + ConfigHandler.database, "prefix:" + ConfigHandler.prefix));
             return StringUtil.copyPartialMatches(argument1, completions, new ArrayList<>(completions.size()));
         }
         else if (hasLookupCommand(argument0, sender)) {

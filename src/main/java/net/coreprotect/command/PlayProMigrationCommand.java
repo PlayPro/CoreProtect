@@ -112,6 +112,7 @@ public final class PlayProMigrationCommand {
                 requireTargetReady(connection, options);
                 archiveSourceTables(connection, options);
                 runMigrationSql(connection, options, sender);
+                PlayProMetadataRepairCommand.repair(connection, options.database, options.livePrefix, sender);
             }
 
             success = true;

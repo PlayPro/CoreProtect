@@ -1,5 +1,6 @@
 package net.coreprotect.command;
 
+import java.io.ByteArrayOutputStream;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -7,12 +8,14 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.util.io.BukkitObjectOutputStream;
 import org.bukkit.command.CommandSender;
 
 import com.google.gson.reflect.TypeToken;
@@ -123,6 +126,8 @@ public final class PlayProMetadataRepairCommand {
             repaired += repairJsonItemRows(connection, sender, eventTable, fixTable, "item", "payload");
             repaired += repairLegacyMetadataRows(connection, sender, eventTable, fixTable, "entity_container", "metadata");
             repaired += repairBase64Rows(connection, sender, eventTable, fixTable, "entity_interaction", "metadata");
+            repaired += repairLegacyEntityDataRows(connection, sender, eventTable, fixTable, "entity", "payload");
+            repaired += repairLegacyEntityDataRows(connection, sender, eventTable, fixTable, "entity_spawn", "entity_data");
             if (repaired > 0) {
                 rebuildEventTable(connection, sender, database, eventTableName, eventTable, fixTable);
             }
@@ -229,6 +234,35 @@ public final class PlayProMetadataRepairCommand {
         }
     }
 
+    private static long repairLegacyEntityDataRows(Connection connection, CommandSender sender, String eventTable, String fixTable, String family, String column) throws SQLException {
+        long total = 0;
+        long lastRowId = 0;
+        while (true) {
+            List<FixRow> rows = new ArrayList<>();
+            String sql = "SELECT rowid," + quote(column) + " FROM " + eventTable + " "
+                    + "WHERE family=? AND rowid>? AND " + quote(column) + " IS NOT NULL AND NOT startsWith(hex(" + quote(column) + "), 'ACED') "
+                    + "ORDER BY rowid LIMIT " + BATCH_SIZE;
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, family);
+                statement.setLong(2, lastRowId);
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    while (resultSet.next()) {
+                        long rowId = resultSet.getLong(1);
+                        lastRowId = rowId;
+                        byte[] converted = convertLegacyEntityData(resultSet.getString(2));
+                        rows.add(FixRow.forColumn(family, rowId, column, converted));
+                    }
+                }
+            }
+            if (rows.isEmpty()) {
+                return total;
+            }
+            writeFixRows(connection, fixTable, rows);
+            total += rows.size();
+            ok(sender, "Prepared " + total + " " + family + "." + column + " rows...");
+        }
+    }
+
     private static byte[] convertSerializedItem(String itemData, int typeId, int amount) {
         Material type = MaterialUtils.getType(typeId);
         SerializedItem item = ItemUtils.deserializeItem(itemData, type, amount);
@@ -256,14 +290,53 @@ public final class PlayProMetadataRepairCommand {
         }
     }
 
+    private static byte[] convertLegacyEntityData(String data) {
+        if (data == null || data.isEmpty()) {
+            return null;
+        }
+        try {
+            @SuppressWarnings("unchecked")
+            List<Object> entityData = JsonSerialization.GSON.fromJson(data, List.class);
+            if (entityData == null || entityData.isEmpty()) {
+                return null;
+            }
+            try (ByteArrayOutputStream output = new ByteArrayOutputStream(); BukkitObjectOutputStream objectOutput = new BukkitObjectOutputStream(output)) {
+                objectOutput.writeObject(normalizeJsonValue(entityData));
+                objectOutput.flush();
+                return output.toByteArray();
+            }
+        }
+        catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static Object normalizeJsonValue(Object value) {
+        if (value instanceof List<?> list) {
+            List<Object> result = new ArrayList<>(list.size());
+            for (Object item : list) {
+                result.add(normalizeJsonValue(item));
+            }
+            return result;
+        }
+        if (value instanceof Map<?, ?> map) {
+            Map<Object, Object> result = new LinkedHashMap<>(map.size());
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                result.put(normalizeJsonValue(entry.getKey()), normalizeJsonValue(entry.getValue()));
+            }
+            return result;
+        }
+        return value;
+    }
+
     private static void createFixTable(Connection connection, String fixTable) throws SQLException {
         try (Statement statement = connection.createStatement()) {
-            statement.execute("CREATE TABLE " + fixTable + " (family String,rowid UInt64,metadata_hex Nullable(String),payload_hex Nullable(String)) ENGINE = MergeTree ORDER BY (family,rowid)");
+            statement.execute("CREATE TABLE " + fixTable + " (family String,rowid UInt64,metadata_hex Nullable(String),payload_hex Nullable(String),entity_data_hex Nullable(String)) ENGINE = MergeTree ORDER BY (family,rowid)");
         }
     }
 
     private static void writeFixRows(Connection connection, String fixTable, List<FixRow> rows) throws SQLException {
-        try (PreparedStatement insert = connection.prepareStatement("INSERT INTO " + fixTable + " (family,rowid,metadata_hex,payload_hex) VALUES (?,?,?,?)")) {
+        try (PreparedStatement insert = connection.prepareStatement("INSERT INTO " + fixTable + " (family,rowid,metadata_hex,payload_hex,entity_data_hex) VALUES (?,?,?,?,?)")) {
             for (FixRow row : rows) {
                 insert.setString(1, row.family);
                 insert.setLong(2, row.rowId);
@@ -278,6 +351,12 @@ public final class PlayProMetadataRepairCommand {
                 }
                 else {
                     insert.setString(4, row.payloadHex);
+                }
+                if (row.entityDataHex == null) {
+                    insert.setNull(5, java.sql.Types.VARCHAR);
+                }
+                else {
+                    insert.setString(5, row.entityDataHex);
                 }
                 insert.addBatch();
             }
@@ -331,13 +410,16 @@ public final class PlayProMetadataRepairCommand {
             else if (column.equals("payload")) {
                 projection.append("if(isNull(f.payload_hex),e.").append(quote(column)).append(",").append(hexExpression("f.payload_hex")).append(") AS ").append(quote(column));
             }
+            else if (column.equals("entity_data")) {
+                projection.append("if(isNull(f.entity_data_hex),e.").append(quote(column)).append(",").append(hexExpression("f.entity_data_hex")).append(") AS ").append(quote(column));
+            }
             else {
                 projection.append("e.").append(quote(column));
             }
         }
 
         return "INSERT INTO " + rebuildTable + " (" + columnList + ") SELECT " + projection
-                + " FROM " + eventTable + " AS e LEFT JOIN (SELECT family,rowid,any(metadata_hex) AS metadata_hex,any(payload_hex) AS payload_hex FROM "
+                + " FROM " + eventTable + " AS e LEFT JOIN (SELECT family,rowid,any(metadata_hex) AS metadata_hex,any(payload_hex) AS payload_hex,any(entity_data_hex) AS entity_data_hex FROM "
                 + fixTable + " GROUP BY family,rowid) AS f ON toString(e.family)=f.family AND e.rowid=f.rowid";
     }
 
@@ -384,7 +466,9 @@ public final class PlayProMetadataRepairCommand {
                 + "(family='container' AND metadata IS NOT NULL AND startsWith(metadata,'{')) OR "
                 + "(family='item' AND payload IS NOT NULL AND startsWith(payload,'{')) OR "
                 + "(family='entity_container' AND metadata IS NOT NULL AND startsWith(metadata,'[')) OR "
-                + "(family='entity_interaction' AND metadata IS NOT NULL AND metadata!='' AND match(metadata,'^[A-Za-z0-9+/]+={0,2}$'))";
+                + "(family='entity_interaction' AND metadata IS NOT NULL AND metadata!='' AND match(metadata,'^[A-Za-z0-9+/]+={0,2}$')) OR "
+                + "(family='entity' AND payload IS NOT NULL AND NOT startsWith(hex(payload),'ACED')) OR "
+                + "(family='entity_spawn' AND entity_data IS NOT NULL AND NOT startsWith(hex(entity_data),'ACED'))";
         try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery(sql)) {
             return resultSet.next() ? resultSet.getLong(1) : 0;
         }
@@ -451,14 +535,17 @@ public final class PlayProMetadataRepairCommand {
         sender.sendMessage(Component.text("Usage: /co repair-playpro-items [database:coreprotect_art] [prefix:co_]", NamedTextColor.YELLOW));
     }
 
-    private record FixRow(String family, long rowId, String metadataHex, String payloadHex) {
+    private record FixRow(String family, long rowId, String metadataHex, String payloadHex, String entityDataHex) {
 
         private static FixRow forColumn(String family, long rowId, String column, byte[] bytes) {
             String encoded = hex(bytes);
             if (column.equals("payload")) {
-                return new FixRow(family, rowId, null, encoded);
+                return new FixRow(family, rowId, null, encoded, null);
             }
-            return new FixRow(family, rowId, encoded, null);
+            if (column.equals("entity_data")) {
+                return new FixRow(family, rowId, null, null, encoded);
+            }
+            return new FixRow(family, rowId, encoded, null, null);
         }
     }
 

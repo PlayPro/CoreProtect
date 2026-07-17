@@ -33,7 +33,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 
 public final class PlayProMetadataRepairCommand {
 
-    private static final int BATCH_SIZE = 1000;
+    private static final int BATCH_SIZE = 50;
     private static final java.lang.reflect.Type LEGACY_META_TYPE = new TypeToken<List<List<Map<String, Object>>>>(){}.getType();
 
     private PlayProMetadataRepairCommand() {
@@ -241,60 +241,43 @@ public final class PlayProMetadataRepairCommand {
     }
 
     private static void mutateFixRows(Connection connection, String eventTable, String database, String prefix, List<FixRow> rows) throws SQLException {
-        String rawFixTable = prefix + "metadata_fix_" + System.currentTimeMillis();
-        String fixTable = qualified(database, rawFixTable);
-        String joinGetTable = database + "." + rawFixTable;
         try (Statement statement = connection.createStatement()) {
-            statement.execute("CREATE TABLE " + fixTable + " (family String,rowid UInt64,metadata_hex Nullable(String),payload_hex Nullable(String)) ENGINE = Join(ANY, LEFT, family, rowid)");
-        }
-        try {
-            try (PreparedStatement insert = connection.prepareStatement("INSERT INTO " + fixTable + " (family,rowid,metadata_hex,payload_hex) VALUES (?,?,?,?)")) {
-                for (FixRow row : rows) {
-                    insert.setString(1, row.family);
-                    insert.setLong(2, row.rowId);
-                    if (row.metadataHex == null) {
-                        insert.setNull(3, java.sql.Types.VARCHAR);
-                    }
-                    else {
-                        insert.setString(3, row.metadataHex);
-                    }
-                    if (row.payloadHex == null) {
-                        insert.setNull(4, java.sql.Types.VARCHAR);
-                    }
-                    else {
-                        insert.setString(4, row.payloadHex);
-                    }
-                    insert.addBatch();
-                }
-                insert.executeBatch();
+            List<FixRow> metadataRows = rows.stream().filter(row -> row.metadataHex != null).toList();
+            if (!metadataRows.isEmpty()) {
+                executeFixMutation(statement, eventTable, "metadata", metadataRows);
             }
-            try (Statement statement = connection.createStatement()) {
-                if (rows.stream().anyMatch(row -> row.metadataHex != null)) {
-                    executeFixMutation(statement, eventTable, fixTable, joinGetTable, "metadata", "metadata_hex");
-                }
-                if (rows.stream().anyMatch(row -> row.payloadHex != null)) {
-                    executeFixMutation(statement, eventTable, fixTable, joinGetTable, "payload", "payload_hex");
-                }
-            }
-        }
-        finally {
-            try (Statement statement = connection.createStatement()) {
-                statement.execute("DROP TABLE IF EXISTS " + fixTable);
+            List<FixRow> payloadRows = rows.stream().filter(row -> row.payloadHex != null).toList();
+            if (!payloadRows.isEmpty()) {
+                executeFixMutation(statement, eventTable, "payload", payloadRows);
             }
         }
     }
 
-    private static void executeFixMutation(Statement statement, String eventTable, String fixTable, String joinGetTable, String eventColumn, String fixColumn) throws SQLException {
-        String sql = mutationSql(eventTable, fixTable, joinGetTable, eventColumn, fixColumn);
-        CoreProtect.getInstance().getSLF4JLogger().info("[PlayPro metadata repair] Executing mutation query: {}", sql);
+    private static void executeFixMutation(Statement statement, String eventTable, String eventColumn, List<FixRow> rows) throws SQLException {
+        String sql = mutationSql(eventTable, eventColumn, rows);
+        CoreProtect.getInstance().getSLF4JLogger().info("[PlayPro metadata repair] Executing {} mutation for {} rows ({} SQL chars).", eventColumn, rows.size(), sql.length());
         statement.execute(sql);
     }
 
-    private static String mutationSql(String eventTable, String fixTable, String joinGetTable, String eventColumn, String fixColumn) {
-        String value = "joinGet(" + sqlString(joinGetTable) + "," + sqlString(fixColumn) + ",toString(family),rowid)";
+    private static String mutationSql(String eventTable, String eventColumn, List<FixRow> rows) {
+        StringBuilder expression = new StringBuilder("multiIf(");
+        StringBuilder where = new StringBuilder();
+        for (int i = 0; i < rows.size(); i++) {
+            FixRow row = rows.get(i);
+            if (i > 0) {
+                expression.append(',');
+                where.append(" OR ");
+            }
+
+            String predicate = "(family=" + sqlString(row.family) + " AND rowid=" + row.rowId + ")";
+            expression.append(predicate).append(',').append(hexValue(eventColumn.equals("payload") ? row.payloadHex : row.metadataHex));
+            where.append(predicate);
+        }
+        expression.append(',').append(quote(eventColumn)).append(')');
+
         return "ALTER TABLE " + eventTable
-                + " UPDATE " + quote(eventColumn) + " = if(" + value + "='',CAST(NULL,'Nullable(String)'),unhex(" + value + "))"
-                + " WHERE (family,rowid) IN (SELECT family,rowid FROM " + fixTable + " WHERE " + quote(fixColumn) + " IS NOT NULL)"
+                + " UPDATE " + quote(eventColumn) + " = " + expression
+                + " WHERE " + where
                 + " SETTINGS mutations_sync=2";
     }
 
@@ -340,6 +323,13 @@ public final class PlayProMetadataRepairCommand {
 
     private static String sqlString(String value) {
         return "'" + value.replace("'", "''") + "'";
+    }
+
+    private static String hexValue(String value) {
+        if (value == null || value.isEmpty()) {
+            return "CAST(NULL,'Nullable(String)')";
+        }
+        return "CAST(unhex(" + sqlString(value) + "),'Nullable(String)')";
     }
 
     private static String hex(byte[] bytes) {

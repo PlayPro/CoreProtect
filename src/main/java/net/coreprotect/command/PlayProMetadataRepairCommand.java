@@ -33,7 +33,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 
 public final class PlayProMetadataRepairCommand {
 
-    private static final int BATCH_SIZE = 50;
+    private static final int BATCH_SIZE = 1000;
     private static final java.lang.reflect.Type LEGACY_META_TYPE = new TypeToken<List<List<Map<String, Object>>>>(){}.getType();
 
     private PlayProMetadataRepairCommand() {
@@ -107,24 +107,38 @@ public final class PlayProMetadataRepairCommand {
     }
 
     static void repair(Connection connection, String database, String prefix, CommandSender sender) throws SQLException {
-        String eventTable = qualified(database, prefix + "event_data");
-        if (!tableExists(connection, database, prefix + "event_data")) {
-            throw new SQLException("Missing official PlayPro event table: " + prefix + "event_data");
+        String eventTableName = prefix + "event_data";
+        String eventTable = qualified(database, eventTableName);
+        if (!tableExists(connection, database, eventTableName)) {
+            throw new SQLException("Missing official PlayPro event table: " + eventTableName);
         }
+        killPendingMutations(connection, database, eventTableName);
 
-        long repaired = 0;
-        repaired += repairJsonItemRows(connection, sender, eventTable, database, prefix, "container", "metadata");
-        repaired += repairJsonItemRows(connection, sender, eventTable, database, prefix, "item", "payload");
-        repaired += repairLegacyMetadataRows(connection, sender, eventTable, database, prefix, "entity_container", "metadata");
-        repaired += repairBase64Rows(connection, sender, eventTable, database, prefix, "entity_interaction", "metadata");
-        long remainingLegacyRows = countRemainingLegacyRows(connection, eventTable);
-        if (remainingLegacyRows > 0) {
-            throw new SQLException("Still found " + remainingLegacyRows + " legacy item metadata rows after repair");
+        String rawFixTable = prefix + "metadata_fix_" + System.currentTimeMillis();
+        String fixTable = qualified(database, rawFixTable);
+        createFixTable(connection, fixTable);
+        try {
+            long repaired = 0;
+            repaired += repairJsonItemRows(connection, sender, eventTable, fixTable, "container", "metadata");
+            repaired += repairJsonItemRows(connection, sender, eventTable, fixTable, "item", "payload");
+            repaired += repairLegacyMetadataRows(connection, sender, eventTable, fixTable, "entity_container", "metadata");
+            repaired += repairBase64Rows(connection, sender, eventTable, fixTable, "entity_interaction", "metadata");
+            if (repaired > 0) {
+                rebuildEventTable(connection, sender, database, eventTableName, eventTable, fixTable);
+            }
+
+            long remainingLegacyRows = countRemainingLegacyRows(connection, eventTable);
+            if (remainingLegacyRows > 0) {
+                throw new SQLException("Still found " + remainingLegacyRows + " legacy item metadata rows after repair");
+            }
+            ok(sender, "Repaired " + repaired + " PlayPro item metadata rows.");
         }
-        ok(sender, "Repaired " + repaired + " PlayPro item metadata rows.");
+        finally {
+            dropTable(connection, fixTable);
+        }
     }
 
-    private static long repairJsonItemRows(Connection connection, CommandSender sender, String eventTable, String database, String prefix, String family, String column) throws SQLException {
+    private static long repairJsonItemRows(Connection connection, CommandSender sender, String eventTable, String fixTable, String family, String column) throws SQLException {
         long total = 0;
         long lastRowId = 0;
         while (true) {
@@ -147,13 +161,13 @@ public final class PlayProMetadataRepairCommand {
             if (rows.isEmpty()) {
                 return total;
             }
-            mutateFixRows(connection, eventTable, database, prefix, rows);
+            writeFixRows(connection, fixTable, rows);
             total += rows.size();
-            ok(sender, "Repaired " + total + " " + family + "." + column + " rows...");
+            ok(sender, "Prepared " + total + " " + family + "." + column + " rows...");
         }
     }
 
-    private static long repairLegacyMetadataRows(Connection connection, CommandSender sender, String eventTable, String database, String prefix, String family, String column) throws SQLException {
+    private static long repairLegacyMetadataRows(Connection connection, CommandSender sender, String eventTable, String fixTable, String family, String column) throws SQLException {
         long total = 0;
         long lastRowId = 0;
         while (true) {
@@ -176,13 +190,13 @@ public final class PlayProMetadataRepairCommand {
             if (rows.isEmpty()) {
                 return total;
             }
-            mutateFixRows(connection, eventTable, database, prefix, rows);
+            writeFixRows(connection, fixTable, rows);
             total += rows.size();
-            ok(sender, "Repaired " + total + " " + family + "." + column + " rows...");
+            ok(sender, "Prepared " + total + " " + family + "." + column + " rows...");
         }
     }
 
-    private static long repairBase64Rows(Connection connection, CommandSender sender, String eventTable, String database, String prefix, String family, String column) throws SQLException {
+    private static long repairBase64Rows(Connection connection, CommandSender sender, String eventTable, String fixTable, String family, String column) throws SQLException {
         long total = 0;
         long lastRowId = 0;
         while (true) {
@@ -207,9 +221,9 @@ public final class PlayProMetadataRepairCommand {
             if (rows.isEmpty()) {
                 return total;
             }
-            mutateFixRows(connection, eventTable, database, prefix, rows);
+            writeFixRows(connection, fixTable, rows);
             total += rows.size();
-            ok(sender, "Repaired " + total + " " + family + "." + column + " rows...");
+            ok(sender, "Prepared " + total + " " + family + "." + column + " rows...");
         }
     }
 
@@ -240,45 +254,106 @@ public final class PlayProMetadataRepairCommand {
         }
     }
 
-    private static void mutateFixRows(Connection connection, String eventTable, String database, String prefix, List<FixRow> rows) throws SQLException {
+    private static void createFixTable(Connection connection, String fixTable) throws SQLException {
         try (Statement statement = connection.createStatement()) {
-            List<FixRow> metadataRows = rows.stream().filter(row -> row.metadataHex != null).toList();
-            if (!metadataRows.isEmpty()) {
-                executeFixMutation(statement, eventTable, "metadata", metadataRows);
-            }
-            List<FixRow> payloadRows = rows.stream().filter(row -> row.payloadHex != null).toList();
-            if (!payloadRows.isEmpty()) {
-                executeFixMutation(statement, eventTable, "payload", payloadRows);
-            }
+            statement.execute("CREATE TABLE " + fixTable + " (family String,rowid UInt64,metadata_hex Nullable(String),payload_hex Nullable(String)) ENGINE = MergeTree ORDER BY (family,rowid)");
         }
     }
 
-    private static void executeFixMutation(Statement statement, String eventTable, String eventColumn, List<FixRow> rows) throws SQLException {
-        String sql = mutationSql(eventTable, eventColumn, rows);
-        CoreProtect.getInstance().getSLF4JLogger().info("[PlayPro metadata repair] Executing {} mutation for {} rows ({} SQL chars).", eventColumn, rows.size(), sql.length());
-        statement.execute(sql);
+    private static void writeFixRows(Connection connection, String fixTable, List<FixRow> rows) throws SQLException {
+        try (PreparedStatement insert = connection.prepareStatement("INSERT INTO " + fixTable + " (family,rowid,metadata_hex,payload_hex) VALUES (?,?,?,?)")) {
+            for (FixRow row : rows) {
+                insert.setString(1, row.family);
+                insert.setLong(2, row.rowId);
+                if (row.metadataHex == null) {
+                    insert.setNull(3, java.sql.Types.VARCHAR);
+                }
+                else {
+                    insert.setString(3, row.metadataHex);
+                }
+                if (row.payloadHex == null) {
+                    insert.setNull(4, java.sql.Types.VARCHAR);
+                }
+                else {
+                    insert.setString(4, row.payloadHex);
+                }
+                insert.addBatch();
+            }
+            insert.executeBatch();
+        }
     }
 
-    private static String mutationSql(String eventTable, String eventColumn, List<FixRow> rows) {
-        StringBuilder expression = new StringBuilder("multiIf(");
-        StringBuilder where = new StringBuilder();
-        for (int i = 0; i < rows.size(); i++) {
-            FixRow row = rows.get(i);
-            if (i > 0) {
-                expression.append(',');
-                where.append(" OR ");
-            }
-
-            String predicate = "(family=" + sqlString(row.family) + " AND rowid=" + row.rowId + ")";
-            expression.append(predicate).append(',').append(hexValue(eventColumn.equals("payload") ? row.payloadHex : row.metadataHex));
-            where.append(predicate);
+    private static void rebuildEventTable(Connection connection, CommandSender sender, String database, String eventTableName, String eventTable, String fixTable) throws SQLException {
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String rebuildTable = qualified(database, eventTableName + "_repair_" + timestamp);
+        String backupTable = qualified(database, eventTableName + "_backup_repair_" + timestamp);
+        ok(sender, "Rebuilding " + eventTableName + " with repaired metadata. This can take a while...");
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(createTableLikeSql(connection, eventTable, rebuildTable));
+            String sql = rebuildInsertSql(connection, database, eventTableName, eventTable, rebuildTable, fixTable);
+            CoreProtect.getInstance().getSLF4JLogger().info("[PlayPro metadata repair] Copying repaired event_data into {}.", rebuildTable);
+            statement.execute(sql);
+            CoreProtect.getInstance().getSLF4JLogger().info("[PlayPro metadata repair] Swapping {} with repaired table. Backup table: {}.", eventTable, backupTable);
+            statement.execute("RENAME TABLE " + eventTable + " TO " + backupTable + ", " + rebuildTable + " TO " + eventTable);
         }
-        expression.append(',').append(quote(eventColumn)).append(')');
+        ok(sender, "Rebuilt " + eventTableName + ". Backup table: " + backupTable + ".");
+    }
 
-        return "ALTER TABLE " + eventTable
-                + " UPDATE " + quote(eventColumn) + " = " + expression
-                + " WHERE " + where
-                + " SETTINGS mutations_sync=2";
+    private static String createTableLikeSql(Connection connection, String sourceTable, String targetTable) throws SQLException {
+        try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery("SHOW CREATE TABLE " + sourceTable)) {
+            if (!resultSet.next()) {
+                throw new SQLException("ClickHouse did not return CREATE TABLE for " + sourceTable);
+            }
+            String createTable = resultSet.getString(1);
+            int definitionStart = createTable.indexOf('(');
+            if (definitionStart < 0) {
+                throw new SQLException("Unable to parse CREATE TABLE for " + sourceTable);
+            }
+            return "CREATE TABLE " + targetTable + " " + createTable.substring(definitionStart);
+        }
+    }
+
+    private static String rebuildInsertSql(Connection connection, String database, String eventTableName, String eventTable, String rebuildTable, String fixTable) throws SQLException {
+        List<String> columns = orderedColumns(connection, database, eventTableName);
+        StringBuilder columnList = new StringBuilder();
+        StringBuilder projection = new StringBuilder();
+        for (String column : columns) {
+            if (columnList.length() > 0) {
+                columnList.append(',');
+                projection.append(',');
+            }
+            columnList.append(quote(column));
+            if (column.equals("metadata")) {
+                projection.append("if(isNull(f.metadata_hex),e.").append(quote(column)).append(",").append(hexExpression("f.metadata_hex")).append(") AS ").append(quote(column));
+            }
+            else if (column.equals("payload")) {
+                projection.append("if(isNull(f.payload_hex),e.").append(quote(column)).append(",").append(hexExpression("f.payload_hex")).append(") AS ").append(quote(column));
+            }
+            else {
+                projection.append("e.").append(quote(column));
+            }
+        }
+
+        return "INSERT INTO " + rebuildTable + " (" + columnList + ") SELECT " + projection
+                + " FROM " + eventTable + " AS e LEFT JOIN (SELECT family,rowid,any(metadata_hex) AS metadata_hex,any(payload_hex) AS payload_hex FROM "
+                + fixTable + " GROUP BY family,rowid) AS f ON toString(e.family)=f.family AND e.rowid=f.rowid";
+    }
+
+    private static List<String> orderedColumns(Connection connection, String database, String table) throws SQLException {
+        List<String> columns = new ArrayList<>();
+        try (PreparedStatement statement = connection.prepareStatement("SELECT name FROM system.columns WHERE database=? AND table=? ORDER BY position")) {
+            statement.setString(1, database);
+            statement.setString(2, table);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    columns.add(resultSet.getString(1));
+                }
+            }
+        }
+        if (columns.isEmpty()) {
+            throw new SQLException("Unable to load columns for " + table);
+        }
+        return columns;
     }
 
     private static void waitForConsumerDrain(CommandSender sender) throws InterruptedException {
@@ -313,6 +388,25 @@ public final class PlayProMetadataRepairCommand {
         }
     }
 
+    private static void dropTable(Connection connection, String table) {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS " + table);
+        }
+        catch (SQLException e) {
+            CoreProtect.getInstance().getSLF4JLogger().warn("[PlayPro metadata repair] Unable to drop temporary table {}", table, e);
+        }
+    }
+
+    private static void killPendingMutations(Connection connection, String database, String table) {
+        String sql = "KILL MUTATION WHERE database=" + sqlString(database) + " AND table=" + sqlString(table) + " AND is_done=0 SYNC";
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        }
+        catch (SQLException e) {
+            CoreProtect.getInstance().getSLF4JLogger().warn("[PlayPro metadata repair] Unable to kill pending mutations for {}.{}; continuing with table rebuild.", database, table, e);
+        }
+    }
+
     private static String qualified(String database, String table) {
         return quote(database) + "." + quote(table);
     }
@@ -325,11 +419,8 @@ public final class PlayProMetadataRepairCommand {
         return "'" + value.replace("'", "''") + "'";
     }
 
-    private static String hexValue(String value) {
-        if (value == null || value.isEmpty()) {
-            return "CAST(NULL,'Nullable(String)')";
-        }
-        return "CAST(unhex(" + sqlString(value) + "),'Nullable(String)')";
+    private static String hexExpression(String value) {
+        return "if(" + value + "='',CAST(NULL,'Nullable(String)'),CAST(unhex(" + value + "),'Nullable(String)'))";
     }
 
     private static String hex(byte[] bytes) {

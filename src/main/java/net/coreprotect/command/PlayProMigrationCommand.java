@@ -110,6 +110,8 @@ public final class PlayProMigrationCommand {
                 bootstrapTargetSchema(connection, options);
                 requireTargetReady(connection, options);
                 archiveSourceTables(connection, options);
+                recreateCompatibilityViews(connection, options.database, options.livePrefix);
+                ok(sender, "Created official PlayPro compatibility views.");
                 runMigrationSql(connection, options, sender);
                 PlayProMetadataRepairCommand.repair(connection, options.database, options.livePrefix, sender);
             }
@@ -181,6 +183,14 @@ public final class PlayProMigrationCommand {
     private static void bootstrapTargetSchema(Connection connection, MigrationOptions options) throws SQLException {
         try (Statement statement = connection.createStatement()) {
             for (String sql : targetSchema(options)) {
+                statement.execute(sql);
+            }
+        }
+    }
+
+    static void recreateCompatibilityViews(Connection connection, String database, String prefix) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            for (String sql : compatibilityViewSql(database, prefix)) {
                 statement.execute(sql);
             }
         }
@@ -478,6 +488,75 @@ public final class PlayProMigrationCommand {
                 ORDER BY (dataset_id,family,wid,x,z,if(family IN ('database_lock','user','version'),0,time),rowid)
                 SETTINGS fsync_after_insert=1,fsync_part_directory=1,non_replicated_deduplication_window=1000
                 """.formatted(events);
+    }
+
+    static List<String> compatibilityViewSql(String database, String prefix) {
+        String events = qualified(database, prefix + "event_data");
+        List<String> statements = new ArrayList<>();
+        statements.add(view(database, prefix, events, "art_map", "e.rowid AS rowid,e.id AS id,e.name AS art"));
+        statements.add(rollbackView(database, prefix, events, "block", "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.type AS type,e.data AS data," + binary("e.meta", "meta") + "," + binary("e.blockdata", "blockdata") + ",e.action AS action"));
+        statements.add(view(database, prefix, events, "chat", "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.message AS message"));
+        statements.add(view(database, prefix, events, "command", "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.message AS message"));
+        statements.add(rollbackView(database, prefix, events, "container", "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.type AS type,e.data AS data,e.amount AS amount," + binary("e.metadata", "metadata") + ",e.action AS action"));
+        statements.add(rollbackView(database, prefix, events, "entity_container", "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.entity_spawn_rowid AS entity_spawn_rowid,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.type AS type,e.data AS data,e.amount AS amount," + binary("e.metadata", "metadata") + ",e.action AS action"));
+        statements.add(view(database, prefix, events, "entity_interaction", "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.entity_spawn_rowid AS entity_spawn_rowid,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.type AS type,e.action AS action," + binary("e.metadata", "metadata") + ",e.rolled_back AS rolled_back"));
+        statements.add(rollbackView(database, prefix, events, "item", "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.type AS type," + binary("e.payload", "data") + ",e.amount AS amount,e.action AS action"));
+        statements.add(currentView(database, prefix, events, "database_lock", "e.rowid AS rowid,e.status AS status,e.database_lock_time AS time"));
+        statements.add(view(database, prefix, events, "entity", "e.rowid AS rowid,e.time AS time," + binary("e.payload", "data")));
+        statements.add(entitySpawnView(database, prefix, events));
+        statements.add(view(database, prefix, events, "entity_map", "e.rowid AS rowid,e.id AS id,e.name AS entity"));
+        statements.add(view(database, prefix, events, "material_map", "e.rowid AS rowid,e.id AS id,e.name AS material"));
+        statements.add(view(database, prefix, events, "blockdata_map", "e.rowid AS rowid,e.id AS id,e.text AS data"));
+        statements.add(view(database, prefix, events, "session", "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.action AS action"));
+        statements.add(view(database, prefix, events, "sign", "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.action AS action,e.color AS color,e.color_secondary AS color_secondary,e.sign_data AS data,e.waxed AS waxed,e.face AS face,e.line_1 AS line_1,e.line_2 AS line_2,e.line_3 AS line_3,e.line_4 AS line_4,e.line_5 AS line_5,e.line_6 AS line_6,e.line_7 AS line_7,e.line_8 AS line_8"));
+        statements.add(view(database, prefix, events, "skull", "e.rowid AS rowid,e.time AS time,e.name AS owner,e.text AS skin"));
+        statements.add(currentView(database, prefix, events, "user", "e.rowid AS rowid,e.time AS time,e.user_name AS `user`,e.uuid AS uuid"));
+        statements.add(view(database, prefix, events, "username_log", "e.rowid AS rowid,e.time AS time,e.uuid AS uuid,e.user_name AS `user`"));
+        statements.add(currentView(database, prefix, events, "version", "e.rowid AS rowid,e.time AS time,e.version AS version"));
+        statements.add(view(database, prefix, events, "world", "e.rowid AS rowid,e.id AS id,e.name AS world"));
+        return statements;
+    }
+
+    private static String view(String database, String prefix, String events, String family, String projection) {
+        return "CREATE OR REPLACE VIEW " + qualified(database, prefix + family)
+                + " AS SELECT " + projection
+                + " FROM " + events(events, family) + " AS e";
+    }
+
+    private static String currentView(String database, String prefix, String events, String family, String projection) {
+        return "CREATE OR REPLACE VIEW " + qualified(database, prefix + family)
+                + " AS SELECT " + projection
+                + " FROM " + currentEvents(events, family) + " AS e";
+    }
+
+    private static String rollbackView(String database, String prefix, String events, String family, String projection) {
+        return currentView(database, prefix, events, family, projection + ",e.rolled_back AS rolled_back");
+    }
+
+    private static String entitySpawnView(String database, String prefix, String events) {
+        return "CREATE OR REPLACE VIEW " + qualified(database, prefix + "entity_spawn")
+                + " AS SELECT e.rowid AS rowid,e.time AS time"
+                + ",if(e.block_rowid_present=1,e.block_rowid,NULL) AS block_rowid"
+                + ",if(e.kill_rowid_present=1,e.kill_rowid,NULL) AS kill_rowid"
+                + ",e.uuid AS uuid,e.wid AS wid,e.current_wid AS current_wid"
+                + ",e.origin_x AS origin_x,e.origin_y AS origin_y,e.origin_z AS origin_z"
+                + ",e.current_x AS x,e.current_y AS y,e.current_z AS z"
+                + ",e.yaw AS yaw,e.pitch AS pitch," + binary("if(e.entity_data_present=1,e.entity_data,NULL)", "data") + ",e.removed AS removed"
+                + " FROM " + currentEvents(events, "entity_spawn") + " AS e";
+    }
+
+    private static String binary(String value, String alias) {
+        String presentValue = "ifNull(" + value + ",'')";
+        String bytes = "arrayMap(i -> reinterpretAsInt8(substring(" + presentValue + ",i,1)),range(1,length(" + presentValue + ")+1))";
+        return "if(isNull(" + value + "),CAST([], 'Array(Int8)'),arrayConcat([toInt8(0)]," + bytes + ")) AS " + alias;
+    }
+
+    private static String events(String events, String family) {
+        return "(SELECT * FROM " + events + " WHERE family='" + family + "')";
+    }
+
+    private static String currentEvents(String events, String family) {
+        return "(SELECT * FROM " + events + " FINAL WHERE family='" + family + "')";
     }
 
     private static String qualified(String database, String table) {

@@ -126,6 +126,8 @@ public final class PlayProMetadataRepairCommand {
             if (repaired > 0) {
                 rebuildEventTable(connection, sender, database, eventTableName, eventTable, fixTable);
             }
+            PlayProMigrationCommand.recreateCompatibilityViews(connection, database, prefix);
+            ok(sender, "Recreated official PlayPro compatibility views.");
 
             long remainingLegacyRows = countRemainingLegacyRows(connection, eventTable);
             if (remainingLegacyRows > 0) {

@@ -120,9 +120,9 @@ public final class PlayProMetadataRepairCommand {
         repaired += repairJsonItemRows(connection, sender, eventTable, database, prefix, "item", "payload");
         repaired += repairLegacyMetadataRows(connection, sender, eventTable, database, prefix, "entity_container", "metadata");
         repaired += repairBase64Rows(connection, sender, eventTable, database, prefix, "entity_interaction", "metadata");
-        long remainingJsonRows = countRemainingJsonRows(connection, eventTable);
-        if (remainingJsonRows > 0) {
-            throw new SQLException("Still found " + remainingJsonRows + " JSON item metadata rows after repair");
+        long remainingLegacyRows = countRemainingLegacyRows(connection, eventTable);
+        if (remainingLegacyRows > 0) {
+            throw new SQLException("Still found " + remainingLegacyRows + " legacy item metadata rows after repair");
         }
         ok(sender, "Repaired " + repaired + " PlayPro item metadata rows.");
     }
@@ -132,7 +132,7 @@ public final class PlayProMetadataRepairCommand {
         long lastRowId = 0;
         while (true) {
             List<FixRow> rows = new ArrayList<>();
-            String sql = "SELECT rowid,type,amount," + quote(column) + " FROM " + eventTable + " FINAL "
+            String sql = "SELECT rowid,type,amount," + quote(column) + " FROM " + eventTable + " "
                     + "WHERE family=? AND rowid>? AND " + quote(column) + " IS NOT NULL AND startsWith(" + quote(column) + ", '{') "
                     + "ORDER BY rowid LIMIT " + BATCH_SIZE;
             try (PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -161,7 +161,7 @@ public final class PlayProMetadataRepairCommand {
         long lastRowId = 0;
         while (true) {
             List<FixRow> rows = new ArrayList<>();
-            String sql = "SELECT rowid," + quote(column) + " FROM " + eventTable + " FINAL "
+            String sql = "SELECT rowid," + quote(column) + " FROM " + eventTable + " "
                     + "WHERE family=? AND rowid>? AND " + quote(column) + " IS NOT NULL AND startsWith(" + quote(column) + ", '[') "
                     + "ORDER BY rowid LIMIT " + BATCH_SIZE;
             try (PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -190,7 +190,7 @@ public final class PlayProMetadataRepairCommand {
         long lastRowId = 0;
         while (true) {
             List<FixRow> rows = new ArrayList<>();
-            String sql = "SELECT rowid," + quote(column) + " FROM " + eventTable + " FINAL "
+            String sql = "SELECT rowid," + quote(column) + " FROM " + eventTable + " "
                     + "WHERE family=? AND rowid>? AND " + quote(column) + " IS NOT NULL AND match(" + quote(column) + ", '^[A-Za-z0-9+/]+={0,2}$') "
                     + "ORDER BY rowid LIMIT " + BATCH_SIZE;
             try (PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -322,11 +322,12 @@ public final class PlayProMetadataRepairCommand {
         }
     }
 
-    private static long countRemainingJsonRows(Connection connection, String eventTable) throws SQLException {
-        String sql = "SELECT count() FROM " + eventTable + " FINAL WHERE "
+    private static long countRemainingLegacyRows(Connection connection, String eventTable) throws SQLException {
+        String sql = "SELECT count() FROM " + eventTable + " WHERE "
                 + "(family='container' AND metadata IS NOT NULL AND startsWith(metadata,'{')) OR "
                 + "(family='item' AND payload IS NOT NULL AND startsWith(payload,'{')) OR "
-                + "(family='entity_container' AND metadata IS NOT NULL AND startsWith(metadata,'['))";
+                + "(family='entity_container' AND metadata IS NOT NULL AND startsWith(metadata,'[')) OR "
+                + "(family='entity_interaction' AND metadata IS NOT NULL AND metadata!='' AND match(metadata,'^[A-Za-z0-9+/]+={0,2}$'))";
         try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery(sql)) {
             return resultSet.next() ? resultSet.getLong(1) : 0;
         }

@@ -78,6 +78,9 @@ public class CommandHandler implements CommandExecutor {
                     } else if (corecommand.equals("convert") && user.hasPermission("coreprotect.convert-clickhouse")) {
                         permission = true;
                     }
+                    else if (corecommand.equals("migrate-playpro") && user.hasPermission("coreprotect.migrate-playpro")) {
+                        permission = true;
+                    }
                     else if (user.hasPermission("coreprotect.give") && corecommand.equals("give")) {
                         permission = true;
                     }
@@ -138,6 +141,9 @@ public class CommandHandler implements CommandExecutor {
                 }
                 else if (corecommand.equals("convert")) {
                     ConvertCommand.runCommand(user, permission, argumentArray);
+                }
+                else if (corecommand.equals("migrate-playpro")) {
+                    PlayProMigrationCommand.runCommand(user, permission, argumentArray);
                 }
                 else {
                     Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.COMMAND_NOT_FOUND, Color.WHITE, "/co " + corecommand));

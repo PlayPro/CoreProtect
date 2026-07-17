@@ -99,6 +99,10 @@ tasks {
     processResources {
         filteringCharset = Charsets.UTF_8.name()
 
+        from("tools/playpro-clickhouse-migration.sql") {
+            into("migration")
+        }
+
         expand(
             "version" to project.version,
             "branch" to "development",

@@ -16,7 +16,39 @@ update from PlayPro directly.
 - The official `/co migrate-db` command is Patreon-extension based. This fork's
   ClickHouse schema is not guaranteed to be accepted as an official source.
 
-## Fully automated flow
+## Fully automated plugin flow
+
+Install the migration build of this fork, start the server in maintenance mode
+with no players online, then run from console:
+
+```text
+co migrate-playpro target:coreprotect_playpro
+```
+
+The plugin command:
+
+- checks ClickHouse version `25.6+`;
+- checks the old fork tables in the current database, normally `kostya`;
+- creates `coreprotect_playpro` with the official PlayPro physical schema;
+- refuses to write into a non-empty target;
+- pauses CoreProtect logging while the final copy runs;
+- migrates all supported logical tables into `co_event_data`;
+- writes high-water marks so official PlayPro continues row IDs after the
+  imported history;
+- prints verification counts for every migrated family.
+
+After the command succeeds, stop the server immediately, replace this fork jar
+with the official PlayPro/CoreProtect jar, and set:
+
+```yaml
+database-type: clickhouse
+table-prefix: co_
+clickhouse-database: coreprotect_playpro
+```
+
+Then start the staging server and run the checks below.
+
+## Standalone script flow
 
 Run this from the repository root after the production Minecraft server is
 stopped:

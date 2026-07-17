@@ -48,6 +48,7 @@ permissions:
             coreprotect.consumer: true
             coreprotect.networking: true
             coreprotect.convert-clickhouse: true
+            coreprotect.migrate-playpro: true
             coreprotect.give: false
     coreprotect.co:
         description: Has permission to access the CoreProtect /co command
@@ -147,6 +148,9 @@ permissions:
         default: op
     coreprotect.networking:
         description: Has permission to use the networking API
+        default: op
+    coreprotect.migrate-playpro:
+        description: Has permission to migrate this fork to official PlayPro ClickHouse storage
         default: op
     coreprotect.give:
         description: Has permission to use the give command

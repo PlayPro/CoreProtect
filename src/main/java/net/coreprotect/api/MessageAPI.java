@@ -92,11 +92,11 @@ public class MessageAPI {
         }
 
         String collate = Config.getGlobal().MYSQL ? "" : " COLLATE NOCASE";
-        try (PreparedStatement statement = connection.prepareStatement("SELECT rowid FROM " + ConfigHandler.prefix + "user WHERE user = ?" + collate + " ORDER BY rowid ASC LIMIT 0, 1")) {
+        try (PreparedStatement statement = connection.prepareStatement("SELECT rowid AS id FROM " + ConfigHandler.prefix + "user WHERE user = ?" + collate + " ORDER BY rowid ASC LIMIT 0, 1")) {
             statement.setString(1, user);
             try (ResultSet results = statement.executeQuery()) {
                 if (results.next()) {
-                    int id = results.getInt("rowid");
+                    int id = results.getInt("id");
                     ConfigHandler.playerIdCache.put(user.toLowerCase(java.util.Locale.ROOT), id);
                     ConfigHandler.playerIdCacheReversed.put(id, user);
                     return id;

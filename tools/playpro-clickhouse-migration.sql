@@ -1,18 +1,15 @@
 -- One-shot migration from the old coreprotect-clickhouse fork schema to the
 -- official PlayPro/CoreProtect ClickHouse event_data schema.
 --
--- Assumptions:
---   old/source database: kostya
---   new/target database: coreprotect_playpro
---   table prefix in both databases: co_
+-- This file is a template. The in-plugin /co migrate-playpro command rewrites:
+--   source kostya.co_*              -> configured_database.archive_prefix*
+--   target coreprotect_playpro.co_* -> configured_database.live_prefix*
 --
--- Run this only after the official PlayPro/CoreProtect jar has started once
--- against coreprotect_playpro and created its empty ClickHouse schema.
--- Stop the Minecraft server before running this file.
+-- Do not run this file directly against production unless you have manually
+-- prepared a fresh official target schema and adjusted the database names.
 --
--- Do not run this against the old database as the target. The official schema
--- creates compatibility views named co_block/co_container/etc, which conflict
--- with the fork's physical tables.
+-- The plugin command archives the old physical co_* tables first because
+-- official PlayPro later creates compatibility views with those names.
 
 CREATE DATABASE IF NOT EXISTS coreprotect_playpro ENGINE = Atomic;
 

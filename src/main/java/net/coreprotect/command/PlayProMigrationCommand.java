@@ -12,7 +12,6 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.bukkit.Bukkit;
@@ -30,13 +29,12 @@ import net.kyori.adventure.text.format.NamedTextColor;
 
 public final class PlayProMigrationCommand {
 
-    private static final String DEFAULT_TARGET_DATABASE = "coreprotect_playpro";
     private static final String MIGRATION_RESOURCE = "/migration/playpro-clickhouse-migration.sql";
-    private static final Set<String> SOURCE_TABLES = Set.of(
+    private static final List<String> ARCHIVE_TABLES = List.of(
             "art_map", "block", "chat", "command", "container", "entity_container",
-            "entity_interaction", "item", "entity", "entity_spawn", "entity_map",
-            "material_map", "blockdata_map", "session", "sign", "skull", "user",
-            "username_log", "world");
+            "entity_interaction", "item", "database_lock", "entity", "entity_spawn",
+            "entity_map", "material_map", "blockdata_map", "session", "sign", "skull",
+            "user", "username_log", "version", "world");
 
     private PlayProMigrationCommand() {
         throw new IllegalStateException("Command class");
@@ -77,8 +75,8 @@ public final class PlayProMigrationCommand {
             return;
         }
 
-        if (options.sourceDatabase.equals(options.targetDatabase) && options.sourcePrefix.equals(options.targetPrefix)) {
-            error(sender, "Source and target namespace are the same. Use a fresh target database.");
+        if (options.archivePrefix.equals(options.livePrefix)) {
+            error(sender, "Archive prefix cannot be the same as the live prefix.");
             return;
         }
 
@@ -92,7 +90,7 @@ public final class PlayProMigrationCommand {
             error(sender, "Migration failed unexpectedly. See console for details.");
         });
         migrationThread.start();
-        ok(sender, "Started PlayPro migration to database '" + options.targetDatabase + "'. CoreProtect will pause logging near the end.");
+        ok(sender, "Started in-place PlayPro migration in " + options.database + ". Old tables will be archived as " + options.archivePrefix + "*.");
     }
 
     private static void runMigration(CommandSender sender, MigrationOptions options) {
@@ -108,15 +106,17 @@ public final class PlayProMigrationCommand {
                 }
                 requireClickHouseVersion(connection);
                 requireSourceTables(connection, options);
-                bootstrapTargetSchema(connection, options);
+                requireArchiveTablesFree(connection, options);
                 requireTargetDatabaseEngine(connection, options);
+                bootstrapTargetSchema(connection, options);
                 requireTargetReady(connection, options);
+                archiveSourceTables(connection, options);
                 runMigrationSql(connection, options, sender);
             }
 
             success = true;
             ok(sender, "Migration completed successfully.");
-            ok(sender, "Stop the server now, replace this jar with official PlayPro/CoreProtect, and set clickhouse-database: " + options.targetDatabase);
+            ok(sender, "Stop the server now, replace this jar with official PlayPro/CoreProtect, and keep clickhouse-database: " + options.database + ", table-prefix: " + options.livePrefix);
         }
         catch (Exception e) {
             CoreProtect.getInstance().getSLF4JLogger().error("PlayPro migration failed", e);
@@ -158,13 +158,25 @@ public final class PlayProMigrationCommand {
 
     private static void requireSourceTables(Connection connection, MigrationOptions options) throws SQLException {
         List<String> missing = new ArrayList<>();
-        for (String table : SOURCE_TABLES) {
-            if (!tableExists(connection, options.sourceDatabase, options.sourcePrefix + table)) {
-                missing.add(options.sourcePrefix + table);
+        for (String table : ARCHIVE_TABLES) {
+            if (!tableExists(connection, options.database, options.livePrefix + table)) {
+                missing.add(options.livePrefix + table);
             }
         }
         if (!missing.isEmpty()) {
             throw new SQLException("Source database is missing required tables: " + String.join(", ", missing));
+        }
+    }
+
+    private static void requireArchiveTablesFree(Connection connection, MigrationOptions options) throws SQLException {
+        List<String> existing = new ArrayList<>();
+        for (String table : ARCHIVE_TABLES) {
+            if (tableExists(connection, options.database, options.archivePrefix + table)) {
+                existing.add(options.archivePrefix + table);
+            }
+        }
+        if (!existing.isEmpty()) {
+            throw new SQLException("Archive tables already exist: " + String.join(", ", existing));
         }
     }
 
@@ -178,15 +190,15 @@ public final class PlayProMigrationCommand {
 
     private static void requireTargetDatabaseEngine(Connection connection, MigrationOptions options) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement("SELECT engine,toString(uuid) FROM system.databases WHERE name=? LIMIT 2")) {
-            statement.setString(1, options.targetDatabase);
+            statement.setString(1, options.database);
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (!resultSet.next()) {
-                    throw new SQLException("Target database does not exist: " + options.targetDatabase);
+                    throw new SQLException("Target database does not exist: " + options.database);
                 }
                 String engine = resultSet.getString(1);
                 String uuid = resultSet.getString(2);
                 if (resultSet.next()) {
-                    throw new SQLException("Target database is ambiguous: " + options.targetDatabase);
+                    throw new SQLException("Target database is ambiguous: " + options.database);
                 }
                 if ("00000000-0000-0000-0000-000000000000".equals(uuid)) {
                     throw new SQLException("Target database uses engine " + engine + " without persistent UUID-backed table identities. Use ENGINE = Atomic.");
@@ -196,19 +208,42 @@ public final class PlayProMigrationCommand {
     }
 
     private static void requireTargetReady(Connection connection, MigrationOptions options) throws SQLException {
-        if (!tableExists(connection, options.targetDatabase, options.targetPrefix + "storage_metadata")
-                || !tableExists(connection, options.targetDatabase, options.targetPrefix + "event_data")) {
+        if (!tableExists(connection, options.database, options.livePrefix + "storage_metadata")
+                || !tableExists(connection, options.database, options.livePrefix + "event_data")) {
             throw new SQLException("Target PlayPro schema is missing physical tables");
         }
 
-        long identityRows = count(connection, qualified(options.targetDatabase, options.targetPrefix + "storage_metadata"));
+        long identityRows = count(connection, qualified(options.database, options.livePrefix + "storage_metadata"));
         if (identityRows != 1L) {
             throw new SQLException("Target storage metadata must contain exactly one row. Found " + identityRows);
         }
 
-        long eventRows = count(connection, qualified(options.targetDatabase, options.targetPrefix + "event_data"));
+        long eventRows = count(connection, qualified(options.database, options.livePrefix + "event_data"));
         if (eventRows > 0L) {
             throw new SQLException("Target event_data already contains " + eventRows + " rows. Use a fresh target database.");
+        }
+
+        long writerRows = count(connection, qualified(options.database, options.livePrefix + "writer_registration"));
+        if (writerRows > 0L) {
+            throw new SQLException("Target writer_registration already contains " + writerRows + " rows. Stop official PlayPro before migrating.");
+        }
+
+        long highWaterRows = count(connection, qualified(options.database, options.livePrefix + "retention_high_water"));
+        if (highWaterRows > 0L) {
+            throw new SQLException("Target retention_high_water already contains " + highWaterRows + " rows. Use a fresh target schema.");
+        }
+    }
+
+    private static void archiveSourceTables(Connection connection, MigrationOptions options) throws SQLException {
+        String renameSql = ARCHIVE_TABLES.stream()
+                .map(table -> qualified(options.database, options.livePrefix + table) + " TO " + qualified(options.database, options.archivePrefix + table))
+                .collect(Collectors.joining(", "));
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("RENAME TABLE " + renameSql);
+        }
+        for (String table : ARCHIVE_TABLES) {
+            CoreProtect.getInstance().getSLF4JLogger().info("[PlayPro migration] Archived {} as {}",
+                    qualified(options.database, options.livePrefix + table), qualified(options.database, options.archivePrefix + table));
         }
     }
 
@@ -280,10 +315,9 @@ public final class PlayProMigrationCommand {
             }
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
                 String sql = reader.lines().collect(Collectors.joining("\n"));
-                sql = sql.replace("kostya.co_", options.sourceDatabase + "." + options.sourcePrefix);
-                sql = sql.replace("coreprotect_playpro.co_", options.targetDatabase + "." + options.targetPrefix);
-                sql = sql.replace("CREATE DATABASE IF NOT EXISTS coreprotect_playpro ENGINE = Atomic;",
-                        "CREATE DATABASE IF NOT EXISTS " + quote(options.targetDatabase) + " ENGINE = Atomic;");
+                sql = sql.replace("kostya.co_", options.database + "." + options.archivePrefix);
+                sql = sql.replace("coreprotect_playpro.co_", options.database + "." + options.livePrefix);
+                sql = sql.replace("CREATE DATABASE IF NOT EXISTS coreprotect_playpro ENGINE = Atomic;", "");
                 return sql;
             }
         }
@@ -329,14 +363,12 @@ public final class PlayProMigrationCommand {
     }
 
     private static List<String> targetSchema(MigrationOptions options) {
-        String database = quote(options.targetDatabase);
-        String storage = qualified(options.targetDatabase, options.targetPrefix + "storage_metadata");
-        String writer = qualified(options.targetDatabase, options.targetPrefix + "writer_registration");
-        String highWater = qualified(options.targetDatabase, options.targetPrefix + "retention_high_water");
-        String events = qualified(options.targetDatabase, options.targetPrefix + "event_data");
+        String storage = qualified(options.database, options.livePrefix + "storage_metadata");
+        String writer = qualified(options.database, options.livePrefix + "writer_registration");
+        String highWater = qualified(options.database, options.livePrefix + "retention_high_water");
+        String events = qualified(options.database, options.livePrefix + "event_data");
 
         return List.of(
-                "CREATE DATABASE IF NOT EXISTS " + database + " ENGINE = Atomic",
                 """
                 CREATE TABLE IF NOT EXISTS %s (
                     dataset_id UUID CODEC(ZSTD(3)),
@@ -469,16 +501,15 @@ public final class PlayProMigrationCommand {
     }
 
     private static void usage(CommandSender sender) {
-        sender.sendMessage(Component.text("Usage: /co migrate-playpro [target:coreprotect_playpro] [target-prefix:co_]", NamedTextColor.YELLOW));
+        sender.sendMessage(Component.text("Usage: /co migrate-playpro [database:kostya] [prefix:co_] [archive-prefix:co_migrate_]", NamedTextColor.YELLOW));
     }
 
-    private record MigrationOptions(String sourceDatabase, String sourcePrefix, String targetDatabase, String targetPrefix) {
+    private record MigrationOptions(String database, String livePrefix, String archivePrefix) {
 
         private static MigrationOptions parse(String[] commandArgs) {
-            String sourceDatabase = ConfigHandler.database;
-            String sourcePrefix = ConfigHandler.prefix;
-            String targetDatabase = DEFAULT_TARGET_DATABASE;
-            String targetPrefix = ConfigHandler.prefix;
+            String database = ConfigHandler.database;
+            String livePrefix = ConfigHandler.prefix;
+            String archivePrefix = livePrefix + "migrate_";
 
             for (int i = 1; i < commandArgs.length; i++) {
                 String arg = commandArgs[i].trim();
@@ -492,19 +523,20 @@ public final class PlayProMigrationCommand {
                 String key = split[0].toLowerCase(Locale.ROOT);
                 String value = split[1];
                 switch (key) {
-                    case "source", "source-database" -> sourceDatabase = value;
-                    case "source-prefix" -> sourcePrefix = value;
-                    case "target", "target-database", "database" -> targetDatabase = value;
-                    case "target-prefix" -> targetPrefix = value;
+                    case "database" -> database = value;
+                    case "prefix" -> {
+                        livePrefix = value;
+                        archivePrefix = value + "migrate_";
+                    }
+                    case "archive-prefix" -> archivePrefix = value;
                     default -> throw new IllegalArgumentException("Unknown argument: " + key);
                 }
             }
 
-            validateIdentifier(sourceDatabase, "source database");
-            validateIdentifier(targetDatabase, "target database");
-            validatePrefix(sourcePrefix, "source prefix");
-            validatePrefix(targetPrefix, "target prefix");
-            return new MigrationOptions(sourceDatabase, sourcePrefix, targetDatabase, targetPrefix);
+            validateIdentifier(database, "database");
+            validatePrefix(livePrefix, "prefix");
+            validatePrefix(archivePrefix, "archive prefix");
+            return new MigrationOptions(database, livePrefix, archivePrefix);
         }
 
         private static void validateIdentifier(String value, String name) {
@@ -523,4 +555,3 @@ public final class PlayProMigrationCommand {
         }
     }
 }
-

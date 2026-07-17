@@ -457,7 +457,7 @@ public class TabHandler implements TabCompleter {
             return StringUtil.copyPartialMatches(argument1, completions, new ArrayList<>(completions.size()));
         }
         else if (argument0.equals("migrate-playpro") && sender.hasPermission("coreprotect.migrate-playpro")) {
-            List<String> completions = new ArrayList<>(Arrays.asList("target:coreprotect_playpro", "target-prefix:co_"));
+            List<String> completions = new ArrayList<>(Arrays.asList("database:" + ConfigHandler.database, "prefix:" + ConfigHandler.prefix, "archive-prefix:" + ConfigHandler.prefix + "migrate_"));
             return StringUtil.copyPartialMatches(argument1, completions, new ArrayList<>(completions.size()));
         }
         else if (hasLookupCommand(argument0, sender)) {

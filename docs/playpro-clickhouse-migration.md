@@ -1,133 +1,115 @@
 # Migrating this fork to official PlayPro/CoreProtect ClickHouse
 
-This repo should not stay the long-term upstream for a production server if the
-official PlayPro/CoreProtect project now supports ClickHouse. The safer path is
-to move the data into a fresh official PlayPro ClickHouse namespace and then
-update from PlayPro directly.
+Official PlayPro/CoreProtect now has its own ClickHouse backend. The safest
+long-term path is to move this fork's old tables into the official columnar
+schema, then run the official jar directly.
 
-## Important constraints
+## What the migration does
 
-- Do not point the official PlayPro jar at the current `kostya` database with
-  the `co_` prefix. This fork uses physical tables such as `co_block` and
-  `co_container`; official PlayPro creates compatibility views with those names.
-- Use a fresh ClickHouse database such as `coreprotect_playpro`.
-- Keep the old `kostya` database untouched until the new server has been tested.
-- Official PlayPro requires ClickHouse 25.6+ and an Atomic database.
-- The official `/co migrate-db` command is Patreon-extension based. This fork's
-  ClickHouse schema is not guaranteed to be accepted as an official source.
+The in-plugin migration keeps the same ClickHouse database and table prefix:
 
-## Fully automated plugin flow
+```yaml
+database-type: clickhouse
+clickhouse-database: kostya
+table-prefix: co_
+```
 
-Install the migration build of this fork, start the server in maintenance mode
-with no players online, then run from console:
+When you run the command, the plugin:
+
+- waits for the consumer queue to drain;
+- pauses CoreProtect logging;
+- checks ClickHouse `25.6+`;
+- checks that the current database is UUID-backed/Atomic;
+- creates official PlayPro physical tables:
+  - `co_storage_metadata`
+  - `co_writer_registration`
+  - `co_retention_high_water`
+  - `co_event_data`
+- renames the old fork tables from `co_*` to `co_migrate_*`;
+- imports supported history into `co_event_data`;
+- writes high-water rows so official PlayPro continues after imported row IDs;
+- leaves logging paused so you can stop the server and swap jars.
+
+The old data remains in the same database as `co_migrate_*`.
+
+## Command
+
+Run from console during maintenance with no players online:
 
 ```text
-co migrate-playpro target:coreprotect_playpro
+co migrate-playpro
 ```
 
-The plugin command:
+For a non-default database or prefix:
 
-- checks ClickHouse version `25.6+`;
-- checks the old fork tables in the current database, normally `kostya`;
-- creates `coreprotect_playpro` with the official PlayPro physical schema;
-- refuses to write into a non-empty target;
-- pauses CoreProtect logging while the final copy runs;
-- migrates all supported logical tables into `co_event_data`;
-- writes high-water marks so official PlayPro continues row IDs after the
-  imported history;
-- prints verification counts for every migrated family.
+```text
+co migrate-playpro database:kostya prefix:co_ archive-prefix:co_migrate_
+```
 
-After the command succeeds, stop the server immediately, replace this fork jar
-with the official PlayPro/CoreProtect jar, and set:
+After success, stop the server immediately. Replace this fork jar with the
+official PlayPro/CoreProtect jar and keep:
 
 ```yaml
 database-type: clickhouse
+clickhouse-database: kostya
 table-prefix: co_
-clickhouse-database: coreprotect_playpro
 ```
 
-Then start the staging server and run the checks below.
+On the next startup, official PlayPro will create its compatibility views such
+as `co_block`, `co_container`, and `co_item` over `co_event_data`.
 
-## Standalone script flow
+## Required permissions
 
-Run this from the repository root after the production Minecraft server is
-stopped:
+The ClickHouse user does not need permission to create a new database. It does
+need permission in the existing database for:
 
-```powershell
-powershell -ExecutionPolicy Bypass -File tools\migrate-to-playpro-clickhouse.ps1 `
-  -ClickHouseHost ds92143.craft-hosting.ru `
-  -Username default `
-  -Password "YOUR_CLICKHOUSE_PASSWORD" `
-  -SourceDatabase kostya `
-  -TargetDatabase coreprotect_playpro
+- `CREATE TABLE`
+- `RENAME TABLE`
+- `INSERT SELECT`
+- `SELECT`
+
+If `RENAME TABLE` is not allowed, this in-place migration cannot keep the
+official `co_` prefix because official PlayPro needs view names like `co_block`.
+
+## Why the old tables are archived
+
+The fork has physical tables named `co_block`, `co_container`, `co_item`, and so
+on. Official PlayPro uses only a few physical tables and creates compatibility
+views with those old names. Because a table and a view cannot share one name,
+the old physical tables must be moved first:
+
+```text
+co_block     -> co_migrate_block
+co_container -> co_migrate_container
+co_item      -> co_migrate_item
 ```
 
-The script:
+Then official PlayPro can create `co_block`, `co_container`, and `co_item` as
+views.
 
-- checks ClickHouse version `25.6+`;
-- checks the old fork tables in `kostya`;
-- creates `coreprotect_playpro` with the official PlayPro physical schema;
-- refuses to write into a non-empty target;
-- migrates all supported logical tables into `co_event_data`;
-- writes high-water marks so official PlayPro continues row IDs after the
-  imported history;
-- prints verification counts for every migrated family.
+## Checks after switching to official PlayPro
 
-After the script succeeds, install the official PlayPro/CoreProtect jar and set:
+Test on staging before production:
 
-```yaml
-database-type: clickhouse
-table-prefix: co_
-clickhouse-database: coreprotect_playpro
+```text
+/co status
+/co lookup user:BADVS time:1d
+/co lookup user:BADVS time:1d action:container
+/co lookup user:BADVS time:1d action:spawn
+/co near
+/co rollback user:BADVS time:10m radius:3
+/co restore user:BADVS time:10m radius:3
 ```
 
-Then start the staging server and run the checks below.
-
-## Manual/staging flow
-
-1. Stop the production server and take a ClickHouse backup/snapshot of `kostya`.
-2. Create a fresh target database:
-
-   ```sql
-   CREATE DATABASE coreprotect_playpro ENGINE = Atomic;
-   ```
-
-3. Install the official PlayPro/CoreProtect jar on a staging server.
-4. Configure it to use the new database:
-
-   ```yaml
-   database-type: clickhouse
-   table-prefix: co_
-   clickhouse-database: coreprotect_playpro
-   ```
-
-5. Start the staging server once so PlayPro creates the official schema and the
-   `.clickhouse-writer` file. Stop the server before players can generate real
-   logs.
-6. Run `tools/playpro-clickhouse-migration.sql` against ClickHouse.
-7. Start the staging server again and test:
-
-   ```text
-   /co status
-   /co lookup user:BADVS time:1d
-   /co lookup user:BADVS time:1d action:container
-   /co lookup user:BADVS time:1d action:spawn
-   /co near
-   /co rollback user:BADVS time:10m radius:3
-   /co restore user:BADVS time:10m radius:3
-   ```
-
-8. Test double chests, hoppers, boats/chest boats, entity spawn, entity click,
-   item pickup/drop, block rollback, container rollback, `#count`, and global
-   lookup.
-9. If staging passes, switch production to the official jar and the new
-   `coreprotect_playpro` database.
+Also test double chests, hoppers, boats/chest boats, entity spawn, entity click,
+item pickup/drop, block rollback, container rollback, `#count`, and global
+lookup.
 
 ## Notes
 
-- The SQL intentionally does not migrate old `co_version` or `co_database_lock`
-  rows. The official plugin creates its own current version and lock rows and
-  expects those families to contain only row ID `1`.
-- Versioned fork tables are read with `FINAL` so the migrated data contains the
-  current logical state for rollback flags and entity state.
-- The old database remains available as an emergency fallback.
+- The command refuses to run if `co_event_data`, `co_writer_registration`, or
+  `co_retention_high_water` already contains rows.
+- Versioned fork tables are read with `FINAL` so imported rollback flags and
+  entity state use the current logical values.
+- The old `co_version` and `co_database_lock` tables are archived but not
+  imported as normal history; official PlayPro owns those core rows itself.

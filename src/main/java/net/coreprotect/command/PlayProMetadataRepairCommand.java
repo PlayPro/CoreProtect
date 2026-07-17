@@ -627,7 +627,7 @@ public final class PlayProMetadataRepairCommand {
         }
 
         return "INSERT INTO " + rebuildTable + " (" + columnList + ") SELECT " + projection
-                + " FROM " + eventTable + " FINAL AS e LEFT JOIN (SELECT family,rowid,producer_id,producer_sequence,batch_id,batch_ordinal,any(meta_hex) AS meta_hex,any(metadata_hex) AS metadata_hex,any(payload_hex) AS payload_hex,any(entity_data_hex) AS entity_data_hex FROM "
+                + " FROM (SELECT * FROM " + eventTable + " FINAL) AS e LEFT JOIN (SELECT family,rowid,producer_id,producer_sequence,batch_id,batch_ordinal,any(meta_hex) AS meta_hex,any(metadata_hex) AS metadata_hex,any(payload_hex) AS payload_hex,any(entity_data_hex) AS entity_data_hex FROM "
                 + fixTable + " GROUP BY family,rowid,producer_id,producer_sequence,batch_id,batch_ordinal) AS f ON toString(e.family)=f.family AND e.rowid=f.rowid"
                 + " AND toString(e.producer_id)=f.producer_id AND e.producer_sequence=f.producer_sequence"
                 + " AND toString(e.batch_id)=f.batch_id AND e.batch_ordinal=f.batch_ordinal";

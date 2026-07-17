@@ -277,7 +277,9 @@ public final class PlayProMetadataRepairCommand {
                 insert.executeBatch();
             }
             try (Statement statement = connection.createStatement()) {
-                statement.execute(overlaySql(eventTable, fixTable));
+                String sql = overlaySql(eventTable, fixTable);
+                CoreProtect.getInstance().getSLF4JLogger().info("[PlayPro metadata repair] Executing overlay query: {}", sql);
+                statement.execute(sql);
             }
         }
         finally {
@@ -306,8 +308,8 @@ public final class PlayProMetadataRepairCommand {
                 values.append("e.").append(quote(column));
             }
         }
-        return "INSERT INTO " + eventTable + " (" + columns + ") SELECT " + values + " FROM " + eventTable
-                + " FINAL AS e INNER JOIN " + fixTable + " AS f ON e.family=f.family AND e.rowid=f.rowid";
+        return "INSERT INTO " + eventTable + " (" + columns + ") SELECT " + values + " FROM (SELECT * FROM " + eventTable
+                + " FINAL) AS e INNER JOIN " + fixTable + " AS f ON e.family=f.family AND e.rowid=f.rowid";
     }
 
     private static void waitForConsumerDrain(CommandSender sender) throws InterruptedException {

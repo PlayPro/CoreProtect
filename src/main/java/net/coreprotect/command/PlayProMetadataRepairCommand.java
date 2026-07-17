@@ -121,6 +121,7 @@ public final class PlayProMetadataRepairCommand {
             throw new SQLException("Missing official PlayPro event table: " + eventTableName);
         }
         killPendingMutations(connection, database, eventTableName);
+        dropStaleRebuildTables(connection, database, eventTableName);
 
         String rawFixTable = prefix + "metadata_fix_" + System.currentTimeMillis();
         String fixTable = qualified(database, rawFixTable);
@@ -162,7 +163,7 @@ public final class PlayProMetadataRepairCommand {
         EventKey cursor = EventKey.START;
         while (true) {
             List<FixRow> rows = new ArrayList<>();
-            String sql = "SELECT " + EVENT_KEY_COLUMNS + "," + quote(column) + " FROM " + eventTable + " "
+            String sql = "SELECT " + EVENT_KEY_COLUMNS + "," + quote(column) + " FROM " + eventTable + " FINAL "
                     + "WHERE family=? AND " + EVENT_KEY_CURSOR + " AND " + quote(column) + " IS NOT NULL "
                     + "AND startsWith(hex(" + quote(column) + "), 'C2ACC3AD') ORDER BY " + EVENT_KEY_ORDER + " LIMIT " + BATCH_SIZE;
             try (PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -197,7 +198,7 @@ public final class PlayProMetadataRepairCommand {
         EventKey cursor = EventKey.START;
         while (true) {
             List<FixRow> rows = new ArrayList<>();
-            String sql = "SELECT " + EVENT_KEY_COLUMNS + ",meta FROM " + eventTable + " "
+            String sql = "SELECT " + EVENT_KEY_COLUMNS + ",meta FROM " + eventTable + " FINAL "
                     + "WHERE family='block' AND " + EVENT_KEY_CURSOR + " AND meta IS NOT NULL AND startsWith(meta, '{') "
                     + "ORDER BY " + EVENT_KEY_ORDER + " LIMIT " + BATCH_SIZE;
             try (PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -229,7 +230,7 @@ public final class PlayProMetadataRepairCommand {
         EventKey cursor = EventKey.START;
         while (true) {
             List<FixRow> rows = new ArrayList<>();
-            String sql = "SELECT " + EVENT_KEY_COLUMNS + ",type,amount," + quote(column) + " FROM " + eventTable + " "
+            String sql = "SELECT " + EVENT_KEY_COLUMNS + ",type,amount," + quote(column) + " FROM " + eventTable + " FINAL "
                     + "WHERE family=? AND " + EVENT_KEY_CURSOR + " AND " + quote(column) + " IS NOT NULL AND startsWith(" + quote(column) + ", '{') "
                     + "ORDER BY " + EVENT_KEY_ORDER + " LIMIT " + BATCH_SIZE;
             try (PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -263,7 +264,7 @@ public final class PlayProMetadataRepairCommand {
         EventKey cursor = EventKey.START;
         while (true) {
             List<FixRow> rows = new ArrayList<>();
-            String sql = "SELECT " + EVENT_KEY_COLUMNS + "," + quote(column) + " FROM " + eventTable + " "
+            String sql = "SELECT " + EVENT_KEY_COLUMNS + "," + quote(column) + " FROM " + eventTable + " FINAL "
                     + "WHERE family=? AND " + EVENT_KEY_CURSOR + " AND " + quote(column) + " IS NOT NULL AND startsWith(" + quote(column) + ", '[') "
                     + "ORDER BY " + EVENT_KEY_ORDER + " LIMIT " + BATCH_SIZE;
             try (PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -304,7 +305,7 @@ public final class PlayProMetadataRepairCommand {
         EventKey cursor = EventKey.START;
         while (true) {
             List<FixRow> rows = new ArrayList<>();
-            String sql = "SELECT " + EVENT_KEY_COLUMNS + "," + quote(column) + " FROM " + eventTable + " "
+            String sql = "SELECT " + EVENT_KEY_COLUMNS + "," + quote(column) + " FROM " + eventTable + " FINAL "
                     + "WHERE family=? AND " + EVENT_KEY_CURSOR + " AND " + quote(column) + " IS NOT NULL AND match(" + quote(column) + ", '^[A-Za-z0-9+/]+={0,2}$') "
                     + "ORDER BY " + EVENT_KEY_ORDER + " LIMIT " + BATCH_SIZE;
             try (PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -335,7 +336,7 @@ public final class PlayProMetadataRepairCommand {
         EventKey cursor = EventKey.START;
         while (true) {
             List<FixRow> rows = new ArrayList<>();
-            String sql = "SELECT " + EVENT_KEY_COLUMNS + "," + quote(column) + " FROM " + eventTable + " "
+            String sql = "SELECT " + EVENT_KEY_COLUMNS + "," + quote(column) + " FROM " + eventTable + " FINAL "
                     + "WHERE family=? AND " + EVENT_KEY_CURSOR + " AND " + quote(column) + " IS NOT NULL "
                     + "AND NOT startsWith(hex(" + quote(column) + "), 'ACED') AND NOT startsWith(hex(" + quote(column) + "), 'C2ACC3AD') "
                     + "ORDER BY " + EVENT_KEY_ORDER + " LIMIT " + BATCH_SIZE;
@@ -563,19 +564,23 @@ public final class PlayProMetadataRepairCommand {
         String timestamp = String.valueOf(System.currentTimeMillis());
         String rebuildTable = qualified(database, eventTableName + "_repair_" + timestamp);
         String backupTable = qualified(database, eventTableName + "_backup_repair_" + timestamp);
-        long sourceRows = countRows(connection, eventTable);
+        long sourceRows = countFinalRows(connection, eventTable);
         ok(sender, "Rebuilding " + eventTableName + " with repaired metadata. This can take a while...");
         try (Statement statement = connection.createStatement()) {
             statement.execute(createTableLikeSql(connection, eventTable, rebuildTable));
             String sql = rebuildInsertSql(connection, database, eventTableName, eventTable, rebuildTable, fixTable);
             CoreProtect.getInstance().getSLF4JLogger().info("[PlayPro metadata repair] Copying repaired event_data into {}.", rebuildTable);
             statement.execute(sql);
-            long rebuiltRows = countRows(connection, rebuildTable);
+            long rebuiltRows = countFinalRows(connection, rebuildTable);
             if (sourceRows != rebuiltRows) {
-                throw new SQLException("Repaired event_data row mismatch: source=" + sourceRows + ", rebuilt=" + rebuiltRows);
+                throw new SQLException("Repaired event_data FINAL row mismatch: source=" + sourceRows + ", rebuilt=" + rebuiltRows);
             }
             CoreProtect.getInstance().getSLF4JLogger().info("[PlayPro metadata repair] Swapping {} with repaired table. Backup table: {}.", eventTable, backupTable);
             statement.execute("RENAME TABLE " + eventTable + " TO " + backupTable + ", " + rebuildTable + " TO " + eventTable);
+        }
+        catch (SQLException exception) {
+            dropTable(connection, rebuildTable);
+            throw exception;
         }
         ok(sender, "Rebuilt " + eventTableName + ". Backup table: " + backupTable + ".");
     }
@@ -622,7 +627,7 @@ public final class PlayProMetadataRepairCommand {
         }
 
         return "INSERT INTO " + rebuildTable + " (" + columnList + ") SELECT " + projection
-                + " FROM " + eventTable + " AS e LEFT JOIN (SELECT family,rowid,producer_id,producer_sequence,batch_id,batch_ordinal,any(meta_hex) AS meta_hex,any(metadata_hex) AS metadata_hex,any(payload_hex) AS payload_hex,any(entity_data_hex) AS entity_data_hex FROM "
+                + " FROM " + eventTable + " FINAL AS e LEFT JOIN (SELECT family,rowid,producer_id,producer_sequence,batch_id,batch_ordinal,any(meta_hex) AS meta_hex,any(metadata_hex) AS metadata_hex,any(payload_hex) AS payload_hex,any(entity_data_hex) AS entity_data_hex FROM "
                 + fixTable + " GROUP BY family,rowid,producer_id,producer_sequence,batch_id,batch_ordinal) AS f ON toString(e.family)=f.family AND e.rowid=f.rowid"
                 + " AND toString(e.producer_id)=f.producer_id AND e.producer_sequence=f.producer_sequence"
                 + " AND toString(e.batch_id)=f.batch_id AND e.batch_ordinal=f.batch_ordinal";
@@ -666,17 +671,37 @@ public final class PlayProMetadataRepairCommand {
         }
     }
 
-    private static long countRows(Connection connection, String table) throws SQLException {
-        try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery("SELECT count() FROM " + table)) {
+    private static long countFinalRows(Connection connection, String table) throws SQLException {
+        try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery("SELECT count() FROM " + table + " FINAL")) {
             if (!resultSet.next()) {
-                throw new SQLException("ClickHouse did not return a row count for " + table);
+                throw new SQLException("ClickHouse did not return a FINAL row count for " + table);
             }
             return resultSet.getLong(1);
         }
     }
 
+    private static void dropStaleRebuildTables(Connection connection, String database, String eventTableName) throws SQLException {
+        List<String> staleTables = new ArrayList<>();
+        try (PreparedStatement statement = connection.prepareStatement("SELECT name FROM system.tables WHERE database=? AND startsWith(name,?)")) {
+            statement.setString(1, database);
+            statement.setString(2, eventTableName + "_repair_");
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    staleTables.add(resultSet.getString(1));
+                }
+            }
+        }
+        for (String table : staleTables) {
+            String qualifiedTable = qualified(database, table);
+            CoreProtect.getInstance().getSLF4JLogger().info("[PlayPro metadata repair] Dropping stale incomplete rebuild table {}.", qualifiedTable);
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("DROP TABLE " + qualifiedTable);
+            }
+        }
+    }
+
     private static long countRemainingLegacyRows(Connection connection, String eventTable) throws SQLException {
-        String sql = "SELECT count() FROM " + eventTable + " WHERE "
+        String sql = "SELECT count() FROM " + eventTable + " FINAL WHERE "
                 + "(family='block' AND meta IS NOT NULL AND startsWith(meta,'{')) OR "
                 + "(family='container' AND metadata IS NOT NULL AND startsWith(metadata,'{')) OR "
                 + "(family='item' AND payload IS NOT NULL AND startsWith(payload,'{')) OR "

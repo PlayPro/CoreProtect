@@ -557,8 +557,8 @@ public final class EntitySpawnStatement {
             coordinator.afterCommit(committed);
         }
 
-        public void afterRetain() {
-            coordinator.afterRetain();
+        public void afterDiscard() {
+            coordinator.afterDiscard();
         }
 
         @Override

@@ -32,6 +32,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.statement.EntityStatement;
+import net.coreprotect.listener.player.EntityInteractionListener;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.entity.EntitySpawnData;
 import net.coreprotect.model.entity.EntitySpawnRecord;
@@ -611,6 +612,7 @@ public final class EntitySpawnRollbackHandler {
                     transition = EntitySpawnData.killRestore(work.blockRowId, work.record.getRowId(), work.killRowId, finalLocation);
                 }
 
+                EntityInteractionListener.flushPendingInteractions(entity);
                 EntitySpawnTracking.removeWithoutRemovalLog(entity);
                 EntitySpawnTracking.forget(entity.getUniqueId());
                 completion.complete(context.transition(work, transition, 1));

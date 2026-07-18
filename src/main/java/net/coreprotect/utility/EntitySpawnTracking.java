@@ -45,6 +45,7 @@ public final class EntitySpawnTracking {
 
     private static final String TRACKING_KEY = "spawn";
     private static final String ORIGIN_SEED_KEY = "entity_origin";
+    private static final String PENDING_IDENTITY_KEY = "pending_entity_identity";
     private static final int ORIGIN_SEED_SIZE = Integer.BYTES + Double.BYTES * 3;
     private static final int KILL_LOCATION_INDEX = 8;
     private static final long PENDING_CLEAR_TTL_MILLIS = 300_000L;
@@ -56,11 +57,13 @@ public final class EntitySpawnTracking {
     private static final Map<UUID, TrackedLocation> trackedLocations = new ConcurrentHashMap<>();
     private static final Map<UUID, PendingClear> pendingClear = new ConcurrentHashMap<>();
     private static final Map<UUID, PendingIdentityConfirmation> pendingIdentityConfirmations = new ConcurrentHashMap<>();
+    private static final Map<UUID, Location> pendingIdentityVerifications = new ConcurrentHashMap<>();
     private static final Set<UUID> coreProtectRemovals = ConcurrentHashMap.newKeySet();
     private static final AtomicLong verificationEpoch = new AtomicLong();
     private static final AtomicLong nextCleanup = new AtomicLong();
     private static volatile NamespacedKey trackingKey;
     private static volatile NamespacedKey originSeedKey;
+    private static volatile NamespacedKey pendingIdentityKey;
 
     private EntitySpawnTracking() {
         throw new IllegalStateException("Utility class");
@@ -102,6 +105,17 @@ public final class EntitySpawnTracking {
         return entity != null && entity.getPersistentDataContainer().has(getKey(), PersistentDataType.BYTE);
     }
 
+    public static boolean isTrackedOrPendingIdentity(Entity entity) {
+        return entity != null && (isTracked(entity) || entity.getPersistentDataContainer().has(getPendingIdentityKey(), PersistentDataType.BYTE));
+    }
+
+    public static void beginDatabaseIdentityPromotion(Entity entity) {
+        if (entity != null && !isTracked(entity)) {
+            pendingClear.remove(entity.getUniqueId());
+            entity.getPersistentDataContainer().set(getPendingIdentityKey(), PersistentDataType.BYTE, (byte) 1);
+        }
+    }
+
     public static void track(Entity entity) {
         scheduleCleanup();
         UUID uuid = entity.getUniqueId();
@@ -109,6 +123,7 @@ public final class EntitySpawnTracking {
         pendingClear.remove(uuid);
         pendingIdentityConfirmations.remove(uuid);
         entity.getPersistentDataContainer().set(getKey(), PersistentDataType.BYTE, (byte) 1);
+        entity.getPersistentDataContainer().remove(getPendingIdentityKey());
         entity.getPersistentDataContainer().remove(getOriginSeedKey());
         trackedLocations.compute(uuid, (key, previous) -> TrackedLocation.from(location, true, verificationEpoch.get()));
     }
@@ -214,6 +229,9 @@ public final class EntitySpawnTracking {
         }
         if (isTracked(entity)) {
             observe(entity, true);
+        }
+        else if (entity.getPersistentDataContainer().has(getPendingIdentityKey(), PersistentDataType.BYTE)) {
+            verifyPendingDatabaseIdentity(entity.getUniqueId(), entity.getLocation());
         }
     }
 
@@ -609,6 +627,7 @@ public final class EntitySpawnTracking {
                             return;
                         }
                         entity.getPersistentDataContainer().remove(getKey());
+                        entity.getPersistentDataContainer().remove(getPendingIdentityKey());
                         forget(uuid);
                     };
                     if (ConfigHandler.isFolia && !PaperAdapter.ADAPTER.isOwnedByCurrentRegion(entity)) {
@@ -760,8 +779,45 @@ public final class EntitySpawnTracking {
         }
     }
 
+    public static void verifyPendingDatabaseIdentity(UUID uuid, Location location) {
+        if (uuid == null || location == null || location.getWorld() == null) {
+            return;
+        }
+
+        Location verificationLocation = location.clone();
+        if (pendingIdentityVerifications.putIfAbsent(uuid, verificationLocation) != null) {
+            return;
+        }
+        try {
+            Queue.queueEntitySpawnUpdate(EntitySpawnData.verify(uuid, verificationEpoch.get()));
+        }
+        catch (RuntimeException exception) {
+            pendingIdentityVerifications.remove(uuid, verificationLocation);
+            throw exception;
+        }
+    }
+
+    public static void confirmDatabaseIdentityMissing(UUID uuid) {
+        if (pendingIdentityVerifications.remove(uuid) == null) {
+            clearTracking(uuid);
+        }
+    }
+
+    public static boolean retryPendingDatabaseIdentityVerification(UUID uuid) {
+        Location location = pendingIdentityVerifications.remove(uuid);
+        if (location == null) {
+            return false;
+        }
+        verifyPendingDatabaseIdentity(uuid, location);
+        return true;
+    }
+
     public static void confirmDatabaseVerification(UUID uuid, long epoch) {
         trackedLocations.computeIfPresent(uuid, (key, tracked) -> epoch == verificationEpoch.get() && tracked.isPendingVerification(epoch) ? tracked.withVerifiedEpoch(epoch) : tracked);
+        Location pendingIdentityLocation = pendingIdentityVerifications.remove(uuid);
+        if (pendingIdentityLocation != null) {
+            confirmDatabaseIdentity(uuid, pendingIdentityLocation);
+        }
     }
 
     public static void confirmDatabaseLocation(UUID uuid, Location location, long epoch) {
@@ -970,6 +1026,20 @@ public final class EntitySpawnTracking {
         return key;
     }
 
+    private static NamespacedKey getPendingIdentityKey() {
+        NamespacedKey key = pendingIdentityKey;
+        if (key == null) {
+            synchronized (EntitySpawnTracking.class) {
+                key = pendingIdentityKey;
+                if (key == null) {
+                    key = new NamespacedKey(CoreProtect.getInstance(), PENDING_IDENTITY_KEY);
+                    pendingIdentityKey = key;
+                }
+            }
+        }
+        return key;
+    }
+
     private static void applyIdentityConfirmation(Entity entity, PendingIdentityConfirmation confirmation) {
         UUID uuid = entity.getUniqueId();
         if (!pendingIdentityConfirmations.remove(uuid, confirmation)) {
@@ -980,6 +1050,7 @@ public final class EntitySpawnTracking {
         }
 
         entity.getPersistentDataContainer().set(getKey(), PersistentDataType.BYTE, (byte) 1);
+        entity.getPersistentDataContainer().remove(getPendingIdentityKey());
         entity.getPersistentDataContainer().remove(getOriginSeedKey());
         Location location = entity.getLocation();
         long epoch = verificationEpoch.get();
@@ -1006,6 +1077,7 @@ public final class EntitySpawnTracking {
 
         pendingIdentityConfirmations.remove(uuid);
         entity.getPersistentDataContainer().remove(getKey());
+        entity.getPersistentDataContainer().remove(getPendingIdentityKey());
         forget(uuid);
         return true;
     }

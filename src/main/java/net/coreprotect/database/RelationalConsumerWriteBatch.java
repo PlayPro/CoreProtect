@@ -51,6 +51,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     private PreparedStatement entitySpawnStatement;
     private PreparedStatement entitySpawnBlockLinkStatement;
     private PreparedStatement entitySpawnCheckpointStatement;
+    private PreparedStatement entitySpawnCheckpointStateStatement;
     private PreparedStatement entityInteractionStatement;
     private PreparedStatement userByNameStatement;
     private PreparedStatement userByNameOrUuidStatement;
@@ -457,8 +458,29 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         entitySpawnCheckpointStatement.setFloat(5, yaw);
         entitySpawnCheckpointStatement.setFloat(6, pitch);
         entitySpawnCheckpointStatement.setInt(7, trackingRowId);
-        if (entitySpawnCheckpointStatement.executeUpdate() != 1) {
-            throw new SQLException("Entity interaction could not checkpoint its tracking row");
+        int updated = entitySpawnCheckpointStatement.executeUpdate();
+        if (updated == 1) {
+            return;
+        }
+        if (updated > 1) {
+            throw new SQLException("Entity interaction tracking row is ambiguous: " + trackingRowId);
+        }
+
+        if (entitySpawnCheckpointStateStatement == null) {
+            entitySpawnCheckpointStateStatement = own(connection.prepareStatement("SELECT removed FROM " + ConfigHandler.prefix + "entity_spawn WHERE rowid=?"));
+        }
+        entitySpawnCheckpointStateStatement.setInt(1, trackingRowId);
+        try (ResultSet resultSet = entitySpawnCheckpointStateStatement.executeQuery()) {
+            if (!resultSet.next()) {
+                throw new SQLException("Entity interaction tracking row is missing: " + trackingRowId);
+            }
+            int removed = resultSet.getInt("removed");
+            if (resultSet.wasNull() || (removed != 0 && removed != 1)) {
+                throw new SQLException("Entity interaction tracking row has invalid lifecycle state: " + trackingRowId);
+            }
+            if (resultSet.next()) {
+                throw new SQLException("Entity interaction tracking row is ambiguous: " + trackingRowId);
+            }
         }
     }
 

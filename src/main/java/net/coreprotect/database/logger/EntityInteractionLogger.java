@@ -44,8 +44,7 @@ public final class EntityInteractionLogger {
         int z = identity.getOriginalZ();
 
         int userId = UserStatement.getId(batch, context.event.getUser(), true);
-        int time = (int) (System.currentTimeMillis() / 1000L);
-        EntityInteractionStatement.insert(batch, time, userId, identity, worldId, x, y, z, interaction);
+        EntityInteractionStatement.insert(batch, interaction.getTime(), userId, identity, worldId, x, y, z, interaction);
     }
 
     public static final class LogContext {

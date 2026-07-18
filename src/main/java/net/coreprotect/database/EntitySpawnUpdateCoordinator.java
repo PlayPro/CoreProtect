@@ -204,9 +204,31 @@ public final class EntitySpawnUpdateCoordinator {
         }
     }
 
-    public void afterRetain() {
-        clearPending();
-        deferredLifecycleUuids.clear();
+    public void afterDiscard() {
+        Set<Integer> trackingRows = new HashSet<>(transitionData.keySet());
+        trackingRows.addAll(combinedTransitionData.keySet());
+        Map<UUID, EntitySpawnData> identityVerifications = new LinkedHashMap<>();
+        for (EntitySpawnData data : lifecycleData) {
+            if (data.getOperation() == EntitySpawnData.Operation.VERIFY) {
+                identityVerifications.put(data.getUuid(), data);
+            }
+        }
+        try {
+            for (Integer trackingRowId : trackingRows) {
+                EntitySpawnRollbackHandler.releaseTrackingRow(trackingRowId);
+            }
+        }
+        finally {
+            clearPending();
+            deferredLifecycleUuids.clear();
+            for (Map.Entry<UUID, EntitySpawnData> verification : identityVerifications.entrySet()) {
+                runTrackingConfirmation(() -> {
+                    if (!EntitySpawnTracking.retryPendingDatabaseIdentityVerification(verification.getKey())) {
+                        Queue.queueEntitySpawnUpdateFirst(verification.getValue());
+                    }
+                });
+            }
+        }
     }
 
     public Checkpoint checkpoint() {
@@ -268,7 +290,7 @@ public final class EntitySpawnUpdateCoordinator {
         }
         for (UUID uuid : missingRows) {
             if (!deferredUuids.contains(uuid)) {
-                runTrackingConfirmation(() -> EntitySpawnTracking.clearTracking(uuid));
+                runTrackingConfirmation(() -> EntitySpawnTracking.confirmDatabaseIdentityMissing(uuid));
             }
         }
     }

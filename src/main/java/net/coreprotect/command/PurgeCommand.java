@@ -793,21 +793,27 @@ public class PurgeCommand extends Consumer {
                 }
                 catch (Exception e) {
                     boolean shutdownCancelled = shutdownCancellationRequested || e instanceof InterruptedException;
+                    boolean reloadRequired = false;
                     if (duckTransaction && transactionStatement != null) {
                         duckRollbackSucceeded = Database.rollbackTransaction(transactionStatement, ConfigHandler.databaseType);
                     }
                     if (ConfigHandler.databaseType.isDuckDB() && duckPurgeStarted && !duckRollbackSucceeded) {
-                        Consumer.haltPersistence();
+                        Consumer.requireDatabaseReload();
+                        ConfigHandler.databaseReachable = false;
+                        resumePersistence = false;
+                        reloadRequired = true;
                     }
                     if (handoffStarted) {
                         Consumer.requireDatabaseReload();
+                        ConfigHandler.databaseReachable = false;
+                        reloadRequired = true;
                     }
                     if (shutdownCancelled) {
                         Thread.currentThread().interrupt();
                     }
                     else {
                         Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_FAILED));
-                        if (handoffStarted) {
+                        if (reloadRequired) {
                             Chat.sendGlobalMessage(player, Phrase.build(Phrase.RELOAD_FAILED));
                         }
                         ErrorReporter.report(e);

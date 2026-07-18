@@ -14,6 +14,7 @@ import org.bukkit.entity.EntityType;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.listener.player.EntityInteractionListener;
 import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.CacheHandler;
@@ -170,7 +171,8 @@ public class RollbackEntityHandler {
     }
 
     private static void removeEntity(Entity entity) {
-        if (EntitySpawnTracking.isTracked(entity)) {
+        if (EntitySpawnTracking.isTrackedOrPendingIdentity(entity)) {
+            EntityInteractionListener.flushPendingInteractions(entity);
             Queue.queueEntitySpawnRemoved(entity.getUniqueId(), entity.getLocation());
             EntitySpawnTracking.forget(entity.getUniqueId());
             EntitySpawnTracking.removeWithoutRemovalLog(entity);

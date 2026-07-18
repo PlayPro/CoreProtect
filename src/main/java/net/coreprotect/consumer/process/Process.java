@@ -75,7 +75,7 @@ public class Process {
     private enum TransactionOutcome {
         COMMITTED,
         RETRY,
-        RETAINED
+        DISCARDED
     }
 
     public static int getCurrentConsumerSize() {
@@ -325,8 +325,7 @@ public class Process {
                                     try {
                                         writeBatch.executeAtomically("entity_interaction_log", () -> {
                                             if (loggedIdentity[0] == null) {
-                                                int time = (int) (System.currentTimeMillis() / 1000L);
-                                                loggedIdentity[0] = EntitySpawnStatement.insertIdentity(batch, time, interaction.getEntityUuid(), interaction.getOrigin(), interaction.getCurrentLocation());
+                                                loggedIdentity[0] = EntitySpawnStatement.insertIdentity(batch, interaction.getTime(), interaction.getEntityUuid(), interaction.getOrigin(), interaction.getCurrentLocation());
                                             }
                                             EntityInteractionLogger.log(batch, loggedIdentity[0], interaction, logContext);
                                         });
@@ -538,20 +537,11 @@ public class Process {
             if (!preflightCommitted && users != null) {
                 invalidateUserCaches(users);
             }
-            if ((processingStarted || ConfigHandler.databaseType.isColumnar()) && !consumerDataCleared && consumerData != null && users != null && consumerObject != null) {
+            if (processingStarted && !consumerDataCleared && consumerData != null && users != null && consumerObject != null) {
                 try {
-                    completeTransactionState(entitySpawnUpdates, pendingEntityContainerTransactions, pendingEntityContainerRollbacks, pendingEntityInteractions, pendingEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, pendingEntitySpawnLogs, failedTransactionOutcome());
-                    if (ConfigHandler.databaseType.isColumnar()) {
-                        discardProcessedConsumerData(processId, consumerData, users, consumerObject, processedThrough);
-                        currentConsumerSize = consumerData.size();
-                        if (processingStarted) {
-                            Consumer.haltPersistence();
-                        }
-                    }
-                    else {
-                        discardProcessedConsumerData(processId, consumerData, users, consumerObject, processedThrough);
-                        discardProcessedConsumerData(processId, consumerData, users, consumerObject, Math.max(0, attemptedThrough - processedThrough));
-                    }
+                    completeTransactionState(entitySpawnUpdates, pendingEntityContainerTransactions, pendingEntityContainerRollbacks, pendingEntityInteractions, pendingEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, pendingEntitySpawnLogs, TransactionOutcome.RETRY);
+                    discardProcessedConsumerData(processId, consumerData, users, consumerObject, processedThrough);
+                    discardProcessedConsumerData(processId, consumerData, users, consumerObject, Math.max(0, attemptedThrough - processedThrough));
                     consumerDataCleared = consumerData.isEmpty();
                 }
                 catch (Exception cleanupException) {
@@ -578,7 +568,7 @@ public class Process {
                 }
             }
         }
-        TransactionOutcome cleanupOutcome = failedTransactionOutcome();
+        TransactionOutcome cleanupOutcome = TransactionOutcome.RETRY;
         completeEntityInteractions(pendingEntityInteractions, pendingEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, cleanupOutcome);
         completeEntitySpawnLogs(pendingEntitySpawnLogs, cleanupOutcome);
 
@@ -662,7 +652,21 @@ public class Process {
                 }
             }
         }
-        if (outcome != TransactionOutcome.RETAINED) {
+        else if (outcome == TransactionOutcome.DISCARDED) {
+            for (UUID uuid : promotedIdentities) {
+                Location location = identityConfirmations.get(uuid);
+                if (location == null) {
+                    continue;
+                }
+                try {
+                    EntitySpawnTracking.verifyPendingDatabaseIdentity(uuid, location);
+                }
+                catch (Exception e) {
+                    ErrorReporter.report(e);
+                }
+            }
+        }
+        if (outcome != TransactionOutcome.DISCARDED) {
             for (PendingEntityInteraction pending : interactions) {
                 if (outcome == TransactionOutcome.COMMITTED && !pending.retryRequired) {
                     continue;
@@ -686,7 +690,7 @@ public class Process {
     }
 
     private static void retryEntityContainerRollbacks(List<EntityContainerRollbackRetry> updates, TransactionOutcome outcome) {
-        if (outcome != TransactionOutcome.RETAINED) {
+        if (outcome != TransactionOutcome.DISCARDED) {
             for (EntityContainerRollbackRetry update : updates) {
                 if (outcome == TransactionOutcome.COMMITTED && !update.retryRequired) {
                     continue;
@@ -734,17 +738,10 @@ public class Process {
         Consumer.isPaused = false;
     }
 
-    static void failConsumerBatch(int processId, ArrayList<Object[]> consumerData, Map<Integer, String[]> users, Map<Integer, Object> consumerObject, int processedThrough, int legacyDiscardThrough) {
-        if (ConfigHandler.databaseType.isColumnar()) {
-            discardProcessedConsumerData(processId, consumerData, users, consumerObject, processedThrough);
-            currentConsumerSize = consumerData.size();
-            Consumer.haltPersistence();
-        }
-        else {
-            discardProcessedConsumerData(processId, consumerData, users, consumerObject, processedThrough);
-            discardProcessedConsumerData(processId, consumerData, users, consumerObject, Math.max(0, legacyDiscardThrough - processedThrough));
-            deferConsumerRetry();
-        }
+    static void failConsumerBatch(int processId, ArrayList<Object[]> consumerData, Map<Integer, String[]> users, Map<Integer, Object> consumerObject, int processedThrough, int discardThrough) {
+        discardProcessedConsumerData(processId, consumerData, users, consumerObject, processedThrough);
+        discardProcessedConsumerData(processId, consumerData, users, consumerObject, Math.max(0, discardThrough - processedThrough));
+        deferConsumerRetry();
     }
 
     private static void invalidateUserCaches(Map<Integer, String[]> users) {
@@ -796,7 +793,7 @@ public class Process {
     }
 
     private static void completeEntityContainerTransactions(List<PendingEntityContainerTransaction> transactions, TransactionOutcome outcome) {
-        if (outcome != TransactionOutcome.RETAINED) {
+        if (outcome != TransactionOutcome.DISCARDED) {
             for (PendingEntityContainerTransaction pending : transactions) {
                 if (outcome == TransactionOutcome.COMMITTED && !pending.retryRequired) {
                     continue;
@@ -833,7 +830,7 @@ public class Process {
                     }
                 }
             }
-            else if (outcome == TransactionOutcome.RETRY) {
+            else {
                 try {
                     EntitySpawnTracking.reverifyDatabaseRow(spawnData.getUuid(), spawnData.getLocation());
                 }
@@ -870,18 +867,18 @@ public class Process {
     }
 
     private static TransactionOutcome transactionOutcome(boolean committed) {
-        return committed ? TransactionOutcome.COMMITTED : failedTransactionOutcome();
+        return committed ? TransactionOutcome.COMMITTED : failedCommitOutcome();
     }
 
-    private static TransactionOutcome failedTransactionOutcome() {
-        return ConfigHandler.databaseType.isColumnar() ? TransactionOutcome.RETAINED : TransactionOutcome.RETRY;
+    private static TransactionOutcome failedCommitOutcome() {
+        return ConfigHandler.databaseType.isClickHouse() ? TransactionOutcome.DISCARDED : TransactionOutcome.RETRY;
     }
 
     private static void completeTransactionState(ConsumerEntitySpawnUpdates entitySpawnUpdates, List<PendingEntityContainerTransaction> pendingEntityContainerTransactions, List<EntityContainerRollbackRetry> pendingEntityContainerRollbacks, List<PendingEntityInteraction> pendingEntityInteractions, Map<UUID, Location> pendingEntityIdentityConfirmations, Set<UUID> promotedEntityIdentities, Map<UUID, EntitySpawnIdentity> entitySpawnIdentities, List<PendingEntitySpawnLog> pendingEntitySpawnLogs, TransactionOutcome outcome) {
         try {
             if (entitySpawnUpdates != null) {
-                if (outcome == TransactionOutcome.RETAINED) {
-                    entitySpawnUpdates.afterRetain();
+                if (outcome == TransactionOutcome.DISCARDED) {
+                    entitySpawnUpdates.afterDiscard();
                 }
                 else {
                     entitySpawnUpdates.afterCommit(outcome == TransactionOutcome.COMMITTED);

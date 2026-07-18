@@ -147,7 +147,7 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
     void checkpointLocation(int trackingRowId, int worldId, double x, double y, double z, float yaw, float pitch) throws Exception {
         ClickHouseEntityState state = requireState(trackingRowId);
         if (state.isRemoved()) {
-            throw new SQLException("Removed entity spawn tracking row cannot be checkpointed");
+            return;
         }
         append(trackingRowId, state.withLocation(worldId, x, y, z, yaw, pitch));
     }
@@ -220,8 +220,8 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
     }
 
     @Override
-    public void afterRetain() {
-        coordinator.afterRetain();
+    public void afterDiscard() {
+        coordinator.afterDiscard();
         clearStateCache();
     }
 

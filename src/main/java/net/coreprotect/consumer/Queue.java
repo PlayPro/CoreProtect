@@ -36,20 +36,50 @@ import net.coreprotect.utility.ErrorReporter;
 
 public class Queue {
 
-    protected static synchronized int modifyForceContainer(String id, ItemStack[] container) {
+    public static synchronized void addForceContainer(String id, ItemStack[] container) {
+        if (container == null) {
+            return;
+        }
+
+        ConfigHandler.forceContainer.computeIfAbsent(id, k -> new ArrayList<>()).add(container);
+    }
+
+    public static synchronized void setForceContainer(String id, ItemStack[] container) {
+        if (container == null) {
+            return;
+        }
+
+        List<ItemStack[]> forceList = new ArrayList<>();
+        forceList.add(container);
+        ConfigHandler.forceContainer.put(id, forceList);
+    }
+
+    public static synchronized ItemStack[] pollForceContainer(String id) {
         List<ItemStack[]> forceList = ConfigHandler.forceContainer.get(id);
         if (forceList == null) {
-            return 0;
+            return null;
         }
 
-        if (container == null) {
-            forceList.remove(0);
-        }
-        else {
-            forceList.add(container);
+        ItemStack[] container = forceList.isEmpty() ? null : forceList.remove(0);
+        if (forceList.isEmpty()) {
+            ConfigHandler.forceContainer.remove(id);
         }
 
-        return forceList.size();
+        return container;
+    }
+
+    public static synchronized ItemStack[] peekForceContainer(String id) {
+        List<ItemStack[]> forceList = ConfigHandler.forceContainer.get(id);
+        return (forceList == null || forceList.isEmpty()) ? null : forceList.get(0);
+    }
+
+    public static synchronized int getForceContainerSize(String id) {
+        List<ItemStack[]> forceList = ConfigHandler.forceContainer.get(id);
+        return forceList == null ? 0 : forceList.size();
+    }
+
+    public static synchronized void removeForceContainer(String id) {
+        ConfigHandler.forceContainer.remove(id);
     }
 
     protected static synchronized int getChestId(String id) {

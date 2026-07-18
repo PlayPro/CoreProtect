@@ -1,7 +1,5 @@
 package net.coreprotect.paper.listener;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -29,6 +27,7 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.HopperTransactionUtils;
@@ -525,23 +524,17 @@ public final class CopperGolemChestListener implements Listener {
 
         String loggingContainerId = HopperTransactionUtils.getLoggingId(USERNAME, location);
 
-        List<ItemStack[]> forceList = ConfigHandler.forceContainer.get(loggingContainerId);
         List<ItemStack[]> oldList = ConfigHandler.oldContainer.get(loggingContainerId);
-
         boolean hasPendingBaseline = oldList != null && !oldList.isEmpty();
-        boolean hasStaleForceSnapshots = forceList != null && !forceList.isEmpty() && (forceList.get(0) == null || forceList.get(0).length != snapshot.length);
+
+        ItemStack[] oldestSnapshot = Queue.peekForceContainer(loggingContainerId);
+        boolean hasStaleForceSnapshots = oldestSnapshot != null && oldestSnapshot.length != snapshot.length;
 
         if (!hasPendingBaseline || hasStaleForceSnapshots) {
-            ConfigHandler.forceContainer.remove(loggingContainerId);
-            forceList = null;
+            Queue.removeForceContainer(loggingContainerId);
         }
 
-        if (forceList == null) {
-            forceList = Collections.synchronizedList(new ArrayList<>());
-            ConfigHandler.forceContainer.put(loggingContainerId, forceList);
-        }
-
-        forceList.add(snapshot);
+        Queue.addForceContainer(loggingContainerId, snapshot);
     }
 
     private void cleanupOpenInteractions(long nowMillis) {

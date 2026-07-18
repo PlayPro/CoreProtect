@@ -146,9 +146,7 @@ public class Database extends Queue {
                         contents = ItemUtils.getContainerContents(type, container, location);
                     }
                     if (contents != null) {
-                        List<ItemStack[]> forceList = new ArrayList<>();
-                        forceList.add(ItemUtils.getContainerState(contents));
-                        ConfigHandler.forceContainer.put(HopperTransactionUtils.getLoggingId(user, location), forceList);
+                        setForceContainer(HopperTransactionUtils.getLoggingId(user, location), ItemUtils.getContainerState(contents));
                         Queue.queueContainerBreak(user, location, type, contents);
                     }
                 }

@@ -1,11 +1,10 @@
 package net.coreprotect.listener.player;
 
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.bukkit.Location;
 import org.bukkit.inventory.Inventory;
@@ -22,145 +21,157 @@ import net.coreprotect.utility.ErrorReporter;
 
 public final class HopperPullListener {
 
-    private static final ConcurrentLinkedQueue<Object[]> hopperQueue = new ConcurrentLinkedQueue<>();
-    private static final AtomicBoolean processorRunning = new AtomicBoolean(false);
-    private static final int BATCH_SIZE = 100;
-    private static final int MAX_CONCURRENT_PROCESSORS = 4;
-    private static final AtomicInteger activeProcessors = new AtomicInteger(0);
+    private static final Map<String, PendingPull> pendingPulls = new ConcurrentHashMap<>();
+
+    private HopperPullListener() {
+        throw new IllegalStateException("Listener class");
+    }
 
     static void processHopperPull(Location location, String user, InventoryHolder sourceHolder, InventoryHolder destinationHolder, ItemStack item) {
-        String loggingChestId = "#hopper-pull." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+        if (location == null || location.getWorld() == null || sourceHolder == null || destinationHolder == null || item == null || item.getAmount() <= 0) {
+            return;
+        }
+
+        Inventory sourceInventory = sourceHolder.getInventory();
+        Inventory destinationInventory = destinationHolder.getInventory();
+        String loggingChestId = HopperTransactionUtils.getHopperPullId(location);
         Object[] lastAbort = ConfigHandler.hopperAbort.get(loggingChestId);
-        if (lastAbort != null) {
-            ItemStack[] destinationContents = destinationHolder.getInventory().getContents();
-            if (((Set<?>) lastAbort[0]).contains(item) && Arrays.equals(destinationContents, (ItemStack[]) lastAbort[1])) {
-                return;
-            }
+        ItemStack[] destinationContents = destinationInventory.getContents();
+        if (lastAbort != null && ((Set<?>) lastAbort[0]).contains(item) && Arrays.equals(destinationContents, (ItemStack[]) lastAbort[1])) {
+            return;
         }
 
-        ItemStack[] destinationContainer = ItemUtils.getContainerState(destinationHolder.getInventory().getContents());
+        ItemStack[] destinationContainer = ItemUtils.getContainerState(destinationContents);
         ItemStack movedItem = item.clone();
-
-        // Queue the hopper pull operation instead of creating a new thread immediately
-        hopperQueue.add(new Object[] { location, user, sourceHolder, destinationHolder, movedItem, destinationContainer, loggingChestId, lastAbort });
-
-        // Start the processor if it's not already running
-        if (processorRunning.compareAndSet(false, true)) {
-            startHopperProcessor();
-        }
-    }
-
-    private static void startHopperProcessor() {
-        if (activeProcessors.incrementAndGet() <= MAX_CONCURRENT_PROCESSORS) {
-            Scheduler.runTaskAsynchronously(CoreProtect.getInstance(), () -> {
-                try {
-                    // Use the same server running check as Consumer class
-                    while (!hopperQueue.isEmpty() && (ConfigHandler.serverRunning || ConfigHandler.converterRunning)) {
-                        processHopperBatch();
-                    }
-                }
-                catch (Exception e) {
-                    ErrorReporter.report(e);
-                }
-                finally {
-                    activeProcessors.decrementAndGet();
-                    processorRunning.set(false);
-
-                    // If more items were added and we're still running, restart the processor
-                    if (!hopperQueue.isEmpty() && (ConfigHandler.serverRunning || ConfigHandler.converterRunning) && activeProcessors.get() == 0) {
-                        startHopperProcessor();
-                    }
-                }
-            });
-        }
-        else {
-            activeProcessors.decrementAndGet();
-        }
-    }
-
-    private static void processHopperBatch() {
-        int processed = 0;
-        final long taskStarted = InventoryChangeListener.tasksStarted.incrementAndGet();
-
-        while (!hopperQueue.isEmpty() && processed < BATCH_SIZE && (ConfigHandler.serverRunning || ConfigHandler.converterRunning)) {
-            Object[] data = hopperQueue.poll();
-            if (data == null)
-                continue;
-
-            Location location = (Location) data[0];
-            String user = (String) data[1];
-            InventoryHolder sourceHolder = (InventoryHolder) data[2];
-            InventoryHolder destinationHolder = (InventoryHolder) data[3];
-            ItemStack movedItem = (ItemStack) data[4];
-            ItemStack[] destinationContainer = (ItemStack[]) data[5];
-            String loggingChestId = (String) data[6];
-            Object[] lastAbort = (Object[]) data[7];
-
-            processSingleHopperPull(location, user, sourceHolder, destinationHolder, movedItem, destinationContainer, loggingChestId, lastAbort);
-
-            processed++;
-        }
-
-        // Ensure sequential processing just like the original code
-        InventoryChangeListener.checkTasks(taskStarted);
-    }
-
-    private static void processSingleHopperPull(Location location, String user, InventoryHolder sourceHolder, InventoryHolder destinationHolder, ItemStack movedItem, ItemStack[] destinationContainer, String loggingChestId, Object[] lastAbort) {
-
-        if (sourceHolder == null || destinationHolder == null) {
+        if (!ItemUtils.canAddContainer(destinationContainer, movedItem, destinationInventory.getMaxStackSize())) {
+            ConfigHandler.hopperAbort.put(loggingChestId, HopperTransactionUtils.createAbortState(lastAbort, destinationContainer, movedItem));
             return;
         }
 
-        boolean abort = false;
-        boolean addedInventory = ItemUtils.canAddContainer(destinationContainer, movedItem, destinationHolder.getInventory().getMaxStackSize());
-        if (!addedInventory) {
-            abort = true;
-        }
-
-        if (abort) {
-            Set<ItemStack> movedItems = new HashSet<>();
-            ItemStack[] destinationContents = destinationHolder.getInventory().getContents();
-            if (lastAbort != null && Arrays.equals(destinationContents, (ItemStack[]) lastAbort[1])) {
-                ((Set<?>) lastAbort[0]).forEach(itemStack -> movedItems.add((ItemStack) itemStack));
-            }
-            movedItems.add(movedItem);
-
-            ConfigHandler.hopperAbort.put(loggingChestId, new Object[] { movedItems, ItemUtils.getContainerState(destinationContents) });
-            return;
-        }
-
-        if (ConfigHandler.hopperAbort.get(loggingChestId) != null) {
-            ConfigHandler.hopperAbort.remove(loggingChestId);
-        }
-
+        ConfigHandler.hopperAbort.remove(loggingChestId);
         boolean hopperTransactions = Config.getConfig(location.getWorld()).HOPPER_TRANSACTIONS;
         if (!hopperTransactions) {
             HopperTransactionUtils.recordItemRemoved(HopperTransactionUtils.getTransactionId(location), movedItem);
             return;
         }
 
-        Location destinationLocation = destinationHolder.getInventory().getLocation();
+        Location destinationLocation = destinationInventory.getLocation();
         if (destinationLocation == null) {
             return;
         }
 
         HopperTransactionUtils.recordItemAdded(HopperTransactionUtils.getTransactionId(destinationLocation), movedItem);
-
+        if (!Config.getConfig(location.getWorld()).ITEM_TRANSACTIONS) {
+            return;
+        }
         if (Config.getConfig(location.getWorld()).HOPPER_FILTER_META && !movedItem.hasItemMeta()) {
+            HopperTransactionUtils.recordItemRemoved(HopperTransactionUtils.getTransactionId(location), movedItem);
             return;
         }
 
-        Inventory sourceInventory = sourceHolder.getInventory();
-        ItemStack[] inventoryContents = sourceInventory.getContents();
-        ItemStack[] originalSource = new ItemStack[inventoryContents.length + 1];
-        for (int i = 0; i < inventoryContents.length; i++) {
-            ItemStack itemStack = inventoryContents[i];
-            if (itemStack != null) {
-                originalSource[i] = itemStack.clone();
+        String transactionId = HopperTransactionUtils.getTransactionId(location);
+        PendingPull pending = pendingPulls.compute(transactionId, (key, current) -> {
+            PendingPull value = current;
+            if (value == null) {
+                value = new PendingPull(sourceInventory, location.clone(), sourceInventory.getMaxStackSize());
             }
+            value.accumulator.add(user, movedItem);
+            return value;
+        });
+
+        if (pending.scheduled.compareAndSet(false, true)) {
+            Scheduler.runTask(CoreProtect.getInstance(), () -> capturePendingPull(transactionId, pending), pending.location);
+        }
+    }
+
+    static void flushPendingPull(Location location, Inventory inventory, ItemStack[] checkpoint) {
+        if (location == null || location.getWorld() == null || checkpoint == null) {
+            return;
         }
 
-        originalSource[inventoryContents.length] = movedItem;
-        InventoryChangeListener.onInventoryInteract(user, sourceInventory, originalSource, null, sourceInventory.getLocation(), true);
+        String transactionId = HopperTransactionUtils.getTransactionId(location);
+        PendingPull pending = pendingPulls.remove(transactionId);
+        if (pending == null) {
+            return;
+        }
+
+        Inventory sourceInventory = inventory == null ? pending.inventory : inventory;
+        submitPendingPull(pending, sourceInventory, checkpoint);
+    }
+
+    static void flushPendingPull(Location location, Inventory inventory) {
+        if (location == null || location.getWorld() == null || inventory == null) {
+            return;
+        }
+
+        String transactionId = HopperTransactionUtils.getTransactionId(location);
+        PendingPull pending = pendingPulls.get(transactionId);
+        if (pending == null) {
+            return;
+        }
+
+        ItemStack[] checkpoint = ItemUtils.getContainerState(inventory.getContents());
+        if (pendingPulls.remove(transactionId, pending)) {
+            submitPendingPull(pending, inventory, checkpoint);
+        }
+    }
+
+    static void flushPendingPullsForShutdown() {
+        for (Map.Entry<String, PendingPull> entry : pendingPulls.entrySet()) {
+            PendingPull pending = entry.getValue();
+            try {
+                ItemStack[] checkpoint = ItemUtils.getContainerState(pending.inventory.getContents());
+                if (pendingPulls.remove(entry.getKey(), pending)) {
+                    submitPendingPull(pending, pending.inventory, checkpoint);
+                }
+            }
+            catch (Exception e) {
+                ErrorReporter.report(e);
+            }
+        }
+    }
+
+    static int pendingLocations() {
+        return pendingPulls.size();
+    }
+
+    static long pendingMoves() {
+        long count = 0;
+        for (PendingPull pending : pendingPulls.values()) {
+            count += pending.accumulator.moveCount();
+        }
+        return count;
+    }
+
+    private static void capturePendingPull(String transactionId, PendingPull pending) {
+        if (!pendingPulls.remove(transactionId, pending)) {
+            return;
+        }
+
+        ItemStack[] checkpoint = ItemUtils.getContainerState(pending.inventory.getContents());
+        submitPendingPull(pending, pending.inventory, checkpoint);
+    }
+
+    private static void submitPendingPull(PendingPull pending, Inventory sourceInventory, ItemStack[] checkpoint) {
+        if (pending == null || sourceInventory == null || checkpoint == null || pending.accumulator.isEmpty()) {
+            return;
+        }
+
+        ContainerTransactionDispatcher.submit(pending.location, () -> pending.accumulator.replay(checkpoint, pending.maxStackSize,
+                (user, sourceBefore, movedItem) -> InventoryChangeListener.onHopperInventoryInteract(user, sourceInventory, sourceBefore, pending.location, movedItem)));
+    }
+
+    private static final class PendingPull {
+        private final Inventory inventory;
+        private final Location location;
+        private final int maxStackSize;
+        private final HopperPullAccumulator accumulator = new HopperPullAccumulator();
+        private final AtomicBoolean scheduled = new AtomicBoolean(false);
+
+        private PendingPull(Inventory inventory, Location location, int maxStackSize) {
+            this.inventory = inventory;
+            this.location = location;
+            this.maxStackSize = maxStackSize;
+        }
     }
 }

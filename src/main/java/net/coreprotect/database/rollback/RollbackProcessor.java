@@ -24,12 +24,14 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.model.PendingBlockChange;
 import net.coreprotect.model.item.ItemTransactionActions;
@@ -313,6 +315,9 @@ public class RollbackProcessor {
                                 }
                                 else {
                                     container = BlockUtils.getContainerInventory(blockState, false);
+                                    if (container instanceof Inventory) {
+                                        InventoryChangeListener.flushPendingContainer((Inventory) container, block.getLocation());
+                                    }
                                 }
 
                                 containerType = block.getType();

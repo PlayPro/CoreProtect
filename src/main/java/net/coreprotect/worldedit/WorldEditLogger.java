@@ -29,6 +29,7 @@ import com.sk89q.worldedit.world.block.BlockStateHolder;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.action.SignActions;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.EntityUtils;
@@ -100,7 +101,7 @@ public class WorldEditLogger extends Queue {
                     }
                 }
                 if (containerContents != null) {
-                    Queue.queueContainerBreak(actor.getName(), location, oldType, containerContents);
+                    InventoryChangeListener.queueContainerBreak(actor.getName(), location, oldType, containerContents);
                 }
             }
             catch (Exception e) {

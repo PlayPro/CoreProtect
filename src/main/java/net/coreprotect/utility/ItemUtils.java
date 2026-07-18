@@ -120,6 +120,31 @@ public class ItemUtils {
         return result;
     }
 
+    public static ItemStack[] getSharedContainerState(ItemStack[] array, ItemStack[] previousState) {
+        if (array == null) {
+            return null;
+        }
+        if (previousState == null || previousState.length != array.length) {
+            return getContainerState(array);
+        }
+
+        ItemStack[] result = new ItemStack[array.length];
+        boolean unchanged = true;
+        for (int i = 0; i < array.length; i++) {
+            ItemStack itemStack = array[i];
+            ItemStack previousItem = previousState[i];
+            if (itemStack == null ? previousItem == null : itemStack.equals(previousItem)) {
+                result[i] = previousItem;
+            }
+            else {
+                result[i] = itemStack == null ? null : itemStack.clone();
+                unchanged = false;
+            }
+        }
+
+        return unchanged ? previousState : result;
+    }
+
     public static ItemStack[] sortContainerState(ItemStack[] array) {
         if (array == null) {
             return null;

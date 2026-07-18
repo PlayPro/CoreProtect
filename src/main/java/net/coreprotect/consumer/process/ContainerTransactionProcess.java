@@ -2,12 +2,9 @@ package net.coreprotect.consumer.process;
 
 import java.sql.PreparedStatement;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -34,22 +31,15 @@ class ContainerTransactionProcess {
                 if (ConfigHandler.loggingChest.get(loggingChestId) != null) {
                     int current_chest = ConfigHandler.loggingChest.get(loggingChestId);
                     if (ConfigHandler.oldContainer.get(loggingChestId) == null) {
-                        ConfigHandler.removeOldContainerViewer(loggingChestIdSuffix, loggingChestId);
-                        ConfigHandler.loggingChest.remove(loggingChestId);
-                        Queue.removeForceContainer(loggingChestId);
-                        HopperTransactionUtils.removeOwner(transactingChestId, loggingChestId);
+                        clearContainerTransaction(transactingChestId, loggingChestIdSuffix, loggingChestId);
                         return;
                     }
                     int force_size = Queue.getForceContainerSize(loggingChestId);
                     if (current_chest == forceData || force_size > 0) { // This prevents client side chest sorting mods from messing things up.
                         ContainerLogger.log(preparedStmtContainer, preparedStmtItems, batchCount, user, type, inventory, location);
                         List<ItemStack[]> old = ConfigHandler.oldContainer.get(loggingChestId);
-                        if (old.size() == 0) {
-                            ConfigHandler.oldContainer.remove(loggingChestId);
-                            ConfigHandler.removeOldContainerViewer(loggingChestIdSuffix, loggingChestId);
-                            ConfigHandler.loggingChest.remove(loggingChestId);
-                            Queue.removeForceContainer(loggingChestId);
-                            HopperTransactionUtils.removeOwner(transactingChestId, loggingChestId);
+                        if (old == null || old.isEmpty()) {
+                            clearContainerTransaction(transactingChestId, loggingChestIdSuffix, loggingChestId);
                         }
                     }
                     else if (loggingChestId.startsWith("#hopper")) {
@@ -68,7 +58,7 @@ class ContainerTransactionProcess {
                                 ItemStack[] destinationContents = null;
                                 ItemStack movedItem = null;
 
-                                String hopperPush = "#hopper-push." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+                                String hopperPush = HopperTransactionUtils.getHopperPushId(location);
                                 Object[] hopperPushData = ConfigHandler.hopperSuccess.remove(hopperPush);
                                 if (hopperPushData != null) {
                                     destinationContents = (ItemStack[]) hopperPushData[0];
@@ -76,13 +66,8 @@ class ContainerTransactionProcess {
                                 }
 
                                 if (destinationContents != null) {
-                                    Set<ItemStack> movedItems = new HashSet<>();
                                     Object[] lastAbort = ConfigHandler.hopperAbort.get(hopperPush);
-                                    if (lastAbort != null && Arrays.equals(destinationContents, (ItemStack[]) lastAbort[1])) {
-                                        ((Set<?>) lastAbort[0]).forEach(itemStack -> movedItems.add((ItemStack) itemStack));
-                                    }
-                                    movedItems.add(movedItem);
-                                    ConfigHandler.hopperAbort.put(hopperPush, new Object[] { movedItems, destinationContents });
+                                    ConfigHandler.hopperAbort.put(hopperPush, HopperTransactionUtils.createAbortState(lastAbort, destinationContents, movedItem));
                                 }
                             }
                         }
@@ -90,5 +75,13 @@ class ContainerTransactionProcess {
                 }
             }
         }
+    }
+
+    private static void clearContainerTransaction(String transactionId, String locationSuffix, String loggingId) {
+        ConfigHandler.oldContainer.remove(loggingId);
+        ConfigHandler.removeOldContainerViewer(locationSuffix, loggingId);
+        ConfigHandler.loggingChest.remove(loggingId);
+        Queue.removeForceContainer(loggingId);
+        HopperTransactionUtils.removeOwner(transactionId, loggingId);
     }
 }

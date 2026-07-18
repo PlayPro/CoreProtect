@@ -41,6 +41,7 @@ import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.model.PendingBlockChange;
 import net.coreprotect.paper.PaperAdapter;
@@ -168,6 +169,7 @@ public class RollbackBlockHandler extends Queue {
                         if (BlockGroup.CONTAINERS.contains(changeType)) {
                             Inventory inventory = BlockUtils.getContainerInventory(block.getState(), false);
                             if (inventory != null) {
+                                InventoryChangeListener.flushPendingContainer(inventory, block.getLocation());
                                 inventory.clear();
                             }
                         }
@@ -284,6 +286,7 @@ public class RollbackBlockHandler extends Queue {
                     }
                     if (meta != null) {
                         Inventory inventory = BlockUtils.getContainerInventory(block.getState(), false);
+                        InventoryChangeListener.flushPendingContainer(inventory, block.getLocation());
                         for (Object value : meta) {
                             ItemStack item = ItemUtils.unserializeItemStackLegacy(value);
                             if (item != null) {

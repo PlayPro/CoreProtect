@@ -39,6 +39,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
     private static volatile boolean backgroundPurgePausesPersistence = false;
     private static volatile boolean databaseReloadPaused = false;
     private static volatile boolean databaseReloadRunning = false;
+    private static boolean databaseReloadBlockedForShutdown = false;
     public static volatile int currentConsumer = 0;
     public static volatile boolean isPaused = false;
     public static volatile boolean transacting = false;
@@ -114,6 +115,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         synchronized (rollbackPurgeGate) {
             persistenceHalted = false;
             pendingRollbackPublications = 0;
+            databaseReloadBlockedForShutdown = false;
         }
         databaseReloadPaused = false;
         databaseReloadRunning = false;
@@ -195,6 +197,9 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
 
     public static OperationStartResult beginDatabaseReload() {
         synchronized (rollbackPurgeGate) {
+            if (databaseReloadBlockedForShutdown) {
+                return OperationStartResult.INTERRUPTED;
+            }
             if (persistenceHalted) {
                 return OperationStartResult.PERSISTENCE_HALTED;
             }
@@ -211,6 +216,12 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
             databaseReloadPaused = true;
         }
         return OperationStartResult.STARTED;
+    }
+
+    public static void blockDatabaseReloadForShutdown() {
+        synchronized (rollbackPurgeGate) {
+            databaseReloadBlockedForShutdown = true;
+        }
     }
 
     public static void lockDatabaseReload() {

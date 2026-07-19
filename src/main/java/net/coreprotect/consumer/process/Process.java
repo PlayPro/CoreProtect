@@ -716,7 +716,13 @@ public class Process {
                     EntitySpawnTracking.verifyPendingDatabaseIdentity(uuid, pending.interaction.getCurrentLocation());
                 }
                 catch (Exception e) {
+                    verifiedIdentities.remove(uuid);
                     ErrorReporter.report(e);
+                }
+            }
+            for (PendingEntityInteraction pending : interactions) {
+                if (!pending.retryRequired && verifiedIdentities.contains(pending.interaction.getEntityUuid())) {
+                    cancelEntityInteractionPromotion(pending.interaction);
                 }
             }
         }

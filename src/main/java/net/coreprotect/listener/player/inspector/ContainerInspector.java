@@ -10,8 +10,10 @@ import java.util.UUID;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
+import net.coreprotect.config.Config;
 import net.coreprotect.database.lookup.ChestTransactionLookup;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.lookup.EntityInteractionLookup;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.utility.Chat;
@@ -87,7 +89,9 @@ public class ContainerInspector extends BaseInspector {
                         }
 
                         try (Statement statement = connection.createStatement()) {
-                            List<String> blockData = ChestTransactionLookup.performLookup(null, statement, location, player, 1, 7, false, entitySpawnRowId);
+                            List<String> blockData = hasEntityContainerTransactions(statement, entitySpawnRowId)
+                                    ? ChestTransactionLookup.performLookup(null, statement, location, player, 1, 7, false, entitySpawnRowId)
+                                    : EntityInteractionLookup.performLookup(null, statement, player, 1, 7, entitySpawnRowId, location);
                             for (String data : blockData) {
                                 Chat.sendComponent(player, data);
                             }
@@ -108,5 +112,15 @@ public class ContainerInspector extends BaseInspector {
 
         Thread thread = new Thread(new BasicThread());
         thread.start();
+    }
+
+    private boolean hasEntityContainerTransactions(Statement statement, int entitySpawnRowId) throws Exception {
+        String query = "SELECT count() AS count FROM " + ConfigHandler.prefix + "entity_container WHERE entity_spawn_rowid = '" + entitySpawnRowId + "'";
+        if (Config.getGlobal().SELECT_USE_FINAL) {
+            query += " SETTINGS final=1";
+        }
+        try (ResultSet resultSet = statement.executeQuery(query)) {
+            return resultSet.next() && resultSet.getInt("count") > 0;
+        }
     }
 }

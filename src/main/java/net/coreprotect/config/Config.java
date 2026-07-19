@@ -12,12 +12,14 @@ import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 
 import net.coreprotect.CoreProtect;
+import net.coreprotect.consumer.Consumer;
 import net.coreprotect.language.Language;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.VersionUtils;
@@ -447,8 +449,12 @@ public class Config extends Language {
             // we call reloads asynchronously
             // for now this solution is good enough to ensure we only modify on the main thread
             final CompletableFuture<Void> complete = new CompletableFuture<>();
+            final CompletableFuture<Void> shutdown = Consumer.databaseReloadShutdownSignal();
 
             Scheduler.runTask(CoreProtect.getInstance(), () -> {
+                if (shutdown.isDone()) {
+                    return;
+                }
                 try {
                     parseConfig(data);
                 }
@@ -462,6 +468,11 @@ public class Config extends Language {
                 complete.complete(null);
             });
 
+            CompletableFuture.anyOf(complete, shutdown).join();
+            if (!complete.isDone()) {
+                complete.cancel(false);
+                throw new CancellationException("Configuration reload cancelled for shutdown");
+            }
             complete.join();
             return;
         }

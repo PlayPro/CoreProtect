@@ -51,6 +51,16 @@ public final class EntitySpawnStatement {
         return new EntitySpawnIdentity(rowId, uuid, origin.getWorldId(), origin.getX(), origin.getY(), origin.getZ());
     }
 
+    public static EntitySpawnIdentity insertTerminalIdentity(ConsumerWriteBatch batch, EntitySpawnData data) throws Exception {
+        EntityInteractionOrigin origin = data.getRemovalOrigin();
+        Location finalLocation = data.getLocation();
+        if (origin == null || finalLocation == null || finalLocation.getWorld() == null) {
+            throw new SQLException("Entity removal is missing its immutable identity snapshot");
+        }
+        int rowId = batch.addEntitySpawn(data.getRemovalTime(), null, null, data.getUuid(), origin.getWorldId(), WorldUtils.getWorldId(finalLocation.getWorld().getName()), origin.getX(), origin.getY(), origin.getZ(), finalLocation.getX(), finalLocation.getY(), finalLocation.getZ(), finalLocation.getYaw(), finalLocation.getPitch(), null, 1);
+        return new EntitySpawnIdentity(rowId, data.getUuid(), origin.getWorldId(), origin.getX(), origin.getY(), origin.getZ());
+    }
+
     public static void linkBlock(ConsumerWriteBatch batch, int trackingRowId, long blockRowId) throws Exception {
         batch.linkEntitySpawnBlock(trackingRowId, blockRowId);
     }
@@ -235,6 +245,7 @@ public final class EntitySpawnStatement {
 
     public static final class Updates implements ConsumerEntitySpawnUpdates {
 
+        private final ConsumerWriteBatch batch;
         private final PreparedStatement location;
         private final PreparedStatement removed;
         private final PreparedStatement revived;
@@ -246,6 +257,7 @@ public final class EntitySpawnStatement {
         private final PreparedStatement compositeRestore;
         private final PreparedStatement blockState;
         private final PreparedStatement exists;
+        private final PreparedStatement identity;
         private final PreparedStatement trackingRowExists;
         private final PreparedStatement trackingKillStateMatches;
         private final PreparedStatement blockStateMatches;
@@ -253,6 +265,11 @@ public final class EntitySpawnStatement {
         private final EntitySpawnUpdateCoordinator coordinator = new EntitySpawnUpdateCoordinator();
 
         public Updates(Connection connection) throws Exception {
+            this(connection, null);
+        }
+
+        public Updates(Connection connection, ConsumerWriteBatch batch) throws Exception {
+            this.batch = batch;
             location = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=? WHERE uuid=? AND removed=0");
             removed = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,removed=1 WHERE uuid=? AND removed=0");
             revived = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET uuid=?,current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,removed=0 WHERE uuid=? AND removed=1");
@@ -264,16 +281,18 @@ public final class EntitySpawnStatement {
             compositeRestore = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET data=NULL,removed=1 WHERE rowid=? AND kill_rowid=?");
             blockState = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "block SET rolled_back=? WHERE rowid=? AND action=?");
             exists = connection.prepareStatement("SELECT 1 FROM " + ConfigHandler.prefix + "entity_spawn WHERE uuid=? AND removed=0 LIMIT 1");
+            identity = connection.prepareStatement("SELECT rowid AS id,wid,origin_x,origin_y,origin_z FROM " + ConfigHandler.prefix + "entity_spawn WHERE uuid=? LIMIT 2");
             trackingRowExists = connection.prepareStatement("SELECT 1 FROM " + ConfigHandler.prefix + "entity_spawn WHERE rowid=? LIMIT 1");
             trackingKillStateMatches = connection.prepareStatement("SELECT uuid,removed FROM " + ConfigHandler.prefix + "entity_spawn WHERE rowid=? AND kill_rowid=? LIMIT 1");
             blockStateMatches = connection.prepareStatement("SELECT 1 FROM " + ConfigHandler.prefix + "block WHERE rowid=? AND action=? AND rolled_back=? LIMIT 1");
             transitionStatement = connection.createStatement();
         }
 
-        public void apply(EntitySpawnData data) {
+        public EntitySpawnIdentity apply(EntitySpawnData data) {
             if (!coordinator.begin(data)) {
-                return;
+                return null;
             }
+            EntitySpawnIdentity createdIdentity = null;
             try {
                 switch (data.getOperation()) {
                     case VERIFY:
@@ -295,9 +314,7 @@ public final class EntitySpawnStatement {
                         }
                         break;
                     case REMOVED:
-                        setLocation(removed, data.getLocation(), 1);
-                        removed.setString(7, data.getUuid().toString());
-                        removed.executeUpdate();
+                        createdIdentity = remove(data);
                         break;
                     case REVIVED:
                         revived.setString(1, data.getUuid().toString());
@@ -349,6 +366,7 @@ public final class EntitySpawnStatement {
                 coordinator.failed(data);
                 Database.handleWriteFailure(e);
             }
+            return createdIdentity;
         }
 
         public void applyCombined(EntityContainerRollbackUpdate update, Database.SavepointOperation rowUpdate) {
@@ -482,6 +500,22 @@ public final class EntitySpawnStatement {
             coordinator.transitionApplied(data.getTrackingRowId());
         }
 
+        private EntitySpawnIdentity remove(EntitySpawnData data) throws Exception {
+            setLocation(removed, data.getLocation(), 1);
+            removed.setString(7, data.getUuid().toString());
+            int updated = removed.executeUpdate();
+            if (updated > 1) {
+                throw new SQLException("Entity removal matched multiple active tracking rows: " + data.getUuid());
+            }
+            if (updated == 1 || loadIdentity(data.getUuid()) != null) {
+                return null;
+            }
+            if (batch == null) {
+                throw new SQLException("Entity removal cannot create a terminal tracking row without a consumer write batch");
+            }
+            return insertTerminalIdentity(batch, data);
+        }
+
         private void updateBlockState(long blockRowId, int rolledBack, int action) throws Exception {
             blockState.setInt(1, rolledBack);
             blockState.setLong(2, blockRowId);
@@ -527,6 +561,20 @@ public final class EntitySpawnStatement {
             exists.setString(1, uuid.toString());
             try (ResultSet resultSet = exists.executeQuery()) {
                 return resultSet.next();
+            }
+        }
+
+        private EntitySpawnIdentity loadIdentity(UUID uuid) throws Exception {
+            identity.setString(1, uuid.toString());
+            try (ResultSet resultSet = identity.executeQuery()) {
+                if (!resultSet.next()) {
+                    return null;
+                }
+                EntitySpawnIdentity value = new EntitySpawnIdentity(resultSet.getInt("id"), uuid, resultSet.getInt("wid"), resultSet.getDouble("origin_x"), resultSet.getDouble("origin_y"), resultSet.getDouble("origin_z"));
+                if (resultSet.next()) {
+                    throw new SQLException("Entity UUID resolves to multiple tracking rows: " + uuid);
+                }
+                return value;
             }
         }
 
@@ -580,6 +628,7 @@ public final class EntitySpawnStatement {
             compositeRestore.close();
             blockState.close();
             exists.close();
+            identity.close();
             trackingRowExists.close();
             trackingKillStateMatches.close();
             blockStateMatches.close();

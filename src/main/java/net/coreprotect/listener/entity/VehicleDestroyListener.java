@@ -41,7 +41,7 @@ public final class VehicleDestroyListener extends Queue implements Listener {
 
         if (EntitySpawnTracking.isTrackedOrPendingIdentity(vehicle)) {
             EntityInteractionListener.flushPendingInteractions(vehicle);
-            Queue.queueEntitySpawnRemoved(vehicle.getUniqueId(), vehicle.getLocation());
+            Queue.queueEntitySpawnRemoved(vehicle);
             EntitySpawnTracking.clearTracking(vehicle.getUniqueId());
         }
     }

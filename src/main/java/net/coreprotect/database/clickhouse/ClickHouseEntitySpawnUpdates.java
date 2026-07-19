@@ -21,9 +21,11 @@ import org.bukkit.Location;
 import net.coreprotect.database.ConsumerEntitySpawnUpdates;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.EntitySpawnUpdateCoordinator;
+import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.model.entity.EntityContainerRollbackUpdate;
 import net.coreprotect.model.entity.EntitySpawnData;
+import net.coreprotect.model.entity.EntitySpawnIdentity;
 import net.coreprotect.utility.DatabaseUtils;
 import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.WorldUtils;
@@ -154,12 +156,13 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
     }
 
     @Override
-    public void apply(EntitySpawnData data) {
+    public EntitySpawnIdentity apply(EntitySpawnData data) {
         Objects.requireNonNull(data, "data");
         ensureOpen();
         if (!coordinator.begin(data)) {
-            return;
+            return null;
         }
+        EntitySpawnIdentity createdIdentity = null;
         try {
             switch (data.getOperation()) {
                 case VERIFY:
@@ -169,7 +172,7 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
                     updateLocation(data);
                     break;
                 case REMOVED:
-                    remove(data);
+                    createdIdentity = remove(data);
                     break;
                 case REVIVED:
                     revive(data);
@@ -188,6 +191,7 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
             coordinator.failed(data);
             Database.handleWriteFailure(exception);
         }
+        return createdIdentity;
     }
 
     @Override
@@ -273,11 +277,16 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
         coordinator.locationFound(data);
     }
 
-    private void remove(EntitySpawnData data) throws Exception {
+    private EntitySpawnIdentity remove(EntitySpawnData data) throws Exception {
         ClickHouseEntityState state = findByUuid(data.getUuid(), false);
         if (state != null) {
             append(toTrackingRowId(state.getPointer().getRowId()), withLocation(state, data.getLocation()).withData(null).withRemoved(true));
+            return null;
         }
+        if (findByUuid(data.getUuid(), true) != null) {
+            return null;
+        }
+        return EntitySpawnStatement.insertTerminalIdentity(owner, data);
     }
 
     private void revive(EntitySpawnData data) throws Exception {

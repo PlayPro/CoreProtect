@@ -423,7 +423,36 @@ public class Queue {
     }
 
     public static void queueEntitySpawnRemoved(java.util.UUID uuid, Location location) {
-        queueEntitySpawnUpdate(EntitySpawnData.removed(uuid, location));
+        if (uuid == null || location == null || location.getWorld() == null) {
+            return;
+        }
+        int worldId = WorldUtils.getWorldId(location.getWorld().getName());
+        if (worldId < 0) {
+            queueEntitySpawnUpdate(EntitySpawnData.removed(uuid, location));
+            return;
+        }
+        queueEntitySpawnRemoved(uuid, new EntityInteractionOrigin(worldId, location.getX(), location.getY(), location.getZ()), location);
+    }
+
+    public static void queueEntitySpawnRemoved(Entity entity) {
+        if (entity == null) {
+            return;
+        }
+        Location location = entity.getLocation();
+        EntityInteractionOrigin origin = EntitySpawnTracking.getOrCreateInteractionOrigin(entity);
+        if (location.getWorld() == null) {
+            return;
+        }
+        if (origin == null) {
+            queueEntitySpawnUpdate(EntitySpawnData.removed(entity.getUniqueId(), location));
+            return;
+        }
+        queueEntitySpawnRemoved(entity.getUniqueId(), origin, location);
+    }
+
+    private static void queueEntitySpawnRemoved(java.util.UUID uuid, EntityInteractionOrigin origin, Location location) {
+        int time = (int) (System.currentTimeMillis() / 1000L);
+        queueEntitySpawnUpdate(EntitySpawnData.removed(uuid, origin, location, time));
     }
 
     public static void queueEntitySpawnRevived(java.util.UUID previousUuid, java.util.UUID uuid, Location location) {

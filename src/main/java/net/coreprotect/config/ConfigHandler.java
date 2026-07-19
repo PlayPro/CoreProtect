@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -698,6 +699,8 @@ public class ConfigHandler extends Queue {
             if (startup) {
                 ListenerHandler.registerNetworking(); // Register channels for networking API
             }
+        } catch (CancellationException e) {
+            return false;
         } catch (Exception e) {
             ErrorReporter.report(e);
             return false;

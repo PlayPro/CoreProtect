@@ -519,7 +519,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     @Override
     public ConsumerEntitySpawnUpdates entitySpawnUpdates() throws Exception {
         if (entitySpawnUpdates == null) {
-            entitySpawnUpdates = new EntitySpawnStatement.Updates(connection);
+            entitySpawnUpdates = new EntitySpawnStatement.Updates(connection, this);
         }
         return entitySpawnUpdates;
     }

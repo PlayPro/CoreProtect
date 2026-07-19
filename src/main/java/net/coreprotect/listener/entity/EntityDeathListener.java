@@ -648,7 +648,7 @@ public final class EntityDeathListener extends Queue implements Listener {
 
         if (EntitySpawnTracking.isTrackedOrPendingIdentity(entity)) {
             EntityInteractionListener.flushPendingInteractions(entity);
-            Queue.queueEntitySpawnRemoved(entity.getUniqueId(), entity.getLocation());
+            Queue.queueEntitySpawnRemoved(entity);
             EntitySpawnTracking.clearTracking(entity.getUniqueId());
         }
 

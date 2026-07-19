@@ -116,22 +116,23 @@ public final class EntitySpawnTracking {
         }
 
         UUID uuid = entity.getUniqueId();
-        boolean pendingMarker = entity.getPersistentDataContainer().has(getPendingIdentityKey(), PersistentDataType.BYTE);
-        if (pendingMarker && !pendingIdentityPromotions.containsKey(uuid)) {
-            return false;
-        }
-        pendingClear.remove(uuid);
-        pendingIdentityPromotions.compute(uuid, (key, promotion) -> promotion == null ? new PendingIdentityPromotion(1) : promotion.increment());
-        try {
-            if (!pendingMarker) {
-                entity.getPersistentDataContainer().set(getPendingIdentityKey(), PersistentDataType.BYTE, (byte) 1);
+        return runIdentityUpdate(uuid, false, () -> {
+            boolean pendingMarker = entity.getPersistentDataContainer().has(getPendingIdentityKey(), PersistentDataType.BYTE);
+            if (pendingMarker && !pendingIdentityPromotions.containsKey(uuid)) {
+                return false;
             }
-        }
-        catch (RuntimeException e) {
-            cancelDatabaseIdentityPromotion(uuid, entity.getLocation());
-            throw e;
-        }
-        return true;
+            pendingIdentityPromotions.compute(uuid, (key, promotion) -> promotion == null ? new PendingIdentityPromotion(1) : promotion.increment());
+            try {
+                if (!pendingMarker) {
+                    entity.getPersistentDataContainer().set(getPendingIdentityKey(), PersistentDataType.BYTE, (byte) 1);
+                }
+            }
+            catch (RuntimeException e) {
+                cancelDatabaseIdentityPromotion(uuid, entity.getLocation());
+                throw e;
+            }
+            return true;
+        });
     }
 
     public static void cancelDatabaseIdentityPromotion(UUID uuid, Location location) {
@@ -156,14 +157,16 @@ public final class EntitySpawnTracking {
         scheduleCleanup();
         UUID uuid = entity.getUniqueId();
         Location location = entity.getLocation();
-        pendingClear.remove(uuid);
-        pendingIdentityConfirmations.remove(uuid);
-        pendingIdentityVerifications.remove(uuid);
-        pendingIdentityPromotions.remove(uuid);
-        entity.getPersistentDataContainer().set(getKey(), PersistentDataType.BYTE, (byte) 1);
-        entity.getPersistentDataContainer().remove(getPendingIdentityKey());
-        entity.getPersistentDataContainer().remove(getOriginSeedKey());
-        trackedLocations.compute(uuid, (key, previous) -> TrackedLocation.from(location, true, verificationEpoch.get()));
+        runIdentityUpdate(uuid, false, () -> {
+            pendingIdentityConfirmations.remove(uuid);
+            pendingIdentityVerifications.remove(uuid);
+            pendingIdentityPromotions.remove(uuid);
+            entity.getPersistentDataContainer().set(getKey(), PersistentDataType.BYTE, (byte) 1);
+            entity.getPersistentDataContainer().remove(getPendingIdentityKey());
+            entity.getPersistentDataContainer().remove(getOriginSeedKey());
+            trackedLocations.compute(uuid, (key, previous) -> TrackedLocation.from(location, true, verificationEpoch.get()));
+            return true;
+        });
     }
 
     public static void seedOrigin(Entity entity) {
@@ -222,19 +225,18 @@ public final class EntitySpawnTracking {
         if (uuid == null || location == null || location.getWorld() == null) {
             return;
         }
-        if (pendingClear.containsKey(uuid)) {
-            return;
-        }
 
         scheduleCleanup();
         PendingIdentityConfirmation confirmation = new PendingIdentityConfirmation(location, System.currentTimeMillis() + PENDING_CLEAR_TTL_MILLIS);
-        pendingIdentityConfirmations.put(uuid, confirmation);
-        if (pendingClear.containsKey(uuid)) {
-            pendingIdentityConfirmations.remove(uuid, confirmation);
+        boolean registered = runIdentityUpdate(uuid, true, () -> {
+            pendingIdentityConfirmations.put(uuid, confirmation);
+            pendingIdentityVerifications.remove(uuid);
+            pendingIdentityPromotions.remove(uuid);
+            return true;
+        });
+        if (!registered) {
             return;
         }
-        pendingIdentityVerifications.remove(uuid);
-        pendingIdentityPromotions.remove(uuid);
         CoreProtect plugin = CoreProtect.getInstance();
         if (plugin == null || !plugin.isEnabled()) {
             return;
@@ -650,15 +652,15 @@ public final class EntitySpawnTracking {
 
     public static void clearTracking(UUID uuid) {
         scheduleCleanup();
-        pendingIdentityConfirmations.remove(uuid);
-        pendingIdentityVerifications.remove(uuid);
-        pendingIdentityPromotions.remove(uuid);
-        PendingClear request = new PendingClear(System.currentTimeMillis() + PENDING_CLEAR_TTL_MILLIS);
-        pendingClear.put(uuid, request);
+        PendingClear request = installTerminalClear(uuid);
+        schedulePendingClear(uuid, request);
+    }
+
+    private static void schedulePendingClear(UUID uuid, PendingClear request) {
         Location location = getCachedLocation(uuid);
         CoreProtect plugin = CoreProtect.getInstance();
         if (plugin == null || !plugin.isEnabled()) {
-            forget(uuid);
+            applyPendingClear(uuid, request, () -> forget(uuid), false);
             return;
         }
 
@@ -667,24 +669,19 @@ public final class EntitySpawnTracking {
                 try {
                     Entity entity = Bukkit.getEntity(uuid);
                     if (entity == null) {
-                        forget(uuid);
+                        applyPendingClear(uuid, request, () -> forget(uuid), false);
                         return;
                     }
 
                     Runnable clear = () -> {
-                        if (!pendingClear.remove(uuid, request)) {
-                            return;
-                        }
-                        entity.getPersistentDataContainer().remove(getKey());
-                        entity.getPersistentDataContainer().remove(getPendingIdentityKey());
-                        forget(uuid);
+                        applyPendingClear(uuid, request, () -> {
+                            entity.getPersistentDataContainer().remove(getKey());
+                            entity.getPersistentDataContainer().remove(getPendingIdentityKey());
+                            forget(uuid);
+                        }, true);
                     };
                     if (ConfigHandler.isFolia && !PaperAdapter.ADAPTER.isOwnedByCurrentRegion(entity)) {
-                        Runnable retired = () -> {
-                            if (pendingClear.remove(uuid, request)) {
-                                forget(uuid);
-                            }
-                        };
+                        Runnable retired = () -> applyPendingClear(uuid, request, () -> forget(uuid), false);
                         if (!PaperAdapter.ADAPTER.executeEntityTask(CoreProtect.getInstance(), entity, clear, retired)) {
                             retired.run();
                         }
@@ -803,29 +800,31 @@ public final class EntitySpawnTracking {
             return;
         }
 
-        pendingClear.remove(uuid);
-        long[] epoch = new long[1];
-        Location[] verificationLocation = new Location[1];
-        boolean[] verify = new boolean[1];
-        trackedLocations.compute(uuid, (key, tracked) -> {
-            epoch[0] = verificationEpoch.get();
-            if (tracked == null) {
-                verificationLocation[0] = loggedLocation;
-                return TrackedLocation.from(loggedLocation, true, -1L);
-            }
-            verify[0] = tracked.isVerified(epoch[0]);
+        runIdentityUpdate(uuid, true, () -> {
+            long[] epoch = new long[1];
+            Location[] verificationLocation = new Location[1];
+            boolean[] verify = new boolean[1];
+            trackedLocations.compute(uuid, (key, tracked) -> {
+                epoch[0] = verificationEpoch.get();
+                if (tracked == null) {
+                    verificationLocation[0] = loggedLocation;
+                    return TrackedLocation.from(loggedLocation, true, -1L);
+                }
+                verify[0] = tracked.isVerified(epoch[0]);
+                if (verify[0]) {
+                    return tracked.withPendingVerification(epoch[0]);
+                }
+                verificationLocation[0] = tracked.getLocation();
+                return tracked.withVerifiedEpoch(-1L);
+            });
             if (verify[0]) {
-                return tracked.withPendingVerification(epoch[0]);
+                Queue.queueEntitySpawnUpdate(EntitySpawnData.verify(uuid, epoch[0]));
             }
-            verificationLocation[0] = tracked.getLocation();
-            return tracked.withVerifiedEpoch(-1L);
+            else if (verificationLocation[0] != null) {
+                Queue.queueEntitySpawnLocation(uuid, verificationLocation[0], epoch[0]);
+            }
+            return true;
         });
-        if (verify[0]) {
-            Queue.queueEntitySpawnUpdate(EntitySpawnData.verify(uuid, epoch[0]));
-        }
-        else if (verificationLocation[0] != null) {
-            Queue.queueEntitySpawnLocation(uuid, verificationLocation[0], epoch[0]);
-        }
     }
 
     public static void verifyPendingDatabaseIdentity(UUID uuid, Location location) {
@@ -852,18 +851,10 @@ public final class EntitySpawnTracking {
     }
 
     public static void confirmDatabaseIdentityMissing(UUID uuid, long epoch) {
-        boolean[] pendingIdentity = new boolean[1];
-        pendingIdentityVerifications.computeIfPresent(uuid, (key, verification) -> {
-            if (verification.epoch != epoch) {
-                return verification;
-            }
-            pendingIdentity[0] = true;
-            return null;
-        });
-        TrackedLocation tracked = trackedLocations.get(uuid);
-        boolean unverified = tracked != null && epoch == verificationEpoch.get() && !tracked.isVerified(epoch);
-        if (pendingIdentity[0] || unverified) {
-            clearTracking(uuid);
+        scheduleCleanup();
+        PendingClear request = installRecoveryClear(uuid, epoch);
+        if (request != null) {
+            schedulePendingClear(uuid, request);
         }
     }
 
@@ -1164,48 +1155,135 @@ public final class EntitySpawnTracking {
 
     private static void applyIdentityConfirmation(Entity entity, PendingIdentityConfirmation confirmation) {
         UUID uuid = entity.getUniqueId();
-        if (!pendingIdentityConfirmations.remove(uuid, confirmation)) {
-            return;
-        }
-        if (pendingClear.containsKey(uuid)) {
-            return;
-        }
+        boolean applied = runIdentityUpdate(uuid, true, () -> {
+            if (!pendingIdentityConfirmations.remove(uuid, confirmation)) {
+                return false;
+            }
 
-        pendingIdentityVerifications.remove(uuid);
-        pendingIdentityPromotions.remove(uuid);
-        entity.getPersistentDataContainer().set(getKey(), PersistentDataType.BYTE, (byte) 1);
-        entity.getPersistentDataContainer().remove(getPendingIdentityKey());
-        entity.getPersistentDataContainer().remove(getOriginSeedKey());
-        Location location = entity.getLocation();
-        long epoch = verificationEpoch.get();
-        boolean locationConfirmed = TrackedLocation.from(confirmation.location, true, epoch).matches(location);
-        trackedLocations.put(uuid, TrackedLocation.from(location, true, locationConfirmed ? epoch : -1L));
-        if (!locationConfirmed) {
-            Queue.queueEntitySpawnLocation(uuid, location, epoch);
+            pendingIdentityVerifications.remove(uuid);
+            pendingIdentityPromotions.remove(uuid);
+            entity.getPersistentDataContainer().set(getKey(), PersistentDataType.BYTE, (byte) 1);
+            entity.getPersistentDataContainer().remove(getPendingIdentityKey());
+            entity.getPersistentDataContainer().remove(getOriginSeedKey());
+            Location location = entity.getLocation();
+            long epoch = verificationEpoch.get();
+            boolean locationConfirmed = TrackedLocation.from(confirmation.location, true, epoch).matches(location);
+            trackedLocations.put(uuid, TrackedLocation.from(location, true, locationConfirmed ? epoch : -1L));
+            if (!locationConfirmed) {
+                Queue.queueEntitySpawnLocation(uuid, location, epoch);
+            }
+            return true;
+        });
+        if (!applied) {
+            pendingIdentityConfirmations.remove(uuid, confirmation);
         }
     }
 
     private static boolean clearPendingTracking(Entity entity) {
         UUID uuid = entity.getUniqueId();
-        PendingClear request = pendingClear.get(uuid);
-        if (request == null) {
-            return false;
+        while (true) {
+            PendingClear request = pendingClear.get(uuid);
+            if (request == null) {
+                return false;
+            }
+            if (request.expiry < System.currentTimeMillis()) {
+                expirePendingClear(uuid, request, System.currentTimeMillis());
+                continue;
+            }
+            if (applyPendingClear(uuid, request, () -> {
+                entity.getPersistentDataContainer().remove(getKey());
+                entity.getPersistentDataContainer().remove(getPendingIdentityKey());
+                forget(uuid);
+            }, true)) {
+                return true;
+            }
         }
-        if (request.expiry < System.currentTimeMillis()) {
-            pendingClear.remove(uuid, request);
-            return false;
-        }
-        if (!pendingClear.remove(uuid, request)) {
-            return false;
-        }
+    }
 
-        pendingIdentityConfirmations.remove(uuid);
-        pendingIdentityVerifications.remove(uuid);
-        pendingIdentityPromotions.remove(uuid);
-        entity.getPersistentDataContainer().remove(getKey());
-        entity.getPersistentDataContainer().remove(getPendingIdentityKey());
-        forget(uuid);
-        return true;
+    private static PendingClear installTerminalClear(UUID uuid) {
+        PendingClear request = new PendingClear(PendingClearReason.TERMINAL, System.currentTimeMillis() + PENDING_CLEAR_TTL_MILLIS);
+        pendingClear.compute(uuid, (key, current) -> {
+            pendingIdentityConfirmations.remove(uuid);
+            pendingIdentityVerifications.remove(uuid);
+            pendingIdentityPromotions.remove(uuid);
+            return request;
+        });
+        return request;
+    }
+
+    private static PendingClear installRecoveryClear(UUID uuid, long epoch) {
+        PendingClear request = new PendingClear(PendingClearReason.RECOVERY_MISSING, System.currentTimeMillis() + PENDING_CLEAR_TTL_MILLIS);
+        boolean[] installed = new boolean[1];
+        pendingClear.compute(uuid, (key, current) -> {
+            long now = System.currentTimeMillis();
+            if (current != null && current.expiry < now) {
+                current = null;
+            }
+
+            PendingIdentityConfirmation confirmation = pendingIdentityConfirmations.get(uuid);
+            if (confirmation != null && confirmation.isExpired(now)) {
+                pendingIdentityConfirmations.remove(uuid, confirmation);
+                confirmation = pendingIdentityConfirmations.get(uuid);
+            }
+
+            boolean[] pendingIdentity = new boolean[1];
+            pendingIdentityVerifications.computeIfPresent(uuid, (verificationKey, verification) -> {
+                if (verification.epoch != epoch) {
+                    return verification;
+                }
+                pendingIdentity[0] = true;
+                return null;
+            });
+            TrackedLocation tracked = trackedLocations.get(uuid);
+            boolean unverified = tracked != null && epoch == verificationEpoch.get() && !tracked.isVerified(epoch);
+            if ((!pendingIdentity[0] && !unverified) || confirmation != null) {
+                return current;
+            }
+            if (current != null && current.reason == PendingClearReason.TERMINAL) {
+                return current;
+            }
+
+            pendingIdentityConfirmations.remove(uuid);
+            pendingIdentityPromotions.remove(uuid);
+            installed[0] = true;
+            return request;
+        });
+        return installed[0] ? request : null;
+    }
+
+    private static boolean runIdentityUpdate(UUID uuid, boolean supersedeRecovery, PendingClearAction action) {
+        boolean[] applied = new boolean[1];
+        pendingClear.compute(uuid, (key, request) -> {
+            if (request != null && request.expiry < System.currentTimeMillis()) {
+                request = null;
+            }
+            if (request != null && request.reason == PendingClearReason.TERMINAL) {
+                return request;
+            }
+            if (!action.run()) {
+                return request;
+            }
+            applied[0] = true;
+            return supersedeRecovery ? null : request;
+        });
+        return applied[0];
+    }
+
+    private static boolean applyPendingClear(UUID uuid, PendingClear request, Runnable action, boolean completed) {
+        boolean[] applied = new boolean[1];
+        pendingClear.compute(uuid, (key, current) -> {
+            if (current != request) {
+                return current;
+            }
+            action.run();
+            applied[0] = true;
+            return completed && request.reason == PendingClearReason.RECOVERY_MISSING ? null : current;
+        });
+        return applied[0];
+    }
+
+    private static void expirePendingClear(UUID uuid, PendingClear request, long now) {
+        pendingClear.computeIfPresent(uuid, (key, current) -> current == request && current.expiry < now ? null : current);
     }
 
     private static void collectLoadedEntities(World world, int chunkX, int chunkZ, Integer[] radius, Set<UUID> result) {
@@ -1325,9 +1403,7 @@ public final class EntitySpawnTracking {
     private static void cleanupExpiredEntries() {
         long now = System.currentTimeMillis();
         for (Map.Entry<UUID, PendingClear> entry : pendingClear.entrySet()) {
-            if (entry.getValue().expiry < now) {
-                pendingClear.remove(entry.getKey(), entry.getValue());
-            }
+            expirePendingClear(entry.getKey(), entry.getValue(), now);
         }
         for (Map.Entry<UUID, TrackedLocation> entry : trackedLocations.entrySet()) {
             if (entry.getValue().isExpired(now)) {
@@ -1476,11 +1552,24 @@ public final class EntitySpawnTracking {
         }
     }
 
+    @FunctionalInterface
+    private interface PendingClearAction {
+
+        boolean run();
+    }
+
+    private enum PendingClearReason {
+        RECOVERY_MISSING,
+        TERMINAL
+    }
+
     private static final class PendingClear {
 
+        private final PendingClearReason reason;
         private final long expiry;
 
-        private PendingClear(long expiry) {
+        private PendingClear(PendingClearReason reason, long expiry) {
+            this.reason = reason;
             this.expiry = expiry;
         }
     }

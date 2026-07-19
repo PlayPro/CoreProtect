@@ -463,7 +463,11 @@ public class Process {
                                     if (object instanceof EntitySpawnData) {
                                         EntitySpawnData update = (EntitySpawnData) object;
                                         invalidateEntityInteractionIdentityConfirmation(update, pendingEntityIdentityConfirmations, invalidatedEntityIdentityConfirmations);
-                                        entitySpawnUpdates.apply(update);
+                                        EntitySpawnIdentity createdIdentity = entitySpawnUpdates.apply(update);
+                                        if (createdIdentity != null) {
+                                            entitySpawnIdentities.put(createdIdentity.getUuid(), createdIdentity);
+                                            promotedEntityIdentities.add(createdIdentity.getUuid());
+                                        }
                                     }
                                     break;
                             }

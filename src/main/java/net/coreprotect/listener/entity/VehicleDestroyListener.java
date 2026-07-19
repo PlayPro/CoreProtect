@@ -17,6 +17,7 @@ import org.bukkit.projectiles.ProjectileSource;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.listener.player.EntityInteractionListener;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.utility.EntitySpawnTracking;
 
@@ -38,7 +39,8 @@ public final class VehicleDestroyListener extends Queue implements Listener {
             }
         }
 
-        if (EntitySpawnTracking.isTracked(vehicle)) {
+        if (EntitySpawnTracking.isTrackedOrPendingIdentity(vehicle)) {
+            EntityInteractionListener.flushPendingInteractions(vehicle);
             Queue.queueEntitySpawnRemoved(vehicle.getUniqueId(), vehicle.getLocation());
             EntitySpawnTracking.forget(vehicle.getUniqueId());
         }

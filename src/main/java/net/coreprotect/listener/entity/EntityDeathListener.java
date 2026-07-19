@@ -34,8 +34,10 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.listener.player.EntityInteractionListener;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.EntitySpawnTracking;
 
 public final class EntityDeathListener extends Queue implements Listener {
 
@@ -236,6 +238,17 @@ public final class EntityDeathListener extends Queue implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onEntityDeath(EntityDeathEvent event) {
-        logEntityDeath(event.getEntity(), null);
+        LivingEntity entity = event.getEntity();
+        if (entity == null) {
+            return;
+        }
+
+        if (EntitySpawnTracking.isTrackedOrPendingIdentity(entity)) {
+            EntityInteractionListener.flushPendingInteractions(entity);
+            Queue.queueEntitySpawnRemoved(entity.getUniqueId(), entity.getLocation());
+            EntitySpawnTracking.forget(entity.getUniqueId());
+        }
+
+        logEntityDeath(entity, null);
     }
 }

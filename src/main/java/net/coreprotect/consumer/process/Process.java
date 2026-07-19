@@ -313,8 +313,7 @@ public class Process {
                                     try {
                                         Database.executeSavepoint(statement, "entity_interaction_log", () -> {
                                             if (loggedIdentity[0] == null) {
-                                                int time = (int) (System.currentTimeMillis() / 1000L);
-                                                loggedIdentity[0] = EntitySpawnStatement.insertIdentity(preparedStmtEntitySpawns, time, interaction.getEntityUuid(), interaction.getOrigin(), interaction.getCurrentLocation());
+                                                loggedIdentity[0] = EntitySpawnStatement.insertIdentity(preparedStmtEntitySpawns, interaction.getTime(), interaction.getEntityUuid(), interaction.getOrigin(), interaction.getCurrentLocation());
                                             }
                                             EntityInteractionLogger.log(preparedStmtEntityInteractions, preparedStmtEntityInteractionCheckpoints, loggedIdentity[0], interaction, logContext);
                                         });

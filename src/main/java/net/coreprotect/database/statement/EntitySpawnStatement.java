@@ -740,7 +740,7 @@ public final class EntitySpawnStatement {
                             continue;
                         }
                         try {
-                            EntitySpawnTracking.clearTracking(uuid);
+                            EntitySpawnTracking.confirmDatabaseIdentityMissing(uuid);
                         }
                         catch (Exception e) {
                             ErrorReporter.report(e);

@@ -447,7 +447,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     }
 
     @Override
-    public void checkpointEntitySpawn(int trackingRowId, int worldId, double x, double y, double z, float yaw, float pitch) throws Exception {
+    public boolean checkpointEntitySpawn(int trackingRowId, int worldId, double x, double y, double z, float yaw, float pitch) throws Exception {
         if (entitySpawnCheckpointStatement == null) {
             entitySpawnCheckpointStatement = own(connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=? WHERE rowid=? AND removed=0"));
         }
@@ -460,7 +460,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         entitySpawnCheckpointStatement.setInt(7, trackingRowId);
         int updated = entitySpawnCheckpointStatement.executeUpdate();
         if (updated == 1) {
-            return;
+            return true;
         }
         if (updated > 1) {
             throw new SQLException("Entity interaction tracking row is ambiguous: " + trackingRowId);
@@ -481,6 +481,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
             if (resultSet.next()) {
                 throw new SQLException("Entity interaction tracking row is ambiguous: " + trackingRowId);
             }
+            return removed == 0;
         }
     }
 

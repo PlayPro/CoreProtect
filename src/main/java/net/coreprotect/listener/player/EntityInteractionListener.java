@@ -30,6 +30,7 @@ import net.coreprotect.model.entity.EntityInteractionAction;
 import net.coreprotect.model.entity.EntityInteractionOrigin;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.EntitySpawnTracking;
+import net.coreprotect.utility.ErrorReporter;
 
 public final class EntityInteractionListener extends Queue implements Listener {
 
@@ -86,13 +87,24 @@ public final class EntityInteractionListener extends Queue implements Listener {
         flushStaleInteractions(now);
 
         synchronized (pendingInteractions) {
+            if (!ConfigHandler.serverRunning || ConfigHandler.shutdownDrainRunning) {
+                return;
+            }
             interaction = pendingInteractions.get(key);
             if (interaction == null) {
                 if (pendingInteractions.size() >= MAX_PENDING_INTERACTIONS) {
                     return;
                 }
 
-                interaction = new PendingInteraction(player.getName(), entity, snapshot, unleashCandidate, now);
+                boolean promotion;
+                try {
+                    promotion = EntitySpawnTracking.beginDatabaseIdentityPromotion(entity);
+                }
+                catch (RuntimeException e) {
+                    ErrorReporter.report(e);
+                    return;
+                }
+                interaction = new PendingInteraction(player.getName(), entity, snapshot.withIdentityPromotion(promotion), unleashCandidate, now);
                 pendingInteractions.put(key, interaction);
                 scheduleFlush = true;
             }
@@ -104,7 +116,6 @@ public final class EntityInteractionListener extends Queue implements Listener {
         if (scheduleFlush) {
             PendingInteraction scheduledInteraction = interaction;
             try {
-                EntitySpawnTracking.beginDatabaseIdentityPromotion(entity);
                 Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(),
                         () -> flush(key, scheduledInteraction),
                         () -> discard(key, scheduledInteraction), entity, 1);
@@ -120,41 +131,74 @@ public final class EntityInteractionListener extends Queue implements Listener {
             return;
         }
 
-        List<PendingInteraction> interactions = new ArrayList<>();
+        List<PendingFlush> interactions = new ArrayList<>();
         UUID entityId = entity.getUniqueId();
         synchronized (pendingInteractions) {
             Iterator<Map.Entry<InteractionKey, PendingInteraction>> iterator = pendingInteractions.entrySet().iterator();
             while (iterator.hasNext()) {
                 Map.Entry<InteractionKey, PendingInteraction> entry = iterator.next();
                 if (entry.getKey().entityId.equals(entityId)) {
-                    interactions.add(entry.getValue());
-                    iterator.remove();
+                    PendingFlush flush = entry.getValue().prepareFlush(false);
+                    if (flush != null) {
+                        interactions.add(flush);
+                        iterator.remove();
+                    }
                 }
             }
         }
 
-        for (PendingInteraction interaction : interactions) {
-            interaction.flush(false);
+        for (PendingFlush interaction : interactions) {
+            interaction.publish();
+        }
+    }
+
+    public static void flushPendingInteractions() {
+        List<PendingFlush> interactions = new ArrayList<>();
+        synchronized (pendingInteractions) {
+            Iterator<PendingInteraction> iterator = pendingInteractions.values().iterator();
+            while (iterator.hasNext()) {
+                PendingFlush flush = iterator.next().prepareFlush(false);
+                if (flush != null) {
+                    interactions.add(flush);
+                    iterator.remove();
+                }
+            }
+            nextCleanup = 0L;
+        }
+
+        for (PendingFlush interaction : interactions) {
+            interaction.publish();
         }
     }
 
     private static void flush(InteractionKey key, PendingInteraction interaction) {
+        PendingFlush flush;
         synchronized (pendingInteractions) {
-            if (!pendingInteractions.remove(key, interaction)) {
+            if (pendingInteractions.get(key) != interaction) {
                 return;
             }
+            flush = interaction.prepareFlush(true);
+            if (flush == null) {
+                return;
+            }
+            pendingInteractions.remove(key);
         }
 
-        interaction.flush(true);
+        flush.publish();
     }
 
     private static void discard(InteractionKey key, PendingInteraction interaction) {
+        boolean removed;
         synchronized (pendingInteractions) {
-            pendingInteractions.remove(key, interaction);
+            removed = pendingInteractions.remove(key, interaction);
+        }
+        if (removed) {
+            interaction.cancelPromotion();
         }
     }
 
     private static void flushStaleInteractions(long now) {
+        List<PendingFlush> stale = new ArrayList<>();
         synchronized (pendingInteractions) {
             if (now < nextCleanup) {
                 return;
@@ -165,10 +209,16 @@ public final class EntityInteractionListener extends Queue implements Listener {
             while (iterator.hasNext()) {
                 PendingInteraction interaction = iterator.next();
                 if (now - interaction.createdAt >= STALE_INTERACTION_NANOS) {
-                    iterator.remove();
-                    interaction.flush(false);
+                    PendingFlush flush = interaction.prepareFlush(false);
+                    if (flush != null) {
+                        iterator.remove();
+                        stale.add(flush);
+                    }
                 }
             }
+        }
+        for (PendingFlush interaction : stale) {
+            interaction.publish();
         }
     }
 
@@ -242,16 +292,51 @@ public final class EntityInteractionListener extends Queue implements Listener {
             this.unleashCandidate |= unleashCandidate;
         }
 
-        private void flush(boolean resolveUnleash) {
-            EntityInteractionAction resolvedAction = action;
-            if (resolvedAction == EntityInteractionAction.GENERIC
-                    && resolveUnleash
-                    && unleashCandidate
-                    && entity.isValid()
-                    && !isLeashed(entity)) {
-                resolvedAction = EntityInteractionAction.UNLEASH;
+        private PendingFlush prepareFlush(boolean resolveUnleash) {
+            try {
+                EntityInteractionAction resolvedAction = action;
+                if (resolvedAction == EntityInteractionAction.GENERIC
+                        && resolveUnleash
+                        && unleashCandidate
+                        && entity.isValid()
+                        && !isLeashed(entity)) {
+                    resolvedAction = EntityInteractionAction.UNLEASH;
+                }
+                EntityInteraction queuedInteraction = interaction.withAction(resolvedAction);
+                return new PendingFlush(user, queuedInteraction, reserveEntityInteractionQueue());
             }
-            Queue.queueEntityInteraction(user, interaction.withAction(resolvedAction));
+            catch (RuntimeException e) {
+                ErrorReporter.report(e);
+                return null;
+            }
+        }
+
+        private void cancelPromotion() {
+            if (interaction.hasIdentityPromotion()) {
+                EntitySpawnTracking.cancelDatabaseIdentityPromotion(interaction.getEntityUuid(), interaction.getCurrentLocation());
+            }
+        }
+    }
+
+    private static final class PendingFlush {
+
+        private final String user;
+        private final EntityInteraction interaction;
+        private final long reservation;
+
+        private PendingFlush(String user, EntityInteraction interaction, long reservation) {
+            this.user = user;
+            this.interaction = interaction;
+            this.reservation = reservation;
+        }
+
+        private void publish() {
+            try {
+                queueReservedEntityInteraction(user, interaction, reservation);
+            }
+            catch (RuntimeException e) {
+                ErrorReporter.report(e);
+            }
         }
     }
 }

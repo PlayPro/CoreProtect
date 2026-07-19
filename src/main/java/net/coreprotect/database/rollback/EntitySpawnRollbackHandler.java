@@ -614,7 +614,7 @@ public final class EntitySpawnRollbackHandler {
 
                 EntityInteractionListener.flushPendingInteractions(entity);
                 EntitySpawnTracking.removeWithoutRemovalLog(entity);
-                EntitySpawnTracking.forget(entity.getUniqueId());
+                EntitySpawnTracking.clearTracking(entity.getUniqueId());
                 completion.complete(context.transition(work, transition, 1));
             }
             catch (Exception e) {

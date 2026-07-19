@@ -13,8 +13,9 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.process.Process;
 import net.coreprotect.language.Phrase;
-import net.coreprotect.listener.player.PlayerQuitListener;
+import net.coreprotect.listener.player.EntityInteractionListener;
 import net.coreprotect.listener.player.InventoryChangeListener;
+import net.coreprotect.listener.player.PlayerQuitListener;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Extensions;
@@ -61,13 +62,14 @@ public class ShutdownService {
                 EntitySpawnTracking.queueLoadedLocationsForShutdown();
             }
 
-            InventoryChangeListener.flushPendingTransactionsForShutdown();
-
-            long shutdownTime = System.currentTimeMillis();
-            PurgeCommand.cancelForShutdown();
-            waitForPurgeCancellation(shutdownTime);
             ConfigHandler.shutdownDrainRunning = true;
             try {
+                EntityInteractionListener.flushPendingInteractions();
+                InventoryChangeListener.flushPendingTransactionsForShutdown();
+
+                long shutdownTime = System.currentTimeMillis();
+                PurgeCommand.cancelForShutdown();
+                waitForPurgeCancellation(shutdownTime);
                 ConfigHandler.serverRunning = false;
                 long nextAlertTime = System.currentTimeMillis() + ALERT_INTERVAL_MS;
 

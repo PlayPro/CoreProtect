@@ -144,12 +144,13 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
         }
     }
 
-    void checkpointLocation(int trackingRowId, int worldId, double x, double y, double z, float yaw, float pitch) throws Exception {
+    boolean checkpointLocation(int trackingRowId, int worldId, double x, double y, double z, float yaw, float pitch) throws Exception {
         ClickHouseEntityState state = requireState(trackingRowId);
         if (state.isRemoved()) {
-            return;
+            return false;
         }
         append(trackingRowId, state.withLocation(worldId, x, y, z, yaw, pitch));
+        return true;
     }
 
     @Override
@@ -214,6 +215,11 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
     }
 
     @Override
+    public void identityFound(UUID uuid) {
+        coordinator.entityFound(uuid);
+    }
+
+    @Override
     public void afterCommit(boolean committed) {
         coordinator.afterCommit(committed);
         clearStateCache();
@@ -250,7 +256,7 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
 
     private void verify(EntitySpawnData data) throws Exception {
         if (findByUuid(data.getUuid(), false) == null) {
-            coordinator.verificationMissing(data.getUuid());
+            coordinator.verificationMissing(data);
         }
         else {
             coordinator.verificationFound(data);
@@ -260,7 +266,7 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
     private void updateLocation(EntitySpawnData data) throws Exception {
         ClickHouseEntityState state = findByUuid(data.getUuid(), false);
         if (state == null) {
-            coordinator.locationMissing(data.getUuid());
+            coordinator.locationMissing(data);
             return;
         }
         append(toTrackingRowId(state.getPointer().getRowId()), withLocation(state, data.getLocation()));

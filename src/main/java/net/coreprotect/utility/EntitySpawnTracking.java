@@ -57,7 +57,8 @@ public final class EntitySpawnTracking {
     private static final Map<UUID, TrackedLocation> trackedLocations = new ConcurrentHashMap<>();
     private static final Map<UUID, PendingClear> pendingClear = new ConcurrentHashMap<>();
     private static final Map<UUID, PendingIdentityConfirmation> pendingIdentityConfirmations = new ConcurrentHashMap<>();
-    private static final Map<UUID, Location> pendingIdentityVerifications = new ConcurrentHashMap<>();
+    private static final Map<UUID, PendingIdentityVerification> pendingIdentityVerifications = new ConcurrentHashMap<>();
+    private static final Map<UUID, PendingIdentityPromotion> pendingIdentityPromotions = new ConcurrentHashMap<>();
     private static final Set<UUID> coreProtectRemovals = ConcurrentHashMap.newKeySet();
     private static final AtomicLong verificationEpoch = new AtomicLong();
     private static final AtomicLong nextCleanup = new AtomicLong();
@@ -109,10 +110,45 @@ public final class EntitySpawnTracking {
         return entity != null && (isTracked(entity) || entity.getPersistentDataContainer().has(getPendingIdentityKey(), PersistentDataType.BYTE));
     }
 
-    public static void beginDatabaseIdentityPromotion(Entity entity) {
-        if (entity != null && !isTracked(entity)) {
-            pendingClear.remove(entity.getUniqueId());
-            entity.getPersistentDataContainer().set(getPendingIdentityKey(), PersistentDataType.BYTE, (byte) 1);
+    public static boolean beginDatabaseIdentityPromotion(Entity entity) {
+        if (entity == null || isTracked(entity)) {
+            return false;
+        }
+
+        UUID uuid = entity.getUniqueId();
+        boolean pendingMarker = entity.getPersistentDataContainer().has(getPendingIdentityKey(), PersistentDataType.BYTE);
+        if (pendingMarker && !pendingIdentityPromotions.containsKey(uuid)) {
+            return false;
+        }
+        pendingClear.remove(uuid);
+        pendingIdentityPromotions.compute(uuid, (key, promotion) -> promotion == null ? new PendingIdentityPromotion(1) : promotion.increment());
+        try {
+            if (!pendingMarker) {
+                entity.getPersistentDataContainer().set(getPendingIdentityKey(), PersistentDataType.BYTE, (byte) 1);
+            }
+        }
+        catch (RuntimeException e) {
+            cancelDatabaseIdentityPromotion(uuid, entity.getLocation());
+            throw e;
+        }
+        return true;
+    }
+
+    public static void cancelDatabaseIdentityPromotion(UUID uuid, Location location) {
+        if (uuid == null) {
+            return;
+        }
+
+        PendingIdentityPromotion[] cancelled = new PendingIdentityPromotion[1];
+        pendingIdentityPromotions.computeIfPresent(uuid, (key, count) -> {
+            if (count.count <= 1) {
+                cancelled[0] = new PendingIdentityPromotion(0);
+                return cancelled[0];
+            }
+            return count.decrement();
+        });
+        if (cancelled[0] != null) {
+            clearPendingIdentityMarker(uuid, location, cancelled[0]);
         }
     }
 
@@ -122,6 +158,8 @@ public final class EntitySpawnTracking {
         Location location = entity.getLocation();
         pendingClear.remove(uuid);
         pendingIdentityConfirmations.remove(uuid);
+        pendingIdentityVerifications.remove(uuid);
+        pendingIdentityPromotions.remove(uuid);
         entity.getPersistentDataContainer().set(getKey(), PersistentDataType.BYTE, (byte) 1);
         entity.getPersistentDataContainer().remove(getPendingIdentityKey());
         entity.getPersistentDataContainer().remove(getOriginSeedKey());
@@ -184,10 +222,19 @@ public final class EntitySpawnTracking {
         if (uuid == null || location == null || location.getWorld() == null) {
             return;
         }
+        if (pendingClear.containsKey(uuid)) {
+            return;
+        }
 
         scheduleCleanup();
         PendingIdentityConfirmation confirmation = new PendingIdentityConfirmation(location, System.currentTimeMillis() + PENDING_CLEAR_TTL_MILLIS);
         pendingIdentityConfirmations.put(uuid, confirmation);
+        if (pendingClear.containsKey(uuid)) {
+            pendingIdentityConfirmations.remove(uuid, confirmation);
+            return;
+        }
+        pendingIdentityVerifications.remove(uuid);
+        pendingIdentityPromotions.remove(uuid);
         CoreProtect plugin = CoreProtect.getInstance();
         if (plugin == null || !plugin.isEnabled()) {
             return;
@@ -604,6 +651,8 @@ public final class EntitySpawnTracking {
     public static void clearTracking(UUID uuid) {
         scheduleCleanup();
         pendingIdentityConfirmations.remove(uuid);
+        pendingIdentityVerifications.remove(uuid);
+        pendingIdentityPromotions.remove(uuid);
         PendingClear request = new PendingClear(System.currentTimeMillis() + PENDING_CLEAR_TTL_MILLIS);
         pendingClear.put(uuid, request);
         Location location = getCachedLocation(uuid);
@@ -784,39 +833,61 @@ public final class EntitySpawnTracking {
             return;
         }
 
-        Location verificationLocation = location.clone();
-        if (pendingIdentityVerifications.putIfAbsent(uuid, verificationLocation) != null) {
+        PendingIdentityVerification verification = new PendingIdentityVerification(location, verificationEpoch.get());
+        if (pendingIdentityVerifications.putIfAbsent(uuid, verification) != null) {
             return;
         }
         try {
-            Queue.queueEntitySpawnUpdate(EntitySpawnData.verify(uuid, verificationEpoch.get()));
+            Queue.queueEntitySpawnUpdate(EntitySpawnData.verify(uuid, verification.epoch));
         }
         catch (RuntimeException exception) {
-            pendingIdentityVerifications.remove(uuid, verificationLocation);
+            pendingIdentityVerifications.remove(uuid, verification);
             throw exception;
         }
     }
 
     public static void confirmDatabaseIdentityMissing(UUID uuid) {
-        if (pendingIdentityVerifications.remove(uuid) == null) {
+        pendingIdentityVerifications.remove(uuid);
+        clearTracking(uuid);
+    }
+
+    public static void confirmDatabaseIdentityMissing(UUID uuid, long epoch) {
+        boolean[] pendingIdentity = new boolean[1];
+        pendingIdentityVerifications.computeIfPresent(uuid, (key, verification) -> {
+            if (verification.epoch != epoch) {
+                return verification;
+            }
+            pendingIdentity[0] = true;
+            return null;
+        });
+        TrackedLocation tracked = trackedLocations.get(uuid);
+        boolean unverified = tracked != null && epoch == verificationEpoch.get() && !tracked.isVerified(epoch);
+        if (pendingIdentity[0] || unverified) {
             clearTracking(uuid);
         }
     }
 
     public static boolean retryPendingDatabaseIdentityVerification(UUID uuid) {
-        Location location = pendingIdentityVerifications.remove(uuid);
-        if (location == null) {
+        PendingIdentityVerification verification = pendingIdentityVerifications.get(uuid);
+        if (verification == null || !pendingIdentityVerifications.remove(uuid, verification)) {
             return false;
         }
-        verifyPendingDatabaseIdentity(uuid, location);
+        verifyPendingDatabaseIdentity(uuid, verification.location);
         return true;
     }
 
     public static void confirmDatabaseVerification(UUID uuid, long epoch) {
         trackedLocations.computeIfPresent(uuid, (key, tracked) -> epoch == verificationEpoch.get() && tracked.isPendingVerification(epoch) ? tracked.withVerifiedEpoch(epoch) : tracked);
-        Location pendingIdentityLocation = pendingIdentityVerifications.remove(uuid);
-        if (pendingIdentityLocation != null) {
-            confirmDatabaseIdentity(uuid, pendingIdentityLocation);
+        PendingIdentityVerification[] pendingIdentity = new PendingIdentityVerification[1];
+        pendingIdentityVerifications.computeIfPresent(uuid, (key, verification) -> {
+            if (verification.epoch != epoch) {
+                return verification;
+            }
+            pendingIdentity[0] = verification;
+            return null;
+        });
+        if (pendingIdentity[0] != null) {
+            confirmDatabaseIdentity(uuid, pendingIdentity[0].location);
         }
     }
 
@@ -1040,6 +1111,57 @@ public final class EntitySpawnTracking {
         return key;
     }
 
+    private static void clearPendingIdentityMarker(UUID uuid, Location location, PendingIdentityPromotion promotion) {
+        CoreProtect plugin = CoreProtect.getInstance();
+        if (plugin == null || !plugin.isEnabled()) {
+            removePendingIdentityPromotion(uuid, promotion);
+            return;
+        }
+
+        try {
+            Scheduler.runTask(plugin, () -> clearPendingIdentityMarker(plugin, uuid, promotion), location);
+        }
+        catch (Exception e) {
+            removePendingIdentityPromotion(uuid, promotion);
+            ErrorReporter.report(e);
+        }
+    }
+
+    private static void clearPendingIdentityMarker(CoreProtect plugin, UUID uuid, PendingIdentityPromotion promotion) {
+        Runnable retired = () -> removePendingIdentityPromotion(uuid, promotion);
+        try {
+            Entity entity = Bukkit.getEntity(uuid);
+            if (entity == null) {
+                retired.run();
+                return;
+            }
+            Runnable clear = () -> {
+                if (pendingIdentityPromotions.remove(uuid, promotion)
+                        && !pendingIdentityConfirmations.containsKey(uuid)
+                        && !pendingIdentityVerifications.containsKey(uuid)
+                        && !isTracked(entity)) {
+                    entity.getPersistentDataContainer().remove(getPendingIdentityKey());
+                }
+            };
+            if (ConfigHandler.isFolia && !PaperAdapter.ADAPTER.isOwnedByCurrentRegion(entity)) {
+                if (!PaperAdapter.ADAPTER.executeEntityTask(plugin, entity, clear, retired)) {
+                    retired.run();
+                }
+            }
+            else {
+                clear.run();
+            }
+        }
+        catch (RuntimeException e) {
+            retired.run();
+            ErrorReporter.report(e);
+        }
+    }
+
+    private static void removePendingIdentityPromotion(UUID uuid, PendingIdentityPromotion promotion) {
+        pendingIdentityPromotions.remove(uuid, promotion);
+    }
+
     private static void applyIdentityConfirmation(Entity entity, PendingIdentityConfirmation confirmation) {
         UUID uuid = entity.getUniqueId();
         if (!pendingIdentityConfirmations.remove(uuid, confirmation)) {
@@ -1049,6 +1171,8 @@ public final class EntitySpawnTracking {
             return;
         }
 
+        pendingIdentityVerifications.remove(uuid);
+        pendingIdentityPromotions.remove(uuid);
         entity.getPersistentDataContainer().set(getKey(), PersistentDataType.BYTE, (byte) 1);
         entity.getPersistentDataContainer().remove(getPendingIdentityKey());
         entity.getPersistentDataContainer().remove(getOriginSeedKey());
@@ -1076,6 +1200,8 @@ public final class EntitySpawnTracking {
         }
 
         pendingIdentityConfirmations.remove(uuid);
+        pendingIdentityVerifications.remove(uuid);
+        pendingIdentityPromotions.remove(uuid);
         entity.getPersistentDataContainer().remove(getKey());
         entity.getPersistentDataContainer().remove(getPendingIdentityKey());
         forget(uuid);
@@ -1227,6 +1353,34 @@ public final class EntitySpawnTracking {
 
         private boolean isExpired(long now) {
             return expiry < now;
+        }
+    }
+
+    private static final class PendingIdentityVerification {
+
+        private final Location location;
+        private final long epoch;
+
+        private PendingIdentityVerification(Location location, long epoch) {
+            this.location = location.clone();
+            this.epoch = epoch;
+        }
+    }
+
+    private static final class PendingIdentityPromotion {
+
+        private final int count;
+
+        private PendingIdentityPromotion(int count) {
+            this.count = count;
+        }
+
+        private PendingIdentityPromotion increment() {
+            return new PendingIdentityPromotion(count + 1);
+        }
+
+        private PendingIdentityPromotion decrement() {
+            return new PendingIdentityPromotion(count - 1);
         }
     }
 

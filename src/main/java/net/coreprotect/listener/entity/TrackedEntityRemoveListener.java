@@ -34,7 +34,7 @@ public final class TrackedEntityRemoveListener implements Listener {
             InventoryChangeListener.flushEntityContainer(entity);
             EntityInteractionListener.flushPendingInteractions(entity);
             Queue.queueEntitySpawnRemoved(entity.getUniqueId(), entity.getLocation());
-            EntitySpawnTracking.forget(entity.getUniqueId());
+            EntitySpawnTracking.clearTracking(entity.getUniqueId());
         }
     }
 }

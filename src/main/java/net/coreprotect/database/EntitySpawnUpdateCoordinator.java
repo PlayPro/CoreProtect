@@ -22,7 +22,7 @@ public final class EntitySpawnUpdateCoordinator {
 
     private final Map<UUID, LocationConfirmation> locationConfirmations = new LinkedHashMap<>();
     private final Map<UUID, Long> verificationConfirmations = new LinkedHashMap<>();
-    private final Set<UUID> missingRows = new HashSet<>();
+    private final Map<UUID, Long> missingRows = new LinkedHashMap<>();
     private final List<EntitySpawnData> lifecycleData = new ArrayList<>();
     private final Set<EntitySpawnData> appliedLifecycleData = new HashSet<>();
     private final Set<UUID> deferredLifecycleUuids = new HashSet<>();
@@ -110,9 +110,10 @@ public final class EntitySpawnUpdateCoordinator {
         verificationConfirmations.put(uuid, data.getVerificationEpoch());
     }
 
-    public void verificationMissing(UUID uuid) {
+    public void verificationMissing(EntitySpawnData data) {
+        UUID uuid = data.getUuid();
         verificationConfirmations.remove(uuid);
-        missingRows.add(uuid);
+        missingRows.put(uuid, data.getVerificationEpoch());
     }
 
     public void locationFound(EntitySpawnData data) {
@@ -121,9 +122,10 @@ public final class EntitySpawnUpdateCoordinator {
         locationConfirmations.put(uuid, new LocationConfirmation(data));
     }
 
-    public void locationMissing(UUID uuid) {
+    public void locationMissing(EntitySpawnData data) {
+        UUID uuid = data.getUuid();
         locationConfirmations.remove(uuid);
-        missingRows.add(uuid);
+        missingRows.put(uuid, data.getVerificationEpoch());
     }
 
     public void entityFound(UUID uuid) {
@@ -131,7 +133,7 @@ public final class EntitySpawnUpdateCoordinator {
     }
 
     public void entityMissing(UUID uuid) {
-        missingRows.add(uuid);
+        missingRows.put(uuid, Long.MIN_VALUE);
     }
 
     public void afterCommit(boolean committed) {
@@ -288,9 +290,16 @@ public final class EntitySpawnUpdateCoordinator {
                 runTrackingConfirmation(() -> EntitySpawnTracking.confirmDatabaseVerification(confirmation.getKey(), confirmation.getValue()));
             }
         }
-        for (UUID uuid : missingRows) {
-            if (!deferredUuids.contains(uuid)) {
-                runTrackingConfirmation(() -> EntitySpawnTracking.confirmDatabaseIdentityMissing(uuid));
+        for (Map.Entry<UUID, Long> missing : missingRows.entrySet()) {
+            if (!deferredUuids.contains(missing.getKey())) {
+                runTrackingConfirmation(() -> {
+                    if (missing.getValue() == Long.MIN_VALUE) {
+                        EntitySpawnTracking.confirmDatabaseIdentityMissing(missing.getKey());
+                    }
+                    else {
+                        EntitySpawnTracking.confirmDatabaseIdentityMissing(missing.getKey(), missing.getValue());
+                    }
+                });
             }
         }
     }
@@ -379,7 +388,7 @@ public final class EntitySpawnUpdateCoordinator {
 
         private final Map<UUID, LocationConfirmation> locationConfirmations;
         private final Map<UUID, Long> verificationConfirmations;
-        private final Set<UUID> missingRows;
+        private final Map<UUID, Long> missingRows;
         private final List<EntitySpawnData> lifecycleData;
         private final Set<EntitySpawnData> appliedLifecycleData;
         private final Set<UUID> deferredLifecycleUuids;
@@ -393,7 +402,7 @@ public final class EntitySpawnUpdateCoordinator {
         private Checkpoint(EntitySpawnUpdateCoordinator coordinator) {
             locationConfirmations = new LinkedHashMap<>(coordinator.locationConfirmations);
             verificationConfirmations = new LinkedHashMap<>(coordinator.verificationConfirmations);
-            missingRows = new HashSet<>(coordinator.missingRows);
+            missingRows = new LinkedHashMap<>(coordinator.missingRows);
             lifecycleData = new ArrayList<>(coordinator.lifecycleData);
             appliedLifecycleData = new HashSet<>(coordinator.appliedLifecycleData);
             deferredLifecycleUuids = new HashSet<>(coordinator.deferredLifecycleUuids);

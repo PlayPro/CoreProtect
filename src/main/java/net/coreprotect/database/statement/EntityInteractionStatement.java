@@ -14,8 +14,8 @@ public final class EntityInteractionStatement {
         throw new IllegalStateException("Database class");
     }
 
-    public static void checkpoint(ConsumerWriteBatch batch, EntitySpawnIdentity identity, Location location) throws Exception {
-        batch.checkpointEntitySpawn(identity.getRowId(), WorldUtils.getWorldId(location.getWorld().getName()), location.getX(), location.getY(), location.getZ(), location.getYaw(), location.getPitch());
+    public static boolean checkpoint(ConsumerWriteBatch batch, EntitySpawnIdentity identity, Location location) throws Exception {
+        return batch.checkpointEntitySpawn(identity.getRowId(), WorldUtils.getWorldId(location.getWorld().getName()), location.getX(), location.getY(), location.getZ(), location.getYaw(), location.getPitch());
     }
 
     public static void insert(ConsumerWriteBatch batch, int time, int userId, EntitySpawnIdentity identity, int worldId, int x, int y, int z, EntityInteraction interaction) throws Exception {

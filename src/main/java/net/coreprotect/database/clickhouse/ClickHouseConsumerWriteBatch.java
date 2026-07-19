@@ -351,8 +351,8 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
     }
 
     @Override
-    public void checkpointEntitySpawn(int trackingRowId, int worldId, double x, double y, double z, float yaw, float pitch) throws Exception {
-        entitySpawnUpdates.checkpointLocation(trackingRowId, worldId, x, y, z, yaw, pitch);
+    public boolean checkpointEntitySpawn(int trackingRowId, int worldId, double x, double y, double z, float yaw, float pitch) throws Exception {
+        return entitySpawnUpdates.checkpointLocation(trackingRowId, worldId, x, y, z, yaw, pitch);
     }
 
     @Override

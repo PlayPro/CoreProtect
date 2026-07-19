@@ -62,7 +62,7 @@ public interface ConsumerWriteBatch extends AutoCloseable {
 
     void linkEntitySpawnKill(UUID uuid, int killRowId) throws Exception;
 
-    void checkpointEntitySpawn(int trackingRowId, int worldId, double x, double y, double z, float yaw, float pitch) throws Exception;
+    boolean checkpointEntitySpawn(int trackingRowId, int worldId, double x, double y, double z, float yaw, float pitch) throws Exception;
 
     void addEntityInteraction(int time, int userId, int entitySpawnRowId, int worldId, int x, int y, int z, int type, int action, byte[] metadata, int rolledBack) throws Exception;
 

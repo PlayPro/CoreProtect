@@ -105,18 +105,18 @@ public class Queue {
         return chestId;
     }
 
-    private static void queueStandardData(Object[] data, String[] user, Object object, boolean first, long reservation) {
-        queueStandardData(data, user, object, first, null, null, reservation);
+    private static boolean queueStandardData(Object[] data, String[] user, Object object, boolean first, long reservation) {
+        return queueStandardData(data, user, object, first, null, null, reservation);
     }
 
-    private static synchronized <T> void queueStandardData(Object[] data, String[] user, Object object, boolean first, Map<Integer, ? extends Map<Integer, T>> additionalMaps, T additionalData, long reservation) {
+    private static synchronized <T> boolean queueStandardData(Object[] data, String[] user, Object object, boolean first, Map<Integer, ? extends Map<Integer, T>> additionalMaps, T additionalData, long reservation) {
         boolean rollbackPublication = Process.isRollbackPublication((int) data[1], object);
         if (Consumer.isPersistenceHalted()) {
             Consumer.completeReservation(reservation, 1);
             if (rollbackPublication) {
                 throw new IllegalStateException("Database persistence halted before rollback state could be queued");
             }
-            return;
+            return false;
         }
         int currentConsumer = (int) (reservation >>> 32);
         int consumerId = (int) reservation;
@@ -157,6 +157,7 @@ public class Queue {
                 Consumer.completeReservation(reservation, 1);
             }
         }
+        return published;
     }
 
     private static Location getBlockLocation(Location location) {
@@ -358,14 +359,39 @@ public class Queue {
         if (origin == null || currentLocation.getWorld() == null) {
             return;
         }
-        queueEntityInteraction(user, new EntityInteraction(entity.getUniqueId(), entity.getType(), origin, currentLocation, action, metadata));
+        boolean promotion = EntitySpawnTracking.beginDatabaseIdentityPromotion(entity);
+        EntityInteraction interaction = new EntityInteraction(entity.getUniqueId(), entity.getType(), origin, currentLocation, action, metadata).withIdentityPromotion(promotion);
+        queueEntityInteraction(user, interaction);
     }
 
     public static void queueEntityInteraction(String user, EntityInteraction interaction) {
         if (user == null || user.trim().isEmpty() || interaction == null) {
+            if (interaction != null && interaction.hasIdentityPromotion()) {
+                EntitySpawnTracking.cancelDatabaseIdentityPromotion(interaction.getEntityUuid(), interaction.getCurrentLocation());
+            }
             return;
         }
-        queueStandardData(new Object[] { null, Process.ENTITY_INTERACTION, null, 0, null, 0, 0, null }, new String[] { user, null }, interaction, false, Consumer.reserveConsumer());
+        queueReservedEntityInteraction(user, interaction, reserveEntityInteractionQueue());
+    }
+
+    protected static long reserveEntityInteractionQueue() {
+        return Consumer.reserveConsumer();
+    }
+
+    protected static void queueReservedEntityInteraction(String user, EntityInteraction interaction, long reservation) {
+        boolean queued = false;
+        try {
+            if (user == null || user.trim().isEmpty() || interaction == null) {
+                Consumer.completeReservation(reservation, 1);
+                return;
+            }
+            queued = queueStandardData(new Object[] { null, Process.ENTITY_INTERACTION, null, 0, null, 0, 0, null }, new String[] { user, null }, interaction, false, reservation);
+        }
+        finally {
+            if (!queued && interaction != null && interaction.hasIdentityPromotion()) {
+                EntitySpawnTracking.cancelDatabaseIdentityPromotion(interaction.getEntityUuid(), interaction.getCurrentLocation());
+            }
+        }
     }
 
     protected static void queueItemTransaction(String user, Location location, int time, int offset, int itemId) {

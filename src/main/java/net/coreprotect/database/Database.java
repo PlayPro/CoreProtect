@@ -140,6 +140,10 @@ public class Database extends Queue {
     }
 
     public static boolean commitTransactionChecked(Statement statement, DatabaseType databaseType) throws Exception {
+        return commitTransactionChecked(statement, databaseType, null);
+    }
+
+    public static boolean commitTransactionChecked(Statement statement, DatabaseType databaseType, Runnable onCommitAttempt) throws Exception {
         rejectClickHouseTransaction(databaseType);
         if (TRANSACTION_ROLLBACK_ONLY.get()) {
             if (databaseType.isDuckDB() && TRANSACTION_ROLLBACK_ACKNOWLEDGED.get()) {
@@ -154,6 +158,9 @@ public class Database extends Queue {
             try {
                 if (databaseType.isDuckDB()) {
                     Connection connection = statement.getConnection();
+                    if (onCommitAttempt != null) {
+                        onCommitAttempt.run();
+                    }
                     connection.commit();
                     try {
                         connection.setAutoCommit(true);
@@ -169,6 +176,9 @@ public class Database extends Queue {
                     }
                 }
                 else {
+                    if (onCommitAttempt != null) {
+                        onCommitAttempt.run();
+                    }
                     statement.executeUpdate(databaseType.isMySQL() ? "COMMIT" : "COMMIT TRANSACTION");
                 }
                 Consumer.transacting = false;

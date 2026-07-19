@@ -281,7 +281,7 @@ public final class EntitySpawnStatement {
                             coordinator.verificationFound(data);
                         }
                         else {
-                            coordinator.verificationMissing(data.getUuid());
+                            coordinator.verificationMissing(data);
                         }
                         break;
                     case LOCATION:
@@ -291,7 +291,7 @@ public final class EntitySpawnStatement {
                             coordinator.locationFound(data);
                         }
                         else {
-                            coordinator.locationMissing(data.getUuid());
+                            coordinator.locationMissing(data);
                         }
                         break;
                     case REMOVED:
@@ -372,6 +372,10 @@ public final class EntitySpawnStatement {
                 coordinator.combinedFailed(data);
                 Database.handleWriteFailure(e);
             }
+        }
+
+        public void identityFound(UUID uuid) {
+            coordinator.entityFound(uuid);
         }
 
         private void applyCombinedTransition(EntitySpawnData data) throws Exception {

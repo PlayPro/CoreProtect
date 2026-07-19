@@ -59,11 +59,12 @@ public class UserStatement {
     }
 
     public static int getId(ConsumerWriteBatch batch, String user, boolean load) throws Exception {
-        if (load && !ConfigHandler.playerIdCache.containsKey(user.toLowerCase(Locale.ROOT))) {
-            batch.resolveUserId(user, null);
+        String cacheKey = user.toLowerCase(Locale.ROOT);
+        Integer id = ConfigHandler.playerIdCache.get(cacheKey);
+        if (load && id == null) {
+            id = batch.resolveUserId(user, null);
         }
 
-        Integer id = ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT));
         if (id == null) {
             throw new SQLException("Unable to resolve database user " + user);
         }

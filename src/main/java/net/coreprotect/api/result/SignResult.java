@@ -1,5 +1,6 @@
 package net.coreprotect.api.result;
 
+import net.coreprotect.model.action.SignActions;
 import net.coreprotect.utility.BlockUtils;
 
 /**
@@ -41,16 +42,7 @@ public class SignResult implements CoreProtectResult {
     }
 
     public String getActionString() {
-        switch (actionId) {
-            case 0:
-                return "break";
-            case 1:
-                return "place";
-            case 2:
-                return "edit";
-            default:
-                return "unknown";
-        }
+        return SignActions.getActionString(actionId);
     }
 
     public int getColor() {

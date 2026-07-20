@@ -1,6 +1,6 @@
 package net.coreprotect.consumer.process;
 
-import java.sql.PreparedStatement;
+import net.coreprotect.database.ConsumerWriteBatch;
 import java.sql.Statement;
 import java.util.List;
 import java.util.Map;
@@ -12,11 +12,10 @@ import net.coreprotect.database.Lookup;
 import net.coreprotect.database.logger.BlockBreakLogger;
 import net.coreprotect.database.logger.BlockPlaceLogger;
 import net.coreprotect.utility.MaterialUtils;
-import net.coreprotect.utility.Util;
 
 class StructureGrowthProcess {
 
-    static void process(Statement statement, PreparedStatement preparedStmt, int batchCount, int processId, int id, String user, Object object, int replaceBlockCount) {
+    static void process(Statement statement, ConsumerWriteBatch preparedStmt, int batchCount, int processId, int id, String user, Object object, int replaceBlockCount) {
         if (object instanceof BlockState) {
             BlockState block = (BlockState) object;
             Map<Integer, List<BlockState>> blockLists = Consumer.consumerBlockList.get(processId);
@@ -39,7 +38,6 @@ class StructureGrowthProcess {
                     }
                     count++;
                 }
-                blockLists.remove(id);
             }
         }
     }

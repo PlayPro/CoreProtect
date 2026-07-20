@@ -4,7 +4,6 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
-import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -45,8 +44,6 @@ public final class FlowerPotManipulateListener extends Queue implements Listener
             return;
         }
 
-        BlockData oldBlockData = oldState.getBlockData();
-        String oldBlockDataString = oldBlockData != null ? oldBlockData.getAsString() : null;
-        queueBlockPlace(player.getName(), oldState, oldType, oldState, newType, -1, 0, oldBlockDataString);
+        queueBlockPlace(player.getName(), oldState, oldType, oldState, newType, -1, 0, newType.getKey().toString());
     }
 }

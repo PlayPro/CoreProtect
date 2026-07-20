@@ -5,6 +5,7 @@ import java.sql.PreparedStatement;
 
 import org.bukkit.Location;
 
+import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.utility.WorldUtils;
 
 final class LookupFilter {
@@ -51,31 +52,69 @@ final class LookupFilter {
     }
 
     void appendWhere(StringBuilder query) {
-        query.append("WHERE time > ?");
+        appendWhere(query, "");
+    }
+
+    void appendWhere(StringBuilder query, String alias) {
+        String qualifier = alias.isEmpty() ? "" : alias + ".";
+        query.append("WHERE ").append(qualifier).append("time > ?");
 
         if (userId != null) {
-            query.append(" AND user = ?");
+            query.append(" AND ").append(qualifier).append(ConfigHandler.databaseType.getUserColumn()).append(" = ?");
         }
 
         if (location != null) {
-            query.append(" AND wid = ?");
+            query.append(" AND ").append(qualifier).append("wid = ?");
             if (radius > 0) {
-                query.append(" AND x >= ? AND x <= ? AND z >= ? AND z <= ?");
+                query.append(" AND ").append(qualifier).append("x >= ? AND ").append(qualifier).append("x <= ? AND ").append(qualifier).append("z >= ? AND ").append(qualifier).append("z <= ?");
             }
             else {
-                query.append(" AND x = ? AND y = ? AND z = ?");
+                query.append(" AND ").append(qualifier).append("x = ? AND ").append(qualifier).append("y = ? AND ").append(qualifier).append("z = ?");
             }
         }
+    }
+
+    void appendEntityContainerWhere(StringBuilder query, String transactionAlias) {
+        String transaction = transactionAlias + ".";
+        String entity = "current_spawn_rows.";
+        query.append("WHERE ").append(transaction).append("time > ?");
+        if (userId != null) {
+            query.append(" AND ").append(transaction).append(ConfigHandler.databaseType.getUserColumn()).append(" = ?");
+        }
+        if (location == null) {
+            return;
+        }
+
+        query.append(" AND ((").append(transaction).append("wid = ?");
+        if (radius > 0) {
+            query.append(" AND ").append(transaction).append("x >= ? AND ").append(transaction).append("x <= ? AND ").append(transaction).append("z >= ? AND ").append(transaction).append("z <= ?");
+        }
+        else {
+            query.append(" AND ").append(transaction).append("x = ? AND ").append(transaction).append("y = ? AND ").append(transaction).append("z = ?");
+        }
+
+        query.append(") OR ").append(transaction).append("entity_spawn_rowid IN(SELECT ").append(entity).append("rowid FROM ")
+                .append(ConfigHandler.prefix).append("entity_spawn current_spawn_rows WHERE ").append(entity).append("current_wid = ?");
+        if (radius > 0) {
+            query.append(" AND ").append(entity).append("x >= ? AND ").append(entity).append("x < ? AND ").append(entity).append("z >= ? AND ").append(entity).append("z < ?");
+        }
+        else {
+            query.append(" AND ").append(entity).append("x >= ? AND ").append(entity).append("x < ? AND ").append(entity).append("y >= ? AND ").append(entity).append("y < ? AND ").append(entity).append("z >= ? AND ").append(entity).append("z < ?");
+        }
+        query.append("))");
     }
 
     void appendLimit(StringBuilder query) {
         if (limitOffset >= 0 && limitCount >= 0) {
-            query.append(" LIMIT ").append(limitOffset).append(", ").append(limitCount);
+            query.append(" LIMIT ").append(limitCount).append(" OFFSET ").append(limitOffset);
         }
     }
 
     int bind(PreparedStatement statement) throws Exception {
-        int parameterIndex = 1;
+        return bind(statement, 1);
+    }
+
+    int bind(PreparedStatement statement, int parameterIndex) throws Exception {
         statement.setInt(parameterIndex++, checkTime);
 
         if (userId != null) {
@@ -101,6 +140,50 @@ final class LookupFilter {
             }
         }
 
+        return parameterIndex;
+    }
+
+    int bindEntityContainer(PreparedStatement statement, int parameterIndex) throws Exception {
+        statement.setInt(parameterIndex++, checkTime);
+        if (userId != null) {
+            statement.setInt(parameterIndex++, userId);
+        }
+        if (location == null) {
+            return parameterIndex;
+        }
+
+        int x = location.getBlockX();
+        int y = location.getBlockY();
+        int z = location.getBlockZ();
+        int worldId = WorldUtils.getWorldId(location.getWorld().getName());
+        statement.setInt(parameterIndex++, worldId);
+        if (radius > 0) {
+            int minimumX = MessageAPI.clampToInt((long) x - radius);
+            int maximumX = MessageAPI.clampToInt((long) x + radius);
+            int minimumZ = MessageAPI.clampToInt((long) z - radius);
+            int maximumZ = MessageAPI.clampToInt((long) z + radius);
+            statement.setInt(parameterIndex++, minimumX);
+            statement.setInt(parameterIndex++, maximumX);
+            statement.setInt(parameterIndex++, minimumZ);
+            statement.setInt(parameterIndex++, maximumZ);
+            statement.setInt(parameterIndex++, worldId);
+            statement.setInt(parameterIndex++, minimumX);
+            statement.setLong(parameterIndex++, (long) maximumX + 1L);
+            statement.setInt(parameterIndex++, minimumZ);
+            statement.setLong(parameterIndex++, (long) maximumZ + 1L);
+        }
+        else {
+            statement.setInt(parameterIndex++, x);
+            statement.setInt(parameterIndex++, y);
+            statement.setInt(parameterIndex++, z);
+            statement.setInt(parameterIndex++, worldId);
+            statement.setInt(parameterIndex++, x);
+            statement.setLong(parameterIndex++, (long) x + 1L);
+            statement.setInt(parameterIndex++, y);
+            statement.setLong(parameterIndex++, (long) y + 1L);
+            statement.setInt(parameterIndex++, z);
+            statement.setLong(parameterIndex++, (long) z + 1L);
+        }
         return parameterIndex;
     }
 }

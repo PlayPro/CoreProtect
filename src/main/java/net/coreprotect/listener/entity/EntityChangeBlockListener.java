@@ -28,7 +28,12 @@ public final class EntityChangeBlockListener extends Queue implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onEntityChangeBlock(EntityChangeBlockEvent event) {
         World world = event.getBlock().getWorld();
-        if (event.isCancelled() || !Config.getConfig(world).ENTITY_CHANGE) {
+        if (event.isCancelled()) {
+            return;
+        }
+
+        Config config = Config.getConfig(world);
+        if (!config.ENTITY_CHANGE) {
             return;
         }
 
@@ -38,6 +43,10 @@ public final class EntityChangeBlockListener extends Queue implements Listener {
         Material type = event.getBlock().getType();
 
         if (entity instanceof FallingBlock) {
+            if (!config.BLOCK_MOVEMENT) {
+                CacheHandler.fallingBlockSpawnCache.remove(entity.getUniqueId().toString());
+                return;
+            }
             handleFallingBlock(event, (FallingBlock) entity, block, newtype, type, world);
             return;
         }
@@ -65,9 +74,7 @@ public final class EntityChangeBlockListener extends Queue implements Listener {
             e = "#zombie";
         }
         else if (entity instanceof Silverfish) {
-            if (newtype.equals(Material.AIR) || newtype.equals(Material.CAVE_AIR)) {
-                e = "#silverfish";
-            }
+            e = "#silverfish";
         }
         else if (entity.getType().name().equals("WIND_CHARGE")) {
             e = "#windcharge";
@@ -96,6 +103,9 @@ public final class EntityChangeBlockListener extends Queue implements Listener {
             String coordKey = block.getX() + "." + block.getY() + "." + block.getZ() + "." + worldId;
             String user = lookupCachedUser(coordKey, type);
             if (user == null) {
+                if (isTrackedFallingAttachment(type)) {
+                    return;
+                }
                 user = "#gravity";
             }
 
@@ -111,7 +121,7 @@ public final class EntityChangeBlockListener extends Queue implements Listener {
         String user = "#gravity";
         if (originData != null) {
             String originKey = (String) originData[1];
-            String lookupUser = lookupCachedUser(originKey, fallingBlock.getBlockData().getMaterial());
+            String lookupUser = lookupCachedUser(originKey, newtype);
             if (lookupUser != null) {
                 user = lookupUser;
             }
@@ -129,6 +139,11 @@ public final class EntityChangeBlockListener extends Queue implements Listener {
             return null;
         }
         return (String) data[1];
+    }
+
+    private static boolean isTrackedFallingAttachment(Material type) {
+        String name = type.name();
+        return name.equals("POINTED_DRIPSTONE") || name.equals("SULFUR_SPIKE");
     }
 
 }

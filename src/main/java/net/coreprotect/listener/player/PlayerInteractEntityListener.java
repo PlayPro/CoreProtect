@@ -1,9 +1,7 @@
 package net.coreprotect.listener.player;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -17,16 +15,28 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
+import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.logger.ItemLogger;
+import net.coreprotect.language.Phrase;
+import net.coreprotect.listener.player.inspector.ContainerInspector;
+import net.coreprotect.listener.player.inspector.EntityInteractionInspector;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.Color;
+import net.coreprotect.utility.EntitySpawnTracking;
+import net.coreprotect.utility.HopperTransactionUtils;
 import net.coreprotect.utility.ItemUtils;
 
 public final class PlayerInteractEntityListener extends Queue implements Listener {
+
+    private final ContainerInspector containerInspector = new ContainerInspector();
+    private final EntityInteractionInspector entityInteractionInspector = new EntityInteractionInspector();
 
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
@@ -36,6 +46,27 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
 
         Player player = event.getPlayer();
         final Entity entity = event.getRightClicked(); // change item in ItemFrame, etc
+        if (Boolean.TRUE.equals(ConfigHandler.inspecting.get(player.getName())) && EntitySpawnTracking.isPlacedEntity(entity) && entity instanceof InventoryHolder && Config.getConfig(player.getWorld()).ITEM_TRANSACTIONS) {
+            String playerUuid = player.getUniqueId().toString();
+            long now = System.currentTimeMillis();
+            Object[] previousInspection = PlayerInteractListener.lastInspectorEvent.get(playerUuid);
+            if (previousInspection != null && now - (long) previousInspection[0] < 100L) {
+                event.setCancelled(true);
+                return;
+            }
+            PlayerInteractListener.lastInspectorEvent.put(playerUuid, new Object[] { now, event.getHand() });
+
+            if (!player.hasPermission("coreprotect.inspect")) {
+                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
+                ConfigHandler.inspecting.put(player.getName(), false);
+                event.setCancelled(true);
+                return;
+            }
+            containerInspector.performEntityContainerLookup(player, entity.getUniqueId(), entity.getLocation());
+            event.setCancelled(true);
+            return;
+        }
+
         if (entity instanceof ItemFrame) {
             ItemFrame frame = (ItemFrame) entity;
             ItemStack handItem = new ItemStack(Material.AIR);
@@ -65,7 +96,10 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
             }
 
             if (frame.getItem().getType() != Material.AIR && event.getHand().equals(EquipmentSlot.HAND) && Config.getConfig(player.getWorld()).PLAYER_INTERACTIONS) {
-                Queue.queuePlayerInteraction(player.getName(), entity.getLocation().getBlock().getState(), Material.ITEM_FRAME);
+                Material frameType = BukkitAdapter.ADAPTER.getFrameType(entity);
+                if (frameType != null) {
+                    Queue.queuePlayerInteraction(player.getName(), entity.getLocation().getBlock().getState(), frameType);
+                }
             }
 
             if (!Config.getConfig(player.getWorld()).ITEM_TRANSACTIONS) {
@@ -80,6 +114,23 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
                 }
                 queueContainerSpecifiedItems(player.getName(), Material.ITEM_FRAME, new Object[] { oldState, newState, frame.getFacing() }, frame.getLocation(), false);
             }
+        }
+        else if (Boolean.TRUE.equals(ConfigHandler.inspecting.get(player.getName()))) {
+            String playerUuid = player.getUniqueId().toString();
+            long now = System.currentTimeMillis();
+            Object[] previousInspection = PlayerInteractListener.lastInspectorEvent.get(playerUuid);
+            if (previousInspection == null || now - (long) previousInspection[0] >= 100L) {
+                PlayerInteractListener.lastInspectorEvent.put(playerUuid, new Object[] { now, event.getHand() });
+                if (!player.hasPermission("coreprotect.inspect")) {
+                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
+                    ConfigHandler.inspecting.put(player.getName(), false);
+                }
+                else {
+                    entityInteractionInspector.performLookup(player, entity.getUniqueId(), entity.getLocation());
+                }
+            }
+            event.setCancelled(true);
+            return;
         }
         else if (!event.isCancelled() && entity instanceof Creature && entity.getType().name().equals("ALLAY")) {
             ItemStack handItem = new ItemStack(Material.AIR);
@@ -115,21 +166,20 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
 
     public static void queueContainerSpecifiedItems(String user, Material type, Object container, Location location, boolean logDrop) {
         ItemStack[] contents = (ItemStack[]) ((Object[]) container)[0];
-        int x = location.getBlockX();
-        int y = location.getBlockY();
-        int z = location.getBlockZ();
 
-        String transactingChestId = location.getWorld().getUID().toString() + "." + x + "." + y + "." + z;
-        String loggingChestId = user.toLowerCase(Locale.ROOT) + "." + x + "." + y + "." + z;
+        String transactingChestId = HopperTransactionUtils.getTransactionId(location);
+        String loggingChestIdSuffix = HopperTransactionUtils.getLoggingIdSuffix(location);
+        String loggingChestId = HopperTransactionUtils.getLoggingId(user, loggingChestIdSuffix);
         int chestId = Queue.getChestId(loggingChestId);
         if (chestId > 0) {
-            if (ConfigHandler.forceContainer.get(loggingChestId) != null) {
-                int forceSize = ConfigHandler.forceContainer.get(loggingChestId).size();
+            int forceSize = Queue.getForceContainerSize(loggingChestId);
+            if (forceSize > 0) {
                 List<ItemStack[]> list = ConfigHandler.oldContainer.get(loggingChestId);
 
                 if (list.size() <= forceSize) {
                     list.add(ItemUtils.getContainerState(contents));
                     ConfigHandler.oldContainer.put(loggingChestId, list);
+                    HopperTransactionUtils.registerSnapshot(transactingChestId, loggingChestId, false);
                 }
             }
         }
@@ -137,9 +187,10 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
             List<ItemStack[]> list = new ArrayList<>();
             list.add(ItemUtils.getContainerState(contents));
             ConfigHandler.oldContainer.put(loggingChestId, list);
+            ConfigHandler.addOldContainerViewer(loggingChestIdSuffix, loggingChestId);
+            HopperTransactionUtils.registerSnapshot(transactingChestId, loggingChestId, true);
         }
 
-        ConfigHandler.transactingChest.computeIfAbsent(transactingChestId, k -> Collections.synchronizedList(new ArrayList<>()));
         Queue.queueContainerTransaction(user, location, type, container, chestId);
 
         if (logDrop) {

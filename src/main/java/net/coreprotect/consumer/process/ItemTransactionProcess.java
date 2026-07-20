@@ -1,6 +1,6 @@
 package net.coreprotect.consumer.process;
 
-import java.sql.PreparedStatement;
+import net.coreprotect.database.ConsumerWriteBatch;
 import java.util.Locale;
 
 import org.bukkit.Location;
@@ -11,7 +11,7 @@ import net.coreprotect.database.logger.ItemLogger;
 
 class ItemTransactionProcess extends Queue {
 
-    static void process(PreparedStatement preparedStmt, int batchCount, int processId, int id, int forceData, int time, int offset, String user, Object object) {
+    static void process(ConsumerWriteBatch preparedStmt, int batchCount, int processId, int id, int forceData, int time, int offset, String user, Object object) {
         if (object instanceof Location) {
             Location location = (Location) object;
             String loggingItemId = user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();

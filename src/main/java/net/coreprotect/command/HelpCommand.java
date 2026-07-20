@@ -38,6 +38,7 @@ public class HelpCommand {
                     Chat.sendMessage(player, Color.DARK_AQUA + "| " + Color.GREY + "a:<action> " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_PARAMS_5, Selector.FIRST));
                     Chat.sendMessage(player, Color.DARK_AQUA + "| " + Color.GREY + "i:<include> " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_PARAMS_6, Selector.FIRST));
                     Chat.sendMessage(player, Color.DARK_AQUA + "| " + Color.GREY + "e:<exclude> " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_PARAMS_7, Selector.FIRST));
+                    Chat.sendMessage(player, Color.DARK_AQUA + "| " + Color.GREY + "f:<filter> " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_FILTER_1));
                     Chat.sendMessage(player, Color.GREY + Color.ITALIC + Phrase.build(Phrase.HELP_PARAMETER, "/co help <param>"));
                 }
                 else if (helpcommand.equals("rollback") || helpcommand.equals("rollbacks") || helpcommand.equals("rb") || helpcommand.equals("ro")) {
@@ -97,6 +98,10 @@ public class HelpCommand {
                 else if (helpcommand.equals("a") || helpcommand.equals("action") || helpcommand.equals("actions") || helpcommand.equals("aaction")) {
                     Chat.sendMessage(player, Color.DARK_AQUA + "/co lookup a:<action> " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_ACTION_1));
                     Chat.sendMessage(player, Color.GREY + Color.ITALIC + Phrase.build(Phrase.HELP_ACTION_2));
+                }
+                else if (helpcommand.equals("f") || helpcommand.equals("filter") || helpcommand.equals("ffilter")) {
+                    Chat.sendMessage(player, Color.DARK_AQUA + "/co lookup a:<chat|command|sign> f:<filter> " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_FILTER_1));
+                    Chat.sendMessage(player, Color.GREY + Color.ITALIC + Phrase.build(Phrase.HELP_FILTER_2));
                 }
                 else if (helpcommand.equals("i") || helpcommand.equals("include") || helpcommand.equals("iinclude") || helpcommand.equals("b") || helpcommand.equals("block") || helpcommand.equals("blocks") || helpcommand.equals("bblock") || helpcommand.equals("bblocks")) {
                     Chat.sendMessage(player, Color.DARK_AQUA + "/co lookup i:<include> " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_INCLUDE_1));

@@ -1,6 +1,6 @@
 package net.coreprotect.api.result;
 
-import net.coreprotect.api.CoreProtectAction;
+import net.coreprotect.model.action.LookupActions;
 
 /**
  * Represents a logged username used by a player UUID.
@@ -19,11 +19,11 @@ public class UsernameResult implements CoreProtectResult {
     }
 
     public int getActionId() {
-        return CoreProtectAction.USERNAME.id();
+        return LookupActions.USERNAME;
     }
 
     public String getActionString() {
-        return CoreProtectAction.USERNAME.actionString();
+        return LookupActions.getActionString(getActionId());
     }
 
     public String getPlayer() {

@@ -9,9 +9,6 @@ import java.util.regex.Pattern;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.config.Configurator;
 
-import oshi.SystemInfo;
-import oshi.hardware.CentralProcessor;
-
 public class SystemUtils {
 
     private static boolean testMode = Boolean.getBoolean("net.coreprotect.test");
@@ -21,6 +18,24 @@ public class SystemUtils {
 
     private SystemUtils() {
         throw new IllegalStateException("Utility class");
+    }
+
+    public static final class ProcessorInfo {
+        private final String name;
+        private final long maxFrequency;
+
+        private ProcessorInfo(String name, long maxFrequency) {
+            this.name = name;
+            this.maxFrequency = maxFrequency;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public long getMaxFrequency() {
+            return maxFrequency;
+        }
     }
 
     /**
@@ -211,13 +226,12 @@ public class SystemUtils {
         return null;
     }
 
-    public static CentralProcessor getProcessorInfo() {
+    public static ProcessorInfo getProcessorInfo() {
         // In test mode, don't actually try to initialize hardware components
         if (testMode || isLog4jDisabled()) {
             return null;
         }
 
-        CentralProcessor result = null;
         try {
             Class.forName("com.sun.jna.Platform");
             if (System.getProperty("os.name").startsWith("Windows") && !System.getProperty("sun.arch.data.model").equals("64")) {
@@ -237,14 +251,21 @@ public class SystemUtils {
                 // log4j configuration failure, continue without it
             }
 
-            SystemInfo systemInfo = new SystemInfo();
-            result = systemInfo.getHardware().getProcessor();
+            Class<?> systemInfoClass = Class.forName("oshi.SystemInfo");
+            Object systemInfo = systemInfoClass.getDeclaredConstructor().newInstance();
+            Object hardware = systemInfoClass.getMethod("getHardware").invoke(systemInfo);
+            Object processor = Class.forName("oshi.hardware.HardwareAbstractionLayer").getMethod("getProcessor").invoke(hardware);
+            Object identifier = Class.forName("oshi.hardware.CentralProcessor").getMethod("getProcessorIdentifier").invoke(processor);
+            String name = String.valueOf(identifier.getClass().getMethod("getName").invoke(identifier));
+            Object maxFrequency = Class.forName("oshi.hardware.CentralProcessor").getMethod("getMaxFreq").invoke(processor);
+
+            return new ProcessorInfo(name, ((Number) maxFrequency).longValue());
         }
-        catch (Exception e) {
+        catch (LinkageError | ReflectiveOperationException | RuntimeException e) {
             // unable to read processor information
         }
 
-        return result;
+        return null;
     }
 
     /**
@@ -257,9 +278,9 @@ public class SystemUtils {
             return processorInfo;
         }
 
-        CentralProcessor processor = getProcessorInfo();
+        ProcessorInfo processor = getProcessorInfo();
         if (processor != null) {
-            processorInfo = processor.getProcessorIdentifier().getName();
+            processorInfo = processor.getName();
             return processorInfo;
         }
 

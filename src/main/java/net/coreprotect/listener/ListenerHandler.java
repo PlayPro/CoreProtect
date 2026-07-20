@@ -28,13 +28,21 @@ import net.coreprotect.listener.entity.EntityDamageByEntityListener;
 import net.coreprotect.listener.entity.EntityDeathListener;
 import net.coreprotect.listener.entity.EntityExplodeListener;
 import net.coreprotect.listener.entity.EntityInteractListener;
+import net.coreprotect.listener.entity.EntityPlaceListener;
+import net.coreprotect.listener.entity.EntityChunkListener;
+import net.coreprotect.listener.entity.LegacyEntityChunkListener;
 import net.coreprotect.listener.entity.EntityPickupItemListener;
 import net.coreprotect.listener.entity.EntitySpawnListener;
+import net.coreprotect.listener.entity.EntityTransformListener;
 import net.coreprotect.listener.entity.HangingBreakByEntityListener;
 import net.coreprotect.listener.entity.HangingBreakListener;
 import net.coreprotect.listener.entity.HangingPlaceListener;
+import net.coreprotect.listener.entity.VehicleDestroyListener;
+import net.coreprotect.listener.entity.TrackedEntityRemoveListener;
+import net.coreprotect.listener.entity.TrackedEntityTeleportListener;
 import net.coreprotect.listener.player.ArmorStandManipulateListener;
 import net.coreprotect.listener.player.CraftItemListener;
+import net.coreprotect.listener.player.EntityInteractionListener;
 import net.coreprotect.listener.player.FoodLevelChangeListener;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.listener.player.InventoryClickListener;
@@ -53,6 +61,7 @@ import net.coreprotect.listener.player.PlayerQuitListener;
 import net.coreprotect.listener.player.PlayerTakeLecternBookListener;
 import net.coreprotect.listener.player.ProjectileLaunchListener;
 import net.coreprotect.listener.player.SignChangeListener;
+import net.coreprotect.listener.player.SpawnEggUseListener;
 import net.coreprotect.listener.world.ChunkPopulateListener;
 import net.coreprotect.listener.world.LeavesDecayListener;
 import net.coreprotect.listener.world.PortalCreateListener;
@@ -131,12 +140,29 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new EntityDeathListener(), plugin);
         pluginManager.registerEvents(new EntityExplodeListener(), plugin);
         pluginManager.registerEvents(new EntityInteractListener(), plugin);
+        pluginManager.registerEvents(new EntityPlaceListener(), plugin);
         pluginManager.registerEvents(new EntityPickupItemListener(), plugin);
         pluginManager.registerEvents(new EntitySpawnListener(), plugin);
+        pluginManager.registerEvents(new EntityTransformListener(), plugin);
         pluginManager.registerEvents(new HangingPlaceListener(), plugin);
         pluginManager.registerEvents(new HangingBreakListener(), plugin);
         pluginManager.registerEvents(new HangingBreakByEntityListener(), plugin);
-
+        pluginManager.registerEvents(new VehicleDestroyListener(), plugin);
+        pluginManager.registerEvents(new TrackedEntityTeleportListener(), plugin);
+        try {
+            Class.forName("org.bukkit.event.world.EntitiesUnloadEvent");
+            pluginManager.registerEvents(new EntityChunkListener(), plugin);
+        }
+        catch (Exception e) {
+            pluginManager.registerEvents(new LegacyEntityChunkListener(), plugin);
+        }
+        try {
+            Class.forName("org.bukkit.event.entity.EntityRemoveEvent");
+            pluginManager.registerEvents(new TrackedEntityRemoveListener(), plugin);
+        }
+        catch (Exception e) {
+            // Entity removal causes are unavailable on older Bukkit versions.
+        }
         // Paper Listeners / Fallbacks (Player Listeners)
         try {
             Class.forName("net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer"); // Paper 1.16+
@@ -156,6 +182,7 @@ public final class ListenerHandler {
         // Player Listeners
         pluginManager.registerEvents(new ArmorStandManipulateListener(), plugin);
         pluginManager.registerEvents(new CraftItemListener(), plugin);
+        pluginManager.registerEvents(new EntityInteractionListener(), plugin);
         pluginManager.registerEvents(new FoodLevelChangeListener(), plugin);
         pluginManager.registerEvents(new InventoryChangeListener(), plugin);
         pluginManager.registerEvents(new InventoryClickListener(), plugin);
@@ -171,6 +198,7 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new PlayerJoinListener(), plugin);
         pluginManager.registerEvents(new PlayerQuitListener(), plugin);
         pluginManager.registerEvents(new SignChangeListener(), plugin);
+        pluginManager.registerEvents(new SpawnEggUseListener(), plugin);
         pluginManager.registerEvents(new PlayerTakeLecternBookListener(), plugin);
         pluginManager.registerEvents(new ProjectileLaunchListener(), plugin);
 
@@ -185,7 +213,9 @@ public final class ListenerHandler {
     }
 
     public static void registerNetworking() {
-        CoreProtect.getInstance().getServer().getMessenger().registerIncomingPluginChannel(CoreProtect.getInstance(), PluginChannelHandshakeListener.pluginChannel, new PluginChannelHandshakeListener());
+        PluginChannelHandshakeListener handshakeListener = new PluginChannelHandshakeListener();
+        CoreProtect.getInstance().getServer().getMessenger().registerIncomingPluginChannel(CoreProtect.getInstance(), PluginChannelHandshakeListener.pluginChannel, handshakeListener);
+        CoreProtect.getInstance().getServer().getPluginManager().registerEvents(handshakeListener, CoreProtect.getInstance());
         CoreProtect.getInstance().getServer().getMessenger().registerOutgoingPluginChannel(CoreProtect.getInstance(), PluginChannelHandshakeListener.pluginChannel);
         CoreProtect.getInstance().getServer().getMessenger().registerOutgoingPluginChannel(CoreProtect.getInstance(), PluginChannelListener.pluginChannel);
     }

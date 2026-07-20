@@ -17,8 +17,10 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.DatabaseUtils;
 import net.coreprotect.utility.StringUtils;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 /**
  * Provides API methods for block-related lookups in the CoreProtect database.
@@ -70,7 +72,7 @@ public class BlockAPI {
             }
 
             try (Statement statement = connection.createStatement()) {
-                String query = "SELECT time,user,action,type,data,blockdata,rolled_back FROM " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND time > '" + checkTime + "' ORDER BY rowid DESC";
+                String query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,blockdata,rolled_back FROM " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE wid = " + worldId + " AND x = " + x + " AND z = " + z + " AND y = " + y + " AND time > " + checkTime + " ORDER BY rowid DESC";
 
                 try (ResultSet results = statement.executeQuery(query)) {
                     while (results.next()) {
@@ -79,14 +81,10 @@ public class BlockAPI {
                         String resultAction = results.getString("action");
                         int resultType = results.getInt("type");
                         String resultData = results.getString("data");
-                        byte[] resultBlockData = results.getBytes("blockdata");
+                        byte[] resultBlockData = DatabaseUtils.getBytes(results, "blockdata");
                         String resultRolledBack = results.getString("rolled_back");
 
-                        if (ConfigHandler.playerIdCacheReversed.get(resultUserId) == null) {
-                            UserStatement.loadName(connection, resultUserId);
-                        }
-
-                        String resultUser = ConfigHandler.playerIdCacheReversed.get(resultUserId);
+                        String resultUser = UserStatement.getName(connection, resultUserId);
                         String blockData = BlockUtils.byteDataToString(resultBlockData, resultType);
 
                         String[] lookupData = new String[] { resultTime, resultUser, String.valueOf(x), String.valueOf(y), String.valueOf(z), String.valueOf(resultType), resultData, resultAction, resultRolledBack, String.valueOf(worldId), blockData };
@@ -97,7 +95,7 @@ public class BlockAPI {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return result;
@@ -148,15 +146,15 @@ public class BlockAPI {
             String worldName = block.getWorld().getName();
             int worldId = WorldUtils.getWorldId(worldName);
 
-            StringBuilder query = new StringBuilder("SELECT time,user,action,type,data,blockdata,rolled_back,wid,x,y,z FROM ");
+            StringBuilder query = new StringBuilder("SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,blockdata,rolled_back,wid,x,y,z FROM ");
             query.append(ConfigHandler.prefix).append("block ").append(WorldUtils.getWidIndex("block"));
             query.append("WHERE wid = ? AND x = ? AND z = ? AND y = ? AND time > ?");
             if (userId != null) {
-                query.append(" AND user = ?");
+                query.append(" AND ").append(ConfigHandler.databaseType.getUserColumn()).append(" = ?");
             }
             query.append(" ORDER BY rowid DESC");
             if (options.hasLimit()) {
-                query.append(" LIMIT ").append(options.getLimitOffset()).append(", ").append(options.getLimitCount());
+                query.append(" LIMIT ").append(options.getLimitCount()).append(" OFFSET ").append(options.getLimitOffset());
             }
 
             try (PreparedStatement statement = connection.prepareStatement(query.toString())) {
@@ -177,7 +175,7 @@ public class BlockAPI {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return result;
@@ -204,7 +202,8 @@ public class BlockAPI {
      * Performs a lookup of container transactions using shared lookup options.
      *
      * @param options
-     *            Lookup options
+     *            Lookup options. Tracked entity-container rows match their original or persisted current/final location and return the persisted
+     *            current/final location.
      * @return List of results in a ContainerResult format
      */
     public static List<ContainerResult> performContainerLookup(LookupOptions options) {
@@ -224,17 +223,23 @@ public class BlockAPI {
                 return result;
             }
 
-            StringBuilder query = new StringBuilder("SELECT time,user,wid,x,y,z,action,type,data,amount,metadata,rolled_back FROM ");
-            query.append(ConfigHandler.prefix).append("container ");
-            if (filter.hasLocation()) {
-                query.append(WorldUtils.getWidIndex("container"));
-            }
-            filter.appendWhere(query);
-            query.append(" ORDER BY rowid DESC");
+            StringBuilder containerWhere = new StringBuilder();
+            filter.appendWhere(containerWhere, "container_rows");
+            StringBuilder entityWhere = new StringBuilder();
+            filter.appendEntityContainerWhere(entityWhere, "entity_rows");
+
+            StringBuilder query = new StringBuilder("SELECT * FROM (");
+            query.append("SELECT 0 AS source,container_rows.rowid AS id,container_rows.time,container_rows.").append(ConfigHandler.databaseType.getUserColumn()).append(",container_rows.wid,container_rows.x,container_rows.y,container_rows.z,container_rows.action,container_rows.type,container_rows.data,container_rows.amount,container_rows.metadata,container_rows.rolled_back FROM ")
+                    .append(ConfigHandler.prefix).append("container container_rows ").append(containerWhere);
+            query.append(" UNION ALL ");
+            query.append("SELECT 1 AS source,entity_rows.rowid AS id,entity_rows.time,entity_rows.").append(ConfigHandler.databaseType.getUserColumn()).append(",spawn_rows.current_wid AS wid,spawn_rows.x,spawn_rows.y,spawn_rows.z,entity_rows.action,entity_rows.type,entity_rows.data,entity_rows.amount,entity_rows.metadata,entity_rows.rolled_back FROM ")
+                    .append(ConfigHandler.prefix).append("entity_container entity_rows JOIN ").append(ConfigHandler.prefix).append("entity_spawn spawn_rows ON spawn_rows.rowid=entity_rows.entity_spawn_rowid ").append(entityWhere);
+            query.append(") AS container_lookup ORDER BY time DESC,source DESC,id DESC");
             filter.appendLimit(query);
 
             try (PreparedStatement statement = connection.prepareStatement(query.toString())) {
-                filter.bind(statement);
+                int parameterIndex = filter.bind(statement);
+                filter.bindEntityContainer(statement, parameterIndex);
 
                 try (ResultSet results = statement.executeQuery()) {
                     while (results.next()) {
@@ -244,7 +249,7 @@ public class BlockAPI {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return result;
@@ -252,27 +257,21 @@ public class BlockAPI {
 
     private static ContainerResult parseContainerResult(Connection connection, ResultSet results) throws Exception {
         int resultUserId = results.getInt("user");
-        String resultUser = ConfigHandler.playerIdCacheReversed.get(resultUserId);
-        if (resultUser == null) {
-            resultUser = UserStatement.loadName(connection, resultUserId);
-        }
+        String resultUser = UserStatement.getName(connection, resultUserId);
 
         return new ContainerResult(
-                results.getLong("time"), resultUser, WorldUtils.getWorldName(results.getInt("wid")), results.getInt("x"), results.getInt("y"), results.getInt("z"),
-                results.getInt("type"), results.getInt("data"), results.getInt("amount"), results.getBytes("metadata"),
+                results.getLong("time"), resultUser, WorldUtils.getWorldName(results.getInt("wid")), (int) Math.floor(results.getDouble("x")), (int) Math.floor(results.getDouble("y")), (int) Math.floor(results.getDouble("z")),
+                results.getInt("type"), results.getInt("data"), results.getInt("amount"), DatabaseUtils.getBytes(results, "metadata"),
                 results.getInt("action"), results.getInt("rolled_back")
         );
     }
 
     private static BlockResult parseBlockResult(Connection connection, ResultSet results, String worldName) throws Exception {
         int resultUserId = results.getInt("user");
-        String resultUser = ConfigHandler.playerIdCacheReversed.get(resultUserId);
-        if (resultUser == null) {
-            resultUser = UserStatement.loadName(connection, resultUserId);
-        }
+        String resultUser = UserStatement.getName(connection, resultUserId);
 
         int resultType = results.getInt("type");
-        String blockData = BlockUtils.byteDataToString(results.getBytes("blockdata"), resultType);
+        String blockData = BlockUtils.byteDataToString(DatabaseUtils.getBytes(results, "blockdata"), resultType);
 
         return new BlockResult(
                 results.getLong("time"), resultUser, worldName, results.getInt("x"), results.getInt("y"), results.getInt("z"),

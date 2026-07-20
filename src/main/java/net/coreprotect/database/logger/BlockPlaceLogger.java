@@ -1,6 +1,5 @@
 package net.coreprotect.database.logger;
 
-import java.sql.PreparedStatement;
 import java.util.List;
 import java.util.Locale;
 
@@ -13,9 +12,12 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
+import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.statement.BlockStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
+import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.BlockTypeUtils;
 import net.coreprotect.utility.MaterialUtils;
@@ -27,7 +29,7 @@ public class BlockPlaceLogger {
         throw new IllegalStateException("Database class");
     }
 
-    public static void log(PreparedStatement preparedStmt, int batchCount, String user, BlockState block, int replacedType, int replacedData, Material forceType, int forceData, boolean force, List<Object> meta, String blockData, String replaceBlockData) {
+    public static void log(ConsumerWriteBatch preparedStmt, int batchCount, String user, BlockState block, int replacedType, int replacedData, Material forceType, int forceData, boolean force, List<Object> meta, String blockData, String replaceBlockData) {
         try {
             Material type = block.getType();
             if (blockData == null && (forceType == null || (!forceType.equals(Material.WATER)) && (!forceType.equals(Material.LAVA)))) {
@@ -50,6 +52,13 @@ public class BlockPlaceLogger {
             else if (forceType != null && (type == null || !type.equals(forceType))) {
                 type = forceType;
                 data = forceData;
+            }
+            if (forceType != null && type != null && blockKey.length() > 0) {
+                Material blockDataType = MaterialUtils.getType(blockKey);
+                if (blockDataType != null && !blockDataType.equals(type)) {
+                    blockKey = type.getKey().toString();
+                    blockData = null;
+                }
             }
             if (blockKey.length() == 0) {
                 if (type == null) {
@@ -93,7 +102,7 @@ public class BlockPlaceLogger {
                 }
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, block.getLocation(), CoreProtectPreLogEvent.Action.BLOCK_PLACE, 1, type, null, null);
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, block.getLocation(), CoreProtectPreLogEvent.Action.BLOCK_PLACE, LookupActions.BLOCK_PLACE, type, null, null);
             if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
             }
@@ -119,13 +128,13 @@ public class BlockPlaceLogger {
             int internalType = MaterialUtils.getBlockId(blockKey, true);
             int replacedInternalType = MaterialUtils.getBlockId(replaceBlockData, MaterialUtils.getType(replacedType), true);
             if (replacedInternalType > 0 && !BlockTypeUtils.isAir(MaterialUtils.getBlockName(replacedInternalType))) {
-                BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, replacedInternalType, replacedData, null, replaceBlockData, 0, 0);
+                BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, replacedInternalType, replacedData, null, replaceBlockData, LookupActions.BLOCK_BREAK, 0);
             }
 
-            BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, internalType, data, meta, blockData, 1, 0);
+            BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, internalType, data, meta, blockData, LookupActions.BLOCK_PLACE, 0);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            Database.handleWriteFailure(e);
         }
     }
 

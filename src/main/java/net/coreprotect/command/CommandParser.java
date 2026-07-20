@@ -5,16 +5,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import net.coreprotect.command.parser.*;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
-
-import net.coreprotect.command.parser.ActionParser;
-import net.coreprotect.command.parser.LocationParser;
-import net.coreprotect.command.parser.MaterialParser;
-import net.coreprotect.command.parser.TimeParser;
-import net.coreprotect.command.parser.UserParser;
-import net.coreprotect.command.parser.WorldParser;
 
 /**
  * Main parser class for CoreProtect commands.
@@ -44,6 +38,22 @@ public class CommandParser {
         return ActionParser.parseAction(inputArguments);
     }
 
+    protected static List<Integer> parseAction(String[] inputArguments, boolean allowMultiple) {
+        return ActionParser.parseAction(inputArguments, allowMultiple);
+    }
+
+    protected static ActionParser.ParseResult parseActions(String[] inputArguments, boolean allowMultiple) {
+        return ActionParser.parseActions(inputArguments, allowMultiple);
+    }
+
+    protected static MessageFilterParser.ParseResult parseMessageFilters(String[] inputArguments) {
+        return MessageFilterParser.parse(inputArguments);
+    }
+
+    protected static RollbackStateParser.ParseResult parseRollbackState(String[] inputArguments) {
+        return RollbackStateParser.parse(inputArguments);
+    }
+
     /**
      * Parse coordinates from command arguments
      * 
@@ -68,6 +78,10 @@ public class CommandParser {
      */
     protected static boolean parseCount(String[] inputArguments) {
         return ActionParser.parseCount(inputArguments);
+    }
+
+    protected static boolean parseSummary(String[] inputArguments) {
+        return ActionParser.parseSummary(inputArguments);
     }
 
     /**
@@ -326,4 +340,7 @@ public class CommandParser {
         return input.stripTrailingZeros().toPlainString();
     }
 
+    protected static Integer parseGivableItemId(String[] inputArguments) {
+        return GivableItemIdParser.parseGivableItemId(inputArguments);
+    }
 }

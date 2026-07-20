@@ -1,6 +1,8 @@
 package net.coreprotect.bukkit;
 
+import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -8,12 +10,15 @@ import java.util.Map;
 import java.util.Set;
 
 import org.bukkit.Art;
+import org.bukkit.Chunk;
 import org.bukkit.Color;
 import org.bukkit.DyeColor;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 import org.bukkit.block.data.BlockData;
@@ -25,6 +30,7 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Painting;
+import org.bukkit.entity.Villager;
 import org.bukkit.event.Event;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.SignChangeEvent;
@@ -61,6 +67,17 @@ public class BukkitAdapter implements BukkitInterface {
     public static final int BUKKIT_V1_19 = 19;
     public static final int BUKKIT_V1_20 = 20;
     public static final int BUKKIT_V1_21 = 21;
+    public static final int BUKKIT_V26_0 = 26000;
+    public static final int BUKKIT_V26_1 = 26010;
+    public static final int BUKKIT_V26_2 = 26020;
+
+    public static int getAdapterVersion(int major, int minor) {
+        return getAdapterVersion(major, minor, 0);
+    }
+
+    public static int getAdapterVersion(int major, int minor, int patch) {
+        return major == 1 ? minor : (major * 1000) + (minor * 10) + patch;
+    }
 
     /**
      * Initializes the appropriate Bukkit adapter based on the server version.
@@ -87,8 +104,15 @@ public class BukkitAdapter implements BukkitInterface {
                 ADAPTER = new Bukkit_v1_20();
                 break;
             case BUKKIT_V1_21:
-            default:
+            case BUKKIT_V26_0:
+            case BUKKIT_V26_1:
                 ADAPTER = new Bukkit_v1_21();
+                break;
+            case BUKKIT_V26_2:
+                ADAPTER = new Bukkit_v26_2();
+                break;
+            default:
+                ADAPTER = ConfigHandler.SERVER_VERSION >= BUKKIT_V26_2 ? new Bukkit_v26_2() : new Bukkit_v1_21();
                 break;
         }
     }
@@ -109,6 +133,11 @@ public class BukkitAdapter implements BukkitInterface {
     // -------------------- Entity methods --------------------
 
     @Override
+    public boolean isChunkEntitiesLoaded(Chunk chunk) {
+        return true;
+    }
+
+    @Override
     public boolean getEntityMeta(LivingEntity entity, List<Object> info) {
         return false;
     }
@@ -116,6 +145,25 @@ public class BukkitAdapter implements BukkitInterface {
     @Override
     public boolean setEntityMeta(Entity entity, Object value, int count) {
         return false;
+    }
+
+    @Override
+    public void addMerchantRecipeMeta(MerchantRecipe recipe, List<Object> recipeData) {
+    }
+
+    @Override
+    public void setMerchantRecipeMeta(MerchantRecipe recipe, List<?> recipeData) {
+    }
+
+    @Override
+    public void refreshVillagerBrain(Villager villager) {
+        try {
+            Object handle = villager.getClass().getMethod("getHandle").invoke(villager);
+            Object level = villager.getWorld().getClass().getMethod("getHandle").invoke(villager.getWorld());
+            invokeSingleArgumentMethod(handle, "refreshBrain", level);
+        }
+        catch (Exception e) {
+        }
     }
 
     @Override
@@ -185,6 +233,24 @@ public class BukkitAdapter implements BukkitInterface {
         }
 
         return itemStack;
+    }
+
+    private static void invokeSingleArgumentMethod(Object target, String methodName, Object argument) {
+        if (target == null || argument == null) {
+            return;
+        }
+
+        for (Method method : target.getClass().getMethods()) {
+            Class<?>[] parameterTypes = method.getParameterTypes();
+            if (method.getName().equals(methodName) && parameterTypes.length == 1 && parameterTypes[0].isInstance(argument)) {
+                try {
+                    method.invoke(target, argument);
+                }
+                catch (Exception e) {
+                }
+                return;
+            }
+        }
     }
 
     // -------------------- Block methods --------------------
@@ -425,6 +491,11 @@ public class BukkitAdapter implements BukkitInterface {
     @Override
     public boolean isShelf(Material material){
         return false;
+    }
+
+    @Override
+    public List<Location> getShelfInteractionLocations(Block block, BlockFace blockFace) {
+        return Collections.emptyList();
     }
 
     @Override

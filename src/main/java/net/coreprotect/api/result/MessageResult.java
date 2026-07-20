@@ -1,5 +1,7 @@
 package net.coreprotect.api.result;
 
+import net.coreprotect.model.action.LookupActions;
+
 /**
  * Represents a logged player chat message or command.
  */
@@ -29,14 +31,7 @@ public class MessageResult implements CoreProtectResult {
     }
 
     public String getActionString() {
-        switch (actionId) {
-            case 6:
-                return "chat";
-            case 7:
-                return "command";
-            default:
-                return "unknown";
-        }
+        return LookupActions.getActionString(actionId);
     }
 
     public String getMessage() {

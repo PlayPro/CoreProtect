@@ -2,6 +2,7 @@ package net.coreprotect.api.result;
 
 import org.bukkit.Material;
 
+import net.coreprotect.model.item.ItemTransactionActions;
 import net.coreprotect.utility.MaterialUtils;
 
 /**
@@ -68,13 +69,7 @@ public class ContainerResult implements CoreProtectResult {
      * @return "remove", "add", or "unknown"
      */
     public String getActionString() {
-        if (action == 0) {
-            return "remove";
-        }
-        else if (action == 1) {
-            return "add";
-        }
-        return "unknown";
+        return ItemTransactionActions.getActionString(action);
     }
 
     /**

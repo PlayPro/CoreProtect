@@ -8,6 +8,7 @@ import java.util.List;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class LookupConverter {
 
@@ -28,10 +29,7 @@ public class LookupConverter {
                     if (i == 2) {
                         if (map[i] instanceof Integer) {
                             int userId = (Integer) map[i];
-                            if (ConfigHandler.playerIdCacheReversed.get(userId) == null) {
-                                UserStatement.loadName(statement.getConnection(), userId);
-                            }
-                            String userResult = ConfigHandler.playerIdCacheReversed.get(userId);
+                            String userResult = UserStatement.getName(statement.getConnection(), userId);
                             results[newId] = userResult;
                         }
                         else {
@@ -54,7 +52,7 @@ public class LookupConverter {
                     }
                 }
                 catch (Exception e) {
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                 }
             }
             newList.add(results);

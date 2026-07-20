@@ -96,8 +96,9 @@ public class EntityUtils extends Queue {
     public static String getEntityName(int id) {
         // Internal ID pulled from DB
         String entityName = "";
-        if (ConfigHandler.entitiesReversed.get(id) != null) {
-            entityName = ConfigHandler.entitiesReversed.get(id);
+        String cachedName = ConfigHandler.entitiesReversed.get(id);
+        if (cachedName != null) {
+            entityName = cachedName;
         }
         return entityName;
     }
@@ -105,8 +106,8 @@ public class EntityUtils extends Queue {
     public static EntityType getEntityType(int id) {
         // Internal ID pulled from DB
         EntityType entitytype = EntityType.UNKNOWN;
-        if (ConfigHandler.entitiesReversed.get(id) != null) {
-            String name = ConfigHandler.entitiesReversed.get(id);
+        String name = getEntityName(id);
+        if (!name.isEmpty()) {
             if (name.contains(NAMESPACE)) {
                 name = name.split(":")[1];
             }
@@ -123,7 +124,7 @@ public class EntityUtils extends Queue {
             name = (name.split(":"))[1];
         }
 
-        if (ConfigHandler.entities.get(name) != null) {
+        if (getEntityId(name, false) != -1) {
             type = EntityType.valueOf(name.toUpperCase(Locale.ROOT));
         }
 

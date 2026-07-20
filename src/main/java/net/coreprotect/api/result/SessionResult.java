@@ -1,5 +1,7 @@
 package net.coreprotect.api.result;
 
+import net.coreprotect.model.action.SessionActions;
+
 /**
  * Represents a logged player login or logout session event.
  */
@@ -27,14 +29,7 @@ public class SessionResult implements CoreProtectResult {
     }
 
     public String getActionString() {
-        switch (actionId) {
-            case 0:
-                return "logout";
-            case 1:
-                return "login";
-            default:
-                return "unknown";
-        }
+        return SessionActions.getActionString(actionId);
     }
 
     public String getPlayer() {

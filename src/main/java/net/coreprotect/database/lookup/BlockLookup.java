@@ -5,7 +5,9 @@ import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.listener.channel.PluginChannelListener;
+import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.utility.*;
+import net.coreprotect.utility.ErrorReporter;
 import org.bukkit.Material;
 import org.bukkit.block.BlockState;
 import org.bukkit.command.CommandSender;
@@ -13,6 +15,7 @@ import org.bukkit.command.CommandSender;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Locale;
+import java.util.StringJoiner;
 
 public class BlockLookup {
 
@@ -54,8 +57,9 @@ public class BlockLookup {
             }
 
             String blockName = block.getType().name().toLowerCase(Locale.ROOT);
+            String actionPredicate = "(action IN(0,1," + LookupActions.ENTITY_SPAWN + ") OR (action=" + LookupActions.ENTITY_KILL + " AND type IN(" + placedEntityTypeIds() + ")))";
 
-            String query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action IN(0,1) AND time >= '" + checkTime + "' LIMIT 0, 1";
+            String query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE wid = " + worldId + " AND x = " + x + " AND z = " + z + " AND y = " + y + " AND " + actionPredicate + " AND time >= " + checkTime + " LIMIT 1 OFFSET 0";
             ResultSet results = statement.executeQuery(query);
             while (results.next()) {
                 count = results.getInt("count");
@@ -63,7 +67,7 @@ public class BlockLookup {
             results.close();
             int totalPages = (int) Math.ceil(count / (limit + 0.0));
 
-            query = "SELECT time,user,action,type,data,rolled_back FROM " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action IN(0,1) AND time >= '" + checkTime + "' ORDER BY rowid DESC LIMIT " + page_start + ", " + limit + "";
+            query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,rolled_back FROM " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE wid = " + worldId + " AND x = " + x + " AND z = " + z + " AND y = " + y + " AND " + actionPredicate + " AND time >= " + checkTime + " ORDER BY rowid DESC LIMIT " + limit + " OFFSET " + page_start;
             results = statement.executeQuery(query);
 
             StringBuilder resultTextBuilder = new StringBuilder();
@@ -76,11 +80,7 @@ public class BlockLookup {
                 long resultTime = results.getLong("time");
                 int resultRolledBack = results.getInt("rolled_back");
 
-                if (ConfigHandler.playerIdCacheReversed.get(resultUserId) == null) {
-                    UserStatement.loadName(statement.getConnection(), resultUserId);
-                }
-
-                String resultUser = ConfigHandler.playerIdCacheReversed.get(resultUserId);
+                String resultUser = UserStatement.getName(statement.getConnection(), resultUserId);
                 String timeAgo = ChatUtils.getTimeSince(resultTime, time, true);
 
                 if (!found) {
@@ -91,7 +91,17 @@ public class BlockLookup {
                 Phrase phrase = Phrase.LOOKUP_BLOCK;
                 String selector = Selector.FIRST;
                 String tag = Color.WHITE + "-";
-                if (resultAction == 2 || resultAction == 3) {
+                if (resultAction == LookupActions.ENTITY_SPAWN) {
+                    phrase = EntitySpawnTracking.isPlacedEntityType(EntityUtils.getEntityType(resultType)) ? Phrase.LOOKUP_BLOCK : Phrase.LOOKUP_ENTITY_SPAWN;
+                    selector = Selector.FIRST;
+                    tag = Color.GREEN + "+";
+                }
+                else if (resultAction == LookupActions.ENTITY_KILL && EntitySpawnTracking.isPlacedEntityType(EntityUtils.getEntityType(resultType))) {
+                    phrase = Phrase.LOOKUP_BLOCK;
+                    selector = Selector.SECOND;
+                    tag = Color.RED + "-";
+                }
+                else if (resultAction == 2 || resultAction == 3) {
                     phrase = Phrase.LOOKUP_INTERACTION; // {clicked|killed}
                     selector = (resultAction != 3 ? Selector.FIRST : Selector.SECOND);
                     tag = (resultAction != 3 ? Color.WHITE + "-" : Color.RED + "-");
@@ -108,7 +118,7 @@ public class BlockLookup {
                 }
 
                 String target;
-                if (resultAction == 3) {
+                if (resultAction == 3 || resultAction == LookupActions.ENTITY_SPAWN) {
                     target = EntityUtils.getEntityType(resultType).name();
                 }
                 else {
@@ -158,9 +168,17 @@ public class BlockLookup {
             ConfigHandler.lookupCommand.put(commandSender.getName(), x + "." + y + "." + z + "." + worldId + ".0." + limit);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
         return resultText;
+    }
+
+    private static String placedEntityTypeIds() {
+        StringJoiner ids = new StringJoiner(",");
+        for (Integer id : EntitySpawnTracking.getPlacedEntityTypeIds()) {
+            ids.add(Integer.toString(id));
+        }
+        return ids.length() == 0 ? "0" : ids.toString();
     }
 
 }

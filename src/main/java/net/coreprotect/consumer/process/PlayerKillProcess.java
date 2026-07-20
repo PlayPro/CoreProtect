@@ -1,6 +1,6 @@
 package net.coreprotect.consumer.process;
 
-import java.sql.PreparedStatement;
+import net.coreprotect.database.ConsumerWriteBatch;
 
 import org.bukkit.Location;
 import org.bukkit.block.BlockState;
@@ -9,7 +9,7 @@ import net.coreprotect.database.logger.PlayerKillLogger;
 
 class PlayerKillProcess {
 
-    static void process(PreparedStatement preparedStmt, int batchCount, int id, Object object, String user) {
+    static void process(ConsumerWriteBatch preparedStmt, int batchCount, int id, Object object, String user) {
         if (object instanceof Object[]) {
             Object[] values = (Object[]) object;
             if (values.length <= 1 || !isLocationData(values[0]) || !(values[1] instanceof String)) {

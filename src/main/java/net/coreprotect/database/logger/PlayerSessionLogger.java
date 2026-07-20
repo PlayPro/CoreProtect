@@ -1,11 +1,12 @@
 package net.coreprotect.database.logger;
 
-import java.sql.PreparedStatement;
 import java.util.Locale;
 
 import org.bukkit.Location;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
+import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.statement.SessionStatement;
 import net.coreprotect.utility.WorldUtils;
 
@@ -15,7 +16,7 @@ public class PlayerSessionLogger {
         throw new IllegalStateException("Database class");
     }
 
-    public static void log(PreparedStatement preparedStmt, int batchCount, String user, Location location, int time, int action) {
+    public static void log(ConsumerWriteBatch preparedStmt, int batchCount, String user, Location location, int time, int action) {
         try {
             if (ConfigHandler.isBlacklisted(user)) {
                 return;
@@ -28,7 +29,7 @@ public class PlayerSessionLogger {
             SessionStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, action);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            Database.handleWriteFailure(e);
         }
     }
 

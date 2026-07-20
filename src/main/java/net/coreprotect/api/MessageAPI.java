@@ -11,6 +11,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.UserStatement;
+import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.WorldUtils;
 
 /**
@@ -54,7 +55,7 @@ public class MessageAPI {
                 return result;
             }
 
-            StringBuilder query = new StringBuilder("SELECT time,user,wid,x,y,z,message FROM ");
+            StringBuilder query = new StringBuilder("SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,message FROM ");
             query.append(ConfigHandler.prefix).append(table).append(" ");
             if (filter.hasLocation()) {
                 query.append(WorldUtils.getWidIndex(table));
@@ -74,7 +75,7 @@ public class MessageAPI {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return result;
@@ -85,33 +86,12 @@ public class MessageAPI {
             return null;
         }
 
-        Integer cachedId = ConfigHandler.playerIdCache.get(user.toLowerCase(java.util.Locale.ROOT));
-        if (cachedId != null) {
-            return cachedId;
-        }
-
-        String collate = Config.getGlobal().MYSQL ? "" : " COLLATE NOCASE";
-        try (PreparedStatement statement = connection.prepareStatement("SELECT rowid FROM " + ConfigHandler.prefix + "user WHERE user = ?" + collate + " ORDER BY rowid ASC LIMIT 0, 1")) {
-            statement.setString(1, user);
-            try (ResultSet results = statement.executeQuery()) {
-                if (results.next()) {
-                    int id = results.getInt("rowid");
-                    ConfigHandler.playerIdCache.put(user.toLowerCase(java.util.Locale.ROOT), id);
-                    ConfigHandler.playerIdCacheReversed.put(id, user);
-                    return id;
-                }
-            }
-        }
-
-        return -1;
+        return UserStatement.findId(connection, user);
     }
 
     private static MessageResult parseMessageResult(Connection connection, ResultSet results, int actionId) throws Exception {
         int userId = results.getInt("user");
-        String username = ConfigHandler.playerIdCacheReversed.get(userId);
-        if (username == null) {
-            username = UserStatement.loadName(connection, userId);
-        }
+        String username = UserStatement.getName(connection, userId);
 
         return new MessageResult(
                 results.getLong("time"), username, WorldUtils.getWorldName(results.getInt("wid")),

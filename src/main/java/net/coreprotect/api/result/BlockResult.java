@@ -5,9 +5,12 @@ import java.util.Locale;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.entity.EntityType;
 
+import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.BlockTypeUtils;
+import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.StringUtils;
 
@@ -46,18 +49,7 @@ public class BlockResult implements CoreProtectResult {
     }
 
     public String getActionString() {
-        switch (actionId) {
-            case 0:
-                return "break";
-            case 1:
-                return "place";
-            case 2:
-                return "click";
-            case 3:
-                return "kill";
-            default:
-                return "unknown";
-        }
+        return LookupActions.getActionString(actionId);
     }
 
     @Deprecated
@@ -74,6 +66,10 @@ public class BlockResult implements CoreProtectResult {
     }
 
     public Material getType() {
+        if (isEntityAction()) {
+            return null;
+        }
+
         Material material = MaterialUtils.getType(type);
         if (material == null) {
             return null;
@@ -83,7 +79,23 @@ public class BlockResult implements CoreProtectResult {
         return MaterialUtils.getType(StringUtils.nameFilter(typeName, data));
     }
 
+    public EntityType getEntityType() {
+        if (!isEntityAction()) {
+            return null;
+        }
+
+        if (actionId == LookupActions.ENTITY_KILL && type == 0) {
+            return EntityType.PLAYER;
+        }
+
+        return EntityUtils.getEntityType(type);
+    }
+
     public BlockData getBlockData() {
+        if (isEntityAction()) {
+            return null;
+        }
+
         if (blockData == null || blockData.isEmpty()) {
             Material material = getType();
             if (material != null) {
@@ -111,6 +123,10 @@ public class BlockResult implements CoreProtectResult {
 
     public boolean isRolledBack() {
         return rolledBack == 1 || rolledBack == 3;
+    }
+
+    private boolean isEntityAction() {
+        return actionId == LookupActions.ENTITY_KILL || actionId == LookupActions.ENTITY_SPAWN;
     }
 
     public String worldName() {

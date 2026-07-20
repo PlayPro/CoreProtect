@@ -5,9 +5,12 @@ import java.util.Map;
 import java.util.Set;
 
 import org.bukkit.Art;
+import org.bukkit.Chunk;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 import org.bukkit.block.data.BlockData;
@@ -16,6 +19,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Painting;
+import org.bukkit.entity.Villager;
 import org.bukkit.event.Event;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.SignChangeEvent;
@@ -173,6 +177,8 @@ public interface BukkitInterface {
      */
     boolean isShelf(Material material);
 
+    List<Location> getShelfInteractionLocations(Block block, BlockFace blockFace);
+
 
     /**
      * Checks if a material is a bookshelf book.
@@ -273,6 +279,15 @@ public interface BukkitInterface {
     // --------------------------------------------------------------------------
 
     /**
+     * Checks whether a loaded chunk's entity data is ready to query.
+     *
+     * @param chunk
+     *            The loaded chunk
+     * @return true when entity data is ready
+     */
+    boolean isChunkEntitiesLoaded(Chunk chunk);
+
+    /**
      * Gets metadata from a living entity.
      * 
      * @param entity
@@ -295,6 +310,12 @@ public interface BukkitInterface {
      * @return true if metadata was set, false otherwise
      */
     boolean setEntityMeta(Entity entity, Object value, int count);
+
+    void addMerchantRecipeMeta(MerchantRecipe recipe, List<Object> recipeData);
+
+    void setMerchantRecipeMeta(MerchantRecipe recipe, List<?> recipeData);
+
+    void refreshVillagerBrain(Villager villager);
 
     /**
      * Gets the wolf variant and adds it to the info list.

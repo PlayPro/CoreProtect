@@ -1,8 +1,9 @@
 package net.coreprotect.database.statement;
 
-import java.sql.PreparedStatement;
 import java.util.List;
 
+import net.coreprotect.database.ConsumerWriteBatch;
+import net.coreprotect.database.Database;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.ItemUtils;
 
@@ -12,35 +13,26 @@ public class BlockStatement {
         throw new IllegalStateException("Database class");
     }
 
-    public static void insert(PreparedStatement preparedStmt, int batchCount, int time, int id, int wid, int x, int y, int z, int type, int data, List<Object> meta, String blockData, int action, int rolledBack) {
+    public static void insert(ConsumerWriteBatch batch, int batchCount, int time, int id, int wid, int x, int y, int z, int type, int data, List<Object> meta, String blockData, int action, int rolledBack) {
+        insertChecked(batch, batchCount, time, id, wid, x, y, z, type, data, meta, blockData, action, rolledBack);
+    }
+
+    public static boolean insertChecked(ConsumerWriteBatch batch, int batchCount, int time, int id, int wid, int x, int y, int z, int type, int data, List<Object> meta, String blockData, int action, int rolledBack) {
         try {
             byte[] bBlockData = BlockUtils.stringToByteData(blockData, type);
-            byte[] byteData = null;
-
-            if (meta != null) {
-                byteData = ItemUtils.convertByteData(meta);
-            }
-
-            preparedStmt.setInt(1, time);
-            preparedStmt.setInt(2, id);
-            preparedStmt.setInt(3, wid);
-            preparedStmt.setInt(4, x);
-            preparedStmt.setInt(5, y);
-            preparedStmt.setInt(6, z);
-            preparedStmt.setInt(7, type);
-            preparedStmt.setInt(8, data);
-            preparedStmt.setObject(9, byteData);
-            preparedStmt.setObject(10, bBlockData);
-            preparedStmt.setInt(11, action);
-            preparedStmt.setInt(12, rolledBack);
-            preparedStmt.addBatch();
-
-            if (batchCount > 0 && batchCount % 1000 == 0) {
-                preparedStmt.executeBatch();
-            }
+            byte[] byteData = meta == null ? null : ItemUtils.convertByteData(meta);
+            batch.addBlock(batchCount, time, id, wid, x, y, z, type, data, byteData, bBlockData, action, rolledBack);
+            return true;
         }
         catch (Exception e) {
-            e.printStackTrace();
+            Database.handleWriteFailure(e);
+            return false;
         }
+    }
+
+    public static long insertImmediate(ConsumerWriteBatch batch, int time, int id, int wid, int x, int y, int z, int type, int data, List<Object> meta, String blockData, int action, int rolledBack) throws Exception {
+        byte[] bBlockData = BlockUtils.stringToByteData(blockData, type);
+        byte[] byteData = meta == null ? null : ItemUtils.convertByteData(meta);
+        return batch.addBlockReturningId(time, id, wid, x, y, z, type, data, byteData, bBlockData, action, rolledBack);
     }
 }

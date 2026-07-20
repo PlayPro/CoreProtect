@@ -1,9 +1,13 @@
 package net.coreprotect.utility.entity;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import org.bukkit.Bukkit;
 import org.bukkit.DyeColor;
@@ -64,12 +68,19 @@ import org.bukkit.inventory.meta.LeatherArmorMeta;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.rollback.Rollback;
+import net.coreprotect.paper.PaperAdapter;
+import net.coreprotect.spigot.SpigotAdapter;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.EntitySpawnTracking;
+import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.WorldUtils;
 
 public class EntityUtil {
+
+    private static final long ENTITY_RESTORE_TIMEOUT_SECONDS = 30L;
 
     private EntityUtil() {
         throw new IllegalStateException("Utility class");
@@ -79,20 +90,45 @@ public class EntityUtil {
         if (type == null) {
             return;
         }
-        final Location blockLocation = block.getLocation();
-        if (blockLocation.getWorld() == null) {
-            return;
+        scheduleEntitySpawn(block.getLocation(), type, list, true);
+    }
+
+    public static CompletableFuture<Entity> restoreEntity(final Location blockLocation, final EntityType type, final List<Object> list) {
+        return scheduleEntitySpawn(blockLocation, type, list, false);
+    }
+
+    private static CompletableFuture<Entity> scheduleEntitySpawn(final Location blockLocation, final EntityType type, final List<Object> list, final boolean legacyTransition) {
+        CompletableFuture<Entity> completion = new CompletableFuture<>();
+        if (type == null) {
+            completion.complete(null);
+            return completion;
+        }
+        if (blockLocation == null || blockLocation.getWorld() == null) {
+            completion.complete(null);
+            return completion;
+        }
+        if (!legacyTransition) {
+            completion.completeOnTimeout(null, ENTITY_RESTORE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         }
 
-        Scheduler.runTask(CoreProtect.getInstance(), () -> {
+        Location restoreLocation = EntitySpawnTracking.isPlacedEntityType(type) ? EntitySpawnTracking.getKillRestoreLocation(blockLocation.getWorld(), list) : null;
+        if (restoreLocation == null) {
+            restoreLocation = blockLocation.clone();
+            restoreLocation.setX(restoreLocation.getX() + 0.50);
+            restoreLocation.setZ(restoreLocation.getZ() + 0.50);
+        }
+        final Location entityLocation = restoreLocation;
+        Runnable task = () -> {
+            Entity entity = null;
             try {
-                Location location = blockLocation.clone();
-                location.setX(location.getX() + 0.50);
-                location.setZ(location.getZ() + 0.50);
-                Entity entity = blockLocation.getWorld().spawnEntity(location, type);
+                entity = entityLocation.getWorld().spawnEntity(entityLocation, type);
 
                 if (list.isEmpty()) {
+                    completeEntityRestore(completion, entity, legacyTransition);
                     return;
+                }
+                if (legacyTransition && list.size() > 7 && list.get(7) instanceof String) {
+                    EntitySpawnTracking.trackRevivedEntity(entity, UUID.fromString((String) list.get(7)));
                 }
 
                 @SuppressWarnings("unchecked")
@@ -107,10 +143,12 @@ public class EntityUtil {
                     entity.setCustomName((String) list.get(4));
                 }
 
-                int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
-                int wid = WorldUtils.getWorldId(block.getWorld().getName());
-                String token = "" + block.getX() + "." + block.getY() + "." + block.getZ() + "." + wid + "." + type.name() + "";
-                CacheHandler.entityCache.put(token, new Object[] { unixtimestamp, entity.getEntityId() });
+                if (legacyTransition) {
+                    int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
+                    int wid = WorldUtils.getWorldId(blockLocation.getWorld().getName());
+                    String token = blockLocation.getBlockX() + "." + blockLocation.getBlockY() + "." + blockLocation.getBlockZ() + "." + wid + "." + type.name();
+                    CacheHandler.entityCache.put(token, new Object[] { unixtimestamp, entity.getEntityId(), entity.getUniqueId() });
+                }
 
                 if (entity instanceof Ageable) {
                     int count = 0;
@@ -222,8 +260,12 @@ public class EntityUtil {
                     }
                 }
 
+                boolean placedEntity = EntitySpawnTracking.isPlacedEntity(entity);
+                if (placedEntity) {
+                    EntitySpawnTracking.restoreKillState(entity, list);
+                }
                 int count = 0;
-                for (Object value : data) {
+                for (Object value : placedEntity ? Collections.emptyList() : data) {
                     if (entity instanceof Creeper) {
                         Creeper creeper = (Creeper) entity;
                         if (count == 0) {
@@ -404,10 +446,12 @@ public class EntityUtil {
                                 MerchantRecipe merchantRecipe = new MerchantRecipe(result, uses, maxUses, experienceReward);
                                 if (recipe.size() > 6) {
                                     int villagerExperience = (int) recipe.get(5);
-                                    float priceMultiplier = (float) recipe.get(6);
+                                    float priceMultiplier = ((Number) recipe.get(6)).floatValue();
                                     merchantRecipe = new MerchantRecipe(result, uses, maxUses, experienceReward, villagerExperience, priceMultiplier);
                                 }
                                 merchantRecipe.setIngredients(merchantIngredients);
+                                BukkitAdapter.ADAPTER.setMerchantRecipeMeta(merchantRecipe, recipe);
+                                PaperAdapter.ADAPTER.setMerchantRecipeMeta(merchantRecipe, recipe);
                                 merchantRecipes.add(merchantRecipe);
                             }
                             if (!merchantRecipes.isEmpty()) {
@@ -427,6 +471,17 @@ public class EntityUtil {
                             }
                             else if (count == 5 && value instanceof List<?>) {
                                 restoreVillagerMemories(villager, (List<?>) value);
+                            }
+                            else if (count == 6 && value instanceof List<?>) {
+                                if (!PaperAdapter.ADAPTER.setVillagerReputations(villager, (List<?>) value)) {
+                                    SpigotAdapter.ADAPTER.setVillagerReputations(villager, (List<?>) value);
+                                }
+                            }
+                            else if (count == 7) {
+                                PaperAdapter.ADAPTER.setVillagerRestocksToday(villager, value);
+                            }
+                            else if (count == 8) {
+                                SpigotAdapter.ADAPTER.setVillagerGossipDecayTime(villager, value);
                             }
                         }
                     }
@@ -608,11 +663,40 @@ public class EntityUtil {
                     }
                     count++;
                 }
+                if (entity instanceof Villager) {
+                    BukkitAdapter.ADAPTER.refreshVillagerBrain((Villager) entity);
+                }
+                completeEntityRestore(completion, entity, legacyTransition);
             }
             catch (Exception e) {
-                e.printStackTrace();
+                if (!legacyTransition && entity != null) {
+                    EntitySpawnTracking.removeWithoutRemovalLog(entity);
+                }
+                ErrorReporter.report(e);
+                completion.complete(null);
             }
-        }, blockLocation);
+        };
+        try {
+            boolean currentThreadOwnsLocation = !legacyTransition && (ConfigHandler.isFolia ?
+                PaperAdapter.ADAPTER.isOwnedByCurrentRegion(entityLocation.getWorld(), entityLocation.getBlockX() >> 4, entityLocation.getBlockZ() >> 4) : Bukkit.isPrimaryThread());
+            if (currentThreadOwnsLocation) {
+                task.run();
+            }
+            else {
+                Scheduler.runTask(CoreProtect.getInstance(), task, entityLocation);
+            }
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+            completion.complete(null);
+        }
+        return completion;
+    }
+
+    private static void completeEntityRestore(CompletableFuture<Entity> completion, Entity entity, boolean legacyTransition) {
+        if (!completion.complete(entity) && !legacyTransition) {
+            EntitySpawnTracking.removeWithoutRemovalLog(entity);
+        }
     }
 
     private static void restoreVillagerMemories(Villager villager, List<?> memories) {

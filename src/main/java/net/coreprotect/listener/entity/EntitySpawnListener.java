@@ -7,6 +7,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntitySpawnEvent;
 
+import net.coreprotect.config.Config;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.WorldUtils;
 
@@ -20,6 +21,9 @@ public final class EntitySpawnListener implements Listener {
 
         Location location = event.getLocation();
         if (location.getWorld() == null) {
+            return;
+        }
+        if (!Config.getConfig(location.getWorld()).BLOCK_MOVEMENT) {
             return;
         }
 

@@ -1,28 +1,29 @@
 package net.coreprotect.api;
 
+import net.coreprotect.model.action.LookupActions;
+
 /**
  * CoreProtect action identifiers used by lookup filters.
  */
 public enum CoreProtectAction {
-    BLOCK_BREAK(0, "break"),
-    BLOCK_PLACE(1, "place"),
-    INTERACTION(2, "click"),
-    ENTITY_KILL(3, "kill"),
-    CONTAINER(4, "container"),
-    CHAT(6, "chat"),
-    COMMAND(7, "command"),
-    SESSION(8, "session"),
-    USERNAME(9, "username"),
-    SIGN(10, "sign"),
-    ITEM(11, "item"),
-    UNKNOWN(-1, "unknown");
+    BLOCK_BREAK(LookupActions.BLOCK_BREAK),
+    BLOCK_PLACE(LookupActions.BLOCK_PLACE),
+    INTERACTION(LookupActions.INTERACTION),
+    ENTITY_KILL(LookupActions.ENTITY_KILL),
+    CONTAINER(LookupActions.CONTAINER),
+    CHAT(LookupActions.CHAT),
+    COMMAND(LookupActions.COMMAND),
+    SESSION(LookupActions.SESSION),
+    USERNAME(LookupActions.USERNAME),
+    SIGN(LookupActions.SIGN),
+    ITEM(LookupActions.ITEM),
+    UNKNOWN(-1),
+    ENTITY_SPAWN(LookupActions.ENTITY_SPAWN);
 
     private final int id;
-    private final String actionString;
 
-    CoreProtectAction(int id, String actionString) {
+    CoreProtectAction(int id) {
         this.id = id;
-        this.actionString = actionString;
     }
 
     public int id() {
@@ -30,7 +31,7 @@ public enum CoreProtectAction {
     }
 
     public String actionString() {
-        return actionString;
+        return LookupActions.getActionString(id);
     }
 
     public static CoreProtectAction fromId(int id) {

@@ -1,7 +1,5 @@
 package net.coreprotect.database.logger;
 
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.util.List;
 
 import org.bukkit.Bukkit;
@@ -12,10 +10,13 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.statement.BlockStatement;
+import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.database.statement.EntityStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
+import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.utility.WorldUtils;
 
 public class EntityKillLogger {
@@ -24,7 +25,7 @@ public class EntityKillLogger {
         throw new IllegalStateException("Database class");
     }
 
-    public static void log(PreparedStatement preparedStmt, PreparedStatement preparedStmt2, int batchCount, String user, Location location, List<Object> data, int type) {
+    public static void log(ConsumerWriteBatch preparedStmt, ConsumerWriteBatch preparedStmt2, ConsumerWriteBatch preparedStmtEntityKillLinks, int batchCount, String user, Location location, List<Object> data, int type) {
         try {
             if (ConfigHandler.isBlacklisted(user)){
                 return;
@@ -42,7 +43,7 @@ public class EntityKillLogger {
             }
 
             Location initialLocation = location.clone();
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, initialLocation, CoreProtectPreLogEvent.Action.ENTITY_KILL, 3, null, checkType, null);
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, initialLocation, CoreProtectPreLogEvent.Action.ENTITY_KILL, LookupActions.ENTITY_KILL, null, checkType, null);
             if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
             }
@@ -58,25 +59,19 @@ public class EntityKillLogger {
             int x = eventLocation.getBlockX();
             int y = eventLocation.getBlockY();
             int z = eventLocation.getBlockZ();
-            int entity_key = 0;
-
-            ResultSet resultSet = EntityStatement.insert(preparedStmt2, time, data);
-            if (Database.hasReturningKeys()) {
-                resultSet.next();
-                entity_key = resultSet.getInt(1);
-                resultSet.close();
-            }
-            else {
-                ResultSet keys = preparedStmt2.getGeneratedKeys();
-                keys.next();
-                entity_key = keys.getInt(1);
-                keys.close();
+            int entity_key = EntityStatement.insert(preparedStmt2, time, data);
+            if (entity_key == 0) {
+                return;
             }
 
-            BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, type, entity_key, null, null, 3, 0);
+            if (data.size() > 7 && data.get(7) instanceof String) {
+                EntitySpawnStatement.addKillLink(preparedStmtEntityKillLinks, (String) data.get(7), entity_key);
+            }
+
+            BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, type, entity_key, null, null, LookupActions.ENTITY_KILL, 0);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            Database.handleWriteFailure(e);
         }
     }
 

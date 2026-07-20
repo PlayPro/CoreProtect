@@ -85,7 +85,7 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
         if (!Config.getConfig(world).WORLDEDIT) {
             return eventExtent.replaceBlocks(region, mask, pattern);
         }
-        processPatternToBlocks(world, region, pattern);
+        processPatternToBlocks(world, region, mask, pattern);
         return eventExtent.replaceBlocks(region, mask, pattern);
     }
 
@@ -116,6 +116,24 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
 
     private void processPatternToBlocks(org.bukkit.World world, Set<BlockVector3> vset, Pattern pattern) {
         for (BlockVector3 position : vset) {
+            BlockState oldBlock = eventExtent.getBlock(position);
+            Material oldType = BukkitAdapter.adapt(oldBlock.getBlockType());
+            Location location = new Location(world, position.getBlockX(), position.getBlockY(), position.getBlockZ());
+            BaseBlock baseBlock = WorldEditLogger.getBaseBlock(eventExtent, position, location, oldType, oldBlock);
+
+            // No clear way to get container content data from within the WorldEdit API
+            // Data may be available by converting oldBlock.toBaseBlock().getNbtData()
+            // e.g. BaseBlock block = eventWorld.getBlock(position);
+            ItemStack[] containerData = CoreProtectEditSessionEvent.isFAWE() ? null : ItemUtils.getContainerContents(oldType, null, location);
+            WorldEditLogger.postProcess(eventExtent, eventActor, position, location, pattern.applyBlock(position), baseBlock, oldType, oldBlock, containerData);
+        }
+    }
+
+    private void processPatternToBlocks(org.bukkit.World world, Region region, Mask mask, Pattern pattern) {
+        for (BlockVector3 position : region.clone()) {
+            if (!mask.test(position)) {
+                continue;
+            }
             BlockState oldBlock = eventExtent.getBlock(position);
             Material oldType = BukkitAdapter.adapt(oldBlock.getBlockType());
             Location location = new Location(world, position.getBlockX(), position.getBlockY(), position.getBlockZ());

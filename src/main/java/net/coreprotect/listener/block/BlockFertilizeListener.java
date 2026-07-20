@@ -1,5 +1,7 @@
 package net.coreprotect.listener.block;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -20,6 +22,9 @@ import net.coreprotect.thread.CacheHandler;
 
 public final class BlockFertilizeListener extends Queue implements Listener {
 
+    private static final int BONEMEAL_DUPLICATE_THRESHOLD = 256;
+    private static final int BONEMEAL_DUPLICATE_WINDOW_SECONDS = 900;
+
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onBlockFertilize(BlockFertilizeEvent event) {
         if (event.isCancelled()) {
@@ -27,20 +32,24 @@ public final class BlockFertilizeListener extends Queue implements Listener {
         }
 
         Block block = event.getBlock();
-        if (!Config.getConfig(block.getWorld()).BLOCK_PLACE) {
+        Config config = Config.getConfig(block.getWorld());
+        if (!config.BLOCK_PLACE) {
             return;
         }
 
+        Material blockType = block.getType();
         Location location = block.getLocation();
         List<BlockState> blocks = event.getBlocks();
+        boolean singleBlockGrowth = blocks.size() == 1 && blocks.get(0).getLocation().equals(location);
+        boolean mushroomGrowthBlock = isMushroomGrowthBlock(blockType);
 
-        if (Tag.SAPLINGS.isTagged(block.getType()) && (!Config.getConfig(location.getWorld()).TREE_GROWTH || (blocks.size() == 1 && blocks.get(0).getLocation().equals(location)))) {
+        if (mushroomGrowthBlock && (!config.MUSHROOM_GROWTH || singleBlockGrowth)) {
             return;
         }
-        if (block.getType().name().toLowerCase(Locale.ROOT).contains("mushroom") && (!Config.getConfig(location.getWorld()).MUSHROOM_GROWTH || (blocks.size() == 1 && blocks.get(0).getLocation().equals(location)))) {
+        if (!mushroomGrowthBlock && Tag.SAPLINGS.isTagged(blockType) && (!config.TREE_GROWTH || singleBlockGrowth)) {
             return;
         }
-        if (block.getType() == Material.AIR && blocks.size() > 1 && Tag.LOGS.isTagged(blocks.get(1).getType()) && !Config.getConfig(location.getWorld()).TREE_GROWTH) {
+        if (blockType == Material.AIR && blocks.size() > 1 && Tag.LOGS.isTagged(blocks.get(1).getType()) && !config.TREE_GROWTH) {
             return;
         }
 
@@ -50,7 +59,8 @@ public final class BlockFertilizeListener extends Queue implements Listener {
             user = player.getName();
         }
         else {
-            Object[] data = CacheHandler.redstoneCache.get(location);
+            String key = CacheHandler.locationKey(location);
+            Object[] data = CacheHandler.redstoneCache.get(key);
             if (data != null) {
                 long newTime = System.currentTimeMillis();
                 long oldTime = (long) data[0];
@@ -58,13 +68,36 @@ public final class BlockFertilizeListener extends Queue implements Listener {
                     user = (String) data[1];
                 }
 
-                CacheHandler.redstoneCache.remove(location);
+                CacheHandler.redstoneCache.remove(key);
             }
+        }
+
+        if (config.DUPLICATE_SUPPRESSION && "#dispenser".equals(user) && shouldSuppressBonemealDuplicate(location, blocks)) {
+            return;
         }
 
         for (BlockState newBlock : blocks) {
             Queue.queueBlockPlace(user, newBlock, newBlock.getType(), newBlock.getBlock().getState(), newBlock.getType(), -1, 0, newBlock.getBlockData().getAsString());
         }
+    }
+
+    private static boolean isMushroomGrowthBlock(Material blockType) {
+        return blockType == Material.CRIMSON_FUNGUS || blockType == Material.WARPED_FUNGUS || blockType.name().toLowerCase(Locale.ROOT).contains("mushroom");
+    }
+
+    private boolean shouldSuppressBonemealDuplicate(Location location, List<BlockState> blocks) {
+        if (blocks == null || blocks.isEmpty()) {
+            return false;
+        }
+
+        List<String> states = new ArrayList<>();
+        for (BlockState newBlock : blocks) {
+            Location newLocation = newBlock.getLocation();
+            states.add(newLocation.getBlockX() + "." + newLocation.getBlockY() + "." + newLocation.getBlockZ() + "." + newBlock.getType().name() + "." + newBlock.getBlockData().getAsString());
+        }
+        Collections.sort(states);
+        String signature = location.getWorld().getUID().toString() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ() + "." + Integer.toHexString(String.join("|", states).hashCode());
+        return CacheHandler.shouldSuppressRepeat(CacheHandler.bonemealDuplicateCache, signature, BONEMEAL_DUPLICATE_THRESHOLD, BONEMEAL_DUPLICATE_WINDOW_SECONDS);
     }
 
 }

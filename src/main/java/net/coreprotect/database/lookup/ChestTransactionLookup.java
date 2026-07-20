@@ -3,29 +3,43 @@ package net.coreprotect.database.lookup;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
 
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
+import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.listener.channel.PluginChannelListener;
+import net.coreprotect.model.entity.EntitySpawnRecord;
 import net.coreprotect.utility.ChatUtils;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
-import net.coreprotect.utility.StringUtils;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.DatabaseUtils;
+import net.coreprotect.utility.EntitySpawnTracking;
 
 public class ChestTransactionLookup {
 
     public static List<String> performLookup(String command, Statement statement, Location l, CommandSender commandSender, int page, int limit, boolean exact) {
+        return performLookup(command, statement, l, commandSender, page, limit, exact, null);
+    }
+
+    public static List<String> performLookup(String command, Statement statement, Location l, CommandSender commandSender, int page, int limit, boolean exact, Integer entitySpawnRowId) {
         List<String> result = new ArrayList<>();
+        if (entitySpawnRowId == null) {
+            ConfigHandler.lookupEntityContainer.remove(commandSender.getName());
+        }
 
         try {
             if (l == null) {
@@ -56,14 +70,45 @@ public class ChestTransactionLookup {
             int z2 = (int) Math.ceil(l.getZ());
             long time = (System.currentTimeMillis() / 1000L);
             int worldId = WorldUtils.getWorldId(l.getWorld().getName());
+            int displayWorldId = worldId;
+            int displayX = l.getBlockX();
+            int displayY = l.getBlockY();
+            int displayZ = l.getBlockZ();
             int count = 0;
             int rowMax = page * limit;
             int pageStart = rowMax - limit;
 
-            String query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "container " + WorldUtils.getWidIndex("container") + "WHERE wid = '" + worldId + "' AND (x = '" + x + "' OR x = '" + x2 + "') AND (z = '" + z + "' OR z = '" + z2 + "') AND y = '" + y + "' LIMIT 0, 1";
-            if (exact) {
-                query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "container " + WorldUtils.getWidIndex("container") + "WHERE wid = '" + worldId + "' AND (x = '" + l.getBlockX() + "') AND (z = '" + l.getBlockZ() + "') AND y = '" + y + "' LIMIT 0, 1";
+            String table = ConfigHandler.prefix + "container";
+            String where = "wid = " + worldId + " AND (x = " + x + " OR x = " + x2 + ") AND (z = " + z + " OR z = " + z2 + ") AND y = " + y;
+            String index = WorldUtils.getWidIndex("container");
+            String order = "rowid DESC";
+            if (entitySpawnRowId != null) {
+                table = ConfigHandler.prefix + "entity_container";
+                where = "entity_spawn_rowid = " + entitySpawnRowId;
+                index = "";
+                order = "time DESC,rowid DESC";
+
+                EntitySpawnRecord record = EntitySpawnStatement.loadLocationRecords(statement.getConnection(), Collections.singleton(entitySpawnRowId)).get(entitySpawnRowId);
+                if (record != null) {
+                    displayWorldId = record.getWorldId();
+                    displayX = (int) Math.floor(record.getX());
+                    displayY = (int) Math.floor(record.getY());
+                    displayZ = (int) Math.floor(record.getZ());
+                    Map<UUID, Location> loadedLocations = EntitySpawnTracking.findLoadedLocations(Collections.singleton(record.getUuid()));
+                    Location loadedLocation = loadedLocations.get(record.getUuid());
+                    if (loadedLocation != null && loadedLocation.getWorld() != null) {
+                        displayWorldId = WorldUtils.getWorldId(loadedLocation.getWorld().getName());
+                        displayX = loadedLocation.getBlockX();
+                        displayY = loadedLocation.getBlockY();
+                        displayZ = loadedLocation.getBlockZ();
+                    }
+                }
             }
+            else if (exact) {
+                where = "wid = " + worldId + " AND x = " + l.getBlockX() + " AND z = " + l.getBlockZ() + " AND y = " + y;
+            }
+
+            String query = "SELECT COUNT(*) as count FROM " + table + " " + index + "WHERE " + where + " LIMIT 1 OFFSET 0";
             ResultSet results = statement.executeQuery(query);
 
             while (results.next()) {
@@ -73,10 +118,7 @@ public class ChestTransactionLookup {
 
             int totalPages = (int) Math.ceil(count / (limit + 0.0));
 
-            query = "SELECT time,user,action,type,data,amount,metadata,rolled_back FROM " + ConfigHandler.prefix + "container " + WorldUtils.getWidIndex("container") + "WHERE wid = '" + worldId + "' AND (x = '" + x + "' OR x = '" + x2 + "') AND (z = '" + z + "' OR z = '" + z2 + "') AND y = '" + y + "' ORDER BY rowid DESC LIMIT " + pageStart + ", " + limit + "";
-            if (exact) {
-                query = "SELECT time,user,action,type,data,amount,metadata,rolled_back FROM " + ConfigHandler.prefix + "container " + WorldUtils.getWidIndex("container") + "WHERE wid = '" + worldId + "' AND (x = '" + l.getBlockX() + "') AND (z = '" + l.getBlockZ() + "') AND y = '" + y + "' ORDER BY rowid DESC LIMIT " + pageStart + ", " + limit + "";
-            }
+            query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,action,type,data,amount,metadata,rolled_back FROM " + table + " " + index + "WHERE " + where + " ORDER BY " + order + " LIMIT " + limit + " OFFSET " + pageStart;
             results = statement.executeQuery(query);
             while (results.next()) {
                 int resultUserId = results.getInt("user");
@@ -86,18 +128,18 @@ public class ChestTransactionLookup {
                 long resultTime = results.getLong("time");
                 int resultAmount = results.getInt("amount");
                 int resultRolledBack = results.getInt("rolled_back");
-                byte[] resultMetadata = results.getBytes("metadata");
+                int resultWorldId = results.getInt("wid");
+                int resultX = results.getInt("x");
+                int resultY = results.getInt("y");
+                int resultZ = results.getInt("z");
+                byte[] resultMetadata = DatabaseUtils.getBytes(results, "metadata");
                 String tooltip = ItemUtils.getEnchantments(resultMetadata, resultType, resultAmount);
 
-                if (ConfigHandler.playerIdCacheReversed.get(resultUserId) == null) {
-                    UserStatement.loadName(statement.getConnection(), resultUserId);
-                }
-
-                String resultUser = ConfigHandler.playerIdCacheReversed.get(resultUserId);
+                String resultUser = UserStatement.getName(statement.getConnection(), resultUserId);
                 String timeAgo = ChatUtils.getTimeSince(resultTime, time, true);
 
                 if (!found) {
-                    result.add(new StringBuilder(Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.CONTAINER_HEADER) + Color.WHITE + " ----- " + ChatUtils.getCoordinates(command, worldId, x, y, z, false, false)).toString());
+                    result.add(Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.CONTAINER_HEADER) + Color.WHITE + " ----- " + ChatUtils.getCoordinates(command, displayWorldId, displayX, displayY, displayZ, false, false));
                 }
                 found = true;
 
@@ -108,13 +150,8 @@ public class ChestTransactionLookup {
                     rbFormat = Color.STRIKETHROUGH;
                 }
 
-                Material resultMaterial = MaterialUtils.getType(resultType);
-                if (resultMaterial == null) {
-                    resultMaterial = Material.AIR;
-                }
-                String target = resultMaterial.name().toLowerCase(Locale.ROOT);
-                target = StringUtils.nameFilter(target, resultData);
-                if (target.length() > 0) {
+                String target = MaterialUtils.getBlockDisplayName(resultType, resultData);
+                if (target.length() > 0 && !target.contains(":")) {
                     target = "minecraft:" + target.toLowerCase(Locale.ROOT) + "";
                 }
 
@@ -123,8 +160,12 @@ public class ChestTransactionLookup {
                     target = target.split(":")[1];
                 }
 
-                result.add(new StringBuilder(timeAgo + " " + tag + " " + Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, "x" + resultAmount, ChatUtils.createTooltip(Color.DARK_AQUA + rbFormat + target, tooltip) + Color.WHITE, selector)).toString());
-                PluginChannelListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_CONTAINER, selector, resultUser, target, resultAmount, x, y, z, worldId, rbFormat, true, tag.contains("+"));
+                String coordinateInfo = "";
+                if (entitySpawnRowId != null && (displayWorldId != resultWorldId || displayX != resultX || displayY != resultY || displayZ != resultZ)) {
+                    coordinateInfo = ChatUtils.getCoordinateTooltip(resultWorldId, resultX, resultY, resultZ, Phrase.build(Phrase.LOOKUP_ENTITY_ORIGIN), true);
+                }
+                result.add(timeAgo + " " + tag + " " + Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, "x" + resultAmount, ChatUtils.createTooltip(Color.DARK_AQUA + rbFormat + target, tooltip) + coordinateInfo + Color.WHITE, selector));
+                PluginChannelListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_CONTAINER, selector, resultUser, target, resultAmount, displayX, displayY, displayZ, displayWorldId, rbFormat, true, tag.contains("+"));
             }
             results.close();
 
@@ -145,10 +186,17 @@ public class ChestTransactionLookup {
 
             ConfigHandler.lookupType.put(commandSender.getName(), 1);
             ConfigHandler.lookupPage.put(commandSender.getName(), page);
-            ConfigHandler.lookupCommand.put(commandSender.getName(), x + "." + y + "." + z + "." + worldId + "." + x2 + "." + y2 + "." + z2 + "." + limit);
+            String lookupCommand = x + "." + y + "." + z + "." + worldId + "." + x2 + "." + y2 + "." + z2 + "." + limit;
+            if (entitySpawnRowId != null) {
+                lookupCommand = displayX + "." + displayY + "." + displayZ + "." + displayWorldId + "." + displayX + "." + displayY + "." + displayZ + "." + limit;
+            }
+            ConfigHandler.lookupCommand.put(commandSender.getName(), lookupCommand);
+            if (entitySpawnRowId != null) {
+                ConfigHandler.lookupEntityContainer.put(commandSender.getName(), entitySpawnRowId);
+            }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return result;

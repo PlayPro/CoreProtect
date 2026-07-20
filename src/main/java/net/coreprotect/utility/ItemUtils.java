@@ -1,13 +1,11 @@
 package net.coreprotect.utility;
 
 import java.io.ByteArrayOutputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.lang.reflect.Array;
+import java.util.*;
+import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -30,9 +28,51 @@ import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 
 public class ItemUtils {
+    private static final Map<ItemStack, Integer> GIVABLE_ITEMS = Collections.synchronizedMap(new LinkedHashMap<>());
+
+    private static final Object UNSERIALIZABLE_VALUE = new Object();
+    private static final Logger LOGGER = Logger.getLogger("CoreProtect");
+    private static final int MAX_SANITIZE_ATTEMPTS = 2;
+    private static final Pattern TYPE_TOKEN_PATTERN = Pattern.compile("([A-Za-z_$][A-Za-z0-9_$\\.]*)\\{");
+    private static final Pattern REGISTRY_LOCATION_PATTERN = Pattern.compile("location=([^,\\]\\s]+)");
+
+    private static final class FailureContext {
+
+        private final Set<String> typeTokens;
+        private final String registryLocation;
+
+        private FailureContext(Set<String> typeTokens, String registryLocation) {
+            this.typeTokens = typeTokens;
+            this.registryLocation = registryLocation;
+        }
+    }
+
+    private static final class SanitizationResult {
+
+        private final Object value;
+        private final boolean modified;
+
+        private SanitizationResult(Object value, boolean modified) {
+            this.value = value;
+            this.modified = modified;
+        }
+    }
 
     private ItemUtils() {
         throw new IllegalStateException("Utility class");
+    }
+
+    public static ItemStack getGivableItem(int id) {
+        //we can use skip here because it's a linked map from which elements are never removed
+        return GIVABLE_ITEMS.keySet().stream().skip(id).findFirst().orElse(null);
+    }
+
+    public static Integer makeGivableItem(ItemStack item) {
+        if (item == null) {
+          return null;
+        }
+
+        return GIVABLE_ITEMS.computeIfAbsent(item, k -> GIVABLE_ITEMS.size());
     }
 
     public static void mergeItems(Material material, ItemStack[] items) {
@@ -57,7 +97,7 @@ public class ItemUtils {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -78,6 +118,31 @@ public class ItemUtils {
         }
 
         return result;
+    }
+
+    public static ItemStack[] getSharedContainerState(ItemStack[] array, ItemStack[] previousState) {
+        if (array == null) {
+            return null;
+        }
+        if (previousState == null || previousState.length != array.length) {
+            return getContainerState(array);
+        }
+
+        ItemStack[] result = new ItemStack[array.length];
+        boolean unchanged = true;
+        for (int i = 0; i < array.length; i++) {
+            ItemStack itemStack = array[i];
+            ItemStack previousItem = previousState[i];
+            if (itemStack == null ? previousItem == null : itemStack.equals(previousItem)) {
+                result[i] = previousItem;
+            }
+            else {
+                result[i] = itemStack == null ? null : itemStack.clone();
+                unchanged = false;
+            }
+        }
+
+        return unchanged ? previousState : result;
     }
 
     public static ItemStack[] sortContainerState(ItemStack[] array) {
@@ -276,7 +341,7 @@ public class ItemUtils {
                 }
             }
             catch (Exception e) {
-                e.printStackTrace();
+                ErrorReporter.report(e);
             }
         }
 
@@ -289,7 +354,7 @@ public class ItemUtils {
             equipment = entity.getEquipment();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
         return equipment;
     }
@@ -300,7 +365,7 @@ public class ItemUtils {
             contents = new ItemStack[] { entity.getItem() };
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
         return contents;
     }
@@ -327,6 +392,23 @@ public class ItemUtils {
         return material;
     }
 
+    public static Material inventoryItemFilter(Material material, boolean blockTable) {
+        material = itemFilter(material, blockTable);
+        if (material == null) {
+            return null;
+        }
+
+        if (material == Material.LAVA) {
+            return Material.LAVA_BUCKET;
+        }
+
+        if (material == Material.WATER) {
+            return Material.WATER_BUCKET;
+        }
+
+        return material.isItem() ? material : null;
+    }
+
     public static ItemStack newItemStack(Material type, int amount) {
         return new ItemStack(type, amount);
     }
@@ -336,27 +418,251 @@ public class ItemUtils {
     }
     
     public static byte[] convertByteData(Object data) {
-        byte[] result = null;
         if (data == null) {
-            return result;
+            return null;
         }
 
         try {
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            BukkitObjectOutputStream oos = new BukkitObjectOutputStream(bos);
-            oos.writeObject(data);
-            oos.flush();
-            oos.close();
-            bos.close();
-            result = bos.toByteArray();
+            return serializeByteData(data);
         }
-        catch (Exception e) { // only display exception on development branch
-            if (!ConfigHandler.EDITION_BRANCH.contains("-dev")) {
-                e.printStackTrace();
+        catch (Exception initialException) {
+            Object workingData = data;
+            Exception failure = initialException;
+            Set<String> problematicTypes = new LinkedHashSet<>();
+            String registryLocation = null;
+            boolean sanitized = false;
+
+            for (int attempt = 0; attempt < MAX_SANITIZE_ATTEMPTS; attempt++) {
+                FailureContext failureContext = parseSerializationFailure(failure);
+                problematicTypes.addAll(failureContext.typeTokens);
+                if (registryLocation == null && failureContext.registryLocation != null) {
+                    registryLocation = failureContext.registryLocation;
+                }
+
+                if (problematicTypes.isEmpty()) {
+                    break;
+                }
+
+                SanitizationResult sanitizationResult = sanitizeByteData(workingData, problematicTypes);
+                if (!sanitizationResult.modified || sanitizationResult.value == UNSERIALIZABLE_VALUE) {
+                    break;
+                }
+
+                sanitized = true;
+                workingData = sanitizationResult.value;
+
+                try {
+                    byte[] result = serializeByteData(workingData);
+                    if (ConfigHandler.EDITION_BRANCH.contains("-dev")) {
+                        logSanitizedMetadata(problematicTypes, registryLocation);
+                    }
+                    return result;
+                }
+                catch (Exception retryException) {
+                    failure = retryException;
+                }
+            }
+
+            if (sanitized && ConfigHandler.EDITION_BRANCH.contains("-dev")) {
+                LOGGER.warning("CoreProtect failed to serialize metadata after targeted type sanitization.");
+            }
+            ErrorReporter.report(failure, ConfigHandler.EDITION_BRANCH.contains("-dev"));
+        }
+
+        return null;
+    }
+
+    private static byte[] serializeByteData(Object data) throws Exception {
+        try (ByteArrayOutputStream byteStream = new ByteArrayOutputStream(); BukkitObjectOutputStream objectStream = new BukkitObjectOutputStream(byteStream)) {
+            objectStream.writeObject(data);
+            objectStream.flush();
+            return byteStream.toByteArray();
+        }
+    }
+
+    private static FailureContext parseSerializationFailure(Throwable throwable) {
+        Set<String> typeTokens = new LinkedHashSet<>();
+        String registryLocation = null;
+        Throwable current = throwable;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null) {
+                Matcher typeMatcher = TYPE_TOKEN_PATTERN.matcher(message);
+                while (typeMatcher.find()) {
+                    addTypeToken(typeTokens, typeMatcher.group(1));
+                }
+
+                if (registryLocation == null) {
+                    Matcher locationMatcher = REGISTRY_LOCATION_PATTERN.matcher(message);
+                    if (locationMatcher.find()) {
+                        registryLocation = locationMatcher.group(1);
+                    }
+                }
+            }
+
+            for (StackTraceElement frame : current.getStackTrace()) {
+                if ("serialize".equals(frame.getMethodName())) {
+                    addTypeToken(typeTokens, frame.getClassName());
+                }
+            }
+
+            current = current.getCause();
+        }
+
+        return new FailureContext(typeTokens, registryLocation);
+    }
+
+    private static void addTypeToken(Set<String> typeTokens, String token) {
+        String normalizedToken = normalizeTypeToken(token);
+        if (normalizedToken != null) {
+            typeTokens.add(normalizedToken);
+        }
+    }
+
+    private static String normalizeTypeToken(String token) {
+        if (token == null) {
+            return null;
+        }
+
+        String normalized = token.trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+
+        int dotIndex = normalized.lastIndexOf('.');
+        if (dotIndex >= 0 && dotIndex + 1 < normalized.length()) {
+            normalized = normalized.substring(dotIndex + 1);
+        }
+
+        int dollarIndex = normalized.lastIndexOf('$');
+        if (dollarIndex >= 0 && dollarIndex + 1 < normalized.length()) {
+            normalized = normalized.substring(dollarIndex + 1);
+        }
+
+        StringBuilder safeToken = new StringBuilder(normalized.length());
+        for (int i = 0; i < normalized.length(); i++) {
+            char currentChar = normalized.charAt(i);
+            if ((currentChar >= 'A' && currentChar <= 'Z') || (currentChar >= 'a' && currentChar <= 'z') || (currentChar >= '0' && currentChar <= '9') || currentChar == '_') {
+                safeToken.append(currentChar);
             }
         }
 
-        return result;
+        if (safeToken.length() == 0) {
+            return null;
+        }
+
+        return safeToken.toString().toLowerCase(Locale.ROOT);
+    }
+
+    private static boolean isProblematicType(Class<?> valueType, Set<String> problematicTypes) {
+        String typeToken = normalizeTypeToken(valueType.getSimpleName());
+        if (typeToken == null) {
+            return false;
+        }
+
+        for (String problematicType : problematicTypes) {
+            if (typeToken.equals(problematicType) || typeToken.startsWith(problematicType) || problematicType.startsWith(typeToken)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static SanitizationResult sanitizeByteData(Object data, Set<String> problematicTypes) {
+        if (data == null) {
+            return new SanitizationResult(null, false);
+        }
+
+        if (isProblematicType(data.getClass(), problematicTypes)) {
+            return new SanitizationResult(UNSERIALIZABLE_VALUE, true);
+        }
+
+        if (data instanceof Map<?, ?>) {
+            Map<?, ?> sourceMap = (Map<?, ?>) data;
+            Map<Object, Object> sanitizedMap = new LinkedHashMap<>();
+            boolean modified = false;
+            for (Map.Entry<?, ?> entry : sourceMap.entrySet()) {
+                SanitizationResult sanitizedKey = sanitizeByteData(entry.getKey(), problematicTypes);
+                SanitizationResult sanitizedValue = sanitizeByteData(entry.getValue(), problematicTypes);
+                if (sanitizedKey.value == UNSERIALIZABLE_VALUE || sanitizedValue.value == UNSERIALIZABLE_VALUE) {
+                    modified = true;
+                    continue;
+                }
+
+                modified |= sanitizedKey.modified || sanitizedValue.modified;
+                sanitizedMap.put(sanitizedKey.value, sanitizedValue.value);
+            }
+
+            if (!modified) {
+                return new SanitizationResult(data, false);
+            }
+
+            return new SanitizationResult(sanitizedMap, true);
+        }
+
+        if (data instanceof List<?>) {
+            List<?> sourceList = (List<?>) data;
+            List<Object> sanitizedList = new ArrayList<>(sourceList.size());
+            boolean modified = false;
+            for (Object value : sourceList) {
+                SanitizationResult sanitizedValue = sanitizeByteData(value, problematicTypes);
+                if (sanitizedValue.value == UNSERIALIZABLE_VALUE) {
+                    sanitizedList.add(null);
+                    modified = true;
+                }
+                else {
+                    sanitizedList.add(sanitizedValue.value);
+                    modified |= sanitizedValue.modified;
+                }
+            }
+
+            if (!modified) {
+                return new SanitizationResult(data, false);
+            }
+
+            return new SanitizationResult(sanitizedList, true);
+        }
+
+        if (data.getClass().isArray()) {
+            Class<?> componentType = data.getClass().getComponentType();
+            if (componentType.isPrimitive()) {
+                return new SanitizationResult(data, false);
+            }
+
+            int length = Array.getLength(data);
+            Object sanitizedArray = Array.newInstance(componentType, length);
+            boolean modified = false;
+            for (int index = 0; index < length; index++) {
+                SanitizationResult sanitizedValue = sanitizeByteData(Array.get(data, index), problematicTypes);
+                if (sanitizedValue.value == UNSERIALIZABLE_VALUE) {
+                    Array.set(sanitizedArray, index, null);
+                    modified = true;
+                }
+                else {
+                    Array.set(sanitizedArray, index, sanitizedValue.value);
+                    modified |= sanitizedValue.modified;
+                }
+            }
+
+            if (!modified) {
+                return new SanitizationResult(data, false);
+            }
+
+            return new SanitizationResult(sanitizedArray, true);
+        }
+
+        return new SanitizationResult(data, false);
+    }
+
+    private static void logSanitizedMetadata(Set<String> problematicTypes, String registryLocation) {
+        StringBuilder message = new StringBuilder("CoreProtect sanitized unsupported metadata during byte serialization (types: ");
+        message.append(String.join(", ", problematicTypes));
+        if (registryLocation != null) {
+            message.append(", missing key: ").append(registryLocation);
+        }
+        message.append(").");
+        LOGGER.warning(message.toString());
     }
 
     public static ItemMeta deserializeItemMeta(Class<? extends ItemMeta> itemMetaClass, Map<String, Object> args) {
@@ -364,22 +670,27 @@ public class ItemUtils {
             org.bukkit.configuration.serialization.DelegateDeserialization delegate = itemMetaClass.getAnnotation(org.bukkit.configuration.serialization.DelegateDeserialization.class);
             return (ItemMeta) org.bukkit.configuration.serialization.ConfigurationSerialization.deserializeObject(args, delegate.value());
         }
-        catch (Exception e) { // only display exception on development branch
-            if (!ConfigHandler.EDITION_BRANCH.contains("-dev")) {
-                e.printStackTrace();
-            }
+        catch (Exception e) { // only print exception on development branch
+            ErrorReporter.report(e, ConfigHandler.EDITION_BRANCH.contains("-dev"));
         }
 
         return null;
     }
-    
-    public static String getEnchantments(byte[] metadata, int type, int amount) {
+
+    public static ItemStack getItemStack(byte[] metadata, int type, int amount) {
         if (metadata == null) {
-            return "";
+            return null;
         }
 
         ItemStack item = new ItemStack(MaterialUtils.getType(type), amount);
         item = (ItemStack) net.coreprotect.database.rollback.Rollback.populateItemStack(item, metadata)[2];
+        return item;
+    }
+
+    public static String getEnchantments(byte[] metadata, int type, int amount) {
+        var item = getItemStack(metadata, type, amount);
+        if (item == null) return "";
+
         String displayName = item.hasItemMeta() && item.getItemMeta().hasDisplayName() ? item.getItemMeta().getDisplayName() : "";
         StringBuilder message = new StringBuilder(Color.ITALIC + displayName + Color.GREY);
 
@@ -401,7 +712,7 @@ public class ItemUtils {
 
         return message.toString();
     }
-    
+
     public static Map<Integer, Object> serializeItemStackLegacy(ItemStack itemStack, String faceData, int slot) {
         Map<Integer, Object> result = new HashMap<>();
         Map<String, Object> itemMap = serializeItemStack(itemStack, faceData, slot);
@@ -456,4 +767,4 @@ public class ItemUtils {
 
         return result;
     }
-} 
+}

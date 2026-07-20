@@ -19,6 +19,7 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
+import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
@@ -26,14 +27,21 @@ import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.paper.listener.BlockPreDispenseListener;
 import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public final class BlockDispenseListener extends Queue implements Listener {
+
+    private static final int DISPENSER_LIQUID_DUPLICATE_THRESHOLD = 256;
+    private static final int DISPENSER_LIQUID_DUPLICATE_WINDOW_SECONDS = 1200;
 
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onBlockDispense(BlockDispenseEvent event) {
         Block block = event.getBlock();
         World world = block.getWorld();
-        if (!event.isCancelled() && Config.getConfig(world).BLOCK_PLACE) {
+        Config config = Config.getConfig(world);
+        if (!event.isCancelled() && config.BLOCK_PLACE) {
             BlockData blockData = block.getBlockData();
             ItemStack item = event.getItem();
             if (item != null && blockData instanceof Dispenser) {
@@ -58,21 +66,20 @@ public final class BlockDispenseListener extends Queue implements Listener {
                         forceItem = true; // droppers always drop items
                     }
 
-                    ItemStack[] inventory = ((InventoryHolder) block.getState()).getInventory().getStorageContents();
+                    BlockState dispenserState = block.getState();
+                    ItemStack[] inventory = ((InventoryHolder) dispenserState).getInventory().getStorageContents();
                     if (forceItem) {
                         inventory = Arrays.copyOf(inventory, inventory.length + 1);
                         inventory[inventory.length - 1] = item;
                     }
-                    InventoryChangeListener.inventoryTransaction(user, block.getLocation(), inventory);
+                    InventoryChangeListener.inventoryTransaction(user, dispenserState, inventory);
                 }
 
                 if (material.equals(Material.WATER_BUCKET)) {
                     type = Material.WATER;
-                    user = "#water";
                 }
                 else if (material.equals(Material.LAVA_BUCKET)) {
                     type = Material.LAVA;
-                    user = "#lava";
                 }
                 else if (material.equals(Material.FLINT_AND_STEEL)) {
                     type = Material.FIRE;
@@ -83,44 +90,100 @@ public final class BlockDispenseListener extends Queue implements Listener {
                 }
 
                 if (!dispenseSuccess && material == Material.BONE_MEAL) {
-                    CacheHandler.redstoneCache.put(newBlock.getLocation(), new Object[] { System.currentTimeMillis(), user });
+                    String key = CacheHandler.locationKey(newBlock.getLocation());
+                    if (!key.isEmpty()) {
+                        CacheHandler.redstoneCache.put(key, new Object[] { System.currentTimeMillis(), user });
+                    }
                 }
 
-                if (type == Material.FIRE && (!Config.getConfig(world).BLOCK_IGNITE || !(newBlockData instanceof Lightable))) {
+                if (type == Material.FIRE && (!config.BLOCK_IGNITE || !(newBlockData instanceof Lightable))) {
                     return;
                 }
-                else if (type != Material.FIRE && (!Config.getConfig(world).BUCKETS || (!Config.getConfig(world).WATER_FLOW && type.equals(Material.WATER)) || (!Config.getConfig(world).LAVA_FLOW && type.equals(Material.LAVA)))) {
+                else if (type != Material.FIRE && (!config.BUCKETS || (!config.WATER_FLOW && type.equals(Material.WATER)) || (!config.LAVA_FLOW && type.equals(Material.LAVA)))) {
                     return;
                 }
 
-                if (!type.equals(Material.AIR) || !newBlock.getType().equals(Material.AIR)) {
-                    if (type == Material.FIRE) { // lit a lightable block
-                        type = newBlock.getType();
-                        if (BlockGroup.LIGHTABLES.contains(type)) {
-                            Lightable lightable = (Lightable) newBlockData;
-                            lightable.setLit(true);
+                if (type == Material.FIRE) { // lit a lightable block
+                    type = newBlock.getType();
+                    if (BlockGroup.LIGHTABLES.contains(type)) {
+                        Lightable lightable = (Lightable) newBlockData;
+                        lightable.setLit(true);
 
-                            queueBlockPlace(user, newBlock.getState(), newBlock.getType(), newBlock.getState(), type, -1, 0, newBlockData.getAsString());
-                        }
+                        queueBlockPlace(user, newBlock.getState(), newBlock.getType(), newBlock.getState(), type, -1, 0, newBlockData.getAsString());
                     }
-                    else if (dispenseRelative) {
-                        BlockState blockState = newBlock.getState();
-                        if (type.equals(Material.WATER)) {
-                            if (newBlockData instanceof Waterlogged) {
-                                blockState = null;
-                            }
-                        }
-
-                        if (!type.equals(Material.AIR)) {
-                            queueBlockPlace(user, newBlock.getState(), newBlock.getType(), blockState, type, 1, 1, null);
-                        }
-                        else {
-                            Queue.queueBlockBreak(user, newBlock.getState(), newBlock.getType(), newBlock.getBlockData().getAsString(), 0);
-                        }
+                }
+                else if (dispenseRelative && !type.equals(Material.AIR)) {
+                    BlockState blockState = newBlock.getState();
+                    if (config.DUPLICATE_SUPPRESSION && shouldSuppressDispenseLiquidDuplicate(user, newBlock, type)) {
+                        return;
                     }
+                    queueBlockPlaceValidate(user, blockState, newBlock, blockState, type, 1, 1, null, 0);
+                }
+                else if (dispenseRelative && material == Material.BUCKET) {
+                    BlockState blockState = newBlock.getState();
+                    if (config.DUPLICATE_SUPPRESSION && shouldSuppressDispenseLiquidDuplicate(user, newBlock, type)) {
+                        return;
+                    }
+                    queueBucketRemovalValidate(user, newBlock, blockState);
                 }
             }
         }
+    }
+
+    private static void queueBucketRemovalValidate(String user, Block block, BlockState blockState) {
+        Material originalType = blockState.getType();
+        BlockData originalBlockData = blockState.getBlockData();
+        String blockData = originalBlockData.getAsString();
+        boolean waterlogged = originalBlockData instanceof Waterlogged && ((Waterlogged) originalBlockData).isWaterlogged();
+
+        Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
+            try {
+                Material currentType = block.getType();
+                Material removedType = originalType;
+                boolean removed = !BlockUtils.isAir(originalType) && BlockUtils.isAir(currentType);
+
+                if (waterlogged) {
+                    BlockData currentBlockData = block.getBlockData();
+                    removed = BlockUtils.isAir(currentType) || (currentType == originalType && currentBlockData instanceof Waterlogged && !((Waterlogged) currentBlockData).isWaterlogged());
+                    removedType = Material.WATER;
+                }
+
+                if (removed) {
+                    Queue.queueBlockBreak(user, blockState, removedType, blockData, 0);
+                }
+            }
+            catch (Exception e) {
+                ErrorReporter.report(e);
+            }
+        }, block.getLocation(), 0);
+    }
+
+    private boolean shouldSuppressDispenseLiquidDuplicate(String user, Block targetBlock, Material newType) {
+        Material oldType = targetBlock.getType();
+        boolean placeLiquid = ("#water".equals(user) || "#lava".equals(user) || "#dispenser".equals(user)) && (newType == Material.WATER || newType == Material.LAVA);
+        boolean removeLiquid = "#dispenser".equals(user) && newType == Material.AIR && (oldType == Material.WATER || oldType == Material.LAVA);
+        if (!placeLiquid && !removeLiquid) {
+            return false;
+        }
+
+        if (!isLiquidToggleType(oldType) || !isLiquidToggleType(newType) || oldType == newType) {
+            return false;
+        }
+
+        String left = oldType.name();
+        String right = newType.name();
+        if (left.compareTo(right) > 0) {
+            String swap = left;
+            left = right;
+            right = swap;
+        }
+
+        String signature = targetBlock.getWorld().getUID().toString() + "." + targetBlock.getX() + "." + targetBlock.getY() + "." + targetBlock.getZ() + ".#dispense-liquid." + left + "<>" + right;
+        return CacheHandler.shouldSuppressRepeat(CacheHandler.flowDuplicateCache, signature, DISPENSER_LIQUID_DUPLICATE_THRESHOLD, DISPENSER_LIQUID_DUPLICATE_WINDOW_SECONDS);
+    }
+
+    private boolean isLiquidToggleType(Material type) {
+        return type == Material.AIR || type == Material.WATER || type == Material.LAVA;
     }
 
 }

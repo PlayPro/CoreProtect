@@ -10,25 +10,47 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.EntityType;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.CreatureSpawnEvent;
+import org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason;
 import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.block.BlockUtil;
+import net.coreprotect.listener.player.SpawnEggUseListener;
+import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.EntityUtils;
 
 public final class CreatureSpawnListener extends Queue implements Listener {
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onCreatureSpawn(CreatureSpawnEvent event) {
-        if (event.isCancelled() || !event.getEntityType().equals(EntityType.ARMOR_STAND)) {
+        World world = event.getEntity().getWorld();
+        if (Config.getConfig(world).ENTITY_SPAWNS) {
+            String user = null;
+            if (event.getSpawnReason() == SpawnReason.SPAWNER_EGG) {
+                user = SpawnEggUseListener.consumeUser(event.getEntity());
+            }
+            else if (event.getSpawnReason() == SpawnReason.DISPENSE_EGG) {
+                user = "#dispenser";
+            }
+
+            if (user != null && !EntitySpawnTracking.isTracked(event.getEntity())) {
+                EntitySpawnTracking.track(event.getEntity());
+                Queue.queueEntitySpawnLog(user, event.getEntity().getUniqueId(), event.getEntityType(), event.getEntity().getLocation());
+            }
+        }
+        if (Config.getConfig(world).PLAYER_INTERACTIONS) {
+            EntitySpawnTracking.seedOrigin(event.getEntity());
+        }
+
+        if (!event.getEntityType().equals(EntityType.ARMOR_STAND)) {
             return;
         }
 
-        World world = event.getEntity().getWorld();
         if (!Config.getConfig(world).BLOCK_PLACE) {
             return;
         }

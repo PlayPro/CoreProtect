@@ -16,6 +16,10 @@ public class Scheduler {
     }
 
     public static void scheduleSyncDelayedTask(CoreProtect plugin, Runnable task, Object regionData, int delay) {
+        scheduleSyncDelayedTask(plugin, task, null, regionData, delay);
+    }
+
+    public static void scheduleSyncDelayedTask(CoreProtect plugin, Runnable task, Runnable retiredTask, Object regionData, int delay) {
         if (ConfigHandler.isFolia) {
             if (regionData instanceof Location) {
                 Location location = (Location) regionData;
@@ -29,10 +33,10 @@ public class Scheduler {
             else if (regionData instanceof Entity) {
                 Entity entity = (Entity) regionData;
                 if (delay == 0) {
-                    entity.getScheduler().run(plugin, value -> task.run(), task);
+                    entity.getScheduler().run(plugin, value -> task.run(), retiredTask);
                 }
                 else {
-                    entity.getScheduler().runDelayed(plugin, value -> task.run(), task, delay);
+                    entity.getScheduler().runDelayed(plugin, value -> task.run(), retiredTask, delay);
                 }
             }
             else {
@@ -62,7 +66,7 @@ public class Scheduler {
             }
             else if (regionData instanceof Entity) {
                 Entity entity = (Entity) regionData;
-                return entity.getScheduler().runAtFixedRate(plugin, value -> task.run(), task, delay, period);
+                return entity.getScheduler().runAtFixedRate(plugin, value -> task.run(), null, delay, period);
             }
             else {
                 return plugin.getServer().getGlobalRegionScheduler().runAtFixedRate(plugin, value -> task.run(), delay, period);

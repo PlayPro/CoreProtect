@@ -21,6 +21,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.VersionUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class Patch {
 
@@ -52,7 +53,7 @@ public class Patch {
     public static Integer[] getDatabaseVersion(Connection connection, boolean lastVersion) {
         Integer[] last_version = new Integer[] { 0, 0, 0 };
         try {
-            String query = "SELECT version FROM " + ConfigHandler.prefix + "version ORDER BY rowid " + (lastVersion ? "DESC" : "ASC") + " LIMIT 0, 1";
+            String query = "SELECT version FROM " + ConfigHandler.prefix + "version ORDER BY rowid " + (lastVersion ? "DESC" : "ASC") + " LIMIT 1 OFFSET 0";
             Statement statement = connection.createStatement();
             ResultSet rs = statement.executeQuery(query);
             while (rs.next()) {
@@ -83,19 +84,22 @@ public class Patch {
             statement.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return last_version;
     }
 
-    private static List<String> getPatches() {
+    private static List<String> getPatches() throws Exception {
+        File pluginFile = new File(CoreProtect.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+        return getPatches(pluginFile);
+    }
+
+    static List<String> getPatches(File pluginFile) throws Exception {
         List<String> patches = new ArrayList<>();
 
-        try {
-            File pluginFile = new File(CoreProtect.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-            if (pluginFile.getPath().endsWith(".jar")) {
-                JarInputStream jarInputStream = new JarInputStream(new FileInputStream(pluginFile));
+        if (pluginFile.getPath().endsWith(".jar")) {
+            try (JarInputStream jarInputStream = new JarInputStream(new FileInputStream(pluginFile))) {
                 while (true) {
                     JarEntry jarEntry = jarInputStream.getNextJarEntry();
                     if (jarEntry == null) {
@@ -103,47 +107,44 @@ public class Patch {
                     }
                     String className = jarEntry.getName();
                     if (className.startsWith("net/coreprotect/patch/script/__") && className.endsWith(".class")) {
-                        Class<?> patchClass = Class.forName(className.substring(0, className.length() - 6).replaceAll("/", "."));
-                        String patchVersion = getClassVersion(patchClass.getName());
+                        String patchVersion = getClassVersion(className.substring(0, className.length() - 6).replace('/', '.'));
                         if (!VersionUtils.newVersion(VersionUtils.getInternalPluginVersion(), patchVersion)) {
                             patches.add(patchVersion);
                         }
                     }
                 }
-                jarInputStream.close();
             }
+        }
 
-            Collections.sort(patches, (o1, o2) -> {
-                if (VersionUtils.newVersion(o1, o2)) {
-                    return -1;
-                }
-                else if (VersionUtils.newVersion(o2, o1)) {
-                    return 1;
-                }
-                return 0;
-            });
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-        }
+        Collections.sort(patches, (o1, o2) -> {
+            if (VersionUtils.newVersion(o1, o2)) {
+                return -1;
+            }
+            else if (VersionUtils.newVersion(o2, o1)) {
+                return 1;
+            }
+            return 0;
+        });
 
         return patches;
     }
 
     public static void processConsumer() {
+        boolean wasRunning = ConfigHandler.serverRunning;
         try {
             Chat.console(Phrase.build(Phrase.PATCH_PROCESSING));
-            boolean isRunning = ConfigHandler.serverRunning;
             ConfigHandler.serverRunning = true;
             Consumer.isPaused = false;
             Thread.sleep(1000);
             while (Consumer.isPaused) {
                 Thread.sleep(500);
             }
-            ConfigHandler.serverRunning = isRunning;
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
+        }
+        finally {
+            ConfigHandler.serverRunning = wasRunning && ConfigHandler.serverRunning && !ConfigHandler.shutdownDrainRunning;
         }
     }
 
@@ -181,13 +182,13 @@ public class Patch {
 
                         if (continuePatch()) {
                             Class<?> patchClass = Class.forName("net.coreprotect.patch.script.__" + patchData.replaceAll("\\.", "_"));
-                            Method patchMethod = patchClass.getDeclaredMethod("patch", Statement.class);
+                            Method patchMethod = getPatchMethod(patchClass);
                             patchMethod.setAccessible(true);
                             success = (Boolean) patchMethod.invoke(null, statement);
                         }
                     }
                     catch (Exception e) {
-                        e.printStackTrace();
+                        ErrorReporter.report(e);
                     }
 
                     if (success) {
@@ -211,18 +212,17 @@ public class Patch {
             }
 
             // mark as being up to date
-            int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
             if (result >= 0) {
-                statement.executeUpdate("INSERT INTO " + ConfigHandler.prefix + "version (time,version) VALUES ('" + unixtimestamp + "', '" + version[0] + "." + version[1] + "." + version[2] + "')");
+                Database.recordDatabaseVersion(statement, version[0] + "." + version[1] + "." + version[2]);
             }
             else if (patched) {
-                statement.executeUpdate("INSERT INTO " + ConfigHandler.prefix + "version (time,version) VALUES ('" + unixtimestamp + "', '" + newVersion[0] + "." + newVersion[1] + "." + newVersion[2] + "')");
+                Database.recordDatabaseVersion(statement, newVersion[0] + "." + newVersion[1] + "." + newVersion[2]);
             }
 
             statement.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         patching = false;
@@ -273,7 +273,7 @@ public class Patch {
                             }
                         }
                         catch (Exception e) {
-                            e.printStackTrace();
+                            ErrorReporter.report(e);
                         }
                     }
                 }
@@ -298,7 +298,7 @@ public class Patch {
                             }
                         }
                         catch (Exception e) {
-                            e.printStackTrace();
+                            ErrorReporter.report(e);
                         }
                     }
                 }
@@ -306,8 +306,7 @@ public class Patch {
                 (new Thread(new patchStatus())).start();
             }
             else if (lastVersion[0] == 0) {
-                int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
-                statement.executeUpdate("INSERT INTO " + ConfigHandler.prefix + "version (time,version) VALUES ('" + unixtimestamp + "', '" + currentVersion[0] + "." + (ConfigHandler.EDITION_BRANCH.contains("-dev") ? (currentVersion[1] - 1) : currentVersion[1]) + "." + currentVersion[2] + "')");
+                Database.recordDatabaseVersion(statement, currentVersion[0] + "." + (ConfigHandler.EDITION_BRANCH.contains("-dev") ? (currentVersion[1] - 1) : currentVersion[1]) + "." + currentVersion[2]);
             }
             else {
                 currentVersion[2] = 0;
@@ -319,9 +318,16 @@ public class Patch {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
+            return false;
         }
 
         return true;
+    }
+
+    private static Method getPatchMethod(Class<?> patchClass) throws NoSuchMethodException {
+        String methodName = ConfigHandler.databaseType.isClickHouse() ? "patchClickHouse"
+                : ConfigHandler.databaseType.isDuckDB() ? "patchDuckDB" : "patch";
+        return patchClass.getDeclaredMethod(methodName, Statement.class);
     }
 }

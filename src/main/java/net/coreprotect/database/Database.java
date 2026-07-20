@@ -8,10 +8,15 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -22,12 +27,18 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.consumer.process.Process;
+import net.coreprotect.database.clickhouse.ClickHouseConsumerWriteBatch;
+import net.coreprotect.database.clickhouse.ClickHouseDatabase;
+import net.coreprotect.database.clickhouse.ClickHouseJdbcConfig;
 import net.coreprotect.language.Phrase;
+import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.model.rollback.RollbackUpdateTargets;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.ItemUtils;
-import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.VersionUtils;
 
 public class Database extends Queue {
 
@@ -45,75 +56,257 @@ public class Database extends Queue {
     public static final int ENTITY_MAP = 11;
     public static final int BLOCKDATA = 12;
     public static final int ITEM = 13;
+    public static final int ENTITY_SPAWN = 14;
+    public static final int ENTITY_CONTAINER = 15;
+    public static final int ENTITY_INTERACTION = 16;
+
+    public static final int DATABASE_LOCK_INACTIVE = 0;
+    public static final int DATABASE_LOCK_ACTIVE = 1;
+    public static final int DATABASE_LOCK_MIGRATION_INCOMPLETE = 2;
+
+    private static final int ROLLED_BACK_UPDATE_BATCH_SIZE = 1000;
+    private static final int DUCKDB_ROLLED_BACK_UPDATE_BATCH_SIZE = 5000;
+    private static final long CLICKHOUSE_CONNECTION_ERROR_INTERVAL_NANOS = 30_000_000_000L;
 
     private static final Map<Integer, String> SQL_QUERIES = new HashMap<>();
+    private static final Set<Connection> ACTIVE_CONNECTIONS = Collections.newSetFromMap(new IdentityHashMap<>());
+    private static final ThreadLocal<Boolean> TRANSACTION_ROLLBACK_ONLY = ThreadLocal.withInitial(() -> false);
+    private static final ThreadLocal<Boolean> TRANSACTION_ROLLBACK_ACKNOWLEDGED = ThreadLocal.withInitial(() -> false);
+    private static volatile ClickHouseDatabase clickHouseDatabase;
+    private static long nextClickHouseConnectionErrorReport;
 
     static {
         // Initialize SQL queries for different table types
-        SQL_QUERIES.put(SIGN, "INSERT INTO %sprefix%sign (time, user, wid, x, y, z, action, color, color_secondary, data, waxed, face, line_1, line_2, line_3, line_4, line_5, line_6, line_7, line_8) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        SQL_QUERIES.put(BLOCK, "INSERT INTO %sprefix%block (time, user, wid, x, y, z, type, data, meta, blockdata, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        SQL_QUERIES.put(SIGN, "INSERT INTO %sprefix%sign (time, %user%, wid, x, y, z, action, color, color_secondary, data, waxed, face, line_1, line_2, line_3, line_4, line_5, line_6, line_7, line_8) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        SQL_QUERIES.put(BLOCK, "INSERT INTO %sprefix%block (time, %user%, wid, x, y, z, type, data, meta, blockdata, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         SQL_QUERIES.put(SKULL, "INSERT INTO %sprefix%skull (time, owner, skin) VALUES (?, ?, ?)");
-        SQL_QUERIES.put(CONTAINER, "INSERT INTO %sprefix%container (time, user, wid, x, y, z, type, data, amount, metadata, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        SQL_QUERIES.put(ITEM, "INSERT INTO %sprefix%item (time, user, wid, x, y, z, type, data, amount, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        SQL_QUERIES.put(CONTAINER, "INSERT INTO %sprefix%container (time, %user%, wid, x, y, z, type, data, amount, metadata, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        SQL_QUERIES.put(ITEM, "INSERT INTO %sprefix%item (time, %user%, wid, x, y, z, type, data, amount, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         SQL_QUERIES.put(WORLD, "INSERT INTO %sprefix%world (id, world) VALUES (?, ?)");
-        SQL_QUERIES.put(CHAT, "INSERT INTO %sprefix%chat (time, user, wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        SQL_QUERIES.put(COMMAND, "INSERT INTO %sprefix%command (time, user, wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        SQL_QUERIES.put(SESSION, "INSERT INTO %sprefix%session (time, user, wid, x, y, z, action) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        SQL_QUERIES.put(CHAT, "INSERT INTO %sprefix%chat (time, %user%, wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        SQL_QUERIES.put(COMMAND, "INSERT INTO %sprefix%command (time, %user%, wid, x, y, z, message) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        SQL_QUERIES.put(SESSION, "INSERT INTO %sprefix%session (time, %user%, wid, x, y, z, action) VALUES (?, ?, ?, ?, ?, ?, ?)");
         SQL_QUERIES.put(ENTITY, "INSERT INTO %sprefix%entity (time, data) VALUES (?, ?)");
         SQL_QUERIES.put(MATERIAL, "INSERT INTO %sprefix%material_map (id, material) VALUES (?, ?)");
         SQL_QUERIES.put(ART, "INSERT INTO %sprefix%art_map (id, art) VALUES (?, ?)");
         SQL_QUERIES.put(ENTITY_MAP, "INSERT INTO %sprefix%entity_map (id, entity) VALUES (?, ?)");
         SQL_QUERIES.put(BLOCKDATA, "INSERT INTO %sprefix%blockdata_map (id, data) VALUES (?, ?)");
+        SQL_QUERIES.put(ENTITY_SPAWN, "INSERT INTO %sprefix%entity_spawn (time, uuid, wid, current_wid, origin_x, origin_y, origin_z, x, y, z, yaw, pitch, data, removed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        SQL_QUERIES.put(ENTITY_CONTAINER, "INSERT INTO %sprefix%entity_container (time, %user%, entity_spawn_rowid, wid, x, y, z, type, data, amount, metadata, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        SQL_QUERIES.put(ENTITY_INTERACTION, "INSERT INTO %sprefix%entity_interaction (time, %user%, entity_spawn_rowid, wid, x, y, z, type, action, metadata, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     }
 
-    public static void beginTransaction(Statement statement, boolean isMySQL) {
-        Consumer.transacting = true;
+    public static void beginTransaction(Statement statement, boolean isMySQL) throws SQLException {
+        beginTransaction(statement, isMySQL ? DatabaseType.MYSQL : DatabaseType.SQLITE);
+    }
 
+    public static void beginTransaction(Statement statement, DatabaseType databaseType) throws SQLException {
+        rejectClickHouseTransaction(databaseType);
+        Consumer.transacting = true;
+        TRANSACTION_ROLLBACK_ONLY.set(false);
+        TRANSACTION_ROLLBACK_ACKNOWLEDGED.set(false);
+        boolean started = false;
         try {
-            if (isMySQL) {
+            if (databaseType.isDuckDB()) {
+                statement.getConnection().setAutoCommit(false);
+                try (ResultSet ignored = statement.executeQuery("SELECT 1")) {
+                    // DuckDB starts JDBC transactions lazily.
+                }
+            }
+            else if (databaseType.isMySQL()) {
                 statement.executeUpdate("START TRANSACTION");
             }
             else {
                 statement.executeUpdate("BEGIN TRANSACTION");
             }
+            started = true;
         }
-        catch (Exception e) {
-            e.printStackTrace();
+        finally {
+            if (!started) {
+                Consumer.transacting = false;
+                Consumer.interrupt = false;
+                TRANSACTION_ROLLBACK_ONLY.remove();
+                TRANSACTION_ROLLBACK_ACKNOWLEDGED.remove();
+            }
         }
     }
 
     public static void commitTransaction(Statement statement, boolean isMySQL) throws Exception {
+        commitTransactionChecked(statement, isMySQL ? DatabaseType.MYSQL : DatabaseType.SQLITE);
+    }
+
+    public static boolean commitTransactionChecked(Statement statement, boolean isMySQL) throws Exception {
+        return commitTransactionChecked(statement, isMySQL ? DatabaseType.MYSQL : DatabaseType.SQLITE);
+    }
+
+    public static boolean commitTransactionChecked(Statement statement, DatabaseType databaseType) throws Exception {
+        return commitTransactionChecked(statement, databaseType, null);
+    }
+
+    public static boolean commitTransactionChecked(Statement statement, DatabaseType databaseType, Runnable onCommitAttempt) throws Exception {
+        rejectClickHouseTransaction(databaseType);
+        if (TRANSACTION_ROLLBACK_ONLY.get()) {
+            if (databaseType.isDuckDB() && TRANSACTION_ROLLBACK_ACKNOWLEDGED.get()) {
+                return rollbackTransaction(statement, databaseType);
+            }
+            return false;
+        }
+
         int count = 0;
 
         while (true) {
             try {
-                if (isMySQL) {
-                    statement.executeUpdate("COMMIT");
+                if (databaseType.isDuckDB()) {
+                    Connection connection = statement.getConnection();
+                    if (onCommitAttempt != null) {
+                        onCommitAttempt.run();
+                    }
+                    connection.commit();
+                    try {
+                        connection.setAutoCommit(true);
+                    }
+                    catch (Exception cleanupException) {
+                        ErrorReporter.report(cleanupException);
+                        try {
+                            connection.close();
+                        }
+                        catch (Exception closeException) {
+                            ErrorReporter.report(closeException);
+                        }
+                    }
                 }
                 else {
-                    statement.executeUpdate("COMMIT TRANSACTION");
+                    if (onCommitAttempt != null) {
+                        onCommitAttempt.run();
+                    }
+                    statement.executeUpdate(databaseType.isMySQL() ? "COMMIT" : "COMMIT TRANSACTION");
                 }
+                Consumer.transacting = false;
+                Consumer.interrupt = false;
+                TRANSACTION_ROLLBACK_ONLY.remove();
+                TRANSACTION_ROLLBACK_ACKNOWLEDGED.remove();
+                return true;
             }
             catch (Exception e) {
-                if (e.getMessage().startsWith("[SQLITE_BUSY]") && count < 30) {
+                if (e.getMessage() != null && e.getMessage().startsWith("[SQLITE_BUSY]") && count < 30) {
                     Thread.sleep(1000);
                     count++;
 
                     continue;
                 }
-                else {
-                    e.printStackTrace();
+                ErrorReporter.report(e);
+                Consumer.transacting = false;
+                Consumer.interrupt = false;
+                TRANSACTION_ROLLBACK_ONLY.remove();
+                TRANSACTION_ROLLBACK_ACKNOWLEDGED.remove();
+                return false;
+            }
+        }
+    }
+
+    public static boolean rollbackTransaction(Statement statement, boolean isMySQL) {
+        return rollbackTransaction(statement, isMySQL ? DatabaseType.MYSQL : DatabaseType.SQLITE);
+    }
+
+    public static boolean rollbackTransaction(Statement statement, DatabaseType databaseType) {
+        if (databaseType.isClickHouse()) {
+            throw new UnsupportedOperationException("ClickHouse writes use immutable consumer batches, not JDBC transactions");
+        }
+        boolean rolledBack = false;
+        try {
+            if (databaseType.isDuckDB()) {
+                Connection connection = statement.getConnection();
+                connection.rollback();
+                rolledBack = true;
+                try {
+                    connection.setAutoCommit(true);
+                }
+                catch (Exception cleanupException) {
+                    ErrorReporter.report(cleanupException);
+                    try {
+                        connection.close();
+                    }
+                    catch (Exception closeException) {
+                        ErrorReporter.report(closeException);
+                    }
                 }
             }
-
+            else {
+                statement.executeUpdate(databaseType.isMySQL() ? "ROLLBACK" : "ROLLBACK TRANSACTION");
+                rolledBack = true;
+            }
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+        }
+        finally {
             Consumer.transacting = false;
             Consumer.interrupt = false;
+            TRANSACTION_ROLLBACK_ONLY.remove();
+            TRANSACTION_ROLLBACK_ACKNOWLEDGED.remove();
+        }
+        return rolledBack;
+    }
+
+    public static void acknowledgeRollbackOnlyTransaction() {
+        if (TRANSACTION_ROLLBACK_ONLY.get()) {
+            TRANSACTION_ROLLBACK_ACKNOWLEDGED.set(true);
+        }
+    }
+
+    static boolean isTransactionRollbackOnly() {
+        return TRANSACTION_ROLLBACK_ONLY.get();
+    }
+
+    static boolean isRollbackOnlyTransactionAcknowledged() {
+        return TRANSACTION_ROLLBACK_ONLY.get() && TRANSACTION_ROLLBACK_ACKNOWLEDGED.get();
+    }
+
+    public static void executeSavepoint(Statement statement, String name, SavepointOperation operation) throws Exception {
+        rejectClickHouseTransaction(ConfigHandler.databaseType);
+        if (ConfigHandler.databaseType.isDuckDB()) {
+            try {
+                operation.execute();
+            }
+            catch (Exception e) {
+                TRANSACTION_ROLLBACK_ONLY.set(true);
+                throw e;
+            }
             return;
+        }
+
+        statement.execute("SAVEPOINT " + name);
+        try {
+            operation.execute();
+            statement.execute("RELEASE SAVEPOINT " + name);
+        }
+        catch (Exception e) {
+            try {
+                statement.execute("ROLLBACK TO SAVEPOINT " + name);
+            }
+            catch (Exception rollbackException) {
+                TRANSACTION_ROLLBACK_ONLY.set(true);
+                e.addSuppressed(rollbackException);
+            }
+            try {
+                statement.execute("RELEASE SAVEPOINT " + name);
+            }
+            catch (Exception releaseException) {
+                TRANSACTION_ROLLBACK_ONLY.set(true);
+                e.addSuppressed(releaseException);
+            }
+            throw e;
         }
     }
 
     public static void performCheckpoint(Statement statement, boolean isMySQL) throws SQLException {
         if (!isMySQL) {
+            statement.executeUpdate("PRAGMA wal_checkpoint(TRUNCATE)");
+        }
+    }
+
+    public static void performCheckpoint(Statement statement, DatabaseType databaseType) throws SQLException {
+        if (databaseType.isSQLite()) {
             statement.executeUpdate("PRAGMA wal_checkpoint(TRUNCATE)");
         }
     }
@@ -125,30 +318,42 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
     public static boolean hasReturningKeys() {
-        return (!Config.getGlobal().MYSQL && ConfigHandler.SERVER_VERSION >= 20);
+        return ConfigHandler.databaseType.isDuckDB() || (ConfigHandler.databaseType.isSQLite() && ConfigHandler.SERVER_VERSION >= 20);
+    }
+
+    public static void handleWriteFailure(Exception exception) {
+        if (ConfigHandler.databaseType.isColumnar()) {
+            if (exception instanceof DatabaseWriteException) {
+                throw (DatabaseWriteException) exception;
+            }
+            throw new DatabaseWriteException(exception);
+        }
+        ErrorReporter.report(exception);
     }
 
     public static void containerBreakCheck(String user, Material type, Object container, ItemStack[] contents, Location location) {
-        if (BlockGroup.CONTAINERS.contains(type) && !BlockGroup.SHULKER_BOXES.contains(type)) {
+        if (BlockGroup.CONTAINERS.contains(type)) {
             if (Config.getConfig(location.getWorld()).ITEM_TRANSACTIONS) {
                 try {
                     if (contents == null) {
                         contents = ItemUtils.getContainerContents(type, container, location);
                     }
                     if (contents != null) {
-                        List<ItemStack[]> forceList = new ArrayList<>();
-                        forceList.add(ItemUtils.getContainerState(contents));
-                        ConfigHandler.forceContainer.put(user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ(), forceList);
-                        Queue.queueContainerBreak(user, location, type, contents);
+                        if (BlockGroup.SHULKER_BOXES.contains(type)) {
+                            InventoryChangeListener.flushPendingContainer(location, contents);
+                        }
+                        else {
+                            InventoryChangeListener.queueContainerBreak(user, location, type, contents);
+                        }
                     }
                 }
                 catch (Exception e) {
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                 }
             }
         }
@@ -165,11 +370,18 @@ public class Database extends Queue {
 
     public static Connection getConnection(boolean force, boolean startup, boolean onlyCheckTransacting, int waitTime) {
         Connection connection = null;
+        if (Consumer.isDatabaseReloadBlocked()) {
+            return null;
+        }
+        Consumer.lockDatabaseAccess();
         try {
+            if (Consumer.isDatabaseReloadBlocked()) {
+                return null;
+            }
             if (!force && (ConfigHandler.converterRunning || ConfigHandler.purgeRunning)) {
                 return connection;
             }
-            if (Config.getGlobal().MYSQL) {
+            if (ConfigHandler.databaseType.isMySQL()) {
                 try {
                     connection = ConfigHandler.hikariDataSource.getConnection();
                     ConfigHandler.databaseReachable = true;
@@ -177,8 +389,16 @@ public class Database extends Queue {
                 catch (Exception e) {
                     ConfigHandler.databaseReachable = false;
                     Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.MYSQL_UNAVAILABLE));
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                 }
+            }
+            else if (ConfigHandler.databaseType.isDuckDB()) {
+                connection = DuckDBDatabase.getConnection();
+                ConfigHandler.databaseReachable = true;
+            }
+            else if (ConfigHandler.databaseType.isClickHouse()) {
+                connection = requireClickHouseDatabase().openConnection();
+                ConfigHandler.databaseReachable = true;
             }
             else {
                 if (Consumer.transacting && onlyCheckTransacting) {
@@ -200,42 +420,272 @@ public class Database extends Queue {
 
                 ConfigHandler.databaseReachable = true;
             }
+
+            if (connection != null) {
+                registerConnection(connection);
+            }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            if (ConfigHandler.databaseType.isColumnar()) {
+                ConfigHandler.databaseReachable = false;
+            }
+            if (!ConfigHandler.databaseType.isClickHouse() || shouldReportClickHouseConnectionError()) {
+                ErrorReporter.report(e);
+            }
+        }
+        finally {
+            Consumer.unlockDatabaseAccess();
         }
 
         return connection;
     }
 
-    public static void closeConnection() {
-        try {
-            if (ConfigHandler.hikariDataSource != null) {
-                ConfigHandler.hikariDataSource.close();
-                ConfigHandler.hikariDataSource = null;
+    public static boolean awaitConnectionDrain(long timeoutMillis) throws InterruptedException {
+        long deadline = System.nanoTime() + timeoutMillis * 1_000_000L;
+        while (hasActiveConnections()) {
+            if (System.nanoTime() >= deadline) {
+                return false;
             }
+            Thread.sleep(10L);
         }
-        catch (Exception e) {
-            e.printStackTrace();
+        return true;
+    }
+
+    private static void registerConnection(Connection connection) {
+        synchronized (ACTIVE_CONNECTIONS) {
+            removeClosedConnections(false);
+            ACTIVE_CONNECTIONS.add(connection);
         }
     }
 
-    public static void performUpdate(Statement statement, long id, int rb, int table) {
+    private static boolean hasActiveConnections() {
+        synchronized (ACTIVE_CONNECTIONS) {
+            removeClosedConnections(true);
+            return !ACTIVE_CONNECTIONS.isEmpty();
+        }
+    }
+
+    private static void removeClosedConnections(boolean draining) {
+        Iterator<Connection> iterator = ACTIVE_CONNECTIONS.iterator();
+        while (iterator.hasNext()) {
+            Connection connection = iterator.next();
+            try {
+                if (connection.isClosed()) {
+                    iterator.remove();
+                }
+            }
+            catch (SQLException exception) {
+                if (draining) {
+                    try {
+                        connection.close();
+                    }
+                    catch (SQLException closeException) {
+                        exception.addSuppressed(closeException);
+                    }
+                    iterator.remove();
+                    ErrorReporter.report(exception);
+                }
+            }
+        }
+    }
+
+    private static synchronized boolean shouldReportClickHouseConnectionError() {
+        long now = System.nanoTime();
+        if (now < nextClickHouseConnectionErrorReport) {
+            return false;
+        }
+        nextClickHouseConnectionErrorReport = now + CLICKHOUSE_CONNECTION_ERROR_INTERVAL_NANOS;
+        return true;
+    }
+
+    public static void closeConnection() {
+        if (ConfigHandler.hikariDataSource != null) {
+            try {
+                ConfigHandler.hikariDataSource.close();
+            }
+            catch (Exception e) {
+                ErrorReporter.report(e);
+            }
+            finally {
+                ConfigHandler.hikariDataSource = null;
+            }
+        }
         try {
-            int rolledBack = MaterialUtils.toggleRolledBack(rb, (table == 2 || table == 3 || table == 4)); // co_item, co_container, co_block
-            if (table == 1 || table == 3) {
-                statement.executeUpdate("UPDATE " + ConfigHandler.prefix + "container SET rolled_back='" + rolledBack + "' WHERE rowid='" + id + "'");
+            DuckDBDatabase.close();
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+        }
+        closeClickHouse();
+    }
+
+    public static synchronized void initializeClickHouse(ClickHouseJdbcConfig config, String prefix) throws SQLException {
+        closeClickHouseChecked();
+        ClickHouseDatabase initialized = ClickHouseDatabase.initialize(config, prefix);
+        try {
+            Integer[] version = VersionUtils.getInternalPluginVersion();
+            initialized.ensureCoreData(version[0] + "." + version[1] + "." + version[2]);
+        }
+        catch (SQLException | RuntimeException exception) {
+            try {
+                initialized.close();
             }
-            else if (table == 2) {
-                statement.executeUpdate("UPDATE " + ConfigHandler.prefix + "item SET rolled_back='" + rolledBack + "' WHERE rowid='" + id + "'");
+            catch (SQLException closeException) {
+                exception.addSuppressed(closeException);
             }
-            else {
-                statement.executeUpdate("UPDATE " + ConfigHandler.prefix + "block SET rolled_back='" + rolledBack + "' WHERE rowid='" + id + "'");
+            throw exception;
+        }
+        clickHouseDatabase = initialized;
+        ConfigHandler.databaseTables.clear();
+        ConfigHandler.databaseTables.addAll(DATABASE_TABLES);
+    }
+
+    public static synchronized ClickHouseDatabase detachClickHouseDatabase() throws SQLException {
+        ClickHouseDatabase database = clickHouseDatabase;
+        if (database == null) {
+            throw new SQLException("ClickHouse is not initialized");
+        }
+        clickHouseDatabase = null;
+        return database;
+    }
+
+    public static synchronized void installClickHouseDatabase(ClickHouseDatabase database) throws SQLException {
+        if (database == null) {
+            throw new IllegalArgumentException("ClickHouse database cannot be null");
+        }
+        if (clickHouseDatabase != database) {
+            closeClickHouseChecked();
+            clickHouseDatabase = database;
+        }
+        ConfigHandler.databaseTables.clear();
+        ConfigHandler.databaseTables.addAll(DATABASE_TABLES);
+    }
+
+    public static boolean hasIncompleteMigrationMarker() throws SQLException {
+        Connection connection;
+        if (ConfigHandler.databaseType.isMySQL()) {
+            connection = ConfigHandler.hikariDataSource.getConnection();
+        }
+        else if (ConfigHandler.databaseType.isDuckDB()) {
+            try {
+                connection = DuckDBDatabase.getConnection();
+            }
+            catch (Exception exception) {
+                if (exception instanceof SQLException) {
+                    throw (SQLException) exception;
+                }
+                throw new SQLException("Unable to inspect the DuckDB migration marker", exception);
+            }
+        }
+        else if (ConfigHandler.databaseType.isClickHouse()) {
+            connection = requireClickHouseDatabase().openConnection();
+        }
+        else {
+            connection = DriverManager.getConnection("jdbc:sqlite:" + ConfigHandler.path + ConfigHandler.sqlite);
+        }
+
+        String sql = "SELECT 1 FROM " + ConfigHandler.prefix + "database_lock WHERE rowid=1 AND status=" + DATABASE_LOCK_MIGRATION_INCOMPLETE + " LIMIT 1";
+        try (Connection checkedConnection = connection; Statement statement = checkedConnection.createStatement(); ResultSet resultSet = statement.executeQuery(sql)) {
+            return resultSet.next();
+        }
+    }
+
+    public static ConsumerWriteBatch openConsumerWriteBatch(Connection connection) throws SQLException {
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            return new ClickHouseConsumerWriteBatch(requireClickHouseDatabase(), ConfigHandler.prefix);
+        }
+        return new RelationalConsumerWriteBatch(connection, ConfigHandler.databaseType);
+    }
+
+    public static void recordDatabaseVersion(Statement statement, String version) throws SQLException {
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            requireClickHouseDatabase().updateCoreVersion(version);
+            return;
+        }
+        int timestamp = (int) (System.currentTimeMillis() / 1000L);
+        statement.executeUpdate("INSERT INTO " + ConfigHandler.prefix + "version (time,version) VALUES ('" + timestamp + "', '" + version + "')");
+    }
+
+    public static long purgeClickHouse(long startTime, long endTime, int worldId, List<Integer> blockTypes, boolean optimize) throws SQLException {
+        return requireClickHouseDatabase().purge(startTime, endTime, worldId, blockTypes, optimize);
+    }
+
+    public static void cancelClickHousePurge() {
+        ClickHouseDatabase database = clickHouseDatabase;
+        if (database != null) {
+            database.cancelPurge();
+        }
+    }
+
+    public static void performRolledBackUpdate(Statement statement, int rolledBack, List<Long> rowIds, int table) {
+        String tableName = getRolledBackTableName(table);
+
+        try {
+            int listSize = rowIds.size();
+            int batchSize = getRolledBackUpdateBatchSize();
+            for (int startIndex = 0; startIndex < listSize; startIndex += batchSize) {
+                int endIndex = Math.min(startIndex + batchSize, listSize);
+                StringBuilder query = new StringBuilder("UPDATE " + ConfigHandler.prefix + tableName + " SET rolled_back='" + rolledBack + "' WHERE rowid IN(");
+                for (int index = startIndex; index < endIndex; index++) {
+                    if (index > startIndex) {
+                        query.append(",");
+                    }
+                    query.append(rowIds.get(index).longValue());
+                }
+                query.append(")");
+                statement.executeUpdate(query.toString());
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            handleWriteFailure(e);
         }
+    }
+
+    public static void performRolledBackUpdateChecked(Statement statement, int rolledBack, List<Long> rowIds, int table) throws SQLException {
+        String tableName = getRolledBackTableName(table);
+        int listSize = rowIds.size();
+        int batchSize = getRolledBackUpdateBatchSize();
+        for (int startIndex = 0; startIndex < listSize; startIndex += batchSize) {
+            int endIndex = Math.min(startIndex + batchSize, listSize);
+            StringBuilder rowIdsSql = new StringBuilder();
+            for (int index = startIndex; index < endIndex; index++) {
+                if (index > startIndex) {
+                    rowIdsSql.append(',');
+                }
+                rowIdsSql.append(rowIds.get(index).longValue());
+            }
+
+            String where = "rowid IN(" + rowIdsSql + ")";
+            int expected = endIndex - startIndex;
+            int updated = statement.executeUpdate("UPDATE " + ConfigHandler.prefix + tableName + " SET rolled_back='" + rolledBack + "' WHERE " + where);
+            if (updated == expected) {
+                continue;
+            }
+
+            try (ResultSet resultSet = statement.executeQuery("SELECT COUNT(*) FROM " + ConfigHandler.prefix + tableName + " WHERE " + where + " AND rolled_back='" + rolledBack + "'")) {
+                if (resultSet.next() && resultSet.getInt(1) == expected) {
+                    continue;
+                }
+            }
+            throw new SQLException("Expected " + expected + " rolled-back row updates in " + tableName + ", updated " + updated);
+        }
+    }
+
+    private static int getRolledBackUpdateBatchSize() {
+        return ConfigHandler.databaseType.isDuckDB() ? DUCKDB_ROLLED_BACK_UPDATE_BATCH_SIZE : ROLLED_BACK_UPDATE_BATCH_SIZE;
+    }
+
+    private static String getRolledBackTableName(int table) {
+        if (table == RollbackUpdateTargets.ENTITY_CONTAINER) {
+            return "entity_container";
+        }
+        if (RollbackUpdateTargets.updatesContainerTable(table)) {
+            return "container";
+        }
+        if (RollbackUpdateTargets.updatesItemTable(table)) {
+            return "item";
+        }
+        return "block";
     }
 
     public static PreparedStatement prepareStatement(Connection connection, int type, boolean keys) {
@@ -244,11 +694,12 @@ public class Database extends Queue {
             String query = SQL_QUERIES.get(type);
             if (query != null) {
                 query = query.replace("%sprefix%", ConfigHandler.prefix);
+                query = query.replace("%user%", ConfigHandler.databaseType.getUserColumn());
                 preparedStatement = prepareStatement(connection, query, keys);
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return preparedStatement;
@@ -270,50 +721,59 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return preparedStatement;
     }
 
-    private static void initializeTables(String prefix, Statement statement) {
-        try {
-            if (!Config.getGlobal().MYSQL) {
-                if (!Config.getGlobal().DISABLE_WAL) {
-                    statement.executeUpdate("PRAGMA journal_mode=WAL;");
-                }
-                else {
-                    statement.executeUpdate("PRAGMA journal_mode=DELETE;");
-                }
+    private static void initializeTables(String prefix, Statement statement, DatabaseType databaseType) throws SQLException {
+        if (databaseType.isSQLite()) {
+            if (!Config.getGlobal().DISABLE_WAL) {
+                statement.executeUpdate("PRAGMA journal_mode=WAL;");
             }
-
-            boolean lockInitialized = false;
-            String query = "SELECT rowid as id FROM " + prefix + "database_lock WHERE rowid='1' LIMIT 1";
-            ResultSet rs = statement.executeQuery(query);
-            while (rs.next()) {
-                lockInitialized = true;
-            }
-            rs.close();
-
-            if (!lockInitialized) {
-                int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
-                statement.executeUpdate("INSERT INTO " + prefix + "database_lock (rowid, status, time) VALUES ('1', '0', '" + unixtimestamp + "')");
-                Process.lastLockUpdate = 0;
+            else {
+                statement.executeUpdate("PRAGMA journal_mode=DELETE;");
             }
         }
-        catch (Exception e) {
-            e.printStackTrace();
+
+        boolean lockInitialized = false;
+        String query = "SELECT rowid as id FROM " + prefix + "database_lock WHERE rowid='1' LIMIT 1";
+        try (ResultSet resultSet = statement.executeQuery(query)) {
+            lockInitialized = resultSet.next();
+        }
+
+        if (!lockInitialized) {
+            int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
+            statement.executeUpdate("INSERT INTO " + prefix + "database_lock (rowid, status, time) VALUES ('1', '0', '" + unixtimestamp + "')");
+            Process.lastLockUpdate = 0;
         }
     }
 
-    private static final List<String> DATABASE_TABLES = Arrays.asList("art_map", "block", "chat", "command", "container", "item", "database_lock", "entity", "entity_map", "material_map", "blockdata_map", "session", "sign", "skull", "user", "username_log", "version", "world");
+    static final List<String> DATABASE_TABLES = Arrays.asList("art_map", "block", "chat", "command", "container", "entity_container", "entity_interaction", "item", "database_lock", "entity", "entity_spawn", "entity_map", "material_map", "blockdata_map", "session", "sign", "skull", "user", "username_log", "version", "world");
 
     public static void createDatabaseTables(String prefix, boolean forcePrefix, Connection forceConnection, boolean mySQL, boolean purge) {
+        createDatabaseTables(prefix, forcePrefix, forceConnection, mySQL ? DatabaseType.MYSQL : DatabaseType.SQLITE, purge);
+    }
+
+    public static void createDatabaseTables(String prefix, boolean forcePrefix, Connection forceConnection, DatabaseType databaseType, boolean purge) {
+        if (databaseType.isClickHouse()) {
+            throw new UnsupportedOperationException("ClickHouse schema creation is managed by ClickHouseDatabase");
+        }
         ConfigHandler.databaseTables.clear();
         ConfigHandler.databaseTables.addAll(DATABASE_TABLES);
 
-        if (mySQL) {
+        if (databaseType.isMySQL()) {
             createMySQLTables(prefix, forceConnection, purge);
+        }
+        else if (databaseType.isDuckDB()) {
+            try {
+                DuckDBDatabase.createTables(prefix, forceConnection, purge);
+            }
+            catch (Exception e) {
+                ConfigHandler.databaseReachable = false;
+                throw new IllegalStateException("Failed to initialize the DuckDB schema", e);
+            }
         }
         else {
             createSQLiteTables(prefix, forcePrefix, forceConnection, purge);
@@ -321,23 +781,23 @@ public class Database extends Queue {
     }
 
     private static void createMySQLTables(String prefix, Connection forceConnection, boolean purge) {
-        boolean success = false;
         try (Connection connection = (forceConnection != null ? forceConnection : Database.getConnection(true, true, true, 0))) {
-            if (connection != null) {
-                Statement statement = connection.createStatement();
+            if (connection == null) {
+                throw new SQLException("Unable to connect to MySQL while initializing the schema");
+            }
+            try (Statement statement = connection.createStatement()) {
                 createMySQLTableStructures(prefix, statement);
+                createMySQLIndexes(prefix, statement, purge);
                 if (!purge && forceConnection == null) {
-                    initializeTables(prefix, statement);
+                    initializeTables(prefix, statement, DatabaseType.MYSQL);
                 }
-                statement.close();
-                success = true;
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
-        }
-        if (!success && forceConnection == null) {
-            Config.getGlobal().MYSQL = false;
+            if (forceConnection == null) {
+                Config.getGlobal().MYSQL = false;
+            }
+            throw new IllegalStateException("Failed to initialize the MySQL schema", e);
         }
     }
 
@@ -353,26 +813,38 @@ public class Database extends Queue {
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "block(rowid bigint NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, wid int, x int, y int, z int, type int, data int, meta mediumblob, blockdata blob, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
         // Chat
-        index = ", INDEX(time), INDEX(user,time), INDEX(wid,x,z,time)";
+        index = ", INDEX(time), INDEX(user,time), INDEX(wid,x,z,time), INDEX message_prefix_index(message(16))";
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "chat(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int (3), z int, message varchar(16000)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
         // Command
-        index = ", INDEX(time), INDEX(user,time), INDEX(wid,x,z,time)";
+        index = ", INDEX(time), INDEX(user,time), INDEX(wid,x,z,time), INDEX message_prefix_index(message(16))";
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "command(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int (3), z int, message varchar(16000)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
         // Container
         index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(type,time)";
-        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "container(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, wid int, x int, y int, z int, type int, data int, amount int, metadata blob, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "container(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, wid int, x int, y int, z int, type int, data int, amount int, metadata mediumblob, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+
+        // Entity container
+        index = ", INDEX(wid,x,z,time), INDEX(entity_spawn_rowid,time), INDEX(user,time), INDEX(type,time)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_container(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, entity_spawn_rowid int NOT NULL, wid int, x int, y int, z int, type int, data int, amount int, metadata mediumblob, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+
+        // Entity interaction
+        index = ", INDEX(wid,x,z,time), INDEX(entity_spawn_rowid,time), INDEX(user,time), INDEX(type,time), INDEX(action,time)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_interaction(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, entity_spawn_rowid int NOT NULL, wid int, x int, y int, z int, type int, action tinyint, metadata mediumblob, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
         // Item
         index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(type,time)";
-        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "item(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, wid int, x int, y int, z int, type int, data blob, amount int, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "item(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, user int, wid int, x int, y int, z int, type int, data mediumblob, amount int, action tinyint, rolled_back tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
         // Database lock
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "database_lock(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),status tinyint,time int) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
         // Entity
-        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, data blob) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, data mediumblob) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+
+        // Entity spawn tracking
+        index = ", UNIQUE INDEX(uuid), UNIQUE INDEX entity_spawn_kill_rowid_index(kill_rowid), INDEX(time), INDEX(wid), INDEX(current_wid,x,z)";
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_spawn(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int,block_rowid bigint,kill_rowid int,uuid varchar(36),wid int,current_wid int,origin_x double,origin_y double,origin_z double,x double,y double,z double,yaw float,pitch float,data mediumblob NULL,removed tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
         // Entity map
         index = ", INDEX(id)";
@@ -391,11 +863,11 @@ public class Database extends Queue {
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "session(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int (3), z int, action tinyint" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
         // Sign
-        index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(time)";
+        index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(time), INDEX line_1_prefix_index(line_1(16)), INDEX line_2_prefix_index(line_2(16)), INDEX line_3_prefix_index(line_3(16)), INDEX line_4_prefix_index(line_4(16)), INDEX line_5_prefix_index(line_5(16)), INDEX line_6_prefix_index(line_6(16)), INDEX line_7_prefix_index(line_7(16)), INDEX line_8_prefix_index(line_8(16))";
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "sign(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int, z int, action tinyint, color int, color_secondary int, data tinyint, waxed tinyint, face tinyint, line_1 varchar(100), line_2 varchar(100), line_3 varchar(100), line_4 varchar(100), line_5 varchar(100), line_6 varchar(100), line_7 varchar(100), line_8 varchar(100)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
         // Skull
-        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "skull(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, owner varchar(255), skin varchar(255)) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "skull(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, owner varchar(255), skin text) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
         // User
         index = ", INDEX(user), INDEX(uuid)";
@@ -413,32 +885,145 @@ public class Database extends Queue {
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "world(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,world varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
     }
 
-    private static void createSQLiteTables(String prefix, boolean forcePrefix, Connection forceConnection, boolean purge) {
-        try (Connection connection = (forceConnection != null ? forceConnection : Database.getConnection(true, 0))) {
-            Statement statement = connection.createStatement();
-            List<String> tableData = new ArrayList<>();
-            List<String> indexData = new ArrayList<>();
-            String attachDatabase = "";
-
-            if (purge && forceConnection == null) {
-                String query = "ATTACH DATABASE '" + ConfigHandler.path + ConfigHandler.sqlite + ".tmp' AS tmp_db";
-                PreparedStatement preparedStmt = connection.prepareStatement(query);
-                preparedStmt.execute();
-                preparedStmt.close();
-                attachDatabase = "tmp_db.";
-            }
-
-            identifyExistingTablesAndIndexes(statement, attachDatabase, tableData, indexData);
-            createSQLiteTableStructures(prefix, statement, tableData);
-            createSQLiteIndexes(forcePrefix == true ? prefix : ConfigHandler.prefix, statement, indexData, attachDatabase, purge);
-
-            if (!purge && forceConnection == null) {
-                initializeTables(prefix, statement);
-            }
-            statement.close();
+    private static void createMySQLIndexes(String prefix, Statement statement, boolean purge) {
+        try {
+            ensureMySQLIndex(statement, prefix + "block", "wid", "x", "z", "time");
+            ensureMySQLIndex(statement, prefix + "block", "user", "time");
+            ensureMySQLIndex(statement, prefix + "block", "type", "time");
+            ensureMySQLIndex(statement, prefix + "container", "wid", "x", "z", "time");
+            ensureMySQLIndex(statement, prefix + "container", "user", "time");
+            ensureMySQLIndex(statement, prefix + "container", "type", "time");
+            ensureMySQLIndex(statement, prefix + "entity_container", "wid", "x", "z", "time");
+            ensureMySQLIndex(statement, prefix + "entity_container", "entity_spawn_rowid", "time");
+            ensureMySQLIndex(statement, prefix + "entity_container", "user", "time");
+            ensureMySQLIndex(statement, prefix + "entity_container", "type", "time");
+            ensureMySQLIndex(statement, prefix + "entity_interaction", "wid", "x", "z", "time");
+            ensureMySQLIndex(statement, prefix + "entity_interaction", "entity_spawn_rowid", "time");
+            ensureMySQLIndex(statement, prefix + "entity_interaction", "user", "time");
+            ensureMySQLIndex(statement, prefix + "entity_interaction", "type", "time");
+            ensureMySQLIndex(statement, prefix + "entity_interaction", "action", "time");
+            ensureMySQLIndex(statement, prefix + "item", "wid", "x", "z", "time");
+            ensureMySQLIndex(statement, prefix + "item", "user", "time");
+            ensureMySQLIndex(statement, prefix + "item", "type", "time");
         }
         catch (Exception e) {
-            e.printStackTrace();
+            Chat.console(Phrase.build(Phrase.DATABASE_INDEX_ERROR));
+            if (purge) {
+                ErrorReporter.report(e);
+            }
+        }
+    }
+
+    private static void ensureMySQLIndex(Statement statement, String tableName, String... columns) throws SQLException {
+        if (hasMySQLIndex(statement, tableName, columns)) {
+            return;
+        }
+
+        String indexName = createMySQLIndexName(tableName, columns);
+        String indexColumns = String.join(",", columns);
+        statement.executeUpdate("CREATE INDEX " + indexName + " ON " + tableName + "(" + indexColumns + ")");
+    }
+
+    private static boolean hasMySQLIndex(Statement statement, String tableName, String... columns) {
+        Map<String, TreeMap<Integer, String>> indexData = new HashMap<>();
+
+        try (ResultSet resultSet = statement.executeQuery("SHOW INDEX FROM " + tableName)) {
+            while (resultSet.next()) {
+                String keyName = resultSet.getString("Key_name");
+                int sequence = resultSet.getInt("Seq_in_index");
+                String columnName = resultSet.getString("Column_name");
+                if (keyName == null || columnName == null) {
+                    continue;
+                }
+
+                indexData.computeIfAbsent(keyName, key -> new TreeMap<>()).put(sequence, columnName.toLowerCase(Locale.ROOT));
+            }
+        }
+        catch (Exception e) {
+            return false;
+        }
+
+        List<String> expected = new ArrayList<>(columns.length);
+        for (String column : columns) {
+            expected.add(column.toLowerCase(Locale.ROOT));
+        }
+
+        for (TreeMap<Integer, String> indexColumns : indexData.values()) {
+            if (indexColumns.size() < expected.size()) {
+                continue;
+            }
+
+            boolean matchesPrefix = true;
+            int position = 0;
+            for (String column : indexColumns.values()) {
+                if (!column.equals(expected.get(position))) {
+                    matchesPrefix = false;
+                    break;
+                }
+                position++;
+                if (position == expected.size()) {
+                    break;
+                }
+            }
+
+            if (matchesPrefix && position == expected.size()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static String createMySQLIndexName(String tableName, String... columns) {
+        String normalizedTable = tableName.replaceAll("[^A-Za-z0-9_]", "_");
+        String joinedColumns = String.join("_", columns);
+        String candidate = normalizedTable + "_" + joinedColumns + "_idx";
+        if (candidate.length() <= 64) {
+            return candidate;
+        }
+
+        String hash = Integer.toHexString(candidate.hashCode());
+        int maxPrefixLength = 64 - (hash.length() + 1);
+        if (maxPrefixLength < 1) {
+            maxPrefixLength = 1;
+        }
+
+        return candidate.substring(0, maxPrefixLength) + "_" + hash;
+    }
+
+    private static void createSQLiteTables(String prefix, boolean forcePrefix, Connection forceConnection, boolean purge) {
+        try (Connection connection = (forceConnection != null ? forceConnection : Database.getConnection(true, 0))) {
+            if (connection == null) {
+                throw new SQLException("Unable to open SQLite while initializing the schema");
+            }
+            try (Statement statement = connection.createStatement()) {
+                List<String> tableData = new ArrayList<>();
+                List<String> indexData = new ArrayList<>();
+                String attachDatabase = "";
+
+                if (purge && forceConnection == null) {
+                    String query = "ATTACH DATABASE '" + ConfigHandler.path + ConfigHandler.sqlite + ".tmp' AS tmp_db";
+                    try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+                        preparedStatement.execute();
+                    }
+                    attachDatabase = "tmp_db.";
+                }
+
+                identifyExistingTablesAndIndexes(statement, attachDatabase, tableData, indexData);
+                String tablePrefix = forcePrefix ? prefix : ConfigHandler.prefix;
+                boolean createChatMessagePrefixIndex = !tableData.contains(tablePrefix + "chat");
+                boolean createCommandMessagePrefixIndex = !tableData.contains(tablePrefix + "command");
+                boolean createSignMessagePrefixIndexes = !tableData.contains(tablePrefix + "sign");
+                createSQLiteTableStructures(prefix, statement, tableData);
+                createSQLiteIndexes(tablePrefix, statement, indexData, attachDatabase, purge, createChatMessagePrefixIndex, createCommandMessagePrefixIndex, createSignMessagePrefixIndexes);
+
+                if (!purge && forceConnection == null) {
+                    initializeTables(prefix, statement, DatabaseType.SQLITE);
+                }
+            }
+        }
+        catch (Exception e) {
+            throw new IllegalStateException("Failed to initialize the SQLite schema", e);
         }
     }
 
@@ -473,6 +1058,12 @@ public class Database extends Queue {
         if (!tableData.contains(prefix + "container")) {
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "container (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, data INTEGER, amount INTEGER, metadata BLOB, action INTEGER, rolled_back INTEGER);");
         }
+        if (!tableData.contains(prefix + "entity_container")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_container (time INTEGER, user INTEGER, entity_spawn_rowid INTEGER NOT NULL, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, data INTEGER, amount INTEGER, metadata BLOB, action INTEGER, rolled_back INTEGER);");
+        }
+        if (!tableData.contains(prefix + "entity_interaction")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_interaction (time INTEGER, user INTEGER, entity_spawn_rowid INTEGER NOT NULL, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, action INTEGER, metadata BLOB, rolled_back INTEGER);");
+        }
         if (!tableData.contains(prefix + "item")) {
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "item (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, data BLOB, amount INTEGER, action INTEGER, rolled_back INTEGER);");
         }
@@ -481,6 +1072,9 @@ public class Database extends Queue {
         }
         if (!tableData.contains(prefix + "entity")) {
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity (id INTEGER PRIMARY KEY ASC, time INTEGER, data BLOB);");
+        }
+        if (!tableData.contains(prefix + "entity_spawn")) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_spawn (id INTEGER PRIMARY KEY ASC, time INTEGER, block_rowid INTEGER, kill_rowid INTEGER, uuid TEXT UNIQUE, wid INTEGER, current_wid INTEGER, origin_x REAL, origin_y REAL, origin_z REAL, x REAL, y REAL, z REAL, yaw REAL, pitch REAL, data BLOB, removed INTEGER);");
         }
         if (!tableData.contains(prefix + "entity_map")) {
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_map (id INTEGER, entity TEXT);");
@@ -514,7 +1108,7 @@ public class Database extends Queue {
         }
     }
 
-    private static void createSQLiteIndexes(String prefix, Statement statement, List<String> indexData, String attachDatabase, boolean purge) {
+    private static void createSQLiteIndexes(String prefix, Statement statement, List<String> indexData, String attachDatabase, boolean purge, boolean createChatMessagePrefixIndex, boolean createCommandMessagePrefixIndex, boolean createSignMessagePrefixIndexes) {
         try {
             createSQLiteIndex(statement, indexData, attachDatabase, "art_map_id_index", prefix + "art_map(id)");
             createSQLiteIndex(statement, indexData, attachDatabase, "block_index", prefix + "block(wid,x,z,time)");
@@ -530,10 +1124,23 @@ public class Database extends Queue {
             createSQLiteIndex(statement, indexData, attachDatabase, "container_index", prefix + "container(wid,x,z,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "container_user_index", prefix + "container(user,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "container_type_index", prefix + "container(type,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_container_index", prefix + "entity_container(wid,x,z,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_container_spawn_index", prefix + "entity_container(entity_spawn_rowid,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_container_user_index", prefix + "entity_container(user,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_container_type_index", prefix + "entity_container(type,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_interaction_index", prefix + "entity_interaction(wid,x,z,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_interaction_spawn_index", prefix + "entity_interaction(entity_spawn_rowid,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_interaction_user_index", prefix + "entity_interaction(user,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_interaction_type_index", prefix + "entity_interaction(type,time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_interaction_action_index", prefix + "entity_interaction(action,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "item_index", prefix + "item(wid,x,z,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "item_user_index", prefix + "item(user,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "item_type_index", prefix + "item(type,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "entity_map_id_index", prefix + "entity_map(id)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_spawn_time_index", prefix + "entity_spawn(time)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_spawn_wid_index", prefix + "entity_spawn(wid)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_spawn_current_location_index", prefix + "entity_spawn(current_wid,x,z)");
+            createSQLiteIndex(statement, indexData, attachDatabase, "entity_spawn_kill_rowid_index", prefix + "entity_spawn(kill_rowid)", true);
             createSQLiteIndex(statement, indexData, attachDatabase, "material_map_id_index", prefix + "material_map(id)");
             createSQLiteIndex(statement, indexData, attachDatabase, "session_index", prefix + "session(wid,x,z,time)");
             createSQLiteIndex(statement, indexData, attachDatabase, "session_action_index", prefix + "session(action,time)");
@@ -546,18 +1153,79 @@ public class Database extends Queue {
             createSQLiteIndex(statement, indexData, attachDatabase, "uuid_index", prefix + "user(uuid)");
             createSQLiteIndex(statement, indexData, attachDatabase, "username_log_uuid_index", prefix + "username_log(uuid,user)");
             createSQLiteIndex(statement, indexData, attachDatabase, "world_id_index", prefix + "world(id)");
+            if (createChatMessagePrefixIndex) {
+                createSQLiteIndex(statement, indexData, attachDatabase, "chat_message_prefix_index", prefix + "chat(substr(message,1,16) COLLATE NOCASE)");
+            }
+            if (createCommandMessagePrefixIndex) {
+                createSQLiteIndex(statement, indexData, attachDatabase, "command_message_prefix_index", prefix + "command(substr(message,1,16) COLLATE NOCASE)");
+            }
+            if (createSignMessagePrefixIndexes) {
+                for (int line = 1; line <= 8; line++) {
+                    createSQLiteIndex(statement, indexData, attachDatabase, "sign_line_" + line + "_prefix_index", prefix + "sign(substr(line_" + line + ",1,16) COLLATE NOCASE)");
+                }
+            }
         }
         catch (Exception e) {
             Chat.console(Phrase.build(Phrase.DATABASE_INDEX_ERROR));
             if (purge) {
-                e.printStackTrace();
+                ErrorReporter.report(e);
             }
         }
     }
 
     private static void createSQLiteIndex(Statement statement, List<String> indexData, String attachDatabase, String indexName, String indexColumns) throws SQLException {
+        createSQLiteIndex(statement, indexData, attachDatabase, indexName, indexColumns, false);
+    }
+
+    private static void createSQLiteIndex(Statement statement, List<String> indexData, String attachDatabase, String indexName, String indexColumns, boolean unique) throws SQLException {
         if (!indexData.contains(indexName)) {
-            statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + attachDatabase + indexName + " ON " + indexColumns + ";");
+            statement.executeUpdate("CREATE " + (unique ? "UNIQUE " : "") + "INDEX IF NOT EXISTS " + attachDatabase + indexName + " ON " + indexColumns + ";");
+        }
+    }
+
+    @FunctionalInterface
+    public interface SavepointOperation {
+
+        void execute() throws Exception;
+    }
+
+    private static ClickHouseDatabase requireClickHouseDatabase() throws SQLException {
+        ClickHouseDatabase database = clickHouseDatabase;
+        if (database == null) {
+            throw new SQLException("ClickHouse is not initialized");
+        }
+        return database;
+    }
+
+    private static void closeClickHouse() {
+        try {
+            closeClickHouseChecked();
+        }
+        catch (SQLException exception) {
+            ErrorReporter.report(exception);
+        }
+    }
+
+    private static synchronized void closeClickHouseChecked() throws SQLException {
+        ClickHouseDatabase database = clickHouseDatabase;
+        clickHouseDatabase = null;
+        if (database != null) {
+            database.close();
+        }
+    }
+
+    private static void rejectClickHouseTransaction(DatabaseType databaseType) throws SQLException {
+        if (databaseType.isClickHouse()) {
+            throw new SQLException("ClickHouse writes use immutable consumer batches, not JDBC transactions");
+        }
+    }
+
+    private static final class DatabaseWriteException extends IllegalStateException {
+
+        private static final long serialVersionUID = 1L;
+
+        private DatabaseWriteException(Exception cause) {
+            super("Unable to map or bind database write data", cause);
         }
     }
 

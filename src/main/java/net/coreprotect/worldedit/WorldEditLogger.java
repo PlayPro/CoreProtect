@@ -29,8 +29,11 @@ import com.sk89q.worldedit.world.block.BlockStateHolder;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.listener.player.InventoryChangeListener;
+import net.coreprotect.model.action.SignActions;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.EntityUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class WorldEditLogger extends Queue {
 
@@ -81,7 +84,7 @@ public class WorldEditLogger extends Queue {
                             boolean isWaxed = false;
                             boolean isFront = true;
 
-                            Queue.queueSignText(actor.getName(), location, 0, color, colorSecondary, frontGlowing, backGlowing, isWaxed, isFront, line1, line2, line3, line4, "", "", "", "", 5);
+                            Queue.queueSignText(actor.getName(), location, SignActions.BREAK, color, colorSecondary, frontGlowing, backGlowing, isWaxed, isFront, line1, line2, line3, line4, "", "", "", "", 5);
                         }
                     }
                     if (oldType == Material.SPAWNER) {
@@ -98,11 +101,11 @@ public class WorldEditLogger extends Queue {
                     }
                 }
                 if (containerContents != null) {
-                    Queue.queueContainerBreak(actor.getName(), location, oldType, containerContents);
+                    InventoryChangeListener.queueContainerBreak(actor.getName(), location, oldType, containerContents);
                 }
             }
             catch (Exception e) {
-                e.printStackTrace();
+                ErrorReporter.report(e);
             }
 
             if (newType.equals(Material.SKELETON_SKULL) || newType.equals(Material.SKELETON_WALL_SKULL) || newType.equals(Material.WITHER_SKELETON_SKULL) || newType.equals(Material.WITHER_SKELETON_WALL_SKULL) || newType.equals(Material.ZOMBIE_HEAD) || newType.equals(Material.ZOMBIE_WALL_HEAD) || newType.equals(Material.PLAYER_HEAD) || newType.equals(Material.PLAYER_WALL_HEAD) || newType.equals(Material.CREEPER_HEAD) || newType.equals(Material.CREEPER_WALL_HEAD) || newType.equals(Material.DRAGON_HEAD) || newType.equals(Material.DRAGON_WALL_HEAD)) {
@@ -168,7 +171,7 @@ public class WorldEditLogger extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return mobType;
@@ -186,7 +189,7 @@ public class WorldEditLogger extends Queue {
             return (String) json.get("text");
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return result;

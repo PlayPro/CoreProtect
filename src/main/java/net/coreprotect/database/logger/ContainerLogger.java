@@ -1,11 +1,9 @@
 package net.coreprotect.database.logger;
 
-import java.sql.PreparedStatement;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Bukkit;
@@ -19,10 +17,17 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.Database;
+import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.statement.ContainerStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
+import net.coreprotect.model.entity.EntityContainerTransaction;
+import net.coreprotect.model.entity.EntitySpawnIdentity;
+import net.coreprotect.model.item.ItemTransactionActions;
+import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.HopperTransactionUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
@@ -30,11 +35,15 @@ import net.coreprotect.utility.serialize.ItemMetaHandler;
 
 public class ContainerLogger extends Queue {
 
+    private static final int CONTAINER_DUPLICATE_THRESHOLD_DROPPER = 512;
+    private static final int CONTAINER_DUPLICATE_THRESHOLD_DISPENSER = 256;
+    private static final int CONTAINER_DUPLICATE_WINDOW_SECONDS = 1200;
+
     private ContainerLogger() {
         throw new IllegalStateException("Database class");
     }
 
-    public static void log(PreparedStatement preparedStmtContainer, PreparedStatement preparedStmtItems, int batchCount, String player, Material type, Object container, Location location) {
+    public static void log(ConsumerWriteBatch preparedStmtContainer, ConsumerWriteBatch preparedStmtItems, int batchCount, String player, Material type, Object container, Location location) {
         try {
             ItemStack[] contents = null;
             String faceData = null;
@@ -45,6 +54,9 @@ public class ContainerLogger extends Queue {
             }
             else if (type == Material.JUKEBOX || type == Material.ARMOR_STAND) {
                 contents = (ItemStack[]) ((Object[]) container)[1];
+            }
+            else if (container instanceof ItemStack[]) {
+                contents = (ItemStack[]) container;
             }
             else {
                 Inventory inventory = (Inventory) container;
@@ -57,17 +69,22 @@ public class ContainerLogger extends Queue {
                 return;
             }
 
-            String loggingContainerId = player.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+            String loggingContainerId = HopperTransactionUtils.getLoggingId(player, location);
+            String transactingChestId = HopperTransactionUtils.getTransactionId(location);
             List<ItemStack[]> oldList = ConfigHandler.oldContainer.get(loggingContainerId);
+            if (oldList == null || oldList.isEmpty()) {
+                return;
+            }
             ItemStack[] oi1 = oldList.get(0);
             ItemStack[] oldInventory = ItemUtils.getContainerState(oi1);
             ItemStack[] newInventory = ItemUtils.getContainerState(contents);
             if (oldInventory == null || newInventory == null) {
                 return;
             }
+            boolean duplicateSuppression = Config.getConfig(location.getWorld()).DUPLICATE_SUPPRESSION;
 
             // Check if this is a dispenser with no actual changes
-            if ("#dispenser".equals(player) && ItemUtils.compareContainers(oldInventory, newInventory)) {
+            if (duplicateSuppression && "#dispenser".equals(player) && getForceContainerSize(loggingContainerId) == 0 && ItemUtils.compareContainers(oldInventory, newInventory)) {
                 // No changes detected, mark this dispenser in the dispenserNoChange map
                 // Extract the location key from the loggingContainerId
                 // Format: #dispenser.x.y.z
@@ -90,12 +107,15 @@ public class ContainerLogger extends Queue {
                         ConfigHandler.dispenserNoChange.computeIfAbsent(locationKey, k -> new ConcurrentHashMap<>()).put(eventKey, System.currentTimeMillis());
                     }
                 }
+                oldList.remove(0);
+                ConfigHandler.oldContainer.put(loggingContainerId, oldList);
+                HopperTransactionUtils.consumeSnapshot(transactingChestId, loggingContainerId);
                 return;
             }
 
             // If we reach here, the dispenser event resulted in changes
             // Remove any pending event for this dispenser
-            if ("#dispenser".equals(player)) {
+            if (duplicateSuppression && "#dispenser".equals(player)) {
                 String[] parts = loggingContainerId.split("\\.");
                 if (parts.length >= 4) {
                     int x = Integer.parseInt(parts[1]);
@@ -112,104 +132,77 @@ public class ContainerLogger extends Queue {
                 }
             }
 
-            List<ItemStack[]> forceList = ConfigHandler.forceContainer.get(loggingContainerId);
-            if (forceList != null) {
-                int forceSize = 0;
-                if (!forceList.isEmpty()) {
-                    newInventory = ItemUtils.getContainerState(forceList.get(0));
-                    forceSize = modifyForceContainer(loggingContainerId, null);
-                }
-                if (forceSize == 0) {
-                    ConfigHandler.forceContainer.remove(loggingContainerId);
-                }
+            ItemStack[] forceState = peekForceContainer(loggingContainerId);
+            if (forceState != null) {
+                newInventory = ItemUtils.getContainerState(forceState);
             }
             else {
-                String transactingChestId = location.getWorld().getUID().toString() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
-                if (ConfigHandler.transactingChest.get(transactingChestId) != null) {
-                    List<Object> list = Collections.synchronizedList(new ArrayList<>(ConfigHandler.transactingChest.get(transactingChestId)));
-                    if (list.size() > 0) {
-                        ItemStack[] newMerge = new ItemStack[newInventory.length + list.size()];
-                        int count = 0;
-                        for (int i = 0; i < newInventory.length; i++) {
-                            newMerge[i] = newInventory[i];
-                            count++;
-                        }
-                        for (Object item : list) {
-                            ItemStack addItem = null;
-                            ItemStack removeItem = null;
-                            if (item instanceof ItemStack) {
-                                addItem = (ItemStack) item;
-                            }
-                            else if (item != null) {
-                                addItem = ((ItemStack[]) item)[0];
-                                removeItem = ((ItemStack[]) item)[1];
-                            }
-
-                            // item was removed by hopper, add back to state
-                            if (addItem != null) {
-                                newMerge[count] = addItem;
-                                count++;
-                            }
-
-                            // item was added by hopper, remove from state
-                            if (removeItem != null) {
-                                for (ItemStack check : newMerge) {
-                                    if (check != null && check.isSimilar(removeItem)) {
-                                        check.setAmount(check.getAmount() - 1);
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        newInventory = newMerge;
-                    }
-                }
+                long snapshotMark = HopperTransactionUtils.peekSnapshotMark(transactingChestId, loggingContainerId);
+                newInventory = HopperTransactionUtils.applyPendingChanges(newInventory, transactingChestId, snapshotMark);
             }
 
-            for (ItemStack oldi : oldInventory) {
-                for (ItemStack newi : newInventory) {
-                    if (oldi != null && newi != null) {
-                        if (oldi.isSimilar(newi) && !BlockUtils.isAir(oldi.getType())) { // Ignores amount
-                            int oldAmount = oldi.getAmount();
-                            int newAmount = newi.getAmount();
-                            if (newAmount >= oldAmount) {
-                                newAmount = newAmount - oldAmount;
-                                oldi.setAmount(0);
-                                newi.setAmount(newAmount);
-                            }
-                            else {
-                                oldAmount = oldAmount - newAmount;
-                                oldi.setAmount(oldAmount);
-                                newi.setAmount(0);
-                            }
-                        }
-                    }
+            if (duplicateSuppression && shouldSuppressContainerDuplicate(player, location, oldInventory, newInventory)) {
+                if (forceState != null) {
+                    pollForceContainer(loggingContainerId);
                 }
+                oldList.remove(0);
+                ConfigHandler.oldContainer.put(loggingContainerId, oldList);
+                HopperTransactionUtils.consumeSnapshot(transactingChestId, loggingContainerId);
+                if ("#hopper".equals(player)) {
+                    String hopperPush = HopperTransactionUtils.getHopperPushId(location);
+                    ConfigHandler.hopperSuccess.remove(hopperPush);
+                    ConfigHandler.hopperAbort.remove(hopperPush);
+                }
+                return;
             }
 
+            subtractSharedItems(oldInventory, newInventory);
             ItemUtils.mergeItems(type, oldInventory);
             ItemUtils.mergeItems(type, newInventory);
 
             if (type != Material.ENDER_CHEST) {
-                logTransaction(preparedStmtContainer, batchCount, player, type, faceData, oldInventory, 0, location);
-                logTransaction(preparedStmtContainer, batchCount, player, type, faceData, newInventory, 1, location);
+                logTransaction(preparedStmtContainer, batchCount, player, type, faceData, oldInventory, ItemTransactionActions.REMOVE, location);
+                logTransaction(preparedStmtContainer, batchCount, player, type, faceData, newInventory, ItemTransactionActions.ADD, location);
             }
             else { // pass ender chest transactions to item logger
-                ItemLogger.logTransaction(preparedStmtItems, batchCount, 0, player, location, oldInventory, ItemLogger.ITEM_REMOVE_ENDER);
-                ItemLogger.logTransaction(preparedStmtItems, batchCount, 0, player, location, newInventory, ItemLogger.ITEM_ADD_ENDER);
+                ItemLogger.logTransaction(preparedStmtItems, batchCount, 0, player, location, oldInventory, ItemTransactionActions.REMOVE_ENDER);
+                ItemLogger.logTransaction(preparedStmtItems, batchCount, 0, player, location, newInventory, ItemTransactionActions.ADD_ENDER);
             }
 
+            if (forceState != null) {
+                pollForceContainer(loggingContainerId);
+            }
             oldList.remove(0);
             ConfigHandler.oldContainer.put(loggingContainerId, oldList);
+            HopperTransactionUtils.consumeSnapshot(transactingChestId, loggingContainerId);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            Database.handleWriteFailure(e);
         }
     }
 
-    protected static void logTransaction(PreparedStatement preparedStmt, int batchCount, String user, Material type, String faceData, ItemStack[] items, int action, Location location) {
+    public static void logEntity(ConsumerWriteBatch preparedStmtContainer, int batchCount, String player, EntitySpawnIdentity identity, EntityContainerTransaction transaction) throws Exception {
+        if (identity == null || transaction == null || ConfigHandler.isBlacklisted(player)) {
+            return;
+        }
+
+        ItemStack[] oldInventory = transaction.getOldContents();
+        ItemStack[] newInventory = transaction.getNewContents();
+        Location currentLocation = transaction.getCurrentLocation();
+        if (oldInventory == null || newInventory == null || currentLocation == null || currentLocation.getWorld() == null || ItemUtils.compareContainers(oldInventory, newInventory)) {
+            return;
+        }
+
+        subtractSharedItems(oldInventory, newInventory);
+        ItemUtils.mergeItems(Material.CHEST, oldInventory);
+        ItemUtils.mergeItems(Material.CHEST, newInventory);
+        logEntityTransaction(preparedStmtContainer, batchCount, player, identity, currentLocation, oldInventory, ItemTransactionActions.REMOVE);
+        logEntityTransaction(preparedStmtContainer, batchCount, player, identity, currentLocation, newInventory, ItemTransactionActions.ADD);
+    }
+
+    protected static void logTransaction(ConsumerWriteBatch preparedStmt, int batchCount, String user, Material type, String faceData, ItemStack[] items, int action, Location location) {
         try {
-            if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {
+            if (ConfigHandler.isBlacklisted(user)) {
                 return;
             }
             boolean success = false;
@@ -218,19 +211,24 @@ public class ContainerLogger extends Queue {
                 if (item != null) {
                     if (item.getAmount() > 0 && !BlockUtils.isAir(item.getType())) {
                         // Object[] metadata = new Object[] { slot, item.getItemMeta() };
+                        if (ConfigHandler.isFilterBlacklisted(user, item.getType().getKey().toString())){
+                            continue;
+                        }
+
                         List<List<Map<String, Object>>> metadata = ItemMetaHandler.serialize(item, type, faceData, slot);
                         if (metadata.size() == 0) {
                             metadata = null;
                         }
 
-                        CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location);
+                        CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.CONTAINER_TRANSACTION, action, item.getType(), null, null);
                         if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                             CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
                         }
 
                         if (event.isCancelled()) {
                             return;
-                        }
+                        }  
+
 
                         int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
                         Location eventLocation = event.getLocation();
@@ -250,14 +248,139 @@ public class ContainerLogger extends Queue {
             }
 
             if (success && user.equals("#hopper")) {
-                String hopperPush = "#hopper-push." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+                String hopperPush = HopperTransactionUtils.getHopperPushId(location);
                 ConfigHandler.hopperSuccess.remove(hopperPush);
                 ConfigHandler.hopperAbort.remove(hopperPush);
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            Database.handleWriteFailure(e);
         }
+    }
+
+    private static void logEntityTransaction(ConsumerWriteBatch preparedStmt, int batchCount, String user, EntitySpawnIdentity identity, Location currentLocation, ItemStack[] items, int action) throws Exception {
+        int slot = 0;
+        for (ItemStack item : items) {
+            if (item == null || item.getAmount() <= 0 || BlockUtils.isAir(item.getType())) {
+                slot++;
+                continue;
+            }
+            if (ConfigHandler.isFilterBlacklisted(user, item.getType().getKey().toString())) {
+                slot++;
+                continue;
+            }
+
+            List<List<Map<String, Object>>> metadata = ItemMetaHandler.serialize(item, Material.CHEST, null, slot);
+            if (metadata.isEmpty()) {
+                metadata = null;
+            }
+
+            Location initialEventLocation = currentLocation.clone();
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, initialEventLocation.clone(), CoreProtectPreLogEvent.Action.CONTAINER_TRANSACTION, action, item.getType(), null, null);
+            if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
+                CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+            }
+            if (event.isCancelled()) {
+                return;
+            }
+
+            int wid = identity.getOriginalWorldId();
+            int x = identity.getOriginalX();
+            int y = identity.getOriginalY();
+            int z = identity.getOriginalZ();
+            Location loggedLocation = event.getLocation();
+            if (!samePosition(initialEventLocation, loggedLocation)) {
+                wid = WorldUtils.getWorldId(loggedLocation.getWorld().getName());
+                x = loggedLocation.getBlockX();
+                y = loggedLocation.getBlockY();
+                z = loggedLocation.getBlockZ();
+            }
+
+            int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
+            int time = (int) (System.currentTimeMillis() / 1000L);
+            int typeId = MaterialUtils.getBlockId(item.getType().name(), true);
+            ContainerStatement.insertEntity(preparedStmt, batchCount, time, userId, identity.getRowId(), wid, x, y, z, typeId, 0, item.getAmount(), metadata, action, 0);
+            slot++;
+        }
+    }
+
+    private static boolean samePosition(Location first, Location second) {
+        return first != null && second != null && first.getWorld() != null && second.getWorld() != null && first.getWorld().getUID().equals(second.getWorld().getUID()) && Double.compare(first.getX(), second.getX()) == 0 && Double.compare(first.getY(), second.getY()) == 0 && Double.compare(first.getZ(), second.getZ()) == 0;
+    }
+
+    private static void subtractSharedItems(ItemStack[] oldInventory, ItemStack[] newInventory) {
+        for (ItemStack oldItem : oldInventory) {
+            for (ItemStack newItem : newInventory) {
+                if (oldItem == null || newItem == null || !oldItem.isSimilar(newItem) || BlockUtils.isAir(oldItem.getType())) {
+                    continue;
+                }
+
+                int sharedAmount = Math.min(oldItem.getAmount(), newItem.getAmount());
+                oldItem.setAmount(oldItem.getAmount() - sharedAmount);
+                newItem.setAmount(newItem.getAmount() - sharedAmount);
+            }
+        }
+    }
+
+    private static boolean shouldSuppressContainerDuplicate(String user, Location location, ItemStack[] oldInventory, ItemStack[] newInventory) {
+        if (!"#dropper".equals(user) && !"#dispenser".equals(user)) {
+            return false;
+        }
+
+        String oldSignature = getContainerStateSignature(oldInventory);
+        String newSignature = getContainerStateSignature(newInventory);
+        String transitionSignature = oldSignature + ">" + newSignature;
+        if ("#dispenser".equals(user)) {
+            if (oldSignature.compareTo(newSignature) <= 0) {
+                transitionSignature = oldSignature + "<>" + newSignature;
+            }
+            else {
+                transitionSignature = newSignature + "<>" + oldSignature;
+            }
+        }
+
+        int threshold = getContainerDuplicateThreshold(user);
+        String signature = location.getWorld().getUID().toString() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ() + "." + user + "." + transitionSignature;
+        return CacheHandler.shouldSuppressRepeat(CacheHandler.containerDuplicateCache, signature, threshold, CONTAINER_DUPLICATE_WINDOW_SECONDS);
+    }
+
+    private static int getContainerDuplicateThreshold(String user) {
+        if ("#dispenser".equals(user)) {
+            return CONTAINER_DUPLICATE_THRESHOLD_DISPENSER;
+        }
+        return CONTAINER_DUPLICATE_THRESHOLD_DROPPER;
+    }
+
+    private static String getContainerStateSignature(ItemStack[] inventory) {
+        if (inventory == null || inventory.length == 0) {
+            return "-";
+        }
+
+        Map<String, Integer> itemCounts = new HashMap<>();
+        for (ItemStack itemStack : inventory) {
+            if (itemStack == null || itemStack.getAmount() <= 0 || BlockUtils.isAir(itemStack.getType())) {
+                continue;
+            }
+
+            ItemStack normalized = itemStack.clone();
+            normalized.setAmount(1);
+            String key = normalized.toString();
+            itemCounts.merge(key, itemStack.getAmount(), Integer::sum);
+        }
+
+        if (itemCounts.isEmpty()) {
+            return "-";
+        }
+
+        StringBuilder builder = new StringBuilder();
+        for (Map.Entry<String, Integer> entry : new TreeMap<>(itemCounts).entrySet()) {
+            if (builder.length() > 0) {
+                builder.append('|');
+            }
+            builder.append(entry.getKey()).append('*').append(entry.getValue());
+        }
+
+        return Integer.toHexString(builder.toString().hashCode());
     }
 
 }

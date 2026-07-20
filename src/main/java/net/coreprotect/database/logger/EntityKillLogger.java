@@ -1,22 +1,22 @@
 package net.coreprotect.database.logger;
 
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.util.List;
-import java.util.Locale;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.block.BlockState;
+import org.bukkit.entity.EntityType;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.statement.BlockStatement;
+import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.database.statement.EntityStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
+import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.utility.WorldUtils;
 
 public class EntityKillLogger {
@@ -25,14 +25,25 @@ public class EntityKillLogger {
         throw new IllegalStateException("Database class");
     }
 
-    public static void log(PreparedStatement preparedStmt, PreparedStatement preparedStmt2, int batchCount, String user, BlockState block, List<Object> data, int type) {
+    public static void log(ConsumerWriteBatch preparedStmt, ConsumerWriteBatch preparedStmt2, ConsumerWriteBatch preparedStmtEntityKillLinks, int batchCount, String user, Location location, List<Object> data, int type) {
         try {
-            if (ConfigHandler.blacklist.get(user.toLowerCase(Locale.ROOT)) != null) {
+            if (ConfigHandler.isBlacklisted(user)){
                 return;
             }
 
-            Location initialLocation = new Location(block.getWorld(), block.getX(), block.getY(), block.getZ());
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, initialLocation);
+            EntityType checkType = net.coreprotect.utility.EntityUtils.getEntityType(type);
+            if (checkType == null) {
+                return;
+            }
+            // Ignore blacklist if the entity has a custom name
+            // data[4] contains custom name data
+            if (ConfigHandler.isBlacklisted(user, checkType.getKey().toString()) &&
+                !(data.size() > 4 && data.get(4) != null)){
+                return;
+            }
+
+            Location initialLocation = location.clone();
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, initialLocation, CoreProtectPreLogEvent.Action.ENTITY_KILL, LookupActions.ENTITY_KILL, null, checkType, null);
             if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
             }
@@ -48,25 +59,19 @@ public class EntityKillLogger {
             int x = eventLocation.getBlockX();
             int y = eventLocation.getBlockY();
             int z = eventLocation.getBlockZ();
-            int entity_key = 0;
-
-            ResultSet resultSet = EntityStatement.insert(preparedStmt2, time, data);
-            if (Database.hasReturningKeys()) {
-                resultSet.next();
-                entity_key = resultSet.getInt(1);
-                resultSet.close();
-            }
-            else {
-                ResultSet keys = preparedStmt2.getGeneratedKeys();
-                keys.next();
-                entity_key = keys.getInt(1);
-                keys.close();
+            int entity_key = EntityStatement.insert(preparedStmt2, time, data);
+            if (entity_key == 0) {
+                return;
             }
 
-            BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, type, entity_key, null, null, 3, 0);
+            if (data.size() > 7 && data.get(7) instanceof String) {
+                EntitySpawnStatement.addKillLink(preparedStmtEntityKillLinks, (String) data.get(7), entity_key);
+            }
+
+            BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, type, entity_key, null, null, LookupActions.ENTITY_KILL, 0);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            Database.handleWriteFailure(e);
         }
     }
 

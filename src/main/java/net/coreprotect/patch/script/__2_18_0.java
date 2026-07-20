@@ -17,6 +17,7 @@ import net.coreprotect.database.Database;
 import net.coreprotect.patch.Patch;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class __2_18_0 {
 
@@ -33,7 +34,7 @@ public class __2_18_0 {
             catch (Exception e) {
                 String error = e.getMessage().toLowerCase();
                 if (!error.contains("duplicate") && !error.contains("error 1060")) {
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                     return false;
                 }
             }
@@ -42,7 +43,7 @@ public class __2_18_0 {
                 return false;
             }
 
-            String query = "SELECT rowid, id, material FROM " + ConfigHandler.prefix + "material_map WHERE material LIKE 'minecraft:legacy_%' LIMIT 0, 1";
+            String query = "SELECT rowid, id, material FROM " + ConfigHandler.prefix + "material_map WHERE material LIKE 'minecraft:legacy_%' LIMIT 1 OFFSET 0";
             String preparedBlockQuery = "SELECT rowid as id, data, blockdata FROM " + ConfigHandler.prefix + "block WHERE type = ? AND action < '3'";
             String preparedContainerQuery = "SELECT rowid as id FROM " + ConfigHandler.prefix + "container WHERE type = ?";
             String preparedBlockUpdateQuery = "UPDATE " + ConfigHandler.prefix + "block SET type = ?, blockdata = ? WHERE rowid = ?";
@@ -162,7 +163,7 @@ public class __2_18_0 {
                     resultSet.close();
                 }
                 catch (Exception e) {
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                 }
                 Database.commitTransaction(statement, Config.getGlobal().MYSQL);
 
@@ -195,13 +196,13 @@ public class __2_18_0 {
                     }
                 }
                 catch (Exception e) {
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                 }
             }
 
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return true;

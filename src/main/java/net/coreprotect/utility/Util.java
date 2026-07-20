@@ -21,6 +21,10 @@ public class Util extends Queue {
     }
 
     public static void sendBlockChange(Player player, Location location, BlockData blockData) {
+        if (blockData == null) {
+            return;
+        }
+
         player.sendBlockChange(location, blockData);
     }
 }

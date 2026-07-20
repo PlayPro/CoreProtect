@@ -12,6 +12,7 @@ import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class BlockLookup {
 
@@ -28,18 +29,14 @@ public class BlockLookup {
             int z = block.getZ();
             int time = (int) (System.currentTimeMillis() / 1000L);
             int worldId = WorldUtils.getWorldId(block.getWorld().getName());
-            String query = "SELECT user,type FROM " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND rolled_back IN(0,2) AND action='1' ORDER BY rowid DESC LIMIT 0, 1";
+            String query = "SELECT " + ConfigHandler.databaseType.getUserColumn() + ",type FROM " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE wid = " + worldId + " AND x = " + x + " AND z = " + z + " AND y = " + y + " AND rolled_back IN(0,2) AND action=1 ORDER BY rowid DESC LIMIT 1 OFFSET 0";
 
             ResultSet results = statement.executeQuery(query);
             while (results.next()) {
                 int resultUserId = results.getInt("user");
                 int resultType = results.getInt("type");
 
-                if (ConfigHandler.playerIdCacheReversed.get(resultUserId) == null) {
-                    UserStatement.loadName(statement.getConnection(), resultUserId);
-                }
-
-                result = ConfigHandler.playerIdCacheReversed.get(resultUserId);
+                result = UserStatement.getName(statement.getConnection(), resultUserId);
                 if (result.length() > 0) {
                     Material resultMaterial = MaterialUtils.getType(resultType);
                     CacheHandler.lookupCache.put("" + x + "." + y + "." + z + "." + worldId + "", new Object[] { time, result, resultMaterial });
@@ -48,7 +45,7 @@ public class BlockLookup {
             results.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return result;
@@ -83,7 +80,7 @@ public class BlockLookup {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return result;
@@ -111,7 +108,7 @@ public class BlockLookup {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return result;

@@ -28,6 +28,7 @@ import net.coreprotect.listener.player.PlayerInteractEntityListener;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public final class HangingBreakByEntityListener extends Queue implements Listener {
 
@@ -79,7 +80,7 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
                     }
                 }
                 catch (Exception e) {
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                 }
 
                 ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
@@ -145,7 +146,7 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
                 Painting painting = (Painting) entity;
                 blockData = "FACING=" + painting.getFacing().name();
                 try {
-                    itemData = MaterialUtils.getArtId(painting.getArt().toString(), true);
+                    itemData = MaterialUtils.getArtId(MaterialUtils.getPaintingArtName(painting), true);
                 }
                 catch (IncompatibleClassChangeError e) {
                     // 1.21.2+

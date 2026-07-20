@@ -323,8 +323,17 @@ public class ConfigHandler extends Queue {
             if (global.hasOption("use-mysql") && global.MYSQL != ConfigHandler.databaseType.isMySQL()) {
                 Chat.sendConsoleMessage(Color.YELLOW + "[CoreProtect] " + Phrase.build(Phrase.DATABASE_TYPE_OVERRIDE));
             }
-        } else {
-            ConfigHandler.databaseType = global.MYSQL ? DatabaseType.MYSQL : DatabaseType.SQLITE;
+
+            ConfigHandler.host = Config.getGlobal().MYSQL_HOST;
+            ConfigHandler.port = Config.getGlobal().MYSQL_PORT;
+            ConfigHandler.database = Config.getGlobal().MYSQL_DATABASE;
+            ConfigHandler.username = Config.getGlobal().MYSQL_USERNAME;
+            ConfigHandler.password = Config.getGlobal().MYSQL_PASSWORD;
+            ConfigHandler.maximumPoolSize = Config.getGlobal().MAXIMUM_POOL_SIZE;
+            ConfigHandler.prefix = Config.getGlobal().PREFIX;
+            ConfigHandler.sqlite = Config.getGlobal().SQLITE_DATABASE.trim().length() > 0 ? Config.getGlobal().SQLITE_DATABASE.trim() : "database.db";
+
+            ConfigHandler.loadBlacklist(); // Load the blacklist file if it exists.
         }
         global.MYSQL = ConfigHandler.databaseType.isMySQL();
 

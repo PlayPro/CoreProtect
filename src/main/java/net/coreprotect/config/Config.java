@@ -37,13 +37,7 @@ public class Config extends Language {
     private Config defaults;
 
     public String DONATION_KEY;
-    public String DATABASE_TYPE;
-    public String CLICKHOUSE_HOST;
-    public String CLICKHOUSE_DATABASE;
-    public String CLICKHOUSE_USERNAME;
-    public String CLICKHOUSE_PASSWORD;
-    public String DUCKDB_MEMORY_LIMIT;
-    public String DUCKDB_MAX_TEMP_DIRECTORY_SIZE;
+    public String SQLITE_DATABASE;
     public String PREFIX;
     public String MYSQL_HOST;
     public String MYSQL_DATABASE;
@@ -238,13 +232,7 @@ public class Config extends Language {
         this.UNKNOWN_LOGGING = this.getBoolean("unknown-logging", false);
         this.MAXIMUM_POOL_SIZE = this.getInt("maximum-pool-size", 10);
         this.DONATION_KEY = this.getString("donation-key");
-        this.DATABASE_TYPE = this.getString("database-type");
-        this.CLICKHOUSE_HOST = this.getString("clickhouse-host");
-        this.CLICKHOUSE_PORT = this.getInt("clickhouse-port");
-        this.CLICKHOUSE_DATABASE = this.getString("clickhouse-database");
-        this.CLICKHOUSE_USERNAME = this.getString("clickhouse-username");
-        this.CLICKHOUSE_PASSWORD = this.getString("clickhouse-password");
-        this.CLICKHOUSE_TLS = this.getBoolean("clickhouse-tls");
+        this.SQLITE_DATABASE = this.getString("sqlite-database");
         this.MYSQL = this.getBoolean("use-mysql");
         this.PREFIX = this.getString("table-prefix");
         this.MYSQL_HOST = this.getString("mysql-host");

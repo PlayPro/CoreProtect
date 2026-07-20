@@ -245,19 +245,19 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
 
     public static void endDatabaseReload(boolean resumePersistence) {
         try {
+            if (databaseLifecycle.isWriteLockedByCurrentThread()) {
+                databaseLifecycle.writeLock().unlock();
+            }
+        }
+        finally {
             synchronized (rollbackPurgeGate) {
-                databaseReloadRunning = false;
                 if (resumePersistence) {
                     databaseReloadPaused = false;
                     if (!ConfigHandler.converterRunning) {
                         isPaused = false;
                     }
                 }
-            }
-        }
-        finally {
-            if (databaseLifecycle.isWriteLockedByCurrentThread()) {
-                databaseLifecycle.writeLock().unlock();
+                databaseReloadRunning = false;
             }
         }
     }

@@ -252,6 +252,9 @@ public final class EntitySpawnTracking {
             return true;
         });
         if (!registered) {
+            if (expectedVerification != null) {
+                pendingIdentityVerifications.remove(uuid, expectedVerification);
+            }
             return;
         }
         CoreProtect plugin = CoreProtect.getInstance();

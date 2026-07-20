@@ -1,5 +1,7 @@
 package net.coreprotect.command;
 
+import java.util.concurrent.CancellationException;
+
 import org.bukkit.command.CommandSender;
 
 import net.coreprotect.config.ConfigHandler;
@@ -59,7 +61,8 @@ public class ReloadCommand {
     }
 
     static synchronized boolean performReload(CommandSender player) throws InterruptedException {
-        boolean resumePersistence = !Consumer.isDatabaseReloadPaused();
+        final boolean resumePersistenceAfterCancellation = !Consumer.isDatabaseReloadPaused();
+        boolean resumePersistence = resumePersistenceAfterCancellation;
         Consumer.OperationStartResult startResult = Consumer.beginDatabaseReload();
         if (startResult != Consumer.OperationStartResult.STARTED) {
             Phrase phrase = startResult == Consumer.OperationStartResult.PURGE_RUNNING ? Phrase.PURGE_IN_PROGRESS
@@ -80,7 +83,16 @@ public class ReloadCommand {
                 return false;
             }
             resumePersistence = false;
-            if (!ConfigHandler.performInitialization(false)) {
+            boolean initialized;
+            try {
+                initialized = ConfigHandler.performInitialization(false);
+            }
+            catch (CancellationException e) {
+                resumePersistence = resumePersistenceAfterCancellation;
+                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.RELOAD_FAILED));
+                return false;
+            }
+            if (!initialized) {
                 Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.RELOAD_FAILED));
                 return false;
             }

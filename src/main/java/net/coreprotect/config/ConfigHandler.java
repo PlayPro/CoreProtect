@@ -700,7 +700,7 @@ public class ConfigHandler extends Queue {
                 ListenerHandler.registerNetworking(); // Register channels for networking API
             }
         } catch (CancellationException e) {
-            return false;
+            throw e;
         } catch (Exception e) {
             ErrorReporter.report(e);
             return false;

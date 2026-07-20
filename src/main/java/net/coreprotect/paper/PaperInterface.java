@@ -5,8 +5,10 @@ import java.util.List;
 import org.bukkit.Location;
 import org.bukkit.Server;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Villager;
 import org.bukkit.inventory.Inventory;
@@ -23,6 +25,8 @@ public interface PaperInterface {
     public double getAverageTickTime(Server server);
 
     public String getLine(Sign sign, int line);
+
+    public boolean isAttached(Block block, Block scanBlock, BlockData blockData, int scanMin);
 
     public void teleportAsync(Entity entity, Location location);
 

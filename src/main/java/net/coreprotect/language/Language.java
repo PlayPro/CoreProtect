@@ -214,6 +214,7 @@ public class Language {
         phrases.put(Phrase.PURGE_STARTED, "Data purge started on \"{0}\".");
         phrases.put(Phrase.PURGE_SUCCESS, "Data purge successful.");
         phrases.put(Phrase.RAM_STATS, "{0}GB / {1}GB RAM");
+        phrases.put(Phrase.RELOAD_FAILED, "Configuration reload failed.");
         phrases.put(Phrase.RELOAD_STARTED, "Reloading configuration - please wait.");
         phrases.put(Phrase.RELOAD_SUCCESS, "Configuration successfully reloaded.");
         phrases.put(Phrase.ROLLBACK_ABORTED, "Rollback or restore aborted.");

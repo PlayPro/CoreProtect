@@ -1,5 +1,7 @@
 package net.coreprotect.command;
 
+import java.util.concurrent.CancellationException;
+
 import org.bukkit.command.CommandSender;
 
 import net.coreprotect.config.ConfigHandler;
@@ -42,7 +44,13 @@ public class ReloadCommand {
                         }
                         Consumer.isPaused = true;
 
-                        ConfigHandler.performInitialization(false);
+                        try {
+                            ConfigHandler.performInitialization(false);
+                        }
+                        catch (CancellationException e) {
+                            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.RELOAD_FAILED));
+                            return;
+                        }
                         Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.RELOAD_SUCCESS));
 
                         Thread networkHandler = new Thread(new NetworkHandler(false, false));

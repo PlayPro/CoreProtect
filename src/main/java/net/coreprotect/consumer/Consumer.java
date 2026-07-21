@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Bukkit;
@@ -27,6 +28,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
     private static Thread consumerThread = null;
     private static final Object rollbackPurgeGate = new Object();
     private static long pendingRollbackPublications = 0;
+    private static CompletableFuture<Void> databaseReloadShutdownSignal = new CompletableFuture<>();
     public static volatile int currentConsumer = 0;
     public static volatile boolean isPaused = false;
     public static volatile boolean transacting = false;
@@ -98,6 +100,10 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
     }
 
     public static void initialize() {
+        synchronized (rollbackPurgeGate) {
+            databaseReloadShutdownSignal.complete(null);
+            databaseReloadShutdownSignal = new CompletableFuture<>();
+        }
         Consumer.consumer.put(0, new ArrayList<>());
         Consumer.consumer.put(1, new ArrayList<>());
         Consumer.consumer_id.put(0, new Integer[] { 0, 0 });
@@ -161,6 +167,18 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
     public static void releaseRollback(String user) {
         synchronized (rollbackPurgeGate) {
             ConfigHandler.activeRollbacks.remove(user);
+        }
+    }
+
+    public static void blockDatabaseReloadForShutdown() {
+        synchronized (rollbackPurgeGate) {
+            databaseReloadShutdownSignal.complete(null);
+        }
+    }
+
+    public static CompletableFuture<Void> databaseReloadShutdownSignal() {
+        synchronized (rollbackPurgeGate) {
+            return databaseReloadShutdownSignal.copy();
         }
     }
 

@@ -45,6 +45,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.model.PendingBlockChange;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.BlockUtils;
@@ -111,7 +112,7 @@ public class RollbackBlockHandler extends Queue {
      *            The block data as a string
      * @return Updated count status
      */
-    public static boolean processBlockChange(World bukkitWorld, Block block, CommonLookupData row, int rollbackType, boolean clearInventories, Map<Location, BlockData> chunkChanges, boolean countBlock, Material oldTypeMaterial, Material pendingChangeType, BlockData pendingChangeData, String finalUserString, BlockData rawBlockData, Material changeType, boolean changeBlock, BlockData changeBlockData, SerializedBlockMeta meta, BlockData blockData, String rowUser, Material rowType, int rowX, int rowY, int rowZ, int rowTypeRaw, int rowData, int rowAction, int rowWorldId, String blockDataString) {
+    public static boolean processBlockChange(World bukkitWorld, Block block, CommonLookupData row, int rollbackType, boolean clearInventories, Map<Block, PendingBlockChange> chunkChanges, boolean countBlock, Material oldTypeMaterial, Material pendingChangeType, BlockData pendingChangeData, String finalUserString, BlockData rawBlockData, Material changeType, boolean changeBlock, BlockData changeBlockData, SerializedBlockMeta meta, BlockData blockData, String rowUser, Material rowType, int rowX, int rowY, int rowZ, int rowTypeRaw, int rowData, int rowAction, int rowWorldId, String blockDataString) {
         int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
 
         try {
@@ -302,7 +303,7 @@ public class RollbackBlockHandler extends Queue {
                             }
                         }
 
-                        BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, null, physics);
+                        BlockUtils.queueTypeAndData(chunkChanges, block, rowType, null, physics);
                     }
 
                     return countBlock;
@@ -532,7 +533,7 @@ public class RollbackBlockHandler extends Queue {
                     physics = !(blockData instanceof Snow) || block.getY() <= BukkitAdapter.ADAPTER.getMinHeight(block.getWorld()) || (block.getWorld().getBlockAt(block.getX(), block.getY() - 1, block.getZ()).getType().equals(Material.GRASS_BLOCK));
                     }
                     */
-                    BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, physics);
+                    BlockUtils.queueTypeAndData(chunkChanges, block, rowType, blockData, physics);
                     return countBlock;
                 }
             }
@@ -580,19 +581,34 @@ public class RollbackBlockHandler extends Queue {
      *            The user performing the rollback
      */
     @SuppressWarnings("UnstableApiUsage")
-    public static void applyBlockChanges(Map<Location, BlockData> chunkChanges, int preview, Player user) {
+    public static void applyBlockChanges(Map<Block, PendingBlockChange> chunkChanges, int preview, Player user) {
         if (preview > 0 && user != null) {
-            user.sendMultiBlockChange(chunkChanges);
+            for (Entry<Block, PendingBlockChange> chunkChange : chunkChanges.entrySet()) {
+                user.sendBlockChange(chunkChange.getKey().getLocation(), chunkChange.getValue().blockData());
+            }
             chunkChanges.clear();
             return;
         }
 
-        for (Entry<Location, BlockData> chunkChange : chunkChanges.entrySet()) {
-            Block changeBlock = chunkChange.getKey().getBlock();
-            BlockData changeBlockData = chunkChange.getValue();
-
-            BlockUtils.setTypeAndData(changeBlock, null, changeBlockData, true);
-        }
+        applyBlockChanges(chunkChanges, true, true);
+        applyBlockChanges(chunkChanges, true, false);
+        applyBlockChanges(chunkChanges, false, false);
+        applyBlockChanges(chunkChanges, false, true);
         chunkChanges.clear();
+    }
+
+    private static void applyBlockChanges(Map<Block, PendingBlockChange> chunkChanges, boolean airChange, boolean applyPhysics) {
+        for (Entry<Block, PendingBlockChange> chunkChange : chunkChanges.entrySet()) {
+            PendingBlockChange change = chunkChange.getValue();
+            boolean changeToAir = isAirChange(change);
+            if (changeToAir == airChange && change.applyPhysics() == applyPhysics) {
+                BlockUtils.setTypeAndData(chunkChange.getKey(), null, change.blockData(), !changeToAir && applyPhysics);
+            }
+        }
+    }
+
+    private static boolean isAirChange(PendingBlockChange change) {
+        BlockData blockData = change.blockData();
+        return blockData != null && BlockUtils.isAir(blockData.getMaterial());
     }
 }

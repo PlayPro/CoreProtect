@@ -35,6 +35,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.model.PendingBlockChange;
 import net.coreprotect.model.item.ItemTransactionActions;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.BlockUtils;
@@ -83,7 +84,7 @@ public class RollbackProcessor {
             boolean clearInventories = Config.getGlobal().ROLLBACK_ITEMS;
             List<CommonLookupData> data = blockList != null ? blockList : new ArrayList<>();
             List<CommonLookupData> itemData = itemList != null ? itemList : new ArrayList<>();
-            Map<Location, BlockData> chunkChanges = new LinkedHashMap<>();
+            Map<Block, PendingBlockChange> chunkChanges = new LinkedHashMap<>();
 
             // Process blocks
             for (CommonLookupData row : data) {
@@ -211,7 +212,8 @@ public class RollbackProcessor {
                     boolean countBlock = true;
                     Material changeType = block.getType();
                     BlockData changeBlockData = block.getBlockData();
-                    BlockData pendingChangeData = chunkChanges.get(block);
+                    PendingBlockChange pendingChange = chunkChanges.get(block);
+                    BlockData pendingChangeData = pendingChange != null ? pendingChange.blockData() : null;
                     Material pendingChangeType = changeType;
 
                     if (pendingChangeData != null) {

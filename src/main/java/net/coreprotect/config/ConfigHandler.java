@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
@@ -524,6 +525,9 @@ public class ConfigHandler extends Queue {
             if (startup) {
                 ListenerHandler.registerNetworking(); // Register channels for networking API
             }
+        }
+        catch (CancellationException e) {
+            throw e;
         }
         catch (Exception e) {
             CoreProtect.getInstance().getSLF4JLogger().error("An unexpected error occurred while initializing", e);

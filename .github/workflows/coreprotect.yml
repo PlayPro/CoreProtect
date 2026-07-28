@@ -1,0 +1,152 @@
+name: CoreProtect
+
+# Repo prive : sync du code upstream + build du .jar (Minecraft 26.2).
+#
+# A METTRE DANS :  .github/workflows/coreprotect.yml   (sur ta branche par defaut)
+#
+# Le code de PlayPro est copie dans la branche `upstream-master` de TON repo,
+# jamais dans ta branche par defaut : ce fichier ne peut donc pas etre ecrase
+# par le sync, quel que soit le nom de ta branche principale.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branche, tag ou commit de PlayPro/CoreProtect a compiler"
+        required: false
+        default: master
+      force:
+        description: "Rebuild meme si le commit a deja une release"
+        type: boolean
+        default: false
+  schedule:
+    # tous les jours a 04:00 UTC = 06:00 Paris
+    - cron: "0 4 * * *"
+
+permissions:
+  contents: write
+
+env:
+  UPSTREAM: PlayPro/CoreProtect
+  MIRROR_BRANCH: upstream-master   # branche miroir dans ton repo ("" pour desactiver)
+  JAVA_VERSION: "25"
+
+concurrency:
+  group: coreprotect-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Sync + Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout de ton repo
+        uses: actions/checkout@v4
+
+      - name: Checkout du code upstream
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.UPSTREAM }}
+          ref: ${{ github.event.inputs.ref || 'master' }}
+          path: upstream
+          fetch-depth: 0
+
+      - name: Infos commit
+        id: info
+        working-directory: upstream
+        run: |
+          echo "sha=$(git rev-parse HEAD)"             >> "$GITHUB_OUTPUT"
+          echo "short=$(git rev-parse --short=8 HEAD)" >> "$GITHUB_OUTPUT"
+          {
+            echo "subject<<EOF"
+            git log -1 --pretty=%s
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Deja publie ?
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="build-${{ steps.info.outputs.short }}"
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          elif gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Release $TAG deja presente, build ignore."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Miroir du code dans ${{ env.MIRROR_BRANCH }}
+        if: env.MIRROR_BRANCH != '' && steps.check.outputs.skip == 'false'
+        working-directory: upstream
+        run: |
+          git push --force \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" \
+            "HEAD:refs/heads/${{ env.MIRROR_BRANCH }}"
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        if: steps.check.outputs.skip == 'false'
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+
+      - name: Build
+        if: steps.check.outputs.skip == 'false'
+        working-directory: upstream
+        run: mvn -B -ntp clean package
+
+      - name: Recuperer le .jar
+        if: steps.check.outputs.skip == 'false'
+        id: jar
+        run: |
+          mkdir -p dist
+          JAR=$(find upstream/target -maxdepth 1 -name 'CoreProtect*.jar' \
+                ! -name 'original-*' ! -name '*-sources.jar' ! -name '*-javadoc.jar' \
+                | sort | head -n1)
+          [ -n "$JAR" ] || { echo "::error::Aucun .jar produit"; ls -la upstream/target; exit 1; }
+          VERSION=$(basename "$JAR" .jar | sed 's/^CoreProtect-//')
+          cp "$JAR" dist/CoreProtect.jar
+          cp "$JAR" "dist/CoreProtect-${VERSION}-${{ steps.info.outputs.short }}.jar"
+          ( cd dist && sha256sum *.jar > SHA256SUMS.txt )
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          ls -la dist
+
+      - name: Verification du jar
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          unzip -p dist/CoreProtect.jar plugin.yml | head -20
+          unzip -l dist/CoreProtect.jar | grep -q 'net/coreprotect/CoreProtect.class' \
+            && echo "OK : classe principale presente"
+
+      - name: Upload artifact
+        if: steps.check.outputs.skip == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: CoreProtect-${{ steps.info.outputs.short }}
+          path: dist/*
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Publier la Release
+        if: steps.check.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="build-${{ steps.info.outputs.short }}"
+          gh release delete "$TAG" --repo "${{ github.repository }}" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$TAG" dist/*.jar dist/SHA256SUMS.txt \
+            --repo "${{ github.repository }}" \
+            --title "CoreProtect ${{ steps.jar.outputs.version }} (dev ${{ steps.info.outputs.short }})" \
+            --notes "Build automatique depuis \`${{ env.UPSTREAM }}@${{ steps.info.outputs.short }}\`
+
+          **Dernier commit upstream :** ${{ steps.info.outputs.subject }}
+
+          Compile avec JDK ${{ env.JAVA_VERSION }} contre paper-api 26.2.
+          Serveur requis : **Java 21+**. Depose \`CoreProtect.jar\` dans \`plugins/\`.
+
+          > Build non officiel, sans support de l'equipe CoreProtect."

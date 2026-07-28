@@ -84,11 +84,12 @@ public final class InventoryChangeListener extends Queue implements Listener {
         Location capturedLocation = location.clone();
         Location boundaryLocation = getCanonicalContainerLocation(location);
         ItemStack[] capturedContents = ItemUtils.getContainerState(contents);
+        String transactionId = HopperTransactionUtils.getTransactionId(capturedLocation);
         HopperPullListener.flushPendingPull(boundaryLocation, null, capturedContents);
-        ContainerTransactionDispatcher.submit(boundaryLocation, () -> {
+        ContainerTransactionDispatcher.submit(boundaryLocation, () -> HopperTransactionUtils.synchronizeTransaction(transactionId, () -> {
             setForceContainer(HopperTransactionUtils.getLoggingId(user, capturedLocation), ItemUtils.getContainerState(capturedContents));
             Queue.queueContainerBreak(user, capturedLocation, type, capturedContents);
-        });
+        }));
     }
 
     public static void flushPendingContainer(Location location, ItemStack[] contents) {
@@ -179,6 +180,12 @@ public final class InventoryChangeListener extends Queue implements Listener {
 
     private static boolean queueContainerTransaction(String user, Location playerLocation, Material type, Object inventory, ItemStack[] inventoryData, ItemStack[] forceInventoryData, ItemStack batchItem) {
         String transactingChestId = HopperTransactionUtils.getTransactionId(playerLocation);
+        return HopperTransactionUtils.synchronizeTransaction(transactingChestId,
+                () -> queueContainerTransactionLocked(user, playerLocation, type, inventory, inventoryData, forceInventoryData, batchItem, transactingChestId));
+    }
+
+    private static boolean queueContainerTransactionLocked(String user, Location playerLocation, Material type, Object inventory, ItemStack[] inventoryData, ItemStack[] forceInventoryData, ItemStack batchItem,
+            String transactingChestId) {
         String loggingChestIdSuffix = HopperTransactionUtils.getLoggingIdSuffix(playerLocation);
         String loggingChestId = HopperTransactionUtils.getLoggingId(user, loggingChestIdSuffix);
         Set<String> locationViewers = ConfigHandler.oldContainerViewers.get(loggingChestIdSuffix);

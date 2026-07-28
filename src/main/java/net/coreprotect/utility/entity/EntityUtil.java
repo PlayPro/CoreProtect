@@ -463,7 +463,7 @@ public class EntityUtil {
 
                             if (count == 3) {
                                 int set = (int) value;
-                                villager.setVillagerLevel(set);
+                                villager.setVillagerLevel(Math.min(set, 5));
                             }
                             else if (count == 4) {
                                 int set = (int) value;

@@ -79,8 +79,9 @@ import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.spigot.SpigotAdapter;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
-import net.coreprotect.utility.serialize.ItemMetaHandler;
 import net.coreprotect.utility.EntitySpawnTracking;
+import net.coreprotect.utility.entity.LivingEntityDetails;
+import net.coreprotect.utility.serialize.ItemMetaHandler;
 
 public final class EntityDeathListener extends Queue implements Listener {
 
@@ -283,13 +284,9 @@ public final class EntityDeathListener extends Queue implements Listener {
             List<Object> age = new ArrayList<>();
             List<Object> tame = new ArrayList<>();
             List<Object> attributes = new ArrayList<>();
-            List<Object> details = new ArrayList<>();
+            List<Object> details = LivingEntityDetails.serialize(entity);
             List<Object> info = new ArrayList<>();
             EntityType type = entity_type;
-
-            // Basic LivingEntity attributes
-            details.add(entity.getRemoveWhenFarAway());
-            details.add(entity.getCanPickupItems());
 
             if (entity instanceof Ageable) {
                 Ageable ageable = (Ageable) entity;
@@ -367,6 +364,8 @@ public final class EntityDeathListener extends Queue implements Listener {
             else if (entity instanceof Pig) {
                 Pig pig = (Pig) entity;
                 info.add(pig.hasSaddle());
+                BukkitAdapter.ADAPTER.getEntityMeta(entity, info);
+                PaperAdapter.ADAPTER.getEntityMeta(entity, info);
             }
             else if (entity instanceof Sheep) {
                 Sheep sheep = (Sheep) entity;
@@ -559,6 +558,7 @@ public final class EntityDeathListener extends Queue implements Listener {
             }
             else {
                 BukkitAdapter.ADAPTER.getEntityMeta(entity, info);
+                PaperAdapter.ADAPTER.getEntityMeta(entity, info);
             }
 
             data.add(age);

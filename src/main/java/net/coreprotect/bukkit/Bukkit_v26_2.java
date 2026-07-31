@@ -7,7 +7,7 @@ import net.coreprotect.model.BlockGroup;
 /**
  * Bukkit adapter implementation for Minecraft 26.2.
  */
-public class Bukkit_v26_2 extends Bukkit_v1_21 {
+public class Bukkit_v26_2 extends Bukkit_v1_21_5 {
 
     public Bukkit_v26_2() {
         initializeBlockGroups();

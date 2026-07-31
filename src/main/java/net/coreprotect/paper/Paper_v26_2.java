@@ -5,7 +5,7 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.type.Speleothem;
 
-public class Paper_v26_2 extends Paper_26_0 {
+public class Paper_v26_2 extends Paper_v26_1 {
 
     @Override
     public boolean isAttached(Block block, Block scanBlock, BlockData blockData, int scanMin) {

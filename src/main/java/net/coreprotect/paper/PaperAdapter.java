@@ -13,6 +13,7 @@ import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Villager;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
@@ -35,49 +36,38 @@ public class PaperAdapter implements PaperInterface {
     public static final int PAPER_V1_19 = BukkitAdapter.BUKKIT_V1_19;
     public static final int PAPER_V1_20 = BukkitAdapter.BUKKIT_V1_20;
     public static final int PAPER_V1_21 = BukkitAdapter.BUKKIT_V1_21;
+    public static final int PAPER_V1_21_5 = BukkitAdapter.BUKKIT_V1_21_5;
     public static final int PAPER_V26_0 = BukkitAdapter.BUKKIT_V26_0;
     public static final int PAPER_V26_1 = BukkitAdapter.BUKKIT_V26_1;
     public static final int PAPER_V26_2 = BukkitAdapter.BUKKIT_V26_2;
 
     public static void loadAdapter() {
         int paperVersion = ConfigHandler.SERVER_VERSION;
-        if (!ConfigHandler.isPaper) {
-            paperVersion = PAPER_UNAVAILABLE;
+        if (!ConfigHandler.isPaper || paperVersion == PAPER_UNAVAILABLE) {
+            PaperAdapter.ADAPTER = new PaperAdapter();
+            return;
         }
 
-        switch (paperVersion) {
-            case PAPER_UNAVAILABLE:
-                PaperAdapter.ADAPTER = new PaperAdapter();
-                break;
-            case PAPER_V1_13:
-            case PAPER_V1_14:
-            case PAPER_V1_15:
-            case PAPER_V1_16:
-                PaperAdapter.ADAPTER = new PaperHandler();
-                break;
-            case PAPER_V1_17:
-            case PAPER_V1_18:
-                PaperAdapter.ADAPTER = new Paper_v1_17();
-                break;
-            case PAPER_V1_19:
-                PaperAdapter.ADAPTER = new Paper_v1_19();
-                break;
-            case PAPER_V1_20:
-                PaperAdapter.ADAPTER = new Paper_v1_20();
-                break;
-            case PAPER_V1_21:
-                PaperAdapter.ADAPTER = new Paper_v1_20();
-                break;
-            case PAPER_V26_0:
-            case PAPER_V26_1:
-                PaperAdapter.ADAPTER = new Paper_26_0();
-                break;
-            case PAPER_V26_2:
-                PaperAdapter.ADAPTER = new Paper_v26_2();
-                break;
-            default:
-                PaperAdapter.ADAPTER = paperVersion >= PAPER_V26_2 ? new Paper_v26_2() : new Paper_26_0();
-                break;
+        if (paperVersion >= PAPER_V26_2) {
+            PaperAdapter.ADAPTER = new Paper_v26_2();
+        }
+        else if (paperVersion >= PAPER_V26_1) {
+            PaperAdapter.ADAPTER = new Paper_v26_1();
+        }
+        else if (paperVersion >= PAPER_V26_0) {
+            PaperAdapter.ADAPTER = new Paper_26_0();
+        }
+        else if (paperVersion >= PAPER_V1_20) {
+            PaperAdapter.ADAPTER = new Paper_v1_20();
+        }
+        else if (paperVersion >= PAPER_V1_19) {
+            PaperAdapter.ADAPTER = new Paper_v1_19();
+        }
+        else if (paperVersion >= PAPER_V1_17) {
+            PaperAdapter.ADAPTER = new Paper_v1_17();
+        }
+        else {
+            PaperAdapter.ADAPTER = new PaperHandler();
         }
     }
 
@@ -133,6 +123,16 @@ public class PaperAdapter implements PaperInterface {
 
     @Override
     public boolean executeEntityTask(Plugin plugin, Entity entity, Runnable task, Runnable retiredTask, long delayTicks) {
+        return false;
+    }
+
+    @Override
+    public boolean getEntityMeta(LivingEntity entity, List<Object> info) {
+        return false;
+    }
+
+    @Override
+    public boolean setEntityMeta(Entity entity, Object value, int count) {
         return false;
     }
 

@@ -246,18 +246,7 @@ public class EntityUtil {
                     LivingEntity livingEntity = (LivingEntity) entity;
                     @SuppressWarnings("unchecked")
                     List<Object> details = (List<Object>) list.get(6);
-                    int count = 0;
-                    for (Object value : details) {
-                        if (count == 0) {
-                            boolean set = (Boolean) value;
-                            livingEntity.setRemoveWhenFarAway(set);
-                        }
-                        else if (count == 1) {
-                            boolean set = (Boolean) value;
-                            livingEntity.setCanPickupItems(set);
-                        }
-                        count++;
-                    }
+                    LivingEntityDetails.restore(livingEntity, details);
                 }
 
                 boolean placedEntity = EntitySpawnTracking.isPlacedEntity(entity);
@@ -333,6 +322,10 @@ public class EntityUtil {
                         if (count == 0) {
                             boolean set = (Boolean) value;
                             pig.setSaddle(set);
+                        }
+                        else {
+                            BukkitAdapter.ADAPTER.setEntityMeta(entity, value, count);
+                            PaperAdapter.ADAPTER.setEntityMeta(entity, value, count);
                         }
                     }
                     else if (entity instanceof Sheep) {
@@ -660,6 +653,7 @@ public class EntityUtil {
                     }
                     else {
                         BukkitAdapter.ADAPTER.setEntityMeta(entity, value, count);
+                        PaperAdapter.ADAPTER.setEntityMeta(entity, value, count);
                     }
                     count++;
                 }

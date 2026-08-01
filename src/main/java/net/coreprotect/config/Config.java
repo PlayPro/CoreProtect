@@ -127,7 +127,7 @@ public class Config extends Language {
         DEFAULT_VALUES.put("clickhouse-password", "");
         DEFAULT_VALUES.put("clickhouse-tls", "false");
         DEFAULT_VALUES.put("duckdb-memory-limit", "512MB");
-        DEFAULT_VALUES.put("duckdb-threads", "2");
+        DEFAULT_VALUES.put("duckdb-threads", "3");
         DEFAULT_VALUES.put("duckdb-max-temp-directory-size", "10GB");
         DEFAULT_VALUES.put("language", "en");
         DEFAULT_VALUES.put("auto-purge", "false");
@@ -253,7 +253,7 @@ public class Config extends Language {
         this.MYSQL_USERNAME = this.getString("mysql-username");
         this.MYSQL_PASSWORD = this.getString("mysql-password");
         this.DUCKDB_MEMORY_LIMIT = this.getString("duckdb-memory-limit");
-        this.DUCKDB_THREADS = this.getInt("duckdb-threads", 2);
+        this.DUCKDB_THREADS = this.getInt("duckdb-threads", 3);
         this.DUCKDB_MAX_TEMP_DIRECTORY_SIZE = this.getString("duckdb-max-temp-directory-size");
         this.LANGUAGE = this.getString("language");
         this.AUTO_PURGE = this.getString("auto-purge");

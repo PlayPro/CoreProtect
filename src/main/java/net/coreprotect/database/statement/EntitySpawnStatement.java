@@ -8,8 +8,10 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
@@ -30,7 +32,9 @@ import net.coreprotect.model.entity.EntityInteractionOrigin;
 import net.coreprotect.model.entity.EntitySpawnData;
 import net.coreprotect.model.entity.EntitySpawnIdentity;
 import net.coreprotect.model.entity.EntitySpawnRecord;
+import net.coreprotect.model.lookup.EntityLookupContext;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.WorldUtils;
 
 public final class EntitySpawnStatement {
@@ -176,6 +180,117 @@ public final class EntitySpawnStatement {
             }
         }
         return uuids;
+    }
+
+    public static EntityLookupContext loadLookupContext(Connection connection, Location location, Integer[] radius) throws Exception {
+        return loadLookupContext(connection, location, radius, 0L, 0L);
+    }
+
+    public static EntityLookupContext loadLookupContext(Connection connection, Location location, Integer[] radius, long startTime, long endTime) throws Exception {
+        if (location == null || location.getWorld() == null || radius == null) {
+            return EntityLookupContext.legacy(Collections.emptySet(), Collections.emptySet());
+        }
+
+        Map<UUID, EntityLookupContext.Row> rows = new LinkedHashMap<>();
+        Set<UUID> databaseCandidates = new HashSet<>();
+        StringBuilder query = new StringBuilder("SELECT rowid AS id,block_rowid,time,uuid,current_wid,x,y,z,removed FROM ")
+                .append(ConfigHandler.prefix)
+                .append("entity_spawn WHERE current_wid=? AND x>=? AND x<? AND z>=? AND z<?");
+        if (startTime > 0L) {
+            query.append(" AND time>?");
+        }
+        if (endTime > 0L) {
+            query.append(" AND time<=?");
+        }
+
+        int minimumX = Math.floorDiv(radius[1], 16) << 4;
+        int maximumX = (Math.floorDiv(radius[2], 16) << 4) + 16;
+        int minimumZ = Math.floorDiv(radius[5], 16) << 4;
+        int maximumZ = (Math.floorDiv(radius[6], 16) << 4) + 16;
+        try (PreparedStatement statement = connection.prepareStatement(query.toString())) {
+            statement.setInt(1, WorldUtils.getWorldId(location.getWorld().getName()));
+            statement.setInt(2, minimumX);
+            statement.setInt(3, maximumX);
+            statement.setInt(4, minimumZ);
+            statement.setInt(5, maximumZ);
+            int parameterIndex = 6;
+            if (startTime > 0L) {
+                statement.setLong(parameterIndex++, startTime);
+            }
+            if (endTime > 0L) {
+                statement.setLong(parameterIndex, endTime);
+            }
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    EntityLookupContext.Row row = lookupRow(resultSet);
+                    rows.put(row.getUuid(), row);
+                    if (resultSet.getInt("removed") == 0) {
+                        databaseCandidates.add(row.getUuid());
+                    }
+                }
+            }
+        }
+
+        EntitySpawnTracking.LoadedEntityRadius loadedEntities = EntitySpawnTracking.findLoadedEntities(location, radius, databaseCandidates);
+        Set<UUID> missing = new HashSet<>(loadedEntities.getInside());
+        missing.removeAll(rows.keySet());
+        if (!missing.isEmpty()) {
+            for (EntityLookupContext.Row row : loadLookupRows(connection, missing)) {
+                rows.put(row.getUuid(), row);
+            }
+        }
+        return EntityLookupContext.reusable(loadedEntities.getInside(), loadedEntities.getLoadedCandidates(), rows.values());
+    }
+
+    private static List<EntityLookupContext.Row> loadLookupRows(Connection connection, Collection<UUID> uuids) throws SQLException {
+        List<EntityLookupContext.Row> rows = new ArrayList<>();
+        List<UUID> values = new ArrayList<>(uuids);
+        for (int offset = 0; offset < values.size(); offset += SELECT_BATCH_SIZE) {
+            int end = Math.min(offset + SELECT_BATCH_SIZE, values.size());
+            StringJoiner placeholders = new StringJoiner(",");
+            for (int index = offset; index < end; index++) {
+                placeholders.add("?");
+            }
+            String query = "SELECT rowid AS id,block_rowid,time,uuid,current_wid,x,y,z FROM " + ConfigHandler.prefix + "entity_spawn WHERE uuid IN(" + placeholders + ")";
+            try (PreparedStatement statement = connection.prepareStatement(query)) {
+                for (int index = offset; index < end; index++) {
+                    statement.setString(index - offset + 1, values.get(index).toString());
+                }
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    while (resultSet.next()) {
+                        rows.add(lookupRow(resultSet));
+                    }
+                }
+            }
+        }
+        return rows;
+    }
+
+    private static EntityLookupContext.Row lookupRow(ResultSet resultSet) throws SQLException {
+        long blockRowId = resultSet.getLong("block_rowid");
+        Long linkedBlockRowId = resultSet.wasNull() ? null : blockRowId;
+        long time = resultSet.getLong("time");
+        Long lookupTime = resultSet.wasNull() ? null : time;
+        return new EntityLookupContext.Row(
+                resultSet.getInt("id"),
+                linkedBlockRowId,
+                lookupTime,
+                UUID.fromString(resultSet.getString("uuid")),
+                nullableInteger(resultSet, "current_wid"),
+                nullableDouble(resultSet, "x"),
+                nullableDouble(resultSet, "y"),
+                nullableDouble(resultSet, "z")
+        );
+    }
+
+    private static Integer nullableInteger(ResultSet resultSet, String column) throws SQLException {
+        int value = resultSet.getInt(column);
+        return resultSet.wasNull() ? null : value;
+    }
+
+    private static Double nullableDouble(ResultSet resultSet, String column) throws SQLException {
+        double value = resultSet.getDouble(column);
+        return resultSet.wasNull() ? null : value;
     }
 
     private static void loadRecordBatch(Connection connection, List<Integer> ids, Map<Integer, EntitySpawnRecord> records, boolean byKillRowId) throws SQLException {

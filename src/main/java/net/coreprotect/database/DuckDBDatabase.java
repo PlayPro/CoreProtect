@@ -52,8 +52,13 @@ final class DuckDBDatabase {
     static synchronized void close() throws Exception {
         DuckDBConnection connection = rootConnection;
         rootConnection = null;
-        if (connection != null) {
-            connection.close();
+        try {
+            if (connection != null) {
+                connection.close();
+            }
+        }
+        finally {
+            DuckDBSpatialIndex.reset();
         }
     }
 
@@ -88,6 +93,7 @@ final class DuckDBDatabase {
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "username_log (" + rowId(prefix, "username_log") + ", time INTEGER, uuid VARCHAR, \"user\" VARCHAR)");
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "version (" + rowId(prefix, "version") + ", time INTEGER, version VARCHAR)");
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "world (" + rowId(prefix, "world") + ", id INTEGER, world VARCHAR)");
+                DuckDBSpatialIndex.createTable(prefix, statement);
 
                 if (!purge) {
                     initialize(prefix, statement);

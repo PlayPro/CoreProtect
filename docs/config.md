@@ -24,7 +24,7 @@ The default settings are suitable for most servers:
 ```yaml
 database-type: duckdb
 duckdb-memory-limit: 512MB
-duckdb-threads: 2
+duckdb-threads: 3
 duckdb-max-temp-directory-size: 10GB
 ```
 

@@ -14,6 +14,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.EntityType;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.DuckDBLookupQuery;
 import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
@@ -51,19 +52,33 @@ public final class EntityInteractionLookup {
             int currentTime = (int) (System.currentTimeMillis() / 1000L);
             int rowMax = page * limit;
             int pageStart = rowMax - limit;
-            int count;
+            int count = 0;
             String where = "entity_spawn_rowid=" + entitySpawnRowId;
-
-            try (ResultSet results = statement.executeQuery("SELECT COUNT(*) AS count FROM " + ConfigHandler.prefix + "entity_interaction WHERE " + where)) {
-                count = results.next() ? results.getInt("count") : 0;
-            }
 
             EntitySpawnRecord record = EntitySpawnStatement.loadLocationRecords(statement.getConnection(), Collections.singleton(entitySpawnRowId)).get(entitySpawnRowId);
             DisplayLocation displayLocation = resolveDisplayLocation(record, liveLocation);
             boolean found = false;
-            String query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,type,action,rolled_back FROM " + ConfigHandler.prefix + "entity_interaction WHERE " + where + " ORDER BY time DESC,rowid DESC LIMIT " + limit + " OFFSET " + pageStart;
+            boolean combinedDuckDBPage = ConfigHandler.databaseType.isDuckDB();
+            String query;
+            if (combinedDuckDBPage) {
+                String sourceTable = DuckDBLookupQuery.entityTable(statement.getConnection(), "entity_interaction", Collections.singleton(entitySpawnRowId), "spatial_rows");
+                String columns = "data_rows.time,data_rows." + ConfigHandler.databaseType.getUserColumn() + ",data_rows.wid,data_rows.x,data_rows.y,data_rows.z,data_rows.type,data_rows.action,data_rows.rolled_back";
+                query = DuckDBLookupQuery.pageQuery(sourceTable, ConfigHandler.prefix + "entity_interaction", where, columns, true, limit, pageStart);
+            }
+            else {
+                try (ResultSet results = statement.executeQuery("SELECT COUNT(*) AS count FROM " + ConfigHandler.prefix + "entity_interaction WHERE " + where)) {
+                    count = results.next() ? results.getInt("count") : 0;
+                }
+                query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,type,action,rolled_back FROM " + ConfigHandler.prefix + "entity_interaction WHERE " + where + " ORDER BY time DESC,rowid DESC LIMIT " + limit + " OFFSET " + pageStart;
+            }
             try (ResultSet results = statement.executeQuery(query)) {
                 while (results.next()) {
+                    if (combinedDuckDBPage) {
+                        count = results.getInt("count");
+                        if (results.getObject("result_id") == null) {
+                            continue;
+                        }
+                    }
                     int userId = results.getInt("user");
                     String resultUser = UserStatement.getName(statement.getConnection(), userId);
 

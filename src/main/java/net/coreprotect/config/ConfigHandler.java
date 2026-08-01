@@ -41,6 +41,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.ListenerHandler;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.model.action.EntityActionFilter;
+import net.coreprotect.model.lookup.LookupCursor;
 import net.coreprotect.model.lookup.LookupOutputMode;
 import net.coreprotect.model.lookup.LookupRollbackState;
 import net.coreprotect.paper.PaperAdapter;
@@ -72,7 +73,7 @@ public class ConfigHandler extends Queue {
     public static String duckdb = "database.duckdb";
     public static String duckdbMemoryLimit = "512MB";
     public static String duckdbMaxTempDirectorySize = "10GB";
-    public static int duckdbThreads = 2;
+    public static int duckdbThreads = 3;
     public static String host = "127.0.0.1";
     public static int port = 3306;
     public static String database = "database";
@@ -198,6 +199,7 @@ public class ConfigHandler extends Queue {
     public static Map<String, Integer[]> lookupRadius = syncMap();
     public static Map<String, String> lookupTime = syncMap();
     public static Map<String, Long[]> lookupRows = syncMap();
+    public static Map<String, LookupCursor> lookupDuckDBCursor = syncMap();
     public static Map<String, String> uuidCache = syncMap();
     public static Map<String, String> uuidCacheReversed = syncMap();
     public static Map<String, Integer> playerIdCache = syncMap();

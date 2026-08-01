@@ -2,10 +2,16 @@ package net.coreprotect.api;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 import org.bukkit.Location;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.DuckDBLookupQuery;
+import net.coreprotect.database.DuckDBSpatialIndex;
 import net.coreprotect.utility.WorldUtils;
 
 final class LookupFilter {
@@ -51,6 +57,26 @@ final class LookupFilter {
         return location != null;
     }
 
+    boolean beginDuckDBSnapshot(Connection connection) throws Exception {
+        if (!ConfigHandler.databaseType.isDuckDB() || location == null || !connection.getAutoCommit()) {
+            return false;
+        }
+        connection.setAutoCommit(false);
+        return true;
+    }
+
+    void endDuckDBSnapshot(Connection connection, boolean started) throws Exception {
+        if (!started) {
+            return;
+        }
+        try {
+            connection.rollback();
+        }
+        finally {
+            connection.setAutoCommit(true);
+        }
+    }
+
     void appendWhere(StringBuilder query) {
         appendWhere(query, "");
     }
@@ -74,9 +100,9 @@ final class LookupFilter {
         }
     }
 
-    void appendEntityContainerWhere(StringBuilder query, String transactionAlias) {
+    void appendEntityContainerWhere(StringBuilder query, String transactionAlias, String entityAlias) {
         String transaction = transactionAlias + ".";
-        String entity = "current_spawn_rows.";
+        String entity = entityAlias + ".";
         query.append("WHERE ").append(transaction).append("time > ?");
         if (userId != null) {
             query.append(" AND ").append(transaction).append(ConfigHandler.databaseType.getUserColumn()).append(" = ?");
@@ -93,8 +119,7 @@ final class LookupFilter {
             query.append(" AND ").append(transaction).append("x = ? AND ").append(transaction).append("y = ? AND ").append(transaction).append("z = ?");
         }
 
-        query.append(") OR ").append(transaction).append("entity_spawn_rowid IN(SELECT ").append(entity).append("rowid FROM ")
-                .append(ConfigHandler.prefix).append("entity_spawn current_spawn_rows WHERE ").append(entity).append("current_wid = ?");
+        query.append(") OR (").append(entity).append("current_wid = ?");
         if (radius > 0) {
             query.append(" AND ").append(entity).append("x >= ? AND ").append(entity).append("x < ? AND ").append(entity).append("z >= ? AND ").append(entity).append("z < ?");
         }
@@ -102,6 +127,91 @@ final class LookupFilter {
             query.append(" AND ").append(entity).append("x >= ? AND ").append(entity).append("x < ? AND ").append(entity).append("y >= ? AND ").append(entity).append("y < ? AND ").append(entity).append("z >= ? AND ").append(entity).append("z < ?");
         }
         query.append("))");
+    }
+
+    String table(Connection connection, String table, String alias) {
+        if (location == null) {
+            return ConfigHandler.prefix + table + alias(alias);
+        }
+
+        int x = location.getBlockX();
+        int z = location.getBlockZ();
+        int minimumX = radius > 0 ? MessageAPI.clampToInt((long) x - radius) : x;
+        int maximumX = radius > 0 ? MessageAPI.clampToInt((long) x + radius) : x;
+        int minimumZ = radius > 0 ? MessageAPI.clampToInt((long) z - radius) : z;
+        int maximumZ = radius > 0 ? MessageAPI.clampToInt((long) z + radius) : z;
+        int worldId = WorldUtils.getWorldId(location.getWorld().getName());
+        return DuckDBLookupQuery.spatialTable(connection, table, worldId, minimumX, maximumX, minimumZ, maximumZ, alias);
+    }
+
+    String entityContainerTable(Connection connection, String alias) throws Exception {
+        if (location == null || !ConfigHandler.databaseType.isDuckDB()) {
+            return ConfigHandler.prefix + "entity_container" + alias(alias);
+        }
+
+        int x = location.getBlockX();
+        int z = location.getBlockZ();
+        int minimumX = radius > 0 ? MessageAPI.clampToInt((long) x - radius) : x;
+        int maximumX = radius > 0 ? MessageAPI.clampToInt((long) x + radius) : x;
+        int minimumZ = radius > 0 ? MessageAPI.clampToInt((long) z - radius) : z;
+        int maximumZ = radius > 0 ? MessageAPI.clampToInt((long) z + radius) : z;
+        int worldId = WorldUtils.getWorldId(location.getWorld().getName());
+        List<Integer> entitySpawnRowIds = loadCurrentEntitySpawnRowIds(connection);
+        return DuckDBSpatialIndex.tableExpression(
+                connection,
+                ConfigHandler.prefix,
+                "entity_container",
+                worldId,
+                minimumX,
+                maximumX,
+                minimumZ,
+                maximumZ,
+                entitySpawnRowIds,
+                Collections.emptySet(),
+                alias
+        );
+    }
+
+    private List<Integer> loadCurrentEntitySpawnRowIds(Connection connection) throws Exception {
+        List<Integer> rowIds = new ArrayList<>();
+        StringBuilder query = new StringBuilder("SELECT rowid FROM ").append(ConfigHandler.prefix).append("entity_spawn WHERE current_wid=?");
+        if (radius > 0) {
+            query.append(" AND x>=? AND x<? AND z>=? AND z<?");
+        }
+        else {
+            query.append(" AND x>=? AND x<? AND y>=? AND y<? AND z>=? AND z<?");
+        }
+        try (PreparedStatement statement = connection.prepareStatement(query.toString())) {
+            int parameterIndex = 1;
+            int x = location.getBlockX();
+            int y = location.getBlockY();
+            int z = location.getBlockZ();
+            statement.setInt(parameterIndex++, WorldUtils.getWorldId(location.getWorld().getName()));
+            if (radius > 0) {
+                int minimumX = MessageAPI.clampToInt((long) x - radius);
+                int maximumX = MessageAPI.clampToInt((long) x + radius);
+                int minimumZ = MessageAPI.clampToInt((long) z - radius);
+                int maximumZ = MessageAPI.clampToInt((long) z + radius);
+                statement.setInt(parameterIndex++, minimumX);
+                statement.setLong(parameterIndex++, (long) maximumX + 1L);
+                statement.setInt(parameterIndex++, minimumZ);
+                statement.setLong(parameterIndex, (long) maximumZ + 1L);
+            }
+            else {
+                statement.setInt(parameterIndex++, x);
+                statement.setLong(parameterIndex++, (long) x + 1L);
+                statement.setInt(parameterIndex++, y);
+                statement.setLong(parameterIndex++, (long) y + 1L);
+                statement.setInt(parameterIndex++, z);
+                statement.setLong(parameterIndex, (long) z + 1L);
+            }
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next() && rowIds.size() <= 4_096) {
+                    rowIds.add(resultSet.getInt(1));
+                }
+            }
+        }
+        return rowIds;
     }
 
     void appendLimit(StringBuilder query) {
@@ -185,5 +295,9 @@ final class LookupFilter {
             statement.setLong(parameterIndex++, (long) z + 1L);
         }
         return parameterIndex;
+    }
+
+    private static String alias(String alias) {
+        return alias == null || alias.isEmpty() ? "" : " AS " + alias;
     }
 }

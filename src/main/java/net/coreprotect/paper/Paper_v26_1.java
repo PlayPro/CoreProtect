@@ -3,8 +3,8 @@ package net.coreprotect.paper;
 import java.util.List;
 
 import org.bukkit.entity.Chicken;
-import org.bukkit.entity.Cow;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Pig;
 
@@ -19,10 +19,8 @@ public class Paper_v26_1 extends Paper_26_0 {
             info.add(BukkitAdapter.ADAPTER.getRegistryKey(chicken.getSoundVariant()));
             return true;
         }
-        else if (entity instanceof Cow) {
-            Cow cow = (Cow) entity;
-            info.add(BukkitAdapter.ADAPTER.getRegistryKey(cow.getSoundVariant()));
-            return true;
+        else if (entity.getType() == EntityType.COW) {
+            return BukkitAdapter.getRegistryVariant(BukkitAdapter.ADAPTER, entity, info, "getSoundVariant");
         }
         else if (entity instanceof Pig) {
             Pig pig = (Pig) entity;
@@ -44,14 +42,8 @@ public class Paper_v26_1 extends Paper_26_0 {
             chicken.setSoundVariant(variant);
             return true;
         }
-        else if (entity instanceof Cow && count == 1) {
-            Cow.SoundVariant variant = getCowSoundVariant(value);
-            if (variant == null) {
-                return false;
-            }
-            Cow cow = (Cow) entity;
-            cow.setSoundVariant(variant);
-            return true;
+        else if (entity.getType() == EntityType.COW && count == 1) {
+            return BukkitAdapter.setRegistryVariant(BukkitAdapter.ADAPTER, entity, value, "getSoundVariant", "setSoundVariant");
         }
         else if (entity instanceof Pig && count == 2) {
             Pig.SoundVariant variant = getPigSoundVariant(value);
@@ -69,11 +61,6 @@ public class Paper_v26_1 extends Paper_26_0 {
     private Chicken.SoundVariant getChickenSoundVariant(Object value) {
         Object variant = value instanceof String ? BukkitAdapter.ADAPTER.getRegistryValue((String) value, Chicken.SoundVariant.class) : value;
         return variant instanceof Chicken.SoundVariant ? (Chicken.SoundVariant) variant : null;
-    }
-
-    private Cow.SoundVariant getCowSoundVariant(Object value) {
-        Object variant = value instanceof String ? BukkitAdapter.ADAPTER.getRegistryValue((String) value, Cow.SoundVariant.class) : value;
-        return variant instanceof Cow.SoundVariant ? (Cow.SoundVariant) variant : null;
     }
 
     private Pig.SoundVariant getPigSoundVariant(Object value) {

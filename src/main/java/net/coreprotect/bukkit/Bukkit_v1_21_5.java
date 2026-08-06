@@ -3,8 +3,8 @@ package net.coreprotect.bukkit;
 import java.util.List;
 
 import org.bukkit.entity.Chicken;
-import org.bukkit.entity.Cow;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Pig;
 
@@ -20,10 +20,8 @@ public class Bukkit_v1_21_5 extends Bukkit_v1_21 {
             info.add(getRegistryKey(chicken.getVariant()));
             return true;
         }
-        else if (entity instanceof Cow) {
-            Cow cow = (Cow) entity;
-            info.add(getRegistryKey(cow.getVariant()));
-            return true;
+        else if (entity.getType() == EntityType.COW) {
+            return BukkitAdapter.getRegistryVariant(this, entity, info, "getVariant");
         }
         else if (entity instanceof Pig) {
             Pig pig = (Pig) entity;
@@ -45,14 +43,8 @@ public class Bukkit_v1_21_5 extends Bukkit_v1_21 {
             chicken.setVariant(variant);
             return true;
         }
-        else if (entity instanceof Cow && count == 0) {
-            Cow.Variant variant = getCowVariant(value);
-            if (variant == null) {
-                return false;
-            }
-            Cow cow = (Cow) entity;
-            cow.setVariant(variant);
-            return true;
+        else if (entity.getType() == EntityType.COW && count == 0) {
+            return BukkitAdapter.setRegistryVariant(this, entity, value, "getVariant", "setVariant");
         }
         else if (entity instanceof Pig && count == 1) {
             Pig.Variant variant = getPigVariant(value);
@@ -70,11 +62,6 @@ public class Bukkit_v1_21_5 extends Bukkit_v1_21 {
     private Chicken.Variant getChickenVariant(Object value) {
         Object variant = value instanceof String ? getRegistryValue((String) value, Chicken.Variant.class) : value;
         return variant instanceof Chicken.Variant ? (Chicken.Variant) variant : null;
-    }
-
-    private Cow.Variant getCowVariant(Object value) {
-        Object variant = value instanceof String ? getRegistryValue((String) value, Cow.Variant.class) : value;
-        return variant instanceof Cow.Variant ? (Cow.Variant) variant : null;
     }
 
     private Pig.Variant getPigVariant(Object value) {

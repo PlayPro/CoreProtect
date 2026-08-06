@@ -146,6 +146,45 @@ public class BukkitAdapter implements BukkitInterface {
         return false;
     }
 
+    /**
+     * Accesses registry-backed entity variants without exposing the entity interface to legacy
+     * server bytecode remapping.
+     */
+    public static boolean getRegistryVariant(BukkitInterface adapter, Entity entity, List<Object> info, String getterName) {
+        try {
+            Object variant = entity.getClass().getMethod(getterName).invoke(entity);
+            if (variant == null) {
+                return false;
+            }
+
+            info.add(adapter.getRegistryKey(variant));
+            return true;
+        }
+        catch (ReflectiveOperationException | LinkageError e) {
+            return false;
+        }
+    }
+
+    /**
+     * Restores registry-backed entity variants without exposing the entity interface to legacy
+     * server bytecode remapping.
+     */
+    public static boolean setRegistryVariant(BukkitInterface adapter, Entity entity, Object value, String getterName, String setterName) {
+        try {
+            Class<?> variantClass = entity.getClass().getMethod(getterName).getReturnType();
+            Object variant = value instanceof String ? adapter.getRegistryValue((String) value, variantClass) : value;
+            if (!variantClass.isInstance(variant)) {
+                return false;
+            }
+
+            entity.getClass().getMethod(setterName, variantClass).invoke(entity, variant);
+            return true;
+        }
+        catch (ReflectiveOperationException | LinkageError e) {
+            return false;
+        }
+    }
+
     @Override
     public void addMerchantRecipeMeta(MerchantRecipe recipe, List<Object> recipeData) {
     }

@@ -18,6 +18,7 @@ import org.duckdb.DuckDBConnection;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.serialize.EntityDataCodec;
 
 public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
 
@@ -414,7 +415,12 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
             entityStatement = own(required(Database.prepareStatement(connection, Database.ENTITY, true), "entity insert"));
         }
         entityStatement.setInt(1, time);
-        entityStatement.setObject(2, data);
+        if (databaseType.isDuckDB()) {
+            setDuckDBEntityData(entityStatement, 2, data);
+        }
+        else {
+            entityStatement.setObject(2, data);
+        }
         return Math.toIntExact(executeReturningId(entityStatement, "entity insert"));
     }
 
@@ -435,7 +441,10 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         statement.setDouble(12, currentZ);
         statement.setFloat(13, yaw);
         statement.setFloat(14, pitch);
-        if (data == null) {
+        if (databaseType.isDuckDB()) {
+            setDuckDBEntityData(statement, 15, data);
+        }
+        else if (data == null) {
             statement.setNull(15, Types.BLOB);
         }
         else {
@@ -543,7 +552,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     @Override
     public ConsumerEntitySpawnUpdates entitySpawnUpdates() throws Exception {
         if (entitySpawnUpdates == null) {
-            entitySpawnUpdates = new EntitySpawnStatement.Updates(connection, this);
+            entitySpawnUpdates = new EntitySpawnStatement.Updates(connection, this, databaseType);
         }
         return entitySpawnUpdates;
     }
@@ -599,6 +608,15 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
             entitySpawnStatement = own(prepare(sql, true));
         }
         return entitySpawnStatement;
+    }
+
+    private static void setDuckDBEntityData(PreparedStatement statement, int index, byte[] data) throws SQLException {
+        if (data == null) {
+            statement.setNull(index, Types.VARCHAR);
+        }
+        else {
+            statement.setString(index, EntityDataCodec.toText(data));
+        }
     }
 
     private PreparedStatement userByNameStatement() throws SQLException {

@@ -2,8 +2,12 @@ package net.coreprotect.database;
 
 import java.io.File;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 import org.duckdb.DuckDBConnection;
@@ -81,8 +85,8 @@ final class DuckDBDatabase {
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_interaction (" + rowId(prefix, "entity_interaction") + ", time INTEGER, \"user\" INTEGER, entity_spawn_rowid INTEGER NOT NULL, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, action TINYINT, metadata BLOB, rolled_back TINYINT)");
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "item (" + rowId(prefix, "item") + ", time INTEGER, \"user\" INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, data BLOB, amount INTEGER, action TINYINT, rolled_back TINYINT)");
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "database_lock (rowid INTEGER PRIMARY KEY, status TINYINT, time INTEGER)");
-                statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity (" + rowId(prefix, "entity") + ", time INTEGER, data BLOB)");
-                statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_spawn (" + rowId(prefix, "entity_spawn") + ", time INTEGER, block_rowid BIGINT, kill_rowid INTEGER, uuid VARCHAR UNIQUE, wid INTEGER, current_wid INTEGER, origin_x DOUBLE, origin_y DOUBLE, origin_z DOUBLE, x DOUBLE, y DOUBLE, z DOUBLE, yaw FLOAT, pitch FLOAT, data BLOB, removed TINYINT, UNIQUE(kill_rowid))");
+                statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity (" + rowId(prefix, "entity") + ", time INTEGER, data VARCHAR)");
+                statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_spawn (" + rowId(prefix, "entity_spawn") + ", time INTEGER, block_rowid BIGINT, kill_rowid INTEGER, uuid VARCHAR UNIQUE, wid INTEGER, current_wid INTEGER, origin_x DOUBLE, origin_y DOUBLE, origin_z DOUBLE, x DOUBLE, y DOUBLE, z DOUBLE, yaw FLOAT, pitch FLOAT, data VARCHAR, removed TINYINT, UNIQUE(kill_rowid))");
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_map (" + rowId(prefix, "entity_map") + ", id INTEGER, entity VARCHAR)");
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "material_map (" + rowId(prefix, "material_map") + ", id INTEGER, material VARCHAR)");
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "blockdata_map (" + rowId(prefix, "blockdata_map") + ", id INTEGER, data VARCHAR)");
@@ -94,6 +98,7 @@ final class DuckDBDatabase {
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "version (" + rowId(prefix, "version") + ", time INTEGER, version VARCHAR)");
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "world (" + rowId(prefix, "world") + ", id INTEGER, world VARCHAR)");
                 DuckDBSpatialIndex.createTable(prefix, statement);
+                validateEntityDataColumns(connection, prefix);
 
                 if (!purge) {
                     initialize(prefix, statement);
@@ -103,6 +108,29 @@ final class DuckDBDatabase {
         finally {
             if (forceConnection == null) {
                 connection.close();
+            }
+        }
+    }
+
+    private static void validateEntityDataColumns(Connection connection, String prefix) throws SQLException {
+        String entityTable = prefix + "entity";
+        String entitySpawnTable = prefix + "entity_spawn";
+        Map<String, String> types = new HashMap<>();
+        String query = "SELECT table_name,data_type FROM information_schema.columns "
+                + "WHERE table_schema=current_schema() AND table_name IN (?,?) AND column_name='data'";
+        try (PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setString(1, entityTable);
+            statement.setString(2, entitySpawnTable);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    types.put(resultSet.getString(1), resultSet.getString(2));
+                }
+            }
+        }
+        for (String table : new String[] { entityTable, entitySpawnTable }) {
+            String type = types.get(table);
+            if (!"VARCHAR".equalsIgnoreCase(type)) {
+                throw new SQLException("Unsupported DuckDB " + table + ".data format: " + (type == null ? "missing" : type) + " (expected VARCHAR)");
             }
         }
     }

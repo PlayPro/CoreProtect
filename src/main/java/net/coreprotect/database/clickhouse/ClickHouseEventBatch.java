@@ -8,6 +8,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
+import net.coreprotect.utility.serialize.EntityDataCodec;
+
 public final class ClickHouseEventBatch implements AutoCloseable {
 
     private final ClickHouseBatchIdentity identity;
@@ -104,7 +106,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
 
     public long addEntity(int time, byte[] data) throws SQLException {
         long rowId = beginRow(ClickHouseFamily.ENTITY, time);
-        setBinary("payload", data);
+        setEntityText("payload", data);
         commitRow(ClickHouseFamily.ENTITY, rowId);
         return rowId;
     }
@@ -128,7 +130,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         set("current_z", currentZ);
         set("yaw", yaw);
         set("pitch", pitch);
-        setBinary("entity_data", data);
+        setEntityText("entity_data", data);
         set("entity_data_present", data == null ? 0 : 1);
         set("removed", removed);
         commitRow(ClickHouseFamily.ENTITY_SPAWN, rowId);
@@ -246,10 +248,10 @@ public final class ClickHouseEventBatch implements AutoCloseable {
                 throw new IllegalArgumentException("Reserved ClickHouse compatibility column: " + canonicalColumn);
             }
             Object value = entry.getValue();
-            String physicalColumn = compatibilityColumn(family, canonicalColumn);
-            if (physicalColumn.equals("wid") || (family != ClickHouseFamily.ENTITY_SPAWN && (physicalColumn.equals("x") || physicalColumn.equals("z")))) {
-                value = numberOrZero(value);
+            if (canonicalColumn.equals("data") && (family == ClickHouseFamily.ENTITY || family == ClickHouseFamily.ENTITY_SPAWN)) {
+                value = entityText(value);
             }
+            String physicalColumn = compatibilityColumn(family, canonicalColumn);
             set(physicalColumn, value);
             if (family == ClickHouseFamily.ENTITY_SPAWN) {
                 if (canonicalColumn.equals("block_rowid")) {
@@ -398,23 +400,42 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         set(column, value);
     }
 
+    private void setEntityText(String column, byte[] value) {
+        set(column, value == null ? null : EntityDataCodec.toText(value));
+    }
+
+    private static Object entityText(Object value) {
+        if (value instanceof byte[]) {
+            return EntityDataCodec.toText((byte[]) value);
+        }
+        if (value instanceof String) {
+            EntityDataCodec.fromText((String) value);
+        }
+        return value;
+    }
+
     private void set(String column, Object value) {
-        rows.set(column, value);
-        if (value == null) {
+        Object storedValue = value;
+        if (column.equals("wid") || column.equals("x") || column.equals("z")) {
+            storedValue = numberOrZero(value);
+            rows.set(column + "_present", value == null ? 0 : 1);
+        }
+        rows.set(column, storedValue);
+        if (storedValue == null) {
             return;
         }
         switch (column) {
             case "time":
-                currentTime = ((Number) value).intValue();
+                currentTime = ((Number) storedValue).intValue();
                 break;
             case "wid":
-                currentWorldId = ((Number) value).intValue();
+                currentWorldId = ((Number) storedValue).intValue();
                 break;
             case "x":
-                currentX = ((Number) value).intValue();
+                currentX = ((Number) storedValue).intValue();
                 break;
             case "z":
-                currentZ = ((Number) value).intValue();
+                currentZ = ((Number) storedValue).intValue();
                 break;
             default:
                 break;
@@ -438,8 +459,8 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         return value == null ? Integer.valueOf(0) : (Number) value;
     }
 
-    private static int originKey(Object value) {
-        return value == null ? 0 : (int) Math.floor(((Number) value).doubleValue());
+    private static Integer originKey(Object value) {
+        return value == null ? null : (int) Math.floor(((Number) value).doubleValue());
     }
 
     private static boolean isReservedCompatibilityColumn(String column) {

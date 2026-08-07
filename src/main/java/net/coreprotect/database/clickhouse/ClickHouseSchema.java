@@ -12,7 +12,7 @@ import java.util.StringJoiner;
 
 public final class ClickHouseSchema {
 
-    static final int VERSION = 1;
+    static final int VERSION = 2;
 
     private static final String INTEGER_CODEC = " CODEC(Delta, ZSTD(3))";
     private static final String VALUE_CODEC = " CODEC(ZSTD(3))";
@@ -60,6 +60,9 @@ public final class ClickHouseSchema {
             { "x", "Int32" + INTEGER_CODEC },
             { "y", "Nullable(Int32)" + VALUE_CODEC },
             { "z", "Int32" + INTEGER_CODEC },
+            { "wid_present", "Nullable(UInt8)" + VALUE_CODEC },
+            { "x_present", "Nullable(UInt8)" + VALUE_CODEC },
+            { "z_present", "Nullable(UInt8)" + VALUE_CODEC },
             { "type", "Nullable(UInt32)" + VALUE_CODEC },
             { "data", "Nullable(Int64)" + VALUE_CODEC },
             { "payload", "Nullable(String)" + VALUE_CODEC },
@@ -274,21 +277,21 @@ public final class ClickHouseSchema {
 
     private static void addCompatibilityViews(List<String> statements, Names names) {
         statements.add(view(names, ClickHouseFamily.ART_MAP, "e.rowid AS rowid,e.id AS id,e.name AS art"));
-        statements.add(rollbackView(names, ClickHouseFamily.BLOCK, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.type AS type,e.data AS data," + binary("e.meta", "meta") + "," + binary("e.blockdata", "blockdata") + ",e.action AS action"));
-        statements.add(view(names, ClickHouseFamily.CHAT, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.message AS message"));
-        statements.add(view(names, ClickHouseFamily.COMMAND, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.message AS message"));
-        statements.add(rollbackView(names, ClickHouseFamily.CONTAINER, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.type AS type,e.data AS data,e.amount AS amount," + binary("e.metadata", "metadata") + ",e.action AS action"));
-        statements.add(rollbackView(names, ClickHouseFamily.ENTITY_CONTAINER, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.entity_spawn_rowid AS entity_spawn_rowid,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.type AS type,e.data AS data,e.amount AS amount," + binary("e.metadata", "metadata") + ",e.action AS action"));
-        statements.add(view(names, ClickHouseFamily.ENTITY_INTERACTION, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.entity_spawn_rowid AS entity_spawn_rowid,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.type AS type,e.action AS action," + binary("e.metadata", "metadata") + ",e.rolled_back AS rolled_back"));
-        statements.add(rollbackView(names, ClickHouseFamily.ITEM, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.type AS type," + binary("e.payload", "data") + ",e.amount AS amount,e.action AS action"));
+        statements.add(rollbackView(names, ClickHouseFamily.BLOCK, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.type AS type,e.data AS data," + binary("e.meta", "meta") + "," + binary("e.blockdata", "blockdata") + ",e.action AS action"));
+        statements.add(view(names, ClickHouseFamily.CHAT, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.message AS message"));
+        statements.add(view(names, ClickHouseFamily.COMMAND, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.message AS message"));
+        statements.add(rollbackView(names, ClickHouseFamily.CONTAINER, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.type AS type,e.data AS data,e.amount AS amount," + binary("e.metadata", "metadata") + ",e.action AS action"));
+        statements.add(rollbackView(names, ClickHouseFamily.ENTITY_CONTAINER, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.entity_spawn_rowid AS entity_spawn_rowid," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.type AS type,e.data AS data,e.amount AS amount," + binary("e.metadata", "metadata") + ",e.action AS action"));
+        statements.add(view(names, ClickHouseFamily.ENTITY_INTERACTION, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.entity_spawn_rowid AS entity_spawn_rowid," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.type AS type,e.action AS action," + binary("e.metadata", "metadata") + ",e.rolled_back AS rolled_back"));
+        statements.add(rollbackView(names, ClickHouseFamily.ITEM, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.type AS type," + binary("e.payload", "data") + ",e.amount AS amount,e.action AS action"));
         statements.add(currentView(names, ClickHouseFamily.DATABASE_LOCK, "e.rowid AS rowid,e.status AS status,e.database_lock_time AS time"));
-        statements.add(view(names, ClickHouseFamily.ENTITY, "e.rowid AS rowid,e.time AS time," + binary("e.payload", "data")));
+        statements.add(view(names, ClickHouseFamily.ENTITY, "e.rowid AS rowid,e.time AS time,e.payload AS data"));
         statements.add(entitySpawnView(names));
         statements.add(view(names, ClickHouseFamily.ENTITY_MAP, "e.rowid AS rowid,e.id AS id,e.name AS entity"));
         statements.add(view(names, ClickHouseFamily.MATERIAL_MAP, "e.rowid AS rowid,e.id AS id,e.name AS material"));
         statements.add(view(names, ClickHouseFamily.BLOCKDATA_MAP, "e.rowid AS rowid,e.id AS id,e.text AS data"));
-        statements.add(view(names, ClickHouseFamily.SESSION, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.action AS action"));
-        statements.add(view(names, ClickHouseFamily.SIGN, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.action AS action,e.color AS color,e.color_secondary AS color_secondary,e.sign_data AS data,e.waxed AS waxed,e.face AS face,e.line_1 AS line_1,e.line_2 AS line_2,e.line_3 AS line_3,e.line_4 AS line_4,e.line_5 AS line_5,e.line_6 AS line_6,e.line_7 AS line_7,e.line_8 AS line_8"));
+        statements.add(view(names, ClickHouseFamily.SESSION, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.action AS action"));
+        statements.add(view(names, ClickHouseFamily.SIGN, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.action AS action,e.color AS color,e.color_secondary AS color_secondary,e.sign_data AS data,e.waxed AS waxed,e.face AS face,e.line_1 AS line_1,e.line_2 AS line_2,e.line_3 AS line_3,e.line_4 AS line_4,e.line_5 AS line_5,e.line_6 AS line_6,e.line_7 AS line_7,e.line_8 AS line_8"));
         statements.add(view(names, ClickHouseFamily.SKULL, "e.rowid AS rowid,e.time AS time,e.name AS owner,e.text AS skin"));
         statements.add(currentView(names, ClickHouseFamily.USER, "e.rowid AS rowid,e.time AS time,e.user_name AS `user`,e.uuid AS uuid"));
         statements.add(view(names, ClickHouseFamily.USERNAME_LOG, "e.rowid AS rowid,e.time AS time,e.uuid AS uuid,e.user_name AS `user`"));
@@ -317,10 +320,10 @@ public final class ClickHouseSchema {
                 + " AS SELECT e.rowid AS rowid,e.time AS time"
                 + ",if(e.block_rowid_present=1,e.block_rowid,NULL) AS block_rowid"
                 + ",if(e.kill_rowid_present=1,e.kill_rowid,NULL) AS kill_rowid"
-                + ",e.uuid AS uuid,e.wid AS wid,e.current_wid AS current_wid"
+                + ",e.uuid AS uuid," + location("wid") + ",e.current_wid AS current_wid"
                 + ",e.origin_x AS origin_x,e.origin_y AS origin_y,e.origin_z AS origin_z"
                 + ",e.current_x AS x,e.current_y AS y,e.current_z AS z"
-                + ",e.yaw AS yaw,e.pitch AS pitch," + binary("if(e.entity_data_present=1,e.entity_data,NULL)", "data") + ",e.removed AS removed"
+                + ",e.yaw AS yaw,e.pitch AS pitch,if(e.entity_data_present=1,e.entity_data,NULL) AS data,e.removed AS removed"
                 + " FROM " + currentEvents(names, ClickHouseFamily.ENTITY_SPAWN) + " AS e";
     }
 
@@ -328,6 +331,10 @@ public final class ClickHouseSchema {
         String presentValue = "ifNull(" + value + ",'')";
         String bytes = "arrayMap(i -> reinterpretAsInt8(substring(" + presentValue + ",i,1)),range(1,length(" + presentValue + ")+1))";
         return "if(isNull(" + value + "),CAST([], 'Array(Int8)'),arrayConcat([toInt8(0)]," + bytes + ")) AS " + alias;
+    }
+
+    private static String location(String column) {
+        return "if(e." + column + "_present=1,e." + column + ",NULL) AS " + column;
     }
 
     private static String events(Names names, ClickHouseFamily family) {

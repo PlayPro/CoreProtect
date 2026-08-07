@@ -111,9 +111,16 @@ public class Bukkit_v1_17 extends BukkitAdapter {
         if (entity instanceof Axolotl) {
             Axolotl axolotl = (Axolotl) entity;
             if (count == 0) {
-                org.bukkit.entity.Axolotl.Variant variant = (org.bukkit.entity.Axolotl.Variant) value;
-                axolotl.setVariant(variant);
-                return true;
+                try {
+                    org.bukkit.entity.Axolotl.Variant variant = value instanceof String
+                            ? org.bukkit.entity.Axolotl.Variant.valueOf((String) value)
+                            : (org.bukkit.entity.Axolotl.Variant) value;
+                    axolotl.setVariant(variant);
+                    return true;
+                }
+                catch (IllegalArgumentException | ClassCastException exception) {
+                    return false;
+                }
             }
         }
         else if (entity instanceof Goat) {

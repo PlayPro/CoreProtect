@@ -185,6 +185,20 @@ public class BukkitAdapter implements BukkitInterface {
         }
     }
 
+    public static Object getLegacyEnumValue(Class<?> type, String name) {
+        if (!type.isEnum()) {
+            return null;
+        }
+        try {
+            @SuppressWarnings({ "rawtypes", "unchecked" })
+            Object value = Enum.valueOf((Class<? extends Enum>) type.asSubclass(Enum.class), name);
+            return value;
+        }
+        catch (IllegalArgumentException | LinkageError exception) {
+            return null;
+        }
+    }
+
     @Override
     public void addMerchantRecipeMeta(MerchantRecipe recipe, List<Object> recipeData) {
     }

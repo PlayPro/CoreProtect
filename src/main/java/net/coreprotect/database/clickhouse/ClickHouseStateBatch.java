@@ -6,6 +6,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
+import net.coreprotect.utility.serialize.EntityDataCodec;
+
 final class ClickHouseStateBatch implements AutoCloseable {
 
     private final ClickHouseBatchIdentity identity;
@@ -75,7 +77,7 @@ final class ClickHouseStateBatch implements AutoCloseable {
             rows.set("yaw", state.getYaw());
             rows.set("pitch", state.getPitch());
             byte[] data = state.getData();
-            rows.set("entity_data", data);
+            rows.set("entity_data", data == null ? null : EntityDataCodec.toText(data));
             rows.set("entity_data_present", data == null ? 0 : 1);
             rows.set("removed", state.isRemoved() ? 1 : 0);
             rows.commitRow("entity state update");

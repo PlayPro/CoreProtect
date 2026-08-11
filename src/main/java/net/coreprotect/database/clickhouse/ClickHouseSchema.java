@@ -16,6 +16,7 @@ public final class ClickHouseSchema {
 
     private static final String INTEGER_CODEC = " CODEC(Delta, ZSTD(3))";
     private static final String VALUE_CODEC = " CODEC(ZSTD(3))";
+    private static final String SPARSE_SERIALIZATION_SETTING = "ratio_of_defaults_for_sparse_serialization=0.9";
     private static final String PURGEABLE_FAMILIES = purgeableFamilies();
     private static final String EVENT_PARTITION_KEY = "if(family IN (" + PURGEABLE_FAMILIES + "),toYYYYMM(toDateTime(time,'UTC')),0)";
     private static final String EVENT_SORTING_KEY = "(dataset_id,family,wid,x,z,if(family IN ('database_lock','user','version'),0,time),rowid)";
@@ -143,7 +144,7 @@ public final class ClickHouseSchema {
         validateTable(connection, database, names.rawTable("retention_high_water"), "MergeTree", "(dataset_id,family,producer_sequence,rowid)", "", RETENTION_HIGH_WATER_COLUMN_DEFINITIONS,
                 "fsync_after_insert=1", "fsync_part_directory=1", "non_replicated_deduplication_window=1000");
         validateTable(connection, database, names.rawTable("event_data"), "CoalescingMergeTree", EVENT_SORTING_KEY, EVENT_PARTITION_KEY, EVENT_COLUMN_DEFINITIONS,
-                "fsync_after_insert=1", "fsync_part_directory=1", "non_replicated_deduplication_window=1000");
+                "fsync_after_insert=1", "fsync_part_directory=1", "non_replicated_deduplication_window=1000", SPARSE_SERIALIZATION_SETTING);
         validateDataSkippingIndexes(connection, database, names.rawTable("event_data"), EVENT_DATA_SKIPPING_INDEX_DEFINITIONS);
     }
 
@@ -250,7 +251,7 @@ public final class ClickHouseSchema {
                 + " ENGINE = CoalescingMergeTree"
                 + " PARTITION BY " + EVENT_PARTITION_KEY
                 + " ORDER BY " + EVENT_SORTING_KEY
-                + " SETTINGS fsync_after_insert=1,fsync_part_directory=1,non_replicated_deduplication_window=1000";
+                + " SETTINGS fsync_after_insert=1,fsync_part_directory=1,non_replicated_deduplication_window=1000," + SPARSE_SERIALIZATION_SETTING;
     }
 
     private static void validateDataSkippingIndexes(Connection connection, String database, String table, String[][] expectedIndexes) throws SQLException {

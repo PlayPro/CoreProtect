@@ -1,11 +1,7 @@
 package net.coreprotect.utility.serialize;
 
-import java.nio.ByteBuffer;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -52,9 +48,7 @@ public final class EntityDataCodec {
         }
     }
 
-    private static final int MAX_ENCODED_LENGTH = 32 * 1024 * 1024;
-    private static final int MAX_CONTAINER_LENGTH = 4 * 1024 * 1024;
-    private static final int MAX_DEPTH = 64;
+    private static final String DESCRIPTION = "Entity data";
     private static final int MAGIC_FIRST = 'C';
     private static final int MAGIC_SECOND = 'P';
     private static final int VERSION = 1;
@@ -140,7 +134,7 @@ public final class EntityDataCodec {
     public static List<Object> decode(Kind expectedKind, byte[] encoded) {
         Objects.requireNonNull(expectedKind, "expectedKind");
         Objects.requireNonNull(encoded, "encoded");
-        if (encoded.length > MAX_ENCODED_LENGTH) {
+        if (encoded.length > BinaryCodecSupport.MAX_ENCODED_LENGTH) {
             throw new IllegalArgumentException("Entity data exceeds the maximum encoded size");
         }
 
@@ -174,7 +168,7 @@ public final class EntityDataCodec {
     }
 
     private static void encodeValue(BinaryOutput output, Object value, boolean configurationValue, int depth) {
-        requireDepth(depth);
+        BinaryCodecSupport.requireDepth(DESCRIPTION, depth);
         if (value == null) {
             output.write(NULL);
         }
@@ -277,24 +271,27 @@ public final class EntityDataCodec {
             return;
         }
 
-        long bits = Double.doubleToLongBits(value);
-        if (bits == Double.doubleToLongBits(0.0)) {
-            output.write(DOUBLE_ZERO);
-        }
-        else if (bits == Double.doubleToLongBits(1.0)) {
-            output.write(DOUBLE_ONE);
-        }
-        else if (value != 0.0 && value >= Long.MIN_VALUE && value <= Long.MAX_VALUE && (double) (long) value == value) {
-            output.write(DOUBLE_INTEGER);
-            output.writeZigZag((long) value);
-        }
-        else if ((double) (float) value == value) {
-            output.write(DOUBLE_FLOAT);
-            output.writeInt(Float.floatToIntBits((float) value));
-        }
-        else {
-            output.write(DOUBLE);
-            output.writeLong(bits);
+        switch (BinaryCodecSupport.compactDoubleType(value)) {
+            case ZERO:
+                output.write(DOUBLE_ZERO);
+                break;
+            case ONE:
+                output.write(DOUBLE_ONE);
+                break;
+            case INTEGER:
+                output.write(DOUBLE_INTEGER);
+                output.writeZigZag((long) value);
+                break;
+            case FLOAT:
+                output.write(DOUBLE_FLOAT);
+                output.writeInt(Float.floatToIntBits((float) value));
+                break;
+            case RAW:
+                output.write(DOUBLE);
+                output.writeLong(Double.doubleToLongBits(value));
+                break;
+            default:
+                throw new IllegalStateException("Unsupported compact double type");
         }
     }
 
@@ -338,12 +335,12 @@ public final class EntityDataCodec {
             encodeValue(item, value, configurationValue, depth + 1);
             encodedValues.add(item.toByteArray());
         }
-        encodedValues.sort(EntityDataCodec::compareBytes);
+        encodedValues.sort(BinaryCodecSupport::compareBytes);
         byte[] previous = null;
         output.write(SET);
         output.writeLength(encodedValues.size());
         for (byte[] encoded : encodedValues) {
-            if (previous != null && compareBytes(previous, encoded) == 0) {
+            if (previous != null && BinaryCodecSupport.compareBytes(previous, encoded) == 0) {
                 throw new IllegalArgumentException("Entity data set contains duplicate encoded values");
             }
             output.write(encoded, 0, encoded.length);
@@ -355,7 +352,7 @@ public final class EntityDataCodec {
         Map<String, Object> sorted = new TreeMap<>();
         for (Map.Entry<?, ?> entry : values.entrySet()) {
             String key = mapKey(entry.getKey());
-            validateUnicode(key);
+            BinaryCodecSupport.validateUnicode(DESCRIPTION, key);
             if (sorted.containsKey(key)) {
                 throw new IllegalArgumentException("Duplicate entity data map key " + key);
             }
@@ -367,17 +364,6 @@ public final class EntityDataCodec {
             output.writeString(entry.getKey());
             encodeValue(output, entry.getValue(), configurationValue, depth + 1);
         }
-    }
-
-    private static int compareBytes(byte[] first, byte[] second) {
-        int length = Math.min(first.length, second.length);
-        for (int index = 0; index < length; index++) {
-            int difference = Byte.toUnsignedInt(first[index]) - Byte.toUnsignedInt(second[index]);
-            if (difference != 0) {
-                return difference;
-            }
-        }
-        return Integer.compare(first.length, second.length);
     }
 
     private static Object parseConfigurationValue(String alias, Map<String, Object> serialized) {
@@ -496,81 +482,14 @@ public final class EntityDataCodec {
         return Collections.unmodifiableMap(identifiers);
     }
 
-    private static void validateUnicode(String value) {
-        for (int index = 0; index < value.length(); index++) {
-            char character = value.charAt(index);
-            if (Character.isHighSurrogate(character)) {
-                if (++index >= value.length() || !Character.isLowSurrogate(value.charAt(index))) {
-                    throw new IllegalArgumentException("Entity data contains an unpaired Unicode surrogate");
-                }
-            }
-            else if (Character.isLowSurrogate(character)) {
-                throw new IllegalArgumentException("Entity data contains an unpaired Unicode surrogate");
-            }
-        }
-    }
+    private static final class BinaryOutput extends BinaryCodecSupport.Output {
 
-    private static void requireDepth(int depth) {
-        if (depth > MAX_DEPTH) {
-            throw new IllegalArgumentException("Entity data exceeds the maximum nesting depth");
-        }
-    }
-
-    private static final class BinaryOutput {
-
-        private byte[] data = new byte[128];
-        private int size;
-
-        private void write(int value) {
-            requireCapacity(1);
-            data[size++] = (byte) value;
-        }
-
-        private void write(byte[] value, int offset, int length) {
-            Objects.checkFromIndexSize(offset, length, value.length);
-            requireCapacity(length);
-            System.arraycopy(value, offset, data, size, length);
-            size += length;
-        }
-
-        private byte[] toByteArray() {
-            return Arrays.copyOf(data, size);
-        }
-
-        private void writeInt(int value) {
-            write(value >>> 24);
-            write(value >>> 16);
-            write(value >>> 8);
-            write(value);
-        }
-
-        private void writeLong(long value) {
-            write((int) (value >>> 56));
-            write((int) (value >>> 48));
-            write((int) (value >>> 40));
-            write((int) (value >>> 32));
-            write((int) (value >>> 24));
-            write((int) (value >>> 16));
-            write((int) (value >>> 8));
-            write((int) value);
-        }
-
-        private void writeLength(int value) {
-            if (value < 0 || value > MAX_CONTAINER_LENGTH) {
-                throw new IllegalArgumentException("Entity data collection exceeds the maximum size");
-            }
-            writeVarUnsigned(value);
-        }
-
-        private void writeByteLength(int value) {
-            if (value < 0 || value > MAX_ENCODED_LENGTH) {
-                throw new IllegalArgumentException("Entity data binary value exceeds the maximum size");
-            }
-            writeVarUnsigned(value);
+        private BinaryOutput() {
+            super(DESCRIPTION);
         }
 
         private void writeString(String value) {
-            validateUnicode(value);
+            BinaryCodecSupport.validateUnicode(DESCRIPTION, value);
             Integer identifier = STRING_IDENTIFIERS.get(value);
             if (identifier != null) {
                 writeVarUnsigned(((long) identifier << 1) | 1);
@@ -580,36 +499,12 @@ public final class EntityDataCodec {
             writeVarUnsigned(((long) bytes.length) << 1);
             write(bytes, 0, bytes.length);
         }
-
-        private void writeZigZag(long value) {
-            writeVarUnsigned((value << 1) ^ (value >> 63));
-        }
-
-        private void writeVarUnsigned(long value) {
-            while ((value & ~0x7fL) != 0) {
-                write(((int) value & 0x7f) | 0x80);
-                value >>>= 7;
-            }
-            write((int) value);
-        }
-
-        private void requireCapacity(int additional) {
-            if (additional < 0 || size > MAX_ENCODED_LENGTH - additional) {
-                throw new IllegalArgumentException("Entity data exceeds the maximum encoded size");
-            }
-            int required = size + additional;
-            if (required > data.length) {
-                data = Arrays.copyOf(data, Math.max(required, Math.min(MAX_ENCODED_LENGTH, data.length << 1)));
-            }
-        }
     }
 
-    private static final class BinaryInput {
-        private final byte[] data;
-        private int position;
+    private static final class BinaryInput extends BinaryCodecSupport.Input {
 
         private BinaryInput(byte[] data) {
-            this.data = data;
+            super(data, DESCRIPTION);
         }
 
         private void requireHeader(Kind expectedKind) {
@@ -631,7 +526,7 @@ public final class EntityDataCodec {
         }
 
         private Object readValue(int depth) {
-            requireDepth(depth);
+            BinaryCodecSupport.requireDepth(DESCRIPTION, depth);
             int type = readUnsignedByte();
             switch (type) {
                 case NULL:
@@ -720,84 +615,16 @@ public final class EntityDataCodec {
             Set<Object> values = new LinkedHashSet<>(Math.min(length, 1024));
             byte[] previous = null;
             for (int index = 0; index < length; index++) {
-                int start = position;
+                int start = position();
                 Object value = readValue(depth + 1);
-                byte[] encoded = new byte[position - start];
-                System.arraycopy(data, start, encoded, 0, encoded.length);
-                if (previous != null && compareBytes(previous, encoded) >= 0) {
+                byte[] encoded = bytesSince(start);
+                if (previous != null && BinaryCodecSupport.compareBytes(previous, encoded) >= 0) {
                     throw new IllegalArgumentException("Entity data set values are not canonical");
                 }
                 values.add(value);
                 previous = encoded;
             }
             return values;
-        }
-
-        private int[] readIntArray() {
-            int length = readLength("integer array");
-            int[] values = new int[length];
-            for (int index = 0; index < length; index++) {
-                values[index] = checkedInteger(readZigZag());
-            }
-            return values;
-        }
-
-        private long[] readLongArray() {
-            int length = readLength("long array");
-            long[] values = new long[length];
-            for (int index = 0; index < length; index++) {
-                values[index] = readZigZag();
-            }
-            return values;
-        }
-
-        private float readFloat() {
-            int bits = readInt();
-            float value = Float.intBitsToFloat(bits);
-            if (Float.floatToIntBits(value) != bits) {
-                throw new IllegalArgumentException("Entity data contains a noncanonical float");
-            }
-            return value;
-        }
-
-        private double readRawDouble() {
-            long bits = readLong();
-            double value = Double.longBitsToDouble(bits);
-            if (!Double.isFinite(value) || compactDoubleType(value) != DOUBLE) {
-                throw new IllegalArgumentException("Entity data contains a noncanonical double");
-            }
-            return value;
-        }
-
-        private double readIntegralDouble() {
-            long integer = readZigZag();
-            double value = integer;
-            if ((long) value != integer || compactDoubleType(value) != DOUBLE_INTEGER) {
-                throw new IllegalArgumentException("Entity data contains a noncanonical integral double");
-            }
-            return value;
-        }
-
-        private double readFloatDouble() {
-            float value = readFloat();
-            double result = value;
-            if (!Double.isFinite(result) || compactDoubleType(result) != DOUBLE_FLOAT) {
-                throw new IllegalArgumentException("Entity data contains a noncanonical float-backed double");
-            }
-            return result;
-        }
-
-        private double readSpecialDouble() {
-            switch (readUnsignedByte()) {
-                case 0:
-                    return Double.NaN;
-                case 1:
-                    return Double.POSITIVE_INFINITY;
-                case 2:
-                    return Double.NEGATIVE_INFINITY;
-                default:
-                    throw new IllegalArgumentException("Invalid special double entity data value");
-            }
         }
 
         private String readString() {
@@ -817,145 +644,11 @@ public final class EntityDataCodec {
             if (length > Integer.MAX_VALUE || length > remaining()) {
                 throw new IllegalArgumentException("Entity data string exceeds the remaining input");
             }
-            try {
-                String value = StandardCharsets.UTF_8.newDecoder()
-                        .onMalformedInput(CodingErrorAction.REPORT)
-                        .onUnmappableCharacter(CodingErrorAction.REPORT)
-                        .decode(ByteBuffer.wrap(data, position, (int) length))
-                        .toString();
-                position += (int) length;
-                if (STRING_IDENTIFIERS.containsKey(value)) {
-                    throw new IllegalArgumentException("Entity data dictionary string is not canonical");
-                }
-                return value;
+            String value = readUtf8((int) length);
+            if (STRING_IDENTIFIERS.containsKey(value)) {
+                throw new IllegalArgumentException("Entity data dictionary string is not canonical");
             }
-            catch (CharacterCodingException exception) {
-                throw new IllegalArgumentException("Entity data string is not valid UTF-8", exception);
-            }
-        }
-
-        private int readLength(String description) {
-            long value = readVarUnsigned();
-            if (value < 0 || value > MAX_CONTAINER_LENGTH) {
-                throw new IllegalArgumentException("Entity data " + description + " exceeds the maximum size");
-            }
-            return (int) value;
-        }
-
-        private int readByteLength() {
-            long value = readVarUnsigned();
-            if (value < 0 || value > MAX_ENCODED_LENGTH) {
-                throw new IllegalArgumentException("Entity data binary value exceeds the maximum size");
-            }
-            return (int) value;
-        }
-
-        private byte[] readBytes(int length) {
-            if (length > remaining()) {
-                throw new IllegalArgumentException("Entity data value exceeds the remaining input");
-            }
-            byte[] value = new byte[length];
-            System.arraycopy(data, position, value, 0, length);
-            position += length;
             return value;
         }
-
-        private int readUnsignedByte() {
-            if (position >= data.length) {
-                throw new IllegalArgumentException("Entity data ended unexpectedly");
-            }
-            return Byte.toUnsignedInt(data[position++]);
-        }
-
-        private int readInt() {
-            return readUnsignedByte() << 24
-                    | readUnsignedByte() << 16
-                    | readUnsignedByte() << 8
-                    | readUnsignedByte();
-        }
-
-        private long readLong() {
-            return (long) readUnsignedByte() << 56
-                    | (long) readUnsignedByte() << 48
-                    | (long) readUnsignedByte() << 40
-                    | (long) readUnsignedByte() << 32
-                    | (long) readUnsignedByte() << 24
-                    | (long) readUnsignedByte() << 16
-                    | (long) readUnsignedByte() << 8
-                    | readUnsignedByte();
-        }
-
-        private long readZigZag() {
-            long value = readVarUnsigned();
-            return (value >>> 1) ^ -(value & 1);
-        }
-
-        private long readVarUnsigned() {
-            long value = 0;
-            for (int index = 0, shift = 0; index < 10; index++, shift += 7) {
-                int current = readUnsignedByte();
-                if (index == 9 && (current & 0xfe) != 0) {
-                    throw new IllegalArgumentException("Entity data variable integer is out of range");
-                }
-                value |= (long) (current & 0x7f) << shift;
-                if ((current & 0x80) == 0) {
-                    if (unsignedVarSize(value) != index + 1) {
-                        throw new IllegalArgumentException("Entity data variable integer is not canonical");
-                    }
-                    return value;
-                }
-            }
-            throw new IllegalArgumentException("Entity data variable integer is too long");
-        }
-
-        private int remaining() {
-            return data.length - position;
-        }
-
-        private void requireEnd() {
-            if (position != data.length) {
-                throw new IllegalArgumentException("Entity data contains trailing bytes");
-            }
-        }
-    }
-
-    private static int compactDoubleType(double value) {
-        long bits = Double.doubleToLongBits(value);
-        if (bits == Double.doubleToLongBits(0.0)) {
-            return DOUBLE_ZERO;
-        }
-        if (bits == Double.doubleToLongBits(1.0)) {
-            return DOUBLE_ONE;
-        }
-        if (value != 0.0 && value >= Long.MIN_VALUE && value <= Long.MAX_VALUE && (double) (long) value == value) {
-            return DOUBLE_INTEGER;
-        }
-        if ((double) (float) value == value) {
-            return DOUBLE_FLOAT;
-        }
-        return DOUBLE;
-    }
-
-    private static short checkedShort(long value) {
-        if (value < Short.MIN_VALUE || value > Short.MAX_VALUE) {
-            throw new IllegalArgumentException("Entity data short is out of range");
-        }
-        return (short) value;
-    }
-
-    private static int checkedInteger(long value) {
-        if (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE) {
-            throw new IllegalArgumentException("Entity data integer is out of range");
-        }
-        return (int) value;
-    }
-
-    private static int unsignedVarSize(long value) {
-        int size = 1;
-        while ((value & ~0x7fL) != 0) {
-            size++;
-            value >>>= 7;
-        }
-        return size;
     }
 }

@@ -36,6 +36,7 @@ final class DuckDBDatabase {
         }
 
         Properties properties = new Properties();
+        properties.setProperty("default_block_size", Integer.toString(Database.DUCKDB_BLOCK_SIZE));
         properties.setProperty("memory_limit", ConfigHandler.duckdbMemoryLimit);
         properties.setProperty("threads", Integer.toString(ConfigHandler.duckdbThreads));
         properties.setProperty("temp_directory", databaseFile.getAbsolutePath() + ".tmp");

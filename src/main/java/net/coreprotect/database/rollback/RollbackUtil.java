@@ -37,6 +37,7 @@ import org.bukkit.util.io.BukkitObjectInputStream;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Lookup;
+import net.coreprotect.database.statement.BlockStatement;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.ErrorReporter;
@@ -512,23 +513,7 @@ public class RollbackUtil extends Lookup {
      * @return The deserialized list of objects or null if deserialization fails
      */
     public static List<Object> deserializeMetadata(byte[] metadata) {
-        if (metadata == null) {
-            return null;
-        }
-
-        try {
-            ByteArrayInputStream metaByteStream = new ByteArrayInputStream(metadata);
-            BukkitObjectInputStream metaObjectStream = new BukkitObjectInputStream(metaByteStream);
-            @SuppressWarnings("unchecked")
-            List<Object> metaList = (List<Object>) metaObjectStream.readObject();
-            metaObjectStream.close();
-            metaByteStream.close();
-            return metaList;
-        }
-        catch (Exception e) {
-            ErrorReporter.report(e);
-            return null;
-        }
+        return BlockStatement.deserializeMetadata(metadata);
     }
 
     /**

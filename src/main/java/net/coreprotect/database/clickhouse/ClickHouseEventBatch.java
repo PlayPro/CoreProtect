@@ -8,6 +8,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
+import net.coreprotect.database.DatabaseType;
+import net.coreprotect.database.statement.BlockStatement;
+import net.coreprotect.utility.serialize.BlockMetaCodec;
 import net.coreprotect.utility.serialize.EntityDataCodec;
 
 public final class ClickHouseEventBatch implements AutoCloseable {
@@ -251,6 +254,9 @@ public final class ClickHouseEventBatch implements AutoCloseable {
             if (canonicalColumn.equals("data") && (family == ClickHouseFamily.ENTITY || family == ClickHouseFamily.ENTITY_SPAWN)) {
                 value = entityData(value);
             }
+            else if (canonicalColumn.equals("meta") && family == ClickHouseFamily.BLOCK) {
+                value = blockMetadata(value);
+            }
             String physicalColumn = compatibilityColumn(family, canonicalColumn);
             set(physicalColumn, value);
             if (family == ClickHouseFamily.ENTITY_SPAWN) {
@@ -418,6 +424,29 @@ public final class ClickHouseEventBatch implements AutoCloseable {
             return value;
         }
         throw new IllegalArgumentException("ClickHouse entity data must be binary");
+    }
+
+    private static Object blockMetadata(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (!(value instanceof byte[])) {
+            throw new IllegalArgumentException("ClickHouse block metadata must be binary");
+        }
+        byte[] data = (byte[]) value;
+        if (!isJavaSerialization(data) && !BlockMetaCodec.isEncoded(data)) {
+            return data;
+        }
+        try {
+            return BlockStatement.transcodeMetadata(data, DatabaseType.CLICKHOUSE);
+        }
+        catch (Exception exception) {
+            throw new IllegalArgumentException("Unable to transcode ClickHouse block metadata", exception);
+        }
+    }
+
+    private static boolean isJavaSerialization(byte[] data) {
+        return data.length >= 2 && data[0] == (byte) 0xac && data[1] == (byte) 0xed;
     }
 
     private void set(String column, Object value) {

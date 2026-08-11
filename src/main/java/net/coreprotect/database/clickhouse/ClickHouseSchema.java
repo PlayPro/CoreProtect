@@ -12,45 +12,39 @@ import java.util.StringJoiner;
 
 public final class ClickHouseSchema {
 
-    static final int VERSION = 2;
+    static final int VERSION = 3;
 
     private static final String INTEGER_CODEC = " CODEC(Delta, ZSTD(3))";
     private static final String VALUE_CODEC = " CODEC(ZSTD(3))";
     private static final String SPARSE_SERIALIZATION_SETTING = "ratio_of_defaults_for_sparse_serialization=0.9";
     private static final String PURGEABLE_FAMILIES = purgeableFamilies();
     private static final String EVENT_PARTITION_KEY = "if(family IN (" + PURGEABLE_FAMILIES + "),toYYYYMM(toDateTime(time,'UTC')),0)";
-    private static final String EVENT_SORTING_KEY = "(dataset_id,family,wid,x,z,if(family IN ('database_lock','user','version'),0,time),rowid)";
+    private static final String EVENT_SORTING_KEY = "(family,wid,x,z,if(family IN ('database_lock','user','version'),0,time),rowid)";
     private static final String[][] EVENT_DATA_SKIPPING_INDEX_DEFINITIONS = {
-            { "producer_sequence_idx", "producer_sequence", "minmax", "1" },
+            { "batch_sequence_idx", "batch_sequence", "minmax", "1" },
             { "rowid_idx", "rowid", "bloom_filter(0.01)", "1" },
             { "entity_uuid_idx", "uuid", "bloom_filter(0.01)", "1" },
             { "entity_kill_rowid_idx", "kill_rowid", "bloom_filter(0.01)", "1" }
     };
     private static final String[][] STORAGE_METADATA_COLUMN_DEFINITIONS = {
             { "dataset_id", "UUID" + VALUE_CODEC },
-            { "producer_id", "UUID" + VALUE_CODEC },
             { "schema_version", "UInt32" + INTEGER_CODEC },
             { "created_at", "DateTime64(3, 'UTC')" + INTEGER_CODEC }
     };
     private static final String[][] WRITER_REGISTRATION_COLUMN_DEFINITIONS = {
             { "dataset_id", "UUID" },
-            { "producer_id", "UUID" },
             { "writer_id", "UUID" },
             { "registration_order", "UInt64 DEFAULT generateSnowflakeID()" },
             { "registered_at", "DateTime64(3, 'UTC')" }
     };
     private static final String[][] RETENTION_HIGH_WATER_COLUMN_DEFINITIONS = {
-            { "dataset_id", "UUID" + VALUE_CODEC },
-            { "producer_id", "UUID" + VALUE_CODEC },
-            { "producer_sequence", "UInt64" + INTEGER_CODEC },
+            { "batch_sequence", "UInt64" + INTEGER_CODEC },
             { "family", "LowCardinality(String)" + VALUE_CODEC },
             { "rowid", "UInt64" + INTEGER_CODEC },
             { "recorded_at", "DateTime64(3, 'UTC')" + INTEGER_CODEC }
     };
     private static final String[][] EVENT_COLUMN_DEFINITIONS = {
-            { "dataset_id", "UUID" + VALUE_CODEC },
-            { "producer_id", "UUID" + VALUE_CODEC },
-            { "producer_sequence", "UInt64" + INTEGER_CODEC },
+            { "batch_sequence", "UInt64" + INTEGER_CODEC },
             { "batch_id", "UUID" + VALUE_CODEC },
             { "batch_ordinal", "UInt32" + INTEGER_CODEC },
             { "family", "LowCardinality(String)" + VALUE_CODEC },
@@ -141,7 +135,7 @@ public final class ClickHouseSchema {
                 "fsync_after_insert=1", "fsync_part_directory=1");
         validateTable(connection, database, names.rawTable("writer_registration"), "MergeTree", "(registration_order,writer_id)", "", WRITER_REGISTRATION_COLUMN_DEFINITIONS,
                 "fsync_after_insert=1", "fsync_part_directory=1");
-        validateTable(connection, database, names.rawTable("retention_high_water"), "MergeTree", "(dataset_id,family,producer_sequence,rowid)", "", RETENTION_HIGH_WATER_COLUMN_DEFINITIONS,
+        validateTable(connection, database, names.rawTable("retention_high_water"), "MergeTree", "(batch_sequence,family,rowid)", "", RETENTION_HIGH_WATER_COLUMN_DEFINITIONS,
                 "fsync_after_insert=1", "fsync_part_directory=1", "non_replicated_deduplication_window=1000");
         validateTable(connection, database, names.rawTable("event_data"), "CoalescingMergeTree", EVENT_SORTING_KEY, EVENT_PARTITION_KEY, EVENT_COLUMN_DEFINITIONS,
                 "fsync_after_insert=1", "fsync_part_directory=1", "non_replicated_deduplication_window=1000", SPARSE_SERIALIZATION_SETTING);
@@ -235,7 +229,7 @@ public final class ClickHouseSchema {
     private static String createRetentionHighWater(Names names) {
         return table(names.retentionHighWater, columnDefinitions(RETENTION_HIGH_WATER_COLUMN_DEFINITIONS))
                 + " ENGINE = MergeTree"
-                + " ORDER BY (dataset_id,family,producer_sequence,rowid)"
+                + " ORDER BY (batch_sequence,family,rowid)"
                 + " SETTINGS fsync_after_insert=1,fsync_part_directory=1,non_replicated_deduplication_window=1000";
     }
 

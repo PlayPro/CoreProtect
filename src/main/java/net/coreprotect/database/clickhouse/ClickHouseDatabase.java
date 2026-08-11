@@ -43,7 +43,7 @@ public final class ClickHouseDatabase implements AutoCloseable {
         this.writerRegistration = writerRegistration;
         publisher = new ClickHouseBatchPublisher(jdbc, nativeClient, writerRegistration, database, prefix);
         highWaterPublisher = new ClickHouseHighWaterPublisher(jdbc, nativeClient, writerRegistration, database, prefix);
-        retention = new ClickHouseRetention(jdbc, database, prefix, datasetId);
+        retention = new ClickHouseRetention(jdbc, database, prefix);
         targetResolver = new ClickHouseTargetResolver(jdbc, database, prefix, datasetId);
     }
 
@@ -77,16 +77,16 @@ public final class ClickHouseDatabase implements AutoCloseable {
                 }
             }
 
-            writerRegistration = new ClickHouseWriterRegistration(jdbc, config.getDatabase(), validatedPrefix, storageIdentity.getDatasetId(), storageIdentity.getProducerId(), controlDirectory);
+            writerRegistration = new ClickHouseWriterRegistration(jdbc, config.getDatabase(), validatedPrefix, storageIdentity.getDatasetId(), controlDirectory);
             writerRegistration.acquire();
             ClickHouseHighWaterMarks remoteMarks;
             try (Connection connection = jdbc.openConnection()) {
                 for (int index = ClickHouseSchema.PHYSICAL_TABLE_COUNT; index < statements.size(); index++) {
                     jdbc.executeDdl(connection, statements.get(index));
                 }
-                remoteMarks = ClickHouseStartupReconciler.readRemote(connection, config.getDatabase(), validatedPrefix, storageIdentity.getDatasetId(), storageIdentity.getProducerId());
+                remoteMarks = ClickHouseStartupReconciler.readRemote(connection, config.getDatabase(), validatedPrefix);
             }
-            ClickHouseIdentityAllocator identityAllocator = new ClickHouseIdentityAllocator(storageIdentity.getDatasetId(), storageIdentity.getProducerId(), remoteMarks);
+            ClickHouseIdentityAllocator identityAllocator = new ClickHouseIdentityAllocator(storageIdentity.getDatasetId(), remoteMarks);
             ClickHouseDatabase database = new ClickHouseDatabase(jdbc, nativeClient, config.getDatabase(), validatedPrefix, storageIdentity.getDatasetId(), identityAllocator,
                     writerRegistration);
             database.retention.recoverAbandonedTargets();

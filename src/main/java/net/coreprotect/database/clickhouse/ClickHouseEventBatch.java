@@ -378,9 +378,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         currentWorldId = 0;
         currentX = 0;
         currentZ = 0;
-        set("dataset_id", identity.getDatasetId());
-        set("producer_id", identity.getProducerId());
-        set("producer_sequence", identity.getProducerSequence());
+        set("batch_sequence", identity.getBatchSequence());
         set("batch_id", identity.getBatchId());
         set("batch_ordinal", eventCount);
         set("family", family.getTableName());
@@ -482,7 +480,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         if (isVersionedFamily(family) && !versionRowIds.computeIfAbsent(family, ignored -> new HashSet<>()).add(rowId)) {
             duplicateVersionCount++;
         }
-        lastPointer = new ClickHouseEventPointer(identity.getDatasetId(), family, identity.getProducerId(), identity.getProducerSequence(), eventCount, rowId, currentTime, currentWorldId, currentX, currentZ);
+        lastPointer = new ClickHouseEventPointer(identity.getDatasetId(), family, identity.getBatchSequence(), eventCount, rowId, currentTime, currentWorldId, currentX, currentZ);
         eventCount++;
     }
 
@@ -500,9 +498,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
 
     private static boolean isReservedCompatibilityColumn(String column) {
         switch (column) {
-            case "dataset_id":
-            case "producer_id":
-            case "producer_sequence":
+            case "batch_sequence":
             case "batch_id":
             case "batch_ordinal":
             case "family":

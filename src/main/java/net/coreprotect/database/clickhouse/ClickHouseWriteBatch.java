@@ -50,7 +50,7 @@ public final class ClickHouseWriteBatch implements AutoCloseable {
         int entityStateCount = state.getEntityStateCount();
         int rowCount = Math.addExact(eventCount, Math.addExact(rollbackCount, entityStateCount));
         int logicalRowCount = Math.subtractExact(Math.addExact(events.logicalSize(), Math.addExact(rollbackCount, entityStateCount)), state.getLocalOverlapCount(eventCount));
-        receipt = new ClickHouseBatchReceipt(identity.getProducerSequence(), identity.getBatchId(), rowCount, logicalRowCount);
+        receipt = new ClickHouseBatchReceipt(identity.getBatchSequence(), identity.getBatchId(), rowCount, logicalRowCount);
         return receipt;
     }
 

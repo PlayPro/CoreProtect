@@ -365,10 +365,6 @@ public final class DuckDBSpatialIndex {
             state.accumulator(Source.BLOCK).add(rowId, worldId, x, z);
         }
 
-        void addGenerated(String table, int worldId, int x, int z) {
-            addGenerated(table, worldId, x, z, null);
-        }
-
         void addGenerated(String table, int worldId, int x, int z, Integer entitySpawnRowId) {
             Source source = Source.fromTable(table);
             if (source != null && source != Source.BLOCK) {

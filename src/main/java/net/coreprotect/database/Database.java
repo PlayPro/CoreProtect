@@ -618,30 +618,6 @@ public class Database extends Queue {
         }
     }
 
-    public static void performRolledBackUpdate(Statement statement, int rolledBack, List<Long> rowIds, int table) {
-        String tableName = getRolledBackTableName(table);
-
-        try {
-            int listSize = rowIds.size();
-            int batchSize = getRolledBackUpdateBatchSize();
-            for (int startIndex = 0; startIndex < listSize; startIndex += batchSize) {
-                int endIndex = Math.min(startIndex + batchSize, listSize);
-                StringBuilder query = new StringBuilder("UPDATE " + ConfigHandler.prefix + tableName + " SET rolled_back='" + rolledBack + "' WHERE rowid IN(");
-                for (int index = startIndex; index < endIndex; index++) {
-                    if (index > startIndex) {
-                        query.append(",");
-                    }
-                    query.append(rowIds.get(index).longValue());
-                }
-                query.append(")");
-                statement.executeUpdate(query.toString());
-            }
-        }
-        catch (Exception e) {
-            handleWriteFailure(e);
-        }
-    }
-
     public static void performRolledBackUpdateChecked(Statement statement, int rolledBack, List<Long> rowIds, int table) throws SQLException {
         String tableName = getRolledBackTableName(table);
         int listSize = rowIds.size();

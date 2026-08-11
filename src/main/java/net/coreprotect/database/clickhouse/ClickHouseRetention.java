@@ -21,7 +21,6 @@ final class ClickHouseRetention {
     private static final String PURGEABLE_FAMILIES = purgeableFamilies();
 
     private final ClickHouseJdbc jdbc;
-    private final UUID datasetId;
     private final String eventTable;
     private final String highWaterTable;
     private final String prefix;
@@ -31,9 +30,8 @@ final class ClickHouseRetention {
     private volatile Connection activePurgeConnection;
     private volatile boolean purgeCancellationRequested;
 
-    ClickHouseRetention(ClickHouseJdbc jdbc, String database, String prefix, UUID datasetId) {
+    ClickHouseRetention(ClickHouseJdbc jdbc, String database, String prefix) {
         this.jdbc = Objects.requireNonNull(jdbc, "jdbc");
-        this.datasetId = Objects.requireNonNull(datasetId, "datasetId");
         databaseName = ClickHouseIdentifiers.requireIdentifier(database, "ClickHouse database");
         this.database = ClickHouseIdentifiers.quote(databaseName, "ClickHouse database");
         this.prefix = prefix == null || prefix.isEmpty() ? "" : ClickHouseIdentifiers.requireIdentifier(prefix, "ClickHouse table prefix");
@@ -177,11 +175,10 @@ final class ClickHouseRetention {
 
     private void snapshotHighWaterMarks(Connection connection) throws SQLException {
         String sql = "INSERT INTO " + highWaterTable
-                + " (dataset_id,producer_id,producer_sequence,family,rowid,recorded_at)"
-                + " SELECT dataset_id,any(producer_id),max(producer_sequence),family,max(rowid),now64(3, 'UTC')"
-                + " FROM " + eventTable + " WHERE dataset_id=? GROUP BY dataset_id,family";
+                + " (batch_sequence,family,rowid,recorded_at)"
+                + " SELECT max(batch_sequence),family,max(rowid),now64(3, 'UTC')"
+                + " FROM " + eventTable + " GROUP BY family";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setObject(1, datasetId);
             statement.execute();
         }
     }
@@ -272,8 +269,7 @@ final class ClickHouseRetention {
     }
 
     private void deletePrimaryRows(Connection connection, long startTime, long endTime) throws SQLException {
-        String sql = "ALTER TABLE " + eventTable + " DELETE WHERE dataset_id=toUUID('" + datasetId + "')"
-                + " AND family IN(" + PURGEABLE_FAMILIES + ") AND time>=" + startTime + " AND time<" + endTime
+        String sql = "ALTER TABLE " + eventTable + " DELETE WHERE family IN(" + PURGEABLE_FAMILIES + ") AND time>=" + startTime + " AND time<" + endTime
                 + MUTATION_SETTINGS;
         execute(connection, sql);
     }
@@ -302,7 +298,7 @@ final class ClickHouseRetention {
 
     private void clearMissingReference(Connection connection, String valueColumn, String presenceColumn, String referencedFamily) throws SQLException {
         String sql = "ALTER TABLE " + eventTable + " UPDATE " + valueColumn + "=NULL," + presenceColumn + "=0"
-                + " WHERE dataset_id=toUUID('" + datasetId + "') AND family='entity_spawn' AND " + presenceColumn + "=1"
+                + " WHERE family='entity_spawn' AND " + presenceColumn + "=1"
                 + " AND " + valueColumn + " IS NOT NULL AND " + valueColumn + " NOT IN(SELECT rowid FROM " + table(referencedFamily) + ")"
                 + MUTATION_SETTINGS;
         execute(connection, sql);
@@ -327,17 +323,15 @@ final class ClickHouseRetention {
         if (countTargets(connection, targetTable) == 0) {
             return;
         }
-        String sql = "ALTER TABLE " + eventTable + " DELETE WHERE dataset_id=toUUID('" + datasetId + "')"
-                + " AND (family,rowid) IN(SELECT family,rowid FROM " + targetTable + ")" + MUTATION_SETTINGS;
+        String sql = "ALTER TABLE " + eventTable + " DELETE WHERE (family,rowid) IN(SELECT family,rowid FROM " + targetTable + ")" + MUTATION_SETTINGS;
         execute(connection, sql);
     }
 
     private void dropCoveredPartitions(Connection connection, long startTime, long endTime) throws SQLException {
         String sql = "SELECT _partition_id,min(time),max(time) FROM " + eventTable
-                + " WHERE dataset_id=? AND family IN(" + PURGEABLE_FAMILIES + ") GROUP BY _partition_id";
+                + " WHERE family IN(" + PURGEABLE_FAMILIES + ") GROUP BY _partition_id";
         List<String> partitions = new ArrayList<>();
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setObject(1, datasetId);
             try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {
                     String partition = resultSet.getString(1);

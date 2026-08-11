@@ -156,9 +156,7 @@ final class ClickHouseStateBatch implements AutoCloseable {
 
     private void beginSparseRow(ClickHouseRowBinaryBuffer rows, ClickHouseFamily family, long rowId, int time, int worldId, int x, int z, int ordinal) {
         rows.beginRow();
-        rows.set("dataset_id", identity.getDatasetId());
-        rows.set("producer_id", identity.getProducerId());
-        rows.set("producer_sequence", identity.getProducerSequence());
+        rows.set("batch_sequence", identity.getBatchSequence());
         rows.set("batch_id", identity.getBatchId());
         rows.set("batch_ordinal", ordinal);
         rows.set("family", family.getTableName());
@@ -180,8 +178,7 @@ final class ClickHouseStateBatch implements AutoCloseable {
     }
 
     private boolean isLocal(ClickHouseEventPointer pointer, int eventCount) {
-        return identity.getProducerId().equals(pointer.getProducerId())
-                && identity.getProducerSequence() == pointer.getProducerSequence()
+        return identity.getBatchSequence() == pointer.getBatchSequence()
                 && pointer.getBatchOrdinal() < eventCount;
     }
 

@@ -108,11 +108,9 @@ final class ClickHouseBatchPublisher {
     private RawStatus readRawStatus(ClickHouseBatchIdentity identity) throws SQLException {
         String sql = "SELECT count(),uniqExact(tuple(family,rowid)),uniqExact(batch_id),any(toString(batch_id)),uniqExact(batch_ordinal),max(batch_ordinal)"
                 + " FROM " + eventTable
-                + " WHERE dataset_id=? AND producer_id=? AND producer_sequence=?";
+                + " WHERE batch_sequence=?";
         try (Connection connection = jdbc.openConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setObject(1, identity.getDatasetId());
-            statement.setObject(2, identity.getProducerId());
-            statement.setLong(3, identity.getProducerSequence());
+            statement.setLong(1, identity.getBatchSequence());
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (!resultSet.next()) {
                     throw new SQLException("ClickHouse did not return batch reconciliation data");
@@ -123,7 +121,7 @@ final class ClickHouseBatchPublisher {
     }
 
     private static SQLException conflict(ClickHouseBatchReceipt receipt) {
-        return new SQLException("ClickHouse batch is partial or conflicting for producer sequence " + receipt.getProducerSequence());
+        return new SQLException("ClickHouse batch is partial or conflicting for batch sequence " + receipt.getBatchSequence());
     }
 
     static SQLException interrupted(String operation, SQLException failure) {

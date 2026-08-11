@@ -60,7 +60,7 @@ final class ClickHouseHighWaterPublisher {
                     return;
                 }
                 if (!status.isRetryableSubsetOf(marks)) {
-                    SQLException conflict = new SQLException("ClickHouse high-water batch is partial or conflicting for producer sequence " + identity.getProducerSequence());
+                    SQLException conflict = new SQLException("ClickHouse high-water batch is partial or conflicting for batch sequence " + identity.getBatchSequence());
                     conflict.addSuppressed(publicationFailure);
                     throw conflict;
                 }
@@ -78,9 +78,7 @@ final class ClickHouseHighWaterPublisher {
             LocalDateTime recordedAt = LocalDateTime.now(ZoneOffset.UTC);
             for (Map.Entry<ClickHouseFamily, Long> mark : marks.entrySet()) {
                 rows.beginRow();
-                rows.set("dataset_id", identity.getDatasetId());
-                rows.set("producer_id", identity.getProducerId());
-                rows.set("producer_sequence", identity.getProducerSequence());
+                rows.set("batch_sequence", identity.getBatchSequence());
                 rows.set("family", mark.getKey().getTableName());
                 rows.set("rowid", mark.getValue());
                 rows.set("recorded_at", recordedAt);
@@ -119,13 +117,11 @@ final class ClickHouseHighWaterPublisher {
 
     private Status readRawStatus(ClickHouseBatchIdentity identity) throws SQLException {
         String sql = "SELECT family,rowid,count() FROM " + table
-                + " WHERE dataset_id=? AND producer_id=? AND producer_sequence=? GROUP BY family,rowid";
+                + " WHERE batch_sequence=? GROUP BY family,rowid";
         EnumMap<ClickHouseFamily, Long> values = new EnumMap<>(ClickHouseFamily.class);
         boolean conflicting = false;
         try (Connection connection = jdbc.openConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setObject(1, identity.getDatasetId());
-            statement.setObject(2, identity.getProducerId());
-            statement.setLong(3, identity.getProducerSequence());
+            statement.setLong(1, identity.getBatchSequence());
             try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {
                     ClickHouseFamily family;

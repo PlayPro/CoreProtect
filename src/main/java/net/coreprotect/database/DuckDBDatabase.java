@@ -85,8 +85,8 @@ final class DuckDBDatabase {
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_interaction (" + rowId(prefix, "entity_interaction") + ", time INTEGER, \"user\" INTEGER, entity_spawn_rowid INTEGER NOT NULL, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, action TINYINT, metadata BLOB, rolled_back TINYINT)");
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "item (" + rowId(prefix, "item") + ", time INTEGER, \"user\" INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, type INTEGER, data BLOB, amount INTEGER, action TINYINT, rolled_back TINYINT)");
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "database_lock (rowid INTEGER PRIMARY KEY, status TINYINT, time INTEGER)");
-                statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity (" + rowId(prefix, "entity") + ", time INTEGER, data VARCHAR)");
-                statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_spawn (" + rowId(prefix, "entity_spawn") + ", time INTEGER, block_rowid BIGINT, kill_rowid INTEGER, uuid VARCHAR UNIQUE, wid INTEGER, current_wid INTEGER, origin_x DOUBLE, origin_y DOUBLE, origin_z DOUBLE, x DOUBLE, y DOUBLE, z DOUBLE, yaw FLOAT, pitch FLOAT, data VARCHAR, removed TINYINT, UNIQUE(kill_rowid))");
+                statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity (" + rowId(prefix, "entity") + ", time INTEGER, data BLOB)");
+                statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_spawn (" + rowId(prefix, "entity_spawn") + ", time INTEGER, block_rowid BIGINT, kill_rowid INTEGER, uuid VARCHAR UNIQUE, wid INTEGER, current_wid INTEGER, origin_x DOUBLE, origin_y DOUBLE, origin_z DOUBLE, x DOUBLE, y DOUBLE, z DOUBLE, yaw FLOAT, pitch FLOAT, data BLOB, removed TINYINT, UNIQUE(kill_rowid))");
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "entity_map (" + rowId(prefix, "entity_map") + ", id INTEGER, entity VARCHAR)");
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "material_map (" + rowId(prefix, "material_map") + ", id INTEGER, material VARCHAR)");
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "blockdata_map (" + rowId(prefix, "blockdata_map") + ", id INTEGER, data VARCHAR)");
@@ -129,8 +129,8 @@ final class DuckDBDatabase {
         }
         for (String table : new String[] { entityTable, entitySpawnTable }) {
             String type = types.get(table);
-            if (!"VARCHAR".equalsIgnoreCase(type)) {
-                throw new SQLException("Unsupported DuckDB " + table + ".data format: " + (type == null ? "missing" : type) + " (expected VARCHAR)");
+            if (!"BLOB".equalsIgnoreCase(type)) {
+                throw new SQLException("Unsupported DuckDB " + table + ".data format: " + (type == null ? "missing" : type) + " (expected BLOB)");
             }
         }
     }

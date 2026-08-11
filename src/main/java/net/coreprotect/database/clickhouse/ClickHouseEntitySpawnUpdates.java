@@ -26,15 +26,15 @@ import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.model.entity.EntityContainerRollbackUpdate;
 import net.coreprotect.model.entity.EntitySpawnData;
 import net.coreprotect.model.entity.EntitySpawnIdentity;
+import net.coreprotect.utility.DatabaseUtils;
 import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.WorldUtils;
-import net.coreprotect.utility.serialize.EntityDataCodec;
 
 final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
 
     private static final int SELECT_BATCH_SIZE = 500;
     private static final String COLUMNS = "rowid,if(block_rowid_present=1,block_rowid,NULL) AS block_rowid,if(kill_rowid_present=1,kill_rowid,NULL) AS kill_rowid,uuid,current_wid,current_x,current_y,current_z,yaw,pitch,"
-            + "if(entity_data_present=1,entity_data,NULL) AS data"
+            + ClickHouseSchema.binary("if(entity_data_present=1,entity_data,NULL)", "data")
             + ",removed,producer_id,producer_sequence,batch_ordinal,time,wid,x AS key_x,z AS key_z";
 
     private final ClickHouseConsumerWriteBatch owner;
@@ -535,8 +535,7 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
     private ClickHouseEntityState readState(ResultSet resultSet) throws Exception {
         int rowId = resultSet.getInt("rowid");
         ClickHouseEventPointer pointer = new ClickHouseEventPointer(datasetId, ClickHouseFamily.ENTITY_SPAWN, UUID.fromString(resultSet.getString("producer_id")), resultSet.getLong("producer_sequence"), resultSet.getInt("batch_ordinal"), rowId, resultSet.getInt("time"), resultSet.getInt("wid"), resultSet.getInt("key_x"), resultSet.getInt("key_z"));
-        String text = resultSet.getString("data");
-        byte[] data = text == null ? null : EntityDataCodec.fromText(text);
+        byte[] data = DatabaseUtils.getBytes(resultSet, "data");
         return new ClickHouseEntityState(pointer, nullableLong(resultSet, "block_rowid"), nullableInteger(resultSet, "kill_rowid"), UUID.fromString(resultSet.getString("uuid")), resultSet.getInt("current_wid"), resultSet.getDouble("current_x"), resultSet.getDouble("current_y"), resultSet.getDouble("current_z"), resultSet.getFloat("yaw"), resultSet.getFloat("pitch"), data, resultSet.getInt("removed") == 1);
     }
 

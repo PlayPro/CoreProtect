@@ -36,7 +36,6 @@ import net.coreprotect.model.lookup.EntityLookupContext;
 import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.WorldUtils;
-import net.coreprotect.utility.serialize.EntityDataCodec;
 import net.coreprotect.utility.serialize.EntityDataCodec.Kind;
 
 public final class EntitySpawnStatement {
@@ -672,10 +671,7 @@ public final class EntitySpawnStatement {
 
         private void setNullableData(PreparedStatement statement, int index, byte[] value) throws Exception {
             if (value == null) {
-                statement.setNull(index, databaseType.isDuckDB() ? Types.VARCHAR : Types.BLOB);
-            }
-            else if (databaseType.isDuckDB()) {
-                statement.setString(index, EntityDataCodec.toText(value));
+                statement.setNull(index, Types.BLOB);
             }
             else {
                 statement.setBytes(index, value);

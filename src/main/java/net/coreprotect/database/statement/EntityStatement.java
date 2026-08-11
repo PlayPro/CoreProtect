@@ -208,15 +208,7 @@ public class EntityStatement {
     }
 
     public static List<Object> readData(ResultSet resultSet, String column, Kind kind) throws SQLException {
-        byte[] data;
-        if (ConfigHandler.databaseType.isColumnar()) {
-            String text = resultSet.getString(column);
-            data = text == null ? null : EntityDataCodec.fromText(text);
-        }
-        else {
-            data = DatabaseUtils.getBytes(resultSet, column);
-        }
-        return deserializeData(data, kind);
+        return deserializeData(DatabaseUtils.getBytes(resultSet, column), kind);
     }
 
     private static List<Object> deserializeDataStrict(byte[] data, Kind kind) throws Exception {

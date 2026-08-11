@@ -106,7 +106,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
 
     public long addEntity(int time, byte[] data) throws SQLException {
         long rowId = beginRow(ClickHouseFamily.ENTITY, time);
-        setEntityText("payload", data);
+        setEntityData("payload", data);
         commitRow(ClickHouseFamily.ENTITY, rowId);
         return rowId;
     }
@@ -130,7 +130,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         set("current_z", currentZ);
         set("yaw", yaw);
         set("pitch", pitch);
-        setEntityText("entity_data", data);
+        setEntityData("entity_data", data);
         set("entity_data_present", data == null ? 0 : 1);
         set("removed", removed);
         commitRow(ClickHouseFamily.ENTITY_SPAWN, rowId);
@@ -249,7 +249,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
             }
             Object value = entry.getValue();
             if (canonicalColumn.equals("data") && (family == ClickHouseFamily.ENTITY || family == ClickHouseFamily.ENTITY_SPAWN)) {
-                value = entityText(value);
+                value = entityData(value);
             }
             String physicalColumn = compatibilityColumn(family, canonicalColumn);
             set(physicalColumn, value);
@@ -400,18 +400,24 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         set(column, value);
     }
 
-    private void setEntityText(String column, byte[] value) {
-        set(column, value == null ? null : EntityDataCodec.toText(value));
+    private void setEntityData(String column, byte[] value) {
+        if (value != null && !EntityDataCodec.isEncoded(value)) {
+            throw new IllegalArgumentException("Entity data does not use the CoreProtect binary format");
+        }
+        set(column, value);
     }
 
-    private static Object entityText(Object value) {
+    private static Object entityData(Object value) {
+        if (value == null) {
+            return null;
+        }
         if (value instanceof byte[]) {
-            return EntityDataCodec.toText((byte[]) value);
+            if (!EntityDataCodec.isEncoded((byte[]) value)) {
+                throw new IllegalArgumentException("Entity data does not use the CoreProtect binary format");
+            }
+            return value;
         }
-        if (value instanceof String) {
-            EntityDataCodec.fromText((String) value);
-        }
-        return value;
+        throw new IllegalArgumentException("ClickHouse entity data must be binary");
     }
 
     private void set(String column, Object value) {

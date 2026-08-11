@@ -285,7 +285,7 @@ public final class ClickHouseSchema {
         statements.add(view(names, ClickHouseFamily.ENTITY_INTERACTION, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.entity_spawn_rowid AS entity_spawn_rowid," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.type AS type,e.action AS action," + binary("e.metadata", "metadata") + ",e.rolled_back AS rolled_back"));
         statements.add(rollbackView(names, ClickHouseFamily.ITEM, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.type AS type," + binary("e.payload", "data") + ",e.amount AS amount,e.action AS action"));
         statements.add(currentView(names, ClickHouseFamily.DATABASE_LOCK, "e.rowid AS rowid,e.status AS status,e.database_lock_time AS time"));
-        statements.add(view(names, ClickHouseFamily.ENTITY, "e.rowid AS rowid,e.time AS time,e.payload AS data"));
+        statements.add(view(names, ClickHouseFamily.ENTITY, "e.rowid AS rowid,e.time AS time," + binary("e.payload", "data")));
         statements.add(entitySpawnView(names));
         statements.add(view(names, ClickHouseFamily.ENTITY_MAP, "e.rowid AS rowid,e.id AS id,e.name AS entity"));
         statements.add(view(names, ClickHouseFamily.MATERIAL_MAP, "e.rowid AS rowid,e.id AS id,e.name AS material"));
@@ -323,7 +323,7 @@ public final class ClickHouseSchema {
                 + ",e.uuid AS uuid," + location("wid") + ",e.current_wid AS current_wid"
                 + ",e.origin_x AS origin_x,e.origin_y AS origin_y,e.origin_z AS origin_z"
                 + ",e.current_x AS x,e.current_y AS y,e.current_z AS z"
-                + ",e.yaw AS yaw,e.pitch AS pitch,if(e.entity_data_present=1,e.entity_data,NULL) AS data,e.removed AS removed"
+                + ",e.yaw AS yaw,e.pitch AS pitch," + binary("if(e.entity_data_present=1,e.entity_data,NULL)", "data") + ",e.removed AS removed"
                 + " FROM " + currentEvents(names, ClickHouseFamily.ENTITY_SPAWN) + " AS e";
     }
 

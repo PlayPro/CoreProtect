@@ -18,7 +18,6 @@ import org.duckdb.DuckDBConnection;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.utility.ErrorReporter;
-import net.coreprotect.utility.serialize.EntityDataCodec;
 
 public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
 
@@ -612,10 +611,10 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
 
     private static void setDuckDBEntityData(PreparedStatement statement, int index, byte[] data) throws SQLException {
         if (data == null) {
-            statement.setNull(index, Types.VARCHAR);
+            statement.setNull(index, Types.BLOB);
         }
         else {
-            statement.setString(index, EntityDataCodec.toText(data));
+            statement.setBytes(index, data);
         }
     }
 

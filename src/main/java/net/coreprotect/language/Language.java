@@ -82,7 +82,7 @@ public class Language {
         phrases.put(Phrase.HELP_EXCLUDE_1, "Exclude blocks/users.");
         phrases.put(Phrase.HELP_EXCLUDE_2, "Examples: [e:stone], [e:Notch], [e:stone,Notch]");
         phrases.put(Phrase.HELP_FILTER_1, "Filter chat, command, or sign text.");
-        phrases.put(Phrase.HELP_FILTER_2, "Examples: [a:command f:/co], [a:sign f:Shop]");
+        phrases.put(Phrase.HELP_FILTER_2, "Examples: [a:command f:/co], [a:sign f:Shop], [f:*ban*], [f:-/co]");
         phrases.put(Phrase.HELP_HEADER, "{0} Help");
         phrases.put(Phrase.HELP_INCLUDE_1, "Include specific blocks/entities.");
         phrases.put(Phrase.HELP_INCLUDE_2, "Examples: [i:stone], [i:zombie], [i:stone,wood,bedrock]");

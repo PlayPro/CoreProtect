@@ -56,6 +56,7 @@ Perform a lookup. Nearly all of the parameters are optional.
 | [`a:<action>`](#aaction) | Restrict the lookup to a certain action. |
 | [`i:<include>`](#iinclude) | Include specific blocks/entities in the lookup. |
 | [`e:<exclude>`](#eexclude) | Exclude blocks/entities from the lookup. |
+| [`f:<filter>`](#ffilter) | Filter chat, command, or sign text. |
 | [`#<hashtag>`](#hashtag) | Add a hashtag to perform additional actions. |
 
 #### Pagination
@@ -236,6 +237,20 @@ ___
 *Can be used to exclude a block/item/entity/user.*
 
 * Example: `e:tnt` *(exclude TNT)*
+
+---
+
+### `f:<filter>`
+
+*Filters the text of a lookup, and can only be used with `a:chat`, `a:command`, or `a:sign`.*
+
+* Example: `a:command f:/ban` *(commands starting with "/ban")*
+* Example: `a:command f:*ban*` *(commands containing "ban")*
+* Example: `a:command f:/ban,/kick` *(specify multiple filters)*
+* Example: `a:chat f:-hello` *(exclude messages starting with "hello")*
+
+> A filter matches from the start of a message unless it begins with `*`.  
+> Matching is case insensitive, and each filter requires at least three characters.
 
 ---
 

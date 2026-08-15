@@ -958,7 +958,7 @@ public final class EntitySpawnTracking {
             Inventory inventory = ((InventoryHolder) entity).getInventory();
             inventoryData = new ArrayList<>(inventory.getSize());
             for (ItemStack item : inventory.getContents()) {
-                inventoryData.add(item == null ? null : item.serialize());
+                inventoryData.add(serializeItem(item));
             }
         }
         state.add(inventoryData);
@@ -974,9 +974,11 @@ public final class EntitySpawnTracking {
                 equipmentData.add(serializeItem(equipment.getLeggings()));
                 equipmentData.add(serializeItem(equipment.getChestplate()));
                 equipmentData.add(serializeItem(equipment.getHelmet()));
+                trimTrailingNulls(equipmentData);
             }
         }
         state.add(equipmentData);
+        trimTrailingNulls(state);
         return state;
     }
 
@@ -1080,7 +1082,13 @@ public final class EntitySpawnTracking {
     }
 
     private static Object serializeItem(ItemStack item) {
-        return item == null ? null : item.serialize();
+        return item == null || BlockUtils.isAir(item.getType()) ? null : item.serialize();
+    }
+
+    private static void trimTrailingNulls(List<Object> values) {
+        while (!values.isEmpty() && values.get(values.size() - 1) == null) {
+            values.remove(values.size() - 1);
+        }
     }
 
     private static ItemStack getItem(List<?> items, int index) {

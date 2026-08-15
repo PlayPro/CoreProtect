@@ -14,6 +14,7 @@ import org.bukkit.command.CommandSender;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.DuckDBLookupQuery;
 import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
@@ -79,11 +80,13 @@ public class ChestTransactionLookup {
             int pageStart = rowMax - limit;
 
             String table = ConfigHandler.prefix + "container";
+            String tableName = "container";
             String where = "wid = " + worldId + " AND (x = " + x + " OR x = " + x2 + ") AND (z = " + z + " OR z = " + z2 + ") AND y = " + y;
             String index = WorldUtils.getWidIndex("container");
             String order = "rowid DESC";
             if (entitySpawnRowId != null) {
                 table = ConfigHandler.prefix + "entity_container";
+                tableName = "entity_container";
                 where = "entity_spawn_rowid = " + entitySpawnRowId;
                 index = "";
                 order = "time DESC,rowid DESC";
@@ -108,19 +111,42 @@ public class ChestTransactionLookup {
                 where = "wid = " + worldId + " AND x = " + l.getBlockX() + " AND z = " + l.getBlockZ() + " AND y = " + y;
             }
 
-            String query = "SELECT COUNT(*) as count FROM " + table + " " + index + "WHERE " + where + " LIMIT 1 OFFSET 0";
-            ResultSet results = statement.executeQuery(query);
-
-            while (results.next()) {
-                count = results.getInt("count");
+            boolean combinedDuckDBPage = ConfigHandler.databaseType.isDuckDB();
+            String query;
+            ResultSet results;
+            if (combinedDuckDBPage) {
+                String sourceTable;
+                if (entitySpawnRowId != null) {
+                    sourceTable = DuckDBLookupQuery.entityTable(statement.getConnection(), tableName, Collections.singleton(entitySpawnRowId), "spatial_rows");
+                }
+                else {
+                    int minimumX = exact ? l.getBlockX() : Math.min(x, x2);
+                    int maximumX = exact ? l.getBlockX() : Math.max(x, x2);
+                    int minimumZ = exact ? l.getBlockZ() : Math.min(z, z2);
+                    int maximumZ = exact ? l.getBlockZ() : Math.max(z, z2);
+                    sourceTable = DuckDBLookupQuery.spatialTable(statement.getConnection(), tableName, worldId, minimumX, maximumX, minimumZ, maximumZ, "spatial_rows");
+                }
+                String columns = "data_rows.time,data_rows." + ConfigHandler.databaseType.getUserColumn() + ",data_rows.wid,data_rows.x,data_rows.y,data_rows.z,data_rows.action,data_rows.type,data_rows.data,data_rows.amount,data_rows.metadata,data_rows.rolled_back";
+                query = DuckDBLookupQuery.pageQuery(sourceTable, table, where, columns, entitySpawnRowId != null, limit, pageStart);
+                results = statement.executeQuery(query);
             }
-            results.close();
-
-            int totalPages = (int) Math.ceil(count / (limit + 0.0));
-
-            query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,action,type,data,amount,metadata,rolled_back FROM " + table + " " + index + "WHERE " + where + " ORDER BY " + order + " LIMIT " + limit + " OFFSET " + pageStart;
-            results = statement.executeQuery(query);
+            else {
+                query = "SELECT COUNT(*) as count FROM " + table + " " + index + "WHERE " + where + " LIMIT 1 OFFSET 0";
+                results = statement.executeQuery(query);
+                while (results.next()) {
+                    count = results.getInt("count");
+                }
+                results.close();
+                query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,action,type,data,amount,metadata,rolled_back FROM " + table + " " + index + "WHERE " + where + " ORDER BY " + order + " LIMIT " + limit + " OFFSET " + pageStart;
+                results = statement.executeQuery(query);
+            }
             while (results.next()) {
+                if (combinedDuckDBPage) {
+                    count = results.getInt("count");
+                    if (results.getObject("result_id") == null) {
+                        continue;
+                    }
+                }
                 int resultUserId = results.getInt("user");
                 int resultAction = results.getInt("action");
                 int resultType = results.getInt("type");
@@ -168,6 +194,7 @@ public class ChestTransactionLookup {
                 PluginChannelListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_CONTAINER, selector, resultUser, target, resultAmount, displayX, displayY, displayZ, displayWorldId, rbFormat, true, tag.contains("+"));
             }
             results.close();
+            int totalPages = (int) Math.ceil(count / (limit + 0.0));
 
             if (found) {
                 if (count > limit) {

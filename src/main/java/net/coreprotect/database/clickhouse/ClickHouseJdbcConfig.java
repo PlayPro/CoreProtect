@@ -74,6 +74,13 @@ public final class ClickHouseJdbcConfig {
         return new ClickHouseJdbcConfig(host, port, database, username, password, tls);
     }
 
+    public ClickHouseJdbcConfig forMigrationReads() {
+        ClickHouseJdbcConfig config = new ClickHouseJdbcConfig(host, port, database, username, password, tls);
+        config.properties.setProperty("socket_timeout", "0");
+        config.properties.setProperty(SERVER_SETTING_PREFIX + "wait_end_of_query", "0");
+        return config;
+    }
+
     public Properties getProperties() {
         Properties copy = new Properties();
         copy.putAll(properties);

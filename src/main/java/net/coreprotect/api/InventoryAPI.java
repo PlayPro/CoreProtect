@@ -47,28 +47,42 @@ public class InventoryAPI {
                 return result;
             }
 
-            StringBuilder whereBuilder = new StringBuilder();
-            filter.appendWhere(whereBuilder);
-            String where = whereBuilder.toString();
-            StringBuilder entityWhereBuilder = new StringBuilder();
-            filter.appendEntityContainerWhere(entityWhereBuilder, "entity_rows");
-            String query = buildQuery(where, entityWhereBuilder.toString(), options.hasLimit());
+            boolean snapshot = filter.beginDuckDBSnapshot(connection);
+            try {
+                StringBuilder whereBuilder = new StringBuilder();
+                filter.appendWhere(whereBuilder);
+                String where = whereBuilder.toString();
+                StringBuilder entityWhereBuilder = new StringBuilder();
+                filter.appendEntityContainerWhere(entityWhereBuilder, "entity_rows", "spawn_rows");
+                String query = buildQuery(
+                        where,
+                        entityWhereBuilder.toString(),
+                        options.hasLimit(),
+                        filter.table(connection, "block", ""),
+                        filter.table(connection, "container", ""),
+                        filter.entityContainerTable(connection, "entity_rows"),
+                        filter.table(connection, "item", "")
+                );
 
-            try (PreparedStatement statement = connection.prepareStatement(query)) {
-                int parameterIndex = filter.bind(statement);
-                parameterIndex = filter.bind(statement, parameterIndex);
-                parameterIndex = filter.bindEntityContainer(statement, parameterIndex);
-                parameterIndex = filter.bind(statement, parameterIndex);
-                if (options.hasLimit()) {
-                    statement.setInt(parameterIndex++, options.getLimitCount());
-                    statement.setInt(parameterIndex, options.getLimitOffset());
-                }
+                try (PreparedStatement statement = connection.prepareStatement(query)) {
+                    int parameterIndex = filter.bind(statement);
+                    parameterIndex = filter.bind(statement, parameterIndex);
+                    parameterIndex = filter.bindEntityContainer(statement, parameterIndex);
+                    parameterIndex = filter.bind(statement, parameterIndex);
+                    if (options.hasLimit()) {
+                        statement.setInt(parameterIndex++, options.getLimitCount());
+                        statement.setInt(parameterIndex, options.getLimitOffset());
+                    }
 
-                try (ResultSet results = statement.executeQuery()) {
-                    while (results.next()) {
-                        result.add(parseInventoryResult(connection, results));
+                    try (ResultSet results = statement.executeQuery()) {
+                        while (results.next()) {
+                            result.add(parseInventoryResult(connection, results));
+                        }
                     }
                 }
+            }
+            finally {
+                filter.endDuckDBSnapshot(connection, snapshot);
             }
         }
         catch (Exception e) {
@@ -78,19 +92,19 @@ public class InventoryAPI {
         return result;
     }
 
-    private static String buildQuery(String where, String entityWhere, boolean hasLimit) {
+    private static String buildQuery(String where, String entityWhere, boolean hasLimit, String blockTable, String containerTable, String entityContainerTable, String itemTable) {
         StringBuilder query = new StringBuilder("SELECT * FROM (");
         query.append("SELECT 0 AS source,rowid AS id,time,").append(ConfigHandler.databaseType.getUserColumn()).append(",wid,x,y,z,type,data,1 AS amount,meta AS metadata,action,rolled_back FROM ")
-                .append(ConfigHandler.prefix).append("block ").append(where).append(" AND action = 1");
+                .append(blockTable).append(' ').append(where).append(" AND action = 1");
         query.append(" UNION ALL ");
         query.append("SELECT 1 AS source,rowid AS id,time,").append(ConfigHandler.databaseType.getUserColumn()).append(",wid,x,y,z,type,data,amount,metadata,action,rolled_back FROM ")
-                .append(ConfigHandler.prefix).append("container ").append(where);
+                .append(containerTable).append(' ').append(where);
         query.append(" UNION ALL ");
         query.append("SELECT ").append(InventorySources.ENTITY_CONTAINER).append(" AS source,entity_rows.rowid AS id,entity_rows.time,entity_rows.").append(ConfigHandler.databaseType.getUserColumn()).append(",spawn_rows.current_wid AS wid,spawn_rows.x,spawn_rows.y,spawn_rows.z,entity_rows.type,entity_rows.data,entity_rows.amount,entity_rows.metadata,entity_rows.action,entity_rows.rolled_back FROM ")
-                .append(ConfigHandler.prefix).append("entity_container entity_rows JOIN ").append(ConfigHandler.prefix).append("entity_spawn spawn_rows ON spawn_rows.rowid=entity_rows.entity_spawn_rowid ").append(entityWhere);
+                .append(entityContainerTable).append(" JOIN ").append(ConfigHandler.prefix).append("entity_spawn spawn_rows ON spawn_rows.rowid=entity_rows.entity_spawn_rowid ").append(entityWhere);
         query.append(" UNION ALL ");
         query.append("SELECT 2 AS source,rowid AS id,time,").append(ConfigHandler.databaseType.getUserColumn()).append(",wid,x,y,z,type,0 AS data,amount,data AS metadata,action,rolled_back FROM ")
-                .append(ConfigHandler.prefix).append("item ").append(where);
+                .append(itemTable).append(' ').append(where);
         query.append(") AS inventory_lookup ORDER BY time DESC, source DESC, id DESC");
         if (hasLimit) {
             query.append(" LIMIT ? OFFSET ?");

@@ -80,7 +80,8 @@ public final class BlockBreakListener extends Queue implements Listener {
 
             return scan;
         }
-        else if (!BukkitAdapter.ADAPTER.isAttached(block, scanBlock, blockData, scanMin)) {
+        else if (!BukkitAdapter.ADAPTER.isAttached(block, scanBlock, blockData, scanMin)
+                || !PaperAdapter.ADAPTER.isAttached(block, scanBlock, blockData, scanMin)) {
             return false;
         }
 

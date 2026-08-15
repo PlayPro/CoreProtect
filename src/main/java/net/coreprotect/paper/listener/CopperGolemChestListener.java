@@ -523,18 +523,20 @@ public final class CopperGolemChestListener implements Listener {
         }
 
         String loggingContainerId = HopperTransactionUtils.getLoggingId(USERNAME, location);
+        String transactionId = HopperTransactionUtils.getTransactionId(location);
+        HopperTransactionUtils.synchronizeTransaction(transactionId, () -> {
+            List<ItemStack[]> oldList = ConfigHandler.oldContainer.get(loggingContainerId);
+            boolean hasPendingBaseline = oldList != null && !oldList.isEmpty();
 
-        List<ItemStack[]> oldList = ConfigHandler.oldContainer.get(loggingContainerId);
-        boolean hasPendingBaseline = oldList != null && !oldList.isEmpty();
+            ItemStack[] oldestSnapshot = Queue.peekForceContainer(loggingContainerId);
+            boolean hasStaleForceSnapshots = oldestSnapshot != null && oldestSnapshot.length != snapshot.length;
 
-        ItemStack[] oldestSnapshot = Queue.peekForceContainer(loggingContainerId);
-        boolean hasStaleForceSnapshots = oldestSnapshot != null && oldestSnapshot.length != snapshot.length;
+            if (!hasPendingBaseline || hasStaleForceSnapshots) {
+                Queue.removeForceContainer(loggingContainerId);
+            }
 
-        if (!hasPendingBaseline || hasStaleForceSnapshots) {
-            Queue.removeForceContainer(loggingContainerId);
-        }
-
-        Queue.addForceContainer(loggingContainerId, snapshot);
+            Queue.addForceContainer(loggingContainerId, snapshot);
+        });
     }
 
     private void cleanupOpenInteractions(long nowMillis) {

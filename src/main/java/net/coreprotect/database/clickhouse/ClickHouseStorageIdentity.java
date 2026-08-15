@@ -1,6 +1,5 @@
 package net.coreprotect.database.clickhouse;
 
-import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -10,11 +9,9 @@ import java.util.UUID;
 final class ClickHouseStorageIdentity {
 
     private final UUID datasetId;
-    private final UUID producerId;
 
-    private ClickHouseStorageIdentity(UUID datasetId, UUID producerId) {
+    private ClickHouseStorageIdentity(UUID datasetId) {
         this.datasetId = datasetId;
-        this.producerId = producerId;
     }
 
     static ClickHouseStorageIdentity loadOrCreate(Connection connection, String database, String prefix) throws SQLException {
@@ -23,8 +20,7 @@ final class ClickHouseStorageIdentity {
         ClickHouseStorageIdentity identity = read(connection, table);
         if (identity == null) {
             UUID datasetId = readTableUuid(connection, database, tableName);
-            UUID producerId = UUID.nameUUIDFromBytes(("coreprotect-clickhouse-producer-v1:" + datasetId).getBytes(StandardCharsets.UTF_8));
-            insert(connection, table, datasetId, producerId);
+            insert(connection, table, datasetId);
             identity = read(connection, table);
         }
         if (identity == null) {
@@ -41,27 +37,22 @@ final class ClickHouseStorageIdentity {
         return datasetId;
     }
 
-    UUID getProducerId() {
-        return producerId;
-    }
-
     private static ClickHouseStorageIdentity read(Connection connection, String table) throws SQLException {
-        String sql = "SELECT dataset_id,producer_id,schema_version FROM " + table
-                + " GROUP BY dataset_id,producer_id,schema_version LIMIT 2";
+        String sql = "SELECT dataset_id,schema_version FROM " + table
+                + " GROUP BY dataset_id,schema_version LIMIT 2";
         try (PreparedStatement statement = connection.prepareStatement(sql); ResultSet resultSet = statement.executeQuery()) {
             if (!resultSet.next()) {
                 return null;
             }
             UUID datasetId = UUID.fromString(resultSet.getString(1));
-            UUID producerId = UUID.fromString(resultSet.getString(2));
-            int schemaVersion = resultSet.getInt(3);
+            int schemaVersion = resultSet.getInt(2);
             if (resultSet.next()) {
                 throw new SQLException("ClickHouse storage metadata contains conflicting identities or schema versions");
             }
             if (schemaVersion != ClickHouseSchema.VERSION) {
                 throw new SQLException("Unsupported ClickHouse schema version " + schemaVersion + " (expected " + ClickHouseSchema.VERSION + ")");
             }
-            return new ClickHouseStorageIdentity(datasetId, producerId);
+            return new ClickHouseStorageIdentity(datasetId);
         }
     }
 
@@ -86,13 +77,12 @@ final class ClickHouseStorageIdentity {
         }
     }
 
-    private static void insert(Connection connection, String table, UUID datasetId, UUID producerId) throws SQLException {
+    private static void insert(Connection connection, String table, UUID datasetId) throws SQLException {
         String sql = "INSERT INTO " + table
-                + " (dataset_id,producer_id,schema_version,created_at) VALUES (?,?,?,now64(3, 'UTC'))";
+                + " (dataset_id,schema_version,created_at) VALUES (?,?,now64(3, 'UTC'))";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setObject(1, datasetId);
-            statement.setObject(2, producerId);
-            statement.setInt(3, ClickHouseSchema.VERSION);
+            statement.setInt(2, ClickHouseSchema.VERSION);
             statement.execute();
         }
     }

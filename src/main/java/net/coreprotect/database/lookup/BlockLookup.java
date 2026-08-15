@@ -1,6 +1,7 @@
 package net.coreprotect.database.lookup;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.DuckDBLookupQuery;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
@@ -59,20 +60,36 @@ public class BlockLookup {
             String blockName = block.getType().name().toLowerCase(Locale.ROOT);
             String actionPredicate = "(action IN(0,1," + LookupActions.ENTITY_SPAWN + ") OR (action=" + LookupActions.ENTITY_KILL + " AND type IN(" + placedEntityTypeIds() + ")))";
 
-            String query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE wid = " + worldId + " AND x = " + x + " AND z = " + z + " AND y = " + y + " AND " + actionPredicate + " AND time >= " + checkTime + " LIMIT 1 OFFSET 0";
-            ResultSet results = statement.executeQuery(query);
-            while (results.next()) {
-                count = results.getInt("count");
+            String where = "wid = " + worldId + " AND x = " + x + " AND z = " + z + " AND y = " + y + " AND " + actionPredicate + " AND time >= " + checkTime;
+            boolean combinedDuckDBPage = ConfigHandler.databaseType.isDuckDB();
+            String query;
+            ResultSet results;
+            if (combinedDuckDBPage) {
+                String sourceTable = DuckDBLookupQuery.spatialTable(statement.getConnection(), "block", worldId, x, x, z, z, "spatial_rows");
+                String columns = "data_rows.time,data_rows." + ConfigHandler.databaseType.getUserColumn() + ",data_rows.action,data_rows.type,data_rows.data,data_rows.rolled_back";
+                query = DuckDBLookupQuery.pageQuery(sourceTable, ConfigHandler.prefix + "block", where, columns, false, limit, page_start);
+                results = statement.executeQuery(query);
             }
-            results.close();
-            int totalPages = (int) Math.ceil(count / (limit + 0.0));
-
-            query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,rolled_back FROM " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE wid = " + worldId + " AND x = " + x + " AND z = " + z + " AND y = " + y + " AND " + actionPredicate + " AND time >= " + checkTime + " ORDER BY rowid DESC LIMIT " + limit + " OFFSET " + page_start;
-            results = statement.executeQuery(query);
+            else {
+                query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE " + where + " LIMIT 1 OFFSET 0";
+                results = statement.executeQuery(query);
+                while (results.next()) {
+                    count = results.getInt("count");
+                }
+                results.close();
+                query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,rolled_back FROM " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE " + where + " ORDER BY rowid DESC LIMIT " + limit + " OFFSET " + page_start;
+                results = statement.executeQuery(query);
+            }
 
             StringBuilder resultTextBuilder = new StringBuilder();
 
             while (results.next()) {
+                if (combinedDuckDBPage) {
+                    count = results.getInt("count");
+                    if (results.getObject("result_id") == null) {
+                        continue;
+                    }
+                }
                 int resultUserId = results.getInt("user");
                 int resultAction = results.getInt("action");
                 int resultType = results.getInt("type");
@@ -142,6 +159,7 @@ public class BlockLookup {
 
             resultText = resultTextBuilder.toString();
             results.close();
+            int totalPages = (int) Math.ceil(count / (limit + 0.0));
 
             if (found) {
                 if (count > limit) {

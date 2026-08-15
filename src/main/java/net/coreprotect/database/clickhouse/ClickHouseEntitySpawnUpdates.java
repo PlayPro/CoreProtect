@@ -35,7 +35,7 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
     private static final int SELECT_BATCH_SIZE = 500;
     private static final String COLUMNS = "rowid,if(block_rowid_present=1,block_rowid,NULL) AS block_rowid,if(kill_rowid_present=1,kill_rowid,NULL) AS kill_rowid,uuid,current_wid,current_x,current_y,current_z,yaw,pitch,"
             + ClickHouseSchema.binary("if(entity_data_present=1,entity_data,NULL)", "data")
-            + ",removed,producer_id,producer_sequence,batch_ordinal,time,wid,x AS key_x,z AS key_z";
+            + ",removed,batch_sequence,batch_ordinal,time,wid,x AS key_x,z AS key_z";
 
     private final ClickHouseConsumerWriteBatch owner;
     private final String eventTable;
@@ -488,12 +488,11 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
                 for (int ignored = 0; ignored < batch.size(); ignored++) {
                     placeholders.add("?");
                 }
-                String sql = "SELECT " + COLUMNS + " FROM " + eventTable + " FINAL WHERE dataset_id=? AND family=? AND " + column + " IN(" + placeholders + ")" + additionalFilter;
+                String sql = "SELECT " + COLUMNS + " FROM " + eventTable + " FINAL WHERE family=? AND " + column + " IN(" + placeholders + ")" + additionalFilter;
                 try (PreparedStatement statement = connection.prepareStatement(sql)) {
-                    statement.setObject(1, datasetId);
-                    statement.setString(2, ClickHouseFamily.ENTITY_SPAWN.getTableName());
+                    statement.setString(1, ClickHouseFamily.ENTITY_SPAWN.getTableName());
                     for (int index = 0; index < batch.size(); index++) {
-                        statement.setObject(index + 3, batch.get(index));
+                        statement.setObject(index + 2, batch.get(index));
                     }
                     try (ResultSet resultSet = statement.executeQuery()) {
                         while (resultSet.next()) {
@@ -534,8 +533,9 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
 
     private ClickHouseEntityState readState(ResultSet resultSet) throws Exception {
         int rowId = resultSet.getInt("rowid");
-        ClickHouseEventPointer pointer = new ClickHouseEventPointer(datasetId, ClickHouseFamily.ENTITY_SPAWN, UUID.fromString(resultSet.getString("producer_id")), resultSet.getLong("producer_sequence"), resultSet.getInt("batch_ordinal"), rowId, resultSet.getInt("time"), resultSet.getInt("wid"), resultSet.getInt("key_x"), resultSet.getInt("key_z"));
-        return new ClickHouseEntityState(pointer, nullableLong(resultSet, "block_rowid"), nullableInteger(resultSet, "kill_rowid"), UUID.fromString(resultSet.getString("uuid")), resultSet.getInt("current_wid"), resultSet.getDouble("current_x"), resultSet.getDouble("current_y"), resultSet.getDouble("current_z"), resultSet.getFloat("yaw"), resultSet.getFloat("pitch"), DatabaseUtils.getBytes(resultSet, "data"), resultSet.getInt("removed") == 1);
+        ClickHouseEventPointer pointer = new ClickHouseEventPointer(datasetId, ClickHouseFamily.ENTITY_SPAWN, resultSet.getLong("batch_sequence"), resultSet.getInt("batch_ordinal"), rowId, resultSet.getInt("time"), resultSet.getInt("wid"), resultSet.getInt("key_x"), resultSet.getInt("key_z"));
+        byte[] data = DatabaseUtils.getBytes(resultSet, "data");
+        return new ClickHouseEntityState(pointer, nullableLong(resultSet, "block_rowid"), nullableInteger(resultSet, "kill_rowid"), UUID.fromString(resultSet.getString("uuid")), resultSet.getInt("current_wid"), resultSet.getDouble("current_x"), resultSet.getDouble("current_y"), resultSet.getDouble("current_z"), resultSet.getFloat("yaw"), resultSet.getFloat("pitch"), data, resultSet.getInt("removed") == 1);
     }
 
     private void append(int trackingRowId, ClickHouseEntityState state) throws SQLException {

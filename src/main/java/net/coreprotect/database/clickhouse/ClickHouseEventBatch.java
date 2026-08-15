@@ -8,6 +8,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
+import net.coreprotect.database.DatabaseType;
+import net.coreprotect.database.statement.BlockStatement;
+import net.coreprotect.utility.serialize.BlockMetaCodec;
+import net.coreprotect.utility.serialize.EntityDataCodec;
+
 public final class ClickHouseEventBatch implements AutoCloseable {
 
     private final ClickHouseBatchIdentity identity;
@@ -104,7 +109,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
 
     public long addEntity(int time, byte[] data) throws SQLException {
         long rowId = beginRow(ClickHouseFamily.ENTITY, time);
-        setBinary("payload", data);
+        setEntityData("payload", data);
         commitRow(ClickHouseFamily.ENTITY, rowId);
         return rowId;
     }
@@ -128,7 +133,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         set("current_z", currentZ);
         set("yaw", yaw);
         set("pitch", pitch);
-        setBinary("entity_data", data);
+        setEntityData("entity_data", data);
         set("entity_data_present", data == null ? 0 : 1);
         set("removed", removed);
         commitRow(ClickHouseFamily.ENTITY_SPAWN, rowId);
@@ -246,10 +251,13 @@ public final class ClickHouseEventBatch implements AutoCloseable {
                 throw new IllegalArgumentException("Reserved ClickHouse compatibility column: " + canonicalColumn);
             }
             Object value = entry.getValue();
-            String physicalColumn = compatibilityColumn(family, canonicalColumn);
-            if (physicalColumn.equals("wid") || (family != ClickHouseFamily.ENTITY_SPAWN && (physicalColumn.equals("x") || physicalColumn.equals("z")))) {
-                value = numberOrZero(value);
+            if (canonicalColumn.equals("data") && (family == ClickHouseFamily.ENTITY || family == ClickHouseFamily.ENTITY_SPAWN)) {
+                value = entityData(value);
             }
+            else if (canonicalColumn.equals("meta") && family == ClickHouseFamily.BLOCK) {
+                value = blockMetadata(value);
+            }
+            String physicalColumn = compatibilityColumn(family, canonicalColumn);
             set(physicalColumn, value);
             if (family == ClickHouseFamily.ENTITY_SPAWN) {
                 if (canonicalColumn.equals("block_rowid")) {
@@ -370,9 +378,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         currentWorldId = 0;
         currentX = 0;
         currentZ = 0;
-        set("dataset_id", identity.getDatasetId());
-        set("producer_id", identity.getProducerId());
-        set("producer_sequence", identity.getProducerSequence());
+        set("batch_sequence", identity.getBatchSequence());
         set("batch_id", identity.getBatchId());
         set("batch_ordinal", eventCount);
         set("family", family.getTableName());
@@ -398,23 +404,71 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         set(column, value);
     }
 
-    private void set(String column, Object value) {
-        rows.set(column, value);
+    private void setEntityData(String column, byte[] value) {
+        if (value != null && !EntityDataCodec.isEncoded(value)) {
+            throw new IllegalArgumentException("Entity data does not use the CoreProtect binary format");
+        }
+        set(column, value);
+    }
+
+    private static Object entityData(Object value) {
         if (value == null) {
+            return null;
+        }
+        if (value instanceof byte[]) {
+            if (!EntityDataCodec.isEncoded((byte[]) value)) {
+                throw new IllegalArgumentException("Entity data does not use the CoreProtect binary format");
+            }
+            return value;
+        }
+        throw new IllegalArgumentException("ClickHouse entity data must be binary");
+    }
+
+    private static Object blockMetadata(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (!(value instanceof byte[])) {
+            throw new IllegalArgumentException("ClickHouse block metadata must be binary");
+        }
+        byte[] data = (byte[]) value;
+        if (!isJavaSerialization(data) && !BlockMetaCodec.isEncoded(data)) {
+            return data;
+        }
+        try {
+            return BlockStatement.transcodeMetadata(data, DatabaseType.CLICKHOUSE);
+        }
+        catch (Exception exception) {
+            throw new IllegalArgumentException("Unable to transcode ClickHouse block metadata", exception);
+        }
+    }
+
+    private static boolean isJavaSerialization(byte[] data) {
+        return data.length >= 2 && data[0] == (byte) 0xac && data[1] == (byte) 0xed;
+    }
+
+    private void set(String column, Object value) {
+        Object storedValue = value;
+        if (column.equals("wid") || column.equals("x") || column.equals("z")) {
+            storedValue = numberOrZero(value);
+            rows.set(column + "_present", value == null ? 0 : 1);
+        }
+        rows.set(column, storedValue);
+        if (storedValue == null) {
             return;
         }
         switch (column) {
             case "time":
-                currentTime = ((Number) value).intValue();
+                currentTime = ((Number) storedValue).intValue();
                 break;
             case "wid":
-                currentWorldId = ((Number) value).intValue();
+                currentWorldId = ((Number) storedValue).intValue();
                 break;
             case "x":
-                currentX = ((Number) value).intValue();
+                currentX = ((Number) storedValue).intValue();
                 break;
             case "z":
-                currentZ = ((Number) value).intValue();
+                currentZ = ((Number) storedValue).intValue();
                 break;
             default:
                 break;
@@ -426,7 +480,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         if (isVersionedFamily(family) && !versionRowIds.computeIfAbsent(family, ignored -> new HashSet<>()).add(rowId)) {
             duplicateVersionCount++;
         }
-        lastPointer = new ClickHouseEventPointer(identity.getDatasetId(), family, identity.getProducerId(), identity.getProducerSequence(), eventCount, rowId, currentTime, currentWorldId, currentX, currentZ);
+        lastPointer = new ClickHouseEventPointer(identity.getDatasetId(), family, identity.getBatchSequence(), eventCount, rowId, currentTime, currentWorldId, currentX, currentZ);
         eventCount++;
     }
 
@@ -438,15 +492,13 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         return value == null ? Integer.valueOf(0) : (Number) value;
     }
 
-    private static int originKey(Object value) {
-        return value == null ? 0 : (int) Math.floor(((Number) value).doubleValue());
+    private static Integer originKey(Object value) {
+        return value == null ? null : (int) Math.floor(((Number) value).doubleValue());
     }
 
     private static boolean isReservedCompatibilityColumn(String column) {
         switch (column) {
-            case "dataset_id":
-            case "producer_id":
-            case "producer_sequence":
+            case "batch_sequence":
             case "batch_id":
             case "batch_ordinal":
             case "family":

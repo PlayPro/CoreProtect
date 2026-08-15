@@ -43,8 +43,8 @@ public class ItemAPI {
             }
 
             StringBuilder query = new StringBuilder("SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,type,data,amount,action,rolled_back FROM ");
-            query.append(ConfigHandler.prefix).append("item ");
-            if (filter.hasLocation()) {
+            query.append(filter.table(connection, "item", "")).append(' ');
+            if (filter.hasLocation() && !ConfigHandler.databaseType.isDuckDB()) {
                 query.append(WorldUtils.getWidIndex("item"));
             }
             filter.appendWhere(query);

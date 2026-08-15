@@ -7,12 +7,12 @@ import java.util.Objects;
 
 public final class ClickHouseHighWaterMarks {
 
-    private final long producerSequence;
+    private final long batchSequence;
     private final Map<ClickHouseFamily, Long> compatibilityRowIds;
 
-    public ClickHouseHighWaterMarks(long producerSequence, Map<ClickHouseFamily, Long> compatibilityRowIds) {
-        if (producerSequence < 0) {
-            throw new IllegalArgumentException("Producer sequence cannot be negative");
+    public ClickHouseHighWaterMarks(long batchSequence, Map<ClickHouseFamily, Long> compatibilityRowIds) {
+        if (batchSequence < 0) {
+            throw new IllegalArgumentException("Batch sequence cannot be negative");
         }
         Objects.requireNonNull(compatibilityRowIds, "compatibilityRowIds");
         EnumMap<ClickHouseFamily, Long> validatedRowIds = new EnumMap<>(ClickHouseFamily.class);
@@ -24,12 +24,12 @@ public final class ClickHouseHighWaterMarks {
             }
             validatedRowIds.put(family, rowId);
         }
-        this.producerSequence = producerSequence;
+        this.batchSequence = batchSequence;
         this.compatibilityRowIds = Collections.unmodifiableMap(validatedRowIds);
     }
 
-    public long getProducerSequence() {
-        return producerSequence;
+    public long getBatchSequence() {
+        return batchSequence;
     }
 
     public long getCompatibilityRowId(ClickHouseFamily family) {

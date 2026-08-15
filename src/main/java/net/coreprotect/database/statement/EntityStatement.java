@@ -24,8 +24,11 @@ import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.DatabaseType;
 import net.coreprotect.utility.DatabaseUtils;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.serialize.EntityDataCodec;
+import net.coreprotect.utility.serialize.EntityDataCodec.Kind;
 
 public class EntityStatement {
 
@@ -37,7 +40,7 @@ public class EntityStatement {
 
     public static int insert(ConsumerWriteBatch batch, int time, List<Object> data) {
         try {
-            byte[] serializedData = serializeData(data);
+            byte[] serializedData = serializeData(data, Kind.ENTITY);
             if (serializedData == null) {
                 return 0;
             }
@@ -51,18 +54,52 @@ public class EntityStatement {
     }
 
     public static byte[] serializeData(List<Object> data) {
+        return serializeData(data, Kind.ENTITY_SPAWN);
+    }
+
+    public static byte[] serializeData(List<Object> data, Kind kind) {
+        return serializeData(data, kind, ConfigHandler.databaseType);
+    }
+
+    public static byte[] serializeData(List<Object> data, Kind kind, DatabaseType databaseType) {
         if (data == null) {
             return null;
         }
 
-        try (ByteArrayOutputStream output = new ByteArrayOutputStream(); BukkitObjectOutputStream objectOutput = new BukkitObjectOutputStream(output)) {
-            objectOutput.writeObject(sanitizeData(data));
-            objectOutput.flush();
-            return output.toByteArray();
+        try {
+            return serializeDataStrict(data, kind, databaseType);
         }
         catch (Exception e) {
             ErrorReporter.report(e, ConfigHandler.EDITION_BRANCH.contains("-dev"));
             return null;
+        }
+    }
+
+    public static byte[] transcodeData(byte[] data, Kind kind, DatabaseType targetType) throws Exception {
+        if (data == null) {
+            return null;
+        }
+        if (EntityDataCodec.isEncoded(data)) {
+            if (targetType.isColumnar()) {
+                return EntityDataCodec.canonicalize(kind, data);
+            }
+            return serializeLegacyData(sanitizeData(EntityDataCodec.decode(kind, data)));
+        }
+        return serializeDataStrict(deserializeDataStrict(data, kind), kind, targetType);
+    }
+
+    private static byte[] serializeDataStrict(List<Object> data, Kind kind, DatabaseType databaseType) throws Exception {
+        if (databaseType.isColumnar()) {
+            return EntityDataCodec.encode(kind, data);
+        }
+        return serializeLegacyData(sanitizeData(data));
+    }
+
+    private static byte[] serializeLegacyData(List<Object> data) throws Exception {
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream(); BukkitObjectOutputStream objectOutput = new BukkitObjectOutputStream(output)) {
+            objectOutput.writeObject(data);
+            objectOutput.flush();
+            return output.toByteArray();
         }
     }
 
@@ -107,7 +144,7 @@ public class EntityStatement {
         try {
             ResultSet resultSet = statement.executeQuery(query);
             while (resultSet.next()) {
-                result = deserializeData(DatabaseUtils.getBytes(resultSet, "data"));
+                result = readData(resultSet, "data", Kind.ENTITY);
             }
 
             resultSet.close();
@@ -140,7 +177,7 @@ public class EntityStatement {
                 }
                 try (ResultSet resultSet = preparedStatement.executeQuery()) {
                     while (resultSet.next()) {
-                        List<Object> data = deserializeData(DatabaseUtils.getBytes(resultSet, "data"));
+                        List<Object> data = readData(resultSet, "data", Kind.ENTITY);
                         if (!data.isEmpty()) {
                             result.put(resultSet.getInt("rowid"), data);
                         }
@@ -152,20 +189,40 @@ public class EntityStatement {
     }
 
     public static List<Object> deserializeData(byte[] data) {
+        return deserializeData(data, Kind.ENTITY_SPAWN);
+    }
+
+    public static List<Object> deserializeData(byte[] data, Kind kind) {
         List<Object> result = new ArrayList<>();
         if (data == null) {
             return result;
         }
 
-        try (ByteArrayInputStream bais = new ByteArrayInputStream(data); BukkitObjectInputStream input = new BukkitObjectInputStream(bais)) {
-            @SuppressWarnings("unchecked")
-            List<Object> values = (List<Object>) input.readObject();
-            result = values;
+        try {
+            return deserializeDataStrict(data, kind);
         }
         catch (Exception e) {
             ErrorReporter.report(e, ConfigHandler.EDITION_BRANCH.contains("-dev"));
+            return result;
         }
+    }
 
-        return result;
+    public static List<Object> readData(ResultSet resultSet, String column, Kind kind) throws SQLException {
+        return deserializeData(DatabaseUtils.getBytes(resultSet, column), kind);
+    }
+
+    private static List<Object> deserializeDataStrict(byte[] data, Kind kind) throws Exception {
+        if (EntityDataCodec.isEncoded(data)) {
+            return EntityDataCodec.decode(kind, data);
+        }
+        try (ByteArrayInputStream bais = new ByteArrayInputStream(data); BukkitObjectInputStream input = new BukkitObjectInputStream(bais)) {
+            Object value = input.readObject();
+            if (!(value instanceof List<?>)) {
+                throw new IllegalArgumentException("Entity data root is not a list");
+            }
+            @SuppressWarnings("unchecked")
+            List<Object> values = (List<Object>) value;
+            return values;
+        }
     }
 }

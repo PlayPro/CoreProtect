@@ -12,44 +12,39 @@ import java.util.StringJoiner;
 
 public final class ClickHouseSchema {
 
-    static final int VERSION = 1;
+    static final int VERSION = 3;
 
     private static final String INTEGER_CODEC = " CODEC(Delta, ZSTD(3))";
     private static final String VALUE_CODEC = " CODEC(ZSTD(3))";
+    private static final String SPARSE_SERIALIZATION_SETTING = "ratio_of_defaults_for_sparse_serialization=0.9";
     private static final String PURGEABLE_FAMILIES = purgeableFamilies();
     private static final String EVENT_PARTITION_KEY = "if(family IN (" + PURGEABLE_FAMILIES + "),toYYYYMM(toDateTime(time,'UTC')),0)";
-    private static final String EVENT_SORTING_KEY = "(dataset_id,family,wid,x,z,if(family IN ('database_lock','user','version'),0,time),rowid)";
+    private static final String EVENT_SORTING_KEY = "(family,wid,x,z,if(family IN ('database_lock','user','version'),0,time),rowid)";
     private static final String[][] EVENT_DATA_SKIPPING_INDEX_DEFINITIONS = {
-            { "producer_sequence_idx", "producer_sequence", "minmax", "1" },
+            { "batch_sequence_idx", "batch_sequence", "minmax", "1" },
             { "rowid_idx", "rowid", "bloom_filter(0.01)", "1" },
             { "entity_uuid_idx", "uuid", "bloom_filter(0.01)", "1" },
             { "entity_kill_rowid_idx", "kill_rowid", "bloom_filter(0.01)", "1" }
     };
     private static final String[][] STORAGE_METADATA_COLUMN_DEFINITIONS = {
             { "dataset_id", "UUID" + VALUE_CODEC },
-            { "producer_id", "UUID" + VALUE_CODEC },
             { "schema_version", "UInt32" + INTEGER_CODEC },
             { "created_at", "DateTime64(3, 'UTC')" + INTEGER_CODEC }
     };
     private static final String[][] WRITER_REGISTRATION_COLUMN_DEFINITIONS = {
             { "dataset_id", "UUID" },
-            { "producer_id", "UUID" },
             { "writer_id", "UUID" },
             { "registration_order", "UInt64 DEFAULT generateSnowflakeID()" },
             { "registered_at", "DateTime64(3, 'UTC')" }
     };
     private static final String[][] RETENTION_HIGH_WATER_COLUMN_DEFINITIONS = {
-            { "dataset_id", "UUID" + VALUE_CODEC },
-            { "producer_id", "UUID" + VALUE_CODEC },
-            { "producer_sequence", "UInt64" + INTEGER_CODEC },
+            { "batch_sequence", "UInt64" + INTEGER_CODEC },
             { "family", "LowCardinality(String)" + VALUE_CODEC },
             { "rowid", "UInt64" + INTEGER_CODEC },
             { "recorded_at", "DateTime64(3, 'UTC')" + INTEGER_CODEC }
     };
     private static final String[][] EVENT_COLUMN_DEFINITIONS = {
-            { "dataset_id", "UUID" + VALUE_CODEC },
-            { "producer_id", "UUID" + VALUE_CODEC },
-            { "producer_sequence", "UInt64" + INTEGER_CODEC },
+            { "batch_sequence", "UInt64" + INTEGER_CODEC },
             { "batch_id", "UUID" + VALUE_CODEC },
             { "batch_ordinal", "UInt32" + INTEGER_CODEC },
             { "family", "LowCardinality(String)" + VALUE_CODEC },
@@ -60,6 +55,9 @@ public final class ClickHouseSchema {
             { "x", "Int32" + INTEGER_CODEC },
             { "y", "Nullable(Int32)" + VALUE_CODEC },
             { "z", "Int32" + INTEGER_CODEC },
+            { "wid_present", "Nullable(UInt8)" + VALUE_CODEC },
+            { "x_present", "Nullable(UInt8)" + VALUE_CODEC },
+            { "z_present", "Nullable(UInt8)" + VALUE_CODEC },
             { "type", "Nullable(UInt32)" + VALUE_CODEC },
             { "data", "Nullable(Int64)" + VALUE_CODEC },
             { "payload", "Nullable(String)" + VALUE_CODEC },
@@ -137,10 +135,10 @@ public final class ClickHouseSchema {
                 "fsync_after_insert=1", "fsync_part_directory=1");
         validateTable(connection, database, names.rawTable("writer_registration"), "MergeTree", "(registration_order,writer_id)", "", WRITER_REGISTRATION_COLUMN_DEFINITIONS,
                 "fsync_after_insert=1", "fsync_part_directory=1");
-        validateTable(connection, database, names.rawTable("retention_high_water"), "MergeTree", "(dataset_id,family,producer_sequence,rowid)", "", RETENTION_HIGH_WATER_COLUMN_DEFINITIONS,
+        validateTable(connection, database, names.rawTable("retention_high_water"), "MergeTree", "(batch_sequence,family,rowid)", "", RETENTION_HIGH_WATER_COLUMN_DEFINITIONS,
                 "fsync_after_insert=1", "fsync_part_directory=1", "non_replicated_deduplication_window=1000");
         validateTable(connection, database, names.rawTable("event_data"), "CoalescingMergeTree", EVENT_SORTING_KEY, EVENT_PARTITION_KEY, EVENT_COLUMN_DEFINITIONS,
-                "fsync_after_insert=1", "fsync_part_directory=1", "non_replicated_deduplication_window=1000");
+                "fsync_after_insert=1", "fsync_part_directory=1", "non_replicated_deduplication_window=1000", SPARSE_SERIALIZATION_SETTING);
         validateDataSkippingIndexes(connection, database, names.rawTable("event_data"), EVENT_DATA_SKIPPING_INDEX_DEFINITIONS);
     }
 
@@ -231,7 +229,7 @@ public final class ClickHouseSchema {
     private static String createRetentionHighWater(Names names) {
         return table(names.retentionHighWater, columnDefinitions(RETENTION_HIGH_WATER_COLUMN_DEFINITIONS))
                 + " ENGINE = MergeTree"
-                + " ORDER BY (dataset_id,family,producer_sequence,rowid)"
+                + " ORDER BY (batch_sequence,family,rowid)"
                 + " SETTINGS fsync_after_insert=1,fsync_part_directory=1,non_replicated_deduplication_window=1000";
     }
 
@@ -247,7 +245,7 @@ public final class ClickHouseSchema {
                 + " ENGINE = CoalescingMergeTree"
                 + " PARTITION BY " + EVENT_PARTITION_KEY
                 + " ORDER BY " + EVENT_SORTING_KEY
-                + " SETTINGS fsync_after_insert=1,fsync_part_directory=1,non_replicated_deduplication_window=1000";
+                + " SETTINGS fsync_after_insert=1,fsync_part_directory=1,non_replicated_deduplication_window=1000," + SPARSE_SERIALIZATION_SETTING;
     }
 
     private static void validateDataSkippingIndexes(Connection connection, String database, String table, String[][] expectedIndexes) throws SQLException {
@@ -274,21 +272,21 @@ public final class ClickHouseSchema {
 
     private static void addCompatibilityViews(List<String> statements, Names names) {
         statements.add(view(names, ClickHouseFamily.ART_MAP, "e.rowid AS rowid,e.id AS id,e.name AS art"));
-        statements.add(rollbackView(names, ClickHouseFamily.BLOCK, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.type AS type,e.data AS data," + binary("e.meta", "meta") + "," + binary("e.blockdata", "blockdata") + ",e.action AS action"));
-        statements.add(view(names, ClickHouseFamily.CHAT, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.message AS message"));
-        statements.add(view(names, ClickHouseFamily.COMMAND, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.message AS message"));
-        statements.add(rollbackView(names, ClickHouseFamily.CONTAINER, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.type AS type,e.data AS data,e.amount AS amount," + binary("e.metadata", "metadata") + ",e.action AS action"));
-        statements.add(rollbackView(names, ClickHouseFamily.ENTITY_CONTAINER, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.entity_spawn_rowid AS entity_spawn_rowid,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.type AS type,e.data AS data,e.amount AS amount," + binary("e.metadata", "metadata") + ",e.action AS action"));
-        statements.add(view(names, ClickHouseFamily.ENTITY_INTERACTION, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.entity_spawn_rowid AS entity_spawn_rowid,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.type AS type,e.action AS action," + binary("e.metadata", "metadata") + ",e.rolled_back AS rolled_back"));
-        statements.add(rollbackView(names, ClickHouseFamily.ITEM, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.type AS type," + binary("e.payload", "data") + ",e.amount AS amount,e.action AS action"));
+        statements.add(rollbackView(names, ClickHouseFamily.BLOCK, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.type AS type,e.data AS data," + binary("e.meta", "meta") + "," + binary("e.blockdata", "blockdata") + ",e.action AS action"));
+        statements.add(view(names, ClickHouseFamily.CHAT, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.message AS message"));
+        statements.add(view(names, ClickHouseFamily.COMMAND, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.message AS message"));
+        statements.add(rollbackView(names, ClickHouseFamily.CONTAINER, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.type AS type,e.data AS data,e.amount AS amount," + binary("e.metadata", "metadata") + ",e.action AS action"));
+        statements.add(rollbackView(names, ClickHouseFamily.ENTITY_CONTAINER, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.entity_spawn_rowid AS entity_spawn_rowid," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.type AS type,e.data AS data,e.amount AS amount," + binary("e.metadata", "metadata") + ",e.action AS action"));
+        statements.add(view(names, ClickHouseFamily.ENTITY_INTERACTION, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.entity_spawn_rowid AS entity_spawn_rowid," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.type AS type,e.action AS action," + binary("e.metadata", "metadata") + ",e.rolled_back AS rolled_back"));
+        statements.add(rollbackView(names, ClickHouseFamily.ITEM, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.type AS type," + binary("e.payload", "data") + ",e.amount AS amount,e.action AS action"));
         statements.add(currentView(names, ClickHouseFamily.DATABASE_LOCK, "e.rowid AS rowid,e.status AS status,e.database_lock_time AS time"));
         statements.add(view(names, ClickHouseFamily.ENTITY, "e.rowid AS rowid,e.time AS time," + binary("e.payload", "data")));
         statements.add(entitySpawnView(names));
         statements.add(view(names, ClickHouseFamily.ENTITY_MAP, "e.rowid AS rowid,e.id AS id,e.name AS entity"));
         statements.add(view(names, ClickHouseFamily.MATERIAL_MAP, "e.rowid AS rowid,e.id AS id,e.name AS material"));
         statements.add(view(names, ClickHouseFamily.BLOCKDATA_MAP, "e.rowid AS rowid,e.id AS id,e.text AS data"));
-        statements.add(view(names, ClickHouseFamily.SESSION, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.action AS action"));
-        statements.add(view(names, ClickHouseFamily.SIGN, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.wid AS wid,e.x AS x,e.y AS y,e.z AS z,e.action AS action,e.color AS color,e.color_secondary AS color_secondary,e.sign_data AS data,e.waxed AS waxed,e.face AS face,e.line_1 AS line_1,e.line_2 AS line_2,e.line_3 AS line_3,e.line_4 AS line_4,e.line_5 AS line_5,e.line_6 AS line_6,e.line_7 AS line_7,e.line_8 AS line_8"));
+        statements.add(view(names, ClickHouseFamily.SESSION, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.action AS action"));
+        statements.add(view(names, ClickHouseFamily.SIGN, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.action AS action,e.color AS color,e.color_secondary AS color_secondary,e.sign_data AS data,e.waxed AS waxed,e.face AS face,e.line_1 AS line_1,e.line_2 AS line_2,e.line_3 AS line_3,e.line_4 AS line_4,e.line_5 AS line_5,e.line_6 AS line_6,e.line_7 AS line_7,e.line_8 AS line_8"));
         statements.add(view(names, ClickHouseFamily.SKULL, "e.rowid AS rowid,e.time AS time,e.name AS owner,e.text AS skin"));
         statements.add(currentView(names, ClickHouseFamily.USER, "e.rowid AS rowid,e.time AS time,e.user_name AS `user`,e.uuid AS uuid"));
         statements.add(view(names, ClickHouseFamily.USERNAME_LOG, "e.rowid AS rowid,e.time AS time,e.uuid AS uuid,e.user_name AS `user`"));
@@ -317,7 +315,7 @@ public final class ClickHouseSchema {
                 + " AS SELECT e.rowid AS rowid,e.time AS time"
                 + ",if(e.block_rowid_present=1,e.block_rowid,NULL) AS block_rowid"
                 + ",if(e.kill_rowid_present=1,e.kill_rowid,NULL) AS kill_rowid"
-                + ",e.uuid AS uuid,e.wid AS wid,e.current_wid AS current_wid"
+                + ",e.uuid AS uuid," + location("wid") + ",e.current_wid AS current_wid"
                 + ",e.origin_x AS origin_x,e.origin_y AS origin_y,e.origin_z AS origin_z"
                 + ",e.current_x AS x,e.current_y AS y,e.current_z AS z"
                 + ",e.yaw AS yaw,e.pitch AS pitch," + binary("if(e.entity_data_present=1,e.entity_data,NULL)", "data") + ",e.removed AS removed"
@@ -328,6 +326,10 @@ public final class ClickHouseSchema {
         String presentValue = "ifNull(" + value + ",'')";
         String bytes = "arrayMap(i -> reinterpretAsInt8(substring(" + presentValue + ",i,1)),range(1,length(" + presentValue + ")+1))";
         return "if(isNull(" + value + "),CAST([], 'Array(Int8)'),arrayConcat([toInt8(0)]," + bytes + ")) AS " + alias;
+    }
+
+    private static String location(String column) {
+        return "if(e." + column + "_present=1,e." + column + ",NULL) AS " + column;
     }
 
     private static String events(Names names, ClickHouseFamily family) {

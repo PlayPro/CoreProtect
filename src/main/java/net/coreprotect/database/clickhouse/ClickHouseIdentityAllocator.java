@@ -8,27 +8,21 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class ClickHouseIdentityAllocator implements ClickHouseRowIdAllocator {
 
     private final UUID datasetId;
-    private final UUID producerId;
-    private final AtomicLong producerSequence;
+    private final AtomicLong batchSequence;
     private final EnumMap<ClickHouseFamily, AtomicLong> rowIds = new EnumMap<>(ClickHouseFamily.class);
 
-    public ClickHouseIdentityAllocator(UUID datasetId, UUID producerId, ClickHouseHighWaterMarks highWaterMarks) {
+    public ClickHouseIdentityAllocator(UUID datasetId, ClickHouseHighWaterMarks highWaterMarks) {
         this.datasetId = Objects.requireNonNull(datasetId, "datasetId");
-        this.producerId = Objects.requireNonNull(producerId, "producerId");
         Objects.requireNonNull(highWaterMarks, "highWaterMarks");
-        producerSequence = new AtomicLong(highWaterMarks.getProducerSequence());
+        batchSequence = new AtomicLong(highWaterMarks.getBatchSequence());
         for (ClickHouseFamily family : ClickHouseFamily.values()) {
             rowIds.put(family, new AtomicLong(highWaterMarks.getCompatibilityRowId(family)));
         }
     }
 
     public ClickHouseBatchIdentity nextBatchIdentity() {
-        long sequence = increment(producerSequence, "producer sequence");
-        return ClickHouseBatchIdentity.create(datasetId, producerId, sequence);
-    }
-
-    UUID getDatasetId() {
-        return datasetId;
+        long sequence = increment(batchSequence, "batch sequence");
+        return ClickHouseBatchIdentity.create(datasetId, sequence);
     }
 
     @Override

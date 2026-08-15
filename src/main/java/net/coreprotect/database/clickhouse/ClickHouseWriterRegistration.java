@@ -24,7 +24,6 @@ final class ClickHouseWriterRegistration implements AutoCloseable {
     private final ClickHouseJdbc jdbc;
     private final String table;
     private final UUID datasetId;
-    private final UUID producerId;
     private final Path writerFile;
     private UUID writerId;
     private FileChannel writerChannel;
@@ -32,11 +31,10 @@ final class ClickHouseWriterRegistration implements AutoCloseable {
     private boolean owned;
     private boolean closed;
 
-    ClickHouseWriterRegistration(ClickHouseJdbc jdbc, String database, String prefix, UUID datasetId, UUID producerId, Path controlDirectory) {
+    ClickHouseWriterRegistration(ClickHouseJdbc jdbc, String database, String prefix, UUID datasetId, Path controlDirectory) {
         this.jdbc = Objects.requireNonNull(jdbc, "jdbc");
         table = ClickHouseIdentifiers.qualified(database, prefix + "writer_registration");
         this.datasetId = Objects.requireNonNull(datasetId, "datasetId");
-        this.producerId = Objects.requireNonNull(producerId, "producerId");
         writerFile = Objects.requireNonNull(controlDirectory, "controlDirectory").resolve(WRITER_FILE);
     }
 
@@ -85,7 +83,7 @@ final class ClickHouseWriterRegistration implements AutoCloseable {
     }
 
     private void requireRegistration(Registration registration) throws SQLException {
-        if (!datasetId.equals(registration.datasetId) || !producerId.equals(registration.producerId)) {
+        if (!datasetId.equals(registration.datasetId)) {
             throw new OwnershipException("ClickHouse writer registration belongs to a different storage identity");
         }
         if (!writerId.equals(registration.writerId)) {
@@ -194,23 +192,22 @@ final class ClickHouseWriterRegistration implements AutoCloseable {
     }
 
     private Registration read() throws SQLException {
-        String sql = "SELECT dataset_id,producer_id,writer_id FROM " + table
+        String sql = "SELECT dataset_id,writer_id FROM " + table
                 + " ORDER BY registration_order,writer_id LIMIT 1";
         try (Connection connection = jdbc.openConnection(); PreparedStatement statement = connection.prepareStatement(sql); ResultSet resultSet = statement.executeQuery()) {
             if (!resultSet.next()) {
                 return null;
             }
-            return new Registration(UUID.fromString(resultSet.getString(1)), UUID.fromString(resultSet.getString(2)), UUID.fromString(resultSet.getString(3)));
+            return new Registration(UUID.fromString(resultSet.getString(1)), UUID.fromString(resultSet.getString(2)));
         }
     }
 
     private void insert() throws SQLException {
         String sql = "INSERT INTO " + table
-                + " (dataset_id,producer_id,writer_id,registered_at) VALUES (?,?,?,now64(3, 'UTC'))";
+                + " (dataset_id,writer_id,registered_at) VALUES (?,?,now64(3, 'UTC'))";
         try (Connection connection = jdbc.openConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setObject(1, datasetId);
-            statement.setObject(2, producerId);
-            statement.setObject(3, writerId);
+            statement.setObject(2, writerId);
             statement.execute();
         }
     }
@@ -236,12 +233,10 @@ final class ClickHouseWriterRegistration implements AutoCloseable {
     private static final class Registration {
 
         private final UUID datasetId;
-        private final UUID producerId;
         private final UUID writerId;
 
-        private Registration(UUID datasetId, UUID producerId, UUID writerId) {
+        private Registration(UUID datasetId, UUID writerId) {
             this.datasetId = datasetId;
-            this.producerId = producerId;
             this.writerId = writerId;
         }
     }

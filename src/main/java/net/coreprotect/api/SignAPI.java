@@ -52,8 +52,8 @@ public class SignAPI {
             }
 
             StringBuilder query = new StringBuilder("SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,action,color,color_secondary,data,waxed,face,line_1,line_2,line_3,line_4,line_5,line_6,line_7,line_8 FROM ");
-            query.append(ConfigHandler.prefix).append("sign ");
-            if (filter.hasLocation()) {
+            query.append(filter.table(connection, "sign", "")).append(' ');
+            if (filter.hasLocation() && !ConfigHandler.databaseType.isDuckDB()) {
                 query.append(WorldUtils.getWidIndex("sign"));
             }
             filter.appendWhere(query);

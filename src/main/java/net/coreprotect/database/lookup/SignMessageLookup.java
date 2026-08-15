@@ -11,6 +11,7 @@ import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.DuckDBLookupQuery;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
@@ -58,20 +59,34 @@ public class SignMessageLookup {
             int rowMax = page * limit;
             int pageStart = rowMax - limit;
 
-            String query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "sign " + WorldUtils.getWidIndex("sign") + "WHERE wid = " + worldId + " AND x = " + x + " AND z = " + z + " AND y = " + y + " AND action = " + SignActions.PLACE + " AND (LENGTH(line_1) > 0 OR LENGTH(line_2) > 0 OR LENGTH(line_3) > 0 OR LENGTH(line_4) > 0 OR LENGTH(line_5) > 0 OR LENGTH(line_6) > 0 OR LENGTH(line_7) > 0 OR LENGTH(line_8) > 0) LIMIT 1 OFFSET 0";
-            ResultSet results = statement.executeQuery(query);
-
-            while (results.next()) {
-                count = results.getInt("count");
+            String where = "wid = " + worldId + " AND x = " + x + " AND z = " + z + " AND y = " + y + " AND action = " + SignActions.PLACE + " AND (LENGTH(line_1) > 0 OR LENGTH(line_2) > 0 OR LENGTH(line_3) > 0 OR LENGTH(line_4) > 0 OR LENGTH(line_5) > 0 OR LENGTH(line_6) > 0 OR LENGTH(line_7) > 0 OR LENGTH(line_8) > 0)";
+            boolean combinedDuckDBPage = ConfigHandler.databaseType.isDuckDB();
+            String query;
+            ResultSet results;
+            if (combinedDuckDBPage) {
+                String sourceTable = DuckDBLookupQuery.spatialTable(statement.getConnection(), "sign", worldId, x, x, z, z, "spatial_rows");
+                String columns = "data_rows.time,data_rows." + ConfigHandler.databaseType.getUserColumn() + ",data_rows.face,data_rows.line_1,data_rows.line_2,data_rows.line_3,data_rows.line_4,data_rows.line_5,data_rows.line_6,data_rows.line_7,data_rows.line_8";
+                query = DuckDBLookupQuery.pageQuery(sourceTable, ConfigHandler.prefix + "sign", where, columns, false, limit, pageStart);
+                results = statement.executeQuery(query);
             }
-            results.close();
-
-            int totalPages = (int) Math.ceil(count / (limit + 0.0));
-
-            query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",face,line_1,line_2,line_3,line_4,line_5,line_6,line_7,line_8 FROM " + ConfigHandler.prefix + "sign " + WorldUtils.getWidIndex("sign") + "WHERE wid = " + worldId + " AND x = " + x + " AND z = " + z + " AND y = " + y + " AND action = " + SignActions.PLACE + " AND (LENGTH(line_1) > 0 OR LENGTH(line_2) > 0 OR LENGTH(line_3) > 0 OR LENGTH(line_4) > 0 OR LENGTH(line_5) > 0 OR LENGTH(line_6) > 0 OR LENGTH(line_7) > 0 OR LENGTH(line_8) > 0) ORDER BY rowid DESC LIMIT " + limit + " OFFSET " + pageStart;
-            results = statement.executeQuery(query);
+            else {
+                query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "sign " + WorldUtils.getWidIndex("sign") + "WHERE " + where + " LIMIT 1 OFFSET 0";
+                results = statement.executeQuery(query);
+                while (results.next()) {
+                    count = results.getInt("count");
+                }
+                results.close();
+                query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",face,line_1,line_2,line_3,line_4,line_5,line_6,line_7,line_8 FROM " + ConfigHandler.prefix + "sign " + WorldUtils.getWidIndex("sign") + "WHERE " + where + " ORDER BY rowid DESC LIMIT " + limit + " OFFSET " + pageStart;
+                results = statement.executeQuery(query);
+            }
 
             while (results.next()) {
+                if (combinedDuckDBPage) {
+                    count = results.getInt("count");
+                    if (results.getObject("result_id") == null) {
+                        continue;
+                    }
+                }
                 long resultTime = results.getLong("time");
                 int resultUserId = results.getInt("user");
                 String line1 = results.getString("line_1");
@@ -153,6 +168,7 @@ public class SignMessageLookup {
                 PluginChannelListener.getInstance().sendMessageData(commandSender, resultTime, resultUser, message.toString(), true, x, y, z, worldId);
             }
             results.close();
+            int totalPages = (int) Math.ceil(count / (limit + 0.0));
 
             if (found) {
                 if (count > limit) {

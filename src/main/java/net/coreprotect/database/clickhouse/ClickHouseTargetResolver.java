@@ -68,24 +68,23 @@ final class ClickHouseTargetResolver {
         for (int ignored = 0; ignored < rowIds.size(); ignored++) {
             placeholders.add("?");
         }
-        String sql = "SELECT rowid,producer_id,producer_sequence,batch_ordinal,time,wid,x,z" + (actions == null ? "" : ",action") + " FROM " + eventTable + " FINAL"
-                + " WHERE dataset_id=? AND family=?"
+        String sql = "SELECT rowid,batch_sequence,batch_ordinal,time,wid,x,z" + (actions == null ? "" : ",action") + " FROM " + eventTable + " FINAL"
+                + " WHERE family=?"
                 + " AND rowid IN(" + placeholders + ")";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setObject(1, datasetId);
-            statement.setString(2, family.getTableName());
+            statement.setString(1, family.getTableName());
             for (int index = 0; index < rowIds.size(); index++) {
-                statement.setLong(index + 3, rowIds.get(index));
+                statement.setLong(index + 2, rowIds.get(index));
             }
             try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {
                     long rowId = resultSet.getLong(1);
-                    ClickHouseEventPointer pointer = new ClickHouseEventPointer(datasetId, family, UUID.fromString(resultSet.getString(2)), resultSet.getLong(3), resultSet.getInt(4), rowId, resultSet.getInt(5), resultSet.getInt(6), resultSet.getInt(7), resultSet.getInt(8));
+                    ClickHouseEventPointer pointer = new ClickHouseEventPointer(datasetId, family, resultSet.getLong(2), resultSet.getInt(3), rowId, resultSet.getInt(4), resultSet.getInt(5), resultSet.getInt(6), resultSet.getInt(7));
                     if (pointers.putIfAbsent(rowId, pointer) != null) {
                         throw new SQLException("ClickHouse " + family.getTableName() + " row ID " + rowId + " resolves to multiple committed facts");
                     }
                     if (actions != null) {
-                        Object action = resultSet.getObject(9);
+                        Object action = resultSet.getObject(8);
                         if (!(action instanceof Number)) {
                             throw new SQLException("ClickHouse block row " + rowId + " has no action");
                         }

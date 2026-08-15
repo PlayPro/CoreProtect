@@ -15,6 +15,7 @@ import net.coreprotect.api.result.ContainerResult;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.DuckDBLookupQuery;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.DatabaseUtils;
@@ -72,7 +73,9 @@ public class BlockAPI {
             }
 
             try (Statement statement = connection.createStatement()) {
-                String query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,blockdata,rolled_back FROM " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE wid = " + worldId + " AND x = " + x + " AND z = " + z + " AND y = " + y + " AND time > " + checkTime + " ORDER BY rowid DESC";
+                String table = DuckDBLookupQuery.spatialTable(connection, "block", worldId, x, x, z, z, "spatial_rows");
+                String index = ConfigHandler.databaseType.isDuckDB() ? "" : WorldUtils.getWidIndex("block");
+                String query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,blockdata,rolled_back FROM " + table + " " + index + "WHERE wid = " + worldId + " AND x = " + x + " AND z = " + z + " AND y = " + y + " AND time > " + checkTime + " ORDER BY rowid DESC";
 
                 try (ResultSet results = statement.executeQuery(query)) {
                     while (results.next()) {
@@ -147,7 +150,10 @@ public class BlockAPI {
             int worldId = WorldUtils.getWorldId(worldName);
 
             StringBuilder query = new StringBuilder("SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,blockdata,rolled_back,wid,x,y,z FROM ");
-            query.append(ConfigHandler.prefix).append("block ").append(WorldUtils.getWidIndex("block"));
+            query.append(DuckDBLookupQuery.spatialTable(connection, "block", worldId, x, x, z, z, "spatial_rows")).append(' ');
+            if (!ConfigHandler.databaseType.isDuckDB()) {
+                query.append(WorldUtils.getWidIndex("block"));
+            }
             query.append("WHERE wid = ? AND x = ? AND z = ? AND y = ? AND time > ?");
             if (userId != null) {
                 query.append(" AND ").append(ConfigHandler.databaseType.getUserColumn()).append(" = ?");
@@ -223,29 +229,35 @@ public class BlockAPI {
                 return result;
             }
 
-            StringBuilder containerWhere = new StringBuilder();
-            filter.appendWhere(containerWhere, "container_rows");
-            StringBuilder entityWhere = new StringBuilder();
-            filter.appendEntityContainerWhere(entityWhere, "entity_rows");
+            boolean snapshot = filter.beginDuckDBSnapshot(connection);
+            try {
+                StringBuilder containerWhere = new StringBuilder();
+                filter.appendWhere(containerWhere, "container_rows");
+                StringBuilder entityWhere = new StringBuilder();
+                filter.appendEntityContainerWhere(entityWhere, "entity_rows", "spawn_rows");
 
-            StringBuilder query = new StringBuilder("SELECT * FROM (");
-            query.append("SELECT 0 AS source,container_rows.rowid AS id,container_rows.time,container_rows.").append(ConfigHandler.databaseType.getUserColumn()).append(",container_rows.wid,container_rows.x,container_rows.y,container_rows.z,container_rows.action,container_rows.type,container_rows.data,container_rows.amount,container_rows.metadata,container_rows.rolled_back FROM ")
-                    .append(ConfigHandler.prefix).append("container container_rows ").append(containerWhere);
-            query.append(" UNION ALL ");
-            query.append("SELECT 1 AS source,entity_rows.rowid AS id,entity_rows.time,entity_rows.").append(ConfigHandler.databaseType.getUserColumn()).append(",spawn_rows.current_wid AS wid,spawn_rows.x,spawn_rows.y,spawn_rows.z,entity_rows.action,entity_rows.type,entity_rows.data,entity_rows.amount,entity_rows.metadata,entity_rows.rolled_back FROM ")
-                    .append(ConfigHandler.prefix).append("entity_container entity_rows JOIN ").append(ConfigHandler.prefix).append("entity_spawn spawn_rows ON spawn_rows.rowid=entity_rows.entity_spawn_rowid ").append(entityWhere);
-            query.append(") AS container_lookup ORDER BY time DESC,source DESC,id DESC");
-            filter.appendLimit(query);
+                StringBuilder query = new StringBuilder("SELECT * FROM (");
+                query.append("SELECT 0 AS source,container_rows.rowid AS id,container_rows.time,container_rows.").append(ConfigHandler.databaseType.getUserColumn()).append(",container_rows.wid,container_rows.x,container_rows.y,container_rows.z,container_rows.action,container_rows.type,container_rows.data,container_rows.amount,container_rows.metadata,container_rows.rolled_back FROM ")
+                        .append(filter.table(connection, "container", "container_rows")).append(' ').append(containerWhere);
+                query.append(" UNION ALL ");
+                query.append("SELECT 1 AS source,entity_rows.rowid AS id,entity_rows.time,entity_rows.").append(ConfigHandler.databaseType.getUserColumn()).append(",spawn_rows.current_wid AS wid,spawn_rows.x,spawn_rows.y,spawn_rows.z,entity_rows.action,entity_rows.type,entity_rows.data,entity_rows.amount,entity_rows.metadata,entity_rows.rolled_back FROM ")
+                        .append(filter.entityContainerTable(connection, "entity_rows")).append(" JOIN ").append(ConfigHandler.prefix).append("entity_spawn spawn_rows ON spawn_rows.rowid=entity_rows.entity_spawn_rowid ").append(entityWhere);
+                query.append(") AS container_lookup ORDER BY time DESC,source DESC,id DESC");
+                filter.appendLimit(query);
 
-            try (PreparedStatement statement = connection.prepareStatement(query.toString())) {
-                int parameterIndex = filter.bind(statement);
-                filter.bindEntityContainer(statement, parameterIndex);
+                try (PreparedStatement statement = connection.prepareStatement(query.toString())) {
+                    int parameterIndex = filter.bind(statement);
+                    filter.bindEntityContainer(statement, parameterIndex);
 
-                try (ResultSet results = statement.executeQuery()) {
-                    while (results.next()) {
-                        result.add(parseContainerResult(connection, results));
+                    try (ResultSet results = statement.executeQuery()) {
+                        while (results.next()) {
+                            result.add(parseContainerResult(connection, results));
+                        }
                     }
                 }
+            }
+            finally {
+                filter.endDuckDBSnapshot(connection, snapshot);
             }
         }
         catch (Exception e) {

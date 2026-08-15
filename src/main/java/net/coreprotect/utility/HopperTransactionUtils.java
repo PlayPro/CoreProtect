@@ -9,8 +9,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 import org.bukkit.Location;
 import org.bukkit.inventory.ItemStack;
@@ -18,8 +20,14 @@ import org.bukkit.inventory.ItemStack;
 public final class HopperTransactionUtils {
 
     private static final long APPLY_ALL_MARK = -1L;
+    private static final int TRANSACTION_LOCK_COUNT = 256;
 
     private static final ConcurrentHashMap<String, PendingTransaction> pendingTransactions = new ConcurrentHashMap<>();
+    private static final Object[] transactionLocks = new Object[TRANSACTION_LOCK_COUNT];
+
+    static {
+        Arrays.setAll(transactionLocks, index -> new Object());
+    }
 
     private HopperTransactionUtils() {
         throw new IllegalStateException("Utility class");
@@ -47,6 +55,20 @@ public final class HopperTransactionUtils {
 
     public static String getHopperPullId(Location location) {
         return "#hopper-pull" + getLoggingIdSuffix(location);
+    }
+
+    public static void synchronizeTransaction(String transactionId, Runnable operation) {
+        Objects.requireNonNull(operation);
+        synchronized (getTransactionLock(transactionId)) {
+            operation.run();
+        }
+    }
+
+    public static <T> T synchronizeTransaction(String transactionId, Supplier<T> operation) {
+        Objects.requireNonNull(operation);
+        synchronized (getTransactionLock(transactionId)) {
+            return operation.get();
+        }
     }
 
     public static boolean hasTransaction(String transactionId) {
@@ -258,6 +280,11 @@ public final class HopperTransactionUtils {
 
             transaction.deltas.addLast(new Delta(item.clone(), addBack, amount, transaction.nextSeq));
         }
+    }
+
+    private static Object getTransactionLock(String transactionId) {
+        Objects.requireNonNull(transactionId);
+        return transactionLocks[Math.floorMod(transactionId.hashCode(), TRANSACTION_LOCK_COUNT)];
     }
 
     private static void pruneDeltas(PendingTransaction transaction) {

@@ -2,13 +2,17 @@ package net.coreprotect.database.clickhouse;
 
 import java.io.InputStream;
 import java.sql.SQLException;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 public final class ClickHouseWriteBatch implements AutoCloseable {
 
     private final ClickHouseBatchIdentity identity;
     private final ClickHouseEventBatch events;
     private final ClickHouseStateBatch state;
+    private final Set<Integer> publishedPartitions = new HashSet<>();
     private ClickHouseBatchReceipt receipt;
     private boolean closed;
     private boolean published;
@@ -45,12 +49,12 @@ public final class ClickHouseWriteBatch implements AutoCloseable {
             return receipt;
         }
         int eventCount = events.size();
-        events.seal(state);
         int rollbackCount = state.getRollbackCount();
         int entityStateCount = state.getEntityStateCount();
         int rowCount = Math.addExact(eventCount, Math.addExact(rollbackCount, entityStateCount));
         int logicalRowCount = Math.subtractExact(Math.addExact(events.logicalSize(), Math.addExact(rollbackCount, entityStateCount)), state.getLocalOverlapCount(eventCount));
-        receipt = new ClickHouseBatchReceipt(identity.getBatchSequence(), identity.getBatchId(), rowCount, logicalRowCount);
+        Map<Integer, Integer> partitionRowCounts = events.seal(state);
+        receipt = new ClickHouseBatchReceipt(identity.getBatchSequence(), identity.getBatchId(), rowCount, logicalRowCount, partitionRowCounts);
         return receipt;
     }
 
@@ -61,7 +65,23 @@ public final class ClickHouseWriteBatch implements AutoCloseable {
 
     void markPublished() {
         ensureOpen();
+        if (receipt == null || !publishedPartitions.containsAll(receipt.getPartitionRowCounts().keySet())) {
+            throw new IllegalStateException("ClickHouse batch has unpublished partitions");
+        }
         published = true;
+    }
+
+    boolean isPartitionPublished(int partitionId) {
+        ensureOpen();
+        return publishedPartitions.contains(partitionId);
+    }
+
+    void markPartitionPublished(int partitionId) {
+        ensureOpen();
+        if (receipt == null || !receipt.getPartitionRowCounts().containsKey(partitionId)) {
+            throw new IllegalArgumentException("ClickHouse batch does not contain partition " + partitionId);
+        }
+        publishedPartitions.add(partitionId);
     }
 
     ClickHouseBatchIdentity getIdentity() {
@@ -78,6 +98,13 @@ public final class ClickHouseWriteBatch implements AutoCloseable {
             throw new IllegalStateException("ClickHouse write batch is not sealed");
         }
         return events.openRows();
+    }
+
+    InputStream openRows(int partitionId) {
+        if (receipt == null) {
+            throw new IllegalStateException("ClickHouse write batch is not sealed");
+        }
+        return events.openRows(partitionId);
     }
 
     Checkpoint checkpoint() {
@@ -104,6 +131,7 @@ public final class ClickHouseWriteBatch implements AutoCloseable {
             closed = true;
             events.close();
             state.close();
+            publishedPartitions.clear();
         }
     }
 

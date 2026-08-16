@@ -35,8 +35,8 @@ public final class ClickHouseStartupReconciler {
 
     private static Map<ClickHouseFamily, Long> readRawRowIds(Connection connection, String eventTable, String retentionHighWater) throws SQLException {
         String sql = "SELECT family,max(rowid) FROM ("
-                + "SELECT family,rowid FROM " + eventTable + " UNION ALL "
-                + "SELECT family,rowid FROM " + retentionHighWater + ") GROUP BY family";
+                + "SELECT family,rowid FROM " + eventTable + " WHERE family!='" + ClickHouseSchema.BATCH_RECEIPT_FAMILY + "' UNION ALL "
+                + "SELECT family,rowid FROM " + retentionHighWater + " WHERE family!='" + ClickHouseSchema.BATCH_RECEIPT_FAMILY + "') GROUP BY family";
         Map<ClickHouseFamily, Long> rowIds = new EnumMap<>(ClickHouseFamily.class);
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             try (ResultSet resultSet = statement.executeQuery()) {

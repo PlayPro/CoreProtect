@@ -1,7 +1,5 @@
 package net.coreprotect.database.logger;
 
-import java.util.Locale;
-
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.EntityType;
@@ -29,9 +27,7 @@ public class PlayerKillLogger {
                 return;
             }
 
-            if (ConfigHandler.playerIdCache.get(player.toLowerCase(Locale.ROOT)) == null) {
-                preparedStmt.resolveUserId(player, null);
-            }
+            int playerId = UserStatement.getId(preparedStmt, player, true);
 
             Location initialLocation = location.clone();
             CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, initialLocation, CoreProtectPreLogEvent.Action.PLAYER_KILL, LookupActions.ENTITY_KILL, null, EntityType.PLAYER, null);
@@ -44,7 +40,6 @@ public class PlayerKillLogger {
             }
 
             int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
-            int playerId = ConfigHandler.playerIdCache.get(player.toLowerCase(Locale.ROOT));
             Location eventLocation = event.getLocation();
             int wid = WorldUtils.getWorldId(eventLocation.getWorld().getName());
             int time = (int) (System.currentTimeMillis() / 1000L);

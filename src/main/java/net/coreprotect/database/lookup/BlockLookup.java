@@ -77,7 +77,7 @@ public class BlockLookup {
                     count = results.getInt("count");
                 }
                 results.close();
-                query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,rolled_back FROM " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE " + where + " ORDER BY rowid DESC LIMIT " + limit + " OFFSET " + page_start;
+                query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,rolled_back FROM " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE " + where + " ORDER BY " + ConfigHandler.getDescendingEventOrder() + " LIMIT " + limit + " OFFSET " + page_start;
                 results = statement.executeQuery(query);
             }
 

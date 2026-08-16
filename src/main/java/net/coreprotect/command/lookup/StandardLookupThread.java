@@ -400,7 +400,7 @@ public class StandardLookupThread implements Runnable {
                         else if (actions.contains(LookupActions.USERNAME)) {
                             for (String[] data : lookupList) {
                                 String time = data[0];
-                                String user = UserStatement.getNameByUuid(data[1]);
+                                String user = UserStatement.getNameByUuid(connection, data[1]);
                                 String username = data[2];
                                 String timeago = ChatUtils.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
                                 Chat.sendComponent(player, timeago + " " + Color.WHITE + "- " + Phrase.build(Phrase.LOOKUP_USERNAME, Color.DARK_AQUA + user + Color.WHITE, Color.DARK_AQUA + username + Color.WHITE));

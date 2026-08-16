@@ -75,7 +75,7 @@ public class InteractionLookup {
                     count = results.getInt("count");
                 }
                 results.close();
-                query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,rolled_back FROM " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE " + where + " ORDER BY rowid DESC LIMIT " + limit + " OFFSET " + pageStart;
+                query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,rolled_back FROM " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE " + where + " ORDER BY " + ConfigHandler.getDescendingEventOrder() + " LIMIT " + limit + " OFFSET " + pageStart;
                 results = statement.executeQuery(query);
             }
 

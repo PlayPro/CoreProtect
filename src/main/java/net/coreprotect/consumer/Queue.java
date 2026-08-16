@@ -665,4 +665,8 @@ public class Queue {
     protected static void queueWorldInsert(int id, String world) {
         queueStandardData(new Object[] { null, Process.WORLD_INSERT, null, 0, null, 0, id, null }, new String[] { null, null }, world, false, Consumer.reserveConsumer());
     }
+
+    protected static boolean tryQueueIdentifierInsert(int action, int id, String value) {
+        return queueStandardData(new Object[] { null, action, null, 0, null, 0, id, null }, new String[] { null, null }, value, false, Consumer.reserveConsumer());
+    }
 }

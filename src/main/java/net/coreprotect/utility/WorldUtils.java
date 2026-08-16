@@ -13,6 +13,9 @@ public class WorldUtils extends Queue {
     }
 
     public static int getWorldId(String name) {
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            return ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.WORLDS, name, true);
+        }
         int id = -1;
         try {
             if (ConfigHandler.worlds.get(name) == null) {
@@ -37,6 +40,10 @@ public class WorldUtils extends Queue {
     }
 
     public static String getWorldName(int id) {
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            String name = ConfigHandler.getIdentifierValue(ConfigHandler.CacheType.WORLDS, id);
+            return name == null ? "" : name;
+        }
         String name = "";
         try {
             String cachedName = ConfigHandler.worldsReversed.get(id);

@@ -226,6 +226,7 @@ public class Rollback extends RollbackUtil {
             TreeMap<Long, Integer> chunkList = new TreeMap<>();
             HashMap<Integer, HashMap<Long, ArrayList<Object[]>>> dataList = new HashMap<>();
             HashMap<Integer, HashMap<Long, ArrayList<Object[]>>> itemDataList = new HashMap<>();
+            Set<Integer> inventoryUserUuids = new HashSet<>();
             int listC = 0;
             while (listC < 2) {
                 List<Object[]> scanList = rollbackLookupList;
@@ -253,7 +254,10 @@ public class Rollback extends RollbackUtil {
                         chunkList.put(chunkKey, distance);
                     }
 
-                    UserStatement.getName(statement.getConnection(), userId);
+                    String rowUser = UserStatement.getName(statement.getConnection(), userId);
+                    if (inventoryRollback && inventoryUserUuids.add(userId) && rowUser != null && !rowUser.isEmpty()) {
+                        UserStatement.getUuid(statement.getConnection(), rowUser);
+                    }
 
                     HashMap<Integer, HashMap<Long, ArrayList<Object[]>>> modifyList = dataList;
                     if (listC == 1) {

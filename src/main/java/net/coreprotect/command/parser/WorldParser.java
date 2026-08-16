@@ -46,7 +46,7 @@ public class WorldParser {
                         world_id = WorldUtils.matchWorld(inputProcessed);
                         if (world_id == -1 && !requireLoaded) {
                             String worldName = argument.replaceFirst("#", "");
-                            world_id = ConfigHandler.worlds.getOrDefault(worldName, -1);
+                            world_id = ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.WORLDS, worldName, false);
                         }
                     }
                     next = 0;

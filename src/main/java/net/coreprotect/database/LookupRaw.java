@@ -923,7 +923,7 @@ public class LookupRaw extends Queue {
             }
 
             String rows = summary ? "rowid as id,time," + userColumn + ",wid,x,y,z,type,meta as metadata,data,-1 as amount,action,rolled_back,0 as entity_spawn_rowid" : "rowid as id,time," + userColumn + ",wid,x,y,z,action,type,data,meta,blockdata,rolled_back";
-            String queryOrder = " ORDER BY rowid DESC";
+            String queryOrder = " ORDER BY " + ConfigHandler.getDescendingEventOrder();
 
             if (actionList.contains(LookupActions.CONTAINER) || actionList.contains(5)) {
                 queryTable = "container";

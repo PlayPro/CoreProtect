@@ -1,34 +1,38 @@
 package net.coreprotect.database.clickhouse;
 
-import java.util.EnumMap;
+import java.sql.SQLException;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicLong;
 
 public final class ClickHouseIdentityAllocator implements ClickHouseRowIdAllocator {
 
     private final UUID datasetId;
-    private final AtomicLong batchSequence;
-    private final EnumMap<ClickHouseFamily, AtomicLong> rowIds = new EnumMap<>(ClickHouseFamily.class);
+    private final ClickHouseIdentityReservation reservation;
 
-    public ClickHouseIdentityAllocator(UUID datasetId, ClickHouseHighWaterMarks highWaterMarks) {
+    ClickHouseIdentityAllocator(UUID datasetId, ClickHouseIdentityReservation reservation, ClickHouseHighWaterMarks highWaterMarks) {
         this.datasetId = Objects.requireNonNull(datasetId, "datasetId");
+        this.reservation = Objects.requireNonNull(reservation, "reservation");
         Objects.requireNonNull(highWaterMarks, "highWaterMarks");
-        batchSequence = new AtomicLong(highWaterMarks.getBatchSequence());
+        if (highWaterMarks.getBatchSequence() > 0) {
+            reservation.observe(ClickHouseIdentityReservation.BATCH_SEQUENCE, highWaterMarks.getBatchSequence());
+        }
         for (ClickHouseFamily family : ClickHouseFamily.values()) {
-            rowIds.put(family, new AtomicLong(highWaterMarks.getCompatibilityRowId(family)));
+            long rowId = highWaterMarks.getCompatibilityRowId(family);
+            if (rowId > 0) {
+                reservation.observe(family.getTableName(), rowId);
+            }
         }
     }
 
-    public ClickHouseBatchIdentity nextBatchIdentity() {
-        long sequence = increment(batchSequence, "batch sequence");
+    public ClickHouseBatchIdentity nextBatchIdentity() throws SQLException {
+        long sequence = reservation.next(ClickHouseIdentityReservation.BATCH_SEQUENCE);
         return ClickHouseBatchIdentity.create(datasetId, sequence);
     }
 
     @Override
-    public long nextRowId(ClickHouseFamily family) {
+    public long nextRowId(ClickHouseFamily family) throws SQLException {
         Objects.requireNonNull(family, "family");
-        long rowId = increment(rowIds.get(family), family.getTableName() + " row ID");
+        long rowId = reservation.next(family.getTableName());
         validateRowId(family, rowId);
         return rowId;
     }
@@ -37,7 +41,7 @@ public final class ClickHouseIdentityAllocator implements ClickHouseRowIdAllocat
     public void observeRowId(ClickHouseFamily family, long rowId) {
         Objects.requireNonNull(family, "family");
         validateRowId(family, rowId);
-        rowIds.get(family).accumulateAndGet(rowId, Math::max);
+        reservation.observe(family.getTableName(), rowId);
     }
 
     private static void validateRowId(ClickHouseFamily family, long rowId) {
@@ -47,14 +51,6 @@ public final class ClickHouseIdentityAllocator implements ClickHouseRowIdAllocat
         if (family != ClickHouseFamily.BLOCK && rowId > Integer.MAX_VALUE) {
             throw new IllegalStateException("ClickHouse " + family.getTableName() + " row IDs exceed CoreProtect's signed 32-bit compatibility range");
         }
-    }
-
-    private static long increment(AtomicLong value, String name) {
-        long next = value.incrementAndGet();
-        if (next < 1) {
-            throw new IllegalStateException("ClickHouse " + name + " exhausted its signed 64-bit range");
-        }
-        return next;
     }
 
 }

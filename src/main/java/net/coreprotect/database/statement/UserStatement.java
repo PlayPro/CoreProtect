@@ -178,12 +178,15 @@ public class UserStatement {
 
             ConfigHandler.playerIdCacheReversed.put(id, user);
             ConfigHandler.playerIdCache.put(user.toLowerCase(Locale.ROOT), id);
-            if (uuid != null) {
+            if (uuid != null && !uuid.isEmpty()) {
                 ConfigHandler.uuidCache.put(user.toLowerCase(Locale.ROOT), uuid);
                 ConfigHandler.uuidCacheReversed.put(uuid, user);
             }
         }
         catch (Exception e) {
+            if (ConfigHandler.databaseType.isClickHouse()) {
+                throw new IllegalStateException("Unable to resolve ClickHouse user identifier " + id, e);
+            }
             ErrorReporter.report(e);
         }
 
@@ -198,17 +201,72 @@ public class UserStatement {
         return user;
     }
 
-    public static String getNameByUuid(String uuid) {
-        return ConfigHandler.uuidCacheReversed.get(uuid);
+    public static String getNameByUuid(Connection connection, String uuid) {
+        if (uuid == null || uuid.isEmpty()) {
+            return null;
+        }
+        String user = ConfigHandler.uuidCacheReversed.get(uuid);
+        if (!ConfigHandler.databaseType.isClickHouse() || user != null) {
+            return user;
+        }
+
+        try {
+            String query = "SELECT rowid," + ConfigHandler.databaseType.getUserColumn() + " FROM " + ConfigHandler.prefix + "user WHERE uuid=? ORDER BY rowid LIMIT 1";
+            try (PreparedStatement statement = connection.prepareStatement(query)) {
+                statement.setString(1, uuid);
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    if (!resultSet.next()) {
+                        return null;
+                    }
+                    int id = resultSet.getInt("rowid");
+                    String resolvedUser = resultSet.getString("user");
+                    if (resolvedUser == null || resolvedUser.isEmpty()) {
+                        return null;
+                    }
+                    String lowerUser = resolvedUser.toLowerCase(Locale.ROOT);
+                    ConfigHandler.playerIdCache.put(lowerUser, id);
+                    ConfigHandler.playerIdCacheReversed.put(id, resolvedUser);
+                    ConfigHandler.uuidCache.put(lowerUser, uuid);
+                    ConfigHandler.uuidCacheReversed.put(uuid, resolvedUser);
+                    return resolvedUser;
+                }
+            }
+        }
+        catch (SQLException e) {
+            throw new IllegalStateException("Unable to resolve ClickHouse user UUID " + uuid, e);
+        }
     }
 
     public static String getUuid(Connection connection, String user) throws SQLException {
         String lowerUser = user.toLowerCase(Locale.ROOT);
         String uuid = ConfigHandler.uuidCache.get(lowerUser);
-        if (uuid == null && findId(connection, user) > -1) {
-            uuid = ConfigHandler.uuidCache.get(lowerUser);
+        if (uuid != null && (!ConfigHandler.databaseType.isClickHouse() || !uuid.isEmpty())) {
+            return uuid;
         }
-        return uuid;
+        int id = findId(connection, user);
+        if (id < 1) {
+            return null;
+        }
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            uuid = ConfigHandler.uuidCache.get(lowerUser);
+            if (uuid != null && !uuid.isEmpty()) {
+                return uuid;
+            }
+            String resolvedUser = loadName(connection, id);
+            if (resolvedUser.isEmpty()) {
+                throw new SQLException("ClickHouse user identifier " + id + " has no user row");
+            }
+            uuid = ConfigHandler.uuidCache.get(resolvedUser.toLowerCase(Locale.ROOT));
+            return uuid == null || uuid.isEmpty() ? null : uuid;
+        }
+        return ConfigHandler.uuidCache.get(lowerUser);
+    }
+
+    public static void clearClickHouseCaches() {
+        ConfigHandler.playerIdCache.clear();
+        ConfigHandler.playerIdCacheReversed.clear();
+        ConfigHandler.uuidCache.clear();
+        ConfigHandler.uuidCacheReversed.clear();
     }
 
 }

@@ -61,7 +61,7 @@ public class MessageAPI {
                 query.append(WorldUtils.getWidIndex(table));
             }
             filter.appendWhere(query);
-            query.append(" ORDER BY rowid DESC");
+            query.append(" ORDER BY ").append(ConfigHandler.getDescendingEventOrder());
             filter.appendLimit(query);
 
             try (PreparedStatement statement = connection.prepareStatement(query.toString())) {

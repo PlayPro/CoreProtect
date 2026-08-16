@@ -16,22 +16,32 @@ public final class ClickHouseJdbc implements AutoCloseable {
     private static final Set<String> DDL_OPERATIONS = Set.of("ALTER", "CREATE", "DROP", "RENAME", "TRUNCATE");
 
     private final HikariDataSource dataSource;
+    private final HikariDataSource auxiliaryDataSource;
 
     public ClickHouseJdbc(ClickHouseJdbcConfig config) {
         Objects.requireNonNull(config, "config");
+        dataSource = pool(config, "CoreProtect-ClickHouse", 10);
+        auxiliaryDataSource = pool(config, "CoreProtect-ClickHouse-Identity", 4);
+    }
+
+    private static HikariDataSource pool(ClickHouseJdbcConfig config, String name, int maximumPoolSize) {
         HikariConfig pool = new HikariConfig();
         pool.setDataSource(new HikariClickHouseDataSource(config));
-        pool.setPoolName("CoreProtect-ClickHouse");
+        pool.setPoolName(name);
         pool.setMinimumIdle(0);
-        pool.setMaximumPoolSize(10);
+        pool.setMaximumPoolSize(maximumPoolSize);
         pool.setConnectionTimeout(10_000L);
         pool.setIdleTimeout(60_000L);
         pool.setInitializationFailTimeout(-1L);
-        dataSource = new HikariDataSource(pool);
+        return new HikariDataSource(pool);
     }
 
     public Connection openConnection() throws SQLException {
         return dataSource.getConnection();
+    }
+
+    Connection openAuxiliaryConnection() throws SQLException {
+        return auxiliaryDataSource.getConnection();
     }
 
     public void executeDdl(String ddl) throws SQLException {
@@ -50,7 +60,12 @@ public final class ClickHouseJdbc implements AutoCloseable {
 
     @Override
     public void close() {
-        dataSource.close();
+        try {
+            auxiliaryDataSource.close();
+        }
+        finally {
+            dataSource.close();
+        }
     }
 
     private static String requireSingleDdl(String ddl) {

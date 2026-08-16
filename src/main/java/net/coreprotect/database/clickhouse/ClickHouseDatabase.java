@@ -8,11 +8,14 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
+import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.ConsumerWriteBatch.ReferenceKind;
 
 public final class ClickHouseDatabase implements AutoCloseable {
 
@@ -24,6 +27,7 @@ public final class ClickHouseDatabase implements AutoCloseable {
     private final String prefix;
     private final UUID datasetId;
     private final ClickHouseIdentityAllocator identityAllocator;
+    private final ClickHouseIdentityReservation identifierReservation;
     private final ClickHouseNativeClient nativeClient;
     private final ClickHouseBatchPublisher publisher;
     private final ClickHouseHighWaterPublisher highWaterPublisher;
@@ -33,13 +37,14 @@ public final class ClickHouseDatabase implements AutoCloseable {
     private boolean closed;
 
     private ClickHouseDatabase(ClickHouseJdbc jdbc, ClickHouseNativeClient nativeClient, String database, String prefix, UUID datasetId,
-            ClickHouseIdentityAllocator identityAllocator, ClickHouseWriterRegistration writerRegistration) {
+            ClickHouseIdentityAllocator identityAllocator, ClickHouseIdentityReservation identifierReservation, ClickHouseWriterRegistration writerRegistration) {
         this.jdbc = jdbc;
         this.nativeClient = nativeClient;
         this.database = database;
         this.prefix = prefix;
         this.datasetId = datasetId;
         this.identityAllocator = identityAllocator;
+        this.identifierReservation = identifierReservation;
         this.writerRegistration = writerRegistration;
         publisher = new ClickHouseBatchPublisher(jdbc, nativeClient, writerRegistration, database, prefix);
         highWaterPublisher = new ClickHouseHighWaterPublisher(jdbc, nativeClient, writerRegistration, database, prefix);
@@ -60,9 +65,13 @@ public final class ClickHouseDatabase implements AutoCloseable {
         ClickHouseNativeClient nativeClient = null;
         ClickHouseWriterRegistration writerRegistration = null;
         try {
+            writerRegistration = new ClickHouseWriterRegistration(controlDirectory);
+            writerRegistration.acquire();
+            UUID writerId = UUID.randomUUID();
             nativeClient = new ClickHouseNativeClient(config);
             List<String> statements = ClickHouseSchema.createStatements(config.getDatabase(), validatedPrefix);
             ClickHouseStorageIdentity storageIdentity;
+            ClickHouseHighWaterMarks remoteMarks;
             try (Connection connection = jdbc.openConnection()) {
                 requireServerVersion(connection);
                 requirePersistentDatabaseIdentity(connection, config.getDatabase());
@@ -70,27 +79,16 @@ public final class ClickHouseDatabase implements AutoCloseable {
                     jdbc.executeDdl(connection, statements.get(index));
                 }
                 ClickHouseSchema.validatePhysicalSchema(connection, config.getDatabase(), validatedPrefix);
-                storageIdentity = ClickHouseStorageIdentity.load(connection, config.getDatabase(), validatedPrefix);
-                if (storageIdentity == null) {
-                    ClickHouseSchema.requireUnownedTablesEmpty(connection, config.getDatabase(), validatedPrefix);
-                    storageIdentity = ClickHouseStorageIdentity.loadOrCreate(connection, config.getDatabase(), validatedPrefix);
-                }
-            }
-
-            writerRegistration = new ClickHouseWriterRegistration(jdbc, config.getDatabase(), validatedPrefix, storageIdentity.getDatasetId(), controlDirectory);
-            writerRegistration.acquire();
-            ClickHouseHighWaterMarks remoteMarks;
-            try (Connection connection = jdbc.openConnection()) {
+                storageIdentity = loadStorageIdentity(connection, config.getDatabase(), validatedPrefix);
                 for (int index = ClickHouseSchema.PHYSICAL_TABLE_COUNT; index < statements.size(); index++) {
                     jdbc.executeDdl(connection, statements.get(index));
                 }
                 remoteMarks = ClickHouseStartupReconciler.readRemote(connection, config.getDatabase(), validatedPrefix);
             }
-            ClickHouseIdentityAllocator identityAllocator = new ClickHouseIdentityAllocator(storageIdentity.getDatasetId(), remoteMarks);
-            ClickHouseDatabase database = new ClickHouseDatabase(jdbc, nativeClient, config.getDatabase(), validatedPrefix, storageIdentity.getDatasetId(), identityAllocator,
+            ClickHouseIdentityReservation reservation = new ClickHouseIdentityReservation(jdbc, config.getDatabase(), validatedPrefix, writerId);
+            ClickHouseIdentityAllocator identityAllocator = new ClickHouseIdentityAllocator(storageIdentity.getDatasetId(), reservation, remoteMarks);
+            return new ClickHouseDatabase(jdbc, nativeClient, config.getDatabase(), validatedPrefix, storageIdentity.getDatasetId(), identityAllocator, reservation,
                     writerRegistration);
-            database.retention.recoverAbandonedTargets();
-            return database;
         }
         catch (SQLException | RuntimeException exception) {
             try {
@@ -115,20 +113,141 @@ public final class ClickHouseDatabase implements AutoCloseable {
         }
     }
 
+    static ClickHouseStorageIdentity loadStorageIdentity(Connection connection, String database, String prefix) throws SQLException {
+        ClickHouseStorageIdentity storageIdentity = ClickHouseStorageIdentity.load(connection, database, prefix);
+        if (storageIdentity != null) {
+            return storageIdentity;
+        }
+        try {
+            ClickHouseSchema.requireUnownedTablesEmpty(connection, database, prefix);
+        }
+        catch (SQLException unownedTables) {
+            storageIdentity = ClickHouseStorageIdentity.load(connection, database, prefix);
+            if (storageIdentity == null) {
+                throw unownedTables;
+            }
+            return storageIdentity;
+        }
+        return ClickHouseStorageIdentity.loadOrCreate(connection, database, prefix);
+    }
+
     public Connection openConnection() throws SQLException {
         ensureOpen();
         return jdbc.openConnection();
     }
 
+    Connection openAuxiliaryConnection() throws SQLException {
+        ensureOpen();
+        return jdbc.openAuxiliaryConnection();
+    }
+
     public ClickHouseWriteBatch newWriteBatch() throws SQLException {
         ensureOpen();
-        writerRegistration.ensureOwned();
         return new ClickHouseWriteBatch(identityAllocator.nextBatchIdentity(), identityAllocator);
     }
 
     public ClickHouseBatchReceipt publish(ClickHouseWriteBatch batch) throws SQLException {
         ensureOpen();
         return publisher.publish(batch);
+    }
+
+    public int nextIdentifierId(ReferenceKind kind, String value, int currentMaximum) throws SQLException {
+        ensureOpen();
+        Objects.requireNonNull(kind, "kind");
+        Objects.requireNonNull(value, "value");
+        if (currentMaximum < 0) {
+            throw new IllegalArgumentException("ClickHouse identifier maximums cannot be negative");
+        }
+        String family = ClickHouseConsumerWriteBatch.referenceFamily(kind).getTableName();
+        String identity = "canonical:" + family + ":" + value;
+        long id = identifierReservation.canonicalId(identity, () -> identifierReservation.next(family, currentMaximum));
+        return toIdentifier(id, family);
+    }
+
+    public String findIdentifierValue(ReferenceKind kind, int id) throws SQLException {
+        ensureOpen();
+        Objects.requireNonNull(kind, "kind");
+        if (id < 0) {
+            throw new IllegalArgumentException("ClickHouse identifiers cannot be negative");
+        }
+        ClickHouseFamily family = ClickHouseConsumerWriteBatch.referenceFamily(kind);
+        String column = ClickHouseConsumerWriteBatch.referenceValueColumn(kind);
+        String table = ClickHouseIdentifiers.qualified(database, prefix + family.getTableName());
+        String sql = "SELECT id,`" + column + "` FROM " + table + " WHERE id=? GROUP BY id,`" + column + "` LIMIT 2";
+        try (Connection connection = jdbc.openAuxiliaryConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, id);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return null;
+                }
+                String value = resultSet.getString(2);
+                if (value == null) {
+                    throw new SQLException("ClickHouse " + family.getTableName() + " identifier " + id + " has no value");
+                }
+                if (resultSet.next()) {
+                    throw new SQLException("ClickHouse " + family.getTableName() + " identifier " + id + " resolves to multiple values");
+                }
+                return value;
+            }
+        }
+    }
+
+    public int findIdentifierId(ReferenceKind kind, String value) throws SQLException {
+        ensureOpen();
+        Objects.requireNonNull(kind, "kind");
+        Objects.requireNonNull(value, "value");
+        ClickHouseFamily family = ClickHouseConsumerWriteBatch.referenceFamily(kind);
+        String column = ClickHouseConsumerWriteBatch.referenceValueColumn(kind);
+        String table = ClickHouseIdentifiers.qualified(database, prefix + family.getTableName());
+        String sql = "SELECT id FROM " + table + " WHERE `" + column + "`=? AND id IS NOT NULL GROUP BY id LIMIT 2";
+        try (Connection connection = jdbc.openAuxiliaryConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, value);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return -1;
+                }
+                int id = toIdentifier(resultSet.getLong(1), family.getTableName());
+                if (resultSet.next()) {
+                    throw new SQLException("ClickHouse " + family.getTableName() + " value resolves to multiple identifiers: " + value);
+                }
+                return id;
+            }
+        }
+    }
+
+    int canonicalUserId(String user, String uuid, Integer existingId) throws SQLException {
+        ensureOpen();
+        String normalizedUser = Objects.requireNonNull(user, "user").toLowerCase(Locale.ROOT);
+        String normalizedUuid = Objects.requireNonNull(uuid, "uuid");
+        if (Config.getGlobal().DATABASE_LOCK) {
+            long id = existingId != null ? existingId : identityAllocator.nextRowId(ClickHouseFamily.USER);
+            return toIdentifier(id, ClickHouseFamily.USER.getTableName());
+        }
+        String nameIdentity = "canonical:user:name:" + normalizedUser;
+        if (normalizedUuid.isEmpty()) {
+            if (existingId != null) {
+                return existingId;
+            }
+            return toIdentifier(identifierReservation.canonicalId(nameIdentity,
+                    () -> identityAllocator.nextRowId(ClickHouseFamily.USER)),
+                    ClickHouseFamily.USER.getTableName());
+        }
+
+        String uuidIdentity = "canonical:user:uuid:" + normalizedUuid;
+        long uuidId = identifierReservation.canonicalId(uuidIdentity,
+                () -> existingId != null
+                        ? existingId
+                        : identifierReservation.canonicalId(nameIdentity,
+                                () -> identityAllocator.nextRowId(ClickHouseFamily.USER)));
+        identifierReservation.canonicalId(nameIdentity, uuidId);
+        return toIdentifier(uuidId, ClickHouseFamily.USER.getTableName());
+    }
+
+    private static int toIdentifier(long id, String family) throws SQLException {
+        if (id < 1 || id > Integer.MAX_VALUE) {
+            throw new SQLException("ClickHouse " + family + " identifier is outside CoreProtect's positive signed 32-bit range: " + id);
+        }
+        return (int) id;
     }
 
     public void preserveCompatibilityHighWaterMarks(Map<ClickHouseFamily, Long> highWaterMarks) throws SQLException {

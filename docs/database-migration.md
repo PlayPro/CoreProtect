@@ -68,7 +68,7 @@ Source history rows are not deleted or replaced. Migration may update operationa
 5. Resume normal activity and test a newly logged change.
 6. Keep the source backup until the migrated database has been verified. Archive or remove it only when you are satisfied that the migration is complete.
 
-When either the source or target is ClickHouse, preserve `plugins/CoreProtect/.clickhouse-writer` with the installation so the retained ClickHouse dataset remains recoverable. Do not copy it to another active server or replace it after migration.
+When a ClickHouse source or target namespace is shared, stop every peer first and run the migration from exactly one installation with `database-lock` enabled. Before restarting any peer that will use the migrated target namespace, update its database selector, connection, and prefix to match the migrated installation.
 
 ## Failure and Recovery
 
@@ -90,7 +90,7 @@ If target activation or the atomic `config.yml` update fails after verification,
 * Confirm that the target settings were loaded while `database-type` still selected the source.
 * Verify the target host, port, database, credentials, table prefix, and available storage.
 * Confirm that the target account can create, read, insert, update or mutate, and delete or drop the required objects.
-* For ClickHouse, confirm the server is version 25.6 or newer and that this installation owns the matching `.clickhouse-writer` identity.
+* For ClickHouse, confirm the server is version 25.6 or newer, no other process is using the same CoreProtect data directory, and every other CoreProtect installation sharing the source or target namespace is stopped.
 
 ### Verification Failure or Interruption
 

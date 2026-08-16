@@ -62,7 +62,7 @@ public class UsernameAPI {
                 appendPlaceholders(query, uuids.size());
                 query.append(")");
             }
-            query.append(" ORDER BY rowid DESC");
+            query.append(" ORDER BY ").append(ConfigHandler.getDescendingEventOrder());
             if (options.hasLimit()) {
                 query.append(" LIMIT ").append(options.getLimitCount()).append(" OFFSET ").append(options.getLimitOffset());
             }
@@ -137,7 +137,7 @@ public class UsernameAPI {
     private static UsernameResult parseUsernameResult(Connection connection, ResultSet results) throws Exception {
         String uuid = results.getString("uuid");
         String username = results.getString("user");
-        String player = UserStatement.getNameByUuid(uuid);
+        String player = UserStatement.getNameByUuid(connection, uuid);
         if (player == null) {
             player = username;
         }

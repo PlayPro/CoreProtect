@@ -83,7 +83,7 @@ public class ChestTransactionLookup {
             String tableName = "container";
             String where = "wid = " + worldId + " AND (x = " + x + " OR x = " + x2 + ") AND (z = " + z + " OR z = " + z2 + ") AND y = " + y;
             String index = WorldUtils.getWidIndex("container");
-            String order = "rowid DESC";
+            String order = ConfigHandler.getDescendingEventOrder();
             if (entitySpawnRowId != null) {
                 table = ConfigHandler.prefix + "entity_container";
                 tableName = "entity_container";

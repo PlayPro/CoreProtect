@@ -54,7 +54,7 @@ public class ItemAPI {
                     .append(ItemLogger.ITEM_CREATE).append(",")
                     .append(ItemLogger.ITEM_SELL).append(",")
                     .append(ItemLogger.ITEM_BUY).append(")");
-            query.append(" ORDER BY rowid DESC");
+            query.append(" ORDER BY ").append(ConfigHandler.getDescendingEventOrder());
             filter.appendLimit(query);
 
             try (PreparedStatement statement = connection.prepareStatement(query.toString())) {

@@ -33,7 +33,9 @@ Automatic purging runs in the background. SQLite, MySQL, and DuckDB remove old r
 
 Automatic purging does not rebuild SQLite, optimize MySQL, or run a ClickHouse `OPTIMIZE FINAL`. DuckDB performs a checkpoint after cleanup. Deleting rows helps control future growth, but it may not immediately reduce the database file or table size on disk.
 
-Only one automatic purge can run at a time. If the server shuts down, a manual purge starts, a database migration or conversion starts, or the consumer is manually paused, the automatic purge stops safely and can continue during the next scheduled run.
+Only one automatic purge can run per CoreProtect instance at a time. If the server shuts down, a manual purge starts, a database migration or conversion starts, or the consumer is manually paused, the automatic purge stops safely and can continue during the next scheduled run.
+
+ClickHouse rejects automatic and manual purges while `database-lock` is disabled. For a shared namespace, stop every installation, enable `database-lock` on one installation, restart or reload it, and finish the purge before restoring shared-writer mode.
 
 ## Important Notes
 

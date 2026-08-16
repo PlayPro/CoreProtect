@@ -6,6 +6,7 @@ import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 import java.util.UUID;
 
 import net.coreprotect.database.DatabaseType;
@@ -15,10 +16,13 @@ import net.coreprotect.utility.serialize.EntityDataCodec;
 
 public final class ClickHouseEventBatch implements AutoCloseable {
 
+    private static final long SINGLETON_ROW_ID = 1L;
+
     private final ClickHouseBatchIdentity identity;
     private final ClickHouseRowIdAllocator rowIdAllocator;
     private final ClickHouseRowBinaryBuffer rows = new ClickHouseRowBinaryBuffer(ClickHouseSchema.EVENT_COLUMNS, ClickHouseSchema.EVENT_COLUMN_TYPES);
     private final EnumMap<ClickHouseFamily, HashSet<Long>> versionRowIds = new EnumMap<>(ClickHouseFamily.class);
+    private final TreeMap<Integer, Integer> partitionRowCounts = new TreeMap<>();
     private int eventCount;
     private int duplicateVersionCount;
     private int currentTime;
@@ -92,15 +96,11 @@ public final class ClickHouseEventBatch implements AutoCloseable {
     }
 
     public long addDatabaseLock(int time, int status) throws SQLException {
-        long rowId = beginRow(ClickHouseFamily.DATABASE_LOCK, time);
-        set("status", status);
-        set("database_lock_time", time);
-        commitRow(ClickHouseFamily.DATABASE_LOCK, rowId);
-        return rowId;
+        return addDatabaseLockVersion(SINGLETON_ROW_ID, time, status);
     }
 
     public long addDatabaseLockVersion(long rowId, int time, int status) throws SQLException {
-        beginRow(ClickHouseFamily.DATABASE_LOCK, rowId, time);
+        beginExplicitRow(ClickHouseFamily.DATABASE_LOCK, rowId, time);
         set("status", status);
         set("database_lock_time", time);
         commitRow(ClickHouseFamily.DATABASE_LOCK, rowId);
@@ -149,7 +149,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
     }
 
     public long addBlockDataMap(int id, String blockData) throws SQLException {
-        long rowId = beginRow(ClickHouseFamily.BLOCKDATA_MAP, 0);
+        long rowId = beginExplicitRow(ClickHouseFamily.BLOCKDATA_MAP, id, 0);
         set("id", id);
         set("text", Objects.requireNonNull(blockData, "blockData"));
         commitRow(ClickHouseFamily.BLOCKDATA_MAP, rowId);
@@ -191,15 +191,8 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         return rowId;
     }
 
-    public long addUser(int time, String userName, String uuid) throws SQLException {
-        long rowId = beginRow(ClickHouseFamily.USER, time);
-        setUser(userName, uuid);
-        commitRow(ClickHouseFamily.USER, rowId);
-        return rowId;
-    }
-
     public long addUserVersion(long rowId, int time, String userName, String uuid) throws SQLException {
-        beginRow(ClickHouseFamily.USER, rowId, time);
+        beginExplicitRow(ClickHouseFamily.USER, rowId, time);
         setUser(userName, uuid);
         commitRow(ClickHouseFamily.USER, rowId);
         return rowId;
@@ -213,14 +206,11 @@ public final class ClickHouseEventBatch implements AutoCloseable {
     }
 
     public long addVersion(int time, String version) throws SQLException {
-        long rowId = beginRow(ClickHouseFamily.VERSION, time);
-        set("version", Objects.requireNonNull(version, "version"));
-        commitRow(ClickHouseFamily.VERSION, rowId);
-        return rowId;
+        return addVersionRevision(SINGLETON_ROW_ID, time, version);
     }
 
     public long addVersionRevision(long rowId, int time, String version) throws SQLException {
-        beginRow(ClickHouseFamily.VERSION, rowId, time);
+        beginExplicitRow(ClickHouseFamily.VERSION, rowId, time);
         set("version", Objects.requireNonNull(version, "version"));
         commitRow(ClickHouseFamily.VERSION, rowId);
         return rowId;
@@ -237,7 +227,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
             throw new IllegalArgumentException("ClickHouse core data requires a dedicated writer: " + family.getTableName());
         }
         int time = numberOrZero(values.get("time")).intValue();
-        beginRow(family, rowId, time);
+        beginExplicitRow(family, rowId, time);
         if (family == ClickHouseFamily.ENTITY_SPAWN) {
             set("x", originKey(values.get("origin_x")));
             set("z", originKey(values.get("origin_z")));
@@ -282,14 +272,17 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         return eventCount - duplicateVersionCount;
     }
 
-    void seal(ClickHouseStateBatch state) throws SQLException {
+    Map<Integer, Integer> seal(ClickHouseStateBatch state) throws SQLException {
         if (sealed) {
-            return;
+            return partitionRowCounts;
         }
         ensureWritable();
-        Objects.requireNonNull(state, "state").appendTo(rows, eventCount);
+        ClickHouseStateBatch requiredState = Objects.requireNonNull(state, "state");
+        requiredState.appendTo(rows, eventCount, partitionRowCounts);
+        appendBatchReceipts(eventCount + requiredState.getRollbackCount() + requiredState.getEntityStateCount());
         rows.seal();
         sealed = true;
+        return partitionRowCounts;
     }
 
     InputStream openRows() {
@@ -297,6 +290,13 @@ public final class ClickHouseEventBatch implements AutoCloseable {
             throw new IllegalStateException("ClickHouse event batch is not sealed");
         }
         return rows.openStream();
+    }
+
+    InputStream openRows(int partitionId) {
+        if (!sealed) {
+            throw new IllegalStateException("ClickHouse event batch is not sealed");
+        }
+        return rows.openStream(partitionId);
     }
 
     ClickHouseEventPointer getLastPointer() {
@@ -308,7 +308,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
 
     Checkpoint checkpoint() {
         ensureWritable();
-        return new Checkpoint(rows.checkpoint(), eventCount, duplicateVersionCount, versionRowIds, lastPointer);
+        return new Checkpoint(rows.checkpoint(), eventCount, duplicateVersionCount, versionRowIds, partitionRowCounts, lastPointer);
     }
 
     void restore(Checkpoint checkpoint) {
@@ -319,6 +319,8 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         duplicateVersionCount = checkpoint.duplicateVersionCount;
         versionRowIds.clear();
         checkpoint.versionRowIds.forEach((family, rowIds) -> versionRowIds.put(family, new HashSet<>(rowIds)));
+        partitionRowCounts.clear();
+        partitionRowCounts.putAll(checkpoint.partitionRowCounts);
         lastPointer = checkpoint.lastPointer;
     }
 
@@ -330,7 +332,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
     }
 
     private long addNamedMap(ClickHouseFamily family, int id, String name) throws SQLException {
-        long rowId = beginRow(family, 0);
+        long rowId = beginExplicitRow(family, id, 0);
         set("id", id);
         set("name", Objects.requireNonNull(name, family.getTableName()));
         commitRow(family, rowId);
@@ -359,8 +361,14 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         return rowId;
     }
 
-    private long beginRow(ClickHouseFamily family, int time) {
+    private long beginRow(ClickHouseFamily family, int time) throws SQLException {
         return beginRow(family, rowIdAllocator.nextRowId(family), time);
+    }
+
+    private long beginExplicitRow(ClickHouseFamily family, long rowId, int time) {
+        ensureWritable();
+        rowIdAllocator.observeRowId(family, rowId);
+        return beginRow(family, rowId, time);
     }
 
     private long beginRow(ClickHouseFamily family, long rowId, int time) {
@@ -372,7 +380,6 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         if (rowId < 1) {
             throw new IllegalArgumentException("ClickHouse compatibility row IDs must be positive");
         }
-        rowIdAllocator.observeRowId(family, rowId);
         rows.beginRow();
         currentTime = time;
         currentWorldId = 0;
@@ -397,7 +404,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
 
     private void setUser(String userName, String uuid) {
         set("user_name", Objects.requireNonNull(userName, "userName"));
-        set("uuid", uuid == null ? "" : uuid);
+        set("uuid", uuid == null || uuid.isEmpty() ? null : uuid);
     }
 
     private void setBinary(String column, byte[] value) {
@@ -476,12 +483,29 @@ public final class ClickHouseEventBatch implements AutoCloseable {
     }
 
     private void commitRow(ClickHouseFamily family, long rowId) throws SQLException {
-        rows.commitRow(family.getTableName() + " event");
+        int partitionId = ClickHouseSchema.eventPartitionId(family, currentTime);
+        rows.commitRow(family.getTableName() + " event", partitionId);
+        partitionRowCounts.merge(partitionId, 1, Math::addExact);
         if (isVersionedFamily(family) && !versionRowIds.computeIfAbsent(family, ignored -> new HashSet<>()).add(rowId)) {
             duplicateVersionCount++;
         }
         lastPointer = new ClickHouseEventPointer(identity.getDatasetId(), family, identity.getBatchSequence(), eventCount, rowId, currentTime, currentWorldId, currentX, currentZ);
         eventCount++;
+    }
+
+    private void appendBatchReceipts(int firstOrdinal) throws SQLException {
+        int ordinal = firstOrdinal;
+        for (Map.Entry<Integer, Integer> partition : partitionRowCounts.entrySet()) {
+            rows.beginRow();
+            rows.set("batch_sequence", identity.getBatchSequence());
+            rows.set("batch_id", identity.getBatchId());
+            rows.set("batch_ordinal", ordinal++);
+            rows.set("family", ClickHouseSchema.BATCH_RECEIPT_FAMILY);
+            rows.set("rowid", identity.getBatchSequence());
+            rows.set("wid", partition.getKey());
+            rows.set("amount", partition.getValue());
+            rows.commitRow("batch receipt", partition.getKey());
+        }
     }
 
     private static boolean isVersionedFamily(ClickHouseFamily family) {
@@ -558,13 +582,16 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         private final int eventCount;
         private final int duplicateVersionCount;
         private final EnumMap<ClickHouseFamily, HashSet<Long>> versionRowIds = new EnumMap<>(ClickHouseFamily.class);
+        private final TreeMap<Integer, Integer> partitionRowCounts;
         private final ClickHouseEventPointer lastPointer;
 
-        private Checkpoint(int bufferSize, int eventCount, int duplicateVersionCount, EnumMap<ClickHouseFamily, HashSet<Long>> versionRowIds, ClickHouseEventPointer lastPointer) {
+        private Checkpoint(int bufferSize, int eventCount, int duplicateVersionCount, EnumMap<ClickHouseFamily, HashSet<Long>> versionRowIds,
+                Map<Integer, Integer> partitionRowCounts, ClickHouseEventPointer lastPointer) {
             this.bufferSize = bufferSize;
             this.eventCount = eventCount;
             this.duplicateVersionCount = duplicateVersionCount;
             versionRowIds.forEach((family, rowIds) -> this.versionRowIds.put(family, new HashSet<>(rowIds)));
+            this.partitionRowCounts = new TreeMap<>(partitionRowCounts);
             this.lastPointer = lastPointer;
         }
     }

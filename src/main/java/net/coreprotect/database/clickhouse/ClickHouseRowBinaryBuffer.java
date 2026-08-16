@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +24,7 @@ final class ClickHouseRowBinaryBuffer implements AutoCloseable {
     private final String[] types;
     private final Object[] defaults;
     private final Object[] values;
+    private final List<RowSpan> rowSpans = new ArrayList<>();
     private boolean sealed;
     private boolean failed;
     private boolean rowStarted;
@@ -63,12 +65,21 @@ final class ClickHouseRowBinaryBuffer implements AutoCloseable {
     }
 
     void commitRow(String description) throws SQLException {
+        commitRow(description, 0);
+    }
+
+    void commitRow(String description, int partitionId) throws SQLException {
         ensureWritable();
         requireActiveRow();
+        if (partitionId < 0) {
+            throw new IllegalArgumentException("ClickHouse row partition IDs cannot be negative");
+        }
+        int start = rows.size();
         try {
             for (int index = 0; index < values.length; index++) {
                 writeValue(types[index], values[index]);
             }
+            rowSpans.add(new RowSpan(partitionId, start, rows.size() - start));
             rowStarted = false;
         }
         catch (IOException | RuntimeException exception) {
@@ -92,6 +103,16 @@ final class ClickHouseRowBinaryBuffer implements AutoCloseable {
         return rows.openStream();
     }
 
+    InputStream openStream(int partitionId) {
+        if (!sealed) {
+            throw new IllegalStateException("ClickHouse RowBinary buffer is not sealed");
+        }
+        if (partitionId < 0) {
+            throw new IllegalArgumentException("ClickHouse row partition IDs cannot be negative");
+        }
+        return rows.openStream(rowSpans, partitionId);
+    }
+
     int checkpoint() {
         ensureWritable();
         if (rowStarted) {
@@ -108,6 +129,13 @@ final class ClickHouseRowBinaryBuffer implements AutoCloseable {
             throw new IllegalArgumentException("Invalid ClickHouse RowBinary checkpoint");
         }
         rows.truncate(checkpoint);
+        while (!rowSpans.isEmpty()) {
+            RowSpan span = rowSpans.get(rowSpans.size() - 1);
+            if (span.start + span.length <= checkpoint) {
+                break;
+            }
+            rowSpans.remove(rowSpans.size() - 1);
+        }
         failed = false;
         rowStarted = false;
     }
@@ -116,6 +144,7 @@ final class ClickHouseRowBinaryBuffer implements AutoCloseable {
     public void close() {
         sealed = true;
         rows.reset();
+        rowSpans.clear();
     }
 
     private void ensureWritable() {
@@ -253,8 +282,90 @@ final class ClickHouseRowBinaryBuffer implements AutoCloseable {
             return new ByteArrayInputStream(buf, 0, count);
         }
 
+        private InputStream openStream(List<RowSpan> spans, int partitionId) {
+            return new PartitionInputStream(buf, spans, partitionId);
+        }
+
         private void truncate(int size) {
             count = size;
+        }
+    }
+
+    private static final class RowSpan {
+
+        private final int partitionId;
+        private final int start;
+        private final int length;
+
+        private RowSpan(int partitionId, int start, int length) {
+            this.partitionId = partitionId;
+            this.start = start;
+            this.length = length;
+        }
+    }
+
+    private static final class PartitionInputStream extends InputStream {
+
+        private final byte[] data;
+        private final List<RowSpan> spans;
+        private final int partitionId;
+        private int spanIndex;
+        private int spanOffset;
+
+        private PartitionInputStream(byte[] data, List<RowSpan> spans, int partitionId) {
+            this.data = data;
+            this.spans = spans;
+            this.partitionId = partitionId;
+        }
+
+        @Override
+        public int read() {
+            RowSpan span = currentSpan();
+            if (span == null) {
+                return -1;
+            }
+            return data[span.start + spanOffset++] & 0xff;
+        }
+
+        @Override
+        public int read(byte[] output, int offset, int length) {
+            if (output == null) {
+                throw new NullPointerException("output");
+            }
+            if (offset < 0 || length < 0 || length > output.length - offset) {
+                throw new IndexOutOfBoundsException();
+            }
+            if (length == 0) {
+                return 0;
+            }
+
+            int copied = 0;
+            while (length > 0) {
+                RowSpan span = currentSpan();
+                if (span == null) {
+                    return copied == 0 ? -1 : copied;
+                }
+                int count = Math.min(length, span.length - spanOffset);
+                System.arraycopy(data, span.start + spanOffset, output, offset, count);
+                spanOffset += count;
+                offset += count;
+                length -= count;
+                copied += count;
+            }
+            return copied;
+        }
+
+        private RowSpan currentSpan() {
+            while (spanIndex < spans.size()) {
+                RowSpan span = spans.get(spanIndex);
+                if (span.partitionId != partitionId || spanOffset >= span.length) {
+                    spanIndex++;
+                    spanOffset = 0;
+                    continue;
+                }
+                return span;
+            }
+            return null;
         }
     }
 

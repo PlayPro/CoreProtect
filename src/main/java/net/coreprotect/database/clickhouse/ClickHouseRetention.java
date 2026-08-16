@@ -40,12 +40,6 @@ final class ClickHouseRetention {
         highWaterTable = table("retention_high_water");
     }
 
-    synchronized void recoverAbandonedTargets() throws SQLException {
-        try (Connection connection = jdbc.openConnection()) {
-            cleanupAbandonedTargets(connection);
-        }
-    }
-
     void cancelPurge() {
         purgeCancellationRequested = true;
         Connection connection = activePurgeConnection;
@@ -177,7 +171,7 @@ final class ClickHouseRetention {
         String sql = "INSERT INTO " + highWaterTable
                 + " (batch_sequence,family,rowid,recorded_at)"
                 + " SELECT max(batch_sequence),family,max(rowid),now64(3, 'UTC')"
-                + " FROM " + eventTable + " GROUP BY family";
+                + " FROM " + eventTable + " WHERE family!='" + ClickHouseSchema.BATCH_RECEIPT_FAMILY + "' GROUP BY family";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.execute();
         }

@@ -31,6 +31,9 @@ public class EntityUtils extends Queue {
         int id = -1;
         name = name.toLowerCase(Locale.ROOT).trim();
 
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            return ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.ENTITIES, name, internal);
+        }
         if (ConfigHandler.entities.get(name) != null) {
             id = ConfigHandler.entities.get(name);
         }
@@ -95,6 +98,10 @@ public class EntityUtils extends Queue {
 
     public static String getEntityName(int id) {
         // Internal ID pulled from DB
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            String entityName = ConfigHandler.getIdentifierValue(ConfigHandler.CacheType.ENTITIES, id);
+            return entityName == null ? "" : entityName;
+        }
         String entityName = "";
         String cachedName = ConfigHandler.entitiesReversed.get(id);
         if (cachedName != null) {

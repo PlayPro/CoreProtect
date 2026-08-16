@@ -41,6 +41,9 @@ public class MaterialUtils extends Queue {
             name = NAMESPACE + name;
         }
 
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            return ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.MATERIALS, name, internal);
+        }
         if (ConfigHandler.materials.get(name) != null) {
             id = ConfigHandler.materials.get(name);
         }
@@ -66,6 +69,9 @@ public class MaterialUtils extends Queue {
         int id = -1;
         data = data.toLowerCase(Locale.ROOT).trim();
 
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            return ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.BLOCKDATA, data, internal);
+        }
         if (ConfigHandler.blockdata.get(data) != null) {
             id = ConfigHandler.blockdata.get(data);
         }
@@ -89,6 +95,10 @@ public class MaterialUtils extends Queue {
 
     public static String getBlockDataString(int id) {
         // Internal ID pulled from DB
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            String blockdata = ConfigHandler.getIdentifierValue(ConfigHandler.CacheType.BLOCKDATA, id);
+            return blockdata == null ? "" : blockdata;
+        }
         String blockdata = "";
         String cachedBlockdata = ConfigHandler.blockdataReversed.get(id);
         if (cachedBlockdata != null) {
@@ -98,6 +108,10 @@ public class MaterialUtils extends Queue {
     }
 
     public static String getBlockName(int id) {
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            String name = ConfigHandler.getIdentifierValue(ConfigHandler.CacheType.MATERIALS, id);
+            return name == null ? "" : name;
+        }
         String name = "";
         String cachedName = ConfigHandler.materialsReversed.get(id);
         if (cachedName != null) {
@@ -165,6 +179,9 @@ public class MaterialUtils extends Queue {
         int id = -1;
         name = name.toLowerCase(Locale.ROOT).trim();
 
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            return ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.ART, name, internal);
+        }
         if (ConfigHandler.art.get(name) != null) {
             id = ConfigHandler.art.get(name);
         }
@@ -192,6 +209,10 @@ public class MaterialUtils extends Queue {
 
     public static String getArtName(int id) {
         // Internal ID pulled from DB
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            String artName = ConfigHandler.getIdentifierValue(ConfigHandler.CacheType.ART, id);
+            return artName == null ? "" : artName;
+        }
         String artname = "";
         String cachedName = ConfigHandler.artReversed.get(id);
         if (cachedName != null) {

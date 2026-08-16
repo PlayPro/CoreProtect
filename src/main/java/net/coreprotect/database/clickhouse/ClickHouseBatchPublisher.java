@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.Objects;
 
 import net.coreprotect.config.ConfigHandler;
@@ -40,17 +41,29 @@ final class ClickHouseBatchPublisher {
             return receipt;
         }
         if (receipt.getRowCount() > MAX_INSERT_ROWS) {
-            throw new SQLException("ClickHouse batches cannot exceed " + MAX_INSERT_ROWS + " physical rows");
+            throw new SQLException("ClickHouse batches cannot exceed " + MAX_INSERT_ROWS + " data rows");
         }
+        for (Map.Entry<Integer, Integer> partition : receipt.getPartitionRowCounts().entrySet()) {
+            if (partition.getValue() >= MAX_INSERT_ROWS) {
+                throw new SQLException("ClickHouse batch partition " + partition.getKey() + " cannot exceed " + (MAX_INSERT_ROWS - 1) + " data rows");
+            }
+            if (!batch.isPartitionPublished(partition.getKey())) {
+                publishPartition(batch, receipt, partition.getKey(), partition.getValue());
+            }
+        }
+        batch.markPublished();
+        return receipt;
+    }
 
+    private void publishPartition(ClickHouseWriteBatch batch, ClickHouseBatchReceipt receipt, int partitionId, int expectedRowCount) throws SQLException {
         SQLException publicationFailure = null;
         int attempt = 1;
         while (true) {
             try {
                 writerRegistration.verifyOwned();
-                nativeClient.insert(eventTable, ClickHouseSchema.EVENT_COLUMNS, batch.openRows(), batch.getIdentity(), "records");
-                batch.markPublished();
-                return receipt;
+                nativeClient.insert(eventTable, ClickHouseSchema.EVENT_COLUMNS, batch.openRows(partitionId), batch.getIdentity(), "records_" + partitionId);
+                batch.markPartitionPublished(partitionId);
+                return;
             }
             catch (ClickHouseWriterRegistration.OwnershipException exception) {
                 throw exception;
@@ -59,69 +72,78 @@ final class ClickHouseBatchPublisher {
                 publicationFailure = exception;
             }
 
-            RawStatus status;
+            ReceiptStatus status;
             try {
-                status = readStatus(batch.getIdentity());
+                status = readStatus(batch.getIdentity(), partitionId);
             }
             catch (SQLException reconciliationFailure) {
                 reconciliationFailure.addSuppressed(publicationFailure);
                 throw reconciliationFailure;
             }
-            if (status.matches(receipt)) {
-                batch.markPublished();
-                return receipt;
+            if (status.matches(receipt, expectedRowCount)) {
+                batch.markPartitionPublished(partitionId);
+                return;
             }
-            if (!status.isEmpty() && !status.isRetryablePartial(receipt)) {
-                SQLException conflict = conflict(receipt);
+            if (!status.isEmpty()) {
+                SQLException conflict = conflict(receipt, partitionId);
                 conflict.addSuppressed(publicationFailure);
                 throw conflict;
             }
             if (attempt >= MAX_PUBLICATION_ATTEMPTS && !shouldContinueRecovery()) {
-                throw new SQLException("ClickHouse batch remained incomplete after " + attempt + " publication attempts", publicationFailure);
+                throw new SQLException("ClickHouse batch partition " + partitionId + " remained incomplete after " + attempt + " publication attempts", publicationFailure);
             }
-            pauseBeforeRetry(attempt++, "republishing a ClickHouse batch");
+            pauseBeforeRetry(attempt, "republishing a ClickHouse batch partition");
+            if (attempt < Integer.MAX_VALUE) {
+                attempt++;
+            }
         }
     }
 
-    private RawStatus readStatus(ClickHouseBatchIdentity identity) throws SQLException {
+    private ReceiptStatus readStatus(ClickHouseBatchIdentity identity, int partitionId) throws SQLException {
         SQLException failure = null;
-        for (int attempt = 1; attempt <= MAX_RECONCILIATION_ATTEMPTS; attempt++) {
+        int attempt = 1;
+        while (true) {
             if (Thread.currentThread().isInterrupted()) {
                 throw interrupted("reconciling a ClickHouse batch", failure);
             }
             try {
-                return readRawStatus(identity);
+                return readReceiptStatus(identity, partitionId);
             }
             catch (SQLException exception) {
-                if (failure != null && failure != exception) {
-                    exception.addSuppressed(failure);
-                }
                 failure = exception;
             }
-            if (attempt < MAX_RECONCILIATION_ATTEMPTS) {
-                pauseBeforeRetry(attempt, "reconciling a ClickHouse batch");
+            if (attempt >= MAX_RECONCILIATION_ATTEMPTS && !shouldContinueRecovery()) {
+                throw new SQLException("ClickHouse batch status remained unavailable after " + attempt + " attempts", failure);
+            }
+            pauseBeforeRetry(attempt, "reconciling a ClickHouse batch");
+            if (attempt < Integer.MAX_VALUE) {
+                attempt++;
             }
         }
-        throw new SQLException("ClickHouse batch status remained unavailable after " + MAX_RECONCILIATION_ATTEMPTS + " attempts", failure);
     }
 
-    private RawStatus readRawStatus(ClickHouseBatchIdentity identity) throws SQLException {
-        String sql = "SELECT count(),uniqExact(tuple(family,rowid)),uniqExact(batch_id),any(toString(batch_id)),uniqExact(batch_ordinal),max(batch_ordinal)"
+    private ReceiptStatus readReceiptStatus(ClickHouseBatchIdentity identity, int partitionId) throws SQLException {
+        String sql = "SELECT toString(batch_id),ifNull(amount,-1)"
                 + " FROM " + eventTable
-                + " WHERE batch_sequence=?";
+                + " WHERE family=? AND batch_sequence=? AND rowid=? AND wid=?"
+                + " GROUP BY batch_id,amount LIMIT 2";
         try (Connection connection = jdbc.openConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setLong(1, identity.getBatchSequence());
+            statement.setString(1, ClickHouseSchema.BATCH_RECEIPT_FAMILY);
+            statement.setLong(2, identity.getBatchSequence());
+            statement.setLong(3, identity.getBatchSequence());
+            statement.setInt(4, partitionId);
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (!resultSet.next()) {
-                    throw new SQLException("ClickHouse did not return batch reconciliation data");
+                    return ReceiptStatus.EMPTY;
                 }
-                return new RawStatus(resultSet.getLong(1), resultSet.getLong(2), resultSet.getLong(3), resultSet.getString(4), resultSet.getLong(5), resultSet.getLong(6));
+                ReceiptStatus status = new ReceiptStatus(resultSet.getString(1), resultSet.getInt(2), false);
+                return resultSet.next() ? ReceiptStatus.CONFLICTING : status;
             }
         }
     }
 
-    private static SQLException conflict(ClickHouseBatchReceipt receipt) {
-        return new SQLException("ClickHouse batch is partial or conflicting for batch sequence " + receipt.getBatchSequence());
+    private static SQLException conflict(ClickHouseBatchReceipt receipt, int partitionId) {
+        return new SQLException("ClickHouse batch receipt is conflicting for batch sequence " + receipt.getBatchSequence() + " partition " + partitionId);
     }
 
     static SQLException interrupted(String operation, SQLException failure) {
@@ -148,47 +170,28 @@ final class ClickHouseBatchPublisher {
         return ConfigHandler.serverRunning || ConfigHandler.shutdownDrainRunning;
     }
 
-    private static final class RawStatus {
+    private static final class ReceiptStatus {
 
-        private final long count;
-        private final long logicalRows;
-        private final long uniqueBatchIds;
+        private static final ReceiptStatus EMPTY = new ReceiptStatus(null, -1, false);
+        private static final ReceiptStatus CONFLICTING = new ReceiptStatus(null, -1, true);
+
         private final String batchId;
-        private final long uniqueOrdinals;
-        private final long maximumOrdinal;
+        private final int rowCount;
+        private final boolean conflicting;
 
-        private RawStatus(long count, long logicalRows, long uniqueBatchIds, String batchId, long uniqueOrdinals, long maximumOrdinal) {
-            this.count = count;
-            this.logicalRows = logicalRows;
-            this.uniqueBatchIds = uniqueBatchIds;
+        private ReceiptStatus(String batchId, int rowCount, boolean conflicting) {
             this.batchId = batchId;
-            this.uniqueOrdinals = uniqueOrdinals;
-            this.maximumOrdinal = maximumOrdinal;
+            this.rowCount = rowCount;
+            this.conflicting = conflicting;
         }
 
         private boolean isEmpty() {
-            return count == 0;
+            return this == EMPTY;
         }
 
-        private boolean matches(ClickHouseBatchReceipt receipt) {
-            long expectedLogicalRows = receipt.getLogicalRowCount();
-            return count >= expectedLogicalRows
-                    && count <= receipt.getRowCount()
-                    && logicalRows == expectedLogicalRows
-                    && uniqueBatchIds == 1
-                    && uniqueOrdinals == count
-                    && maximumOrdinal == receipt.getRowCount() - 1L
-                    && receipt.getBatchId().toString().equals(batchId);
-        }
-
-        private boolean isRetryablePartial(ClickHouseBatchReceipt receipt) {
-            return count > 0
-                    && count < receipt.getRowCount()
-                    && logicalRows > 0
-                    && logicalRows <= receipt.getLogicalRowCount()
-                    && uniqueBatchIds == 1
-                    && uniqueOrdinals == count
-                    && maximumOrdinal < receipt.getRowCount()
+        private boolean matches(ClickHouseBatchReceipt receipt, int expectedRowCount) {
+            return !conflicting
+                    && rowCount == expectedRowCount
                     && receipt.getBatchId().toString().equals(batchId);
         }
     }

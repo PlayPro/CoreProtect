@@ -31,7 +31,7 @@ public class BlockLookup {
             int worldId = WorldUtils.getWorldId(block.getWorld().getName());
             String table = DuckDBLookupQuery.spatialTable(statement.getConnection(), "block", worldId, x, x, z, z, "spatial_rows");
             String index = ConfigHandler.databaseType.isDuckDB() ? "" : WorldUtils.getWidIndex("block");
-            String query = "SELECT " + ConfigHandler.databaseType.getUserColumn() + ",type FROM " + table + " " + index + "WHERE wid = " + worldId + " AND x = " + x + " AND z = " + z + " AND y = " + y + " AND rolled_back IN(0,2) AND action=1 ORDER BY rowid DESC LIMIT 1 OFFSET 0";
+            String query = "SELECT " + ConfigHandler.databaseType.getUserColumn() + ",type FROM " + table + " " + index + "WHERE wid = " + worldId + " AND x = " + x + " AND z = " + z + " AND y = " + y + " AND rolled_back IN(0,2) AND action=1 ORDER BY " + ConfigHandler.getDescendingEventOrder() + " LIMIT 1 OFFSET 0";
 
             ResultSet results = statement.executeQuery(query);
             while (results.next()) {

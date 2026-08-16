@@ -443,6 +443,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
     @Override
     public void run() {
         boolean lastRun = false;
+        boolean[] drained = { true, true };
 
         while (ConfigHandler.serverRunning || ConfigHandler.converterRunning || !lastRun) {
             if (!ConfigHandler.serverRunning && !ConfigHandler.converterRunning) {
@@ -465,15 +466,20 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
                         currentConsumer = 0;
                     }
                 }
-                Thread.sleep(500);
+                Thread.sleep(consumerDelay(lastRun || !drained[0] || !drained[1]));
                 pauseConsumer(process_id);
                 databaseLifecycle.readLock().lock();
+                boolean processingAttempted = false;
                 try {
                     if (!databaseReloadPaused && !isPaused && !persistenceHalted) {
+                        processingAttempted = true;
                         Process.processConsumer(process_id, lastRun);
                     }
                 }
                 finally {
+                    if (processingAttempted) {
+                        drained[process_id] = getConsumerSize(process_id) == 0;
+                    }
                     databaseLifecycle.readLock().unlock();
                 }
             }

@@ -75,7 +75,7 @@ public class BlockAPI {
             try (Statement statement = connection.createStatement()) {
                 String table = DuckDBLookupQuery.spatialTable(connection, "block", worldId, x, x, z, z, "spatial_rows");
                 String index = ConfigHandler.databaseType.isDuckDB() ? "" : WorldUtils.getWidIndex("block");
-                String query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,blockdata,rolled_back FROM " + table + " " + index + "WHERE wid = " + worldId + " AND x = " + x + " AND z = " + z + " AND y = " + y + " AND time > " + checkTime + " ORDER BY rowid DESC";
+                String query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,blockdata,rolled_back FROM " + table + " " + index + "WHERE wid = " + worldId + " AND x = " + x + " AND z = " + z + " AND y = " + y + " AND time > " + checkTime + " ORDER BY " + ConfigHandler.getDescendingEventOrder();
 
                 try (ResultSet results = statement.executeQuery(query)) {
                     while (results.next()) {
@@ -158,7 +158,7 @@ public class BlockAPI {
             if (userId != null) {
                 query.append(" AND ").append(ConfigHandler.databaseType.getUserColumn()).append(" = ?");
             }
-            query.append(" ORDER BY rowid DESC");
+            query.append(" ORDER BY ").append(ConfigHandler.getDescendingEventOrder());
             if (options.hasLimit()) {
                 query.append(" LIMIT ").append(options.getLimitCount()).append(" OFFSET ").append(options.getLimitOffset());
             }

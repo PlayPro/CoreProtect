@@ -76,7 +76,7 @@ public class SignMessageLookup {
                     count = results.getInt("count");
                 }
                 results.close();
-                query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",face,line_1,line_2,line_3,line_4,line_5,line_6,line_7,line_8 FROM " + ConfigHandler.prefix + "sign " + WorldUtils.getWidIndex("sign") + "WHERE " + where + " ORDER BY rowid DESC LIMIT " + limit + " OFFSET " + pageStart;
+                query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",face,line_1,line_2,line_3,line_4,line_5,line_6,line_7,line_8 FROM " + ConfigHandler.prefix + "sign " + WorldUtils.getWidIndex("sign") + "WHERE " + where + " ORDER BY " + ConfigHandler.getDescendingEventOrder() + " LIMIT " + limit + " OFFSET " + pageStart;
                 results = statement.executeQuery(query);
             }
 

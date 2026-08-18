@@ -46,6 +46,7 @@ public final class ClickHouseJdbcConfig {
         properties.setProperty(SERVER_SETTING_PREFIX + "async_insert", "0");
         properties.setProperty(SERVER_SETTING_PREFIX + "do_not_merge_across_partitions_select_final", "1");
         properties.setProperty(SERVER_SETTING_PREFIX + "wait_end_of_query", "1");
+        properties.setProperty(SERVER_SETTING_PREFIX + "prefer_column_name_to_alias", "1");
         properties.setProperty("ssl", Boolean.toString(tls));
         properties.setProperty("jdbc_ignore_unsupported_values", "false");
     }

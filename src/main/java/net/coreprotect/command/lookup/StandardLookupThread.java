@@ -319,6 +319,9 @@ public class StandardLookupThread implements Runnable {
                         List<String[]> lookupList = lookupPage == null
                                 ? Lookup.performPartialLookup(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, entityActionFilter, messageFilters, entityContext, finalLocation, radius, rowData, timeStart, timeEnd, (int) pageStart, displayResults, restrict_world, true, entityContainerId, rollbackState)
                                 : lookupPage.getRows();
+                        if (lookupList == null) {
+                            return;
+                        }
 
                         Map<Integer, EntitySpawnRecord> entitySpawnRecords = Collections.emptyMap();
                         Map<UUID, Location> loadedEntityLocations = Collections.emptyMap();

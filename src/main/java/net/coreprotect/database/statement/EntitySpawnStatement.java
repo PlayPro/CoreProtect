@@ -74,6 +74,16 @@ public final class EntitySpawnStatement {
         batch.linkEntitySpawnKill(UUID.fromString(uuid), killRowId);
     }
 
+    public static Integer findRowIdByUuid(Connection connection, UUID uuid) throws SQLException {
+        String query = "SELECT rowid AS id FROM " + ConfigHandler.prefix + "entity_spawn WHERE uuid=? LIMIT 1";
+        try (PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setString(1, uuid.toString());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next() ? resultSet.getInt("id") : null;
+            }
+        }
+    }
+
     public static Map<Integer, EntitySpawnRecord> loadRecords(Connection connection, Collection<Integer> rowIds) throws SQLException {
         return loadRecords(connection, rowIds, true);
     }

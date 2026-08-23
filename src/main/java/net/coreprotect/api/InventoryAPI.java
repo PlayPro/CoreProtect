@@ -51,9 +51,11 @@ public class InventoryAPI {
             try {
                 StringBuilder whereBuilder = new StringBuilder();
                 filter.appendWhere(whereBuilder);
+                filter.appendMaterialWhere(whereBuilder);
                 String where = whereBuilder.toString();
                 StringBuilder entityWhereBuilder = new StringBuilder();
                 filter.appendEntityContainerWhere(entityWhereBuilder, "entity_rows", "spawn_rows");
+                filter.appendMaterialWhere(entityWhereBuilder, "entity_rows");
                 String query = buildQuery(
                         where,
                         entityWhereBuilder.toString(),

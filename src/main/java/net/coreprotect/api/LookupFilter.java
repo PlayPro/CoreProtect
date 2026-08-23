@@ -6,12 +6,16 @@ import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.StringJoiner;
 
 import org.bukkit.Location;
+import org.bukkit.Material;
 
+import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.DuckDBLookupQuery;
 import net.coreprotect.database.DuckDBSpatialIndex;
+import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
 
 final class LookupFilter {
@@ -21,14 +25,18 @@ final class LookupFilter {
     private final int radius;
     private final int limitOffset;
     private final int limitCount;
+    private final String includeMaterialIds;
+    private final String excludeMaterialIds;
 
-    private LookupFilter(Integer userId, int checkTime, Location location, int radius, int limitOffset, int limitCount) {
+    private LookupFilter(Integer userId, int checkTime, Location location, int radius, int limitOffset, int limitCount, String includeMaterialIds, String excludeMaterialIds) {
         this.userId = userId;
         this.checkTime = checkTime;
         this.location = location;
         this.radius = radius;
         this.limitOffset = limitOffset;
         this.limitCount = limitCount;
+        this.includeMaterialIds = includeMaterialIds;
+        this.excludeMaterialIds = excludeMaterialIds;
     }
 
     static LookupFilter fromOptions(Connection connection, LookupOptions options) throws Exception {
@@ -42,7 +50,8 @@ final class LookupFilter {
             checkTime = (int) (System.currentTimeMillis() / 1000L) - options.getTime();
         }
 
-        return new LookupFilter(userId, checkTime, options.getLocation(), options.getRadius(), options.getLimitOffset(), options.getLimitCount());
+        return new LookupFilter(userId, checkTime, options.getLocation(), options.getRadius(), options.getLimitOffset(), options.getLimitCount(),
+                materialIds(options.getIncludeMaterials()), materialIds(options.getExcludeMaterials()));
     }
 
     boolean hasInvalidUser() {
@@ -127,6 +136,20 @@ final class LookupFilter {
             query.append(" AND ").append(entity).append("x >= ? AND ").append(entity).append("x < ? AND ").append(entity).append("y >= ? AND ").append(entity).append("y < ? AND ").append(entity).append("z >= ? AND ").append(entity).append("z < ?");
         }
         query.append("))");
+    }
+
+    void appendMaterialWhere(StringBuilder query) {
+        appendMaterialWhere(query, "");
+    }
+
+    void appendMaterialWhere(StringBuilder query, String alias) {
+        String qualifier = alias.isEmpty() ? "" : alias + ".";
+        if (!includeMaterialIds.isEmpty()) {
+            query.append(" AND ").append(qualifier).append("type IN (").append(includeMaterialIds).append(")");
+        }
+        if (!excludeMaterialIds.isEmpty()) {
+            query.append(" AND ").append(qualifier).append("type NOT IN (").append(excludeMaterialIds).append(")");
+        }
     }
 
     String table(Connection connection, String table, String alias) {
@@ -295,6 +318,18 @@ final class LookupFilter {
             statement.setLong(parameterIndex++, (long) z + 1L);
         }
         return parameterIndex;
+    }
+
+    private static String materialIds(List<Material> materials) {
+        StringJoiner result = new StringJoiner(",");
+        for (Material material : materials) {
+            result.add(String.valueOf(MaterialUtils.getBlockId(material.name(), false)));
+            int legacyId = BukkitAdapter.ADAPTER.getLegacyBlockId(material);
+            if (legacyId > 0) {
+                result.add(String.valueOf(legacyId));
+            }
+        }
+        return result.toString();
     }
 
     private static String alias(String alias) {

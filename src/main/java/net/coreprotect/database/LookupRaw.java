@@ -35,6 +35,7 @@ import net.coreprotect.model.item.ItemTransactionActions;
 import net.coreprotect.model.lookup.EntityLookupContext;
 import net.coreprotect.model.lookup.LookupCursor;
 import net.coreprotect.model.lookup.LookupRollbackState;
+import net.coreprotect.model.lookup.MessageFilter;
 import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.ErrorReporter;
@@ -1419,37 +1420,39 @@ public class LookupRaw extends Queue {
             return baseQuery;
         }
 
+        String query = appendMessageMatch(baseQuery, messageFilters, table, false, bindings);
+        return appendMessageMatch(query, messageFilters, table, true, bindings);
+    }
+
+    private static String appendMessageMatch(String baseQuery, List<String> messageFilters, String table, boolean excluded, List<String> bindings) {
+        List<String> terms = filterTerms(messageFilters, excluded);
+        if (terms.isEmpty()) {
+            return baseQuery;
+        }
+
         if (ConfigHandler.databaseType.isDuckDB()) {
-            StringBuilder query = new StringBuilder(baseQuery).append(" AND (");
-            for (int index = 0; index < messageFilters.size(); index++) {
+            String column = matchColumn("message", excluded);
+            StringBuilder query = new StringBuilder(baseQuery).append(excluded ? " AND NOT (" : " AND (");
+            for (int index = 0; index < terms.size(); index++) {
                 if (index > 0) {
                     query.append(" OR ");
                 }
-                query.append("message ILIKE ? ESCAPE '~'");
-                String filter = messageFilters.get(index) == null ? "" : messageFilters.get(index);
-                bindings.add(escapeLike(filter) + "%");
+                query.append(column).append(" ILIKE ? ESCAPE '~'");
+                bindings.add(messagePattern(terms.get(index)));
             }
             return query.append(')').toString();
         }
 
         String alias = table + "FilterRows";
-        String likeOperator = ConfigHandler.databaseType.isColumnar() ? " ILIKE " : " LIKE ";
-        String escapeClause = ConfigHandler.databaseType.isClickHouse() ? "" : " ESCAPE '~'";
         StringBuilder query = new StringBuilder(baseQuery)
-                .append(" AND rowid IN (SELECT ").append(alias).append(".rowid FROM ")
+                .append(excluded ? " AND rowid NOT IN (SELECT " : " AND rowid IN (SELECT ").append(alias).append(".rowid FROM ")
                 .append(ConfigHandler.prefix).append(table).append(" ").append(alias).append(" WHERE (");
-        for (int index = 0; index < messageFilters.size(); index++) {
+        for (int index = 0; index < terms.size(); index++) {
             if (index > 0) {
                 query.append(" OR ");
             }
 
-            String prefixExpression = messagePrefix(alias + ".message");
-            query.append("(").append(prefixExpression).append(likeOperator).append("?").append(escapeClause).append(" AND ")
-                    .append(alias).append(".message").append(likeOperator).append("?").append(escapeClause).append(")");
-
-            String filter = messageFilters.get(index) == null ? "" : messageFilters.get(index);
-            bindings.add(escapeLike(firstCodePoints(filter, 16)) + "%");
-            bindings.add(escapeLike(filter) + "%");
+            query.append(messageCondition(alias + ".message", terms.get(index), bindings));
         }
         return query.append("))").toString();
     }
@@ -1459,20 +1462,29 @@ public class LookupRaw extends Queue {
             return baseQuery;
         }
 
+        String query = appendSignMessageMatch(baseQuery, messageFilters, false, bindings);
+        return appendSignMessageMatch(query, messageFilters, true, bindings);
+    }
+
+    private static String appendSignMessageMatch(String baseQuery, List<String> messageFilters, boolean excluded, List<String> bindings) {
+        List<String> terms = filterTerms(messageFilters, excluded);
+        if (terms.isEmpty()) {
+            return baseQuery;
+        }
+
         if (ConfigHandler.databaseType.isDuckDB()) {
-            StringBuilder query = new StringBuilder(baseQuery).append(" AND (");
-            for (int filterIndex = 0; filterIndex < messageFilters.size(); filterIndex++) {
+            StringBuilder query = new StringBuilder(baseQuery).append(excluded ? " AND NOT (" : " AND (");
+            for (int filterIndex = 0; filterIndex < terms.size(); filterIndex++) {
                 if (filterIndex > 0) {
                     query.append(" OR ");
                 }
                 query.append("((face=0 AND (");
-                appendDuckDBSignLines(query, 1, 4);
+                appendDuckDBSignLines(query, 1, 4, excluded);
                 query.append(")) OR (face<>0 AND (");
-                appendDuckDBSignLines(query, 5, 8);
+                appendDuckDBSignLines(query, 5, 8, excluded);
                 query.append(")))");
 
-                String filter = messageFilters.get(filterIndex) == null ? "" : messageFilters.get(filterIndex);
-                String message = escapeLike(filter) + "%";
+                String message = messagePattern(terms.get(filterIndex));
                 for (int line = 1; line <= 8; line++) {
                     bindings.add(message);
                 }
@@ -1481,40 +1493,69 @@ public class LookupRaw extends Queue {
         }
 
         String alias = "signFilterRows";
-        String likeOperator = ConfigHandler.databaseType.isColumnar() ? " ILIKE " : " LIKE ";
-        String escapeClause = ConfigHandler.databaseType.isClickHouse() ? "" : " ESCAPE '~'";
-        StringBuilder query = new StringBuilder(baseQuery).append(" AND rowid IN (");
+        StringBuilder query = new StringBuilder(baseQuery).append(excluded ? " AND rowid NOT IN (" : " AND rowid IN (");
         boolean union = false;
-        for (String filter : messageFilters) {
-            String prefix = escapeLike(firstCodePoints(filter, 16)) + "%";
-            String message = escapeLike(filter) + "%";
+        for (String term : terms) {
             for (int line = 1; line <= 8; line++) {
                 if (union) {
                     query.append(" UNION ALL ");
                 }
 
-                String column = "line_" + line;
-                String prefixExpression = messagePrefix(alias + "." + column);
                 query.append("SELECT ").append(alias).append(".rowid FROM ")
                         .append(ConfigHandler.prefix).append("sign ").append(alias)
                         .append(" WHERE ").append(alias).append(line <= 4 ? ".face = 0" : ".face <> 0")
-                        .append(" AND (").append(prefixExpression).append(likeOperator).append("?").append(escapeClause).append(" AND ")
-                        .append(alias).append(".").append(column).append(likeOperator).append("?").append(escapeClause).append(")");
-                bindings.add(prefix);
-                bindings.add(message);
+                        .append(" AND ").append(messageCondition(alias + ".line_" + line, term, bindings));
                 union = true;
             }
         }
         return query.append(")").toString();
     }
 
-    private static void appendDuckDBSignLines(StringBuilder query, int firstLine, int lastLine) {
+    private static void appendDuckDBSignLines(StringBuilder query, int firstLine, int lastLine, boolean excluded) {
         for (int line = firstLine; line <= lastLine; line++) {
             if (line > firstLine) {
                 query.append(" OR ");
             }
-            query.append("line_").append(line).append(" ILIKE ? ESCAPE '~'");
+            query.append(matchColumn("line_" + line, excluded)).append(" ILIKE ? ESCAPE '~'");
         }
+    }
+
+    private static List<String> filterTerms(List<String> messageFilters, boolean excluded) {
+        List<String> terms = new ArrayList<>();
+        for (String filter : messageFilters) {
+            if (MessageFilter.isExcluded(filter) == excluded) {
+                terms.add(MessageFilter.getTerm(filter));
+            }
+        }
+        return terms;
+    }
+
+    private static String messageCondition(String column, String term, List<String> bindings) {
+        String likeOperator = ConfigHandler.databaseType.isColumnar() ? " ILIKE " : " LIKE ";
+        String escapeClause = ConfigHandler.databaseType.isClickHouse() ? "" : " ESCAPE '~'";
+        int wildcard = term.indexOf(MessageFilter.WILDCARD);
+        String anchor = wildcard < 0 ? term : term.substring(0, wildcard);
+        StringBuilder condition = new StringBuilder("(");
+        if (!anchor.isEmpty()) { // a term starting with a wildcard can't use the message prefix index
+            condition.append(messagePrefix(column)).append(likeOperator).append("?").append(escapeClause).append(" AND ");
+            bindings.add(escapeLike(firstCodePoints(anchor, 16)) + "%");
+        }
+        condition.append(column).append(likeOperator).append("?").append(escapeClause);
+        bindings.add(messagePattern(term));
+        return condition.append(")").toString();
+    }
+
+    private static String messagePattern(String term) {
+        String pattern = escapeLike(term).replace(MessageFilter.WILDCARD, "%");
+        return pattern.endsWith("%") ? pattern : pattern + "%";
+    }
+
+    /**
+     * A negated match must treat a null column as an empty string, as "NOT (null ILIKE ?)" is null
+     * and would otherwise discard the row.
+     */
+    private static String matchColumn(String column, boolean excluded) {
+        return excluded ? "COALESCE(" + column + ",'')" : column;
     }
 
     private static String firstCodePoints(String value, int maximum) {

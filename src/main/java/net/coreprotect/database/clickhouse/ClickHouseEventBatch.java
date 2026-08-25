@@ -177,7 +177,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         set("waxed", waxed);
         set("face", face);
         for (int index = 0; index < lines.length; index++) {
-            set("line_" + (index + 1), Objects.requireNonNull(lines[index], "sign line"));
+            set("line_" + (index + 1), lines[index]);
         }
         commitRow(ClickHouseFamily.SIGN, rowId);
         return rowId;

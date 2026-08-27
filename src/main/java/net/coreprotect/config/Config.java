@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -30,6 +31,7 @@ public class Config extends Language {
     private static final Map<String, String> DEFAULT_VALUES = new LinkedHashMap<>();
     private static final Map<String, Config> CONFIG_BY_WORLD_NAME = new HashMap<>();
     private static final String DEFAULT_FILE_HEADER = "# CoreProtect Config";
+    private static final Pattern NON_DIGIT_PATTERN = Pattern.compile("[^0-9]");
     public static final String LINE_SEPARATOR = "\n";
 
     private static final Config GLOBAL = new Config();
@@ -373,7 +375,7 @@ public class Config extends Language {
             return dfl;
         }
 
-        configured = configured.replaceAll("[^0-9]", "");
+        configured = NON_DIGIT_PATTERN.matcher(configured).replaceAll("");
 
         return configured.isEmpty() ? dfl : Integer.parseInt(configured);
     }

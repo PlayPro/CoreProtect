@@ -15,7 +15,6 @@ import org.bukkit.command.CommandSender;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.DuckDBLookupQuery;
-import net.coreprotect.database.clickhouse.ClickHouseLookupQuery;
 import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
@@ -129,18 +128,6 @@ public class ChestTransactionLookup {
                 }
                 String columns = "data_rows.time,data_rows." + ConfigHandler.databaseType.getUserColumn() + ",data_rows.wid,data_rows.x,data_rows.y,data_rows.z,data_rows.action,data_rows.type,data_rows.data,data_rows.amount,data_rows.metadata,data_rows.rolled_back";
                 query = DuckDBLookupQuery.pageQuery(sourceTable, table, where, columns, entitySpawnRowId != null, limit, pageStart);
-                results = statement.executeQuery(query);
-            }
-            else if (ConfigHandler.databaseType.isClickHouse()) {
-                String sourceTable = ClickHouseLookupQuery.currentEventTable();
-                String sourceWhere = ClickHouseLookupQuery.currentEventPredicate(tableName, where);
-                query = "SELECT COUNT(*) as count FROM " + sourceTable + " WHERE " + sourceWhere + " LIMIT 1 OFFSET 0";
-                results = statement.executeQuery(query);
-                while (results.next()) {
-                    count = results.getInt("count");
-                }
-                results.close();
-                query = "SELECT time,user_id AS `user`,wid,x,y,z,action,type,data,amount,metadata,rolled_back FROM " + sourceTable + " WHERE " + sourceWhere + " ORDER BY " + order + " LIMIT " + limit + " OFFSET " + pageStart;
                 results = statement.executeQuery(query);
             }
             else {

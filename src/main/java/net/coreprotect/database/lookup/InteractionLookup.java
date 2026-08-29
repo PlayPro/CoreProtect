@@ -9,7 +9,6 @@ import org.bukkit.command.CommandSender;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.DuckDBLookupQuery;
-import net.coreprotect.database.clickhouse.ClickHouseLookupQuery;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
@@ -67,18 +66,6 @@ public class InteractionLookup {
                 String sourceTable = DuckDBLookupQuery.spatialTable(statement.getConnection(), "block", worldId, x, x, z, z, "spatial_rows");
                 String columns = "data_rows.time,data_rows." + ConfigHandler.databaseType.getUserColumn() + ",data_rows.action,data_rows.type,data_rows.data,data_rows.rolled_back";
                 query = DuckDBLookupQuery.pageQuery(sourceTable, ConfigHandler.prefix + "block", where, columns, false, limit, pageStart);
-                results = statement.executeQuery(query);
-            }
-            else if (ConfigHandler.databaseType.isClickHouse()) {
-                String sourceTable = ClickHouseLookupQuery.currentEventTable();
-                String sourceWhere = ClickHouseLookupQuery.currentEventPredicate("block", where);
-                query = "SELECT COUNT(*) as count from " + sourceTable + " WHERE " + sourceWhere + " LIMIT 1 OFFSET 0";
-                results = statement.executeQuery(query);
-                while (results.next()) {
-                    count = results.getInt("count");
-                }
-                results.close();
-                query = "SELECT time,user_id AS `user`,action,type,data,rolled_back FROM " + sourceTable + " WHERE " + sourceWhere + " ORDER BY " + ConfigHandler.getDescendingEventOrder() + " LIMIT " + limit + " OFFSET " + pageStart;
                 results = statement.executeQuery(query);
             }
             else {

@@ -12,7 +12,6 @@ import org.bukkit.command.CommandSender;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.DuckDBLookupQuery;
-import net.coreprotect.database.clickhouse.ClickHouseLookupQuery;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
@@ -68,18 +67,6 @@ public class SignMessageLookup {
                 String sourceTable = DuckDBLookupQuery.spatialTable(statement.getConnection(), "sign", worldId, x, x, z, z, "spatial_rows");
                 String columns = "data_rows.time,data_rows." + ConfigHandler.databaseType.getUserColumn() + ",data_rows.face,data_rows.line_1,data_rows.line_2,data_rows.line_3,data_rows.line_4,data_rows.line_5,data_rows.line_6,data_rows.line_7,data_rows.line_8";
                 query = DuckDBLookupQuery.pageQuery(sourceTable, ConfigHandler.prefix + "sign", where, columns, false, limit, pageStart);
-                results = statement.executeQuery(query);
-            }
-            else if (ConfigHandler.databaseType.isClickHouse()) {
-                String sourceTable = ClickHouseLookupQuery.currentEventTable();
-                String sourceWhere = ClickHouseLookupQuery.currentEventPredicate("sign", where);
-                query = "SELECT COUNT(*) as count from " + sourceTable + " WHERE " + sourceWhere + " LIMIT 1 OFFSET 0";
-                results = statement.executeQuery(query);
-                while (results.next()) {
-                    count = results.getInt("count");
-                }
-                results.close();
-                query = "SELECT time,user_id AS `user`,face,line_1,line_2,line_3,line_4,line_5,line_6,line_7,line_8 FROM " + sourceTable + " WHERE " + sourceWhere + " ORDER BY " + ConfigHandler.getDescendingEventOrder() + " LIMIT " + limit + " OFFSET " + pageStart;
                 results = statement.executeQuery(query);
             }
             else {

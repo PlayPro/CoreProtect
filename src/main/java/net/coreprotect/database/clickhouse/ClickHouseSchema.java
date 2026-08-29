@@ -335,13 +335,13 @@ public final class ClickHouseSchema {
     }
 
     static String binary(String value, String alias) {
-        String presentValue = "ifNull(" + value + ",'')";
-        String bytes = "arrayMap(i -> reinterpretAsInt8(substring(" + presentValue + ",i,1)),range(1,length(" + presentValue + ")+1))";
-        return "if(isNull(" + value + "),CAST([], 'Array(Int8)'),arrayConcat([toInt8(0)]," + bytes + ")) AS " + alias;
+        return value + " AS " + alias;
     }
 
     private static String location(String column) {
-        return "if(e." + column + "_present=1,e." + column + ",NULL) AS " + column;
+        // Every compatibility family exposing a location stores this key. Project it directly so
+        // predicates on wid/x/z can be pushed through the view into the MergeTree sorting key.
+        return "e." + column + " AS " + column;
     }
 
     private static String events(Names names, ClickHouseFamily family) {

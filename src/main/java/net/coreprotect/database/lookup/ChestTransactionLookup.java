@@ -15,6 +15,7 @@ import org.bukkit.command.CommandSender;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.DuckDBLookupQuery;
+import net.coreprotect.database.clickhouse.ClickHouseLookupQuery;
 import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
@@ -131,13 +132,17 @@ public class ChestTransactionLookup {
                 results = statement.executeQuery(query);
             }
             else {
-                query = "SELECT COUNT(*) as count FROM " + table + " " + index + "WHERE " + where + " LIMIT 1 OFFSET 0";
+                boolean clickHouse = ConfigHandler.databaseType.isClickHouse();
+                String sourceTable = clickHouse ? ClickHouseLookupQuery.currentEventTable(tableName) : table;
+                String sourceWhere = clickHouse ? ClickHouseLookupQuery.currentEventPredicate(tableName, where) : where;
+                String userColumn = clickHouse ? ClickHouseLookupQuery.userProjection() : ConfigHandler.databaseType.getUserColumn();
+                query = "SELECT COUNT(*) as count FROM " + sourceTable + " " + index + "WHERE " + sourceWhere + " LIMIT 1 OFFSET 0";
                 results = statement.executeQuery(query);
                 while (results.next()) {
                     count = results.getInt("count");
                 }
                 results.close();
-                query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,action,type,data,amount,metadata,rolled_back FROM " + table + " " + index + "WHERE " + where + " ORDER BY " + order + " LIMIT " + limit + " OFFSET " + pageStart;
+                query = "SELECT time," + userColumn + ",wid,x,y,z,action,type,data,amount,metadata,rolled_back FROM " + sourceTable + " " + index + "WHERE " + sourceWhere + " ORDER BY " + order + " LIMIT " + limit + " OFFSET " + pageStart;
                 results = statement.executeQuery(query);
             }
             while (results.next()) {

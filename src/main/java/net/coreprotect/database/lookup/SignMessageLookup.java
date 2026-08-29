@@ -12,6 +12,7 @@ import org.bukkit.command.CommandSender;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.DuckDBLookupQuery;
+import net.coreprotect.database.clickhouse.ClickHouseLookupQuery;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
@@ -70,13 +71,17 @@ public class SignMessageLookup {
                 results = statement.executeQuery(query);
             }
             else {
-                query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "sign " + WorldUtils.getWidIndex("sign") + "WHERE " + where + " LIMIT 1 OFFSET 0";
+                boolean clickHouse = ConfigHandler.databaseType.isClickHouse();
+                String sourceTable = clickHouse ? ClickHouseLookupQuery.currentEventTable("sign") : ConfigHandler.prefix + "sign";
+                String sourceWhere = clickHouse ? ClickHouseLookupQuery.currentEventPredicate("sign", where) : where;
+                String userColumn = clickHouse ? ClickHouseLookupQuery.userProjection() : ConfigHandler.databaseType.getUserColumn();
+                query = "SELECT COUNT(*) as count from " + sourceTable + " " + WorldUtils.getWidIndex("sign") + "WHERE " + sourceWhere + " LIMIT 1 OFFSET 0";
                 results = statement.executeQuery(query);
                 while (results.next()) {
                     count = results.getInt("count");
                 }
                 results.close();
-                query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",face,line_1,line_2,line_3,line_4,line_5,line_6,line_7,line_8 FROM " + ConfigHandler.prefix + "sign " + WorldUtils.getWidIndex("sign") + "WHERE " + where + " ORDER BY " + ConfigHandler.getDescendingEventOrder() + " LIMIT " + limit + " OFFSET " + pageStart;
+                query = "SELECT time," + userColumn + ",face,line_1,line_2,line_3,line_4,line_5,line_6,line_7,line_8 FROM " + sourceTable + " " + WorldUtils.getWidIndex("sign") + "WHERE " + sourceWhere + " ORDER BY " + ConfigHandler.getDescendingEventOrder() + " LIMIT " + limit + " OFFSET " + pageStart;
                 results = statement.executeQuery(query);
             }
 

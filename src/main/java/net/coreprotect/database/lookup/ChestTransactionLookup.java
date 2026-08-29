@@ -131,18 +131,26 @@ public class ChestTransactionLookup {
                 query = DuckDBLookupQuery.pageQuery(sourceTable, table, where, columns, entitySpawnRowId != null, limit, pageStart);
                 results = statement.executeQuery(query);
             }
-            else {
-                boolean clickHouse = ConfigHandler.databaseType.isClickHouse();
-                String sourceTable = clickHouse ? ClickHouseLookupQuery.currentEventTable(tableName) : table;
-                String sourceWhere = clickHouse ? ClickHouseLookupQuery.currentEventPredicate(tableName, where) : where;
-                String userColumn = clickHouse ? ClickHouseLookupQuery.userProjection() : ConfigHandler.databaseType.getUserColumn();
-                query = "SELECT COUNT(*) as count FROM " + sourceTable + " " + index + "WHERE " + sourceWhere + " LIMIT 1 OFFSET 0";
+            else if (ConfigHandler.databaseType.isClickHouse()) {
+                String sourceTable = ClickHouseLookupQuery.currentEventTable();
+                String sourceWhere = ClickHouseLookupQuery.currentEventPredicate(tableName, where);
+                query = "SELECT COUNT(*) as count FROM " + sourceTable + " WHERE " + sourceWhere + " LIMIT 1 OFFSET 0";
                 results = statement.executeQuery(query);
                 while (results.next()) {
                     count = results.getInt("count");
                 }
                 results.close();
-                query = "SELECT time," + userColumn + ",wid,x,y,z,action,type,data,amount,metadata,rolled_back FROM " + sourceTable + " " + index + "WHERE " + sourceWhere + " ORDER BY " + order + " LIMIT " + limit + " OFFSET " + pageStart;
+                query = "SELECT time,user_id AS `user`,wid,x,y,z,action,type,data,amount,metadata,rolled_back FROM " + sourceTable + " WHERE " + sourceWhere + " ORDER BY " + order + " LIMIT " + limit + " OFFSET " + pageStart;
+                results = statement.executeQuery(query);
+            }
+            else {
+                query = "SELECT COUNT(*) as count FROM " + table + " " + index + "WHERE " + where + " LIMIT 1 OFFSET 0";
+                results = statement.executeQuery(query);
+                while (results.next()) {
+                    count = results.getInt("count");
+                }
+                results.close();
+                query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,action,type,data,amount,metadata,rolled_back FROM " + table + " " + index + "WHERE " + where + " ORDER BY " + order + " LIMIT " + limit + " OFFSET " + pageStart;
                 results = statement.executeQuery(query);
             }
             while (results.next()) {

@@ -69,18 +69,26 @@ public class InteractionLookup {
                 query = DuckDBLookupQuery.pageQuery(sourceTable, ConfigHandler.prefix + "block", where, columns, false, limit, pageStart);
                 results = statement.executeQuery(query);
             }
-            else {
-                boolean clickHouse = ConfigHandler.databaseType.isClickHouse();
-                String sourceTable = clickHouse ? ClickHouseLookupQuery.currentEventTable("block") : ConfigHandler.prefix + "block";
-                String sourceWhere = clickHouse ? ClickHouseLookupQuery.currentEventPredicate("block", where) : where;
-                String userColumn = clickHouse ? ClickHouseLookupQuery.userProjection() : ConfigHandler.databaseType.getUserColumn();
-                query = "SELECT COUNT(*) as count from " + sourceTable + " " + WorldUtils.getWidIndex("block") + "WHERE " + sourceWhere + " LIMIT 1 OFFSET 0";
+            else if (ConfigHandler.databaseType.isClickHouse()) {
+                String sourceTable = ClickHouseLookupQuery.currentEventTable();
+                String sourceWhere = ClickHouseLookupQuery.currentEventPredicate("block", where);
+                query = "SELECT COUNT(*) as count from " + sourceTable + " WHERE " + sourceWhere + " LIMIT 1 OFFSET 0";
                 results = statement.executeQuery(query);
                 while (results.next()) {
                     count = results.getInt("count");
                 }
                 results.close();
-                query = "SELECT time," + userColumn + ",action,type,data,rolled_back FROM " + sourceTable + " " + WorldUtils.getWidIndex("block") + "WHERE " + sourceWhere + " ORDER BY " + ConfigHandler.getDescendingEventOrder() + " LIMIT " + limit + " OFFSET " + pageStart;
+                query = "SELECT time,user_id AS `user`,action,type,data,rolled_back FROM " + sourceTable + " WHERE " + sourceWhere + " ORDER BY " + ConfigHandler.getDescendingEventOrder() + " LIMIT " + limit + " OFFSET " + pageStart;
+                results = statement.executeQuery(query);
+            }
+            else {
+                query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE " + where + " LIMIT 1 OFFSET 0";
+                results = statement.executeQuery(query);
+                while (results.next()) {
+                    count = results.getInt("count");
+                }
+                results.close();
+                query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,rolled_back FROM " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE " + where + " ORDER BY " + ConfigHandler.getDescendingEventOrder() + " LIMIT " + limit + " OFFSET " + pageStart;
                 results = statement.executeQuery(query);
             }
 

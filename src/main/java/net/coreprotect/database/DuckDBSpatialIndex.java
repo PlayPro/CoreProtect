@@ -13,7 +13,11 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 
+import org.duckdb.DuckDBConnection;
+
+import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.utility.DatabaseUtils;
 
 public final class DuckDBSpatialIndex {
@@ -28,8 +32,10 @@ public final class DuckDBSpatialIndex {
     private static final int MAXIMUM_REQUIRED_ROW_IDS = 4_096;
     private static final int MAXIMUM_PREDICATE_RANGES = 256;
     private static final long MAXIMUM_FILTER_PROBES = 2_000_000L;
+    private static final int INDEX_CHECKPOINT_SEGMENTS = 64;
     private static final String DEFAULT_ALIAS = "duckdb_spatial_rows";
     private static final Object STATE_LOCK = new Object();
+    private static final ReentrantLock INITIALIZATION_LOCK = new ReentrantLock();
 
     private static String runtimeKey;
     private static WriterState runtimeState;
@@ -55,12 +61,37 @@ public final class DuckDBSpatialIndex {
     static Transaction begin(Connection connection, String prefix) throws SQLException {
         String key = databaseKey(connection, prefix);
         synchronized (STATE_LOCK) {
-            if (runtimeState == null || !key.equals(runtimeKey)) {
-                runtimeState = loadWriterState(connection, prefix);
-                runtimeKey = key;
-                runtimeGeneration++;
+            if (runtimeState != null && key.equals(runtimeKey)) {
+                return new Transaction(key, prefix, runtimeGeneration, runtimeState.copy());
             }
-            return new Transaction(key, prefix, runtimeGeneration, runtimeState.copy());
+        }
+
+        INITIALIZATION_LOCK.lock();
+        try {
+            while (true) {
+                long observedGeneration;
+                synchronized (STATE_LOCK) {
+                    if (runtimeState != null && key.equals(runtimeKey)) {
+                        return new Transaction(key, prefix, runtimeGeneration, runtimeState.copy());
+                    }
+                    observedGeneration = runtimeGeneration;
+                }
+
+                WriterState loaded = loadWriterState(connection, prefix);
+                synchronized (STATE_LOCK) {
+                    if (observedGeneration != runtimeGeneration) {
+                        continue;
+                    }
+                    runtimeState = loaded;
+                    runtimeKey = key;
+                    indexCache = null;
+                    runtimeGeneration++;
+                    return new Transaction(key, prefix, runtimeGeneration, runtimeState.copy());
+                }
+            }
+        }
+        finally {
+            INITIALIZATION_LOCK.unlock();
         }
     }
 
@@ -250,22 +281,39 @@ public final class DuckDBSpatialIndex {
 
     private static WriterState loadWriterState(Connection connection, String prefix) throws SQLException {
         WriterState state = new WriterState();
-        for (Source source : Source.values()) {
-            long indexedThrough = 0L;
-            String highWaterSql = "SELECT COALESCE(MAX(end_rowid),0) FROM " + prefix + "duckdb_spatial_index WHERE table_id=" + source.id;
-            try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery(highWaterSql)) {
-                if (resultSet.next()) {
-                    indexedThrough = resultSet.getLong(1);
+        DuckDBConnection duckDBConnection = connection.unwrap(DuckDBConnection.class);
+        try (Connection scanConnection = duckDBConnection.duplicate(); Connection metadataConnection = duckDBConnection.duplicate()) {
+            metadataConnection.setAutoCommit(false);
+            ScanSettings originalSettings = readScanSettings(scanConnection);
+            Throwable failure = null;
+            try {
+                for (Source source : Source.values()) {
+                    long indexedThrough = indexedThrough(scanConnection, prefix, source);
+                    long highWater = sourceHighWater(scanConnection, prefix, source);
+                    if (highWater <= indexedThrough) {
+                        continue;
+                    }
+
+                    configureDuckDBScan(scanConnection, true);
+                    boolean insertionOrdered = hasInsertionOrder(scanConnection, prefix, source, indexedThrough, highWater);
+                    configureDuckDBScan(scanConnection, insertionOrdered);
+                    scanSource(scanConnection, metadataConnection, prefix, source, indexedThrough, highWater, insertionOrdered, state);
                 }
             }
-
-            String tailSql = "SELECT rowid,wid,x,z" + (source.entityRows ? ",entity_spawn_rowid" : "") + " FROM " + prefix + source.table + " WHERE rowid>? ORDER BY rowid";
-            try (PreparedStatement statement = connection.prepareStatement(tailSql)) {
-                statement.setLong(1, indexedThrough);
-                try (ResultSet resultSet = statement.executeQuery()) {
-                    while (resultSet.next()) {
-                        Integer entitySpawnRowId = source.entityRows ? resultSet.getInt("entity_spawn_rowid") : null;
-                        state.accumulator(source).add(resultSet.getLong("rowid"), resultSet.getInt("wid"), resultSet.getInt("x"), resultSet.getInt("z"), entitySpawnRowId);
+            catch (SQLException | RuntimeException | Error exception) {
+                failure = exception;
+                throw exception;
+            }
+            finally {
+                try {
+                    restoreScanSettings(scanConnection, originalSettings);
+                }
+                catch (SQLException exception) {
+                    if (failure != null) {
+                        failure.addSuppressed(exception);
+                    }
+                    else {
+                        throw exception;
                     }
                 }
             }
@@ -273,45 +321,149 @@ public final class DuckDBSpatialIndex {
         return state;
     }
 
+    private static long indexedThrough(Connection connection, String prefix, Source source) throws SQLException {
+        String sql = "SELECT COALESCE(MAX(end_rowid),0) FROM " + prefix + "duckdb_spatial_index WHERE table_id=" + source.id;
+        try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery(sql)) {
+            return resultSet.next() ? resultSet.getLong(1) : 0L;
+        }
+    }
+
+    private static long sourceHighWater(Connection connection, String prefix, Source source) throws SQLException {
+        String sql = "SELECT COALESCE(MAX(rowid),0) FROM " + prefix + source.table;
+        try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery(sql)) {
+            return resultSet.next() ? resultSet.getLong(1) : 0L;
+        }
+    }
+
+    private static boolean hasInsertionOrder(Connection connection, String prefix, Source source, long indexedThrough, long highWater) throws SQLException {
+        String sql = "SELECT rowid FROM " + prefix + source.table + " WHERE rowid>? AND rowid<=?";
+        long previousRowId = indexedThrough;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setLong(1, indexedThrough);
+            statement.setLong(2, highWater);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    long rowId = resultSet.getLong(1);
+                    if (rowId <= previousRowId) {
+                        return false;
+                    }
+                    previousRowId = rowId;
+                }
+            }
+        }
+        return true;
+    }
+
+    private static void scanSource(Connection connection, Connection metadataConnection, String prefix, Source source,
+            long indexedThrough, long highWater, boolean insertionOrdered, WriterState state) throws SQLException {
+        String sql = "SELECT rowid,wid,x,z" + (source.entityRows ? ",entity_spawn_rowid" : "") + " FROM " + prefix + source.table
+                + " WHERE rowid>? AND rowid<=?" + (insertionOrdered ? "" : " ORDER BY rowid");
+        Accumulator accumulator = state.accumulator(source);
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setLong(1, indexedThrough);
+            statement.setLong(2, highWater);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    int completedCount = accumulator.completed.size();
+                    Integer entitySpawnRowId = source.entityRows ? resultSet.getInt("entity_spawn_rowid") : null;
+                    accumulator.add(resultSet.getLong("rowid"), resultSet.getInt("wid"), resultSet.getInt("x"), resultSet.getInt("z"), entitySpawnRowId);
+                    if (accumulator.completed.size() != completedCount && state.completedCount() >= INDEX_CHECKPOINT_SEGMENTS) {
+                        writeCompleted(metadataConnection, prefix, state);
+                    }
+                }
+            }
+        }
+        accumulator.finish();
+        writeCompleted(metadataConnection, prefix, state);
+    }
+
+    private static void configureDuckDBScan(Connection connection, boolean preserveInsertionOrder) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("SET jdbc_stream_results=true");
+            statement.execute("SET threads=" + (preserveInsertionOrder ? Math.max(1, ConfigHandler.duckdbThreads) : 1));
+            statement.execute("SET preserve_insertion_order=" + preserveInsertionOrder);
+        }
+    }
+
+    private static ScanSettings readScanSettings(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery(
+                "SELECT current_setting('threads'),current_setting('preserve_insertion_order')")) {
+            if (!resultSet.next()) {
+                throw new SQLException("DuckDB did not return scan settings");
+            }
+            return new ScanSettings(resultSet.getString(1), resultSet.getString(2));
+        }
+    }
+
+    private static void restoreScanSettings(Connection connection, ScanSettings settings) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("SET threads=" + settings.threads);
+            statement.execute("SET preserve_insertion_order=" + settings.preserveInsertionOrder);
+        }
+    }
+
+    private static void writeCompleted(Connection connection, String prefix, WriterState state) throws SQLException {
+        try {
+            if (state.writeCompleted(connection, prefix)) {
+                connection.commit();
+            }
+        }
+        catch (SQLException | RuntimeException | Error exception) {
+            try {
+                connection.rollback();
+            }
+            catch (SQLException rollbackFailure) {
+                exception.addSuppressed(rollbackFailure);
+            }
+            throw exception;
+        }
+    }
+
     private static Map<Source, IndexSnapshot> snapshots(Connection connection, String prefix) throws SQLException {
         String key = databaseKey(connection, prefix);
-        synchronized (STATE_LOCK) {
-            if (indexCache != null && key.equals(indexCache.key)) {
-                return indexCache.snapshots;
-            }
-        }
-
-        Map<Source, IndexSnapshot> loaded = new EnumMap<>(Source.class);
-        for (Source source : Source.values()) {
-            loaded.put(source, new IndexSnapshot());
-        }
-        String sql = "SELECT table_id,start_rowid,end_rowid,row_count,chunks,entities FROM " + prefix + "duckdb_spatial_index ORDER BY table_id,start_rowid";
-        try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery(sql)) {
-            while (resultSet.next()) {
-                Source source = Source.fromId(resultSet.getInt("table_id"));
-                if (source == null) {
-                    continue;
+        while (true) {
+            long observedGeneration;
+            synchronized (STATE_LOCK) {
+                if (indexCache != null && key.equals(indexCache.key)) {
+                    return indexCache.snapshots;
                 }
-                IndexSnapshot snapshot = loaded.get(source);
-                long startRowId = resultSet.getLong("start_rowid");
-                long endRowId = resultSet.getLong("end_rowid");
-                int rowCount = resultSet.getInt("row_count");
-                byte[] chunks = DatabaseUtils.getBytes(resultSet, "chunks");
-                byte[] entities = DatabaseUtils.getBytes(resultSet, "entities");
-                if (startRowId <= 0L || endRowId < startRowId || rowCount <= 0 || chunks == null || chunks.length != FILTER_BYTES
-                        || (source.entityRows && (entities == null || entities.length != FILTER_BYTES))
-                        || (!source.entityRows && entities != null && entities.length != FILTER_BYTES)) {
-                    snapshot.usable = false;
-                    continue;
-                }
-                snapshot.segments.add(new Segment(startRowId, endRowId, rowCount, new BloomFilter(chunks), entities == null ? null : new BloomFilter(entities)));
-                snapshot.lastIndexedRowId = Math.max(snapshot.lastIndexedRowId, endRowId);
+                observedGeneration = runtimeGeneration;
             }
-        }
 
-        synchronized (STATE_LOCK) {
-            indexCache = new IndexCache(key, loaded);
-            return indexCache.snapshots;
+            Map<Source, IndexSnapshot> loaded = new EnumMap<>(Source.class);
+            for (Source source : Source.values()) {
+                loaded.put(source, new IndexSnapshot());
+            }
+            String sql = "SELECT table_id,start_rowid,end_rowid,row_count,chunks,entities FROM " + prefix + "duckdb_spatial_index ORDER BY table_id,start_rowid";
+            try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery(sql)) {
+                while (resultSet.next()) {
+                    Source source = Source.fromId(resultSet.getInt("table_id"));
+                    if (source == null) {
+                        continue;
+                    }
+                    IndexSnapshot snapshot = loaded.get(source);
+                    long startRowId = resultSet.getLong("start_rowid");
+                    long endRowId = resultSet.getLong("end_rowid");
+                    int rowCount = resultSet.getInt("row_count");
+                    byte[] chunks = DatabaseUtils.getBytes(resultSet, "chunks");
+                    byte[] entities = DatabaseUtils.getBytes(resultSet, "entities");
+                    if (startRowId <= 0L || endRowId < startRowId || rowCount <= 0 || chunks == null || chunks.length != FILTER_BYTES
+                            || (source.entityRows && (entities == null || entities.length != FILTER_BYTES))
+                            || (!source.entityRows && entities != null && entities.length != FILTER_BYTES)) {
+                        snapshot.usable = false;
+                        continue;
+                    }
+                    snapshot.segments.add(new Segment(startRowId, endRowId, rowCount, new BloomFilter(chunks), entities == null ? null : new BloomFilter(entities)));
+                    snapshot.lastIndexedRowId = Math.max(snapshot.lastIndexedRowId, endRowId);
+                }
+            }
+
+            synchronized (STATE_LOCK) {
+                if (observedGeneration == runtimeGeneration) {
+                    indexCache = new IndexCache(key, loaded);
+                    return indexCache.snapshots;
+                }
+            }
         }
     }
 
@@ -454,11 +606,11 @@ public final class DuckDBSpatialIndex {
             if (key.equals(runtimeKey)) {
                 runtimeKey = null;
                 runtimeState = null;
-                runtimeGeneration++;
             }
             if (indexCache != null && key.equals(indexCache.key)) {
                 indexCache = null;
             }
+            runtimeGeneration++;
         }
     }
 
@@ -478,6 +630,14 @@ public final class DuckDBSpatialIndex {
 
         private Accumulator accumulator(Source source) {
             return accumulators.computeIfAbsent(source, Accumulator::new);
+        }
+
+        private int completedCount() {
+            int count = 0;
+            for (Accumulator accumulator : accumulators.values()) {
+                count += accumulator.completed.size();
+            }
+            return count;
         }
 
         private WriterState copy() {
@@ -658,6 +818,17 @@ public final class DuckDBSpatialIndex {
         private PendingSegment(Source source, Segment segment) {
             this.source = source;
             this.segment = segment;
+        }
+    }
+
+    private static final class ScanSettings {
+
+        private final String threads;
+        private final String preserveInsertionOrder;
+
+        private ScanSettings(String threads, String preserveInsertionOrder) {
+            this.threads = threads;
+            this.preserveInsertionOrder = preserveInsertionOrder;
         }
     }
 

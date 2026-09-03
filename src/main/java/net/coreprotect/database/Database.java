@@ -168,12 +168,12 @@ public class Database extends Queue {
                         connection.setAutoCommit(true);
                     }
                     catch (Exception cleanupException) {
-                        ErrorReporter.report(cleanupException);
+                        reportDatabaseFailure(cleanupException);
                         try {
                             connection.close();
                         }
                         catch (Exception closeException) {
-                            ErrorReporter.report(closeException);
+                            reportDatabaseFailure(closeException);
                         }
                     }
                 }
@@ -196,7 +196,7 @@ public class Database extends Queue {
 
                     continue;
                 }
-                ErrorReporter.report(e);
+                reportDatabaseFailure(e);
                 Consumer.transacting = false;
                 Consumer.interrupt = false;
                 TRANSACTION_ROLLBACK_ONLY.remove();
@@ -224,12 +224,12 @@ public class Database extends Queue {
                     connection.setAutoCommit(true);
                 }
                 catch (Exception cleanupException) {
-                    ErrorReporter.report(cleanupException);
+                    reportDatabaseFailure(cleanupException);
                     try {
                         connection.close();
                     }
                     catch (Exception closeException) {
-                        ErrorReporter.report(closeException);
+                        reportDatabaseFailure(closeException);
                     }
                 }
             }
@@ -239,7 +239,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            ErrorReporter.report(e);
+            reportDatabaseFailure(e);
         }
         finally {
             Consumer.transacting = false;
@@ -320,7 +320,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            ErrorReporter.report(e);
+            reportDatabaseFailure(e);
         }
     }
 
@@ -330,12 +330,21 @@ public class Database extends Queue {
 
     public static void handleWriteFailure(Exception exception) {
         if (ConfigHandler.databaseType.isColumnar()) {
+            if (ConfigHandler.databaseType.isDuckDB()) {
+                DuckDBRecovery.request(exception);
+            }
             if (exception instanceof DatabaseWriteException) {
                 throw (DatabaseWriteException) exception;
             }
             throw new DatabaseWriteException(exception);
         }
         ErrorReporter.report(exception);
+    }
+
+    public static void reportDatabaseFailure(Throwable failure) {
+        if (!DuckDBRecovery.request(failure)) {
+            ErrorReporter.report(failure);
+        }
     }
 
     public static void containerBreakCheck(String user, Material type, Object container, ItemStack[] contents, Location location) {
@@ -431,7 +440,8 @@ public class Database extends Queue {
             if (ConfigHandler.databaseType.isColumnar()) {
                 ConfigHandler.databaseReachable = false;
             }
-            if (!ConfigHandler.databaseType.isClickHouse() || shouldReportClickHouseConnectionError()) {
+            boolean recoveryRequested = ConfigHandler.databaseType.isDuckDB() && DuckDBRecovery.request(e);
+            if (!recoveryRequested && (!ConfigHandler.databaseType.isClickHouse() || shouldReportClickHouseConnectionError())) {
                 ErrorReporter.report(e);
             }
         }
@@ -485,7 +495,7 @@ public class Database extends Queue {
                         exception.addSuppressed(closeException);
                     }
                     iterator.remove();
-                    ErrorReporter.report(exception);
+                    reportDatabaseFailure(exception);
                 }
             }
         }
@@ -692,7 +702,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            ErrorReporter.report(e);
+            reportDatabaseFailure(e);
         }
 
         return preparedStatement;
@@ -714,7 +724,7 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            ErrorReporter.report(e);
+            reportDatabaseFailure(e);
         }
 
         return preparedStatement;

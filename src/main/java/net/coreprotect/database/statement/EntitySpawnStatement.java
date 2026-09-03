@@ -740,6 +740,11 @@ public final class EntitySpawnStatement {
             coordinator.afterCommit(committed);
         }
 
+        @Override
+        public void afterRetain() {
+            coordinator.afterRetain();
+        }
+
         public void afterDiscard() {
             coordinator.afterDiscard();
         }

@@ -18,6 +18,10 @@ public interface ConsumerWriteBatch extends AutoCloseable {
 
     boolean commit() throws Exception;
 
+    default boolean wasCommitAttempted() {
+        return true;
+    }
+
     default boolean shouldCommit() {
         return false;
     }

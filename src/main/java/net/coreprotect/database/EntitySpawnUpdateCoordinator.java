@@ -233,6 +233,11 @@ public final class EntitySpawnUpdateCoordinator {
         }
     }
 
+    public void afterRetain() {
+        clearPending();
+        deferredLifecycleUuids.clear();
+    }
+
     public Checkpoint checkpoint() {
         return new Checkpoint(this);
     }

@@ -62,6 +62,9 @@ public class Language {
         phrases.put(Phrase.DATABASE_LOCKED_4, "Disabling database locking can result in data corruption.");
         phrases.put(Phrase.DATABASE_PERSISTENCE_HALTED, "Database writes halted. Please restart the server.");
         phrases.put(Phrase.DATABASE_QUEUE_LOSS, "Queued data will be lost when the server stops.");
+        phrases.put(Phrase.DATABASE_RECOVERY_FAILED, "Database recovery failed after {0} attempts.");
+        phrases.put(Phrase.DATABASE_RECOVERY_STARTED, "Database became unavailable. Attempting database recovery.");
+        phrases.put(Phrase.DATABASE_RECOVERY_SUCCESS, "Database recovery completed. Queued writes will resume.");
         phrases.put(Phrase.DATABASE_TYPE_OVERRIDE, "Option \"database-type\" overrides \"use-mysql\".");
         phrases.put(Phrase.DATABASE_UNREACHABLE, "Database is unreachable. Discarding data and shutting down.");
         phrases.put(Phrase.DEVELOPMENT_BRANCH, "Development branch detected, skipping patch scripts.");

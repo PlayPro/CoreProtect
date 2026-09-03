@@ -7,6 +7,7 @@ import org.bukkit.command.CommandSender;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.DuckDBRecovery;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.thread.NetworkHandler;
 import net.coreprotect.utility.Chat;
@@ -97,6 +98,7 @@ public class ReloadCommand {
                 return false;
             }
             EntitySpawnTracking.invalidateDatabaseVerification();
+            DuckDBRecovery.reset();
             resumePersistence = true;
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.RELOAD_SUCCESS));
 

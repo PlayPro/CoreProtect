@@ -8,8 +8,10 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.StringJoiner;
 
 public final class ClickHouseSchema {
@@ -195,32 +197,44 @@ public final class ClickHouseSchema {
             }
         }
 
-        String columnQuery = "SELECT name,type,default_kind,default_expression FROM system.columns WHERE database=? AND table=? ORDER BY position";
+        String columnQuery = "SELECT name,type,default_kind,default_expression FROM system.columns WHERE database=? AND table=?";
         try (PreparedStatement statement = connection.prepareStatement(columnQuery)) {
             statement.setString(1, database);
             statement.setString(2, table);
             try (ResultSet resultSet = statement.executeQuery()) {
-                for (String[] expectedColumn : expectedColumns) {
-                    if (!resultSet.next()) {
-                        throw new SQLException("ClickHouse table has missing columns: " + table);
-                    }
-                    String definition = expectedColumn[1];
-                    String expectedDefault = defaultExpression(definition);
-                    String defaultKind = resultSet.getString(3);
-                    String defaultExpression = resultSet.getString(4);
-                    boolean defaultMatches = expectedDefault == null
-                            ? defaultKind == null || defaultKind.isEmpty()
-                            : "DEFAULT".equalsIgnoreCase(defaultKind) && normalizeSql(expectedDefault).equals(normalizeSql(defaultExpression));
-                    if (!expectedColumn[0].equals(resultSet.getString(1))
-                            || !normalizeSql(columnType(definition)).equals(normalizeSql(resultSet.getString(2)))
-                            || !defaultMatches) {
-                        throw new SQLException("ClickHouse table has an incompatible column definition: " + table + "." + expectedColumn[0]);
-                    }
-                }
-                if (resultSet.next()) {
-                    throw new SQLException("ClickHouse table has unexpected columns: " + table);
-                }
+                validateColumns(resultSet, table, expectedColumns);
             }
+        }
+    }
+
+    static void validateColumns(ResultSet resultSet, String table, String[][] expectedColumns) throws SQLException {
+        Map<String, String[]> actualColumns = new HashMap<>();
+        while (resultSet.next()) {
+            String name = resultSet.getString(1);
+            String[] definition = { resultSet.getString(2), resultSet.getString(3), resultSet.getString(4) };
+            if (name == null || actualColumns.put(name, definition) != null) {
+                throw new SQLException("ClickHouse table has an incompatible column definition: " + table);
+            }
+        }
+
+        for (String[] expectedColumn : expectedColumns) {
+            String[] actualColumn = actualColumns.remove(expectedColumn[0]);
+            if (actualColumn == null) {
+                throw new SQLException("ClickHouse table has missing columns: " + table);
+            }
+            String definition = expectedColumn[1];
+            String expectedDefault = defaultExpression(definition);
+            String defaultKind = actualColumn[1];
+            String defaultExpression = actualColumn[2];
+            boolean defaultMatches = expectedDefault == null
+                    ? defaultKind == null || defaultKind.isEmpty()
+                    : "DEFAULT".equalsIgnoreCase(defaultKind) && normalizeSql(expectedDefault).equals(normalizeSql(defaultExpression));
+            if (!normalizeSql(columnType(definition)).equals(normalizeSql(actualColumn[0])) || !defaultMatches) {
+                throw new SQLException("ClickHouse table has an incompatible column definition: " + table + "." + expectedColumn[0]);
+            }
+        }
+        if (!actualColumns.isEmpty()) {
+            throw new SQLException("ClickHouse table has unexpected columns: " + table);
         }
     }
 

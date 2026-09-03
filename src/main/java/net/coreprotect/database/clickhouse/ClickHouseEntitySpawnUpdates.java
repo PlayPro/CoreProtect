@@ -230,6 +230,12 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
     }
 
     @Override
+    public void afterRetain() {
+        coordinator.afterRetain();
+        clearStateCache();
+    }
+
+    @Override
     public void afterDiscard() {
         coordinator.afterDiscard();
         clearStateCache();

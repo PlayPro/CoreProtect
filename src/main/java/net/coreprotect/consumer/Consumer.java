@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.bukkit.Bukkit;
@@ -16,6 +17,7 @@ import org.bukkit.inventory.ItemStack;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.process.Process;
+import net.coreprotect.database.DuckDBRecovery;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
@@ -40,7 +42,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
     private static volatile boolean backgroundPurgePausesPersistence = false;
     private static volatile boolean databaseReloadPaused = false;
     private static volatile boolean databaseReloadRunning = false;
-    private static boolean databaseReloadBlockedForShutdown = false;
+    private static volatile boolean databaseReloadBlockedForShutdown = false;
     private static CompletableFuture<Void> databaseReloadShutdownSignal = new CompletableFuture<>();
     public static volatile int currentConsumer = 0;
     public static volatile boolean isPaused = false;
@@ -125,6 +127,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         databaseReloadRunning = false;
         backgroundPurgeRunning = false;
         backgroundPurgePausesPersistence = false;
+        DuckDBRecovery.reset();
         Consumer.consumer.put(0, new ArrayList<>());
         Consumer.consumer.put(1, new ArrayList<>());
         Consumer.consumer_id.put(0, new Integer[] { 0, 0 });
@@ -200,6 +203,14 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
     }
 
     public static OperationStartResult beginDatabaseReload() {
+        return beginDatabaseReload(false);
+    }
+
+    public static OperationStartResult beginDatabaseRecovery() {
+        return beginDatabaseReload(true);
+    }
+
+    private static OperationStartResult beginDatabaseReload(boolean allowActiveRollbacks) {
         synchronized (rollbackPurgeGate) {
             if (databaseReloadBlockedForShutdown) {
                 return OperationStartResult.INTERRUPTED;
@@ -213,7 +224,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
             if (ConfigHandler.purgeRunning || backgroundPurgeRunning) {
                 return OperationStartResult.PURGE_RUNNING;
             }
-            if (!ConfigHandler.activeRollbacks.isEmpty() || pendingRollbackPublications > 0) {
+            if (!allowActiveRollbacks && (!ConfigHandler.activeRollbacks.isEmpty() || pendingRollbackPublications > 0)) {
                 return OperationStartResult.ROLLBACK_RUNNING;
             }
             databaseReloadRunning = true;
@@ -451,11 +462,23 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
             }
             if (persistenceHalted) {
                 if (!lastRun) {
-                    errorDelay();
+                    if (databaseReloadBlockedForShutdown) {
+                        LockSupport.parkNanos(100_000_000L);
+                    }
+                    else {
+                        errorDelay();
+                    }
                 }
                 continue;
             }
             try {
+                if (DuckDBRecovery.isPending()) {
+                    DuckDBRecovery.recoverIfRequested();
+                    if (DuckDBRecovery.isPending()) {
+                        Thread.sleep(500L);
+                        continue;
+                    }
+                }
                 int process_id = 0;
                 synchronized (Consumer.consumer_id) {
                     if (currentConsumer == 0) {

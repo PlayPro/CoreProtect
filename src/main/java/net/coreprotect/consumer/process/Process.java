@@ -21,6 +21,7 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.ConsumerEntitySpawnUpdates;
 import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.DuckDBRecovery;
 import net.coreprotect.database.logger.EntityInteractionLogger;
 import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.model.entity.EntityContainerRollbackUpdate;
@@ -75,6 +76,7 @@ public class Process {
     private enum TransactionOutcome {
         COMMITTED,
         RETRY,
+        RETAINED,
         DISCARDED
     }
 
@@ -161,7 +163,7 @@ public class Process {
 
             if (currentConsumerSize == 0) { // No data, skip processing
                 updateLockTable(writeBatch, (lastRun ? 0 : 1));
-                if (!commit(writeBatch)) {
+                if (commit(writeBatch) != TransactionOutcome.COMMITTED) {
                     deferConsumerRetry();
                     return;
                 }
@@ -217,7 +219,7 @@ public class Process {
 
             preflightUsers(writeBatch, consumerData, users);
             updateLockTable(writeBatch, (lastRun ? 0 : 1));
-            if (!commit(writeBatch)) {
+            if (commit(writeBatch) != TransactionOutcome.COMMITTED) {
                 invalidateUserCaches(users);
                 failConsumerBatch(processId, consumerData, users, consumerObject, 0, 0);
                 return;
@@ -254,13 +256,13 @@ public class Process {
                     boolean isolatedTransaction = requiresIsolatedDuckDBTransaction(action);
 
                     if (isolatedTransaction && i > processedThrough) {
-                        boolean committed = commit(writeBatch);
-                        if (committed) {
+                        TransactionOutcome outcome = commit(writeBatch);
+                        if (outcome == TransactionOutcome.COMMITTED) {
                             processedThrough = i;
                         }
-                        completeTransactionState(entitySpawnUpdates, pendingEntityContainerTransactions, pendingEntityContainerRollbacks, pendingEntityInteractions, pendingEntityIdentityConfirmations, invalidatedEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, pendingEntitySpawnLogs, transactionOutcome(committed));
-                        if (!committed) {
-                            failConsumerBatch(processId, consumerData, users, consumerObject, processedThrough, i);
+                        completeTransactionState(entitySpawnUpdates, pendingEntityContainerTransactions, pendingEntityContainerRollbacks, pendingEntityInteractions, pendingEntityIdentityConfirmations, invalidatedEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, pendingEntitySpawnLogs, outcome);
+                        if (outcome != TransactionOutcome.COMMITTED) {
+                            completeFailedConsumerBatch(processId, consumerData, users, consumerObject, processedThrough, i, outcome == TransactionOutcome.RETAINED);
                             return;
                         }
                         if (!beginConsumerTransaction(writeBatch)) {
@@ -473,13 +475,13 @@ public class Process {
                             boolean interrupted = Consumer.interrupt;
                             boolean batchLimitReached = writeBatch.shouldCommit();
                             if ((interrupted || batchLimitReached) && !isolatedTransaction) {
-                                boolean committed = commit(writeBatch);
-                                if (committed) {
+                                TransactionOutcome outcome = commit(writeBatch);
+                                if (outcome == TransactionOutcome.COMMITTED) {
                                     processedThrough = i + 1;
                                 }
-                                completeTransactionState(entitySpawnUpdates, pendingEntityContainerTransactions, pendingEntityContainerRollbacks, pendingEntityInteractions, pendingEntityIdentityConfirmations, invalidatedEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, pendingEntitySpawnLogs, transactionOutcome(committed));
-                                if (!committed) {
-                                    failConsumerBatch(processId, consumerData, users, consumerObject, processedThrough, i + 1);
+                                completeTransactionState(entitySpawnUpdates, pendingEntityContainerTransactions, pendingEntityContainerRollbacks, pendingEntityInteractions, pendingEntityIdentityConfirmations, invalidatedEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, pendingEntitySpawnLogs, outcome);
+                                if (outcome != TransactionOutcome.COMMITTED) {
+                                    completeFailedConsumerBatch(processId, consumerData, users, consumerObject, processedThrough, i + 1, outcome == TransactionOutcome.RETAINED);
                                     return;
                                 }
                                 boolean backlog = batchLimitReached && ConfigHandler.databaseType.isClickHouse() && i + 1 < consumerDataSize;
@@ -513,13 +515,13 @@ public class Process {
                     }
 
                     if (isolatedTransaction) {
-                        boolean committed = commit(writeBatch);
-                        if (committed) {
+                        TransactionOutcome outcome = commit(writeBatch);
+                        if (outcome == TransactionOutcome.COMMITTED) {
                             processedThrough = i + 1;
                         }
-                        completeTransactionState(entitySpawnUpdates, pendingEntityContainerTransactions, pendingEntityContainerRollbacks, pendingEntityInteractions, pendingEntityIdentityConfirmations, invalidatedEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, pendingEntitySpawnLogs, transactionOutcome(committed));
-                        if (!committed) {
-                            failConsumerBatch(processId, consumerData, users, consumerObject, processedThrough, i + 1);
+                        completeTransactionState(entitySpawnUpdates, pendingEntityContainerTransactions, pendingEntityContainerRollbacks, pendingEntityInteractions, pendingEntityIdentityConfirmations, invalidatedEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, pendingEntitySpawnLogs, outcome);
+                        if (outcome != TransactionOutcome.COMMITTED) {
+                            completeFailedConsumerBatch(processId, consumerData, users, consumerObject, processedThrough, i + 1, outcome == TransactionOutcome.RETAINED);
                             return;
                         }
                         if (!beginConsumerTransaction(writeBatch)) {
@@ -532,13 +534,13 @@ public class Process {
             }
 
             // commit data to database
-            boolean committed = commit(writeBatch);
-            if (committed) {
+            TransactionOutcome outcome = commit(writeBatch);
+            if (outcome == TransactionOutcome.COMMITTED) {
                 processedThrough = consumerData.size();
             }
-            completeTransactionState(entitySpawnUpdates, pendingEntityContainerTransactions, pendingEntityContainerRollbacks, pendingEntityInteractions, pendingEntityIdentityConfirmations, invalidatedEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, pendingEntitySpawnLogs, transactionOutcome(committed));
-            if (!committed) {
-                failConsumerBatch(processId, consumerData, users, consumerObject, processedThrough, consumerData.size());
+            completeTransactionState(entitySpawnUpdates, pendingEntityContainerTransactions, pendingEntityContainerRollbacks, pendingEntityInteractions, pendingEntityIdentityConfirmations, invalidatedEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, pendingEntitySpawnLogs, outcome);
+            if (outcome != TransactionOutcome.COMMITTED) {
+                completeFailedConsumerBatch(processId, consumerData, users, consumerObject, processedThrough, consumerData.size(), outcome == TransactionOutcome.RETAINED);
                 return;
             }
             clearConsumerData(processId, consumerData, users, consumerObject);
@@ -547,6 +549,7 @@ public class Process {
             statement.close();
         }
         catch (Exception e) {
+            boolean recoveryRequested = DuckDBRecovery.request(e);
             if (writeBatch != null && Consumer.transacting) {
                 writeBatch.rollback();
             }
@@ -555,16 +558,21 @@ public class Process {
             }
             if (processingStarted && !consumerDataCleared && consumerData != null && users != null && consumerObject != null) {
                 try {
-                    completeTransactionState(entitySpawnUpdates, pendingEntityContainerTransactions, pendingEntityContainerRollbacks, pendingEntityInteractions, pendingEntityIdentityConfirmations, invalidatedEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, pendingEntitySpawnLogs, TransactionOutcome.RETRY);
+                    TransactionOutcome outcome = processingFailureOutcome();
+                    completeTransactionState(entitySpawnUpdates, pendingEntityContainerTransactions, pendingEntityContainerRollbacks, pendingEntityInteractions, pendingEntityIdentityConfirmations, invalidatedEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, pendingEntitySpawnLogs, outcome);
                     discardProcessedConsumerData(processId, consumerData, users, consumerObject, processedThrough);
-                    discardProcessedConsumerData(processId, consumerData, users, consumerObject, Math.max(0, attemptedThrough - processedThrough));
+                    if (outcome != TransactionOutcome.RETAINED) {
+                        discardProcessedConsumerData(processId, consumerData, users, consumerObject, Math.max(0, attemptedThrough - processedThrough));
+                    }
                     consumerDataCleared = consumerData.isEmpty();
                 }
                 catch (Exception cleanupException) {
                     e.addSuppressed(cleanupException);
                 }
             }
-            ErrorReporter.report(e);
+            if (!recoveryRequested) {
+                Database.reportDatabaseFailure(e);
+            }
         }
         finally {
             if (writeBatch != null) {
@@ -572,7 +580,7 @@ public class Process {
                     writeBatch.close();
                 }
                 catch (Exception e) {
-                    ErrorReporter.report(e);
+                    Database.reportDatabaseFailure(e);
                 }
             }
             if (connection != null) {
@@ -580,7 +588,7 @@ public class Process {
                     connection.close();
                 }
                 catch (Exception e) {
-                    ErrorReporter.report(e);
+                    Database.reportDatabaseFailure(e);
                 }
             }
         }
@@ -725,7 +733,7 @@ public class Process {
                 }
             }
         }
-        if (outcome != TransactionOutcome.DISCARDED) {
+        if (outcome == TransactionOutcome.COMMITTED || outcome == TransactionOutcome.RETRY) {
             for (PendingEntityInteraction pending : interactions) {
                 if (outcome == TransactionOutcome.COMMITTED && !pending.retryRequired) {
                     continue;
@@ -750,7 +758,7 @@ public class Process {
     }
 
     private static void retryEntityContainerRollbacks(List<EntityContainerRollbackRetry> updates, TransactionOutcome outcome) {
-        if (outcome != TransactionOutcome.DISCARDED) {
+        if (outcome == TransactionOutcome.COMMITTED || outcome == TransactionOutcome.RETRY) {
             for (EntityContainerRollbackRetry update : updates) {
                 if (outcome == TransactionOutcome.COMMITTED && !update.retryRequired) {
                     continue;
@@ -772,7 +780,7 @@ public class Process {
             return true;
         }
         catch (Exception e) {
-            ErrorReporter.report(e);
+            Database.reportDatabaseFailure(e);
             return false;
         }
     }
@@ -821,6 +829,16 @@ public class Process {
         discardProcessedConsumerData(processId, consumerData, users, consumerObject, processedThrough);
         discardProcessedConsumerData(processId, consumerData, users, consumerObject, Math.max(0, discardThrough - processedThrough));
         deferConsumerRetry();
+    }
+
+    static void completeFailedConsumerBatch(int processId, ArrayList<Object[]> consumerData, Map<Integer, String[]> users,
+            Map<Integer, Object> consumerObject, int processedThrough, int attemptedThrough, boolean retainAttemptedRows) {
+        if (retainAttemptedRows) {
+            retryConsumerBatch(processId, consumerData, users, consumerObject, processedThrough);
+        }
+        else {
+            failConsumerBatch(processId, consumerData, users, consumerObject, processedThrough, attemptedThrough);
+        }
     }
 
     private static void invalidateUserCaches(Map<Integer, String[]> users) {
@@ -872,7 +890,7 @@ public class Process {
     }
 
     private static void completeEntityContainerTransactions(List<PendingEntityContainerTransaction> transactions, TransactionOutcome outcome) {
-        if (outcome != TransactionOutcome.DISCARDED) {
+        if (outcome == TransactionOutcome.COMMITTED || outcome == TransactionOutcome.RETRY) {
             for (PendingEntityContainerTransaction pending : transactions) {
                 if (outcome == TransactionOutcome.COMMITTED && !pending.retryRequired) {
                     continue;
@@ -909,7 +927,7 @@ public class Process {
                     }
                 }
             }
-            else {
+            else if (outcome != TransactionOutcome.RETAINED) {
                 try {
                     EntitySpawnTracking.reverifyDatabaseRow(spawnData.getUuid(), spawnData.getLocation());
                 }
@@ -945,18 +963,21 @@ public class Process {
         return action == ENTITY_CONTAINER_TRANSACTION || action == ENTITY_INTERACTION || action == ENTITY_CONTAINER_ROLLBACK_UPDATE || action == ENTITY_CONTAINER_TRANSITION_UPDATE || action == ENTITY_SPAWN_LOG || action == ENTITY_SPAWN_UPDATE;
     }
 
-    private static TransactionOutcome transactionOutcome(boolean committed) {
-        return committed ? TransactionOutcome.COMMITTED : failedCommitOutcome();
+    private static TransactionOutcome failedCommitOutcome(ConsumerWriteBatch batch) {
+        return ConfigHandler.databaseType.isClickHouse() || batch.wasCommitAttempted() ? TransactionOutcome.DISCARDED : TransactionOutcome.RETAINED;
     }
 
-    private static TransactionOutcome failedCommitOutcome() {
-        return ConfigHandler.databaseType.isClickHouse() ? TransactionOutcome.DISCARDED : TransactionOutcome.RETRY;
+    private static TransactionOutcome processingFailureOutcome() {
+        return ConfigHandler.databaseType.isClickHouse() ? TransactionOutcome.RETRY : TransactionOutcome.RETAINED;
     }
 
     private static void completeTransactionState(ConsumerEntitySpawnUpdates entitySpawnUpdates, List<PendingEntityContainerTransaction> pendingEntityContainerTransactions, List<EntityContainerRollbackRetry> pendingEntityContainerRollbacks, List<PendingEntityInteraction> pendingEntityInteractions, Map<UUID, Location> pendingEntityIdentityConfirmations, Set<UUID> invalidatedEntityIdentityConfirmations, Set<UUID> promotedEntityIdentities, Map<UUID, EntitySpawnIdentity> entitySpawnIdentities, List<PendingEntitySpawnLog> pendingEntitySpawnLogs, TransactionOutcome outcome) {
         try {
             if (entitySpawnUpdates != null) {
-                if (outcome == TransactionOutcome.DISCARDED) {
+                if (outcome == TransactionOutcome.RETAINED) {
+                    entitySpawnUpdates.afterRetain();
+                }
+                else if (outcome == TransactionOutcome.DISCARDED) {
                     entitySpawnUpdates.afterDiscard();
                 }
                 else {
@@ -984,14 +1005,19 @@ public class Process {
         }
     }
 
-    private static boolean commit(ConsumerWriteBatch batch) {
+    private static TransactionOutcome commit(ConsumerWriteBatch batch) {
         try {
-            return batch.commit();
+            boolean committed = batch.commit();
+            if (committed) {
+                DuckDBRecovery.markHealthy();
+                return TransactionOutcome.COMMITTED;
+            }
+            return failedCommitOutcome(batch);
         }
         catch (Exception e) {
+            Database.reportDatabaseFailure(e);
             batch.rollback();
-            ErrorReporter.report(e);
-            return false;
+            return failedCommitOutcome(batch);
         }
     }
 

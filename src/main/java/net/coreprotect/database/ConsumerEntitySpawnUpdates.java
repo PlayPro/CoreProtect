@@ -20,6 +20,8 @@ public interface ConsumerEntitySpawnUpdates extends AutoCloseable {
 
     void afterCommit(boolean committed);
 
+    void afterRetain();
+
     void afterDiscard();
 
     @Override

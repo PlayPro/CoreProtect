@@ -12,8 +12,13 @@ import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.extension.platform.Actor;
 import com.sk89q.worldedit.extent.AbstractDelegateExtent;
 import com.sk89q.worldedit.extent.Extent;
+import com.sk89q.worldedit.function.RegionFunction;
+import com.sk89q.worldedit.function.RegionMaskingFilter;
+import com.sk89q.worldedit.function.block.BlockReplace;
 import com.sk89q.worldedit.function.mask.Mask;
+import com.sk89q.worldedit.function.operation.Operations;
 import com.sk89q.worldedit.function.pattern.Pattern;
+import com.sk89q.worldedit.function.visitor.RegionVisitor;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.regions.Region;
 import com.sk89q.worldedit.world.World;
@@ -85,8 +90,9 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
         if (!Config.getConfig(world).WORLDEDIT) {
             return eventExtent.replaceBlocks(region, mask, pattern);
         }
-        processPatternToBlocks(world, region, pattern);
-        return eventExtent.replaceBlocks(region, mask, pattern);
+
+        BlockReplace replace = new BlockReplace(this, pattern);
+        return processBlocks(region, new RegionMaskingFilter(mask, replace));
     }
 
     @Override
@@ -100,8 +106,8 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
         if (!Config.getConfig(world).WORLDEDIT) {
             return eventExtent.setBlocks(region, pattern);
         }
-        processPatternToBlocks(world, region, pattern);
-        return eventExtent.setBlocks(region, pattern);
+
+        return processBlocks(region, new BlockReplace(this, pattern));
     }
 
     @Override
@@ -110,37 +116,19 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
         if (!Config.getConfig(world).WORLDEDIT) {
             return eventExtent.setBlocks(vset, pattern);
         }
-        processPatternToBlocks(world, vset, pattern);
-        return eventExtent.setBlocks(vset, pattern);
-    }
 
-    private void processPatternToBlocks(org.bukkit.World world, Set<BlockVector3> vset, Pattern pattern) {
+        int count = 0;
         for (BlockVector3 position : vset) {
-            BlockState oldBlock = eventExtent.getBlock(position);
-            Material oldType = BukkitAdapter.adapt(oldBlock.getBlockType());
-            Location location = new Location(world, position.getBlockX(), position.getBlockY(), position.getBlockZ());
-            BaseBlock baseBlock = WorldEditLogger.getBaseBlock(eventExtent, position, location, oldType, oldBlock);
-
-            // No clear way to get container content data from within the WorldEdit API
-            // Data may be available by converting oldBlock.toBaseBlock().getNbtData()
-            // e.g. BaseBlock block = eventWorld.getBlock(position);
-            ItemStack[] containerData = CoreProtectEditSessionEvent.isFAWE() ? null : ItemUtils.getContainerContents(oldType, null, location);
-            WorldEditLogger.postProcess(eventExtent, eventActor, position, location, pattern.applyBlock(position), baseBlock, oldType, oldBlock, containerData);
+            if (pattern.apply(this, position, position)) {
+                count++;
+            }
         }
+        return count;
     }
 
-    private void processPatternToBlocks(org.bukkit.World world, Region region, Pattern pattern) {
-        for (BlockVector3 position : region.clone()) {
-            BlockState oldBlock = eventExtent.getBlock(position);
-            Material oldType = BukkitAdapter.adapt(oldBlock.getBlockType());
-            Location location = new Location(world, position.getBlockX(), position.getBlockY(), position.getBlockZ());
-            BaseBlock baseBlock = WorldEditLogger.getBaseBlock(eventExtent, position, location, oldType, oldBlock);
-
-            // No clear way to get container content data from within the WorldEdit API
-            // Data may be available by converting oldBlock.toBaseBlock().getNbtData()
-            // e.g. BaseBlock block = eventWorld.getBlock(position);
-            ItemStack[] containerData = CoreProtectEditSessionEvent.isFAWE() ? null : ItemUtils.getContainerContents(oldType, null, location);
-            WorldEditLogger.postProcess(eventExtent, eventActor, position, location, pattern.applyBlock(position), baseBlock, oldType, oldBlock, containerData);
-        }
+    private int processBlocks(Region region, RegionFunction function) {
+        RegionVisitor visitor = new RegionVisitor(region, function);
+        Operations.completeLegacy(visitor);
+        return visitor.getAffected();
     }
 }

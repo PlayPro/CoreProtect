@@ -353,9 +353,7 @@ public final class ClickHouseSchema {
     }
 
     private static String location(String column) {
-        // Every compatibility family exposing a location stores this key. Project it directly so
-        // predicates on wid/x/z can be pushed through the view into the MergeTree sorting key.
-        return "e." + column + " AS " + column;
+        return "if(e." + column + "_present=1,e." + column + ",NULL) AS " + column;
     }
 
     private static String events(Names names, ClickHouseFamily family) {

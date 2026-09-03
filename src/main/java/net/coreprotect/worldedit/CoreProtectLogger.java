@@ -1,5 +1,6 @@
 package net.coreprotect.worldedit;
 
+import java.util.Objects;
 import java.util.Set;
 
 import org.bukkit.Location;
@@ -13,7 +14,6 @@ import com.sk89q.worldedit.extension.platform.Actor;
 import com.sk89q.worldedit.extent.AbstractDelegateExtent;
 import com.sk89q.worldedit.extent.Extent;
 import com.sk89q.worldedit.function.RegionFunction;
-import com.sk89q.worldedit.function.RegionMaskingFilter;
 import com.sk89q.worldedit.function.block.BlockReplace;
 import com.sk89q.worldedit.function.mask.Mask;
 import com.sk89q.worldedit.function.operation.Operations;
@@ -92,7 +92,8 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
         }
 
         BlockReplace replace = new BlockReplace(this, pattern);
-        return processBlocks(region, new RegionMaskingFilter(mask, replace));
+        Objects.requireNonNull(mask, "mask");
+        return processBlocks(region, position -> mask.test(position) && replace.apply(position));
     }
 
     @Override

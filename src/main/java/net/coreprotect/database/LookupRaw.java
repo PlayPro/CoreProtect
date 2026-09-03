@@ -174,6 +174,25 @@ public class LookupRaw extends Queue {
                 paused = true;
             }
 
+            if (ConfigHandler.databaseType.isClickHouse() && pageRows == null && limitOffset >= 0 && limitCount > 0) {
+                pageRows = new HashMap<>();
+                try (ResultSet pageResults = rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, false, entityContainerId, false, false, false, rollbackState, null, true)) {
+                    if (pageResults == null) {
+                        return null;
+                    }
+                    while (pageResults.next()) {
+                        int source = pageResults.getInt("tbl");
+                        long rowId = pageResults.getLong("id");
+                        pageRows.computeIfAbsent(source, ignored -> new ArrayList<>()).add(rowId);
+                    }
+                }
+                if (pageRows.isEmpty()) {
+                    return list;
+                }
+                limitOffset = -1;
+                limitCount = -1;
+            }
+
             ResultSet results = rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, false, entityContainerId, false, false, false, rollbackState, pageRows, false);
             if (results == null) {
                 return null;
@@ -1148,13 +1167,23 @@ public class LookupRaw extends Queue {
             }
 
             if (selectPageRows) {
-                query = buildDuckDBPageQuery(query, entityLocationCte, pageOffset, limitCount, knownTotalRows, cursor, queryOrder.contains("time DESC"));
+                if (ConfigHandler.databaseType.isClickHouse()) {
+                    query = buildClickHousePageQuery(query, queryOrder, limitOffset, limitCount);
+                }
+                else {
+                    query = buildDuckDBPageQuery(query, entityLocationCte, pageOffset, limitCount, knownTotalRows, cursor, queryOrder.contains("time DESC"));
+                }
             }
             else if (summary) {
                 query = buildSummaryQuery(query, inventoryQuery, countGroups, includeGroupCount, limitOffset, limitCount);
             }
             else {
-                query = query + queryOrder + queryLimit + "";
+                if (ConfigHandler.databaseType.isClickHouse() && query.contains(" UNION ALL ")) {
+                    query = "SELECT * FROM (" + query + ") AS coreprotectLookupUnion" + queryOrder + queryLimit;
+                }
+                else {
+                    query = query + queryOrder + queryLimit;
+                }
             }
             if (!selectPageRows && !entityLocationCte.isEmpty()) {
                 query = "WITH " + entityLocationCte + " " + query;
@@ -1337,6 +1366,18 @@ public class LookupRaw extends Queue {
             query.append(" LIMIT ").append(limit).append(" OFFSET ").append(offset);
         }
         return query.toString();
+    }
+
+    private static String buildClickHousePageQuery(String sourceQuery, String queryOrder, int offset, int limit) {
+        if (limit <= 0) {
+            throw new IllegalArgumentException("ClickHouse lookup page size must be positive");
+        }
+        if (offset < 0) {
+            throw new IllegalArgumentException("ClickHouse lookup page offset must not be negative");
+        }
+        String candidateOrder = queryOrder.replace("rowid", "id");
+        return "SELECT tbl,id FROM (" + sourceQuery + ") AS coreprotectLookupCandidates"
+                + candidateOrder + " LIMIT " + limit + " OFFSET " + offset;
     }
 
     private static String buildRollbackPredicate(LookupRollbackState rollbackState, boolean inventoryRollback) {

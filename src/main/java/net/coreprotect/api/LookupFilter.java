@@ -59,7 +59,7 @@ final class LookupFilter {
             try (PreparedStatement statement = connection.prepareStatement("SELECT id, material FROM " + ConfigHandler.prefix + "material_map");
                     ResultSet results = statement.executeQuery()) {
                 while (results.next()) {
-                    materialTypes.put(results.getInt("id"), MaterialUtils.getType(results.getString("material")));
+                    materialTypes.put(results.getInt("id"), MaterialUtils.getTypeFromStoredName(results.getString("material")));
                 }
             }
         }

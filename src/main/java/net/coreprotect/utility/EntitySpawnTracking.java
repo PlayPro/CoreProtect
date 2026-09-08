@@ -2,6 +2,7 @@ package net.coreprotect.utility;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -16,6 +17,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.TreeSpecies;
@@ -357,64 +359,101 @@ public final class EntitySpawnTracking {
         int maxChunkZ = radius[6] >> 4;
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(ENTITY_SCAN_TIMEOUT_SECONDS);
 
+        long[] chunks = chunksToScan(world, minChunkX, maxChunkX, minChunkZ, maxChunkZ, deadline);
         if (ConfigHandler.isFolia) {
-            scanFoliaChunks(world, radius, inside, minChunkX, maxChunkX, minChunkZ, maxChunkZ, deadline);
+            scanFoliaChunks(world, chunks, radius, inside, deadline);
             scanFoliaCandidates(world, radius, databaseCandidates, inside, loadedCandidates, deadline);
         }
         else {
             scanBukkitCandidates(world, radius, databaseCandidates, inside, loadedCandidates, deadline);
-            scanBukkitChunks(world, radius, inside, minChunkX, maxChunkX, minChunkZ, maxChunkZ, deadline);
+            scanBukkitChunks(world, chunks, radius, inside, deadline);
         }
 
         return new LoadedEntityRadius(inside, loadedCandidates);
     }
 
-    private static void scanFoliaChunks(World world, Integer[] radius, Set<UUID> inside, int minChunkX, int maxChunkX, int minChunkZ, int maxChunkZ, long deadline) throws Exception {
-        List<CompletableFuture<Void>> pending = new ArrayList<>(CHUNK_SCAN_BATCH_SIZE);
-        for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
-            for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
-                CompletableFuture<Void> completion = new CompletableFuture<>();
-                pending.add(completion);
-                int targetChunkX = chunkX;
-                int targetChunkZ = chunkZ;
-                Location chunkLocation = new Location(world, chunkX << 4, 0, chunkZ << 4);
-                try {
-                    Scheduler.runTask(CoreProtect.getInstance(), () -> {
-                        try {
-                            collectLoadedEntities(world, targetChunkX, targetChunkZ, radius, inside);
-                            completion.complete(null);
-                        }
-                        catch (Exception e) {
-                            completion.completeExceptionally(e);
-                        }
-                    }, chunkLocation);
+    private static long[] chunksToScan(World world, int minChunkX, int maxChunkX, int minChunkZ, int maxChunkZ, long deadline) throws Exception {
+        if (minChunkX > maxChunkX || minChunkZ > maxChunkZ) {
+            return new long[0];
+        }
+        long count = ((long) maxChunkX - minChunkX + 1) * ((long) maxChunkZ - minChunkZ + 1);
+        if (count <= CHUNK_SCAN_BATCH_SIZE) {
+            long[] chunks = new long[(int) count];
+            int index = 0;
+            for (int x = minChunkX; x <= maxChunkX; x++) {
+                for (int z = minChunkZ; z <= maxChunkZ; z++) {
+                    chunks[index++] = ((long) x << 32) | (z & 0xffffffffL);
                 }
-                catch (Exception e) {
-                    completion.completeExceptionally(e);
-                }
+            }
+            return chunks;
+        }
+        CompletableFuture<Chunk[]> completion = new CompletableFuture<>();
+        Scheduler.runTask(CoreProtect.getInstance(), () -> {
+            try {
+                completion.complete(world.getLoadedChunks());
+            }
+            catch (Exception e) {
+                completion.completeExceptionally(e);
+            }
+        });
+        await(completion, deadline);
+        Chunk[] loadedChunks = completion.join();
+        long[] chunks = new long[loadedChunks.length];
+        int size = 0;
+        for (Chunk chunk : loadedChunks) {
+            int x = chunk.getX();
+            int z = chunk.getZ();
+            if (x >= minChunkX && x <= maxChunkX && z >= minChunkZ && z <= maxChunkZ) {
+                chunks[size++] = ((long) x << 32) | (z & 0xffffffffL);
+            }
+        }
+        return Arrays.copyOf(chunks, size);
+    }
 
-                if (pending.size() == CHUNK_SCAN_BATCH_SIZE) {
-                    awaitAll(pending, deadline);
-                    pending.clear();
-                }
+    static void scanFoliaChunks(World world, long[] chunks, Integer[] radius, Set<UUID> inside, long deadline) throws Exception {
+        List<CompletableFuture<Void>> pending = new ArrayList<>(CHUNK_SCAN_BATCH_SIZE);
+        for (long chunk : chunks) {
+            int chunkX = (int) (chunk >> 32);
+            int chunkZ = (int) chunk;
+            CompletableFuture<Void> completion = new CompletableFuture<>();
+            pending.add(completion);
+            Location chunkLocation = new Location(world, chunkX << 4, 0, chunkZ << 4);
+            try {
+                Scheduler.runTask(CoreProtect.getInstance(), () -> {
+                    try {
+                        collectLoadedEntities(world, chunkX, chunkZ, radius, inside);
+                        completion.complete(null);
+                    }
+                    catch (Exception e) {
+                        completion.completeExceptionally(e);
+                    }
+                }, chunkLocation);
+            }
+            catch (Exception e) {
+                completion.completeExceptionally(e);
+            }
+
+            if (pending.size() == CHUNK_SCAN_BATCH_SIZE) {
+                awaitAll(pending, deadline);
+                pending.clear();
             }
         }
         awaitAll(pending, deadline);
     }
 
-    private static void scanBukkitChunks(World world, Integer[] radius, Set<UUID> inside, int minChunkX, int maxChunkX, int minChunkZ, int maxChunkZ, long deadline) throws Exception {
+    private static void scanBukkitChunks(World world, long[] chunks, Integer[] radius, Set<UUID> inside, long deadline) throws Exception {
         int[] chunkXs = new int[CHUNK_SCAN_BATCH_SIZE];
         int[] chunkZs = new int[CHUNK_SCAN_BATCH_SIZE];
         int batchSize = 0;
-        for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
-            for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
-                chunkXs[batchSize] = chunkX;
-                chunkZs[batchSize] = chunkZ;
-                batchSize++;
-                if (batchSize == CHUNK_SCAN_BATCH_SIZE) {
-                    scanBukkitChunkBatch(world, radius, inside, chunkXs, chunkZs, batchSize, deadline);
-                    batchSize = 0;
-                }
+        for (long chunk : chunks) {
+            int chunkX = (int) (chunk >> 32);
+            int chunkZ = (int) chunk;
+            chunkXs[batchSize] = chunkX;
+            chunkZs[batchSize] = chunkZ;
+            batchSize++;
+            if (batchSize == CHUNK_SCAN_BATCH_SIZE) {
+                scanBukkitChunkBatch(world, radius, inside, chunkXs, chunkZs, batchSize, deadline);
+                batchSize = 0;
             }
         }
         if (batchSize > 0) {
@@ -562,7 +601,7 @@ public final class EntitySpawnTracking {
         }
     }
 
-    private static void await(CompletableFuture<Void> completion, long deadline) throws Exception {
+    private static void await(CompletableFuture<?> completion, long deadline) throws Exception {
         long remaining = deadline - System.nanoTime();
         if (remaining <= 0L) {
             throw new TimeoutException("Timed out scanning loaded tracked entities");

@@ -17,6 +17,8 @@ public final class LookupOptions {
     private final int limitCount;
     private final List<Material> includeMaterials;
     private final List<Material> excludeMaterials;
+    private final List<String> users;
+    private final List<String> excludeUsers;
 
     private LookupOptions(Builder builder) {
         this.user = builder.user;
@@ -27,6 +29,8 @@ public final class LookupOptions {
         this.limitCount = builder.limitCount;
         this.includeMaterials = builder.includeMaterials;
         this.excludeMaterials = builder.excludeMaterials;
+        this.users = builder.users;
+        this.excludeUsers = builder.excludeUsers;
     }
 
     public static Builder builder() {
@@ -69,6 +73,14 @@ public final class LookupOptions {
         return excludeMaterials;
     }
 
+    public List<String> getUsers() {
+        return users;
+    }
+
+    public List<String> getExcludeUsers() {
+        return excludeUsers;
+    }
+
     public static final class Builder {
         private String user;
         private int time;
@@ -78,6 +90,8 @@ public final class LookupOptions {
         private int limitCount = -1;
         private List<Material> includeMaterials = List.of();
         private List<Material> excludeMaterials = List.of();
+        private List<String> users = List.of();
+        private List<String> excludeUsers = List.of();
 
         private Builder() {
         }
@@ -117,6 +131,16 @@ public final class LookupOptions {
 
         public Builder excludeMaterials(List<Material> materials) {
             this.excludeMaterials = List.copyOf(materials);
+            return this;
+        }
+
+        public Builder users(List<String> users) {
+            this.users = List.copyOf(users);
+            return this;
+        }
+
+        public Builder excludeUsers(List<String> users) {
+            this.excludeUsers = List.copyOf(users);
             return this;
         }
 

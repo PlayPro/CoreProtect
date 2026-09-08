@@ -158,6 +158,7 @@ public class BlockAPI {
             if (userId != null) {
                 query.append(" AND ").append(ConfigHandler.databaseType.getUserColumn()).append(" = ?");
             }
+            LookupFilter.appendUserWhere(query, "", LookupFilter.userIds(connection, options.getUsers()), LookupFilter.userIds(connection, options.getExcludeUsers()));
             query.append(" ORDER BY ").append(ConfigHandler.getDescendingEventOrder());
             if (options.hasLimit()) {
                 query.append(" LIMIT ").append(options.getLimitCount()).append(" OFFSET ").append(options.getLimitOffset());

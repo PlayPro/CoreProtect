@@ -30,8 +30,10 @@ final class LookupFilter {
     private final List<Material> includeMaterials;
     private final List<Material> excludeMaterials;
     private final Map<Integer, Material> materialTypes;
+    private final String includeUserIds;
+    private final String excludeUserIds;
 
-    private LookupFilter(Integer userId, int checkTime, Location location, int radius, int limitOffset, int limitCount, List<Material> includeMaterials, List<Material> excludeMaterials, Map<Integer, Material> materialTypes) {
+    private LookupFilter(Integer userId, int checkTime, Location location, int radius, int limitOffset, int limitCount, List<Material> includeMaterials, List<Material> excludeMaterials, Map<Integer, Material> materialTypes, String includeUserIds, String excludeUserIds) {
         this.userId = userId;
         this.checkTime = checkTime;
         this.location = location;
@@ -41,6 +43,8 @@ final class LookupFilter {
         this.includeMaterials = includeMaterials;
         this.excludeMaterials = excludeMaterials;
         this.materialTypes = materialTypes;
+        this.includeUserIds = includeUserIds;
+        this.excludeUserIds = excludeUserIds;
     }
 
     static LookupFilter fromOptions(Connection connection, LookupOptions options) throws Exception {
@@ -65,7 +69,8 @@ final class LookupFilter {
         }
 
         return new LookupFilter(userId, checkTime, options.getLocation(), options.getRadius(), options.getLimitOffset(), options.getLimitCount(),
-                options.getIncludeMaterials(), options.getExcludeMaterials(), materialTypes);
+                options.getIncludeMaterials(), options.getExcludeMaterials(), materialTypes,
+                userIds(connection, options.getUsers()), userIds(connection, options.getExcludeUsers()));
     }
 
     boolean hasInvalidUser() {
@@ -111,6 +116,7 @@ final class LookupFilter {
         if (userId != null) {
             query.append(" AND ").append(qualifier).append(ConfigHandler.databaseType.getUserColumn()).append(" = ?");
         }
+        appendUserWhere(query, alias, includeUserIds, excludeUserIds);
 
         if (location != null) {
             query.append(" AND ").append(qualifier).append("wid = ?");
@@ -130,6 +136,7 @@ final class LookupFilter {
         if (userId != null) {
             query.append(" AND ").append(transaction).append(ConfigHandler.databaseType.getUserColumn()).append(" = ?");
         }
+        appendUserWhere(query, transactionAlias, includeUserIds, excludeUserIds);
         if (location == null) {
             return;
         }
@@ -336,6 +343,32 @@ final class LookupFilter {
             statement.setLong(parameterIndex++, (long) z + 1L);
         }
         return parameterIndex;
+    }
+
+    static String userIds(Connection connection, List<String> users) throws Exception {
+        StringJoiner result = new StringJoiner(",");
+        for (String user : users) {
+            Integer id = MessageAPI.getUserId(connection, user);
+            if (id == null) {
+                // An empty name or #global matches every user.
+                return null;
+            }
+            result.add(String.valueOf(id));
+        }
+        return result.toString();
+    }
+
+    static void appendUserWhere(StringBuilder query, String alias, String includeUserIds, String excludeUserIds) {
+        String column = (alias.isEmpty() ? "" : alias + ".") + ConfigHandler.databaseType.getUserColumn();
+        if (includeUserIds != null && !includeUserIds.isEmpty()) {
+            query.append(" AND ").append(column).append(" IN (").append(includeUserIds).append(")");
+        }
+        if (excludeUserIds == null) {
+            query.append(" AND 1 = 0");
+        }
+        else if (!excludeUserIds.isEmpty()) {
+            query.append(" AND ").append(column).append(" NOT IN (").append(excludeUserIds).append(")");
+        }
     }
 
     private String materialIds(List<Material> materials, boolean inventoryBlock) {

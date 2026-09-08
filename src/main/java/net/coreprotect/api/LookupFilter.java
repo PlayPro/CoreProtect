@@ -5,16 +5,18 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.StringJoiner;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
 
-import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.DuckDBLookupQuery;
 import net.coreprotect.database.DuckDBSpatialIndex;
+import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
 
@@ -25,18 +27,20 @@ final class LookupFilter {
     private final int radius;
     private final int limitOffset;
     private final int limitCount;
-    private final String includeMaterialIds;
-    private final String excludeMaterialIds;
+    private final List<Material> includeMaterials;
+    private final List<Material> excludeMaterials;
+    private final Map<Integer, Material> materialTypes;
 
-    private LookupFilter(Integer userId, int checkTime, Location location, int radius, int limitOffset, int limitCount, String includeMaterialIds, String excludeMaterialIds) {
+    private LookupFilter(Integer userId, int checkTime, Location location, int radius, int limitOffset, int limitCount, List<Material> includeMaterials, List<Material> excludeMaterials, Map<Integer, Material> materialTypes) {
         this.userId = userId;
         this.checkTime = checkTime;
         this.location = location;
         this.radius = radius;
         this.limitOffset = limitOffset;
         this.limitCount = limitCount;
-        this.includeMaterialIds = includeMaterialIds;
-        this.excludeMaterialIds = excludeMaterialIds;
+        this.includeMaterials = includeMaterials;
+        this.excludeMaterials = excludeMaterials;
+        this.materialTypes = materialTypes;
     }
 
     static LookupFilter fromOptions(Connection connection, LookupOptions options) throws Exception {
@@ -50,8 +54,18 @@ final class LookupFilter {
             checkTime = (int) (System.currentTimeMillis() / 1000L) - options.getTime();
         }
 
+        Map<Integer, Material> materialTypes = new HashMap<>();
+        if (!options.getIncludeMaterials().isEmpty() || !options.getExcludeMaterials().isEmpty()) {
+            try (PreparedStatement statement = connection.prepareStatement("SELECT id, material FROM " + ConfigHandler.prefix + "material_map");
+                    ResultSet results = statement.executeQuery()) {
+                while (results.next()) {
+                    materialTypes.put(results.getInt("id"), MaterialUtils.getType(results.getString("material")));
+                }
+            }
+        }
+
         return new LookupFilter(userId, checkTime, options.getLocation(), options.getRadius(), options.getLimitOffset(), options.getLimitCount(),
-                materialIds(options.getIncludeMaterials()), materialIds(options.getExcludeMaterials()));
+                options.getIncludeMaterials(), options.getExcludeMaterials(), materialTypes);
     }
 
     boolean hasInvalidUser() {
@@ -143,12 +157,16 @@ final class LookupFilter {
     }
 
     void appendMaterialWhere(StringBuilder query, String alias) {
+        appendMaterialWhere(query, alias, false);
+    }
+
+    void appendMaterialWhere(StringBuilder query, String alias, boolean inventoryBlock) {
         String qualifier = alias.isEmpty() ? "" : alias + ".";
-        if (!includeMaterialIds.isEmpty()) {
-            query.append(" AND ").append(qualifier).append("type IN (").append(includeMaterialIds).append(")");
+        if (!includeMaterials.isEmpty()) {
+            query.append(" AND ").append(qualifier).append("type IN (").append(materialIds(includeMaterials, inventoryBlock)).append(")");
         }
-        if (!excludeMaterialIds.isEmpty()) {
-            query.append(" AND ").append(qualifier).append("type NOT IN (").append(excludeMaterialIds).append(")");
+        if (!excludeMaterials.isEmpty()) {
+            query.append(" AND ").append(qualifier).append("type NOT IN (").append(materialIds(excludeMaterials, inventoryBlock)).append(")");
         }
     }
 
@@ -320,16 +338,15 @@ final class LookupFilter {
         return parameterIndex;
     }
 
-    private static String materialIds(List<Material> materials) {
+    private String materialIds(List<Material> materials, boolean inventoryBlock) {
         StringJoiner result = new StringJoiner(",");
-        for (Material material : materials) {
-            result.add(String.valueOf(MaterialUtils.getBlockId(material.name(), false)));
-            int legacyId = BukkitAdapter.ADAPTER.getLegacyBlockId(material);
-            if (legacyId > 0) {
-                result.add(String.valueOf(legacyId));
+        for (Map.Entry<Integer, Material> entry : materialTypes.entrySet()) {
+            Material material = inventoryBlock ? ItemUtils.itemFilter(entry.getValue(), true) : entry.getValue();
+            if (material != null && materials.contains(material)) {
+                result.add(String.valueOf(entry.getKey()));
             }
         }
-        return result.toString();
+        return result.length() == 0 ? "-1" : result.toString();
     }
 
     private static String alias(String alias) {

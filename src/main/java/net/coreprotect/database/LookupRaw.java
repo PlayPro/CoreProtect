@@ -530,6 +530,7 @@ public class LookupRaw extends Queue {
             String index = "";
             String query = "";
             String entitySpawnLocationQuery = "";
+            String entitySpawnCurrentLocationQuery = "";
             String entityContainerLocationQuery = "";
             String entityInteractionLocationQuery = "";
             String standardLocationQuery = "";
@@ -810,7 +811,8 @@ public class LookupRaw extends Queue {
                     String entitySpawnRows = materializeEntityLocations
                             ? "SELECT block_rowid FROM entity_location_rows WHERE 1" + entitySpawnTimeQuery(startTime, endTime)
                             : "SELECT block_rowid FROM " + ConfigHandler.prefix + "entity_spawn WHERE (" + databaseLocation + ")" + entitySpawnTimeQuery(startTime, endTime);
-                    String spawnLocation = "rowid IN(" + entitySpawnRows + ")";
+                    entitySpawnCurrentLocationQuery = "rowid IN(" + entitySpawnRows + ")";
+                    String spawnLocation = entitySpawnCurrentLocationQuery;
                     if (lookup) {
                         spawnLocation = "(" + originalLocation + " OR " + spawnLocation + ")";
                     }
@@ -1024,6 +1026,21 @@ public class LookupRaw extends Queue {
                 }
             }
 
+            String originalBlockLocationQuery = "";
+            String currentBlockLocationQuery = "";
+            if (entitySpawnRadius && queryTable.equals("block") && !summary
+                    && (ConfigHandler.databaseType.isSQLite() || ConfigHandler.databaseType.isMySQL())
+                    && (users.isEmpty() || ((long) radius[2] - radius[1] <= 50 && (long) radius[6] - radius[5] <= 50))
+                    && (count || limitCount < 0 || users.isEmpty())) {
+                originalBlockLocationQuery = "(" + standardLocationQuery + " AND action" + (lookup ? " IS NOT NULL" : "!=" + LookupActions.ENTITY_SPAWN) + ")";
+                currentBlockLocationQuery = "(action=" + LookupActions.ENTITY_SPAWN + " AND " + entitySpawnCurrentLocationQuery
+                        + (lookup ? " AND " + standardLocationQuery + " IS NOT TRUE" : "") + ")";
+                if (ConfigHandler.databaseType.isMySQL()) {
+                    index = "";
+                }
+                queryOrder = count ? "" : " ORDER BY id DESC";
+            }
+
             boolean chatLookup = actionList.contains(LookupActions.CHAT);
             boolean commandLookup = actionList.contains(LookupActions.COMMAND);
             if (chatLookup && commandLookup) {
@@ -1071,7 +1088,7 @@ public class LookupRaw extends Queue {
 
                 String sourceQuery = restrictSource(baseQuery, pageRows, InventorySources.BLOCK);
                 String sourceTable = sourceTable(statement, "block", locationWorldId, sourceBounds, entityContext, entitySpawnLocation, pageRows);
-                query = unionSelect + "SELECT 0 as tbl," + rows + " FROM " + sourceTable + " " + index + "WHERE" + sourceQuery + unionLimit + ") UNION ALL ";
+                query = unionSelect + blockQuery(rows, sourceTable, index, sourceQuery, entitySpawnLocationQuery, originalBlockLocationQuery, currentBlockLocationQuery, count) + unionLimit + ") UNION ALL ";
                 itemLookup = true;
             }
 
@@ -1138,7 +1155,7 @@ public class LookupRaw extends Queue {
                     }
                     String sourceQuery = restrictSource(blockSourceQuery, pageRows, InventorySources.BLOCK);
                     String sourceTable = sourceTable(statement, "block", locationWorldId, sourceBounds, entityContext, entitySpawnLocation, pageRows);
-                    query = unionSelect + "SELECT 0 as tbl," + rows + " FROM " + sourceTable + " " + index + "WHERE" + sourceQuery + unionLimit + ")";
+                    query = unionSelect + blockQuery(rows, sourceTable, index, sourceQuery, entitySpawnLocationQuery, originalBlockLocationQuery, currentBlockLocationQuery, count) + unionLimit + ")";
                 }
 
                 if (!count && !selectPageRows) {
@@ -1163,7 +1180,9 @@ public class LookupRaw extends Queue {
                 baseQuery = restrictSource(baseQuery, pageRows, 0);
                 Integer exactEntitySpawnRowId = queryTable.equals("entity_container") ? entityContainerId : null;
                 String sourceTable = sourceTable(statement, queryTable, locationWorldId, sourceBounds, entityContext, entityFallback, pageRows, exactEntitySpawnRowId);
-                query = "SELECT 0 as tbl," + rows + " FROM " + sourceTable + " " + index + "WHERE" + baseQuery;
+                query = queryTable.equals("block")
+                        ? blockQuery(rows, sourceTable, index, baseQuery, entitySpawnLocationQuery, originalBlockLocationQuery, currentBlockLocationQuery, count)
+                        : "SELECT 0 as tbl," + rows + " FROM " + sourceTable + " " + index + "WHERE" + baseQuery;
             }
 
             if (selectPageRows) {
@@ -1198,6 +1217,19 @@ public class LookupRaw extends Queue {
         }
 
         return results;
+    }
+
+    private static String blockQuery(String rows, String table, String index, String predicate, String entityLocation, String originalLocation, String currentLocation, boolean count) {
+        String select = "SELECT 0 as tbl," + rows + " FROM " + table + " ";
+        if (originalLocation.isEmpty()) {
+            return select + index + "WHERE" + predicate;
+        }
+
+        String originalQuery = select + index + "WHERE" + predicate.replace(entityLocation, originalLocation);
+        String currentIndex = ConfigHandler.databaseType.isMySQL() ? "USE INDEX(PRIMARY) " : "NOT INDEXED ";
+        String currentQuery = select + currentIndex + "WHERE" + predicate.replace(entityLocation, currentLocation);
+        return (count ? "SELECT 0 as tbl,SUM(count) as count" : "SELECT *")
+                + " FROM (" + originalQuery + " UNION ALL " + currentQuery + ") AS coreprotect_block";
     }
 
     private static String restrictSource(String query, Map<Integer, List<Long>> pageRows, int source) {

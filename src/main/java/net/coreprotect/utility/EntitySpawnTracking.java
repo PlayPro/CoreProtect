@@ -775,7 +775,9 @@ public final class EntitySpawnTracking {
                     continue;
                 }
 
-                if (ConfigHandler.isFolia) {
+                // Folia grants the shutdown thread entity ownership after region ticking stops.
+                // Checkpoint owned entities directly: a newly scheduled task may never run during shutdown.
+                if (ConfigHandler.isFolia && !PaperAdapter.ADAPTER.isOwnedByCurrentRegion(entity)) {
                     completion = new CompletableFuture<>();
                     pending.add(completion);
                     CompletableFuture<Void> entityCompletion = completion;

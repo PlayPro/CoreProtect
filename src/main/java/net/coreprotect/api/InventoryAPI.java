@@ -51,10 +51,15 @@ public class InventoryAPI {
             try {
                 StringBuilder whereBuilder = new StringBuilder();
                 filter.appendWhere(whereBuilder);
+                StringBuilder blockWhereBuilder = new StringBuilder(whereBuilder);
+                filter.appendMaterialWhere(blockWhereBuilder, "", true);
+                filter.appendMaterialWhere(whereBuilder);
                 String where = whereBuilder.toString();
                 StringBuilder entityWhereBuilder = new StringBuilder();
                 filter.appendEntityContainerWhere(entityWhereBuilder, "entity_rows", "spawn_rows");
+                filter.appendMaterialWhere(entityWhereBuilder, "entity_rows");
                 String query = buildQuery(
+                        blockWhereBuilder.toString(),
                         where,
                         entityWhereBuilder.toString(),
                         options.hasLimit(),
@@ -92,10 +97,10 @@ public class InventoryAPI {
         return result;
     }
 
-    private static String buildQuery(String where, String entityWhere, boolean hasLimit, String blockTable, String containerTable, String entityContainerTable, String itemTable) {
+    private static String buildQuery(String blockWhere, String where, String entityWhere, boolean hasLimit, String blockTable, String containerTable, String entityContainerTable, String itemTable) {
         StringBuilder query = new StringBuilder("SELECT * FROM (");
         query.append("SELECT 0 AS source,rowid AS id,time,").append(ConfigHandler.databaseType.getUserColumn()).append(",wid,x,y,z,type,data,1 AS amount,meta AS metadata,action,rolled_back FROM ")
-                .append(blockTable).append(' ').append(where).append(" AND action = 1");
+                .append(blockTable).append(' ').append(blockWhere).append(" AND action = 1");
         query.append(" UNION ALL ");
         query.append("SELECT 1 AS source,rowid AS id,time,").append(ConfigHandler.databaseType.getUserColumn()).append(",wid,x,y,z,type,data,amount,metadata,action,rolled_back FROM ")
                 .append(containerTable).append(' ').append(where);

@@ -233,8 +233,10 @@ public class BlockAPI {
             try {
                 StringBuilder containerWhere = new StringBuilder();
                 filter.appendWhere(containerWhere, "container_rows");
+                filter.appendMaterialWhere(containerWhere, "container_rows");
                 StringBuilder entityWhere = new StringBuilder();
                 filter.appendEntityContainerWhere(entityWhere, "entity_rows", "spawn_rows");
+                filter.appendMaterialWhere(entityWhere, "entity_rows");
 
                 StringBuilder query = new StringBuilder("SELECT * FROM (");
                 query.append("SELECT 0 AS source,container_rows.rowid AS id,container_rows.time,container_rows.").append(ConfigHandler.databaseType.getUserColumn()).append(",container_rows.wid,container_rows.x,container_rows.y,container_rows.z,container_rows.action,container_rows.type,container_rows.data,container_rows.amount,container_rows.metadata,container_rows.rolled_back FROM ")

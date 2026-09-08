@@ -48,6 +48,7 @@ public class ItemAPI {
                 query.append(WorldUtils.getWidIndex("item"));
             }
             filter.appendWhere(query);
+            filter.appendMaterialWhere(query);
             query.append(" AND action NOT IN (")
                     .append(ItemLogger.ITEM_BREAK).append(",")
                     .append(ItemLogger.ITEM_DESTROY).append(",")

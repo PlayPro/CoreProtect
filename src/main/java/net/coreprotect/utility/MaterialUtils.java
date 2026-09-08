@@ -140,9 +140,12 @@ public class MaterialUtils extends Queue {
 
     public static Material getType(int id) {
         // Internal ID pulled from DB
+        return id > 0 ? getTypeFromStoredName(getBlockName(id)) : null;
+    }
+
+    public static Material getTypeFromStoredName(String blockName) {
         Material material = null;
-        String blockName = getBlockName(id);
-        if (!blockName.isEmpty() && id > 0) {
+        if (!blockName.isEmpty()) {
             String name = blockName.toUpperCase(Locale.ROOT);
             if (name.contains(NAMESPACE.toUpperCase(Locale.ROOT))) {
                 name = name.split(":")[1];

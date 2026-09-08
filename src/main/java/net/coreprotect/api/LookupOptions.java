@@ -1,6 +1,9 @@
 package net.coreprotect.api;
 
+import java.util.List;
+
 import org.bukkit.Location;
+import org.bukkit.Material;
 
 /**
  * Shared options for typed lookup API methods.
@@ -12,6 +15,8 @@ public final class LookupOptions {
     private final Location location;
     private final int limitOffset;
     private final int limitCount;
+    private final List<Material> includeMaterials;
+    private final List<Material> excludeMaterials;
 
     private LookupOptions(Builder builder) {
         this.user = builder.user;
@@ -20,6 +25,8 @@ public final class LookupOptions {
         this.location = builder.location;
         this.limitOffset = builder.limitOffset;
         this.limitCount = builder.limitCount;
+        this.includeMaterials = builder.includeMaterials;
+        this.excludeMaterials = builder.excludeMaterials;
     }
 
     public static Builder builder() {
@@ -54,6 +61,14 @@ public final class LookupOptions {
         return limitOffset >= 0 && limitCount >= 0;
     }
 
+    public List<Material> getIncludeMaterials() {
+        return includeMaterials;
+    }
+
+    public List<Material> getExcludeMaterials() {
+        return excludeMaterials;
+    }
+
     public static final class Builder {
         private String user;
         private int time;
@@ -61,6 +76,8 @@ public final class LookupOptions {
         private Location location;
         private int limitOffset = -1;
         private int limitCount = -1;
+        private List<Material> includeMaterials = List.of();
+        private List<Material> excludeMaterials = List.of();
 
         private Builder() {
         }
@@ -90,6 +107,16 @@ public final class LookupOptions {
         public Builder limit(int offset, int count) {
             this.limitOffset = offset;
             this.limitCount = count;
+            return this;
+        }
+
+        public Builder includeMaterials(List<Material> materials) {
+            this.includeMaterials = List.copyOf(materials);
+            return this;
+        }
+
+        public Builder excludeMaterials(List<Material> materials) {
+            this.excludeMaterials = List.copyOf(materials);
             return this;
         }
 

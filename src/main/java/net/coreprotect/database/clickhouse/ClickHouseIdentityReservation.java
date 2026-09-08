@@ -85,6 +85,52 @@ final class ClickHouseIdentityReservation {
         return claimedId(identity, reservationDeadline());
     }
 
+    boolean claimUserOwner(long rowId, UUID uuid) throws SQLException {
+        String identity = "canonical:user:owner:" + rowId;
+        long deadline = reservationDeadline();
+        UUID owner = readOwner(identity, deadline);
+        if (owner == null) {
+            UUID legacyOwner = readLegacyUserOwner(rowId, deadline);
+            claimCanonical(identity, rowId, legacyOwner == null ? uuid : legacyOwner, deadline);
+            owner = readOwner(identity, deadline);
+        }
+        if (owner == null) {
+            throw new SQLException("ClickHouse user identity owner is not visible after being claimed");
+        }
+        return uuid.equals(owner);
+    }
+
+    private UUID readLegacyUserOwner(long rowId, long deadline) throws SQLException {
+        String prefix = "canonical:user:uuid:";
+        String sql = "SELECT sequence FROM " + table + " WHERE block_start=? AND startsWith(sequence,?) GROUP BY sequence LIMIT 2";
+        try (Connection connection = jdbc.openAuxiliaryConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
+            setQueryTimeout(statement, deadline, prefix + rowId);
+            statement.setLong(1, rowId);
+            statement.setString(2, prefix);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return null;
+                }
+                UUID owner = parseWriterId(prefix + rowId, resultSet.getString(1).substring(prefix.length()));
+                if (resultSet.next()) {
+                    throw new SQLException("ClickHouse user identity " + rowId + " is already claimed by multiple UUIDs");
+                }
+                return owner;
+            }
+        }
+    }
+
+    private UUID readOwner(String identity, long deadline) throws SQLException {
+        String sql = "SELECT toString(writer_id) FROM " + table + " WHERE sequence=? ORDER BY " + CLAIM_ORDER + " LIMIT 1";
+        try (Connection connection = jdbc.openAuxiliaryConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
+            setQueryTimeout(statement, deadline, identity);
+            statement.setString(1, identity);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next() ? parseWriterId(identity, resultSet.getString(1)) : null;
+            }
+        }
+    }
+
     private Long claimedId(String identity, long deadline) throws SQLException {
         if (identity == null || identity.isEmpty()) {
             throw new IllegalArgumentException("ClickHouse canonical identities cannot be empty");
@@ -133,12 +179,16 @@ final class ClickHouseIdentityReservation {
     }
 
     private void claimCanonical(String sequence, long blockStart, long deadline) throws SQLException {
+        claimCanonical(sequence, blockStart, writerId, deadline);
+    }
+
+    private void claimCanonical(String sequence, long blockStart, UUID ownerId, long deadline) throws SQLException {
         String sql = "INSERT INTO " + table + " (sequence,block_start,writer_id) VALUES (?,?,?)";
         try (Connection connection = jdbc.openAuxiliaryConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
             setQueryTimeout(statement, deadline, sequence);
             statement.setString(1, sequence);
             statement.setLong(2, blockStart);
-            statement.setObject(3, writerId);
+            statement.setObject(3, ownerId);
             statement.execute();
         }
     }

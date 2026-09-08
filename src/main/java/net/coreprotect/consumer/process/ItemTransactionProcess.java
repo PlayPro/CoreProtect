@@ -7,11 +7,16 @@ import org.bukkit.Location;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.logger.ItemLogger;
 
 class ItemTransactionProcess extends Queue {
 
     static void process(ConsumerWriteBatch preparedStmt, int batchCount, int processId, int id, int forceData, int time, int offset, String user, Object object) {
+        if (object instanceof ItemLogger.PreparedTransaction) {
+            ((ItemLogger.PreparedTransaction) object).log(preparedStmt, batchCount, user);
+            return;
+        }
         if (object instanceof Location) {
             Location location = (Location) object;
             String loggingItemId = user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
@@ -24,7 +29,14 @@ class ItemTransactionProcess extends Queue {
                 if (current_chest == forceData) {
                     int currentTime = (int) (System.currentTimeMillis() / 1000L);
                     if (currentTime > time) {
-                        ItemLogger.log(preparedStmt, batchCount, location, offset, user);
+                        ItemLogger.PreparedTransaction prepared = null;
+                        if (ConfigHandler.databaseType.isColumnar()) {
+                            prepared = ItemLogger.prepare(location, offset, user);
+                            Consumer.consumerObjects.get(processId).put(id, prepared);
+                        }
+                        else {
+                            ItemLogger.log(preparedStmt, batchCount, location, offset, user);
+                        }
                         ConfigHandler.itemsPickup.remove(loggingItemId);
                         ConfigHandler.itemsDrop.remove(loggingItemId);
                         ConfigHandler.itemsThrown.remove(loggingItemId);
@@ -35,6 +47,9 @@ class ItemTransactionProcess extends Queue {
                         ConfigHandler.itemsSell.remove(loggingItemId);
                         ConfigHandler.itemsBuy.remove(loggingItemId);
                         ConfigHandler.loggingItem.remove(loggingItemId);
+                        if (prepared != null) {
+                            prepared.log(preparedStmt, batchCount, user);
+                        }
                     }
                     else {
                         Queue.queueItemTransaction(user, location, time, offset, forceData);

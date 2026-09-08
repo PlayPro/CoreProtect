@@ -136,7 +136,6 @@ public class Process {
         boolean consumerDataCleared = false;
         boolean preflightCommitted = false;
         int processedThrough = 0;
-        int attemptedThrough = 0;
         try {
             connection = Database.getConnection(false, 500);
             if (connection == null) {
@@ -243,7 +242,6 @@ public class Process {
             }
             processingStarted = true;
             for (int i = 0; i < consumerDataSize; i++) {
-                attemptedThrough = i + 1;
                 Object[] data = consumerData.get(i);
                 if (data != null) {
                     int id = (int) data[0];
@@ -558,12 +556,8 @@ public class Process {
             }
             if (processingStarted && !consumerDataCleared && consumerData != null && users != null && consumerObject != null) {
                 try {
-                    TransactionOutcome outcome = processingFailureOutcome();
-                    completeTransactionState(entitySpawnUpdates, pendingEntityContainerTransactions, pendingEntityContainerRollbacks, pendingEntityInteractions, pendingEntityIdentityConfirmations, invalidatedEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, pendingEntitySpawnLogs, outcome);
+                    completeTransactionState(entitySpawnUpdates, pendingEntityContainerTransactions, pendingEntityContainerRollbacks, pendingEntityInteractions, pendingEntityIdentityConfirmations, invalidatedEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, pendingEntitySpawnLogs, TransactionOutcome.RETAINED);
                     discardProcessedConsumerData(processId, consumerData, users, consumerObject, processedThrough);
-                    if (outcome != TransactionOutcome.RETAINED) {
-                        discardProcessedConsumerData(processId, consumerData, users, consumerObject, Math.max(0, attemptedThrough - processedThrough));
-                    }
                     consumerDataCleared = consumerData.isEmpty();
                 }
                 catch (Exception cleanupException) {
@@ -965,10 +959,6 @@ public class Process {
 
     private static TransactionOutcome failedCommitOutcome(ConsumerWriteBatch batch) {
         return ConfigHandler.databaseType.isClickHouse() || batch.wasCommitAttempted() ? TransactionOutcome.DISCARDED : TransactionOutcome.RETAINED;
-    }
-
-    private static TransactionOutcome processingFailureOutcome() {
-        return ConfigHandler.databaseType.isClickHouse() ? TransactionOutcome.RETRY : TransactionOutcome.RETAINED;
     }
 
     private static void completeTransactionState(ConsumerEntitySpawnUpdates entitySpawnUpdates, List<PendingEntityContainerTransaction> pendingEntityContainerTransactions, List<EntityContainerRollbackRetry> pendingEntityContainerRollbacks, List<PendingEntityInteraction> pendingEntityInteractions, Map<UUID, Location> pendingEntityIdentityConfirmations, Set<UUID> invalidatedEntityIdentityConfirmations, Set<UUID> promotedEntityIdentities, Map<UUID, EntitySpawnIdentity> entitySpawnIdentities, List<PendingEntitySpawnLog> pendingEntitySpawnLogs, TransactionOutcome outcome) {

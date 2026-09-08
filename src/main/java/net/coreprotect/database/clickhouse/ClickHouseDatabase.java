@@ -228,19 +228,73 @@ public final class ClickHouseDatabase implements AutoCloseable {
             if (existingId != null) {
                 return existingId;
             }
-            return toIdentifier(identifierReservation.canonicalId(nameIdentity,
-                    () -> identityAllocator.nextRowId(ClickHouseFamily.USER)),
-                    ClickHouseFamily.USER.getTableName());
+            return toIdentifier(canonicalNameUserId(normalizedUser, normalizedUuid), ClickHouseFamily.USER.getTableName());
         }
 
+        UUID ownerUuid = UUID.fromString(normalizedUuid);
         String uuidIdentity = "canonical:user:uuid:" + normalizedUuid;
         long uuidId = identifierReservation.canonicalId(uuidIdentity,
-                () -> existingId != null
-                        ? existingId
-                        : identifierReservation.canonicalId(nameIdentity,
-                                () -> identityAllocator.nextRowId(ClickHouseFamily.USER)));
+                () -> {
+                    if (existingId != null) {
+                        UserIdentity existing = readUserIdentity(existingId);
+                        if ((existing == null || existing.uuid.isEmpty() || normalizedUuid.equals(existing.uuid))
+                                && identifierReservation.claimUserOwner(existingId, ownerUuid)) {
+                            return existingId;
+                        }
+                    }
+                    return canonicalNameUserId(normalizedUser, normalizedUuid);
+                });
+        if (!identifierReservation.claimUserOwner(uuidId, ownerUuid)) {
+            throw new SQLException("ClickHouse user identity " + uuidId + " belongs to another UUID");
+        }
         identifierReservation.canonicalId(nameIdentity, uuidId);
         return toIdentifier(uuidId, ClickHouseFamily.USER.getTableName());
+    }
+
+    private long canonicalNameUserId(String user, String uuid) throws SQLException {
+        String nameIdentity = "canonical:user:name:" + user;
+        String identity = nameIdentity;
+        UUID ownerUuid = uuid.isEmpty() ? null : UUID.fromString(uuid);
+        while (true) {
+            long id = identifierReservation.canonicalId(identity, () -> identityAllocator.nextRowId(ClickHouseFamily.USER));
+            UserIdentity existing = readUserIdentity(id);
+            if (existing == null || user.equals(existing.name.toLowerCase(Locale.ROOT))) {
+                if (ownerUuid == null) {
+                    return id;
+                }
+                if ((existing == null || existing.uuid.isEmpty() || uuid.equals(existing.uuid))
+                        && identifierReservation.claimUserOwner(id, ownerUuid)) {
+                    return id;
+                }
+            }
+            identity = nameIdentity + ":after:" + id;
+        }
+    }
+
+    private UserIdentity readUserIdentity(long rowId) throws SQLException {
+        String table = ClickHouseIdentifiers.qualified(database, prefix + ClickHouseFamily.USER.getTableName());
+        try (Connection connection = jdbc.openAuxiliaryConnection(); PreparedStatement statement = connection.prepareStatement(
+                "SELECT `user`,uuid FROM " + table + " WHERE rowid=? LIMIT 1")) {
+            statement.setLong(1, rowId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return null;
+                }
+                String uuid = resultSet.getString(2);
+                return new UserIdentity(resultSet.getString(1), uuid == null ? "" : uuid);
+            }
+        }
+    }
+
+    private static final class UserIdentity {
+
+        private final String name;
+        private final String uuid;
+
+        private UserIdentity(String name, String uuid) {
+            this.name = name;
+            this.uuid = uuid;
+        }
     }
 
     private static int toIdentifier(long id, String family) throws SQLException {

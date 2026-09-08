@@ -44,6 +44,10 @@ public class ContainerLogger extends Queue {
     }
 
     public static void log(ConsumerWriteBatch preparedStmtContainer, ConsumerWriteBatch preparedStmtItems, int batchCount, String player, Material type, Object container, Location location) {
+        log(preparedStmtContainer, preparedStmtItems, batchCount, player, type, container, location, null);
+    }
+
+    public static void log(ConsumerWriteBatch preparedStmtContainer, ConsumerWriteBatch preparedStmtItems, int batchCount, String player, Material type, Object container, Location location, java.util.function.Consumer<PreparedTransaction> capture) {
         try {
             ItemStack[] contents = null;
             String faceData = null;
@@ -107,6 +111,9 @@ public class ContainerLogger extends Queue {
                         ConfigHandler.dispenserNoChange.computeIfAbsent(locationKey, k -> new ConcurrentHashMap<>()).put(eventKey, System.currentTimeMillis());
                     }
                 }
+                if (capture != null) {
+                    capture.accept(new PreparedTransaction(type, faceData, location, new ItemStack[0], new ItemStack[0]));
+                }
                 oldList.remove(0);
                 ConfigHandler.oldContainer.put(loggingContainerId, oldList);
                 HopperTransactionUtils.consumeSnapshot(transactingChestId, loggingContainerId);
@@ -145,6 +152,9 @@ public class ContainerLogger extends Queue {
                 if (forceState != null) {
                     pollForceContainer(loggingContainerId);
                 }
+                if (capture != null) {
+                    capture.accept(new PreparedTransaction(type, faceData, location, new ItemStack[0], new ItemStack[0]));
+                }
                 oldList.remove(0);
                 ConfigHandler.oldContainer.put(loggingContainerId, oldList);
                 HopperTransactionUtils.consumeSnapshot(transactingChestId, loggingContainerId);
@@ -160,13 +170,12 @@ public class ContainerLogger extends Queue {
             ItemUtils.mergeItems(type, oldInventory);
             ItemUtils.mergeItems(type, newInventory);
 
-            if (type != Material.ENDER_CHEST) {
-                logTransaction(preparedStmtContainer, batchCount, player, type, faceData, oldInventory, ItemTransactionActions.REMOVE, location);
-                logTransaction(preparedStmtContainer, batchCount, player, type, faceData, newInventory, ItemTransactionActions.ADD, location);
+            PreparedTransaction prepared = capture == null ? null : new PreparedTransaction(type, faceData, location, oldInventory, newInventory);
+            if (prepared != null) {
+                capture.accept(prepared);
             }
-            else { // pass ender chest transactions to item logger
-                ItemLogger.logTransaction(preparedStmtItems, batchCount, 0, player, location, oldInventory, ItemTransactionActions.REMOVE_ENDER);
-                ItemLogger.logTransaction(preparedStmtItems, batchCount, 0, player, location, newInventory, ItemTransactionActions.ADD_ENDER);
+            else {
+                logContents(preparedStmtContainer, preparedStmtItems, batchCount, player, type, faceData, location, oldInventory, newInventory, null, true);
             }
 
             if (forceState != null) {
@@ -175,9 +184,49 @@ public class ContainerLogger extends Queue {
             oldList.remove(0);
             ConfigHandler.oldContainer.put(loggingContainerId, oldList);
             HopperTransactionUtils.consumeSnapshot(transactingChestId, loggingContainerId);
+            if (prepared != null) {
+                prepared.log(preparedStmtContainer, preparedStmtItems, batchCount, player, true);
+            }
         }
         catch (Exception e) {
             Database.handleWriteFailure(e);
+        }
+    }
+
+    private static void logContents(ConsumerWriteBatch containerBatch, ConsumerWriteBatch itemBatch, int batchCount, String user, Material type, String faceData, Location location, ItemStack[] removed, ItemStack[] added, Integer preparedTime, boolean clearHopper) {
+        if (type != Material.ENDER_CHEST) {
+            logTransaction(containerBatch, batchCount, user, type, faceData, removed, ItemTransactionActions.REMOVE, location, preparedTime, clearHopper);
+            logTransaction(containerBatch, batchCount, user, type, faceData, added, ItemTransactionActions.ADD, location, preparedTime, clearHopper);
+        }
+        else {
+            ItemLogger.logTransaction(itemBatch, batchCount, 0, user, location, removed, ItemTransactionActions.REMOVE_ENDER, preparedTime);
+            ItemLogger.logTransaction(itemBatch, batchCount, 0, user, location, added, ItemTransactionActions.ADD_ENDER, preparedTime);
+        }
+    }
+
+    public static final class PreparedTransaction {
+        private final Material type;
+        private final String faceData;
+        private final Location location;
+        private final int time;
+        private final ItemStack[] removed;
+        private final ItemStack[] added;
+
+        private PreparedTransaction(Material type, String faceData, Location location, ItemStack[] removed, ItemStack[] added) {
+            this.type = type;
+            this.faceData = faceData;
+            this.location = location.clone();
+            this.time = (int) (System.currentTimeMillis() / 1000L);
+            this.removed = ItemUtils.getContainerState(removed);
+            this.added = ItemUtils.getContainerState(added);
+        }
+
+        public void log(ConsumerWriteBatch containerBatch, ConsumerWriteBatch itemBatch, int batchCount, String user) {
+            log(containerBatch, itemBatch, batchCount, user, false);
+        }
+
+        private void log(ConsumerWriteBatch containerBatch, ConsumerWriteBatch itemBatch, int batchCount, String user, boolean clearHopper) {
+            logContents(containerBatch, itemBatch, batchCount, user, type, faceData, location.clone(), ItemUtils.getContainerState(removed), ItemUtils.getContainerState(added), time, clearHopper);
         }
     }
 
@@ -201,6 +250,10 @@ public class ContainerLogger extends Queue {
     }
 
     protected static void logTransaction(ConsumerWriteBatch preparedStmt, int batchCount, String user, Material type, String faceData, ItemStack[] items, int action, Location location) {
+        logTransaction(preparedStmt, batchCount, user, type, faceData, items, action, location, null, true);
+    }
+
+    private static void logTransaction(ConsumerWriteBatch preparedStmt, int batchCount, String user, Material type, String faceData, ItemStack[] items, int action, Location location, Integer preparedTime, boolean clearHopper) {
         try {
             if (ConfigHandler.isBlacklisted(user)) {
                 return;
@@ -233,7 +286,7 @@ public class ContainerLogger extends Queue {
                         int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
                         Location eventLocation = event.getLocation();
                         int wid = WorldUtils.getWorldId(eventLocation.getWorld().getName());
-                        int time = (int) (System.currentTimeMillis() / 1000L);
+                        int time = preparedTime == null ? (int) (System.currentTimeMillis() / 1000L) : preparedTime;
                         int x = eventLocation.getBlockX();
                         int y = eventLocation.getBlockY();
                         int z = eventLocation.getBlockZ();
@@ -247,7 +300,7 @@ public class ContainerLogger extends Queue {
                 slot++;
             }
 
-            if (success && user.equals("#hopper")) {
+            if (clearHopper && success && user.equals("#hopper")) {
                 String hopperPush = HopperTransactionUtils.getHopperPushId(location);
                 ConfigHandler.hopperSuccess.remove(hopperPush);
                 ConfigHandler.hopperAbort.remove(hopperPush);

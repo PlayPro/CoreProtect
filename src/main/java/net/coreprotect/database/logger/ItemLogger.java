@@ -1,6 +1,5 @@
 package net.coreprotect.database.logger;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -50,69 +49,59 @@ public class ItemLogger {
                 return;
             }
 
-            String loggingItemId = user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
-
-            List<ItemStack> pickupList = ConfigHandler.itemsPickup.getOrDefault(loggingItemId, new ArrayList<>());
-            ItemStack[] itemPickups = new ItemStack[pickupList.size()];
-            itemPickups = pickupList.toArray(itemPickups);
-
-            List<ItemStack> dropList = ConfigHandler.itemsDrop.getOrDefault(loggingItemId, new ArrayList<>());
-            ItemStack[] itemDrops = new ItemStack[dropList.size()];
-            itemDrops = dropList.toArray(itemDrops);
-
-            List<ItemStack> thrownList = ConfigHandler.itemsThrown.getOrDefault(loggingItemId, new ArrayList<>());
-            ItemStack[] itemThrows = new ItemStack[thrownList.size()];
-            itemThrows = thrownList.toArray(itemThrows);
-
-            List<ItemStack> shotList = ConfigHandler.itemsShot.getOrDefault(loggingItemId, new ArrayList<>());
-            ItemStack[] itemShots = new ItemStack[shotList.size()];
-            itemShots = shotList.toArray(itemShots);
-
-            List<ItemStack> breakList = ConfigHandler.itemsBreak.getOrDefault(loggingItemId, new ArrayList<>());
-            ItemStack[] itemBreaks = new ItemStack[breakList.size()];
-            itemBreaks = breakList.toArray(itemBreaks);
-
-            List<ItemStack> destroyList = ConfigHandler.itemsDestroy.getOrDefault(loggingItemId, new ArrayList<>());
-            ItemStack[] itemDestroys = new ItemStack[destroyList.size()];
-            itemDestroys = destroyList.toArray(itemDestroys);
-
-            List<ItemStack> createList = ConfigHandler.itemsCreate.getOrDefault(loggingItemId, new ArrayList<>());
-            ItemStack[] itemCreates = new ItemStack[createList.size()];
-            itemCreates = createList.toArray(itemCreates);
-
-            List<ItemStack> sellList = ConfigHandler.itemsSell.getOrDefault(loggingItemId, new ArrayList<>());
-            ItemStack[] itemSells = new ItemStack[sellList.size()];
-            itemSells = sellList.toArray(itemSells);
-
-            List<ItemStack> buyList = ConfigHandler.itemsBuy.getOrDefault(loggingItemId, new ArrayList<>());
-            ItemStack[] itemBuys = new ItemStack[buyList.size()];
-            itemBuys = buyList.toArray(itemBuys);
-
-            ItemUtils.mergeItems(null, itemPickups);
-            ItemUtils.mergeItems(null, itemDrops);
-            ItemUtils.mergeItems(null, itemThrows);
-            ItemUtils.mergeItems(null, itemShots);
-            ItemUtils.mergeItems(null, itemBreaks);
-            ItemUtils.mergeItems(null, itemDestroys);
-            ItemUtils.mergeItems(null, itemCreates);
-            ItemUtils.mergeItems(null, itemSells);
-            ItemUtils.mergeItems(null, itemBuys);
-            logTransaction(preparedStmt, batchCount, offset, user, location, itemPickups, ITEM_PICKUP);
-            logTransaction(preparedStmt, batchCount, offset, user, location, itemDrops, ITEM_DROP);
-            logTransaction(preparedStmt, batchCount, offset, user, location, itemThrows, ITEM_THROW);
-            logTransaction(preparedStmt, batchCount, offset, user, location, itemShots, ITEM_SHOOT);
-            logTransaction(preparedStmt, batchCount, offset, user, location, itemBreaks, ITEM_BREAK);
-            logTransaction(preparedStmt, batchCount, offset, user, location, itemDestroys, ITEM_DESTROY);
-            logTransaction(preparedStmt, batchCount, offset, user, location, itemCreates, ITEM_CREATE);
-            logTransaction(preparedStmt, batchCount, offset, user, location, itemSells, ITEM_SELL);
-            logTransaction(preparedStmt, batchCount, offset, user, location, itemBuys, ITEM_BUY);
+            prepare(location, offset, user).log(preparedStmt, batchCount, user);
         }
         catch (Exception e) {
             Database.handleWriteFailure(e);
         }
     }
 
+    public static PreparedTransaction prepare(Location location, int offset, String user) {
+        String key = user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+        ItemStack[][] items = {
+                snapshot(ConfigHandler.itemsPickup, key), snapshot(ConfigHandler.itemsDrop, key),
+                snapshot(ConfigHandler.itemsThrown, key), snapshot(ConfigHandler.itemsShot, key),
+                snapshot(ConfigHandler.itemsBreak, key), snapshot(ConfigHandler.itemsDestroy, key),
+                snapshot(ConfigHandler.itemsCreate, key), snapshot(ConfigHandler.itemsSell, key), snapshot(ConfigHandler.itemsBuy, key)
+        };
+        for (ItemStack[] group : items) {
+            ItemUtils.mergeItems(null, group);
+        }
+        return new PreparedTransaction(location, (int) (System.currentTimeMillis() / 1000L) - offset, items);
+    }
+
+    private static ItemStack[] snapshot(Map<String, List<ItemStack>> source, String key) {
+        List<ItemStack> values = source.get(key);
+        return values == null ? new ItemStack[0] : ItemUtils.getContainerState(values.toArray(new ItemStack[0]));
+    }
+
+    public static final class PreparedTransaction {
+        private static final int[] ACTIONS = { ITEM_PICKUP, ITEM_DROP, ITEM_THROW, ITEM_SHOOT, ITEM_BREAK, ITEM_DESTROY, ITEM_CREATE, ITEM_SELL, ITEM_BUY };
+        private final Location location;
+        private final int time;
+        private final ItemStack[][] items;
+
+        private PreparedTransaction(Location location, int time, ItemStack[][] items) {
+            this.location = location.clone();
+            this.time = time;
+            this.items = items;
+        }
+
+        public void log(ConsumerWriteBatch batch, int batchCount, String user) {
+            if (ConfigHandler.isBlacklisted(user)) {
+                return;
+            }
+            for (int index = 0; index < items.length; index++) {
+                logTransaction(batch, batchCount, 0, user, location.clone(), ItemUtils.getContainerState(items[index]), ACTIONS[index], time);
+            }
+        }
+    }
+
     protected static void logTransaction(ConsumerWriteBatch preparedStmt, int batchCount, int offset, String user, Location location, ItemStack[] items, int action) {
+        logTransaction(preparedStmt, batchCount, offset, user, location, items, action, null);
+    }
+
+    protected static void logTransaction(ConsumerWriteBatch preparedStmt, int batchCount, int offset, String user, Location location, ItemStack[] items, int action, Integer preparedTime) {
         try {
             for (ItemStack item : items) {
                 if (item != null && item.getAmount() > 0 && !BlockUtils.isAir(item.getType())) {
@@ -138,7 +127,7 @@ public class ItemLogger {
                     int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
                     Location eventLocation = event.getLocation();
                     int wid = WorldUtils.getWorldId(eventLocation.getWorld().getName());
-                    int time = (int) (System.currentTimeMillis() / 1000L) - offset;
+                    int time = preparedTime == null ? (int) (System.currentTimeMillis() / 1000L) - offset : preparedTime;
                     int x = eventLocation.getBlockX();
                     int y = eventLocation.getBlockY();
                     int z = eventLocation.getBlockZ();

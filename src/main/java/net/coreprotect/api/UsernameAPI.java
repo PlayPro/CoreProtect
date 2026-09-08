@@ -45,23 +45,11 @@ public class UsernameAPI {
                 return result;
             }
 
-            Set<String> uuids = getUuids(connection, options.getUser());
+            Set<String> uuids = getUuids(connection, options);
             if (uuids == null) {
                 return result;
             }
 
-            Set<String> includedUuids = getUuids(connection, options.getUsers());
-            if (!options.getUsers().isEmpty() && includedUuids != null) {
-                if (uuids.isEmpty()) {
-                    uuids.addAll(includedUuids);
-                }
-                else {
-                    uuids.retainAll(includedUuids);
-                }
-                if (uuids.isEmpty()) {
-                    return result;
-                }
-            }
             Set<String> excludedUuids = getUuids(connection, options.getExcludeUsers());
             if (excludedUuids == null) {
                 return result;
@@ -122,6 +110,25 @@ public class UsernameAPI {
             }
             query.append("?");
         }
+    }
+
+    private static Set<String> getUuids(Connection connection, LookupOptions options) throws Exception {
+        Set<String> result = getUuids(connection, options.getUser());
+        if (result == null || options.getUsers().isEmpty()) {
+            return result;
+        }
+
+        Set<String> includedUuids = getUuids(connection, options.getUsers());
+        if (includedUuids == null) {
+            return result;
+        }
+        if (result.isEmpty()) {
+            result.addAll(includedUuids);
+        }
+        else {
+            result.retainAll(includedUuids);
+        }
+        return result.isEmpty() ? null : result;
     }
 
     private static Set<String> getUuids(Connection connection, String user) throws Exception {

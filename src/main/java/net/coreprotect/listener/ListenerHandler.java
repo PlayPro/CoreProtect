@@ -37,6 +37,7 @@ import net.coreprotect.listener.entity.EntityTransformListener;
 import net.coreprotect.listener.entity.HangingBreakByEntityListener;
 import net.coreprotect.listener.entity.HangingBreakListener;
 import net.coreprotect.listener.entity.HangingPlaceListener;
+import net.coreprotect.listener.entity.VehicleDamageListener;
 import net.coreprotect.listener.entity.VehicleDestroyListener;
 import net.coreprotect.listener.entity.TrackedEntityRemoveListener;
 import net.coreprotect.listener.entity.TrackedEntityTeleportListener;
@@ -147,6 +148,7 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new HangingPlaceListener(), plugin);
         pluginManager.registerEvents(new HangingBreakListener(), plugin);
         pluginManager.registerEvents(new HangingBreakByEntityListener(), plugin);
+        pluginManager.registerEvents(new VehicleDamageListener(), plugin);
         pluginManager.registerEvents(new VehicleDestroyListener(), plugin);
         pluginManager.registerEvents(new TrackedEntityTeleportListener(), plugin);
         try {

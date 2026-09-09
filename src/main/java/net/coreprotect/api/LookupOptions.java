@@ -19,6 +19,9 @@ public final class LookupOptions {
     private final List<Material> excludeMaterials;
     private final List<String> users;
     private final List<String> excludeUsers;
+    private final List<ContainerAction> containerActions;
+    private final List<ItemAction> itemActions;
+    private final List<InventoryAction> inventoryActions;
 
     private LookupOptions(Builder builder) {
         this.user = builder.user;
@@ -31,6 +34,9 @@ public final class LookupOptions {
         this.excludeMaterials = builder.excludeMaterials;
         this.users = builder.users;
         this.excludeUsers = builder.excludeUsers;
+        this.containerActions = builder.containerActions;
+        this.itemActions = builder.itemActions;
+        this.inventoryActions = builder.inventoryActions;
     }
 
     public static Builder builder() {
@@ -81,6 +87,18 @@ public final class LookupOptions {
         return excludeUsers;
     }
 
+    public List<ContainerAction> getContainerActions() {
+        return containerActions;
+    }
+
+    public List<ItemAction> getItemActions() {
+        return itemActions;
+    }
+
+    public List<InventoryAction> getInventoryActions() {
+        return inventoryActions;
+    }
+
     public static final class Builder {
         private String user;
         private int time;
@@ -92,6 +110,9 @@ public final class LookupOptions {
         private List<Material> excludeMaterials = List.of();
         private List<String> users = List.of();
         private List<String> excludeUsers = List.of();
+        private List<ContainerAction> containerActions = List.of();
+        private List<ItemAction> itemActions = List.of();
+        private List<InventoryAction> inventoryActions = List.of();
 
         private Builder() {
         }
@@ -141,6 +162,21 @@ public final class LookupOptions {
 
         public Builder excludeUsers(List<String> users) {
             this.excludeUsers = List.copyOf(users);
+            return this;
+        }
+
+        public Builder containerActions(List<ContainerAction> actions) {
+            this.containerActions = List.copyOf(actions);
+            return this;
+        }
+
+        public Builder itemActions(List<ItemAction> actions) {
+            this.itemActions = List.copyOf(actions);
+            return this;
+        }
+
+        public Builder inventoryActions(List<InventoryAction> actions) {
+            this.inventoryActions = List.copyOf(actions);
             return this;
         }
 

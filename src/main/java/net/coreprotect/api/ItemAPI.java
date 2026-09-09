@@ -32,6 +32,10 @@ public class ItemAPI {
             return result;
         }
 
+        if (options == null) {
+            options = LookupOptions.builder().build();
+        }
+
         try (Connection connection = Database.getConnection(false, 1000)) {
             if (connection == null) {
                 return result;
@@ -49,12 +53,17 @@ public class ItemAPI {
             }
             filter.appendWhere(query);
             filter.appendMaterialWhere(query);
-            query.append(" AND action NOT IN (")
-                    .append(ItemLogger.ITEM_BREAK).append(",")
-                    .append(ItemLogger.ITEM_DESTROY).append(",")
-                    .append(ItemLogger.ITEM_CREATE).append(",")
-                    .append(ItemLogger.ITEM_SELL).append(",")
-                    .append(ItemLogger.ITEM_BUY).append(")");
+            if (options.getItemActions().isEmpty()) {
+                query.append(" AND action NOT IN (")
+                        .append(ItemLogger.ITEM_BREAK).append(",")
+                        .append(ItemLogger.ITEM_DESTROY).append(",")
+                        .append(ItemLogger.ITEM_CREATE).append(",")
+                        .append(ItemLogger.ITEM_SELL).append(",")
+                        .append(ItemLogger.ITEM_BUY).append(")");
+            }
+            else {
+                LookupFilter.appendActionWhere(query, "", options.getItemActions().stream().mapToInt(ItemAction::id).toArray());
+            }
             query.append(" ORDER BY ").append(ConfigHandler.getDescendingEventOrder());
             filter.appendLimit(query);
 

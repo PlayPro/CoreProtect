@@ -137,7 +137,7 @@ public class BlockLookup {
 
                 String target;
                 if (resultAction == 3 || resultAction == LookupActions.ENTITY_SPAWN) {
-                    target = EntityUtils.getEntityType(resultType).name();
+                    target = EntityUtils.getEntityType(resultType).name().toLowerCase(Locale.ROOT);
                 }
                 else {
                     target = MaterialUtils.getBlockDisplayName(resultType, resultData);

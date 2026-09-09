@@ -8,7 +8,6 @@ import org.bukkit.block.BlockState;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 
-import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.lookup.BlockLookup;
 import net.coreprotect.database.lookup.InteractionLookup;
@@ -17,6 +16,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.LookupThrottle;
 
 public class BlockLookupThread implements Runnable {
     private final CommandSender player;
@@ -39,8 +39,12 @@ public class BlockLookupThread implements Runnable {
 
     @Override
     public void run() {
+        if (!LookupThrottle.tryAcquire(player.getName(), 50)) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
+            return;
+        }
+
         try (Connection connection = Database.getConnection(true)) {
-            ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
             if (connection != null) {
                 Statement statement = connection.createStatement();
                 if (type == 8) {
@@ -85,7 +89,8 @@ public class BlockLookupThread implements Runnable {
         catch (Exception e) {
             ErrorReporter.report(e);
         }
-
-        ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
+        finally {
+            LookupThrottle.release(player.getName());
+        }
     }
 }

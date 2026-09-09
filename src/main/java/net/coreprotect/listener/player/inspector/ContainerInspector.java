@@ -20,13 +20,11 @@ import net.coreprotect.utility.ErrorReporter;
 public class ContainerInspector extends BaseInspector {
 
     public void performContainerLookup(final Player player, final Location finalLocation) {
-        ConfigHandler.lookupEntityContainer.remove(player.getName());
-
         class BasicThread implements Runnable {
             @Override
             public void run() {
                 try {
-                    checkPreconditions(player);
+                    ConfigHandler.lookupEntityContainer.remove(player.getName());
 
                     try (Connection connection = getDatabaseConnection(player)) {
                         Statement statement = connection.createStatement();
@@ -44,26 +42,19 @@ public class ContainerInspector extends BaseInspector {
                 catch (Exception e) {
                     ErrorReporter.report(e);
                 }
-                finally {
-                    finishInspection(player);
-                }
             }
         }
 
-        Runnable runnable = new BasicThread();
-        Thread thread = new Thread(runnable);
-        thread.start();
+        startInspection(player, new BasicThread());
     }
 
     public void performEntityContainerLookup(final Player player, final UUID entityUuid, final Location location) {
-        ConfigHandler.lookupEntityContainer.remove(player.getName());
-        ConfigHandler.lookupType.remove(player.getName());
-
         class BasicThread implements Runnable {
             @Override
             public void run() {
                 try {
-                    checkPreconditions(player);
+                    ConfigHandler.lookupEntityContainer.remove(player.getName());
+                    ConfigHandler.lookupType.remove(player.getName());
 
                     try (Connection connection = getDatabaseConnection(player)) {
                         Integer entitySpawnRowId = EntitySpawnStatement.findRowIdByUuid(connection, entityUuid);
@@ -90,13 +81,9 @@ public class ContainerInspector extends BaseInspector {
                 catch (Exception e) {
                     ErrorReporter.report(e);
                 }
-                finally {
-                    finishInspection(player);
-                }
             }
         }
 
-        Thread thread = new Thread(new BasicThread());
-        thread.start();
+        startInspection(player, new BasicThread());
     }
 }

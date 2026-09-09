@@ -14,6 +14,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.LookupThrottle;
 
 public final class EntityInteractionLookupThread implements Runnable {
     private final CommandSender player;
@@ -30,8 +31,12 @@ public final class EntityInteractionLookupThread implements Runnable {
 
     @Override
     public void run() {
+        if (!LookupThrottle.tryAcquire(player.getName(), 50)) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
+            return;
+        }
+
         try (Connection connection = Database.getConnection(true)) {
-            ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
             if (connection == null) {
                 Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
                 return;
@@ -49,7 +54,7 @@ public final class EntityInteractionLookupThread implements Runnable {
             ErrorReporter.report(e);
         }
         finally {
-            ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
+            LookupThrottle.release(player.getName());
         }
     }
 }

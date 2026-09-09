@@ -26,35 +26,32 @@ import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.LookupThrottle;
 
 public final class ArmorStandManipulateListener extends Queue implements Listener {
 
     public static void inspectHangingTransactions(final Location location, final Player finalPlayer) {
+        if (!finalPlayer.hasPermission("coreprotect.inspect")) {
+            Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
+            ConfigHandler.inspecting.put(finalPlayer.getName(), false);
+            return;
+        }
+        if (ConfigHandler.converterRunning) {
+            Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
+            return;
+        }
+        if (ConfigHandler.purgeRunning) {
+            Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
+            return;
+        }
+        if (!LookupThrottle.tryAcquire(finalPlayer.getName(), 100)) {
+            Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
+            return;
+        }
+
         class BasicThread implements Runnable {
             @Override
             public void run() {
-                if (!finalPlayer.hasPermission("coreprotect.inspect")) {
-                    Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
-                    ConfigHandler.inspecting.put(finalPlayer.getName(), false);
-                    return;
-                }
-                if (ConfigHandler.converterRunning) {
-                    Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
-                    return;
-                }
-                if (ConfigHandler.purgeRunning) {
-                    Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
-                    return;
-                }
-                if (ConfigHandler.lookupThrottle.get(finalPlayer.getName()) != null) {
-                    Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(finalPlayer.getName());
-                    if ((boolean) lookupThrottle[0] || ((System.currentTimeMillis() - (long) lookupThrottle[1])) < 100) {
-                        Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                        return;
-                    }
-                }
-                ConfigHandler.lookupThrottle.put(finalPlayer.getName(), new Object[] { true, System.currentTimeMillis() });
-
                 try (Connection connection = Database.getConnection(true)) {
                     if (connection != null) {
                         Statement statement = connection.createStatement();
@@ -71,13 +68,20 @@ public final class ArmorStandManipulateListener extends Queue implements Listene
                 catch (Exception e) {
                     ErrorReporter.report(e);
                 }
-
-                ConfigHandler.lookupThrottle.put(finalPlayer.getName(), new Object[] { false, System.currentTimeMillis() });
+                finally {
+                    LookupThrottle.release(finalPlayer.getName());
+                }
             }
         }
-        Runnable runnable = new BasicThread();
-        Thread thread = new Thread(runnable);
-        thread.start();
+        try {
+            Runnable runnable = new BasicThread();
+            Thread thread = new Thread(runnable);
+            thread.start();
+        }
+        catch (RuntimeException | Error e) {
+            LookupThrottle.release(finalPlayer.getName());
+            throw e;
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

@@ -57,6 +57,7 @@ import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.StringUtils;
 import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.LookupThrottle;
 
 public class StandardLookupThread implements Runnable {
     private static final int SUMMARY_QUERY_TIMEOUT_SECONDS = 30;
@@ -128,9 +129,15 @@ public class StandardLookupThread implements Runnable {
             return;
         }
 
-        try (Connection connection = Database.getConnection(true)) {
-            ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
+        if (!LookupThrottle.tryAcquire(player.getName(), 50)) {
+            if (summaryLookup) {
+                SUMMARY_LOOKUP_ACTIVE.set(false);
+            }
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
+            return;
+        }
 
+        try (Connection connection = Database.getConnection(true)) {
             List<String> uuidList = new ArrayList<>();
             Integer entityContainerId = actions.contains(5) ? ConfigHandler.lookupEntityContainer.get(player.getName()) : null;
             ConfigHandler.lookupEntityInteraction.remove(player.getName());
@@ -671,7 +678,7 @@ public class StandardLookupThread implements Runnable {
             if (summaryLookup) {
                 SUMMARY_LOOKUP_ACTIVE.set(false);
             }
-            ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
+            LookupThrottle.release(player.getName());
         }
     }
 

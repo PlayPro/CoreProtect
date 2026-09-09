@@ -19,8 +19,6 @@ public class BlockInspector extends BaseInspector {
             @Override
             public void run() {
                 try {
-                    checkPreconditions(player);
-
                     try (Connection connection = getDatabaseConnection(player)) {
                         Statement statement = connection.createStatement();
 
@@ -49,15 +47,10 @@ public class BlockInspector extends BaseInspector {
                 catch (Exception e) {
                     ErrorReporter.report(e);
                 }
-                finally {
-                    finishInspection(player);
-                }
             }
         }
 
-        Runnable runnable = new BasicThread();
-        Thread thread = new Thread(runnable);
-        thread.start();
+        startInspection(player, new BasicThread());
     }
 
     public void performAirBlockLookup(final Player player, final BlockState finalBlock) {
@@ -65,8 +58,6 @@ public class BlockInspector extends BaseInspector {
             @Override
             public void run() {
                 try {
-                    checkPreconditions(player);
-
                     try (Connection connection = getDatabaseConnection(player)) {
                         Statement statement = connection.createStatement();
                         if (finalBlock.getType().name().endsWith("AIR")) {
@@ -102,14 +93,9 @@ public class BlockInspector extends BaseInspector {
                 catch (Exception e) {
                     ErrorReporter.report(e);
                 }
-                finally {
-                    finishInspection(player);
-                }
             }
         }
 
-        Runnable runnable = new BasicThread();
-        Thread thread = new Thread(runnable);
-        thread.start();
+        startInspection(player, new BasicThread());
     }
 }

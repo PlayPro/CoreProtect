@@ -18,8 +18,6 @@ public class SignInspector extends BaseInspector {
             @Override
             public void run() {
                 try {
-                    checkPreconditions(player);
-
                     try (Connection connection = getDatabaseConnection(player)) {
                         Statement statement = connection.createStatement();
                         List<String> signData = SignMessageLookup.performLookup(null, statement, location, player, 1, 7);
@@ -46,14 +44,9 @@ public class SignInspector extends BaseInspector {
                 catch (Exception e) {
                     ErrorReporter.report(e);
                 }
-                finally {
-                    finishInspection(player);
-                }
             }
         }
 
-        Runnable runnable = new BasicThread();
-        Thread thread = new Thread(runnable);
-        thread.start();
+        startInspection(player, new BasicThread());
     }
 }

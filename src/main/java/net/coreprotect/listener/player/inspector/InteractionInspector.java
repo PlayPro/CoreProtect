@@ -17,8 +17,6 @@ public class InteractionInspector extends BaseInspector {
             @Override
             public void run() {
                 try {
-                    checkPreconditions(player);
-
                     try (Connection connection = getDatabaseConnection(player)) {
                         Statement statement = connection.createStatement();
                         String blockData = InteractionLookup.performLookup(null, statement, finalInteractBlock, player, 0, 1, 7);
@@ -41,14 +39,9 @@ public class InteractionInspector extends BaseInspector {
                 catch (Exception e) {
                     ErrorReporter.report(e);
                 }
-                finally {
-                    finishInspection(player);
-                }
             }
         }
 
-        Runnable runnable = new BasicThread();
-        Thread thread = new Thread(runnable);
-        thread.start();
+        startInspection(player, new BasicThread());
     }
 }

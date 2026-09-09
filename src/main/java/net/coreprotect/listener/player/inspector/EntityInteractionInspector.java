@@ -17,13 +17,11 @@ import net.coreprotect.utility.ErrorReporter;
 public final class EntityInteractionInspector extends BaseInspector {
 
     public void performLookup(Player player, UUID entityUuid, Location location) {
-        ConfigHandler.lookupEntityInteraction.remove(player.getName());
-        ConfigHandler.lookupEntityContainer.remove(player.getName());
-        ConfigHandler.lookupType.remove(player.getName());
-
-        Thread thread = new Thread(() -> {
+        startInspection(player, () -> {
             try {
-                checkPreconditions(player);
+                ConfigHandler.lookupEntityInteraction.remove(player.getName());
+                ConfigHandler.lookupEntityContainer.remove(player.getName());
+                ConfigHandler.lookupType.remove(player.getName());
                 try (Connection connection = getDatabaseConnection(player)) {
                     Integer entitySpawnRowId = EntitySpawnStatement.findRowIdByUuid(connection, entityUuid);
                     try (Statement statement = connection.createStatement()) {
@@ -40,10 +38,6 @@ public final class EntityInteractionInspector extends BaseInspector {
             catch (Exception e) {
                 ErrorReporter.report(e);
             }
-            finally {
-                finishInspection(player);
-            }
         });
-        thread.start();
     }
 }

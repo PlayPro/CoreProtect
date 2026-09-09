@@ -33,7 +33,7 @@ public final class DuckDBLookupQuery {
                 + "total_rows AS (SELECT COUNT(*) AS count FROM matching_rows),"
                 + "page_rows AS (SELECT " + matchingColumns + " FROM matching_rows ORDER BY " + pageOrder + " LIMIT " + limit + " OFFSET " + offset + ") "
                 + "SELECT total_rows.count,page_rows.rowid AS result_id," + columns + " FROM total_rows "
-                + "LEFT JOIN page_rows ON true LEFT JOIN " + baseTable + " data_rows ON data_rows.rowid=page_rows.rowid "
+                + "LEFT JOIN (page_rows INNER JOIN " + baseTable + " data_rows ON data_rows.rowid=page_rows.rowid) ON true "
                 + "ORDER BY " + resultOrder;
     }
 

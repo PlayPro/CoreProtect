@@ -763,7 +763,8 @@ public class LookupRaw extends Queue {
                 Integer ymax = radius[4];
                 Integer zmin = radius[5];
                 Integer zmax = radius[6];
-                bounds = "x >= " + xmin + " AND x <= " + xmax + " AND z >= " + zmin + " AND z <= " + zmax;
+                bounds = LocationQuery.predicate("x", " >= " + xmin) + " AND " + LocationQuery.predicate("x", " <= " + xmax)
+                        + " AND " + LocationQuery.predicate("z", " >= " + zmin) + " AND " + LocationQuery.predicate("z", " <= " + zmax);
 
                 if (ymin != null && ymax != null) {
                     bounds += " AND y >= " + ymin + " AND y <= " + ymax;
@@ -772,7 +773,7 @@ public class LookupRaw extends Queue {
 
             if (entitySpawnLocation || entityContainerLocation || entityInteractionLocation) {
                 int wid = locationWorldId;
-                String originalLocation = "(wid=" + wid + (bounds.isEmpty() ? "" : " AND " + bounds) + ")";
+                String originalLocation = "(" + LocationQuery.predicate("wid", "=" + wid) + (bounds.isEmpty() ? "" : " AND " + bounds) + ")";
                 String entityBounds = "";
                 if (radius != null) {
                     long entityMinX = radius[1];
@@ -836,7 +837,7 @@ public class LookupRaw extends Queue {
             }
             else {
                 if (restrictWorld) {
-                    queryBlock = queryBlock + " wid=" + locationWorldId + " AND";
+                    queryBlock = queryBlock + " " + LocationQuery.predicate("wid", "=" + locationWorldId) + " AND";
                 }
                 if (!bounds.isEmpty()) {
                     queryBlock = queryBlock + " " + bounds + " AND";
@@ -850,7 +851,9 @@ public class LookupRaw extends Queue {
                 int x2 = sourceBounds[2];
                 int z2 = sourceBounds[6];
 
-                queryBlock = queryBlock + " wid=" + worldId + " AND (x = " + x + " OR x = " + x2 + ") AND (z = " + z + " OR z = " + z2 + ") AND y = " + location.getBlockY() + " AND";
+                queryBlock = queryBlock + " " + LocationQuery.predicate("wid", "=" + worldId)
+                        + " AND (" + LocationQuery.predicate("x", " = " + x) + " OR " + LocationQuery.predicate("x", " = " + x2) + ")"
+                        + " AND (" + LocationQuery.predicate("z", " = " + z) + " OR " + LocationQuery.predicate("z", " = " + z2) + ") AND y = " + location.getBlockY() + " AND";
             }
 
             String actionPredicate = "";

@@ -220,12 +220,12 @@ final class ClickHouseRetention {
 
             if (worldId > 0) {
                 if (family == ClickHouseFamily.ENTITY_CONTAINER || family == ClickHouseFamily.ENTITY_INTERACTION) {
-                    sql.append(" AND (wid=? OR entity_spawn_rowid IN(SELECT rowid FROM ").append(table("entity_spawn")).append(" WHERE current_wid=?))");
+                    sql.append(" AND ((wid IS NOT NULL AND _key_wid=?) OR entity_spawn_rowid IN(SELECT rowid FROM ").append(table("entity_spawn")).append(" WHERE current_wid=?))");
                     integerParameters.add(worldId);
                     integerParameters.add(worldId);
                 }
                 else {
-                    sql.append(" AND wid=?");
+                    sql.append(" AND wid IS NOT NULL AND _key_wid=?");
                     integerParameters.add(worldId);
                 }
             }

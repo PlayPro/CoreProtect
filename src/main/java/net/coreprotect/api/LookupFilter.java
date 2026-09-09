@@ -16,6 +16,7 @@ import org.bukkit.Material;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.DuckDBLookupQuery;
 import net.coreprotect.database.DuckDBSpatialIndex;
+import net.coreprotect.database.LocationQuery;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
@@ -119,12 +120,16 @@ final class LookupFilter {
         appendUserWhere(query, alias, includeUserIds, excludeUserIds);
 
         if (location != null) {
-            query.append(" AND ").append(qualifier).append("wid = ?");
+            query.append(" AND ").append(LocationQuery.predicate(qualifier + "wid", " = ?"));
             if (radius > 0) {
-                query.append(" AND ").append(qualifier).append("x >= ? AND ").append(qualifier).append("x <= ? AND ").append(qualifier).append("z >= ? AND ").append(qualifier).append("z <= ?");
+                query.append(" AND ").append(LocationQuery.predicate(qualifier + "x", " >= ?"))
+                        .append(" AND ").append(LocationQuery.predicate(qualifier + "x", " <= ?"))
+                        .append(" AND ").append(LocationQuery.predicate(qualifier + "z", " >= ?"))
+                        .append(" AND ").append(LocationQuery.predicate(qualifier + "z", " <= ?"));
             }
             else {
-                query.append(" AND ").append(qualifier).append("x = ? AND ").append(qualifier).append("y = ? AND ").append(qualifier).append("z = ?");
+                query.append(" AND ").append(LocationQuery.predicate(qualifier + "x", " = ?"))
+                        .append(" AND ").append(qualifier).append("y = ? AND ").append(LocationQuery.predicate(qualifier + "z", " = ?"));
             }
         }
     }
@@ -141,12 +146,16 @@ final class LookupFilter {
             return;
         }
 
-        query.append(" AND ((").append(transaction).append("wid = ?");
+        query.append(" AND ((").append(LocationQuery.predicate(transaction + "wid", " = ?"));
         if (radius > 0) {
-            query.append(" AND ").append(transaction).append("x >= ? AND ").append(transaction).append("x <= ? AND ").append(transaction).append("z >= ? AND ").append(transaction).append("z <= ?");
+            query.append(" AND ").append(LocationQuery.predicate(transaction + "x", " >= ?"))
+                    .append(" AND ").append(LocationQuery.predicate(transaction + "x", " <= ?"))
+                    .append(" AND ").append(LocationQuery.predicate(transaction + "z", " >= ?"))
+                    .append(" AND ").append(LocationQuery.predicate(transaction + "z", " <= ?"));
         }
         else {
-            query.append(" AND ").append(transaction).append("x = ? AND ").append(transaction).append("y = ? AND ").append(transaction).append("z = ?");
+            query.append(" AND ").append(LocationQuery.predicate(transaction + "x", " = ?"))
+                    .append(" AND ").append(transaction).append("y = ? AND ").append(LocationQuery.predicate(transaction + "z", " = ?"));
         }
 
         query.append(") OR (").append(entity).append("current_wid = ?");

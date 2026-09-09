@@ -322,13 +322,13 @@ public final class ClickHouseSchema {
 
     private static String view(Names names, ClickHouseFamily family, String projection) {
         return "CREATE OR REPLACE VIEW " + names.table(family.getTableName())
-                + " AS SELECT " + projection
+                + " AS SELECT " + projection + locationKeys(family)
                 + " FROM " + events(names, family) + " AS e";
     }
 
     private static String currentView(Names names, ClickHouseFamily family, String projection) {
         return "CREATE OR REPLACE VIEW " + names.table(family.getTableName())
-                + " AS SELECT " + projection
+                + " AS SELECT " + projection + locationKeys(family)
                 + " FROM " + currentEvents(names, family) + " AS e";
     }
 
@@ -354,6 +354,10 @@ public final class ClickHouseSchema {
 
     private static String location(String column) {
         return "if(e." + column + "_present=1,e." + column + ",NULL) AS " + column;
+    }
+
+    private static String locationKeys(ClickHouseFamily family) {
+        return family.isWorldScoped() ? ",e.wid AS _key_wid,e.x AS _key_x,e.z AS _key_z" : "";
     }
 
     private static String events(Names names, ClickHouseFamily family) {

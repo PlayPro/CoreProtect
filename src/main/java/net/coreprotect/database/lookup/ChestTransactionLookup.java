@@ -15,6 +15,7 @@ import org.bukkit.command.CommandSender;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.DuckDBLookupQuery;
+import net.coreprotect.database.LocationQuery;
 import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
@@ -81,7 +82,7 @@ public class ChestTransactionLookup {
 
             String table = ConfigHandler.prefix + "container";
             String tableName = "container";
-            String where = "wid = " + worldId + " AND (x = " + x + " OR x = " + x2 + ") AND (z = " + z + " OR z = " + z2 + ") AND y = " + y;
+            String where = LocationQuery.predicate("wid", " = " + worldId) + " AND (" + LocationQuery.predicate("x", " = " + x) + " OR " + LocationQuery.predicate("x", " = " + x2) + ") AND (" + LocationQuery.predicate("z", " = " + z) + " OR " + LocationQuery.predicate("z", " = " + z2) + ") AND y = " + y;
             String index = WorldUtils.getWidIndex("container");
             String order = ConfigHandler.getDescendingEventOrder();
             if (entitySpawnRowId != null) {
@@ -108,7 +109,7 @@ public class ChestTransactionLookup {
                 }
             }
             else if (exact) {
-                where = "wid = " + worldId + " AND x = " + l.getBlockX() + " AND z = " + l.getBlockZ() + " AND y = " + y;
+                where = LocationQuery.predicate("wid", " = " + worldId) + " AND " + LocationQuery.predicate("x", " = " + l.getBlockX()) + " AND " + LocationQuery.predicate("z", " = " + l.getBlockZ()) + " AND y = " + y;
             }
 
             boolean combinedDuckDBPage = ConfigHandler.databaseType.isDuckDB();

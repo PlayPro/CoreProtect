@@ -16,6 +16,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.DuckDBLookupQuery;
+import net.coreprotect.database.LocationQuery;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.DatabaseUtils;
@@ -75,7 +76,7 @@ public class BlockAPI {
             try (Statement statement = connection.createStatement()) {
                 String table = DuckDBLookupQuery.spatialTable(connection, "block", worldId, x, x, z, z, "spatial_rows");
                 String index = ConfigHandler.databaseType.isDuckDB() ? "" : WorldUtils.getWidIndex("block");
-                String query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,blockdata,rolled_back FROM " + table + " " + index + "WHERE wid = " + worldId + " AND x = " + x + " AND z = " + z + " AND y = " + y + " AND time > " + checkTime + " ORDER BY " + ConfigHandler.getDescendingEventOrder();
+                String query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,blockdata,rolled_back FROM " + table + " " + index + "WHERE " + LocationQuery.predicate("wid", " = " + worldId) + " AND " + LocationQuery.predicate("x", " = " + x) + " AND " + LocationQuery.predicate("z", " = " + z) + " AND y = " + y + " AND time > " + checkTime + " ORDER BY " + ConfigHandler.getDescendingEventOrder();
 
                 try (ResultSet results = statement.executeQuery(query)) {
                     while (results.next()) {
@@ -154,7 +155,10 @@ public class BlockAPI {
             if (!ConfigHandler.databaseType.isDuckDB()) {
                 query.append(WorldUtils.getWidIndex("block"));
             }
-            query.append("WHERE wid = ? AND x = ? AND z = ? AND y = ? AND time > ?");
+            query.append("WHERE ").append(LocationQuery.predicate("wid", " = ?"))
+                    .append(" AND ").append(LocationQuery.predicate("x", " = ?"))
+                    .append(" AND ").append(LocationQuery.predicate("z", " = ?"))
+                    .append(" AND y = ? AND time > ?");
             if (userId != null) {
                 query.append(" AND ").append(ConfigHandler.databaseType.getUserColumn()).append(" = ?");
             }

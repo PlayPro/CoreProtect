@@ -3,6 +3,7 @@ package net.coreprotect.listener.entity;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.util.Locale;
+import java.util.UUID;
 
 import org.bukkit.GameMode;
 import org.bukkit.Material;
@@ -34,6 +35,10 @@ import net.coreprotect.utility.LookupThrottle;
 public final class HangingBreakByEntityListener extends Queue implements Listener {
 
     static void inspectItemFrame(final BlockState block, final Player player) {
+        inspectEntity(block, player, null);
+    }
+
+    static void inspectEntity(final BlockState block, final Player player, final UUID entityUuid) {
         // block check
         if (!player.hasPermission("coreprotect.inspect")) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
@@ -59,7 +64,7 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
                 try (Connection connection = Database.getConnection(true)) {
                     if (connection != null) {
                         Statement statement = connection.createStatement();
-                        String blockData = BlockLookup.performLookup(null, statement, block, player, 0, 1, 7);
+                        String blockData = entityUuid == null ? BlockLookup.performLookup(null, statement, block, player, 0, 1, 7) : BlockLookup.performEntityLookup(null, statement, block, player, 1, 7, entityUuid);
 
                         if (blockData.contains("\n")) {
                             for (String b : blockData.split("\n")) {

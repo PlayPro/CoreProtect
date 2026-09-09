@@ -22,6 +22,6 @@ public final class VehicleDamageListener implements Listener {
         }
 
         event.setCancelled(true);
-        HangingBreakByEntityListener.inspectItemFrame(event.getVehicle().getLocation().getBlock().getState(), player);
+        HangingBreakByEntityListener.inspectEntity(event.getVehicle().getLocation().getBlock().getState(), player, event.getVehicle().getUniqueId());
     }
 }

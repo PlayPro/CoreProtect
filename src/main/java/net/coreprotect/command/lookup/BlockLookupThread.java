@@ -26,8 +26,9 @@ public class BlockLookupThread implements Runnable {
     private final int page;
     private final int limit;
     private final int type;
+    private final Integer entitySpawnRowId;
 
-    public BlockLookupThread(CommandSender player, Command command, Block block, BlockState blockState, int page, int limit, int type) {
+    public BlockLookupThread(CommandSender player, Command command, Block block, BlockState blockState, int page, int limit, int type, Integer entitySpawnRowId) {
         this.player = player;
         this.command = command;
         this.block = block;
@@ -35,6 +36,7 @@ public class BlockLookupThread implements Runnable {
         this.page = page;
         this.limit = limit;
         this.type = type;
+        this.entitySpawnRowId = entitySpawnRowId;
     }
 
     @Override
@@ -69,7 +71,7 @@ public class BlockLookupThread implements Runnable {
                         blockdata = InteractionLookup.performLookup(command.getName(), statement, block, player, 0, page, limit);
                     }
                     else {
-                        blockdata = BlockLookup.performLookup(command.getName(), statement, blockState, player, 0, page, limit);
+                        blockdata = BlockLookup.performLookup(command.getName(), statement, blockState, player, 0, page, limit, entitySpawnRowId);
                     }
                     if (blockdata.contains("\n")) {
                         for (String b : blockdata.split("\n")) {

@@ -10,6 +10,7 @@ import java.util.Locale;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.clickhouse.ClickHouseDatabase;
 import net.coreprotect.utility.DatabaseUtils;
 import net.coreprotect.utility.ErrorReporter;
 
@@ -59,6 +60,9 @@ public class UserStatement {
     }
 
     public static int getId(ConsumerWriteBatch batch, String user, boolean load) throws Exception {
+        if (load && ConfigHandler.databaseType.isClickHouse()) {
+            return batch.resolveUserId(user, null);
+        }
         String cacheKey = user.toLowerCase(Locale.ROOT);
         Integer id = ConfigHandler.playerIdCache.get(cacheKey);
         if (load && id == null) {
@@ -79,7 +83,8 @@ public class UserStatement {
         }
 
         String userMatch = DatabaseUtils.caseInsensitiveEquals(ConfigHandler.databaseType.getUserColumn());
-        String query = "SELECT rowid AS id," + ConfigHandler.databaseType.getUserColumn() + " AS username,uuid FROM " + ConfigHandler.prefix + "user WHERE " + userMatch + " ORDER BY rowid ASC LIMIT 1 OFFSET 0";
+        String order = ConfigHandler.databaseType.isClickHouse() ? ClickHouseDatabase.USER_NAME_ORDER : "rowid ASC";
+        String query = "SELECT rowid AS id," + ConfigHandler.databaseType.getUserColumn() + " AS username,uuid FROM " + ConfigHandler.prefix + "user WHERE " + userMatch + " ORDER BY " + order + " LIMIT 1 OFFSET 0";
         try (PreparedStatement statement = connection.prepareStatement(query)) {
             statement.setString(1, user);
             try (ResultSet results = statement.executeQuery()) {
@@ -106,6 +111,16 @@ public class UserStatement {
         int id = -1;
 
         try {
+            if (ConfigHandler.databaseType.isClickHouse()) {
+                try (ConsumerWriteBatch batch = Database.openConsumerWriteBatch(connection)) {
+                    batch.begin();
+                    int resolvedId = batch.resolveUserId(user, uuid);
+                    if (!batch.commit()) {
+                        throw new SQLException("Unable to publish ClickHouse user " + user);
+                    }
+                    return resolvedId;
+                }
+            }
             String where = DatabaseUtils.caseInsensitiveEquals(ConfigHandler.databaseType.getUserColumn());
             if (uuid != null) {
                 where = where + " OR uuid = ?";
@@ -128,18 +143,7 @@ public class UserStatement {
             preparedStmt.close();
 
             if (id == -1) {
-                if (ConfigHandler.databaseType.isClickHouse()) {
-                    try (ConsumerWriteBatch batch = Database.openConsumerWriteBatch(connection)) {
-                        batch.begin();
-                        id = batch.resolveUserId(user, uuid);
-                        if (!batch.commit()) {
-                            throw new SQLException("Unable to publish ClickHouse user " + user);
-                        }
-                    }
-                }
-                else {
-                    id = insert(connection, user);
-                }
+                id = insert(connection, user);
             }
 
             ConfigHandler.playerIdCache.put(user.toLowerCase(Locale.ROOT), id);
@@ -177,9 +181,13 @@ public class UserStatement {
             }
 
             ConfigHandler.playerIdCacheReversed.put(id, user);
-            ConfigHandler.playerIdCache.put(user.toLowerCase(Locale.ROOT), id);
+            if (!ConfigHandler.databaseType.isClickHouse()) {
+                ConfigHandler.playerIdCache.put(user.toLowerCase(Locale.ROOT), id);
+            }
             if (uuid != null && !uuid.isEmpty()) {
-                ConfigHandler.uuidCache.put(user.toLowerCase(Locale.ROOT), uuid);
+                if (!ConfigHandler.databaseType.isClickHouse()) {
+                    ConfigHandler.uuidCache.put(user.toLowerCase(Locale.ROOT), uuid);
+                }
                 ConfigHandler.uuidCacheReversed.put(uuid, user);
             }
         }
@@ -223,10 +231,7 @@ public class UserStatement {
                     if (resolvedUser == null || resolvedUser.isEmpty()) {
                         return null;
                     }
-                    String lowerUser = resolvedUser.toLowerCase(Locale.ROOT);
-                    ConfigHandler.playerIdCache.put(lowerUser, id);
                     ConfigHandler.playerIdCacheReversed.put(id, resolvedUser);
-                    ConfigHandler.uuidCache.put(lowerUser, uuid);
                     ConfigHandler.uuidCacheReversed.put(uuid, resolvedUser);
                     return resolvedUser;
                 }
@@ -252,12 +257,20 @@ public class UserStatement {
             if (uuid != null && !uuid.isEmpty()) {
                 return uuid;
             }
-            String resolvedUser = loadName(connection, id);
-            if (resolvedUser.isEmpty()) {
-                throw new SQLException("ClickHouse user identifier " + id + " has no user row");
+            try (PreparedStatement statement = connection.prepareStatement("SELECT uuid FROM " + ConfigHandler.prefix + "user WHERE rowid=? LIMIT 1")) {
+                statement.setInt(1, id);
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    if (!resultSet.next()) {
+                        throw new SQLException("ClickHouse user identifier " + id + " has no user row");
+                    }
+                    uuid = resultSet.getString("uuid");
+                    if (uuid == null || uuid.isEmpty()) {
+                        return null;
+                    }
+                    ConfigHandler.uuidCache.put(lowerUser, uuid);
+                    return uuid;
+                }
             }
-            uuid = ConfigHandler.uuidCache.get(resolvedUser.toLowerCase(Locale.ROOT));
-            return uuid == null || uuid.isEmpty() ? null : uuid;
         }
         return ConfigHandler.uuidCache.get(lowerUser);
     }

@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -130,6 +131,10 @@ public final class HopperTransactionUtils {
     }
 
     public static void consumeSnapshot(String transactionId, String loggingId) {
+        consumeSnapshot(transactionId, loggingId, 0);
+    }
+
+    public static void consumeSnapshot(String transactionId, String loggingId, int index) {
         PendingTransaction transaction = pendingTransactions.get(transactionId);
         if (transaction == null) {
             return;
@@ -138,7 +143,16 @@ public final class HopperTransactionUtils {
         synchronized (transaction) {
             Deque<Long> marks = transaction.ownerMarks.get(loggingId);
             if (marks != null) {
-                marks.pollFirst();
+                if (index == 0) {
+                    marks.pollFirst();
+                }
+                else if (index > 0 && index < marks.size()) {
+                    Iterator<Long> iterator = marks.iterator();
+                    for (int position = 0; position <= index; position++) {
+                        iterator.next();
+                    }
+                    iterator.remove();
+                }
             }
 
             pruneDeltas(transaction);

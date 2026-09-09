@@ -133,4 +133,45 @@ class ContainerTransactionProcess {
         Queue.removeForceContainer(loggingId);
         HopperTransactionUtils.removeOwner(transactionId, loggingId);
     }
+
+    static void discard(int processId, int failedIndex, int forceData, String user, Location location) {
+        if (location.getWorld() == null) {
+            return;
+        }
+        String transactionId = HopperTransactionUtils.getTransactionId(location);
+        String locationSuffix = HopperTransactionUtils.getLoggingIdSuffix(location);
+        String loggingId = HopperTransactionUtils.getLoggingId(user, locationSuffix);
+        HopperTransactionUtils.synchronizeTransaction(transactionId, () -> {
+            List<ItemStack[]> old = ConfigHandler.oldContainer.get(loggingId);
+            if (old == null || old.isEmpty()) {
+                clearContainerTransaction(transactionId, locationSuffix, loggingId);
+                return;
+            }
+            Integer generation = ConfigHandler.loggingChest.get(loggingId);
+            int forceSize = Queue.getForceContainerSize(loggingId);
+            int snapshotIndex = 0;
+            List<Object[]> queued = Consumer.consumer.get(processId);
+            for (int index = 0; index < failedIndex; index++) {
+                if (Process.inventoryTransactionGeneration(processId, queued.get(index), Process.CONTAINER_TRANSACTION, loggingId) != null) {
+                    snapshotIndex++;
+                }
+            }
+            if (snapshotIndex >= forceSize) {
+                if (generation == null || generation != forceData) {
+                    return;
+                }
+                snapshotIndex = forceSize;
+            }
+            if (snapshotIndex < old.size()) {
+                old.remove(snapshotIndex);
+                if (snapshotIndex < forceSize) {
+                    Queue.pollForceContainer(loggingId, snapshotIndex);
+                }
+                HopperTransactionUtils.consumeSnapshot(transactionId, loggingId, snapshotIndex);
+            }
+            if (old.isEmpty()) {
+                clearContainerTransaction(transactionId, locationSuffix, loggingId);
+            }
+        });
+    }
 }

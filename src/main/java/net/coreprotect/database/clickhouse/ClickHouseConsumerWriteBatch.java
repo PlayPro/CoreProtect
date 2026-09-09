@@ -170,7 +170,8 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
             }
         }
 
-        int rowId = database.canonicalUserId(user, uuid, row == null ? null : row.id);
+        Integer existingId = row == null || (!uuid.isEmpty() && !row.uuid.isEmpty() && !uuid.equals(row.uuid)) ? null : row.id;
+        int rowId = database.canonicalUserId(user, uuid, existingId);
         if (row == null || row.id != rowId) {
             row = findStagedUserById(rowId);
             if (row == null) {
@@ -189,7 +190,10 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
             row = new UserRow(rowId, user, uuid);
             changed = true;
         }
-        stageUser(row);
+        else if (updateIdentity) {
+            events().addUserVersion(rowId, time, user, uuid);
+        }
+        stageUser(user, row);
         userAliases.put(cacheKey, row.id);
         return new UserResolution(row, changed);
     }
@@ -489,12 +493,12 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
     }
 
     private UserRow findStagedUserById(int id) {
-        for (UserRow row : usersByName.values()) {
+        for (UserRow row : usersByUuid.values()) {
             if (row.id == id) {
                 return row;
             }
         }
-        for (UserRow row : usersByUuid.values()) {
+        for (UserRow row : usersByName.values()) {
             if (row.id == id) {
                 return row;
             }
@@ -505,8 +509,11 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
     private Integer cachedUserId(String user, String uuid) {
         Integer id = userAliases.get(user);
         if (id != null) {
-            UserRow row = findStagedUserById(id);
-            return uuid.isEmpty() || (row != null && uuid.equals(row.uuid)) ? id : null;
+            if (uuid.isEmpty()) {
+                return id;
+            }
+            UserRow row = usersByUuid.get(uuid);
+            return row != null && row.id == id ? id : null;
         }
         id = ConfigHandler.playerIdCache.get(user);
         return id != null && (uuid.isEmpty() || uuid.equals(ConfigHandler.uuidCache.get(user))) ? id : null;
@@ -514,7 +521,7 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
 
     private UserRow findUserByName(String user) throws SQLException {
         String sql = "SELECT rowid,`user`,uuid FROM " + userTable
-                + " WHERE lowerUTF8(`user`)=lowerUTF8(?) ORDER BY (uuid!='') DESC,rowid LIMIT 1";
+                + " WHERE lowerUTF8(`user`)=lowerUTF8(?) ORDER BY " + ClickHouseDatabase.USER_NAME_ORDER + " LIMIT 1";
         try (Connection connection = openConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, user);
             return readUser(statement);
@@ -542,9 +549,7 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
             if (!resultSet.next()) {
                 return null;
             }
-            UserRow row = new UserRow(toIntId(resultSet.getLong(1), "user"), resultSet.getString(2), normalizeUuid(resultSet.getString(3)));
-            stageUser(row);
-            return row;
+            return new UserRow(toIntId(resultSet.getLong(1), "user"), resultSet.getString(2), normalizeUuid(resultSet.getString(3)));
         }
     }
 
@@ -604,28 +609,32 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
         return new SQLException("ClickHouse " + kind.name().toLowerCase(Locale.ROOT) + " reference " + id + "='" + value + "' conflicts with " + storedId + "='" + storedValue + "'");
     }
 
-    private void stageUser(UserRow row) {
-        usersByName.put(normalizeName(row.name), row);
+    private void stageUser(String user, UserRow row) {
+        usersByName.put(normalizeName(user), row);
         if (!row.uuid.isEmpty()) {
             usersByUuid.put(row.uuid, row);
         }
     }
 
-    private static void cacheUser(UserRow row) {
-        String key = normalizeName(row.name);
+    private static void cacheUser(String key, UserRow row) {
         ConfigHandler.playerIdCache.put(key, row.id);
         ConfigHandler.playerIdCacheReversed.put(row.id, row.name);
         if (!row.uuid.isEmpty()) {
             ConfigHandler.uuidCache.put(key, row.uuid);
             ConfigHandler.uuidCacheReversed.put(row.uuid, row.name);
         }
+        else {
+            ConfigHandler.uuidCache.remove(key);
+        }
     }
 
     private void publishUserCaches() {
-        for (UserRow row : usersByName.values()) {
-            cacheUser(row);
-        }
-        ConfigHandler.playerIdCache.putAll(userAliases);
+        userAliases.forEach((name, id) -> {
+            UserRow row = usersByName.get(name);
+            if (row != null && row.id == id) {
+                cacheUser(name, usersByUuid.getOrDefault(row.uuid, row));
+            }
+        });
     }
 
     private void unstageUser(UserRow row) {

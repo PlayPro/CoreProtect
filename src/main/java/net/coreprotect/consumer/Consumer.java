@@ -127,6 +127,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         databaseReloadRunning = false;
         backgroundPurgeRunning = false;
         backgroundPurgePausesPersistence = false;
+        resetPreparationFailures();
         DuckDBRecovery.reset();
         Consumer.consumer.put(0, new ArrayList<>());
         Consumer.consumer.put(1, new ArrayList<>());

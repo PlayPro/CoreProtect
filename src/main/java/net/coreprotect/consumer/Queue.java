@@ -65,13 +65,17 @@ public class Queue {
         ConfigHandler.forceContainer.put(id, forceList);
     }
 
-    public static synchronized ItemStack[] pollForceContainer(String id) {
+    public static ItemStack[] pollForceContainer(String id) {
+        return pollForceContainer(id, 0);
+    }
+
+    public static synchronized ItemStack[] pollForceContainer(String id, int index) {
         List<ItemStack[]> forceList = ConfigHandler.forceContainer.get(id);
         if (forceList == null) {
             return null;
         }
 
-        ItemStack[] container = forceList.isEmpty() ? null : forceList.remove(0);
+        ItemStack[] container = index < 0 || index >= forceList.size() ? null : forceList.remove(index);
         if (forceList.isEmpty()) {
             ConfigHandler.forceContainer.remove(id);
         }

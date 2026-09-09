@@ -391,6 +391,9 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         set("family", family.getTableName());
         set("rowid", rowId);
         set("time", time);
+        if (family == ClickHouseFamily.USER) {
+            set("data", Integer.toUnsignedLong(time));
+        }
         return rowId;
     }
 

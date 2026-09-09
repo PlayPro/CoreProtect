@@ -1,9 +1,13 @@
 package net.coreprotect.consumer.process;
 
 import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.SQLNonTransientConnectionException;
+import java.sql.SQLNonTransientException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -23,6 +27,7 @@ import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.DuckDBRecovery;
 import net.coreprotect.database.logger.EntityInteractionLogger;
+import net.coreprotect.database.rollback.EntitySpawnRollbackHandler;
 import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.model.entity.EntityContainerRollbackUpdate;
 import net.coreprotect.model.entity.EntityContainerTransaction;
@@ -32,6 +37,7 @@ import net.coreprotect.model.entity.EntitySpawnIdentity;
 import net.coreprotect.model.rollback.RollbackUpdateTargets;
 import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.EntitySpawnTracking;
+import net.coreprotect.utility.HopperTransactionUtils;
 
 public class Process {
 
@@ -72,6 +78,9 @@ public class Process {
 
     public static int lastLockUpdate = 0;
     private static volatile int currentConsumerSize = 0;
+    private static final int MAX_PREPARATION_FAILURES = 3;
+    private static final int CLICKHOUSE_ACCESS_DENIED = 497;
+    private static final Map<Object[], Integer> preparationFailures = new IdentityHashMap<>();
 
     private enum TransactionOutcome {
         COMMITTED,
@@ -82,6 +91,10 @@ public class Process {
 
     public static int getCurrentConsumerSize() {
         return currentConsumerSize;
+    }
+
+    protected static void resetPreparationFailures() {
+        preparationFailures.clear();
     }
 
     protected static int consumerDelay(boolean backlog) {
@@ -133,6 +146,7 @@ public class Process {
         ConsumerWriteBatch writeBatch = null;
         Connection connection = null;
         boolean processingStarted = false;
+        Object[] preparingEvent = null;
         boolean consumerDataCleared = false;
         boolean preflightCommitted = false;
         int processedThrough = 0;
@@ -183,6 +197,8 @@ public class Process {
                 if (data == null) {
                     continue;
                 }
+                preparingEvent = data;
+                preflightUser(writeBatch, data, users);
                 int action = (int) data[1];
                 hasEntitySpawnUpdates |= action == Process.ENTITY_SPAWN_UPDATE || action == Process.ENTITY_CONTAINER_TRANSITION_UPDATE;
                 hasEntityContainerTransactions |= action == Process.ENTITY_CONTAINER_TRANSACTION;
@@ -216,7 +232,7 @@ public class Process {
                 }
             }
 
-            preflightUsers(writeBatch, consumerData, users);
+            preparingEvent = null;
             updateLockTable(writeBatch, (lastRun ? 0 : 1));
             if (commit(writeBatch) != TransactionOutcome.COMMITTED) {
                 invalidateUserCaches(users);
@@ -244,6 +260,7 @@ public class Process {
             for (int i = 0; i < consumerDataSize; i++) {
                 Object[] data = consumerData.get(i);
                 if (data != null) {
+                    preparingEvent = data;
                     int id = (int) data[0];
                     int action = (int) data[1];
                     Material blockType = (Material) data[2];
@@ -252,6 +269,7 @@ public class Process {
                     int replaceData = (int) data[5];
                     int forceData = (int) data[6];
                     boolean isolatedTransaction = requiresIsolatedDuckDBTransaction(action);
+                    preparingEvent = null;
 
                     if (isolatedTransaction && i > processedThrough) {
                         TransactionOutcome outcome = commit(writeBatch);
@@ -269,6 +287,7 @@ public class Process {
                         }
                     }
 
+                    preparingEvent = data;
                     if (users.get(id) != null && consumerObject.get(id) != null) {
                         String user = users.get(id)[0];
                         Object object = consumerObject.get(id);
@@ -469,6 +488,7 @@ public class Process {
                                     break;
                             }
 
+                            preparingEvent = null;
                             // Commit full or interrupted batches before continuing.
                             boolean interrupted = Consumer.interrupt;
                             boolean batchLimitReached = writeBatch.shouldCommit();
@@ -512,6 +532,7 @@ public class Process {
                         }
                     }
 
+                    preparingEvent = null;
                     if (isolatedTransaction) {
                         TransactionOutcome outcome = commit(writeBatch);
                         if (outcome == TransactionOutcome.COMMITTED) {
@@ -565,6 +586,16 @@ public class Process {
                 }
             }
             if (!recoveryRequested) {
+                if (preparingEvent != null && isPermanentPreparationFailure(e)
+                        && preparationFailures.merge(preparingEvent, 1, Integer::sum) >= MAX_PREPARATION_FAILURES) {
+                    try {
+                        discardFailedConsumerData(processId, consumerData, users, consumerObject, preparingEvent, e);
+                        consumerDataCleared = consumerData.isEmpty();
+                    }
+                    catch (Exception cleanupException) {
+                        e.addSuppressed(cleanupException);
+                    }
+                }
                 Database.reportDatabaseFailure(e);
             }
         }
@@ -779,22 +810,17 @@ public class Process {
         }
     }
 
-    static void preflightUsers(ConsumerWriteBatch batch, List<Object[]> consumerData,
+    static void preflightUser(ConsumerWriteBatch batch, Object[] data,
             Map<Integer, String[]> users) throws Exception {
-        for (Object[] data : consumerData) {
-            if (data == null) {
-                continue;
-            }
-            String[] userData = users.get((int) data[0]);
-            if (userData == null) {
-                continue;
-            }
-            String user = userData[0];
-            String uuid = userData[1];
-            if (user != null && ((ConfigHandler.databaseType.isClickHouse() && uuid != null && !uuid.isEmpty())
-                    || ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT)) == null)) {
-                batch.resolveUserId(user, uuid);
-            }
+        String[] userData = users.get((int) data[0]);
+        if (userData == null) {
+            return;
+        }
+        String user = userData[0];
+        String uuid = userData[1];
+        if (user != null && ((ConfigHandler.databaseType.isClickHouse() && uuid != null && !uuid.isEmpty())
+                || ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT)) == null)) {
+            batch.resolveUserId(user, uuid);
         }
     }
 
@@ -837,7 +863,7 @@ public class Process {
 
     private static void invalidateUserCaches(Map<Integer, String[]> users) {
         for (String[] data : users.values()) {
-            if (data == null || data[0] == null) {
+            if (data == null || data.length == 0 || data[0] == null) {
                 continue;
             }
             String user = data[0].toLowerCase(Locale.ROOT);
@@ -856,25 +882,146 @@ public class Process {
         int processed = Math.min(count, consumerData.size());
         for (int index = 0; index < processed; index++) {
             Object[] data = consumerData.get(index);
+            preparationFailures.remove(data);
             if (data == null) {
                 continue;
             }
             int id = (int) data[0];
-            Object object = consumerObject.get(id);
-            if (isRollbackPublication((int) data[1], object)) {
-                Consumer.completeRollbackPublications(1);
-            }
-            users.remove(id);
-            consumerObject.remove(id);
-            Consumer.consumerStrings.get(processId).remove(id);
-            Consumer.consumerSigns.get(processId).remove(id);
-            Consumer.consumerContainers.get(processId).remove(id);
-            Consumer.consumerInventories.get(processId).remove(id);
-            Consumer.consumerBlockList.get(processId).remove(id);
-            Consumer.consumerObjectArrayList.get(processId).remove(id);
-            Consumer.consumerObjectList.get(processId).remove(id);
+            discardConsumerData(processId, users, consumerObject, id, (int) data[1]);
         }
         consumerData.subList(0, processed).clear();
+    }
+
+    private static void discardFailedConsumerData(int processId, ArrayList<Object[]> consumerData, Map<Integer, String[]> users,
+            Map<Integer, Object> consumerObject, Object[] failedEvent, Exception failure) {
+        int failedIndex = consumerData.indexOf(failedEvent);
+        if (failedIndex == -1) {
+            return;
+        }
+        consumerData.remove(failedIndex);
+        preparationFailures.remove(failedEvent);
+        Set<Integer> failedIds;
+        if (failedEvent.length > 0 && failedEvent[0] instanceof Integer) {
+            failedIds = Set.of((Integer) failedEvent[0]);
+        }
+        else {
+            failedIds = new HashSet<>(users.keySet());
+            failedIds.addAll(consumerObject.keySet());
+            for (Object[] data : consumerData) {
+                if (data != null && data.length > 0 && data[0] instanceof Integer) {
+                    failedIds.remove((Integer) data[0]);
+                }
+            }
+        }
+        int action = failedEvent.length > 1 && failedEvent[1] instanceof Integer ? (int) failedEvent[1] : -1;
+        for (int id : failedIds) {
+            Object object = consumerObject.get(id);
+            try {
+                String[] userData = users.get(id);
+                if (object instanceof Location && userData != null && userData.length > 0 && userData[0] != null
+                        && failedEvent.length > 6 && failedEvent[6] instanceof Integer) {
+                    if (action == CONTAINER_TRANSACTION) {
+                        ContainerTransactionProcess.discard(processId, failedIndex, (int) failedEvent[6], userData[0], (Location) object);
+                    }
+                    else if (action == ITEM_TRANSACTION) {
+                        ItemTransactionProcess.discard((int) failedEvent[6], userData[0], (Location) object);
+                    }
+                }
+                if (object instanceof EntityInteraction) {
+                    cancelEntityInteractionPromotion((EntityInteraction) object);
+                }
+                EntitySpawnData spawnData = getEntitySpawnUpdate(object);
+                if (spawnData != null) {
+                    int trackingRowId = spawnData.getTrackingRowId();
+                    if (trackingRowId > 0 && !hasRetainedTrackingRow(consumerObject, failedIds, trackingRowId)) {
+                        EntitySpawnRollbackHandler.releaseTrackingRow(trackingRowId);
+                    }
+                    if (spawnData.getOperation() == null) {
+                        EntitySpawnTracking.reverifyDatabaseRow(spawnData.getUuid(), spawnData.getLocation());
+                    }
+                }
+            }
+            catch (Exception cleanupException) {
+                failure.addSuppressed(cleanupException);
+            }
+            finally {
+                discardConsumerData(processId, users, consumerObject, id, action);
+            }
+        }
+    }
+
+    static Integer inventoryTransactionGeneration(int processId, Object[] data, int action, String loggingId) {
+        if (data == null || data.length < 7 || !(data[0] instanceof Integer) || !(data[1] instanceof Integer)
+                || (int) data[1] != action || !(data[6] instanceof Integer)) {
+            return null;
+        }
+        int id = (int) data[0];
+        String[] userData = Consumer.consumerUsers.get(processId).get(id);
+        Object object = Consumer.consumerObjects.get(processId).get(id);
+        if (userData == null || userData.length == 0 || userData[0] == null || !(object instanceof Location)) {
+            return null;
+        }
+        Location location = (Location) object;
+        if (action == CONTAINER_TRANSACTION && location.getWorld() == null) {
+            return null;
+        }
+        String candidate = action == CONTAINER_TRANSACTION ? HopperTransactionUtils.getLoggingId(userData[0], location)
+                : ItemTransactionProcess.getLoggingId(userData[0], location);
+        return loggingId.equals(candidate) ? (Integer) data[6] : null;
+    }
+
+    private static boolean hasRetainedTrackingRow(Map<Integer, Object> consumerObject, Set<Integer> failedIds, int trackingRowId) {
+        for (Map.Entry<Integer, Object> entry : consumerObject.entrySet()) {
+            if (!failedIds.contains(entry.getKey())) {
+                EntitySpawnData data = getEntitySpawnUpdate(entry.getValue());
+                if (data != null && data.getTrackingRowId() == trackingRowId) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static void discardConsumerData(int processId, Map<Integer, String[]> users, Map<Integer, Object> consumerObject, int id, int action) {
+        Object object = consumerObject.get(id);
+        if (action == -1) {
+            if (object instanceof EntityContainerRollbackUpdate) {
+                action = ENTITY_CONTAINER_TRANSITION_UPDATE;
+            }
+            else if (object instanceof EntitySpawnData) {
+                action = ENTITY_SPAWN_UPDATE;
+            }
+        }
+        if (isRollbackPublication(action, object)) {
+            Consumer.completeRollbackPublications(1);
+        }
+        users.remove(id);
+        consumerObject.remove(id);
+        Consumer.consumerStrings.get(processId).remove(id);
+        Consumer.consumerSigns.get(processId).remove(id);
+        Consumer.consumerContainers.get(processId).remove(id);
+        Consumer.consumerInventories.get(processId).remove(id);
+        Consumer.consumerBlockList.get(processId).remove(id);
+        Consumer.consumerObjectArrayList.get(processId).remove(id);
+        Consumer.consumerObjectList.get(processId).remove(id);
+    }
+
+    private static boolean isPermanentPreparationFailure(Throwable failure) {
+        Set<Throwable> visited = new HashSet<>();
+        boolean sqlFailure = false;
+        while (failure != null && visited.add(failure)) {
+            if (failure instanceof IllegalArgumentException || failure instanceof ClassCastException
+                    || failure instanceof NullPointerException || failure instanceof IndexOutOfBoundsException
+                    || failure instanceof ArithmeticException
+                    || (failure instanceof SQLNonTransientException && !(failure instanceof SQLNonTransientConnectionException))
+                    || (ConfigHandler.databaseType.isClickHouse() && failure instanceof SQLException
+                            && ((SQLException) failure).getErrorCode() == CLICKHOUSE_ACCESS_DENIED)) {
+                return true;
+            }
+            sqlFailure |= failure instanceof SQLException;
+            failure = failure.getCause();
+        }
+        return !sqlFailure;
     }
 
     private static void clearConsumerData(int processId, ArrayList<Object[]> consumerData, Map<Integer, String[]> users, Map<Integer, Object> consumerObject) {

@@ -224,6 +224,10 @@ public class BlockAPI {
             return result;
         }
 
+        if (options == null) {
+            options = LookupOptions.builder().build();
+        }
+
         try (Connection connection = Database.getConnection(false, 1000)) {
             if (connection == null) {
                 return result;
@@ -239,9 +243,12 @@ public class BlockAPI {
                 StringBuilder containerWhere = new StringBuilder();
                 filter.appendWhere(containerWhere, "container_rows");
                 filter.appendMaterialWhere(containerWhere, "container_rows");
+                int[] actions = options.getContainerActions().stream().mapToInt(ContainerAction::id).toArray();
+                LookupFilter.appendActionWhere(containerWhere, "container_rows", actions);
                 StringBuilder entityWhere = new StringBuilder();
                 filter.appendEntityContainerWhere(entityWhere, "entity_rows", "spawn_rows");
                 filter.appendMaterialWhere(entityWhere, "entity_rows");
+                LookupFilter.appendActionWhere(entityWhere, "entity_rows", actions);
 
                 StringBuilder query = new StringBuilder("SELECT * FROM (");
                 query.append("SELECT 0 AS source,container_rows.rowid AS id,container_rows.time,container_rows.").append(ConfigHandler.databaseType.getUserColumn()).append(",container_rows.wid,container_rows.x,container_rows.y,container_rows.z,container_rows.action,container_rows.type,container_rows.data,container_rows.amount,container_rows.metadata,container_rows.rolled_back FROM ")

@@ -168,6 +168,16 @@ final class LookupFilter {
         query.append("))");
     }
 
+    static void appendActionWhere(StringBuilder query, String alias, int[] actions) {
+        if (actions.length > 0) {
+            StringJoiner ids = new StringJoiner(",");
+            for (int action : actions) {
+                ids.add(String.valueOf(action));
+            }
+            query.append(" AND ").append(alias.isEmpty() ? "" : alias + ".").append("action IN (").append(ids).append(")");
+        }
+    }
+
     void appendMaterialWhere(StringBuilder query) {
         appendMaterialWhere(query, "");
     }

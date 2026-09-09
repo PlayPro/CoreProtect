@@ -56,11 +56,7 @@ public class BlockStatement {
         }
         catch (Exception exception) {
             if (databaseType.isColumnar()) {
-                byte[] legacy = ItemUtils.convertByteData(metadata);
-                if (legacy != null) {
-                    ErrorReporter.report(exception, ConfigHandler.EDITION_BRANCH.contains("-dev"));
-                    return legacy;
-                }
+                throw new IllegalArgumentException("Unable to encode " + databaseType.getDisplayName() + " block metadata", exception);
             }
             ErrorReporter.report(exception, ConfigHandler.EDITION_BRANCH.contains("-dev"));
             return null;
@@ -71,13 +67,8 @@ public class BlockStatement {
         if (metadata == null) {
             return null;
         }
-        if (BlockMetaCodec.isEncoded(metadata)) {
-            if (targetType.isColumnar()) {
-                return BlockMetaCodec.canonicalize(metadata);
-            }
-            return serializeMetadataStrict(BlockMetaCodec.decode(metadata), targetType);
-        }
-        return serializeMetadataStrict(deserializeMetadataStrict(metadata), targetType);
+        byte[] canonical = BlockMetaCodec.isEncoded(metadata) ? BlockMetaCodec.canonicalize(metadata) : BlockMetaCodec.fromLegacy(metadata);
+        return targetType.isColumnar() ? canonical : BlockMetaCodec.toLegacy(canonical);
     }
 
     public static List<Object> deserializeMetadata(byte[] metadata) {

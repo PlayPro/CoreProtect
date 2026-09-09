@@ -18,7 +18,7 @@ import net.coreprotect.utility.ErrorReporter;
 public class CoreProtectEditSessionEvent {
     private static boolean initialized = false;
     private static boolean isFAWE = false;
-    private static CoreProtectEditSessionEvent event = new CoreProtectEditSessionEvent();
+    private static final CoreProtectEditSessionEvent event = new CoreProtectEditSessionEvent();
 
     public static boolean isInitialized() {
         return initialized;
@@ -28,23 +28,28 @@ public class CoreProtectEditSessionEvent {
         return isFAWE;
     }
 
+    @Subscribe
+    public void onEditSessionEvent(EditSessionEvent event) {
+        if (event.getActor() != null && event.getWorld() != null && event.getStage() == Stage.BEFORE_CHANGE) {
+            if (isFAWE) {
+                event.setExtent(FastAsyncWorldEditLogger.wrap(event.getActor(), event.getWorld(), event.getExtent()));
+            }
+            else {
+                event.setExtent(new CoreProtectLogger(event.getActor(), event.getWorld(), event.getExtent()));
+            }
+        }
+    }
+
     public static void register() {
         if (isInitialized()) {
             return;
         }
 
         try {
-            WorldEdit.getInstance().getEventBus().register(new Object() {
-                @Subscribe
-                public void onEditSessionEvent(EditSessionEvent event) {
-                    if (event.getActor() != null && event.getStage() == Stage.BEFORE_CHANGE) {
-                        event.setExtent(new CoreProtectLogger(event.getActor(), event.getWorld(), event.getExtent()));
-                    }
-                }
-            });
+            isFAWE = (Bukkit.getServer().getPluginManager().getPlugin("FastAsyncWorldEdit") != null);
+            WorldEdit.getInstance().getEventBus().register(event);
             initialized = true;
             ConfigHandler.worldeditEnabled = true;
-            isFAWE = (Bukkit.getServer().getPluginManager().getPlugin("FastAsyncWorldEdit") != null);
         }
         catch (Exception e) {
             // Failed to initialize WorldEdit logging

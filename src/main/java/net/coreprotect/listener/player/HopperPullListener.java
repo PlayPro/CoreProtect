@@ -18,6 +18,7 @@ import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.HopperTransactionUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.Validate;
 
 public final class HopperPullListener {
 
@@ -55,12 +56,13 @@ public final class HopperPullListener {
             return;
         }
 
-        Location destinationLocation = destinationInventory.getLocation();
-        if (destinationLocation == null) {
-            return;
+        if (Validate.isContainer(destinationHolder)) {
+            Location destinationLocation = destinationInventory.getLocation();
+            if (destinationLocation == null) {
+                return;
+            }
+            HopperTransactionUtils.recordItemAdded(HopperTransactionUtils.getTransactionId(destinationLocation), movedItem);
         }
-
-        HopperTransactionUtils.recordItemAdded(HopperTransactionUtils.getTransactionId(destinationLocation), movedItem);
         if (!Config.getConfig(location.getWorld()).ITEM_TRANSACTIONS) {
             return;
         }

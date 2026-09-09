@@ -38,6 +38,7 @@ import org.bukkit.persistence.PersistentDataType;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.entity.EntityInteractionOrigin;
 import net.coreprotect.model.entity.EntitySpawnData;
 import net.coreprotect.paper.PaperAdapter;
@@ -1481,6 +1482,7 @@ public final class EntitySpawnTracking {
     }
 
     private static void checkpointLoadedEntity(UUID uuid, Entity entity) {
+        InventoryChangeListener.flushEntityContainer(entity);
         Location location = entity.getLocation();
         long[] updateEpoch = { -1L };
         trackedLocations.computeIfPresent(uuid, (key, tracked) -> {

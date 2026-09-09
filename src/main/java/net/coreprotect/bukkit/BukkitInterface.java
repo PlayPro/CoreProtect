@@ -252,6 +252,8 @@ public interface BukkitInterface {
      */
     boolean setItemMeta(Material rowType, ItemStack itemstack, List<Map<String, Object>> map);
 
+    String getItemName(ItemMeta itemMeta);
+
     /**
      * Gets a book from a chiseled bookshelf.
      * 

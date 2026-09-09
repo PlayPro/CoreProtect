@@ -2,7 +2,6 @@ package net.coreprotect.utility;
 
 import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Array;
-import java.lang.reflect.Method;
 import java.util.*;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -716,24 +715,11 @@ public class ItemUtils {
     }
 
     private static String getItemDisplayName(ItemMeta itemMeta) {
-        try {
-            if (itemMeta.hasDisplayName()) {
-                return itemMeta.getDisplayName();
-            }
-
-            // The item_name component only exists on 1.20.5+, so access it reflectively.
-            Method hasItemName = itemMeta.getClass().getMethod("hasItemName");
-            if (Boolean.TRUE.equals(hasItemName.invoke(itemMeta))) {
-                Method getItemName = itemMeta.getClass().getMethod("getItemName");
-                Object name = getItemName.invoke(itemMeta);
-                return name == null ? "" : (String) name;
-            }
-        }
-        catch (Exception e) {
-            // item_name is not supported on this server version
+        if (itemMeta.hasDisplayName()) {
+            return itemMeta.getDisplayName();
         }
 
-        return "";
+        return BukkitAdapter.ADAPTER.getItemName(itemMeta);
     }
 
     public static Map<Integer, Object> serializeItemStackLegacy(ItemStack itemStack, String faceData, int slot) {

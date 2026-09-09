@@ -19,6 +19,7 @@ import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionType;
@@ -38,6 +39,7 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
 
     private Boolean hasClickedPosition;
     private Boolean hasBasePotionType;
+    private Boolean hasItemName;
 
     /**
      * Initializes the Bukkit_v1_20 adapter with 1.20-specific block groups and mappings.
@@ -262,6 +264,21 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
     @Override
     public boolean isSignFront(SignChangeEvent event) {
         return event.getSide().equals(Side.FRONT);
+    }
+
+    @Override
+    public String getItemName(ItemMeta itemMeta) {
+        if (hasItemName == null) {
+            try {
+                ItemMeta.class.getMethod("getItemName");
+                hasItemName = true;
+            }
+            catch (NoSuchMethodException e) {
+                hasItemName = false;
+            }
+        }
+
+        return hasItemName && itemMeta.hasItemName() ? itemMeta.getItemName() : "";
     }
 
     @Override

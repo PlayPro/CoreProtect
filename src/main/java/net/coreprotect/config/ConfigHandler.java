@@ -86,8 +86,9 @@ public class ConfigHandler extends Queue {
     public static final String MINECRAFT_VERSION = "1.16.5";
     public static final String PATCH_VERSION = "24.0";
     public static final String LATEST_VERSION = "26.2";
+    private static final String DEFAULT_SQLITE_DATABASE = "database.db";
     public static String path = "plugins/CoreProtect/";
-    public static String sqlite = "database.db";
+    public static String sqlite = DEFAULT_SQLITE_DATABASE;
     public static String duckdb = "database.duckdb";
     public static String duckdbMemoryLimit = "512MB";
     public static String duckdbMaxTempDirectorySize = "10GB";
@@ -422,9 +423,7 @@ public class ConfigHandler extends Queue {
 
         // Optional custom SQLite database filename (hidden option) inside the CoreProtect data folder.
         String sqliteDatabase = global.SQLITE_DATABASE.trim();
-        if (!sqliteDatabase.isEmpty()) {
-            ConfigHandler.sqlite = sqliteDatabase;
-        }
+        ConfigHandler.sqlite = sqliteDatabase.isEmpty() ? DEFAULT_SQLITE_DATABASE : sqliteDatabase;
 
         ConfigHandler.loadBlacklist(); // Load the blacklist file if it exists.
     }

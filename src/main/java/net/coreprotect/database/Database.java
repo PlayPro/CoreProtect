@@ -1005,8 +1005,9 @@ public class Database extends Queue {
                 String attachDatabase = "";
 
                 if (purge && forceConnection == null) {
-                    String query = "ATTACH DATABASE '" + ConfigHandler.path + ConfigHandler.sqlite + ".tmp' AS tmp_db";
+                    String query = "ATTACH DATABASE ? AS tmp_db";
                     try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+                        preparedStatement.setString(1, ConfigHandler.path + ConfigHandler.sqlite + ".tmp");
                         preparedStatement.execute();
                     }
                     attachDatabase = "tmp_db.";

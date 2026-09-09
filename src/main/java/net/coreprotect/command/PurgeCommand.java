@@ -420,8 +420,9 @@ public class PurgeCommand extends Consumer {
                     String purgePrefix = "tmp_" + ConfigHandler.prefix;
 
                     if (ConfigHandler.databaseType.isSQLite()) {
-                        query = "ATTACH DATABASE '" + ConfigHandler.path + ConfigHandler.sqlite + ".tmp' AS tmp_db";
+                        query = "ATTACH DATABASE ? AS tmp_db";
                         preparedStmt = preparePurgeStatement(connection, query);
+                        preparedStmt.setString(1, ConfigHandler.path + ConfigHandler.sqlite + ".tmp");
                         preparedStmt.execute();
                         preparedStmt.close();
                         purgePrefix = "tmp_db." + ConfigHandler.prefix;

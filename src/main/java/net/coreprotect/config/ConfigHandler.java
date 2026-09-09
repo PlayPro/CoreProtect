@@ -420,6 +420,12 @@ public class ConfigHandler extends Queue {
         ConfigHandler.duckdbMaxTempDirectorySize = global.DUCKDB_MAX_TEMP_DIRECTORY_SIZE;
         ConfigHandler.prefix = global.PREFIX;
 
+        // Optional custom SQLite database filename (hidden option) inside the CoreProtect data folder.
+        String sqliteDatabase = global.SQLITE_DATABASE.trim();
+        if (!sqliteDatabase.isEmpty()) {
+            ConfigHandler.sqlite = sqliteDatabase;
+        }
+
         ConfigHandler.loadBlacklist(); // Load the blacklist file if it exists.
     }
 

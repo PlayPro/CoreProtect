@@ -157,7 +157,8 @@ public final class MessageFilterParser {
                 return true;
             }
             for (String filter : filters) {
-                if (filter.codePointCount(0, filter.length()) < MINIMUM_FILTER_CODE_POINTS) {
+                int start = filter.startsWith("-") ? 1 : 0;
+                if (filter.codePointCount(start, filter.length()) < MINIMUM_FILTER_CODE_POINTS) {
                     return true;
                 }
             }

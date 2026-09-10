@@ -1063,7 +1063,7 @@ public class LookupRaw extends Queue {
                 baseQuery = appendMessageFilters(baseQuery, messageFilters, queryTable, messageFilterBindings);
             }
             else if (actionList.contains(LookupActions.SIGN)) {
-                baseQuery = appendSignMessageFilters(baseQuery, messageFilters, messageFilterBindings);
+                baseQuery = appendMessageFilters(baseQuery, messageFilters, "sign", messageFilterBindings);
             }
 
             boolean itemLookup = inventoryQuery;
@@ -1495,6 +1495,27 @@ public class LookupRaw extends Queue {
             return baseQuery;
         }
 
+        List<String> included = new ArrayList<>();
+        List<String> excluded = new ArrayList<>();
+        for (String filter : messageFilters) {
+            if (filter != null && filter.startsWith("-")) {
+                excluded.add(filter.substring(1));
+            }
+            else {
+                included.add(filter);
+            }
+        }
+
+        boolean sign = table.equals("sign");
+        String query = sign ? appendSignMessagePrefixes(baseQuery, included, bindings) : appendMessagePrefixes(baseQuery, included, table, bindings);
+        return appendMessageExclusions(query, excluded, sign, bindings);
+    }
+
+    private static String appendMessagePrefixes(String baseQuery, List<String> messageFilters, String table, List<String> bindings) {
+        if (messageFilters.isEmpty()) {
+            return baseQuery;
+        }
+
         if (ConfigHandler.databaseType.isDuckDB()) {
             StringBuilder query = new StringBuilder(baseQuery).append(" AND (");
             for (int index = 0; index < messageFilters.size(); index++) {
@@ -1530,8 +1551,8 @@ public class LookupRaw extends Queue {
         return query.append("))").toString();
     }
 
-    private static String appendSignMessageFilters(String baseQuery, List<String> messageFilters, List<String> bindings) {
-        if (messageFilters == null || messageFilters.isEmpty()) {
+    private static String appendSignMessagePrefixes(String baseQuery, List<String> messageFilters, List<String> bindings) {
+        if (messageFilters.isEmpty()) {
             return baseQuery;
         }
 
@@ -1582,6 +1603,43 @@ public class LookupRaw extends Queue {
             }
         }
         return query.append(")").toString();
+    }
+
+    private static String appendMessageExclusions(String baseQuery, List<String> excluded, boolean sign, List<String> bindings) {
+        if (excluded.isEmpty()) {
+            return baseQuery;
+        }
+
+        String match = (ConfigHandler.databaseType.isColumnar() ? " NOT ILIKE ?" : " NOT LIKE ?")
+                + (ConfigHandler.databaseType.isClickHouse() ? "" : " ESCAPE '~'");
+        StringBuilder query = new StringBuilder(baseQuery);
+        for (String filter : excluded) {
+            String pattern = escapeLike(filter) + "%";
+            if (sign) {
+                query.append(" AND (face IS NULL OR (face=0 AND (");
+                appendExcludedSignLines(query, 1, 4, match);
+                query.append(")) OR (face<>0 AND (");
+                appendExcludedSignLines(query, 5, 8, match);
+                query.append(")))");
+                for (int line = 1; line <= 8; line++) {
+                    bindings.add(pattern);
+                }
+            }
+            else {
+                query.append(" AND (message IS NULL OR message").append(match).append(')');
+                bindings.add(pattern);
+            }
+        }
+        return query.toString();
+    }
+
+    private static void appendExcludedSignLines(StringBuilder query, int firstLine, int lastLine, String match) {
+        for (int line = firstLine; line <= lastLine; line++) {
+            if (line > firstLine) {
+                query.append(" AND ");
+            }
+            query.append("(line_").append(line).append(" IS NULL OR line_").append(line).append(match).append(')');
+        }
     }
 
     private static void appendDuckDBSignLines(StringBuilder query, int firstLine, int lastLine) {

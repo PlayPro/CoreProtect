@@ -56,6 +56,7 @@ Perform a lookup. Nearly all of the parameters are optional.
 | [`a:<action>`](#aaction) | Restrict the lookup to a certain action. |
 | [`i:<include>`](#iinclude) | Include specific blocks/entities in the lookup. |
 | [`e:<exclude>`](#eexclude) | Exclude blocks/entities from the lookup. |
+| [`f:<filter>`](#ffilter) | Include or exclude chat, command, or sign text by prefix. |
 | [`#<hashtag>`](#hashtag) | Add a hashtag to perform additional actions. |
 
 #### Pagination
@@ -236,6 +237,20 @@ ___
 *Can be used to exclude a block/item/entity/user.*
 
 * Example: `e:tnt` *(exclude TNT)*
+
+---
+
+### `f:<filter>`
+
+*Filter message prefixes when using `a:chat`, `a:command`, or `a:sign`.*
+
+* Example: `a:command f:/ban` *(commands starting with "/ban")*
+* Example: `a:command f:/ban,/kick` *(commands starting with either prefix)*
+* Example: `a:command f:/ban,-/banlist` *(include "/ban" and exclude "/banlist")*
+* Example: `a:chat f:-hello` *(exclude messages starting with "hello")*
+* Example: `a:sign f:Diamond Shop,-Diamond Shop Closed` *(filter prefixes on the recorded sign face)*
+
+> Separate filters with commas. Included prefixes are alternatives; any matching excluded prefix removes the result. Exclusions can be used on their own. Each prefix requires at least three characters, excluding the leading `-` marker. Spaces are allowed, and `*`, `%`, `_`, and `~` are matched literally.
 
 ---
 

@@ -7,11 +7,39 @@ import org.bukkit.entity.Player;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.language.Phrase;
+import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
+import net.coreprotect.utility.LookupThrottle;
 
 public abstract class BaseInspector {
 
-    protected void checkPreconditions(Player player) throws InspectionException {
+    protected void startInspection(Player player, Runnable inspection) {
+        try {
+            acquireInspection(player);
+        }
+        catch (InspectionException e) {
+            Chat.sendMessage(player, e.getMessage());
+            return;
+        }
+
+        try {
+            Thread thread = new Thread(() -> {
+                try {
+                    inspection.run();
+                }
+                finally {
+                    LookupThrottle.release(player.getName());
+                }
+            });
+            thread.start();
+        }
+        catch (RuntimeException | Error e) {
+            LookupThrottle.release(player.getName());
+            throw e;
+        }
+    }
+
+    private void acquireInspection(Player player) throws InspectionException {
         if (ConfigHandler.converterRunning) {
             throw new InspectionException(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
         }
@@ -20,27 +48,18 @@ public abstract class BaseInspector {
             throw new InspectionException(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
         }
 
-        if (ConfigHandler.lookupThrottle.get(player.getName()) != null) {
-            Object[] lookupThrottle = ConfigHandler.lookupThrottle.get(player.getName());
-            if ((boolean) lookupThrottle[0] || (System.currentTimeMillis() - (long) lookupThrottle[1]) < 100) {
-                throw new InspectionException(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-            }
+        if (!LookupThrottle.tryAcquire(player.getName(), 100)) {
+            throw new InspectionException(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
         }
     }
 
     protected Connection getDatabaseConnection(Player player) throws Exception {
-        ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
-
         Connection connection = Database.getConnection(true);
         if (connection == null) {
             throw new InspectionException(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
         }
 
         return connection;
-    }
-
-    protected void finishInspection(Player player) {
-        ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
     }
 
     public static class InspectionException extends Exception {

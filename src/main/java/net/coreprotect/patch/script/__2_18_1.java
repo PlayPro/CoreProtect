@@ -3,6 +3,7 @@ package net.coreprotect.patch.script;
 import java.sql.Statement;
 
 import net.coreprotect.patch.Patch;
+import net.coreprotect.utility.ErrorReporter;
 
 public class __2_18_1 {
 
@@ -15,7 +16,7 @@ public class __2_18_1 {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return true;

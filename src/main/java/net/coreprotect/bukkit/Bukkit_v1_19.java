@@ -3,6 +3,7 @@ package net.coreprotect.bukkit;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 
 import org.bukkit.Material;
 import org.bukkit.entity.Entity;
@@ -196,7 +197,16 @@ public class Bukkit_v1_19 extends Bukkit_v1_18 {
                 if (count == 0) {
                     // Convert string registry key to variant if needed
                     if (value instanceof String) {
-                        value = BukkitAdapter.ADAPTER.getRegistryValue((String) value, Frog.Variant.class);
+                        String key = (String) value;
+                        value = BukkitAdapter.ADAPTER.getRegistryValue(key, Frog.Variant.class);
+                        if (value == null) {
+                            int separator = key.indexOf(':');
+                            String name = separator < 0 ? key : key.substring(separator + 1).toUpperCase(Locale.ROOT).replace('.', '_').replace('-', '_');
+                            value = BukkitAdapter.getLegacyEnumValue(Frog.Variant.class, name);
+                        }
+                        if (!(value instanceof Frog.Variant)) {
+                            return false;
+                        }
                     }
                     frog.setVariant((Frog.Variant) value);
                     return true;

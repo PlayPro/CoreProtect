@@ -1,15 +1,21 @@
 package net.coreprotect.spigot;
 
+import java.lang.reflect.Method;
+import java.util.List;
+import java.util.UUID;
 import java.util.regex.Matcher;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
+import org.bukkit.entity.Villager;
 
 import net.coreprotect.config.Config;
+import net.coreprotect.model.entity.VillagerReputationData;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.StringUtils;
 import net.coreprotect.utility.Util;
+import net.coreprotect.utility.ErrorReporter;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.ClickEvent;
@@ -76,7 +82,7 @@ public class SpigotHandler extends SpigotAdapter implements SpigotInterface {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -131,6 +137,49 @@ public class SpigotHandler extends SpigotAdapter implements SpigotInterface {
         sender.spigot().sendMessage(message);
     }
 
+    @Override
+    public boolean setVillagerReputations(Villager villager, List<?> reputations) {
+        try {
+            Class<?> reputationTypeClass = Class.forName("org.bukkit.entity.Villager$ReputationType");
+            Method setReputation = villager.getClass().getMethod("setReputation", UUID.class, reputationTypeClass, int.class);
+
+            for (Object reputationObject : reputations) {
+                VillagerReputationData data = VillagerReputationData.parse(reputationObject);
+                if (data == null) {
+                    continue;
+                }
+
+                for (VillagerReputationData.Value value : data.values()) {
+                    Object type = parseEnumValue(reputationTypeClass, value.type());
+                    if (type != null) {
+                        setReputation.invoke(villager, data.uuid(), type, value.amount());
+                    }
+                }
+            }
+
+            return true;
+        }
+        catch (Exception e) {
+            return false;
+        }
+    }
+
+    @Override
+    public Object getVillagerGossipDecayTime(Villager villager) {
+        return invokeNoArgumentMethod(villager, "getGossipDecayTime");
+    }
+
+    @Override
+    public void setVillagerGossipDecayTime(Villager villager, Object value) {
+        if (value instanceof Number) {
+            try {
+                villager.getClass().getMethod("setGossipDecayTime", long.class).invoke(villager, ((Number) value).longValue());
+            }
+            catch (Exception e) {
+            }
+        }
+    }
+
     private static void addBuilder(TextComponent message, StringBuilder builder) {
         String[] splitBuilder = builder.toString().split(SpigotHandler.DARK_AQUA.toString());
         for (int i = 0; i < splitBuilder.length; i++) {
@@ -145,6 +194,25 @@ public class SpigotHandler extends SpigotAdapter implements SpigotInterface {
         }
 
         builder.setLength(0);
+    }
+
+    private static Object invokeNoArgumentMethod(Object target, String methodName) {
+        try {
+            return target.getClass().getMethod(methodName).invoke(target);
+        }
+        catch (Exception e) {
+            return null;
+        }
+    }
+
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    private static Object parseEnumValue(Class<?> enumClass, String value) {
+        try {
+            return Enum.valueOf((Class<? extends Enum>) enumClass.asSubclass(Enum.class), value);
+        }
+        catch (Exception e) {
+            return null;
+        }
     }
 
 }

@@ -4,17 +4,27 @@ import java.io.File;
 import java.io.RandomAccessFile;
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.IntConsumer;
+import java.util.function.IntSupplier;
+import java.util.function.Supplier;
 
 import org.bukkit.Bukkit;
 import org.bukkit.World;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
@@ -25,24 +35,46 @@ import com.zaxxer.hikari.HikariDataSource;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.consumer.process.Process;
+import net.coreprotect.database.ConsumerWriteBatch;
+import net.coreprotect.database.ConsumerWriteBatch.ReferenceKind;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.DatabaseType;
+import net.coreprotect.database.DuckDBNativeSupport;
+import net.coreprotect.database.clickhouse.ClickHouseDatabase;
+import net.coreprotect.database.clickhouse.ClickHouseJdbcConfig;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.ListenerHandler;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.model.action.EntityActionFilter;
+import net.coreprotect.model.lookup.LookupCursor;
+import net.coreprotect.model.lookup.LookupOutputMode;
+import net.coreprotect.model.lookup.LookupRollbackState;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.patch.Patch;
 import net.coreprotect.spigot.SpigotAdapter;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
+import net.coreprotect.utility.EntitySpawnTracking;
+import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.SystemUtils;
 import net.coreprotect.utility.VersionUtils;
-import oshi.hardware.CentralProcessor;
 
 public class ConfigHandler extends Queue {
 
     public enum CacheType {
-        MATERIALS, BLOCKDATA, ART, ENTITIES, WORLDS
+        MATERIALS(ReferenceKind.MATERIAL),
+        BLOCKDATA(ReferenceKind.BLOCK_DATA),
+        ART(ReferenceKind.ART),
+        ENTITIES(ReferenceKind.ENTITY),
+        WORLDS(ReferenceKind.WORLD);
+
+        private final ReferenceKind kind;
+
+        CacheType(ReferenceKind kind) {
+            this.kind = kind;
+        }
     }
 
     public static int SERVER_VERSION = 0;
@@ -51,11 +83,16 @@ public class ConfigHandler extends Queue {
     public static final String EDITION_NAME = VersionUtils.getPluginName();
     public static final String COMMUNITY_EDITION = "Community Edition";
     public static final String JAVA_VERSION = "11.0";
-    public static final String MINECRAFT_VERSION = "1.16";
-    public static final String PATCH_VERSION = "23.1";
-    public static final String LATEST_VERSION = "1.21.11";
+    public static final String MINECRAFT_VERSION = "1.16.5";
+    public static final String PATCH_VERSION = "24.0";
+    public static final String LATEST_VERSION = "26.2";
+    private static final String DEFAULT_SQLITE_DATABASE = "database.db";
     public static String path = "plugins/CoreProtect/";
-    public static String sqlite = "database.db";
+    public static String sqlite = DEFAULT_SQLITE_DATABASE;
+    public static String duckdb = "database.duckdb";
+    public static String duckdbMemoryLimit = "512MB";
+    public static String duckdbMaxTempDirectorySize = "10GB";
+    public static int duckdbThreads = 3;
     public static String host = "127.0.0.1";
     public static int port = 3306;
     public static String database = "database";
@@ -64,13 +101,27 @@ public class ConfigHandler extends Queue {
     public static String prefix = "co_";
     public static String prefixConfig = "co_";
     public static int maximumPoolSize = 10;
+    public static DatabaseType databaseType = DatabaseType.SQLITE;
+
+    public static String getDescendingEventOrder() {
+        return databaseType.isClickHouse() ? "time DESC,rowid DESC" : "rowid DESC";
+    }
+
+    public static String getAscendingEventOrder() {
+        return databaseType.isClickHouse() ? "time ASC,rowid ASC" : "rowid ASC";
+    }
+
+    public static final String BLACKLIST_COMMENT_SEPARATOR = ";";
+    public static final String BLACKLIST_FILTER_SEPARATOR = "@";
+    public static final String BLACKLIST_FILENAME = "blacklist.txt";
 
     public static HikariDataSource hikariDataSource = null;
-    public static final CentralProcessor processorInfo = SystemUtils.getProcessorInfo();
+    public static final SystemUtils.ProcessorInfo processorInfo = SystemUtils.getProcessorInfo();
     public static final boolean isSpigot = VersionUtils.isSpigot();
     public static final boolean isPaper = VersionUtils.isPaper();
     public static final boolean isFolia = VersionUtils.isFolia();
     public static volatile boolean serverRunning = false;
+    public static volatile boolean shutdownDrainRunning = false;
     public static volatile boolean converterRunning = false;
     public static volatile boolean purgeRunning = false;
     public static volatile boolean migrationRunning = false;
@@ -82,28 +133,112 @@ public class ConfigHandler extends Queue {
     public static volatile int blockdataId = 0;
     public static volatile int entityId = 0;
     public static volatile int artId = 0;
+    public static final AtomicLong autoPurgeRowsPurged = new AtomicLong(0);
+    private static boolean duckDBFallbackAllowed = false;
 
     private static <K, V> Map<K, V> syncMap() {
         return Collections.synchronizedMap(new HashMap<>());
     }
 
-    public static Map<String, Integer> worlds = syncMap();
-    public static Map<Integer, String> worldsReversed = syncMap();
-    public static Map<String, Integer> materials = syncMap();
-    public static Map<Integer, String> materialsReversed = syncMap();
-    public static Map<String, Integer> blockdata = syncMap();
-    public static Map<Integer, String> blockdataReversed = syncMap();
-    public static Map<String, Integer> entities = syncMap();
-    public static Map<Integer, String> entitiesReversed = syncMap();
-    public static Map<String, Integer> art = syncMap();
-    public static Map<Integer, String> artReversed = syncMap();
+    private static <K, V> Map<K, V> syncMap(Map<K, V> values) {
+        return Collections.synchronizedMap(new HashMap<>(values));
+    }
+
+    private static IdentifierCache loadIdentifierCache(Statement statement, String table, String valueColumn)
+            throws SQLException {
+        Map<String, Integer> values = new HashMap<>();
+        Map<Integer, String> reversed = new HashMap<>();
+        int maximumId = 0;
+        try (ResultSet resultSet = statement
+                .executeQuery("SELECT id," + valueColumn + " FROM " + ConfigHandler.prefix + table)) {
+            while (resultSet.next()) {
+                int id = resultSet.getInt("id");
+                String value = resultSet.getString(valueColumn);
+                values.put(value, id);
+                reversed.put(id, value);
+                maximumId = Math.max(maximumId, id);
+            }
+        }
+        return new IdentifierCache(values, reversed, maximumId);
+    }
+
+    private static final class IdentifierCache {
+
+        private final Map<String, Integer> values;
+        private final Map<Integer, String> reversed;
+        private int maximumId;
+
+        private IdentifierCache(Map<String, Integer> values, Map<Integer, String> reversed, int maximumId) {
+            this.values = values;
+            this.reversed = reversed;
+            this.maximumId = maximumId;
+        }
+    }
+
+    private static final class IdentifierStore {
+        private final ReferenceKind kind;
+        private final Supplier<Map<String, Integer>> values;
+        private final Supplier<Map<Integer, String>> reversed;
+        private final IntSupplier maximum;
+        private final IntConsumer maximumSetter;
+
+        private IdentifierStore(ReferenceKind kind, Supplier<Map<String, Integer>> values, Supplier<Map<Integer, String>> reversed, IntSupplier maximum,
+                IntConsumer maximumSetter) {
+            this.kind = kind;
+            this.values = values;
+            this.reversed = reversed;
+            this.maximum = maximum;
+            this.maximumSetter = maximumSetter;
+        }
+
+        private boolean store(int id, String value) {
+            if (!canStore(id, value)) {
+                return false;
+            }
+            Map<String, Integer> names = values.get();
+            Map<Integer, String> identifiers = reversed.get();
+            names.put(value, id);
+            identifiers.put(id, value);
+            maximumSetter.accept(Math.max(maximum.getAsInt(), id));
+            return true;
+        }
+
+        private boolean canStore(int id, String value) {
+            if (id < 1) {
+                return false;
+            }
+            Map<String, Integer> names = values.get();
+            Map<Integer, String> identifiers = reversed.get();
+            Integer storedId = names.get(value);
+            String storedValue = identifiers.get(id);
+            if ((storedId != null && storedId != id) || (storedValue != null && !storedValue.equals(value))) {
+                throw new IllegalStateException("CoreProtect " + kind.name().toLowerCase(Locale.ROOT) + " identifier " + id + "='" + value
+                        + "' conflicts with cached " + storedId + "='" + storedValue + "'");
+            }
+            return true;
+        }
+
+    }
+
+    public static volatile Map<String, Integer> worlds = syncMap();
+    public static volatile Map<Integer, String> worldsReversed = syncMap();
+    public static volatile Map<String, Integer> materials = syncMap();
+    public static volatile Map<Integer, String> materialsReversed = syncMap();
+    public static volatile Map<String, Integer> blockdata = syncMap();
+    public static volatile Map<Integer, String> blockdataReversed = syncMap();
+    public static volatile Map<String, Integer> entities = syncMap();
+    public static volatile Map<Integer, String> entitiesReversed = syncMap();
+    public static volatile Map<String, Integer> art = syncMap();
+    public static volatile Map<Integer, String> artReversed = syncMap();
+    private static final Map<ReferenceKind, IdentifierStore> IDENTIFIER_STORES = identifierStores();
     public static Map<String, int[]> rollbackHash = syncMap();
     public static Map<String, Boolean> inspecting = syncMap();
     public static Map<String, Boolean> blacklist = syncMap();
+    public static Map<String, HashSet<String>> FilteredBlacklist = syncMap();
     public static Map<String, Integer> loggingChest = syncMap();
     public static Map<String, Integer> loggingItem = syncMap();
-    public static ConcurrentHashMap<String, List<Object>> transactingChest = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, List<ItemStack[]>> oldContainer = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Set<String>> oldContainerViewers = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, List<ItemStack>> itemsPickup = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, List<ItemStack>> itemsDrop = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, List<ItemStack>> itemsThrown = new ConcurrentHashMap<>();
@@ -122,15 +257,22 @@ public class ConfigHandler extends Queue {
     public static Map<String, Object[]> lookupThrottle = syncMap();
     public static Map<String, Object[]> teleportThrottle = syncMap();
     public static Map<String, Integer> lookupPage = syncMap();
+    public static Map<String, LookupOutputMode> lookupOutputMode = syncMap();
+    public static Map<String, LookupRollbackState> lookupRollbackState = syncMap();
     public static Map<String, String> lookupCommand = syncMap();
+    public static Map<String, Integer> lookupEntityContainer = syncMap();
+    public static Map<String, Integer> lookupEntityInteraction = syncMap();
     public static Map<String, List<Object>> lookupBlist = syncMap();
     public static Map<String, Map<Object, Boolean>> lookupElist = syncMap();
     public static Map<String, List<String>> lookupEUserlist = syncMap();
     public static Map<String, List<String>> lookupUlist = syncMap();
     public static Map<String, List<Integer>> lookupAlist = syncMap();
+    public static Map<String, EntityActionFilter> lookupEntityActionFilter = syncMap();
+    public static Map<String, List<String>> lookupFlist = syncMap();
     public static Map<String, Integer[]> lookupRadius = syncMap();
     public static Map<String, String> lookupTime = syncMap();
     public static Map<String, Long[]> lookupRows = syncMap();
+    public static Map<String, LookupCursor> lookupDuckDBCursor = syncMap();
     public static Map<String, String> uuidCache = syncMap();
     public static Map<String, String> uuidCacheReversed = syncMap();
     public static Map<String, Integer> playerIdCache = syncMap();
@@ -145,6 +287,24 @@ public class ConfigHandler extends Queue {
     public static void checkPlayers(Connection connection) {
         ConfigHandler.playerIdCache.clear();
         ConfigHandler.playerIdCacheReversed.clear();
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            if (Bukkit.getServer().getOnlinePlayers().isEmpty()) {
+                return;
+            }
+            try (ConsumerWriteBatch batch = Database.openConsumerWriteBatch(connection)) {
+                batch.begin();
+                int time = (int) (System.currentTimeMillis() / 1_000L);
+                for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+                    batch.recordUsername(player.getName(), player.getUniqueId().toString(), 0, time);
+                }
+                if (!batch.commit()) {
+                    throw new IllegalStateException("Unable to initialize ClickHouse player records");
+                }
+            } catch (Exception exception) {
+                throw new IllegalStateException("Unable to initialize ClickHouse player records", exception);
+            }
+            return;
+        }
         for (Player player : Bukkit.getServer().getOnlinePlayers()) {
             if (ConfigHandler.playerIdCache.get(player.getName().toLowerCase(Locale.ROOT)) == null) {
                 UserStatement.loadId(connection, player.getName(), player.getUniqueId().toString());
@@ -152,62 +312,175 @@ public class ConfigHandler extends Queue {
         }
     }
 
+    public static void addOldContainerViewer(String locationSuffix, String loggingId) {
+        ConfigHandler.oldContainerViewers.compute(locationSuffix, (key, viewers) -> {
+            if (viewers == null) {
+                viewers = ConcurrentHashMap.newKeySet();
+            }
+            viewers.add(loggingId);
+            return viewers;
+        });
+    }
+
+    public static void removeOldContainerViewer(String locationSuffix, String loggingId) {
+        ConfigHandler.oldContainerViewers.computeIfPresent(locationSuffix, (key, viewers) -> {
+            viewers.remove(loggingId);
+            return viewers.isEmpty() ? null : viewers;
+        });
+    }
+
+    public static boolean isBlacklisted(String user) {
+        return ConfigHandler.blacklist.containsKey(user.toLowerCase(Locale.ROOT));
+    }
+
+    public static boolean isBlacklisted(String user, String object) {
+        if (ConfigHandler.blacklist.containsKey(object)
+                || ConfigHandler.blacklist.containsKey(user.toLowerCase(Locale.ROOT))) {
+            return true;
+        }
+        return isFilterBlacklisted(user, object);
+    }
+
+    public static boolean isFilterBlacklisted(String user, String object) {
+        HashSet<String> blUserSet = FilteredBlacklist.get(object);
+        if (blUserSet == null) {
+            return false;
+        }
+        return blUserSet.contains(user.toLowerCase(Locale.ROOT));
+    }
+
     private static void loadBlacklist() {
         try {
             ConfigHandler.blacklist.clear();
-            String blacklist = ConfigHandler.path + "blacklist.txt";
-            boolean exists = (new File(blacklist)).exists();
-            if (exists) {
-                RandomAccessFile blfile = new RandomAccessFile(blacklist, "rw");
-                long blc = blfile.length();
-                if (blc > 0) {
-                    while (blfile.getFilePointer() < blfile.length()) {
-                        String blacklistUser = blfile.readLine().replaceAll(" ", "").toLowerCase(Locale.ROOT);
-                        if (blacklistUser.length() > 0) {
-                            ConfigHandler.blacklist.put(blacklistUser, true);
-                        }
+            ConfigHandler.FilteredBlacklist.clear();
+
+            File file = new File(ConfigHandler.path, BLACKLIST_FILENAME);
+            if (!file.exists()) {
+                return;
+            }
+            try (RandomAccessFile blfile = new RandomAccessFile(file, "r")) {
+                if (blfile.length() == 0) {
+                    return;
+                }
+                String blLine;
+                while ((blLine = blfile.readLine()) != null) {
+                    blLine = blLine.replace(" ", "").toLowerCase(Locale.ROOT).split(BLACKLIST_COMMENT_SEPARATOR)[0];
+                    if (blLine.isEmpty()) {
+                        continue;
+                    }
+                    String[] blSplit = blLine.split(BLACKLIST_FILTER_SEPARATOR);
+                    if (blSplit.length == 1) {
+                        ConfigHandler.blacklist.put(blLine, true);
+                    } else {
+                        ConfigHandler.FilteredBlacklist.computeIfAbsent(blSplit[0], k -> new HashSet<>())
+                                .add(blSplit[1]);
                     }
                 }
-                blfile.close();
             }
-        }
-        catch (Exception e) {
-            e.printStackTrace();
+        } catch (Exception e) {
+            ErrorReporter.report(e);
         }
     }
 
-    private static void loadConfig() {
-        try {
-            Config.init();
-            ConfigFile.init(ConfigFile.LANGUAGE); // load user phrases
-            ConfigFile.init(ConfigFile.LANGUAGE_CACHE); // load translation cache
+    private static void loadConfig() throws Exception {
+        File configFolder = new File(ConfigHandler.path);
+        File configFile = new File(configFolder, ConfigFile.CONFIG);
+        File[] existingFiles = configFolder.listFiles();
+        duckDBFallbackAllowed = !configFile.exists()
+                && (!configFolder.exists() || (existingFiles != null && existingFiles.length == 0));
 
-            // Enforce "co_" table prefix if using SQLite.
-            if (!Config.getGlobal().MYSQL) {
-                ConfigHandler.prefixConfig = Config.getGlobal().PREFIX;
-                Config.getGlobal().PREFIX = "co_";
+        Config.init();
+        ConfigFile.init(ConfigFile.LANGUAGE); // load user phrases
+        ConfigFile.init(ConfigFile.LANGUAGE_CACHE); // load translation cache
+
+        Config global = Config.getGlobal();
+        if (global.hasOption("database-type")) {
+            ConfigHandler.databaseType = DatabaseType.parse(global.DATABASE_TYPE, global.MYSQL);
+            if (global.hasOption("use-mysql") && global.MYSQL != ConfigHandler.databaseType.isMySQL()) {
+                Chat.sendConsoleMessage(Color.YELLOW + "[CoreProtect] " + Phrase.build(Phrase.DATABASE_TYPE_OVERRIDE));
             }
-
-            ConfigHandler.host = Config.getGlobal().MYSQL_HOST;
-            ConfigHandler.port = Config.getGlobal().MYSQL_PORT;
-            ConfigHandler.database = Config.getGlobal().MYSQL_DATABASE;
-            ConfigHandler.username = Config.getGlobal().MYSQL_USERNAME;
-            ConfigHandler.password = Config.getGlobal().MYSQL_PASSWORD;
-            ConfigHandler.maximumPoolSize = Config.getGlobal().MAXIMUM_POOL_SIZE;
-            ConfigHandler.prefix = Config.getGlobal().PREFIX;
-
-            ConfigHandler.loadBlacklist(); // Load the blacklist file if it exists.
+        } else {
+            ConfigHandler.databaseType = global.MYSQL ? DatabaseType.MYSQL : DatabaseType.SQLITE;
         }
-        catch (Exception e) {
-            e.printStackTrace();
+        global.MYSQL = ConfigHandler.databaseType.isMySQL();
+
+        ConfigHandler.prefixConfig = global.PREFIX;
+        // Embedded databases use the fixed prefix expected by maintenance operations.
+        if (ConfigHandler.databaseType.isEmbedded()) {
+            global.PREFIX = "co_";
         }
+
+        ConfigHandler.host = global.MYSQL_HOST;
+        ConfigHandler.port = global.MYSQL_PORT;
+        ConfigHandler.database = global.MYSQL_DATABASE;
+        ConfigHandler.username = global.MYSQL_USERNAME;
+        ConfigHandler.password = global.MYSQL_PASSWORD;
+        ConfigHandler.maximumPoolSize = global.MAXIMUM_POOL_SIZE;
+        ConfigHandler.duckdbMemoryLimit = global.DUCKDB_MEMORY_LIMIT;
+        ConfigHandler.duckdbThreads = Math.max(1, global.DUCKDB_THREADS);
+        ConfigHandler.duckdbMaxTempDirectorySize = global.DUCKDB_MAX_TEMP_DIRECTORY_SIZE;
+        ConfigHandler.prefix = global.PREFIX;
+
+        // Optional custom SQLite database filename (hidden option) inside the CoreProtect data folder.
+        String sqliteDatabase = global.SQLITE_DATABASE.trim();
+        ConfigHandler.sqlite = sqliteDatabase.isEmpty() ? DEFAULT_SQLITE_DATABASE : sqliteDatabase;
+
+        ConfigHandler.loadBlacklist(); // Load the blacklist file if it exists.
     }
 
     public static void loadDatabase() {
-        // close old pool when we reload the database, e.g. in purge command
-        Database.closeConnection();
+        loadDatabase(null, false);
+    }
 
-        if (!Config.getGlobal().MYSQL) {
+    public static void loadMigrationDatabase(ClickHouseDatabase preparedClickHouse) {
+        if (preparedClickHouse == null) {
+            throw new IllegalArgumentException("Prepared ClickHouse database cannot be null");
+        }
+        loadDatabase(preparedClickHouse, true);
+    }
+
+    private static void loadDatabase(ClickHouseDatabase preparedClickHouse, boolean migrationActivation) {
+        if (preparedClickHouse != null && !ConfigHandler.databaseType.isClickHouse()) {
+            throw new IllegalArgumentException("A prepared ClickHouse database can only activate a ClickHouse target");
+        }
+        ConfigHandler.databaseReachable = false;
+        Database.closeConnection();
+        try {
+            if (preparedClickHouse != null) {
+                Database.installClickHouseDatabase(preparedClickHouse);
+            } else {
+                initializeDatabase();
+            }
+            if (!migrationActivation && Database.hasIncompleteMigrationMarker()) {
+                throw new IllegalStateException(
+                        "Database contains an incomplete CoreProtect migration and cannot be activated");
+            }
+            ConfigHandler.databaseReachable = true;
+        } catch (Exception exception) {
+            Database.closeConnection();
+            ConfigHandler.databaseReachable = false;
+            if (exception instanceof RuntimeException) {
+                throw (RuntimeException) exception;
+            }
+            throw new IllegalStateException("Failed to initialize database", exception);
+        }
+    }
+
+    private static void initializeDatabase() {
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            try {
+                Config global = Config.getGlobal();
+                ClickHouseJdbcConfig config = new ClickHouseJdbcConfig(global.CLICKHOUSE_HOST, global.CLICKHOUSE_PORT,
+                        global.CLICKHOUSE_DATABASE, global.CLICKHOUSE_USERNAME, global.CLICKHOUSE_PASSWORD,
+                        global.CLICKHOUSE_TLS);
+                Database.initializeClickHouse(config, ConfigHandler.prefix);
+            } catch (Exception exception) {
+                throw new IllegalStateException("Failed to initialize ClickHouse", exception);
+            }
+            return;
+        }
+
+        if (ConfigHandler.databaseType.isEmbedded()) {
             try {
                 File tempFile = File.createTempFile("CoreProtect_" + System.currentTimeMillis(), ".tmp");
                 tempFile.setExecutable(true);
@@ -215,8 +488,7 @@ public class ConfigHandler extends Queue {
                 boolean canExecute = false;
                 try {
                     canExecute = tempFile.canExecute();
-                }
-                catch (Exception exception) {
+                } catch (Exception exception) {
                     // execute access denied by security manager
                 }
 
@@ -231,31 +503,54 @@ public class ConfigHandler extends Queue {
 
                 tempFile.delete();
 
-                Class.forName("org.sqlite.JDBC");
+                if (ConfigHandler.databaseType.isDuckDB() && duckDBFallbackAllowed) {
+                    try {
+                        DuckDBNativeSupport.verifyAvailable();
+                    } catch (Throwable failure) {
+                        if (!DuckDBNativeSupport.isNativeUnavailable(failure)) {
+                            throw new IllegalStateException("Unable to verify DuckDB on this system", failure);
+                        }
+                        DatabaseConfigWriter.persistDatabaseType(DatabaseType.SQLITE);
+                        ConfigHandler.databaseType = DatabaseType.SQLITE;
+                        Config global = Config.getGlobal();
+                        global.DATABASE_TYPE = DatabaseType.SQLITE.name().toLowerCase(Locale.ROOT);
+                        global.MYSQL = false;
+                        Chat.sendConsoleMessage(Color.YELLOW + "[CoreProtect] " + Phrase.build(Phrase.DATABASE_FALLBACK,
+                                DatabaseType.DUCKDB.getDisplayName(), DatabaseType.SQLITE.getDisplayName()));
+                    } finally {
+                        duckDBFallbackAllowed = false;
+                    }
+                }
+
+                Class.forName(ConfigHandler.databaseType.isDuckDB() ? "org.duckdb.DuckDBDriver" : "org.sqlite.JDBC");
+            } catch (Exception e) {
+                ErrorReporter.report(e);
             }
-            catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-        else {
+        } else {
             HikariConfig config = new HikariConfig();
             try {
                 Class.forName("com.mysql.cj.jdbc.Driver");
                 config.setDriverClassName("com.mysql.cj.jdbc.Driver");
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 config.setDriverClassName("com.mysql.jdbc.Driver");
             }
 
-            config.setJdbcUrl("jdbc:mysql://" + ConfigHandler.host + ":" + ConfigHandler.port + "/" + ConfigHandler.database);
+            config.setJdbcUrl(
+                    "jdbc:mysql://" + ConfigHandler.host + ":" + ConfigHandler.port + "/" + ConfigHandler.database);
             config.setUsername(ConfigHandler.username);
             config.setPassword(ConfigHandler.password);
             config.setMaximumPoolSize(ConfigHandler.maximumPoolSize);
+            config.setConnectionTimeout(10000);
+            // Keep connection age below short limits used by some managed MySQL hosts.
             config.setMaxLifetime(60000);
+            config.setKeepaliveTime(0);
             config.addDataSourceProperty("characterEncoding", "UTF-8");
-            config.addDataSourceProperty("connectionTimeout", "10000");
+            config.addDataSourceProperty("connectTimeout", "10000");
             /* https://github.com/brettwooldridge/HikariCP/wiki/MySQL-Configuration */
-            /* https://cdn.oreillystatic.com/en/assets/1/event/21/Connector_J%20Performance%20Gems%20Presentation.pdf */
+            /*
+             * https://cdn.oreillystatic.com/en/assets/1/event/21/Connector_J%20Performance%
+             * 20Gems%20Presentation.pdf
+             */
             config.addDataSourceProperty("cachePrepStmts", "true");
             config.addDataSourceProperty("prepStmtCacheSize", "250");
             config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
@@ -271,200 +566,303 @@ public class ConfigHandler extends Queue {
             ConfigHandler.hikariDataSource = new HikariDataSource(config);
         }
 
-        Database.createDatabaseTables(ConfigHandler.prefix, false, null, Config.getGlobal().MYSQL, false);
+        Database.createDatabaseTables(ConfigHandler.prefix, false, null, ConfigHandler.databaseType, false);
     }
 
-    public static void loadMaterials(Statement statement) {
+    public static boolean loadMaterials(Statement statement) {
         try {
-            String query = "SELECT id,material FROM " + ConfigHandler.prefix + "material_map";
-            ResultSet rs = statement.executeQuery(query);
-            ConfigHandler.materials.clear();
-            ConfigHandler.materialsReversed.clear();
-            materialId = 0;
+            IdentifierCache cache = loadIdentifierCache(statement, "material_map", "material");
+            ConfigHandler.materials = syncMap(cache.values);
+            ConfigHandler.materialsReversed = syncMap(cache.reversed);
+            materialId = cache.maximumId;
+            return true;
+        } catch (Exception e) {
+            ErrorReporter.report(e);
+            return false;
+        }
+    }
 
-            while (rs.next()) {
-                int id = rs.getInt("id");
-                String material = rs.getString("material");
-                ConfigHandler.materials.put(material, id);
-                ConfigHandler.materialsReversed.put(id, material);
-                if (id > materialId) {
-                    materialId = id;
+    public static boolean loadBlockdata(Statement statement) {
+        try {
+            IdentifierCache cache = loadIdentifierCache(statement, "blockdata_map", "data");
+            ConfigHandler.blockdata = syncMap(cache.values);
+            ConfigHandler.blockdataReversed = syncMap(cache.reversed);
+            blockdataId = cache.maximumId;
+            return true;
+        } catch (Exception e) {
+            ErrorReporter.report(e);
+            return false;
+        }
+    }
+
+    public static boolean loadArt(Statement statement) {
+        try {
+            IdentifierCache cache = loadIdentifierCache(statement, "art_map", "art");
+            ConfigHandler.art = syncMap(cache.values);
+            ConfigHandler.artReversed = syncMap(cache.reversed);
+            artId = cache.maximumId;
+            return true;
+        } catch (Exception e) {
+            ErrorReporter.report(e);
+            return false;
+        }
+    }
+
+    public static boolean loadEntities(Statement statement) {
+        try {
+            IdentifierCache cache = loadIdentifierCache(statement, "entity_map", "entity");
+            ConfigHandler.entities = syncMap(cache.values);
+            ConfigHandler.entitiesReversed = syncMap(cache.reversed);
+            entityId = cache.maximumId;
+            return true;
+        } catch (Exception e) {
+            ErrorReporter.report(e);
+            return false;
+        }
+    }
+
+    public static boolean loadTypes(Statement statement) {
+        boolean loaded = loadMaterials(statement);
+        loaded &= loadBlockdata(statement);
+        loaded &= loadArt(statement);
+        loaded &= loadEntities(statement);
+        if (loaded && databaseType.isClickHouse() && !Config.getGlobal().DATABASE_LOCK) {
+            for (EntityType type : EntityType.values()) {
+                if (EntitySpawnTracking.isPlacedEntityType(type)) {
+                    resolveIdentifierId(CacheType.ENTITIES, type.name().toLowerCase(Locale.ROOT), true);
                 }
             }
-            rs.close();
         }
-        catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static void loadBlockdata(Statement statement) {
-        try {
-            String query = "SELECT id,data FROM " + ConfigHandler.prefix + "blockdata_map";
-            ResultSet rs = statement.executeQuery(query);
-            ConfigHandler.blockdata.clear();
-            ConfigHandler.blockdataReversed.clear();
-            blockdataId = 0;
-
-            while (rs.next()) {
-                int id = rs.getInt("id");
-                String data = rs.getString("data");
-                ConfigHandler.blockdata.put(data, id);
-                ConfigHandler.blockdataReversed.put(id, data);
-                if (id > blockdataId) {
-                    blockdataId = id;
-                }
-            }
-            rs.close();
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static void loadArt(Statement statement) {
-        try {
-            String query = "SELECT id,art FROM " + ConfigHandler.prefix + "art_map";
-            ResultSet rs = statement.executeQuery(query);
-            ConfigHandler.art.clear();
-            ConfigHandler.artReversed.clear();
-            artId = 0;
-
-            while (rs.next()) {
-                int id = rs.getInt("id");
-                String art = rs.getString("art");
-                ConfigHandler.art.put(art, id);
-                ConfigHandler.artReversed.put(id, art);
-                if (id > artId) {
-                    artId = id;
-                }
-            }
-            rs.close();
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static void loadEntities(Statement statement) {
-        try {
-            String query = "SELECT id,entity FROM " + ConfigHandler.prefix + "entity_map";
-            ResultSet rs = statement.executeQuery(query);
-            ConfigHandler.entities.clear();
-            ConfigHandler.entitiesReversed.clear();
-            entityId = 0;
-
-            while (rs.next()) {
-                int id = rs.getInt("id");
-                String entity = rs.getString("entity");
-                ConfigHandler.entities.put(entity, id);
-                ConfigHandler.entitiesReversed.put(id, entity);
-                if (id > entityId) {
-                    entityId = id;
-                }
-            }
-            rs.close();
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static void loadTypes(Statement statement) {
-        loadMaterials(statement);
-        loadBlockdata(statement);
-        loadArt(statement);
-        loadEntities(statement);
+        return loaded;
     }
 
     /**
-     * Unified method to reload cache from database when DATABASE_LOCK is false (multi-server setup)
-     * 
+     * Reloads an identifier cache when multi-server cache refresh is permitted.
+     *
      * @param type
-     *            The type of cache to reload
+     *             The type of cache to reload
      * @param name
-     *            The name to look up after reload
+     *             The name to look up after reload
      * @return The ID if found after reload, or -1 if not found
      */
-    public static int reloadAndGetId(CacheType type, String name) {
-        // Only reload if DATABASE_LOCK is false (multi-server setup)
-        if (Config.getGlobal().DATABASE_LOCK) {
+    public static synchronized int reloadAndGetId(CacheType type, String name) {
+        if (Config.getGlobal().DATABASE_LOCK || !reloadIdentifierCache(type.kind)) {
+            return -1;
+        }
+        return identifierStore(type.kind).values.get().getOrDefault(name, -1);
+    }
+
+    public static int resolveIdentifierId(CacheType type, String value, boolean create) {
+        IdentifierStore store = identifierStore(type.kind);
+        Integer cached = store.values.get().get(value);
+        return cached != null ? cached : resolveMissingIdentifierId(store, value, create);
+    }
+
+    private static synchronized int resolveMissingIdentifierId(IdentifierStore store, String value, boolean create) {
+        Integer cached = store.values.get().get(value);
+        if (cached != null) {
+            return cached;
+        }
+
+        if (databaseType.isClickHouse()) {
+            int id;
+            try {
+                id = Database.findClickHouseIdentifierId(store.kind, value);
+            }
+            catch (Exception exception) {
+                throw new IllegalStateException("Unable to resolve ClickHouse " + store.kind.name().toLowerCase(Locale.ROOT) + " identifier for " + value, exception);
+            }
+            if (id > 0) {
+                store.store(id, value);
+                return id;
+            }
+        }
+        else if (create && !Config.getGlobal().DATABASE_LOCK && reloadIdentifierCache(store.kind)) {
+            cached = store.values.get().get(value);
+            if (cached != null) {
+                return cached;
+            }
+        }
+        if (!create) {
             return -1;
         }
 
-        try (Connection connection = Database.getConnection(true)) {
-            if (connection != null) {
-                Statement statement = connection.createStatement();
-
-                // Reload appropriate cache based on type
-                switch (type) {
-                    case MATERIALS:
-                        loadMaterials(statement);
-                        statement.close();
-                        return materials.getOrDefault(name, -1);
-                    case BLOCKDATA:
-                        loadBlockdata(statement);
-                        statement.close();
-                        return blockdata.getOrDefault(name, -1);
-                    case ART:
-                        loadArt(statement);
-                        statement.close();
-                        return art.getOrDefault(name, -1);
-                    case ENTITIES:
-                        loadEntities(statement);
-                        statement.close();
-                        return entities.getOrDefault(name, -1);
-                    case WORLDS:
-                        loadWorlds(statement);
-                        statement.close();
-                        return worlds.getOrDefault(name, -1);
-                    default:
-                        statement.close();
-                        return -1;
-                }
+        int id = allocateIdentifierId(store, value, store.maximum.getAsInt());
+        boolean clickHouse = databaseType.isClickHouse();
+        if (id == -1 || !store.canStore(id, value)) {
+            if (clickHouse) {
+                throw new IllegalStateException("Unable to resolve ClickHouse " + store.kind.name().toLowerCase(Locale.ROOT) + " identifier for " + value);
+            }
+            return -1;
+        }
+        if (clickHouse) {
+            if (!queueIdentifier(store.kind, id, value)) {
+                throw new IllegalStateException("Database persistence halted before the ClickHouse identifier could be queued");
             }
         }
-        catch (Exception e) {
-            e.printStackTrace();
+        store.store(id, value);
+        if (!clickHouse) {
+            queueIdentifier(store.kind, id, value);
         }
-
-        return -1;
+        return id;
     }
 
-    public static void loadWorlds(Statement statement) {
-        try {
-            String query = "SELECT id,world FROM " + ConfigHandler.prefix + "world";
-            ResultSet rs = statement.executeQuery(query);
-            ConfigHandler.worlds.clear();
-            ConfigHandler.worldsReversed.clear();
-            worldId = 0;
+    private static boolean queueIdentifier(ReferenceKind kind, int id, String value) {
+        switch (kind) {
+            case ART:
+                return tryQueueIdentifierInsert(Process.ART_INSERT, id, value);
+            case BLOCK_DATA:
+                return tryQueueIdentifierInsert(Process.BLOCKDATA_INSERT, id, value);
+            case ENTITY:
+                return tryQueueIdentifierInsert(Process.ENTITY_INSERT, id, value);
+            case MATERIAL:
+                return tryQueueIdentifierInsert(Process.MATERIAL_INSERT, id, value);
+            case WORLD:
+                return tryQueueIdentifierInsert(Process.WORLD_INSERT, id, value);
+            default:
+                throw new IllegalArgumentException("Unsupported identifier cache: " + kind);
+        }
+    }
 
-            while (rs.next()) {
-                int id = rs.getInt("id");
-                String world = rs.getString("world");
-                ConfigHandler.worlds.put(world, id);
-                ConfigHandler.worldsReversed.put(id, world);
-                if (id > worldId) {
-                    worldId = id;
+    public static synchronized void uncacheIdentifier(ReferenceKind kind, int id, String value) {
+        IdentifierStore store = identifierStore(kind);
+        store.values.get().remove(value, Integer.valueOf(id));
+        store.reversed.get().remove(Integer.valueOf(id), value);
+    }
+
+    public static String getIdentifierValue(CacheType type, int id) {
+        IdentifierStore store = identifierStore(type.kind);
+        String value = store.reversed.get().get(id);
+        if (value != null || id < 1 || !databaseType.isClickHouse()) {
+            return value;
+        }
+        return loadMissingIdentifierValue(store, id);
+    }
+
+    private static synchronized String loadMissingIdentifierValue(IdentifierStore store, int id) {
+        String value = store.reversed.get().get(id);
+        if (value != null) {
+            return value;
+        }
+
+        try {
+            value = Database.findClickHouseIdentifierValue(store.kind, id);
+        }
+        catch (Exception exception) {
+            throw new IllegalStateException("Unable to resolve ClickHouse " + store.kind.name().toLowerCase(Locale.ROOT) + " identifier " + id, exception);
+        }
+        if (value != null) {
+            store.store(id, value);
+        }
+        return value;
+    }
+
+    private static int allocateIdentifierId(IdentifierStore store, String value, int currentMaximum) {
+        if (!ConfigHandler.databaseType.isClickHouse()) {
+            return currentMaximum + 1;
+        }
+
+        try {
+            return Database.nextClickHouseIdentifierId(store.kind, value, currentMaximum);
+        }
+        catch (Exception exception) {
+            throw new IllegalStateException("Unable to allocate ClickHouse " + store.kind.name().toLowerCase(Locale.ROOT) + " identifier for " + value, exception);
+        }
+    }
+
+    private static IdentifierStore identifierStore(ReferenceKind kind) {
+        IdentifierStore store = IDENTIFIER_STORES.get(kind);
+        if (store == null) {
+            throw new IllegalArgumentException("Unsupported identifier cache: " + kind);
+        }
+        return store;
+    }
+
+    private static Map<ReferenceKind, IdentifierStore> identifierStores() {
+        Map<ReferenceKind, IdentifierStore> stores = new EnumMap<>(ReferenceKind.class);
+        stores.put(ReferenceKind.MATERIAL, new IdentifierStore(ReferenceKind.MATERIAL, () -> materials, () -> materialsReversed, () -> materialId, id -> materialId = id));
+        stores.put(ReferenceKind.BLOCK_DATA, new IdentifierStore(ReferenceKind.BLOCK_DATA, () -> blockdata, () -> blockdataReversed, () -> blockdataId, id -> blockdataId = id));
+        stores.put(ReferenceKind.ART, new IdentifierStore(ReferenceKind.ART, () -> art, () -> artReversed, () -> artId, id -> artId = id));
+        stores.put(ReferenceKind.ENTITY, new IdentifierStore(ReferenceKind.ENTITY, () -> entities, () -> entitiesReversed, () -> entityId, id -> entityId = id));
+        stores.put(ReferenceKind.WORLD, new IdentifierStore(ReferenceKind.WORLD, () -> worlds, () -> worldsReversed, () -> worldId, id -> worldId = id));
+        return stores;
+    }
+
+    private static boolean reloadIdentifierCache(ReferenceKind kind) {
+        try (Connection connection = Database.getConnection(true)) {
+            if (connection == null) {
+                return false;
+            }
+            try (Statement statement = connection.createStatement()) {
+                switch (kind) {
+                    case MATERIAL:
+                        return loadMaterials(statement);
+                    case BLOCK_DATA:
+                        return loadBlockdata(statement);
+                    case ART:
+                        return loadArt(statement);
+                    case ENTITY:
+                        return loadEntities(statement);
+                    case WORLD:
+                        return loadWorlds(statement);
+                    default:
+                        return false;
                 }
             }
-            rs.close();
+        } catch (Exception e) {
+            ErrorReporter.report(e);
+            return false;
+        }
+    }
 
+    public static boolean loadWorlds(Statement statement) {
+        try {
+            IdentifierCache cache = loadIdentifierCache(statement, "world", "world");
             List<World> worlds = Bukkit.getServer().getWorlds();
+            Map<Integer, String> queuedWorlds = new HashMap<>();
             for (World world : worlds) {
                 String worldname = world.getName();
-                if (ConfigHandler.worlds.get(worldname) == null) {
-                    int id = worldId + 1;
-                    ConfigHandler.worlds.put(worldname, id);
-                    ConfigHandler.worldsReversed.put(id, worldname);
-                    worldId = id;
-                    Queue.queueWorldInsert(id, worldname);
+                if (!cache.values.containsKey(worldname)) {
+                    int id = allocateIdentifierId(identifierStore(ReferenceKind.WORLD), worldname, cache.maximumId);
+                    if (id == -1) {
+                        return false;
+                    }
+                    cache.maximumId = Math.max(cache.maximumId, id);
+                    cache.values.put(worldname, id);
+                    cache.reversed.put(id, worldname);
+                    queuedWorlds.put(id, worldname);
                 }
             }
+            boolean clickHouse = databaseType.isClickHouse();
+            if (clickHouse) {
+                if (!queueIdentifiers(ReferenceKind.WORLD, queuedWorlds)) {
+                    throw new IllegalStateException("Database persistence halted before the ClickHouse world identifiers could be queued");
+                }
+            }
+            ConfigHandler.worlds = syncMap(cache.values);
+            ConfigHandler.worldsReversed = syncMap(cache.reversed);
+            worldId = cache.maximumId;
+            if (!clickHouse) {
+                queueIdentifiers(ReferenceKind.WORLD, queuedWorlds);
+            }
+            return true;
         }
         catch (Exception e) {
-            e.printStackTrace();
+            if (databaseType.isClickHouse() && e instanceof IllegalStateException) {
+                throw (IllegalStateException) e;
+            }
+            ErrorReporter.report(e);
+            return false;
         }
+    }
+
+    private static boolean queueIdentifiers(ReferenceKind kind, Map<Integer, String> identifiers) {
+        for (Map.Entry<Integer, String> identifier : identifiers.entrySet()) {
+            if (!queueIdentifier(kind, identifier.getKey(), identifier.getValue())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean checkDatabaseLock(Statement statement) {
@@ -478,7 +876,11 @@ public class ConfigHandler extends Queue {
                     locked = false;
                     unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
                     int checkTime = unixtimestamp - 15;
-                    String query = "SELECT * FROM " + ConfigHandler.prefix + "database_lock WHERE rowid='1' AND status='1' AND time >= '" + checkTime + "' LIMIT 1";
+                    String query = "SELECT * FROM " + ConfigHandler.prefix
+                            + "database_lock WHERE rowid='1' AND (status='"
+                            + Database.DATABASE_LOCK_MIGRATION_INCOMPLETE
+                            + "' OR (status='" + Database.DATABASE_LOCK_ACTIVE + "' AND time >= '" + checkTime
+                            + "')) LIMIT 1";
                     ResultSet rs = statement.executeQuery(query);
                     while (rs.next()) {
                         if (unixtimestamp < waitTime) {
@@ -487,11 +889,13 @@ public class ConfigHandler extends Queue {
                                 lockMessage = true;
                             }
                             Thread.sleep(1000);
-                        }
-                        else {
-                            Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.DATABASE_LOCKED_2));
-                            Chat.sendConsoleMessage(Color.GREY + "[CoreProtect] " + Phrase.build(Phrase.DATABASE_LOCKED_3));
-                            Chat.sendConsoleMessage(Color.GREY + "[CoreProtect] " + Phrase.build(Phrase.DATABASE_LOCKED_4));
+                        } else {
+                            Chat.sendConsoleMessage(
+                                    Color.RED + "[CoreProtect] " + Phrase.build(Phrase.DATABASE_LOCKED_2));
+                            Chat.sendConsoleMessage(
+                                    Color.GREY + "[CoreProtect] " + Phrase.build(Phrase.DATABASE_LOCKED_3));
+                            Chat.sendConsoleMessage(
+                                    Color.GREY + "[CoreProtect] " + Phrase.build(Phrase.DATABASE_LOCKED_4));
                             return false;
                         }
 
@@ -500,9 +904,8 @@ public class ConfigHandler extends Queue {
                     rs.close();
                 }
             }
-        }
-        catch (Exception e) {
-            e.printStackTrace();
+        } catch (Exception e) {
+            ErrorReporter.report(e);
         }
 
         return true;
@@ -521,17 +924,22 @@ public class ConfigHandler extends Queue {
             if (startup) {
                 ListenerHandler.registerNetworking(); // Register channels for networking API
             }
-        }
-        catch (Exception e) {
-            e.printStackTrace();
+        } catch (CancellationException e) {
+            throw e;
+        } catch (Exception e) {
+            ErrorReporter.report(e);
+            return false;
         }
 
         try (Connection connection = Database.getConnection(true, 0)) {
             Statement statement = connection.createStatement();
 
             ConfigHandler.checkPlayers(connection);
-            ConfigHandler.loadWorlds(statement); // Load world ID's into memory.
-            ConfigHandler.loadTypes(statement); // Load material ID's into memory.
+            boolean worldsLoaded = ConfigHandler.loadWorlds(statement); // Load world ID's into memory.
+            boolean typesLoaded = ConfigHandler.loadTypes(statement); // Load material ID's into memory.
+            if (ConfigHandler.databaseType.isColumnar() && (!worldsLoaded || !typesLoaded)) {
+                throw new IllegalStateException("Unable to initialize columnar database identifier caches");
+            }
 
             // Initialize WorldEdit logging
             if (VersionUtils.checkWorldEdit()) {
@@ -540,12 +948,13 @@ public class ConfigHandler extends Queue {
                 if (worldEditPlugin != null && worldEditPlugin.isEnabled()) {
                     VersionUtils.loadWorldEdit();
                 }
-            }
-            else if (ConfigHandler.worldeditEnabled) {
+            } else if (ConfigHandler.worldeditEnabled) {
                 VersionUtils.unloadWorldEdit();
             }
 
-            ConfigHandler.serverRunning = true; // Set as running before patching
+            if (startup) {
+                ConfigHandler.serverRunning = true; // Set as running before patching
+            }
             boolean validVersion = Patch.versionCheck(statement); // Minor upgrades & version check
             boolean databaseLock = true;
             if (startup) {
@@ -556,9 +965,8 @@ public class ConfigHandler extends Queue {
             statement.close();
 
             return validVersion && databaseLock;
-        }
-        catch (Exception e) {
-            e.printStackTrace();
+        } catch (Exception e) {
+            ErrorReporter.report(e);
         }
 
         return false;
@@ -568,9 +976,8 @@ public class ConfigHandler extends Queue {
         try {
             Database.closeConnection();
             ListenerHandler.unregisterNetworking(); // Unregister channels for networking API
-        }
-        catch (Exception e) {
-            e.printStackTrace();
+        } catch (Exception e) {
+            ErrorReporter.report(e);
         }
     }
 

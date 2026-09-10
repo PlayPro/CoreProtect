@@ -8,6 +8,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.patch.Patch;
 import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.ErrorReporter;
 
 public class __2_22_0 {
 
@@ -163,7 +164,7 @@ public class __2_22_0 {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return true;

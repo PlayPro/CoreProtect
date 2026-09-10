@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.bukkit.Material;
+import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -110,9 +111,16 @@ public class Bukkit_v1_17 extends BukkitAdapter {
         if (entity instanceof Axolotl) {
             Axolotl axolotl = (Axolotl) entity;
             if (count == 0) {
-                org.bukkit.entity.Axolotl.Variant variant = (org.bukkit.entity.Axolotl.Variant) value;
-                axolotl.setVariant(variant);
-                return true;
+                try {
+                    org.bukkit.entity.Axolotl.Variant variant = value instanceof String
+                            ? org.bukkit.entity.Axolotl.Variant.valueOf((String) value)
+                            : (org.bukkit.entity.Axolotl.Variant) value;
+                    axolotl.setVariant(variant);
+                    return true;
+                }
+                catch (IllegalArgumentException | ClassCastException exception) {
+                    return false;
+                }
             }
         }
         else if (entity instanceof Goat) {
@@ -153,8 +161,14 @@ public class Bukkit_v1_17 extends BukkitAdapter {
     }
 
     @Override
+    public boolean isBundle(Material material) {
+        return material == Material.BUNDLE;
+    }
+
+
+    @Override
     public boolean setItemMeta(Material rowType, ItemStack itemstack, List<Map<String, Object>> map) {
-        if (rowType == Material.BUNDLE) {
+        if (BukkitAdapter.ADAPTER.isBundle(rowType)) {
             BundleMeta meta = (BundleMeta) itemstack.getItemMeta();
             for (Map<String, Object> itemData : map) {
                 ItemStack itemStack = ItemUtils.unserializeItemStack(itemData);
@@ -239,5 +253,10 @@ public class Bukkit_v1_17 extends BukkitAdapter {
     @Override
     public boolean isInvisible(Material material) {
         return material.isAir() || material == Material.LIGHT;
+    }
+
+    @Override
+    public boolean isChunkEntitiesLoaded(Chunk chunk) {
+        return chunk.isEntitiesLoaded();
     }
 }

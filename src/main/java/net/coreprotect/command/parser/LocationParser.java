@@ -4,6 +4,7 @@ import java.util.Locale;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.command.BlockCommandSender;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -95,18 +96,21 @@ public class LocationParser {
                             }
                         }
                         if (cCount > 1) {
-                            if (location == null && worldId > 0) {
+                            if (worldId > 0) {
                                 location = new Location(Bukkit.getWorld(WorldUtils.getWorldName(worldId)), 0, 0, 0);
                             }
                             if (location != null) {
-                                int worldMaxHeight = location.getWorld().getMaxHeight() - 1;
-                                int worldMinHeight = BukkitAdapter.ADAPTER.getMinHeight(location.getWorld());
+                                World world = location.getWorld();
+                                if (world != null) {
+                                    int worldMaxHeight = world.getMaxHeight() - 1;
+                                    int worldMinHeight = BukkitAdapter.ADAPTER.getMinHeight(world);
 
-                                if (y < worldMinHeight) {
-                                    y = Double.valueOf(worldMinHeight);
-                                }
-                                if (y > worldMaxHeight) {
-                                    y = Double.valueOf(worldMaxHeight);
+                                    if (y < worldMinHeight) {
+                                        y = Double.valueOf(worldMinHeight);
+                                    }
+                                    if (y > worldMaxHeight) {
+                                        y = Double.valueOf(worldMaxHeight);
+                                    }
                                 }
 
                                 location.setX(x);

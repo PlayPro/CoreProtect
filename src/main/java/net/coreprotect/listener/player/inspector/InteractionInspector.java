@@ -8,6 +8,7 @@ import org.bukkit.entity.Player;
 
 import net.coreprotect.database.lookup.InteractionLookup;
 import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.ErrorReporter;
 
 public class InteractionInspector extends BaseInspector {
 
@@ -16,8 +17,6 @@ public class InteractionInspector extends BaseInspector {
             @Override
             public void run() {
                 try {
-                    checkPreconditions(player);
-
                     try (Connection connection = getDatabaseConnection(player)) {
                         Statement statement = connection.createStatement();
                         String blockData = InteractionLookup.performLookup(null, statement, finalInteractBlock, player, 0, 1, 7);
@@ -38,16 +37,11 @@ public class InteractionInspector extends BaseInspector {
                     Chat.sendMessage(player, e.getMessage());
                 }
                 catch (Exception e) {
-                    e.printStackTrace();
-                }
-                finally {
-                    finishInspection(player);
+                    ErrorReporter.report(e);
                 }
             }
         }
 
-        Runnable runnable = new BasicThread();
-        Thread thread = new Thread(runnable);
-        thread.start();
+        startInspection(player, new BasicThread());
     }
 }

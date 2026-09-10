@@ -9,6 +9,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.patch.Patch;
 import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.ErrorReporter;
 
 public class __2_21_0 {
 
@@ -40,7 +41,7 @@ public class __2_21_0 {
             ConfigFile.sortFile("language.yml");
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return true;

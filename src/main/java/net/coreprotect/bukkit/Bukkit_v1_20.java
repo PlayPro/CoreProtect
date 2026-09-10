@@ -2,6 +2,7 @@ package net.coreprotect.bukkit;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.bukkit.Color;
@@ -13,9 +14,12 @@ import org.bukkit.block.ChiseledBookshelf;
 import org.bukkit.block.Sign;
 import org.bukkit.block.sign.Side;
 import org.bukkit.entity.Arrow;
+import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.MerchantRecipe;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionType;
@@ -35,6 +39,7 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
 
     private Boolean hasClickedPosition;
     private Boolean hasBasePotionType;
+    private Boolean hasItemName;
 
     /**
      * Initializes the Bukkit_v1_20 adapter with 1.20-specific block groups and mappings.
@@ -262,6 +267,21 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
     }
 
     @Override
+    public String getItemName(ItemMeta itemMeta) {
+        if (hasItemName == null) {
+            try {
+                ItemMeta.class.getMethod("getItemName");
+                hasItemName = true;
+            }
+            catch (NoSuchMethodException e) {
+                hasItemName = false;
+            }
+        }
+
+        return hasItemName && itemMeta.hasItemName() ? itemMeta.getItemName() : "";
+    }
+
+    @Override
     public ItemStack getArrowMeta(Arrow arrow, ItemStack itemStack) {
         try {
             if (hasBasePotionType == null) {
@@ -297,4 +317,23 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
             return super.getArrowMeta(arrow, itemStack);
         }
     }
+
+    @Override
+    public Material getExplodedBlock(BlockExplodeEvent event){
+        // accoding to the Bukkit docs this will always return air
+        return event.getExplodedBlockState().getType();
+    }
+
+    @Override
+    public void addMerchantRecipeMeta(MerchantRecipe recipe, List<Object> recipeData) {
+        recipeData.add(recipe.getDemand());
+    }
+
+    @Override
+    public void setMerchantRecipeMeta(MerchantRecipe recipe, List<?> recipeData) {
+        if (recipeData.size() > 7 && recipeData.get(7) instanceof Number) {
+            recipe.setDemand(((Number) recipeData.get(7)).intValue());
+        }
+    }
+
 }

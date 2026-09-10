@@ -4,6 +4,7 @@ import java.util.Locale;
 import java.util.Set;
 
 import org.bukkit.Material;
+import org.bukkit.entity.Painting;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
@@ -23,6 +24,15 @@ public class MaterialUtils extends Queue {
         return getBlockId(material.name(), true);
     }
 
+    public static int getBlockId(String blockData, Material fallback, boolean internal) {
+        String name = BlockTypeUtils.getBlockDataKey(blockData);
+        if (name.length() == 0 && fallback != null) {
+            name = fallback.getKey().toString();
+        }
+
+        return name.length() == 0 ? -1 : getBlockId(name, internal);
+    }
+
     public static int getBlockId(String name, boolean internal) {
         int id = -1;
 
@@ -31,6 +41,9 @@ public class MaterialUtils extends Queue {
             name = NAMESPACE + name;
         }
 
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            return ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.MATERIALS, name, internal);
+        }
         if (ConfigHandler.materials.get(name) != null) {
             id = ConfigHandler.materials.get(name);
         }
@@ -56,6 +69,9 @@ public class MaterialUtils extends Queue {
         int id = -1;
         data = data.toLowerCase(Locale.ROOT).trim();
 
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            return ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.BLOCKDATA, data, internal);
+        }
         if (ConfigHandler.blockdata.get(data) != null) {
             id = ConfigHandler.blockdata.get(data);
         }
@@ -79,19 +95,38 @@ public class MaterialUtils extends Queue {
 
     public static String getBlockDataString(int id) {
         // Internal ID pulled from DB
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            String blockdata = ConfigHandler.getIdentifierValue(ConfigHandler.CacheType.BLOCKDATA, id);
+            return blockdata == null ? "" : blockdata;
+        }
         String blockdata = "";
-        if (ConfigHandler.blockdataReversed.get(id) != null) {
-            blockdata = ConfigHandler.blockdataReversed.get(id);
+        String cachedBlockdata = ConfigHandler.blockdataReversed.get(id);
+        if (cachedBlockdata != null) {
+            blockdata = cachedBlockdata;
         }
         return blockdata;
     }
 
     public static String getBlockName(int id) {
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            String name = ConfigHandler.getIdentifierValue(ConfigHandler.CacheType.MATERIALS, id);
+            return name == null ? "" : name;
+        }
         String name = "";
-        if (ConfigHandler.materialsReversed.get(id) != null) {
-            name = ConfigHandler.materialsReversed.get(id);
+        String cachedName = ConfigHandler.materialsReversed.get(id);
+        if (cachedName != null) {
+            name = cachedName;
         }
         return name;
+    }
+
+    public static String getBlockDisplayName(int id, int data) {
+        Material material = getType(id);
+        if (material != null) {
+            return StringUtils.nameFilter(material.name().toLowerCase(Locale.ROOT), data);
+        }
+
+        return getBlockName(id);
     }
 
     public static String getBlockNameShort(int id) {
@@ -105,9 +140,13 @@ public class MaterialUtils extends Queue {
 
     public static Material getType(int id) {
         // Internal ID pulled from DB
+        return id > 0 ? getTypeFromStoredName(getBlockName(id)) : null;
+    }
+
+    public static Material getTypeFromStoredName(String blockName) {
         Material material = null;
-        if (ConfigHandler.materialsReversed.get(id) != null && id > 0) {
-            String name = ConfigHandler.materialsReversed.get(id).toUpperCase(Locale.ROOT);
+        if (!blockName.isEmpty()) {
+            String name = blockName.toUpperCase(Locale.ROOT);
             if (name.contains(NAMESPACE.toUpperCase(Locale.ROOT))) {
                 name = name.split(":")[1];
             }
@@ -115,7 +154,7 @@ public class MaterialUtils extends Queue {
             name = net.coreprotect.bukkit.BukkitAdapter.ADAPTER.parseLegacyName(name);
             material = Material.getMaterial(name);
 
-            if (material == null) {
+            if (material == null && Material.getMaterial(Material.LEGACY_PREFIX + name) != null) {
                 material = Material.getMaterial(name, true);
             }
         }
@@ -143,6 +182,9 @@ public class MaterialUtils extends Queue {
         int id = -1;
         name = name.toLowerCase(Locale.ROOT).trim();
 
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            return ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.ART, name, internal);
+        }
         if (ConfigHandler.art.get(name) != null) {
             id = ConfigHandler.art.get(name);
         }
@@ -164,11 +206,20 @@ public class MaterialUtils extends Queue {
         return id;
     }
 
+    public static String getPaintingArtName(Painting painting) {
+        return net.coreprotect.bukkit.BukkitAdapter.ADAPTER.getPaintingArtKey(painting);
+    }
+
     public static String getArtName(int id) {
         // Internal ID pulled from DB
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            String artName = ConfigHandler.getIdentifierValue(ConfigHandler.CacheType.ART, id);
+            return artName == null ? "" : artName;
+        }
         String artname = "";
-        if (ConfigHandler.artReversed.get(id) != null) {
-            artname = ConfigHandler.artReversed.get(id);
+        String cachedName = ConfigHandler.artReversed.get(id);
+        if (cachedName != null) {
+            artname = cachedName;
         }
         return artname;
     }

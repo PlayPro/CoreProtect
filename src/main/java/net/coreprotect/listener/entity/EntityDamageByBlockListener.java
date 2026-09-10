@@ -2,6 +2,7 @@ package net.coreprotect.listener.entity;
 
 import java.util.Locale;
 
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.ArmorStand;
@@ -14,10 +15,13 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByBlockEvent;
 import org.bukkit.inventory.ItemStack;
 
+import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
 import net.coreprotect.listener.player.PlayerInteractEntityListener;
+import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.ItemUtils;
 
 public final class EntityDamageByBlockListener extends Queue implements Listener {
 
@@ -52,8 +56,26 @@ public final class EntityDamageByBlockListener extends Queue implements Listener
             }
         }
         else if (entity instanceof ArmorStand && Config.getConfig(entity.getWorld()).BLOCK_BREAK) {
-            Database.containerBreakCheck(user, Material.ARMOR_STAND, entity, null, block.getLocation());
-            Queue.queueBlockBreak(user, block.getState(), Material.ARMOR_STAND, null, (int) entity.getLocation().getYaw());
+            ArmorStand armorStand = (ArmorStand) entity;
+            boolean lethalDamage = armorStand.isDead();
+            if (!lethalDamage) {
+                double finalDamage = event.getFinalDamage();
+                lethalDamage = finalDamage > 0.0D && finalDamage >= armorStand.getHealth();
+            }
+
+            if (lethalDamage && Config.getConfig(entity.getWorld()).ITEM_TRANSACTIONS) {
+                Location entityLocation = armorStand.getLocation();
+                ItemStack[] contents = ItemUtils.getContainerContents(Material.ARMOR_STAND, armorStand, block.getLocation());
+                String killer = user;
+
+                Scheduler.runTask(CoreProtect.getInstance(), () -> {
+                    if (armorStand.isDead()) {
+                        entityLocation.setY(entityLocation.getY() + 0.99);
+                        Database.containerBreakCheck(killer, Material.ARMOR_STAND, armorStand, contents, block.getLocation());
+                        Queue.queueBlockBreak(killer, block.getState(), Material.ARMOR_STAND, null, (int) entityLocation.getYaw());
+                    }
+                }, armorStand);
+            }
         }
         else if (entity instanceof EnderCrystal && Config.getConfig(entity.getWorld()).BLOCK_BREAK) {
             EnderCrystal crystal = (EnderCrystal) event.getEntity();

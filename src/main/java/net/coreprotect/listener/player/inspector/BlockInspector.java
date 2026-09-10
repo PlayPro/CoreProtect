@@ -10,6 +10,7 @@ import org.bukkit.entity.Player;
 
 import net.coreprotect.database.lookup.BlockLookup;
 import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.ErrorReporter;
 
 public class BlockInspector extends BaseInspector {
 
@@ -18,8 +19,6 @@ public class BlockInspector extends BaseInspector {
             @Override
             public void run() {
                 try {
-                    checkPreconditions(player);
-
                     try (Connection connection = getDatabaseConnection(player)) {
                         Statement statement = connection.createStatement();
 
@@ -46,17 +45,12 @@ public class BlockInspector extends BaseInspector {
                     Chat.sendMessage(player, e.getMessage());
                 }
                 catch (Exception e) {
-                    e.printStackTrace();
-                }
-                finally {
-                    finishInspection(player);
+                    ErrorReporter.report(e);
                 }
             }
         }
 
-        Runnable runnable = new BasicThread();
-        Thread thread = new Thread(runnable);
-        thread.start();
+        startInspection(player, new BasicThread());
     }
 
     public void performAirBlockLookup(final Player player, final BlockState finalBlock) {
@@ -64,8 +58,6 @@ public class BlockInspector extends BaseInspector {
             @Override
             public void run() {
                 try {
-                    checkPreconditions(player);
-
                     try (Connection connection = getDatabaseConnection(player)) {
                         Statement statement = connection.createStatement();
                         if (finalBlock.getType().name().endsWith("AIR")) {
@@ -99,16 +91,11 @@ public class BlockInspector extends BaseInspector {
                     Chat.sendMessage(player, e.getMessage());
                 }
                 catch (Exception e) {
-                    e.printStackTrace();
-                }
-                finally {
-                    finishInspection(player);
+                    ErrorReporter.report(e);
                 }
             }
         }
 
-        Runnable runnable = new BasicThread();
-        Thread thread = new Thread(runnable);
-        thread.start();
+        startInspection(player, new BasicThread());
     }
 }

@@ -35,10 +35,11 @@ public final class BlockSpreadListener extends Queue implements Listener {
 
         BlockState blockstate = event.getNewState();
         Material type = blockstate.getType();
+        Config config = Config.getConfig(event.getBlock().getWorld());
 
-        if (Config.getConfig(event.getBlock().getWorld()).VINE_GROWTH && (BlockGroup.VINES.contains(type) || BlockGroup.AMETHYST.contains(type) || type == Material.CHORUS_FLOWER || type == Material.BAMBOO)) {
+        if (config.VINE_GROWTH && (BlockGroup.VINES.contains(type) || BlockGroup.AMETHYST.contains(type) || type == Material.CHORUS_FLOWER || type == Material.BAMBOO)) {
             Block block = event.getBlock();
-            if (checkCacheData(block, type)) {
+            if (config.DUPLICATE_SUPPRESSION && checkCacheData(block, type)) {
                 return;
             }
 
@@ -72,9 +73,9 @@ public final class BlockSpreadListener extends Queue implements Listener {
                 Queue.queueBlockPlaceDelayed("#bamboo", block.getLocation(), type, null, block.getState(), 0);
             }
         }
-        else if (Config.getConfig(event.getBlock().getWorld()).SCULK_SPREAD && BlockGroup.SCULK.contains(type)) {
+        else if (config.SCULK_SPREAD && BlockGroup.SCULK.contains(type)) {
             Block block = event.getBlock();
-            if (checkCacheData(block, type)) {
+            if (config.DUPLICATE_SUPPRESSION && checkCacheData(block, type)) {
                 return;
             }
 

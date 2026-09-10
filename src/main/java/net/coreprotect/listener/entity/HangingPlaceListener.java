@@ -41,7 +41,7 @@ public final class HangingPlaceListener extends Queue implements Listener {
                 Painting painting = (Painting) entity;
                 blockData = "FACING=" + painting.getFacing().name();
                 try {
-                    artId = MaterialUtils.getArtId(painting.getArt().toString(), true);
+                    artId = MaterialUtils.getArtId(MaterialUtils.getPaintingArtName(painting), true);
                 }
                 catch (IncompatibleClassChangeError e) {
                     artId = 0;

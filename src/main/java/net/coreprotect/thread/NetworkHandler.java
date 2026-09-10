@@ -35,6 +35,7 @@ import net.coreprotect.language.Language;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.VersionUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class NetworkHandler extends Language implements Runnable {
 
@@ -127,7 +128,7 @@ public class NetworkHandler extends Language implements Runnable {
                     }
                 }
                 catch (Exception e) {
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                 }
             }
             catch (Exception e) {
@@ -174,7 +175,7 @@ public class NetworkHandler extends Language implements Runnable {
                                 }
                             }
                             catch (Exception e) {
-                                e.printStackTrace();
+                                ErrorReporter.report(e);
                             }
                         }
 
@@ -273,7 +274,7 @@ public class NetworkHandler extends Language implements Runnable {
                     translate = false;
                 }
                 catch (Exception e) {
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                 }
             }
 
@@ -349,7 +350,7 @@ public class NetworkHandler extends Language implements Runnable {
                         reader.close();
                     }
                     catch (Exception e) {
-                        e.printStackTrace();
+                        ErrorReporter.report(e);
                     }
                 }
 
@@ -374,7 +375,7 @@ public class NetworkHandler extends Language implements Runnable {
                         reader.close();
                     }
                     catch (Exception e) {
-                        e.printStackTrace();
+                        ErrorReporter.report(e);
                     }
                 }
 
@@ -412,7 +413,7 @@ public class NetworkHandler extends Language implements Runnable {
         }
         catch (Exception e) {
             Chat.console(Phrase.build(Phrase.UPDATE_ERROR));
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 }

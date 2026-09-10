@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -18,17 +19,35 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 
 import net.coreprotect.api.BlockAPI;
+import net.coreprotect.api.InventoryAPI;
+import net.coreprotect.api.ItemAPI;
+import net.coreprotect.api.LookupOptions;
+import net.coreprotect.api.MessageAPI;
 import net.coreprotect.api.QueueLookup;
 import net.coreprotect.api.SessionLookup;
+import net.coreprotect.api.SignAPI;
+import net.coreprotect.api.UsernameAPI;
+import net.coreprotect.api.result.BlockResult;
+import net.coreprotect.api.result.ContainerResult;
+import net.coreprotect.api.result.InventoryResult;
+import net.coreprotect.api.result.ItemResult;
+import net.coreprotect.api.result.MessageResult;
+import net.coreprotect.api.result.SignResult;
+import net.coreprotect.api.result.SessionResult;
+import net.coreprotect.api.result.UsernameResult;
 import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.Lookup;
 import net.coreprotect.database.rollback.Rollback;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.player.InventoryChangeListener;
+import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 /**
  * The main API class for CoreProtect.
@@ -41,7 +60,8 @@ public class CoreProtectAPI extends Queue {
     /**
      * Current version of the API
      */
-    private static final int API_VERSION = 11;
+    private static final int API_VERSION = 13;
+    private static final AtomicLong API_ROLLBACK_SEQUENCE = new AtomicLong();
 
     public static class ParseResult extends net.coreprotect.api.result.ParseResult {
 
@@ -68,7 +88,7 @@ public class CoreProtectAPI extends Queue {
 
         if (list != null) {
             for (Object value : list) {
-                if (value instanceof Material || value instanceof EntityType) {
+                if (value instanceof Material || value instanceof EntityType || value instanceof String) {
                     result.put(value, false);
                 }
                 else if (value instanceof Integer) {
@@ -79,6 +99,10 @@ public class CoreProtectAPI extends Queue {
         }
 
         return result;
+    }
+
+    private static boolean isSupportedLegacyAction(Integer action) {
+        return action != null && (action == LookupActions.BLOCK_BREAK || action == LookupActions.BLOCK_PLACE || action == LookupActions.INTERACTION || action == LookupActions.ENTITY_KILL || action == LookupActions.ENTITY_SPAWN);
     }
 
     /**
@@ -107,6 +131,22 @@ public class CoreProtectAPI extends Queue {
     }
 
     /**
+     * Performs a typed block lookup at the specified block.
+     *
+     * @param block
+     *            The block to look up
+     * @param options
+     *            Lookup options. User, time, and limit are applied; location and radius are ignored because the block supplies the exact location.
+     * @return List of results or null if API is disabled
+     */
+    public List<BlockResult> blockLookup(Block block, LookupOptions options) {
+        if (isEnabled()) {
+            return BlockAPI.performLookup(block, options);
+        }
+        return null;
+    }
+
+    /**
      * Performs a lookup on the queue data for the specified block.
      * 
      * @param block
@@ -115,6 +155,64 @@ public class CoreProtectAPI extends Queue {
      */
     public List<String[]> queueLookup(Block block) {
         return QueueLookup.performLookup(block);
+    }
+
+    /**
+     * Performs a container lookup at the specified location.
+     * 
+     * @param location
+     *            The location to look up
+     * @param time
+     *            Time constraint in seconds
+     * @return List of results or null if API is disabled
+     */
+    public List<ContainerResult> containerLookup(Location location, int time) {
+        if (isEnabled()) {
+            return BlockAPI.performContainerLookup(location, time);
+        }
+        return null;
+    }
+
+    /**
+     * Performs a container lookup with shared lookup options.
+     *
+     * @param options
+     *            Lookup options
+     * @return List of results or null if API is disabled
+     */
+    public List<ContainerResult> containerLookup(LookupOptions options) {
+        if (isEnabled()) {
+            return BlockAPI.performContainerLookup(options);
+        }
+        return null;
+    }
+
+    /**
+     * Performs a typed lookup on world item transactions.
+     *
+     * @param options
+     *            Lookup options
+     * @return List of results or null if API is disabled
+     */
+    public List<ItemResult> itemLookup(LookupOptions options) {
+        if (isEnabled()) {
+            return ItemAPI.performLookup(options);
+        }
+        return null;
+    }
+
+    /**
+     * Performs a typed lookup on player inventory transactions.
+     *
+     * @param options
+     *            Lookup options
+     * @return List of results or null if API is disabled
+     */
+    public List<InventoryResult> inventoryLookup(LookupOptions options) {
+        if (isEnabled()) {
+            return InventoryAPI.performLookup(options);
+        }
+        return null;
     }
 
     /**
@@ -128,6 +226,140 @@ public class CoreProtectAPI extends Queue {
      */
     public List<String[]> sessionLookup(String user, int time) {
         return SessionLookup.performLookup(user, time);
+    }
+
+    /**
+     * Performs a typed lookup on session data.
+     *
+     * @param options
+     *            Lookup options
+     * @return List of results or null if API is disabled
+     */
+    public List<SessionResult> sessionLookup(LookupOptions options) {
+        if (isEnabled()) {
+            return SessionLookup.performLookup(options);
+        }
+        return null;
+    }
+
+    /**
+     * Performs a username history lookup for the specified user.
+     *
+     * @param user
+     *            The user or UUID to look up, or #global/null for all users
+     * @param time
+     *            Time constraint in seconds
+     * @return List of results or null if API is disabled
+     */
+    public List<UsernameResult> usernameLookup(String user, int time) {
+        if (isEnabled()) {
+            return UsernameAPI.performLookup(user, time);
+        }
+        return null;
+    }
+
+    /**
+     * Performs a username history lookup with shared lookup options.
+     *
+     * @param options
+     *            Lookup options. User, time, and limit are applied; location and radius are ignored.
+     * @return List of results or null if API is disabled
+     */
+    public List<UsernameResult> usernameLookup(LookupOptions options) {
+        if (isEnabled()) {
+            return UsernameAPI.performLookup(options);
+        }
+        return null;
+    }
+
+    /**
+     * Performs a chat message lookup for the specified user.
+     *
+     * @param user
+     *            The user to look up, or #global/null for all users
+     * @param time
+     *            Time constraint in seconds
+     * @return List of results or null if API is disabled
+     */
+    public List<MessageResult> chatLookup(String user, int time) {
+        if (isEnabled()) {
+            return MessageAPI.performChatLookup(user, time);
+        }
+        return null;
+    }
+
+    /**
+     * Performs a chat message lookup with shared lookup options.
+     *
+     * @param options
+     *            Lookup options
+     * @return List of results or null if API is disabled
+     */
+    public List<MessageResult> chatLookup(LookupOptions options) {
+        if (isEnabled()) {
+            return MessageAPI.performChatLookup(options);
+        }
+        return null;
+    }
+
+    /**
+     * Performs a command lookup for the specified user.
+     *
+     * @param user
+     *            The user to look up, or #global/null for all users
+     * @param time
+     *            Time constraint in seconds
+     * @return List of results or null if API is disabled
+     */
+    public List<MessageResult> commandLookup(String user, int time) {
+        if (isEnabled()) {
+            return MessageAPI.performCommandLookup(user, time);
+        }
+        return null;
+    }
+
+    /**
+     * Performs a command lookup with shared lookup options.
+     *
+     * @param options
+     *            Lookup options
+     * @return List of results or null if API is disabled
+     */
+    public List<MessageResult> commandLookup(LookupOptions options) {
+        if (isEnabled()) {
+            return MessageAPI.performCommandLookup(options);
+        }
+        return null;
+    }
+
+    /**
+     * Performs a sign text lookup at the specified location.
+     *
+     * @param location
+     *            The location to look up
+     * @param time
+     *            Time constraint in seconds
+     * @return List of results or null if API is disabled
+     */
+    public List<SignResult> signLookup(Location location, int time) {
+        if (isEnabled()) {
+            return SignAPI.performLookup(location, time);
+        }
+        return null;
+    }
+
+    /**
+     * Performs a sign text lookup with shared lookup options.
+     *
+     * @param options
+     *            Lookup options
+     * @return List of results or null if API is disabled
+     */
+    public List<SignResult> signLookup(LookupOptions options) {
+        if (isEnabled()) {
+            return SignAPI.performLookup(options);
+        }
+        return null;
     }
 
     /**
@@ -342,6 +574,27 @@ public class CoreProtectAPI extends Queue {
     }
 
     /**
+     * Logs a block placement by a user with specific block data.
+     *
+     * @param user
+     *            The username
+     * @param location
+     *            The location
+     * @param blockData
+     *            The block data
+     * @return True if the placement was logged
+     */
+    public boolean logPlacement(String user, Location location, BlockData blockData) {
+        if (!isEnabled() || !isValidUserAndLocation(user, location) || blockData == null) {
+            return false;
+        }
+
+        Block block = location.getBlock();
+        Queue.queueBlockPlace(user, block.getState(), block.getType(), null, block.getType(), -1, 0, blockData.getAsString());
+        return true;
+    }
+
+    /**
      * Logs a block placement by a user with a specific material and data value.
      * 
      * @param user
@@ -409,6 +662,28 @@ public class CoreProtectAPI extends Queue {
         Block block = location.getBlock();
         Database.containerBreakCheck(user, block.getType(), block, null, location);
         Queue.queueBlockBreak(user, location.getBlock().getState(), type, blockDataString, 0);
+        return true;
+    }
+
+    /**
+     * Logs a block removal by a user with specific block data.
+     *
+     * @param user
+     *            The username
+     * @param location
+     *            The location
+     * @param blockData
+     *            The block data
+     * @return True if the removal was logged
+     */
+    public boolean logRemoval(String user, Location location, BlockData blockData) {
+        if (!isEnabled() || !isValidUserAndLocation(user, location) || blockData == null) {
+            return false;
+        }
+
+        Block block = location.getBlock();
+        Database.containerBreakCheck(user, block.getType(), block, null, location);
+        Queue.queueBlockBreak(user, block.getState(), block.getType(), blockData.getAsString(), 0);
         return true;
     }
 
@@ -725,16 +1000,15 @@ public class CoreProtectAPI extends Queue {
         List<String[]> result = new ArrayList<>();
         List<String> uuids = new ArrayList<>();
 
-        if (restrictUsers == null) {
-            restrictUsers = new ArrayList<>();
-        }
-
-        if (excludeUsers == null) {
-            excludeUsers = new ArrayList<>();
-        }
-
-        if (actionList == null) {
-            actionList = new ArrayList<>();
+        restrictUsers = restrictUsers == null ? new ArrayList<>() : new ArrayList<>(restrictUsers);
+        excludeUsers = excludeUsers == null ? new ArrayList<>() : new ArrayList<>(excludeUsers);
+        boolean explicitActions = actionList != null && !actionList.isEmpty();
+        actionList = actionList == null ? new ArrayList<>() : new ArrayList<>(actionList);
+        if (explicitActions) {
+            actionList.removeIf(actionListItem -> !isSupportedLegacyAction(actionListItem));
+            if (actionList.isEmpty()) {
+                return result;
+            }
         }
 
         List<Object> restrictBlocks = new ArrayList<>(restrictBlocksMap.keySet());
@@ -744,23 +1018,21 @@ public class CoreProtectAPI extends Queue {
 
             for (Object argBlock : restrictBlocks) {
                 if (argBlock instanceof Material && !addedMaterial) {
-                    actionList.add(0);
-                    actionList.add(1);
+                    actionList.add(LookupActions.BLOCK_BREAK);
+                    actionList.add(LookupActions.BLOCK_PLACE);
                     addedMaterial = true;
                 }
                 else if (argBlock instanceof EntityType && !addedEntity) {
-                    actionList.add(3);
+                    actionList.add(LookupActions.ENTITY_KILL);
                     addedEntity = true;
                 }
             }
         }
 
         if (actionList.isEmpty()) {
-            actionList.add(0);
-            actionList.add(1);
+            actionList.add(LookupActions.BLOCK_BREAK);
+            actionList.add(LookupActions.BLOCK_PLACE);
         }
-
-        actionList.removeIf(actionListItem -> actionListItem > 3);
 
         if (restrictUsers.isEmpty()) {
             restrictUsers.add("#global");
@@ -818,8 +1090,19 @@ public class CoreProtectAPI extends Queue {
                 }
                 else {
                     if (!Bukkit.isPrimaryThread()) {
-                        boolean verbose = false;
-                        result = Rollback.performRollbackRestore(statement, null, uuids, restrictUsers, null, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, startTime, endTime, restrictWorld, false, verbose, action, 0);
+                        String rollbackKey = "#api-" + API_ROLLBACK_SEQUENCE.incrementAndGet();
+                        if (Consumer.claimRollback(rollbackKey) == Consumer.OperationStartResult.STARTED) {
+                            try {
+                                boolean verbose = false;
+                                result = Rollback.performRollbackRestore(statement, null, uuids, restrictUsers, null, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, startTime, endTime, restrictWorld, false, verbose, action, 0);
+                            }
+                            finally {
+                                Consumer.releaseRollback(rollbackKey);
+                            }
+                        }
+                        else { // only print exception on development branch
+                            ErrorReporter.report(new IllegalStateException("API rollback skipped: another database operation is active or persistence is halted"), ConfigHandler.EDITION_BRANCH.contains("-dev"));
+                        }
                     }
                     else {
                         Chat.console(Phrase.build(Phrase.PRIMARY_THREAD_ERROR));
@@ -830,7 +1113,7 @@ public class CoreProtectAPI extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return result;

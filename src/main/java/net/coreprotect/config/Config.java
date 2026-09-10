@@ -12,14 +12,17 @@ import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 
 import net.coreprotect.CoreProtect;
+import net.coreprotect.consumer.Consumer;
 import net.coreprotect.language.Language;
 import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.VersionUtils;
 
 public class Config extends Language {
 
@@ -34,22 +37,35 @@ public class Config extends Language {
     private Config defaults;
 
     public String DONATION_KEY;
+    public String DATABASE_TYPE;
+    public String CLICKHOUSE_HOST;
+    public String CLICKHOUSE_DATABASE;
+    public String CLICKHOUSE_USERNAME;
+    public String CLICKHOUSE_PASSWORD;
+    public String DUCKDB_MEMORY_LIMIT;
+    public String DUCKDB_MAX_TEMP_DIRECTORY_SIZE;
+    public String SQLITE_DATABASE;
     public String PREFIX;
     public String MYSQL_HOST;
     public String MYSQL_DATABASE;
     public String MYSQL_USERNAME;
     public String MYSQL_PASSWORD;
     public String LANGUAGE;
+    public String AUTO_PURGE;
+    public String AUTO_PURGE_TIME;
     public boolean ENABLE_SSL;
+    public boolean CLICKHOUSE_TLS;
     public boolean DISABLE_WAL;
     public boolean HOVER_EVENTS;
     public boolean DATABASE_LOCK;
     public boolean LOG_CANCELLED_CHAT;
     public boolean HOPPER_FILTER_META;
+    public boolean DUPLICATE_SUPPRESSION;
     public boolean EXCLUDE_TNT;
     public boolean NETWORK_DEBUG;
     public boolean MYSQL;
     public boolean CHECK_UPDATES;
+    public boolean ERROR_REPORTING;
     public boolean API_ENABLED;
     public boolean VERBOSE;
     public boolean ROLLBACK_ITEMS;
@@ -62,9 +78,11 @@ public class Config extends Language {
     public boolean PISTONS;
     public boolean BLOCK_BURN;
     public boolean BLOCK_IGNITE;
+    public boolean FIRE_EXTINGUISH;
     public boolean EXPLOSIONS;
     public boolean ENTITY_CHANGE;
     public boolean ENTITY_KILLS;
+    public boolean ENTITY_SPAWNS;
     public boolean SIGN_TEXT;
     public boolean BUCKETS;
     public boolean LEAF_DECAY;
@@ -88,21 +106,35 @@ public class Config extends Language {
     public boolean USERNAME_CHANGES;
     public boolean WORLDEDIT;
     public int MAXIMUM_POOL_SIZE;
+    public int CLICKHOUSE_PORT;
+    public int CLICKHOUSE_CONSUMER_DELAY;
     public int MYSQL_PORT;
     public int DEFAULT_RADIUS;
+    public int DUCKDB_THREADS;
     public int MAX_RADIUS;
 
     static {
         DEFAULT_VALUES.put("donation-key", "");
-        DEFAULT_VALUES.put("use-mysql", "false");
+        DEFAULT_VALUES.put("database-type", "duckdb");
         DEFAULT_VALUES.put("table-prefix", "co_");
         DEFAULT_VALUES.put("mysql-host", "127.0.0.1");
         DEFAULT_VALUES.put("mysql-port", "3306");
         DEFAULT_VALUES.put("mysql-database", "database");
         DEFAULT_VALUES.put("mysql-username", "root");
         DEFAULT_VALUES.put("mysql-password", "");
+        DEFAULT_VALUES.put("clickhouse-host", "127.0.0.1");
+        DEFAULT_VALUES.put("clickhouse-port", "8123");
+        DEFAULT_VALUES.put("clickhouse-database", "default");
+        DEFAULT_VALUES.put("clickhouse-username", "default");
+        DEFAULT_VALUES.put("clickhouse-password", "");
+        DEFAULT_VALUES.put("clickhouse-tls", "false");
+        DEFAULT_VALUES.put("duckdb-memory-limit", "512MB");
+        DEFAULT_VALUES.put("duckdb-threads", "3");
+        DEFAULT_VALUES.put("duckdb-max-temp-directory-size", "10GB");
         DEFAULT_VALUES.put("language", "en");
+        DEFAULT_VALUES.put("auto-purge", "false");
         DEFAULT_VALUES.put("check-updates", "true");
+        DEFAULT_VALUES.put("error-reporting", "true");
         DEFAULT_VALUES.put("api-enabled", "true");
         DEFAULT_VALUES.put("verbose", "true");
         DEFAULT_VALUES.put("default-radius", "10");
@@ -117,9 +149,11 @@ public class Config extends Language {
         DEFAULT_VALUES.put("pistons", "true");
         DEFAULT_VALUES.put("block-burn", "true");
         DEFAULT_VALUES.put("block-ignite", "true");
+        DEFAULT_VALUES.put("fire-extinguish", "false");
         DEFAULT_VALUES.put("explosions", "true");
         DEFAULT_VALUES.put("entity-change", "true");
         DEFAULT_VALUES.put("entity-kills", "true");
+        DEFAULT_VALUES.put("entity-spawns", "true");
         DEFAULT_VALUES.put("sign-text", "true");
         DEFAULT_VALUES.put("buckets", "true");
         DEFAULT_VALUES.put("leaf-decay", "true");
@@ -143,15 +177,20 @@ public class Config extends Language {
         DEFAULT_VALUES.put("worldedit", "true");
 
         HEADERS.put("donation-key", new String[] { "# CoreProtect is donationware. Obtain a donation key from coreprotect.net/donate/" });
-        HEADERS.put("use-mysql", new String[] { "# MySQL is optional and not required.", "# If you prefer to use MySQL, enable the following and fill out the fields." });
+        HEADERS.put("database-type", new String[] { "# Database engine used by CoreProtect. Valid values are duckdb, clickhouse, sqlite, and mysql.", "# Run /co reload or restart the server after changing the database engine or connection target." });
+        HEADERS.put("mysql-host", new String[] { "# Connection settings for MySQL." });
+        HEADERS.put("clickhouse-host", new String[] { "# Connection settings for ClickHouse 25.6 or newer.", "# The configured database must already exist; CoreProtect creates its prefixed tables and views.", "# Multiple writers require database-lock disabled, the same version and prefix, separate data directories, and direct connections to one physical server.", "# Keep writer clocks synchronized; a shared prefix is one logical namespace for worlds and players.", "# Do not reassign usernames, and record UUID-bearing logins before UUID-less activity under a changed name.", "# Stop every writer before migration or purge; purge requires database-lock on the remaining server.", "# Replicated, distributed, and load-balanced independent ClickHouse nodes are unsupported." });
+        HEADERS.put("duckdb-memory-limit", new String[] { "# Resource limits for the embedded DuckDB database.", "# The memory limit controls DuckDB's buffer manager; the temporary limit caps spill data and is not preallocated." });
         HEADERS.put("language", new String[] { "# If modified, will automatically attempt to translate languages phrases.", "# List of language codes: https://coreprotect.net/languages/" });
+        HEADERS.put("auto-purge", new String[] { "# Automatically purge data older than the configured time.", "# Examples: 30d, 12w, 6mo. Set to false to disable." });
         HEADERS.put("check-updates", new String[] { "# If enabled, CoreProtect will check for updates when your server starts up.", "# If an update is available, you'll be notified via your server console.", });
+        HEADERS.put("error-reporting", new String[] { "# Automatically sends errors to the plugin author." });
         HEADERS.put("api-enabled", new String[] { "# If enabled, other plugins will be able to utilize the CoreProtect API.", });
         HEADERS.put("verbose", new String[] { "# If enabled, extra data is displayed during rollbacks and restores.", "# Can be manually triggered by adding \"#verbose\" to your rollback command." });
         HEADERS.put("default-radius", new String[] { "# If no radius is specified in a rollback or restore, this value will be", "# used as the radius. Set to \"0\" to disable automatically adding a radius." });
         HEADERS.put("max-radius", new String[] { "# The maximum radius that can be used in a command. Set to \"0\" to disable.", "# To run a rollback or restore without a radius, you can use \"r:#global\"." });
         HEADERS.put("rollback-items", new String[] { "# If enabled, items taken from containers (etc) will be included in rollbacks." });
-        HEADERS.put("rollback-entities", new String[] { "# If enabled, entities, such as killed animals, will be included in rollbacks." });
+        HEADERS.put("rollback-entities", new String[] { "# If enabled, entity kills and player-attributed entity spawns will be included in rollbacks." });
         HEADERS.put("skip-generic-data", new String[] { "# If enabled, generic data, like zombies burning in daylight, won't be logged." });
         HEADERS.put("block-place", new String[] { "# Logs blocks placed by players." });
         HEADERS.put("block-break", new String[] { "# Logs blocks broken by players." });
@@ -160,9 +199,11 @@ public class Config extends Language {
         HEADERS.put("pistons", new String[] { "# Properly track blocks moved by pistons." });
         HEADERS.put("block-burn", new String[] { "# Logs blocks that burn up in a fire." });
         HEADERS.put("block-ignite", new String[] { "# Logs when a block naturally ignites, such as from fire spreading." });
+        HEADERS.put("fire-extinguish", new String[] { "# Logs when fire naturally extinguishes." });
         HEADERS.put("explosions", new String[] { "# Logs explosions, such as TNT and Creepers." });
         HEADERS.put("entity-change", new String[] { "# Track when an entity changes a block, such as an Enderman destroying blocks." });
         HEADERS.put("entity-kills", new String[] { "# Logs killed entities, such as killed cows and enderman." });
+        HEADERS.put("entity-spawns", new String[] { "# Logs entities placed or spawned by players, such as boats and spawn-egg mobs." });
         HEADERS.put("sign-text", new String[] { "# Logs text on signs. If disabled, signs will be blank when rolled back." });
         HEADERS.put("buckets", new String[] { "# Logs lava and water sources placed/removed by players who are using buckets." });
         HEADERS.put("leaf-decay", new String[] { "# Logs natural tree leaf decay." });
@@ -193,11 +234,21 @@ public class Config extends Language {
         this.DATABASE_LOCK = this.getBoolean("database-lock", true);
         this.LOG_CANCELLED_CHAT = this.getBoolean("log-cancelled-chat", true);
         this.HOPPER_FILTER_META = this.getBoolean("hopper-filter-meta", false);
+        this.DUPLICATE_SUPPRESSION = this.getBoolean("duplicate-suppression", true);
         this.EXCLUDE_TNT = this.getBoolean("exclude-tnt", false);
         this.NETWORK_DEBUG = this.getBoolean("network-debug", false);
         this.UNKNOWN_LOGGING = this.getBoolean("unknown-logging", false);
         this.MAXIMUM_POOL_SIZE = this.getInt("maximum-pool-size", 10);
         this.DONATION_KEY = this.getString("donation-key");
+        this.DATABASE_TYPE = this.getString("database-type");
+        this.CLICKHOUSE_HOST = this.getString("clickhouse-host");
+        this.CLICKHOUSE_PORT = this.getInt("clickhouse-port");
+        this.CLICKHOUSE_CONSUMER_DELAY = Math.max(500,
+                this.getInt("clickhouse-consumer-delay", 2500));
+        this.CLICKHOUSE_DATABASE = this.getString("clickhouse-database");
+        this.CLICKHOUSE_USERNAME = this.getString("clickhouse-username");
+        this.CLICKHOUSE_PASSWORD = this.getString("clickhouse-password");
+        this.CLICKHOUSE_TLS = this.getBoolean("clickhouse-tls");
         this.MYSQL = this.getBoolean("use-mysql");
         this.PREFIX = this.getString("table-prefix");
         this.MYSQL_HOST = this.getString("mysql-host");
@@ -205,8 +256,15 @@ public class Config extends Language {
         this.MYSQL_DATABASE = this.getString("mysql-database");
         this.MYSQL_USERNAME = this.getString("mysql-username");
         this.MYSQL_PASSWORD = this.getString("mysql-password");
+        this.DUCKDB_MEMORY_LIMIT = this.getString("duckdb-memory-limit");
+        this.DUCKDB_THREADS = this.getInt("duckdb-threads", 3);
+        this.DUCKDB_MAX_TEMP_DIRECTORY_SIZE = this.getString("duckdb-max-temp-directory-size");
+        this.SQLITE_DATABASE = this.getString("sqlite-database");
         this.LANGUAGE = this.getString("language");
+        this.AUTO_PURGE = this.getString("auto-purge");
+        this.AUTO_PURGE_TIME = this.getString("auto-purge-time");
         this.CHECK_UPDATES = this.getBoolean("check-updates");
+        this.ERROR_REPORTING = this.getBoolean("error-reporting");
         this.API_ENABLED = this.getBoolean("api-enabled");
         this.VERBOSE = this.getBoolean("verbose");
         this.DEFAULT_RADIUS = this.getInt("default-radius");
@@ -221,9 +279,11 @@ public class Config extends Language {
         this.PISTONS = this.getBoolean("pistons");
         this.BLOCK_BURN = this.getBoolean("block-burn");
         this.BLOCK_IGNITE = this.getBoolean("block-ignite");
+        this.FIRE_EXTINGUISH = this.getBoolean("fire-extinguish");
         this.EXPLOSIONS = this.getBoolean("explosions");
         this.ENTITY_CHANGE = this.getBoolean("entity-change");
         this.ENTITY_KILLS = this.getBoolean("entity-kills");
+        this.ENTITY_SPAWNS = this.getBoolean("entity-spawns");
         this.SIGN_TEXT = this.getBoolean("sign-text");
         this.BUCKETS = this.getBoolean("buckets");
         this.LEAF_DECAY = this.getBoolean("leaf-decay");
@@ -329,6 +389,10 @@ public class Config extends Language {
         this.config.clear();
     }
 
+    public boolean hasOption(String key) {
+        return this.config.containsKey(key);
+    }
+
     public void loadDefaults() {
         this.clearConfig();
         this.readValues();
@@ -369,6 +433,7 @@ public class Config extends Language {
             final Config temp = new Config();
             temp.loadDefaults();
             temp.addMissingOptions(globalFile);
+            map.put("config", Files.readAllBytes(globalFile.toPath()));
         }
 
         for (final File worldConfigFile : configFolder.listFiles((File file) -> file.getName().endsWith(".yml"))) {
@@ -389,8 +454,12 @@ public class Config extends Language {
             // we call reloads asynchronously
             // for now this solution is good enough to ensure we only modify on the main thread
             final CompletableFuture<Void> complete = new CompletableFuture<>();
+            final CompletableFuture<Void> shutdown = Consumer.databaseReloadShutdownSignal();
 
             Scheduler.runTask(CoreProtect.getInstance(), () -> {
+                if (shutdown.isDone()) {
+                    return;
+                }
                 try {
                     parseConfig(data);
                 }
@@ -404,6 +473,11 @@ public class Config extends Language {
                 complete.complete(null);
             });
 
+            CompletableFuture.anyOf(complete, shutdown).join();
+            if (!complete.isDone()) {
+                complete.cancel(false);
+                throw new CancellationException("Configuration reload cancelled for shutdown");
+            }
             complete.join();
             return;
         }
@@ -456,12 +530,18 @@ public class Config extends Language {
 
             for (final Map.Entry<String, String> entry : DEFAULT_VALUES.entrySet()) {
                 final String key = entry.getKey();
-                final String defaultValue = entry.getValue();
+                String defaultValue = entry.getValue();
 
                 final String configuredValue = this.config.get(key);
 
                 if (configuredValue != null) {
                     continue;
+                }
+                if (key.equals("auto-purge") && VersionUtils.isCommunityEdition()) {
+                    continue;
+                }
+                if (key.equals("database-type") && !writeHeader) {
+                    defaultValue = this.getBoolean("use-mysql") ? "mysql" : "sqlite";
                 }
 
                 final String[] header = HEADERS.get(key);

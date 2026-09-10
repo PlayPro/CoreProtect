@@ -1,8 +1,10 @@
 package net.coreprotect.spigot;
 
+import java.util.List;
 import java.util.regex.Matcher;
 
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Villager;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
@@ -22,30 +24,18 @@ public class SpigotAdapter implements SpigotInterface {
     public static final int SPIGOT_V1_19 = BukkitAdapter.BUKKIT_V1_19;
     public static final int SPIGOT_V1_20 = BukkitAdapter.BUKKIT_V1_20;
     public static final int SPIGOT_V1_21 = BukkitAdapter.BUKKIT_V1_21;
+    public static final int SPIGOT_V1_21_5 = BukkitAdapter.BUKKIT_V1_21_5;
+    public static final int SPIGOT_V26_0 = BukkitAdapter.BUKKIT_V26_0;
+    public static final int SPIGOT_V26_1 = BukkitAdapter.BUKKIT_V26_1;
+    public static final int SPIGOT_V26_2 = BukkitAdapter.BUKKIT_V26_2;
 
     public static void loadAdapter() {
-        int spigotVersion = ConfigHandler.SERVER_VERSION;
-        if (!ConfigHandler.isSpigot) {
-            spigotVersion = SPIGOT_UNAVAILABLE;
+        if (!ConfigHandler.isSpigot || ConfigHandler.SERVER_VERSION == SPIGOT_UNAVAILABLE) {
+            SpigotAdapter.ADAPTER = new SpigotAdapter();
+            return;
         }
 
-        switch (spigotVersion) {
-            case SPIGOT_UNAVAILABLE:
-                SpigotAdapter.ADAPTER = new SpigotAdapter();
-                break;
-            case SPIGOT_V1_13:
-            case SPIGOT_V1_14:
-            case SPIGOT_V1_15:
-            case SPIGOT_V1_16:
-            case SPIGOT_V1_17:
-            case SPIGOT_V1_18:
-            case SPIGOT_V1_19:
-            case SPIGOT_V1_20:
-            case SPIGOT_V1_21:
-            default:
-                SpigotAdapter.ADAPTER = new SpigotHandler();
-                break;
-        }
+        SpigotAdapter.ADAPTER = new SpigotHandler();
     }
 
     @Override
@@ -81,6 +71,20 @@ public class SpigotAdapter implements SpigotInterface {
         }
 
         Chat.sendMessage(sender, message.toString());
+    }
+
+    @Override
+    public boolean setVillagerReputations(Villager villager, List<?> reputations) {
+        return false;
+    }
+
+    @Override
+    public Object getVillagerGossipDecayTime(Villager villager) {
+        return null;
+    }
+
+    @Override
+    public void setVillagerGossipDecayTime(Villager villager, Object value) {
     }
 
     public String processComponent(String component) {

@@ -8,7 +8,6 @@ import org.bukkit.block.BlockState;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 
-import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.lookup.BlockLookup;
 import net.coreprotect.database.lookup.InteractionLookup;
@@ -16,6 +15,8 @@ import net.coreprotect.database.lookup.SignMessageLookup;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
+import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.LookupThrottle;
 
 public class BlockLookupThread implements Runnable {
     private final CommandSender player;
@@ -25,8 +26,9 @@ public class BlockLookupThread implements Runnable {
     private final int page;
     private final int limit;
     private final int type;
+    private final Integer entitySpawnRowId;
 
-    public BlockLookupThread(CommandSender player, Command command, Block block, BlockState blockState, int page, int limit, int type) {
+    public BlockLookupThread(CommandSender player, Command command, Block block, BlockState blockState, int page, int limit, int type, Integer entitySpawnRowId) {
         this.player = player;
         this.command = command;
         this.block = block;
@@ -34,12 +36,17 @@ public class BlockLookupThread implements Runnable {
         this.page = page;
         this.limit = limit;
         this.type = type;
+        this.entitySpawnRowId = entitySpawnRowId;
     }
 
     @Override
     public void run() {
+        if (!LookupThrottle.tryAcquire(player.getName(), 50)) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
+            return;
+        }
+
         try (Connection connection = Database.getConnection(true)) {
-            ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { true, System.currentTimeMillis() });
             if (connection != null) {
                 Statement statement = connection.createStatement();
                 if (type == 8) {
@@ -64,7 +71,7 @@ public class BlockLookupThread implements Runnable {
                         blockdata = InteractionLookup.performLookup(command.getName(), statement, block, player, 0, page, limit);
                     }
                     else {
-                        blockdata = BlockLookup.performLookup(command.getName(), statement, blockState, player, 0, page, limit);
+                        blockdata = BlockLookup.performLookup(command.getName(), statement, blockState, player, 0, page, limit, entitySpawnRowId);
                     }
                     if (blockdata.contains("\n")) {
                         for (String b : blockdata.split("\n")) {
@@ -82,9 +89,10 @@ public class BlockLookupThread implements Runnable {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
-
-        ConfigHandler.lookupThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
+        finally {
+            LookupThrottle.release(player.getName());
+        }
     }
 }

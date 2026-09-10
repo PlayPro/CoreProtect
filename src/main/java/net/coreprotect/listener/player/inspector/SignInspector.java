@@ -9,6 +9,7 @@ import org.bukkit.entity.Player;
 
 import net.coreprotect.database.lookup.SignMessageLookup;
 import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.ErrorReporter;
 
 public class SignInspector extends BaseInspector {
 
@@ -17,8 +18,6 @@ public class SignInspector extends BaseInspector {
             @Override
             public void run() {
                 try {
-                    checkPreconditions(player);
-
                     try (Connection connection = getDatabaseConnection(player)) {
                         Statement statement = connection.createStatement();
                         List<String> signData = SignMessageLookup.performLookup(null, statement, location, player, 1, 7);
@@ -43,16 +42,11 @@ public class SignInspector extends BaseInspector {
                     Chat.sendMessage(player, e.getMessage());
                 }
                 catch (Exception e) {
-                    e.printStackTrace();
-                }
-                finally {
-                    finishInspection(player);
+                    ErrorReporter.report(e);
                 }
             }
         }
 
-        Runnable runnable = new BasicThread();
-        Thread thread = new Thread(runnable);
-        thread.start();
+        startInspection(player, new BasicThread());
     }
 }

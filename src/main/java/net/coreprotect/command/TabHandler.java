@@ -17,14 +17,15 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.bukkit.util.StringUtil;
 
+import net.coreprotect.command.parser.RollbackStateParser;
 import net.coreprotect.config.ConfigHandler;
 
 public class TabHandler implements TabCompleter {
 
     // private static String[] COMMANDS = new String[] { "help", "inspect", "rollback", "restore", "lookup", "purge", "reload", "status", "near", "undo" }; // max 10!
-    private static final String[] HELP = new String[] { "inspect", "rollback", "restore", "lookup", "purge", "teleport", "status", "params", "users", "time", "radius", "action", "include", "exclude" };
-    private static final String[] PARAMS = new String[] { "user:", "time:", "radius:", "action:", "include:", "exclude:", "#container" };
-    private static final String[] ACTIONS = new String[] { "block", "+block", "-block", "click", "kill", "+container", "-container", "container", "chat", "command", "+inventory", "-inventory", "inventory", "item", "+item", "-item", "sign", "session", "+session", "-session", "username" };
+    private static final String[] HELP = new String[] { "inspect", "rollback", "restore", "lookup", "purge", "teleport", "status", "params", "users", "time", "radius", "action", "include", "exclude", "filter" };
+    private static final String[] PARAMS = new String[] { "user:", "time:", "radius:", "action:", "include:", "exclude:", "filter:", "#container" };
+    private static final String[] ACTIONS = new String[] { "block", "+block", "-block", "click", "kill", "spawn", "+container", "-container", "container", "chat", "command", "+inventory", "-inventory", "inventory", "item", "+item", "-item", "sign", "session", "+session", "-session", "username" };
     private static final String[] NUMBERS = new String[] { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9" };
     private static final String[] TIMES = new String[] { "w", "d", "h", "m", "s" };
     private static ArrayList<String> materials = null;
@@ -43,7 +44,7 @@ public class TabHandler implements TabCompleter {
         String currentArg = args[args.length - 1].toLowerCase(Locale.ROOT).trim();
         String lastArg = args.length > 1 ? args[args.length - 2].toLowerCase(Locale.ROOT).trim() : "";
 
-        ParamState paramState = getParamState(args);
+        ParamState paramState = getParamState(sender, args);
 
         // Handle param-specific completions
         if (isActionParam(lastArg, currentArg) && hasLookupPermission(sender)) {
@@ -150,20 +151,24 @@ public class TabHandler implements TabCompleter {
         boolean hasAction;
         boolean hasInclude;
         boolean hasExclude;
+        boolean hasFilter;
         boolean hasRadius;
         boolean hasTime;
         boolean hasContainer;
         boolean hasCount;
+        boolean hasSummary;
+        boolean hasRollbackState;
         boolean hasPreview;
         boolean hasPage;
         boolean validContainer;
         boolean pageLookup;
     }
 
-    private ParamState getParamState(String[] args) {
+    private ParamState getParamState(CommandSender sender, String[] args) {
         ParamState state = new ParamState();
+        String senderName = sender.getName();
 
-        if (ConfigHandler.lookupType.get(args[0]) != null && ConfigHandler.lookupPage.get(args[0]) != null) {
+        if (ConfigHandler.lookupType.get(senderName) != null && ConfigHandler.lookupPage.get(senderName) != null) {
             state.pageLookup = true;
         }
 
@@ -175,8 +180,17 @@ public class TabHandler implements TabCompleter {
             else if (arg.equals("#count") || arg.equals("#sum")) {
                 state.hasCount = true;
             }
+            else if (arg.equals("#summary")) {
+                state.hasSummary = true;
+            }
+            else if (RollbackStateParser.isModifier(arg)) {
+                state.hasRollbackState = true;
+            }
             else if (arg.equals("#preview")) {
                 state.hasPreview = true;
+            }
+            else if (arg.startsWith("f:") || arg.startsWith("filter:")) {
+                state.hasFilter = true;
             }
             else if ((!arg.contains(":") && !args[i - 1].contains(":") && args.length > (i + 1)) || arg.contains("u:") || arg.contains("user:") || arg.contains("users:") || arg.contains("p:")) {
                 state.hasUser = true;
@@ -202,13 +216,14 @@ public class TabHandler implements TabCompleter {
         }
 
         if (!state.hasContainer) {
-            if (ConfigHandler.lookupType.get(args[0]) != null) {
-                int lookupType = ConfigHandler.lookupType.get(args[0]);
+            Integer lookupType = ConfigHandler.lookupType.get(senderName);
+            if (lookupType != null) {
                 if (lookupType == 1) {
                     state.validContainer = true;
                 }
                 else if (lookupType == 5) {
-                    if (ConfigHandler.lookupUlist.get(args[0]).contains("#container")) {
+                    List<String> lookupUsers = ConfigHandler.lookupUlist.get(senderName);
+                    if (lookupUsers != null && lookupUsers.contains("#container")) {
                         state.validContainer = true;
                     }
                 }
@@ -480,6 +495,9 @@ public class TabHandler implements TabCompleter {
             else if (param.equals("exclude:") && !state.hasExclude) {
                 params.add(param);
             }
+            else if (param.equals("filter:") && !state.hasFilter && (lastArgument.equals("l") || lastArgument.equals("lookup"))) {
+                params.add(param);
+            }
             else if (param.equals("radius:") && !state.hasRadius) {
                 params.add(param);
             }
@@ -493,9 +511,13 @@ public class TabHandler implements TabCompleter {
         if (firstParam && state.pageLookup && (lastArgument.equals("l") || lastArgument.equals("lookup"))) {
             params.add("page:");
         }
-        else if (!firstParam && argument.startsWith("#")) {
-            if (!state.hasCount) {
-                params.add("#count");
+        if (argument.startsWith("#")) {
+            if (!state.hasCount && !state.hasSummary && (lastArgument.equals("l") || lastArgument.equals("lookup"))) {
+                params.add("#summary");
+            }
+            if (!state.hasRollbackState && (lastArgument.equals("l") || lastArgument.equals("lookup"))) {
+                params.add("#rolledback");
+                params.add("#restored");
             }
             if (!state.hasPreview) {
                 params.add("#preview");

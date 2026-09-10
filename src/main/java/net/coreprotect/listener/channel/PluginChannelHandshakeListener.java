@@ -5,9 +5,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -21,6 +21,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.ErrorReporter;
 
 public class PluginChannelHandshakeListener implements PluginMessageListener, Listener {
 
@@ -31,7 +32,7 @@ public class PluginChannelHandshakeListener implements PluginMessageListener, Li
 
     public PluginChannelHandshakeListener() {
         instance = this;
-        pluginChannelPlayers = new HashSet<>();
+        pluginChannelPlayers = ConcurrentHashMap.newKeySet();
     }
 
     public static PluginChannelHandshakeListener getInstance() {
@@ -95,7 +96,7 @@ public class PluginChannelHandshakeListener implements PluginMessageListener, Li
         }
         catch (Exception exception) {
             Chat.console(exception.toString());
-            exception.printStackTrace();
+            ErrorReporter.report(exception);
         }
     }
 

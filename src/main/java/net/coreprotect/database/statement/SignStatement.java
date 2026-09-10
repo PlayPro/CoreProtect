@@ -1,6 +1,5 @@
 package net.coreprotect.database.statement;
 
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 
@@ -8,7 +7,10 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 
 import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.database.ConsumerWriteBatch;
+import net.coreprotect.database.Database;
 import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public class SignStatement {
 
@@ -16,36 +18,12 @@ public class SignStatement {
         throw new IllegalStateException("Database class");
     }
 
-    public static void insert(PreparedStatement preparedStmt, int batchCount, int time, int id, int wid, int x, int y, int z, int action, int color, int colorSecondary, int data, int waxed, int face, String line1, String line2, String line3, String line4, String line5, String line6, String line7, String line8) {
+    public static void insert(ConsumerWriteBatch batch, int batchCount, int time, int id, int wid, int x, int y, int z, int action, int color, int colorSecondary, int data, int waxed, int face, String line1, String line2, String line3, String line4, String line5, String line6, String line7, String line8) {
         try {
-            preparedStmt.setInt(1, time);
-            preparedStmt.setInt(2, id);
-            preparedStmt.setInt(3, wid);
-            preparedStmt.setInt(4, x);
-            preparedStmt.setInt(5, y);
-            preparedStmt.setInt(6, z);
-            preparedStmt.setInt(7, action);
-            preparedStmt.setInt(8, color);
-            preparedStmt.setInt(9, colorSecondary);
-            preparedStmt.setInt(10, data);
-            preparedStmt.setInt(11, waxed);
-            preparedStmt.setInt(12, face);
-            preparedStmt.setString(13, line1);
-            preparedStmt.setString(14, line2);
-            preparedStmt.setString(15, line3);
-            preparedStmt.setString(16, line4);
-            preparedStmt.setString(17, line5);
-            preparedStmt.setString(18, line6);
-            preparedStmt.setString(19, line7);
-            preparedStmt.setString(20, line8);
-            preparedStmt.addBatch();
-
-            if (batchCount > 0 && batchCount % 1000 == 0) {
-                preparedStmt.executeBatch();
-            }
+            batch.addSign(batchCount, time, id, wid, x, y, z, action, color, colorSecondary, data, waxed, face, new String[] { line1, line2, line3, line4, line5, line6, line7, line8 });
         }
         catch (Exception e) {
-            e.printStackTrace();
+            Database.handleWriteFailure(e);
         }
     }
 
@@ -98,7 +76,7 @@ public class SignStatement {
             resultSet.close();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 }

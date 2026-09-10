@@ -16,6 +16,7 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
 public final class FoodLevelChangeListener extends Queue implements Listener {
 
@@ -64,7 +65,7 @@ public final class FoodLevelChangeListener extends Queue implements Listener {
                             }
                         }
                         catch (Exception e) {
-                            e.printStackTrace();
+                            ErrorReporter.report(e);
                         }
                     }, oldBlockState.getLocation());
                 }

@@ -7,6 +7,7 @@ import java.sql.Statement;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
+import net.coreprotect.utility.ErrorReporter;
 
 public class __2_15_0 {
 
@@ -53,7 +54,7 @@ public class __2_15_0 {
             ConfigHandler.loadTypes(statement);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return true;

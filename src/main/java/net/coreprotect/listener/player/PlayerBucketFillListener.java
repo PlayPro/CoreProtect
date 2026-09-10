@@ -19,7 +19,7 @@ public final class PlayerBucketFillListener extends Queue implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     protected void onPlayerBucketFill(PlayerBucketFillEvent event) {
         String player = event.getPlayer().getName();
-        Block block = event.getBlockClicked();
+        Block block = event.getBlock();
         World world = block.getWorld();
         Material type = block.getType();
 

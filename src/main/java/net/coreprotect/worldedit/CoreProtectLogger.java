@@ -27,6 +27,7 @@ import com.sk89q.worldedit.world.block.BlockState;
 import com.sk89q.worldedit.world.block.BlockStateHolder;
 
 import net.coreprotect.config.Config;
+import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.ItemUtils;
 
 public class CoreProtectLogger extends AbstractDelegateExtent {
@@ -43,19 +44,24 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
     public <T extends BlockStateHolder<T>> boolean setBlock(BlockVector3 position, T block) throws WorldEditException {
         Extent eventExtent = getExtent();
         org.bukkit.World world = BukkitAdapter.adapt(eventWorld);
-        if (!Config.getConfig(world).WORLDEDIT) {
+        Config config = Config.getConfig(world);
+        if (!config.WORLDEDIT) {
             return eventExtent.setBlock(position, block);
         }
 
         BlockState oldBlock = eventExtent.getBlock(position);
+        if (oldBlock == block.toImmutableState()) {
+            return eventExtent.setBlock(position, block);
+        }
+
         Material oldType = BukkitAdapter.adapt(oldBlock.getBlockType());
         Location location = new Location(world, position.getBlockX(), position.getBlockY(), position.getBlockZ());
-        BaseBlock baseBlock = WorldEditLogger.getBaseBlock(eventExtent, position, location, oldType, oldBlock);
+        BaseBlock baseBlock = WorldEditLogger.needsBaseBlock(oldType, config) ? eventExtent.getFullBlock(position) : null;
 
         // No clear way to get container content data from within the WorldEdit API
         // Data may be available by converting oldBlock.toBaseBlock().getNbtData()
         // e.g. BaseBlock block = eventWorld.getBlock(position);
-        ItemStack[] containerData = CoreProtectEditSessionEvent.isFAWE() ? null : ItemUtils.getContainerContents(oldType, null, location);
+        ItemStack[] containerData = !CoreProtectEditSessionEvent.isFAWE() && config.ITEM_TRANSACTIONS && BlockGroup.CONTAINERS.contains(oldType) ? ItemUtils.getContainerContents(oldType, null, location) : null;
 
         if (eventExtent.setBlock(position, block)) {
             WorldEditLogger.postProcess(eventExtent, eventActor, position, location, block, baseBlock, oldType, oldBlock, containerData);

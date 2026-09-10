@@ -46,14 +46,6 @@ public class WorldEditLogger extends Queue {
         return (WorldEditPlugin) plugin;
     }
 
-    protected static BaseBlock getBaseBlock(Extent extent, BlockVector3 position, Location location, Material oldType, com.sk89q.worldedit.world.block.BlockState oldBlock) {
-        if (needsBaseBlock(oldType, Config.getConfig(location.getWorld()))) {
-            return extent.getFullBlock(position);
-        }
-
-        return null;
-    }
-
     protected static boolean needsBaseBlock(Material type, Config config) {
         return type == Material.SPAWNER || (config.SIGN_TEXT && net.coreprotect.bukkit.BukkitAdapter.ADAPTER.isSign(type));
     }
@@ -69,13 +61,13 @@ public class WorldEditLogger extends Queue {
 
         String oldBlockDataString = oldBlockData.getAsString();
         String newBlockDataString = newBlockData.getAsString();
-        BlockState oldBlock = new WorldEditBlockState(location, oldType, oldBlockData);
-        BlockState newBlock = new WorldEditBlockState(location, newType, newBlockData);
-
-        int oldBlockExtraData = 0;
-        int newBlockExtraData = -1;
 
         if (!oldType.equals(newType) || !oldBlockDataString.equals(newBlockDataString)) {
+            BlockState oldBlock = new WorldEditBlockState(location, oldType, oldBlockData);
+            BlockState newBlock = new WorldEditBlockState(location, newType, newBlockData);
+            int oldBlockExtraData = 0;
+            int newBlockExtraData = -1;
+
             try {
                 if (baseBlock != null && baseBlock.hasNbtData()) {
                     if (Config.getConfig(location.getWorld()).SIGN_TEXT && net.coreprotect.bukkit.BukkitAdapter.ADAPTER.isSign(oldType)) {

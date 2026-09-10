@@ -22,6 +22,8 @@ public final class LookupOptions {
     private final List<ContainerAction> containerActions;
     private final List<ItemAction> itemActions;
     private final List<InventoryAction> inventoryActions;
+    private final List<BlockAction> blockActions;
+    private final List<SessionAction> sessionActions;
 
     private LookupOptions(Builder builder) {
         this.user = builder.user;
@@ -37,6 +39,8 @@ public final class LookupOptions {
         this.containerActions = builder.containerActions;
         this.itemActions = builder.itemActions;
         this.inventoryActions = builder.inventoryActions;
+        this.blockActions = builder.blockActions;
+        this.sessionActions = builder.sessionActions;
     }
 
     public static Builder builder() {
@@ -99,6 +103,14 @@ public final class LookupOptions {
         return inventoryActions;
     }
 
+    public List<BlockAction> getBlockActions() {
+        return blockActions;
+    }
+
+    public List<SessionAction> getSessionActions() {
+        return sessionActions;
+    }
+
     public static final class Builder {
         private String user;
         private int time;
@@ -113,6 +125,8 @@ public final class LookupOptions {
         private List<ContainerAction> containerActions = List.of();
         private List<ItemAction> itemActions = List.of();
         private List<InventoryAction> inventoryActions = List.of();
+        private List<BlockAction> blockActions = List.of();
+        private List<SessionAction> sessionActions = List.of();
 
         private Builder() {
         }
@@ -177,6 +191,16 @@ public final class LookupOptions {
 
         public Builder inventoryActions(List<InventoryAction> actions) {
             this.inventoryActions = List.copyOf(actions);
+            return this;
+        }
+
+        public Builder blockActions(List<BlockAction> actions) {
+            this.blockActions = List.copyOf(actions);
+            return this;
+        }
+
+        public Builder sessionActions(List<SessionAction> actions) {
+            this.sessionActions = List.copyOf(actions);
             return this;
         }
 

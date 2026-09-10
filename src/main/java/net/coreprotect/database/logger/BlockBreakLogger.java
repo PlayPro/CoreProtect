@@ -63,7 +63,7 @@ public class BlockBreakLogger {
             }
 
             if (checkType == Material.LECTERN && blockData != null) {
-                blockData = blockData.replaceFirst("has_book=true", "has_book=false");
+                blockData = blockData.replace("has_book=true", "has_book=false");
             }
             else if (checkType != null && (checkType == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(checkType))) {
                 blockData = overrideData;

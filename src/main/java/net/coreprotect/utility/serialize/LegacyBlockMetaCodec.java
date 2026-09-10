@@ -13,6 +13,7 @@ import java.io.OutputStream;
 import java.io.Serializable;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
@@ -21,6 +22,7 @@ import org.bukkit.util.io.BukkitObjectInputStream;
 final class LegacyBlockMetaCodec {
 
     private static final String WRAPPER_CLASS = "org.bukkit.util.io.Wrapper";
+    private static final String ATTRIBUTE_CLASS = "org.bukkit.attribute.Attribute";
     private static final long WRAPPER_UID = -986209235411767547L;
     private static final String ALIAS_KEY = "==";
 
@@ -70,6 +72,46 @@ final class LegacyBlockMetaCodec {
         return descriptor;
     }
 
+    enum AttributeValue {
+        GENERIC_MAX_HEALTH,
+        GENERIC_FOLLOW_RANGE,
+        GENERIC_KNOCKBACK_RESISTANCE,
+        GENERIC_MOVEMENT_SPEED,
+        GENERIC_FLYING_SPEED,
+        GENERIC_ATTACK_DAMAGE,
+        GENERIC_ATTACK_KNOCKBACK,
+        GENERIC_ATTACK_SPEED,
+        GENERIC_ARMOR,
+        GENERIC_ARMOR_TOUGHNESS,
+        GENERIC_FALL_DAMAGE_MULTIPLIER,
+        GENERIC_LUCK,
+        GENERIC_MAX_ABSORPTION,
+        GENERIC_SAFE_FALL_DISTANCE,
+        GENERIC_SCALE,
+        GENERIC_STEP_HEIGHT,
+        GENERIC_GRAVITY,
+        GENERIC_JUMP_STRENGTH,
+        GENERIC_BURNING_TIME,
+        GENERIC_EXPLOSION_KNOCKBACK_RESISTANCE,
+        GENERIC_MOVEMENT_EFFICIENCY,
+        GENERIC_OXYGEN_BONUS,
+        GENERIC_WATER_MOVEMENT_EFFICIENCY,
+        PLAYER_BLOCK_INTERACTION_RANGE,
+        PLAYER_ENTITY_INTERACTION_RANGE,
+        PLAYER_BLOCK_BREAK_SPEED,
+        PLAYER_MINING_EFFICIENCY,
+        PLAYER_SNEAKING_SPEED,
+        PLAYER_SUBMERGED_MINING_SPEED,
+        PLAYER_SWEEPING_DAMAGE_RATIO,
+        HORSE_JUMP_STRENGTH,
+        ZOMBIE_SPAWN_REINFORCEMENTS;
+
+        String key() {
+            String name = name();
+            return "minecraft:" + name.substring(name.indexOf('_') + 1).toLowerCase(Locale.ROOT);
+        }
+    }
+
     static final class ConfigurationValue implements Serializable {
 
         private static final long serialVersionUID = WRAPPER_UID;
@@ -114,6 +156,12 @@ final class LegacyBlockMetaCodec {
             if (descriptor.getName().equals(WRAPPER_CLASS)) {
                 validateWrapper(descriptor);
                 return ObjectStreamClass.lookup(ConfigurationValue.class);
+            }
+            if (descriptor.getName().equals(ATTRIBUTE_CLASS)) {
+                if (descriptor.getSerialVersionUID() != 0 || descriptor.getFields().length != 0) {
+                    throw new InvalidClassException(ATTRIBUTE_CLASS, "Unsupported block metadata attribute layout");
+                }
+                return ObjectStreamClass.lookup(AttributeValue.class);
             }
             return descriptor;
         }

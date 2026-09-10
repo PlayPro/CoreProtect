@@ -273,7 +273,7 @@ public final class BlockMetaCodec {
         if (!metadata.isEmpty()) {
             boolean command = true;
             for (Object value : metadata) {
-                if (!(value instanceof String)) {
+                if (!(value instanceof String) && !(value instanceof LegacyBlockMetaCodec.AttributeValue)) {
                     command = false;
                     break;
                 }
@@ -320,7 +320,8 @@ public final class BlockMetaCodec {
     private static void encodeCommand(BinaryOutput output, List<Object> metadata) {
         output.writeLength(metadata.size());
         for (Object value : metadata) {
-            output.writeString((String) value);
+            output.writeString(value instanceof LegacyBlockMetaCodec.AttributeValue
+                    ? ((LegacyBlockMetaCodec.AttributeValue) value).key() : (String) value);
         }
     }
 
@@ -433,6 +434,10 @@ public final class BlockMetaCodec {
         else if (value instanceof Keyed || value instanceof Sound || value instanceof PotionEffectType) {
             output.write(STRING);
             output.writeString(registryKey(value));
+        }
+        else if (value instanceof LegacyBlockMetaCodec.AttributeValue) {
+            output.write(STRING);
+            output.writeString(((LegacyBlockMetaCodec.AttributeValue) value).key());
         }
         else if (value instanceof Enum<?>) {
             encodeEnum(output, (Enum<?>) value);

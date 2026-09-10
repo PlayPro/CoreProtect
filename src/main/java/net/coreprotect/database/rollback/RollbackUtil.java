@@ -39,6 +39,7 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Lookup;
 import net.coreprotect.database.statement.BlockStatement;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.utility.AttributeUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.ErrorReporter;
 
@@ -364,19 +365,12 @@ public class RollbackUtil extends Lookup {
                         Map<Object, Map<String, Object>> modifiersMap = (Map<Object, Map<String, Object>>) item;
                         for (Map.Entry<Object, Map<String, Object>> entry : modifiersMap.entrySet()) {
                             try {
-                                Attribute attribute = null;
-                                if (entry.getKey() instanceof Attribute) {
-                                    attribute = (Attribute) entry.getKey();
-                                }
-                                else {
-                                    attribute = (Attribute) BukkitAdapter.ADAPTER.getRegistryValue((String) entry.getKey(), Attribute.class);
-                                }
-
+                                Attribute attribute = AttributeUtils.resolve(entry.getKey());
                                 AttributeModifier modifier = AttributeModifier.deserialize(entry.getValue());
                                 itemMeta.addAttributeModifier(attribute, modifier);
                             }
                             catch (IllegalArgumentException e) {
-                                // AttributeModifier already exists
+                                // Attribute is unavailable or the modifier cannot be applied.
                             }
                         }
                     }

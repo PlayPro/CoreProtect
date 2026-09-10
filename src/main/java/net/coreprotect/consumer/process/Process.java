@@ -307,7 +307,7 @@ public class Process {
                                     ContainerBreakProcess.process(writeBatch, i, processId, id, blockType, user, object);
                                     break;
                                 case Process.PLAYER_INTERACTION:
-                                    PlayerInteractionProcess.process(writeBatch, i, user, object, blockType);
+                                    PlayerInteractionProcess.process(writeBatch, i, user, object, blockType, (String) data[7]);
                                     break;
                                 case Process.CONTAINER_TRANSACTION:
                                     ContainerTransactionProcess.process(writeBatch, writeBatch, i, processId, id, blockType, forceData, user, object);

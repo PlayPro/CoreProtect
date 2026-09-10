@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Creature;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.ItemFrame;
@@ -98,7 +99,8 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
             if (frame.getItem().getType() != Material.AIR && event.getHand().equals(EquipmentSlot.HAND) && Config.getConfig(player.getWorld()).PLAYER_INTERACTIONS) {
                 Material frameType = BukkitAdapter.ADAPTER.getFrameType(entity);
                 if (frameType != null) {
-                    Queue.queuePlayerInteraction(player.getName(), entity.getLocation().getBlock().getState(), frameType);
+                    Block block = entity.getLocation().getBlock();
+                    Queue.queuePlayerInteraction(player.getName(), block.getLocation(), frameType, block.getBlockData().getAsString());
                 }
             }
 

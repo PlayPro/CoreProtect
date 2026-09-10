@@ -376,7 +376,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                 }
                             }
 
-                            Queue.queuePlayerInteraction(player.getName(), interactBlock.getState(), type);
+                            Queue.queuePlayerInteraction(player.getName(), interactBlock.getLocation(), type, interactBlock.getBlockData().getAsString());
                         }
                     }
                     else if (BlockGroup.LIGHTABLES.contains(type)) { // extinguishing a lit block such as a campfire
@@ -458,7 +458,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
 
                             if (!oldItemState.equals(newItemState)) {
                                 if (Config.getConfig(player.getWorld()).PLAYER_INTERACTIONS) {
-                                    Queue.queuePlayerInteraction(player.getName(), blockState, type);
+                                    Queue.queuePlayerInteraction(player.getName(), blockState.getLocation(), type, blockState.getBlockData().getAsString());
                                 }
 
                                 if (Config.getConfig(block.getWorld()).ITEM_TRANSACTIONS) {
@@ -513,7 +513,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
 
                                 if (!oldItemState.equals(newItemState)) {
                                     if (Config.getConfig(player.getWorld()).PLAYER_INTERACTIONS) {
-                                        Queue.queuePlayerInteraction(player.getName(), blockState, type);
+                                        Queue.queuePlayerInteraction(player.getName(), blockState.getLocation(), type, blockState.getBlockData().getAsString());
                                     }
 
                                     InventoryChangeListener.inventoryTransaction(player.getName(), blockState.getLocation(), null);

@@ -3,7 +3,6 @@ package net.coreprotect.database.logger;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.Location;
-import org.bukkit.block.BlockState;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
@@ -24,9 +23,8 @@ public class PlayerInteractLogger {
         throw new IllegalStateException("Database class");
     }
 
-    public static void log(ConsumerWriteBatch preparedStmt, int batchCount, String user, BlockState block, Material blockType) {
+    public static void log(ConsumerWriteBatch preparedStmt, int batchCount, String user, Location location, Material blockType, String blockData) {
         try {
-            String blockData = block.getBlockData().getAsString();
             String blockKey = BlockTypeUtils.getBlockDataKey(blockData);
             if (blockType != null && blockKey.length() > 0) {
                 Material blockDataType = MaterialUtils.getType(blockKey);
@@ -47,7 +45,7 @@ public class PlayerInteractLogger {
                 return;
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, block.getLocation(), CoreProtectPreLogEvent.Action.PLAYER_INTERACTION, LookupActions.INTERACTION, blockType, null, null);
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location.clone(), CoreProtectPreLogEvent.Action.PLAYER_INTERACTION, LookupActions.INTERACTION, blockType, null, null);
             if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
             }

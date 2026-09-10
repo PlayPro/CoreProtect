@@ -504,7 +504,8 @@ public class CoreProtectAPI extends Queue {
             return false;
         }
 
-        Queue.queuePlayerInteraction(user, location.getBlock().getState(), location.getBlock().getType());
+        Block block = location.getBlock();
+        Queue.queuePlayerInteraction(user, block.getLocation(), block.getType(), block.getBlockData().getAsString());
         return true;
     }
 

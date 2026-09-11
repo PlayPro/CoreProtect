@@ -72,6 +72,10 @@ public final class BlockFertilizeListener extends Queue implements Listener {
             }
         }
 
+        if (!config.DISPENSERS && ("#dispenser".equals(user) || "#bonemeal".equals(user))) {
+            return;
+        }
+
         if (config.DUPLICATE_SUPPRESSION && "#dispenser".equals(user) && shouldSuppressBonemealDuplicate(location, blocks)) {
             return;
         }

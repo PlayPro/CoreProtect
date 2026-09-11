@@ -96,6 +96,11 @@ public final class BlockDispenseListener extends Queue implements Listener {
                     }
                 }
 
+                // The item transaction and bone meal hand-off above are unaffected by this option.
+                if (!config.DISPENSERS) {
+                    return;
+                }
+
                 if (type == Material.FIRE && (!config.BLOCK_IGNITE || !(newBlockData instanceof Lightable))) {
                     return;
                 }

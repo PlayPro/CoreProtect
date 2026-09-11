@@ -78,6 +78,7 @@ public class Config extends Language {
     public boolean NATURAL_BREAK;
     public boolean BLOCK_MOVEMENT;
     public boolean PISTONS;
+    public boolean DISPENSERS;
     public boolean BLOCK_BURN;
     public boolean BLOCK_IGNITE;
     public boolean FIRE_EXTINGUISH;
@@ -149,6 +150,7 @@ public class Config extends Language {
         DEFAULT_VALUES.put("natural-break", "true");
         DEFAULT_VALUES.put("block-movement", "true");
         DEFAULT_VALUES.put("pistons", "true");
+        DEFAULT_VALUES.put("dispensers", "true");
         DEFAULT_VALUES.put("block-burn", "true");
         DEFAULT_VALUES.put("block-ignite", "true");
         DEFAULT_VALUES.put("fire-extinguish", "false");
@@ -199,6 +201,7 @@ public class Config extends Language {
         HEADERS.put("natural-break", new String[] { "# Logs blocks that break off of other blocks; for example, a sign or torch", "# falling off of a dirt block that a player breaks. This is required for", "# beds/doors to properly rollback." });
         HEADERS.put("block-movement", new String[] { "# Properly track block movement, such as sand or gravel falling." });
         HEADERS.put("pistons", new String[] { "# Properly track blocks moved by pistons." });
+        HEADERS.put("dispensers", new String[] { "# Logs world changes caused by dispensers, such as dispensing water,", "# lava, or fire, and the growth caused by dispensed bone meal." });
         HEADERS.put("block-burn", new String[] { "# Logs blocks that burn up in a fire." });
         HEADERS.put("block-ignite", new String[] { "# Logs when a block naturally ignites, such as from fire spreading." });
         HEADERS.put("fire-extinguish", new String[] { "# Logs when fire naturally extinguishes." });
@@ -279,6 +282,7 @@ public class Config extends Language {
         this.NATURAL_BREAK = this.getBoolean("natural-break");
         this.BLOCK_MOVEMENT = this.getBoolean("block-movement");
         this.PISTONS = this.getBoolean("pistons");
+        this.DISPENSERS = this.getBoolean("dispensers");
         this.BLOCK_BURN = this.getBoolean("block-burn");
         this.BLOCK_IGNITE = this.getBoolean("block-ignite");
         this.FIRE_EXTINGUISH = this.getBoolean("fire-extinguish");

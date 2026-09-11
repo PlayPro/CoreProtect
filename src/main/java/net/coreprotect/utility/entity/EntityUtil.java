@@ -75,6 +75,7 @@ import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.spigot.SpigotAdapter;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.AttributeUtils;
 import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.WorldUtils;
@@ -720,19 +721,11 @@ public class EntityUtil {
         for (Object value : attributes) {
             @SuppressWarnings("unchecked")
             List<Object> attributeData = (List<Object>) value;
-            Attribute attribute = null;
-            if (attributeData.get(0) instanceof Attribute) {
-                attribute = (Attribute) attributeData.get(0);
+            Attribute attribute;
+            try {
+                attribute = AttributeUtils.resolve(attributeData.get(0));
             }
-            else {
-                String key = (String) attributeData.get(0);
-                Object registryValue = registryValue(key, Attribute.class);
-                NamespacedKey namespacedKey = namespacedKey(key);
-                attribute = registryValue instanceof Attribute
-                        ? (Attribute) registryValue
-                        : namespacedKey == null ? null : Registry.ATTRIBUTE.get(namespacedKey);
-            }
-            if (attribute == null) {
+            catch (IllegalArgumentException exception) {
                 continue;
             }
 

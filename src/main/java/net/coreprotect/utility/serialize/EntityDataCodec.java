@@ -1,5 +1,6 @@
 package net.coreprotect.utility.serialize;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -132,6 +133,10 @@ public final class EntityDataCodec {
     }
 
     public static List<Object> decode(Kind expectedKind, byte[] encoded) {
+        return decode(expectedKind, encoded, true);
+    }
+
+    private static List<Object> decode(Kind expectedKind, byte[] encoded, boolean resolveConfigurations) {
         Objects.requireNonNull(expectedKind, "expectedKind");
         Objects.requireNonNull(encoded, "encoded");
         if (encoded.length > BinaryCodecSupport.MAX_ENCODED_LENGTH) {
@@ -139,7 +144,7 @@ public final class EntityDataCodec {
         }
 
         try {
-            BinaryInput input = new BinaryInput(encoded);
+            BinaryInput input = new BinaryInput(encoded, resolveConfigurations);
             input.requireHeader(expectedKind);
             Object value = input.readValue(1);
             input.requireEnd();
@@ -156,7 +161,15 @@ public final class EntityDataCodec {
     }
 
     public static byte[] canonicalize(Kind expectedKind, byte[] encoded) {
-        return encode(expectedKind, decode(expectedKind, encoded));
+        return encode(expectedKind, decode(expectedKind, encoded, false));
+    }
+
+    public static byte[] fromLegacy(Kind kind, byte[] serialized) throws IOException, ClassNotFoundException {
+        return encode(kind, LegacyMetadataCodec.decode(serialized));
+    }
+
+    public static byte[] toLegacy(Kind kind, byte[] encoded) throws IOException, ClassNotFoundException {
+        return LegacyMetadataCodec.encode(decode(kind, encoded, false));
     }
 
     public static boolean isEncoded(byte[] data) {
@@ -234,12 +247,22 @@ public final class EntityDataCodec {
             output.write(STRING);
             output.writeString(value.toString());
         }
+        else if (value instanceof LegacyMetadataCodec.ConfigurationValue) {
+            LegacyMetadataCodec.ConfigurationValue configuration = (LegacyMetadataCodec.ConfigurationValue) value;
+            output.write(CONFIGURATION);
+            output.writeString(configuration.alias());
+            encodeMapBody(output, configuration.values(), true, depth);
+        }
         else if (value instanceof ConfigurationSerializable) {
             encodeConfigurationValue(output, (ConfigurationSerializable) value, depth);
         }
         else if (value instanceof Keyed || value instanceof Sound || value instanceof PotionEffectType) {
             output.write(STRING);
             output.writeString(registryKey(value));
+        }
+        else if (value instanceof LegacyMetadataCodec.AttributeValue) {
+            output.write(STRING);
+            output.writeString(((LegacyMetadataCodec.AttributeValue) value).key());
         }
         else if (value instanceof Enum<?>) {
             encodeEnum(output, (Enum<?>) value, configurationValue);
@@ -407,6 +430,9 @@ public final class EntityDataCodec {
     }
 
     private static String mapKey(Object value) {
+        if (value instanceof LegacyMetadataCodec.AttributeValue) {
+            return ((LegacyMetadataCodec.AttributeValue) value).key();
+        }
         if (value instanceof String || value instanceof NamespacedKey) {
             return value.toString();
         }
@@ -503,8 +529,11 @@ public final class EntityDataCodec {
 
     private static final class BinaryInput extends BinaryCodecSupport.Input {
 
-        private BinaryInput(byte[] data) {
+        private final boolean resolveConfigurations;
+
+        private BinaryInput(byte[] data, boolean resolveConfigurations) {
             super(data, DESCRIPTION);
+            this.resolveConfigurations = resolveConfigurations;
         }
 
         private void requireHeader(Kind expectedKind) {
@@ -568,7 +597,10 @@ public final class EntityDataCodec {
                 case ENUM:
                     return parseEnum(readString(), readString());
                 case CONFIGURATION:
-                    return parseConfigurationValue(readString(), readMapBody(depth));
+                    String alias = readString();
+                    Map<String, Object> serialized = readMapBody(depth);
+                    return resolveConfigurations ? parseConfigurationValue(alias, serialized)
+                            : new LegacyMetadataCodec.ConfigurationValue(alias, serialized);
                 case DOUBLE_ZERO:
                     return 0.0D;
                 case DOUBLE_ONE:

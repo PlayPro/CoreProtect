@@ -19,14 +19,14 @@ import java.util.Objects;
 
 import org.bukkit.util.io.BukkitObjectInputStream;
 
-final class LegacyBlockMetaCodec {
+final class LegacyMetadataCodec {
 
     private static final String WRAPPER_CLASS = "org.bukkit.util.io.Wrapper";
     private static final String ATTRIBUTE_CLASS = "org.bukkit.attribute.Attribute";
     private static final long WRAPPER_UID = -986209235411767547L;
     private static final String ALIAS_KEY = "==";
 
-    private LegacyBlockMetaCodec() {
+    private LegacyMetadataCodec() {
         throw new IllegalStateException("Codec class");
     }
 
@@ -36,7 +36,7 @@ final class LegacyBlockMetaCodec {
         try (MetadataInput input = new MetadataInput(new ByteArrayInputStream(encoded))) {
             Object value = input.readObject();
             if (!(value instanceof List<?>)) {
-                throw new IllegalArgumentException("Block metadata root is not a list");
+                throw new IllegalArgumentException("Legacy metadata root is not a list");
             }
             @SuppressWarnings("unchecked")
             List<Object> metadata = (List<Object>) value;
@@ -56,18 +56,18 @@ final class LegacyBlockMetaCodec {
 
     private static void requireLength(int length) {
         if (length > BinaryCodecSupport.MAX_ENCODED_LENGTH) {
-            throw new IllegalArgumentException("Block metadata exceeds the maximum encoded size");
+            throw new IllegalArgumentException("Legacy metadata exceeds the maximum encoded size");
         }
     }
 
     private static ObjectStreamClass validateWrapper(ObjectStreamClass descriptor) throws InvalidClassException {
         if (descriptor == null) {
-            throw new InvalidClassException(WRAPPER_CLASS, "Block metadata wrapper is not serializable");
+            throw new InvalidClassException(WRAPPER_CLASS, "Legacy metadata wrapper is not serializable");
         }
         ObjectStreamField[] fields = descriptor.getFields();
         if (descriptor.getSerialVersionUID() != WRAPPER_UID || fields.length != 1
                 || !fields[0].getName().equals("map") || !"Ljava/util/Map;".equals(fields[0].getTypeString())) {
-            throw new InvalidClassException(WRAPPER_CLASS, "Unsupported block metadata wrapper layout");
+            throw new InvalidClassException(WRAPPER_CLASS, "Unsupported legacy metadata wrapper layout");
         }
         return descriptor;
     }
@@ -119,10 +119,10 @@ final class LegacyBlockMetaCodec {
 
         ConfigurationValue(String alias, Map<String, Object> values) {
             if (alias == null || alias.isEmpty()) {
-                throw new IllegalArgumentException("Block metadata configuration alias is missing");
+                throw new IllegalArgumentException("Legacy metadata configuration alias is missing");
             }
             if (values.containsKey(ALIAS_KEY)) {
-                throw new IllegalArgumentException("Block metadata configuration values contain an alias");
+                throw new IllegalArgumentException("Legacy metadata configuration values contain an alias");
             }
             map = new LinkedHashMap<>();
             map.put(ALIAS_KEY, alias);
@@ -132,7 +132,7 @@ final class LegacyBlockMetaCodec {
         String alias() {
             Object alias = map == null ? null : map.get(ALIAS_KEY);
             if (!(alias instanceof String) || ((String) alias).isEmpty()) {
-                throw new IllegalArgumentException("Block metadata configuration alias is missing");
+                throw new IllegalArgumentException("Legacy metadata configuration alias is missing");
             }
             return (String) alias;
         }
@@ -159,7 +159,7 @@ final class LegacyBlockMetaCodec {
             }
             if (descriptor.getName().equals(ATTRIBUTE_CLASS)) {
                 if (descriptor.getSerialVersionUID() != 0 || descriptor.getFields().length != 0) {
-                    throw new InvalidClassException(ATTRIBUTE_CLASS, "Unsupported block metadata attribute layout");
+                    throw new InvalidClassException(ATTRIBUTE_CLASS, "Unsupported legacy metadata attribute layout");
                 }
                 return ObjectStreamClass.lookup(AttributeValue.class);
             }

@@ -87,9 +87,10 @@ public final class BlockDispenseListener extends Queue implements Listener {
                     type = BukkitAdapter.ADAPTER.getBucketContents(material);
                 }
 
-                // Bone meal applies to the block the dispenser faces, so remember that block
-                // for BlockFertilizeListener to attribute the growth to the dispenser.
-                if (material == Material.BONE_MEAL) {
+                // Bone meal is applied to the block a dispenser faces, so remember that block for
+                // BlockFertilizeListener to attribute the growth to the dispenser. Droppers eject
+                // the item as an entity instead, so they must not claim the block.
+                if (material == Material.BONE_MEAL && block.getType() == Material.DISPENSER) {
                     String key = CacheHandler.locationKey(newBlock.getLocation());
                     if (!key.isEmpty()) {
                         CacheHandler.redstoneCache.put(key, new Object[] { System.currentTimeMillis(), user });

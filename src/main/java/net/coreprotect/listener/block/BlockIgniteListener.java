@@ -8,6 +8,7 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Lightable;
+import org.bukkit.entity.Fireball;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -15,6 +16,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.block.BlockIgniteEvent.IgniteCause;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.projectiles.BlockProjectileSource;
+import org.bukkit.projectiles.ProjectileSource;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
@@ -32,6 +35,10 @@ public final class BlockIgniteListener extends Queue implements Listener {
         World world = event.getBlock().getWorld();
         Config config = Config.getConfig(world);
         if (!event.isCancelled() && config.BLOCK_IGNITE) {
+            if (!config.DISPENSERS && isDispenserIgnition(event)) {
+                return;
+            }
+
             Block block = event.getBlock();
             if (block == null) {
                 return;
@@ -147,6 +154,23 @@ public final class BlockIgniteListener extends Queue implements Listener {
                 CacheHandler.lookupCache.put("" + block.getX() + "." + block.getY() + "." + block.getZ() + "." + world_id + "", new Object[] { unixtimestamp, player.getName(), block.getType() });
             }
         }
+    }
+
+    private static boolean isDispenserIgnition(BlockIgniteEvent event) {
+        Block ignitingBlock = event.getIgnitingBlock();
+        if (ignitingBlock != null && ignitingBlock.getType() == Material.DISPENSER) {
+            return true;
+        }
+
+        if (event.getIgnitingEntity() instanceof Fireball) {
+            ProjectileSource shooter = ((Fireball) event.getIgnitingEntity()).getShooter();
+            if (shooter instanceof BlockProjectileSource) {
+                Block source = ((BlockProjectileSource) shooter).getBlock();
+                return source != null && source.getType() == Material.DISPENSER;
+            }
+        }
+
+        return false;
     }
 
 }

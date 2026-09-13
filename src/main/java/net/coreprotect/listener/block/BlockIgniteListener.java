@@ -17,7 +17,6 @@ import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.block.BlockIgniteEvent.IgniteCause;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.projectiles.BlockProjectileSource;
-import org.bukkit.projectiles.ProjectileSource;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
@@ -162,12 +161,11 @@ public final class BlockIgniteListener extends Queue implements Listener {
             return true;
         }
 
+        // A dispensed fire charge becomes a fireball, and fireball ignitions report no igniting
+        // block. Dispensers are the only blocks that launch projectiles, so the shooter still
+        // identifies the dispenser after it has been broken and the block is gone.
         if (event.getIgnitingEntity() instanceof Fireball) {
-            ProjectileSource shooter = ((Fireball) event.getIgnitingEntity()).getShooter();
-            if (shooter instanceof BlockProjectileSource) {
-                Block source = ((BlockProjectileSource) shooter).getBlock();
-                return source != null && source.getType() == Material.DISPENSER;
-            }
+            return ((Fireball) event.getIgnitingEntity()).getShooter() instanceof BlockProjectileSource;
         }
 
         return false;

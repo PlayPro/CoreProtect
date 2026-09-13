@@ -4,8 +4,10 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.bukkit.Location;
+import org.bukkit.plugin.IllegalPluginAccessException;
 
 import net.coreprotect.CoreProtect;
+import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.HopperTransactionUtils;
@@ -59,11 +61,22 @@ final class ContainerTransactionDispatcher {
         }
 
         private void start() {
+            CoreProtect plugin = CoreProtect.getInstance();
+            if (ConfigHandler.shutdownDrainRunning || !plugin.isEnabled()) {
+                drain();
+                return;
+            }
+
             if (!running.compareAndSet(false, true)) {
                 return;
             }
 
-            Scheduler.runTaskAsynchronously(CoreProtect.getInstance(), this::drain);
+            try {
+                Scheduler.runTaskAsynchronously(plugin, this::drain);
+            }
+            catch (IllegalPluginAccessException e) {
+                drain();
+            }
         }
 
         private void drain() {

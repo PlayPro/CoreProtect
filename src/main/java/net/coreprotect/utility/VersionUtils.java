@@ -82,14 +82,18 @@ public class VersionUtils {
     }
 
     public static boolean isPaper() {
+        return classExists("com.destroystokyo.paper.PaperConfig")
+                || classExists("io.papermc.paper.configuration.ServerConfiguration");
+    }
+
+    private static boolean classExists(String className) {
         try {
-            Class.forName("com.destroystokyo.paper.PaperConfig");
+            Class.forName(className);
+            return true;
         }
-        catch (Exception e) {
+        catch (ClassNotFoundException e) {
             return false;
         }
-
-        return true;
     }
 
     public static boolean isFolia() {

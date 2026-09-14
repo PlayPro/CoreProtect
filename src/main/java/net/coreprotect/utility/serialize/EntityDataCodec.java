@@ -260,9 +260,9 @@ public final class EntityDataCodec {
             output.write(STRING);
             output.writeString(registryKey(value));
         }
-        else if (value instanceof LegacyMetadataCodec.AttributeValue) {
+        else if (value instanceof LegacyMetadataCodec.RegistryValue) {
             output.write(STRING);
-            output.writeString(((LegacyMetadataCodec.AttributeValue) value).key());
+            output.writeString(((LegacyMetadataCodec.RegistryValue) value).key());
         }
         else if (value instanceof Enum<?>) {
             encodeEnum(output, (Enum<?>) value, configurationValue);
@@ -430,8 +430,8 @@ public final class EntityDataCodec {
     }
 
     private static String mapKey(Object value) {
-        if (value instanceof LegacyMetadataCodec.AttributeValue) {
-            return ((LegacyMetadataCodec.AttributeValue) value).key();
+        if (value instanceof LegacyMetadataCodec.RegistryValue) {
+            return ((LegacyMetadataCodec.RegistryValue) value).key();
         }
         if (value instanceof String || value instanceof NamespacedKey) {
             return value.toString();

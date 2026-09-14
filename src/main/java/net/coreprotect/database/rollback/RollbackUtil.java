@@ -1,6 +1,5 @@
 package net.coreprotect.database.rollback;
 
-import java.io.ByteArrayInputStream;
 import java.util.List;
 import java.util.Map;
 
@@ -32,7 +31,6 @@ import org.bukkit.inventory.meta.MapMeta;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.inventory.meta.SuspiciousStewMeta;
 import org.bukkit.potion.PotionEffect;
-import org.bukkit.util.io.BukkitObjectInputStream;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.consumer.Queue;
@@ -481,22 +479,8 @@ public class RollbackUtil extends Lookup {
     }
 
     public static Object[] populateItemStack(ItemStack itemstack, byte[] metadata) {
-        if (metadata != null) {
-            try {
-                ByteArrayInputStream metaByteStream = new ByteArrayInputStream(metadata);
-                BukkitObjectInputStream metaObjectStream = new BukkitObjectInputStream(metaByteStream);
-                Object metaList = metaObjectStream.readObject();
-                metaObjectStream.close();
-                metaByteStream.close();
-
-                return populateItemStack(itemstack, metaList);
-            }
-            catch (Exception e) {
-                ErrorReporter.report(e);
-            }
-        }
-
-        return new Object[] { 0, "", itemstack };
+        List<Object> metaList = deserializeMetadata(metadata);
+        return metaList == null ? new Object[] { 0, "", itemstack } : populateItemStack(itemstack, metaList);
     }
 
     /**

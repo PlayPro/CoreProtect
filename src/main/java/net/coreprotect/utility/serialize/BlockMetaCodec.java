@@ -259,6 +259,10 @@ public final class BlockMetaCodec {
         return encode(LegacyMetadataCodec.decode(serialized));
     }
 
+    public static List<Object> decodeLegacy(byte[] serialized) throws IOException, ClassNotFoundException {
+        return LegacyMetadataCodec.decodeRuntime(serialized);
+    }
+
     public static byte[] toLegacy(byte[] encoded) throws IOException, ClassNotFoundException {
         return LegacyMetadataCodec.encode(decode(encoded, false));
     }
@@ -273,7 +277,7 @@ public final class BlockMetaCodec {
         if (!metadata.isEmpty()) {
             boolean command = true;
             for (Object value : metadata) {
-                if (!(value instanceof String) && !(value instanceof LegacyMetadataCodec.AttributeValue)) {
+                if (!(value instanceof String) && !(value instanceof LegacyMetadataCodec.RegistryValue)) {
                     command = false;
                     break;
                 }
@@ -320,8 +324,8 @@ public final class BlockMetaCodec {
     private static void encodeCommand(BinaryOutput output, List<Object> metadata) {
         output.writeLength(metadata.size());
         for (Object value : metadata) {
-            output.writeString(value instanceof LegacyMetadataCodec.AttributeValue
-                    ? ((LegacyMetadataCodec.AttributeValue) value).key() : (String) value);
+            output.writeString(value instanceof LegacyMetadataCodec.RegistryValue
+                    ? ((LegacyMetadataCodec.RegistryValue) value).key() : (String) value);
         }
     }
 
@@ -435,9 +439,9 @@ public final class BlockMetaCodec {
             output.write(STRING);
             output.writeString(registryKey(value));
         }
-        else if (value instanceof LegacyMetadataCodec.AttributeValue) {
+        else if (value instanceof LegacyMetadataCodec.RegistryValue) {
             output.write(STRING);
-            output.writeString(((LegacyMetadataCodec.AttributeValue) value).key());
+            output.writeString(((LegacyMetadataCodec.RegistryValue) value).key());
         }
         else if (value instanceof Enum<?>) {
             encodeEnum(output, (Enum<?>) value);

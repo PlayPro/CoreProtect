@@ -1,9 +1,6 @@
 package net.coreprotect.database.statement;
 
-import java.io.ByteArrayInputStream;
 import java.util.List;
-
-import org.bukkit.util.io.BukkitObjectInputStream;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.ConsumerWriteBatch;
@@ -96,17 +93,6 @@ public class BlockStatement {
     }
 
     private static List<Object> deserializeMetadataStrict(byte[] metadata) throws Exception {
-        if (BlockMetaCodec.isEncoded(metadata)) {
-            return BlockMetaCodec.decode(metadata);
-        }
-        try (ByteArrayInputStream inputBytes = new ByteArrayInputStream(metadata); BukkitObjectInputStream input = new BukkitObjectInputStream(inputBytes)) {
-            Object value = input.readObject();
-            if (!(value instanceof List<?>)) {
-                throw new IllegalArgumentException("Block metadata root is not a list");
-            }
-            @SuppressWarnings("unchecked")
-            List<Object> values = (List<Object>) value;
-            return values;
-        }
+        return BlockMetaCodec.isEncoded(metadata) ? BlockMetaCodec.decode(metadata) : BlockMetaCodec.decodeLegacy(metadata);
     }
 }

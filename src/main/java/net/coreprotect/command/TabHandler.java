@@ -513,6 +513,7 @@ public class TabHandler implements TabCompleter {
         }
         if (argument.startsWith("#")) {
             if (!state.hasCount && !state.hasSummary && (lastArgument.equals("l") || lastArgument.equals("lookup"))) {
+                params.add("#count");
                 params.add("#summary");
             }
             if (!state.hasRollbackState && (lastArgument.equals("l") || lastArgument.equals("lookup"))) {

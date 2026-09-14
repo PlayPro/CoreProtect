@@ -230,9 +230,6 @@ public class ActionParser {
      * @return true if the summary flag is present
      */
     public static boolean parseSummary(String[] inputArguments) {
-        if (parseCount(inputArguments)) {
-            return true;
-        }
         for (int index = 1; index < inputArguments.length; index++) {
             String argument = inputArguments[index].trim().toLowerCase(Locale.ROOT).replace("\\", "").replace("'", "");
             if (argument.equals("#summary")) {

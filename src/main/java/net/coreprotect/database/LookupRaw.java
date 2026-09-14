@@ -1688,20 +1688,15 @@ public class LookupRaw extends Queue {
                 + "WHEN action IN(" + positiveActions + ") THEN amount ELSE -amount END";
         String eligible = "((amount=-1 AND action IN(" + LookupActions.BLOCK_BREAK + "," + LookupActions.BLOCK_PLACE + ")) OR "
                 + "(amount<>-1 AND action BETWEEN " + ItemTransactionActions.REMOVE + " AND " + ItemTransactionActions.BUY + "))";
-        String countedSource = includeGroupCount
-                ? "SELECT summary_source.*,COUNT(*) OVER() AS record_count FROM (" + sourceQuery + ") summary_source"
-                : sourceQuery;
-        String recordCount = includeGroupCount ? ",record_count" : "";
-        String contributions = "SELECT " + userColumn + ",type," + delta + " AS delta" + recordCount + " FROM (" + countedSource + ") summary_counted_source WHERE " + eligible;
+        String contributions = "SELECT " + userColumn + ",type," + delta + " AS delta FROM (" + sourceQuery + ") summary_source WHERE " + eligible;
         String grouped = "SELECT " + userColumn + ",type,SUM(CASE WHEN delta<0 THEN -delta ELSE 0 END) AS removed_amount,"
-                + "SUM(CASE WHEN delta>0 THEN delta ELSE 0 END) AS placed_amount,SUM(delta) AS net_amount"
-                + (includeGroupCount ? ",MAX(record_count) AS record_count " : " ")
+                + "SUM(CASE WHEN delta>0 THEN delta ELSE 0 END) AS placed_amount,SUM(delta) AS net_amount "
                 + "FROM (" + contributions + ") summary_contributions GROUP BY " + userColumn + ",type";
         if (countGroups) {
             return "SELECT COUNT(*) AS count FROM (" + grouped + ") summary_groups";
         }
 
-        String totalCount = includeGroupCount ? ",COUNT(*) OVER() AS total_count,record_count" : "";
+        String totalCount = includeGroupCount ? ",COUNT(*) OVER() AS total_count" : "";
         String query = "SELECT " + userColumn + ",type,removed_amount,placed_amount,net_amount AS amount" + totalCount + " FROM (" + grouped + ") summary_groups ORDER BY ABS(net_amount) DESC," + userColumn + " ASC,type ASC";
         if (limitOffset > -1 && limitCount > -1) {
             query += " LIMIT " + limitCount + " OFFSET " + limitOffset;

@@ -265,6 +265,7 @@ Add a hashtag to the end of your command to perform additional actions.
 | --- | --- |
 | `#preview` | Preview a rollback/restore |
 | `#count` | Return the number of rows found in a lookup query |
+| `#summary` | Return the row count and per-user material totals |
 | `#verbose` | Display additional information during a rollback/restore |
 | `#silent` | Display minimal information during a rollback/restore |
 
@@ -317,5 +318,7 @@ Lookup commands are generally the same as rollback commands. The primary differe
   *(lookup all logins ever done by Notch)*
 * `/co lookup u:Notch a:username`  
   *(lookup previous usernames used by Notch)*
+* `/co lookup r:50 t:7d a:block #summary`
+  *(show the matching row count and material totals for each user within the same area and time range)*
 
 ___

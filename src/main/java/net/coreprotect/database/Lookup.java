@@ -109,7 +109,7 @@ public class Lookup extends Queue {
             }
             Consumer.isPaused = true;
             paused = true;
-            try (ResultSet results = LookupRaw.rawSummaryResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, summaryActions(actionList), entityActionFilter, entityContext, location, radius, startTime, endTime, -1, -1, restrictWorld, entityContainerId, true, rollbackState)) {
+            try (ResultSet results = LookupRaw.rawSummaryResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, entityContext, location, radius, startTime, endTime, -1, -1, restrictWorld, entityContainerId, true, rollbackState)) {
                 return results.next() ? results.getLong("count") : 0L;
             }
         }
@@ -146,7 +146,7 @@ public class Lookup extends Queue {
             }
             Consumer.isPaused = true;
             paused = true;
-            try (ResultSet results = LookupRaw.rawSummaryResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, summaryActions(actionList), entityActionFilter, entityContext, location, radius, startTime, endTime, limitOffset, limitCount, restrictWorld, entityContainerId, false, rollbackState)) {
+            try (ResultSet results = LookupRaw.rawSummaryResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, entityContext, location, radius, startTime, endTime, limitOffset, limitCount, restrictWorld, entityContainerId, false, rollbackState)) {
                 while (results.next()) {
                     rows.add(summaryRow(results));
                 }
@@ -179,7 +179,6 @@ public class Lookup extends Queue {
 
         List<LookupSummaryRow> rows = new ArrayList<>();
         long totalRows = 0L;
-        long recordRows = 0L;
         boolean paused = false;
         try {
             while (Consumer.isPaused && !Consumer.isPersistenceHalted()) {
@@ -187,11 +186,10 @@ public class Lookup extends Queue {
             }
             Consumer.isPaused = true;
             paused = true;
-            try (ResultSet results = LookupRaw.rawSummaryPageResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, summaryActions(actionList), entityActionFilter, entityContext, location, radius, startTime, endTime, limitOffset, limitCount, restrictWorld, entityContainerId, rollbackState)) {
+            try (ResultSet results = LookupRaw.rawSummaryPageResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, entityContext, location, radius, startTime, endTime, limitOffset, limitCount, restrictWorld, entityContainerId, rollbackState)) {
                 while (results.next()) {
                     if (rows.isEmpty()) {
                         totalRows = results.getLong("total_count");
-                        recordRows = results.getLong("record_count");
                     }
                     rows.add(summaryRow(results));
                 }
@@ -205,7 +203,7 @@ public class Lookup extends Queue {
                 Consumer.isPaused = false;
             }
         }
-        return new LookupSummaryPage(totalRows, recordRows, rows);
+        return new LookupSummaryPage(totalRows, rows);
     }
 
     public static boolean supportsSummaryWindowFunctions(Statement statement) {
@@ -235,21 +233,13 @@ public class Lookup extends Queue {
     }
 
     private static boolean hasSummaryActions(List<Integer> actionList) {
-        return actionList.isEmpty() || actionList.contains(LookupActions.BLOCK_BREAK) || actionList.contains(LookupActions.BLOCK_PLACE) || actionList.contains(LookupActions.CONTAINER) || actionList.contains(LookupActions.ITEM);
-    }
-
-    private static List<Integer> summaryActions(List<Integer> actionList) {
-        if (actionList.isEmpty()) {
-            return Collections.emptyList();
+        if (actionList.contains(LookupActions.CONTAINER) || actionList.contains(5)) {
+            return true;
         }
-
-        List<Integer> actions = new ArrayList<>();
-        for (Integer action : actionList) {
-            if ((action == LookupActions.BLOCK_BREAK || action == LookupActions.BLOCK_PLACE || action == LookupActions.CONTAINER || action == LookupActions.ITEM) && !actions.contains(action)) {
-                actions.add(action);
-            }
+        if (actionList.contains(LookupActions.CHAT) || actionList.contains(LookupActions.COMMAND) || actionList.contains(LookupActions.SESSION) || actionList.contains(LookupActions.USERNAME) || actionList.contains(LookupActions.SIGN)) {
+            return false;
         }
-        return actions;
+        return actionList.isEmpty() || actionList.contains(LookupActions.BLOCK_BREAK) || actionList.contains(LookupActions.BLOCK_PLACE) || actionList.contains(LookupActions.ITEM);
     }
 
     public static List<String[]> performLookup(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, long startTime, long endTime, boolean restrictWorld, boolean lookup) {

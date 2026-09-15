@@ -7,24 +7,30 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.StringJoiner;
+import java.util.stream.Collectors;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.DuckDBLookupQuery;
 import net.coreprotect.database.DuckDBSpatialIndex;
 import net.coreprotect.database.LocationQuery;
+import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.utility.StringUtils;
 import net.coreprotect.utility.WorldUtils;
 
 final class LookupFilter {
     private final Integer userId;
     private final int checkTime;
     private final Location location;
+    private final World world;
     private final int radius;
     private final int limitOffset;
     private final int limitCount;
@@ -34,10 +40,11 @@ final class LookupFilter {
     private final String includeUserIds;
     private final String excludeUserIds;
 
-    private LookupFilter(Integer userId, int checkTime, Location location, int radius, int limitOffset, int limitCount, List<Material> includeMaterials, List<Material> excludeMaterials, Map<Integer, Material> materialTypes, String includeUserIds, String excludeUserIds) {
+    private LookupFilter(Integer userId, int checkTime, Location location, World world, int radius, int limitOffset, int limitCount, List<Material> includeMaterials, List<Material> excludeMaterials, Map<Integer, Material> materialTypes, String includeUserIds, String excludeUserIds) {
         this.userId = userId;
         this.checkTime = checkTime;
         this.location = location;
+        this.world = location == null ? world : location.getWorld();
         this.radius = radius;
         this.limitOffset = limitOffset;
         this.limitCount = limitCount;
@@ -69,7 +76,7 @@ final class LookupFilter {
             }
         }
 
-        return new LookupFilter(userId, checkTime, options.getLocation(), options.getRadius(), options.getLimitOffset(), options.getLimitCount(),
+        return new LookupFilter(userId, checkTime, options.getLocation(), options.getWorld(), options.getRadius(), options.getLimitOffset(), options.getLimitCount(),
                 options.getIncludeMaterials(), options.getExcludeMaterials(), materialTypes,
                 userIds(connection, options.getUsers()), userIds(connection, options.getExcludeUsers()));
     }
@@ -119,8 +126,10 @@ final class LookupFilter {
         }
         appendUserWhere(query, alias, includeUserIds, excludeUserIds);
 
-        if (location != null) {
+        if (world != null) {
             query.append(" AND ").append(LocationQuery.predicate(qualifier + "wid", " = ?"));
+        }
+        if (location != null) {
             if (radius > 0) {
                 query.append(" AND ").append(LocationQuery.predicate(qualifier + "x", " >= ?"))
                         .append(" AND ").append(LocationQuery.predicate(qualifier + "x", " <= ?"))
@@ -135,6 +144,14 @@ final class LookupFilter {
     }
 
     void appendEntityContainerWhere(StringBuilder query, String transactionAlias, String entityAlias) {
+        appendTrackedEntityWhere(query, transactionAlias, entityAlias, null);
+    }
+
+    void appendEntityWhere(Connection connection, StringBuilder query, String alias) {
+        appendTrackedEntityWhere(query, alias, "spawn_rows", table(connection, "block", "original_rows"));
+    }
+
+    private void appendTrackedEntityWhere(StringBuilder query, String transactionAlias, String entityAlias, String originalTable) {
         String transaction = transactionAlias + ".";
         String entity = entityAlias + ".";
         query.append("WHERE ").append(transaction).append("time > ?");
@@ -142,30 +159,57 @@ final class LookupFilter {
             query.append(" AND ").append(transaction).append(ConfigHandler.databaseType.getUserColumn()).append(" = ?");
         }
         appendUserWhere(query, transactionAlias, includeUserIds, excludeUserIds);
-        if (location == null) {
+        if (world == null) {
             return;
         }
 
-        query.append(" AND ((").append(LocationQuery.predicate(transaction + "wid", " = ?"));
-        if (radius > 0) {
-            query.append(" AND ").append(LocationQuery.predicate(transaction + "x", " >= ?"))
-                    .append(" AND ").append(LocationQuery.predicate(transaction + "x", " <= ?"))
-                    .append(" AND ").append(LocationQuery.predicate(transaction + "z", " >= ?"))
-                    .append(" AND ").append(LocationQuery.predicate(transaction + "z", " <= ?"));
+        String original = originalTable == null ? transaction : "original_rows.";
+        String tracked = ") OR (";
+        String ending = "))";
+        if (originalTable != null) {
+            String trackingId = ConfigHandler.databaseType.isClickHouse() ? "accurateCastOrNull(linked_rows.data, 'UInt64')" : "linked_rows.data";
+            String trackedRows = "SELECT " + entity + "block_rowid FROM " + ConfigHandler.prefix + "entity_spawn " + entityAlias
+                    + " INNER JOIN " + ConfigHandler.prefix + "block linked_rows ON linked_rows.rowid=" + entity + "block_rowid AND " + trackingId + "=" + entity + "rowid"
+                    + " AND linked_rows.action=" + LookupActions.ENTITY_SPAWN + " WHERE (";
+            if (location == null) {
+                query.append(" AND (").append(LocationQuery.predicate(transaction + "wid", " = ?"))
+                        .append(" OR ").append(transaction).append("rowid IN (").append(trackedRows).append(entity).append("current_wid = ?)))");
+                return;
+            }
+            // Separate location candidates keep both spatial indexes usable, including on MySQL.
+            query.append(" AND ").append(transaction).append("rowid IN (SELECT rowid FROM (SELECT original_rows.rowid FROM ").append(originalTable).append(" WHERE (");
+            tracked = ") UNION ALL " + trackedRows;
+            ending = ")) entity_locations)";
         }
         else {
-            query.append(" AND ").append(LocationQuery.predicate(transaction + "x", " = ?"))
-                    .append(" AND ").append(transaction).append("y = ? AND ").append(LocationQuery.predicate(transaction + "z", " = ?"));
+            query.append(" AND ((");
         }
 
-        query.append(") OR (").append(entity).append("current_wid = ?");
+        query.append(LocationQuery.predicate(original + "wid", " = ?"));
+        if (location == null) {
+            query.append(tracked).append(entity).append("current_wid = ?").append(ending);
+            return;
+        }
+
+        if (radius > 0) {
+            query.append(" AND ").append(LocationQuery.predicate(original + "x", " >= ?"))
+                    .append(" AND ").append(LocationQuery.predicate(original + "x", " <= ?"))
+                    .append(" AND ").append(LocationQuery.predicate(original + "z", " >= ?"))
+                    .append(" AND ").append(LocationQuery.predicate(original + "z", " <= ?"));
+        }
+        else {
+            query.append(" AND ").append(LocationQuery.predicate(original + "x", " = ?"))
+                    .append(" AND ").append(original).append("y = ? AND ").append(LocationQuery.predicate(original + "z", " = ?"));
+        }
+
+        query.append(tracked).append(entity).append("current_wid = ?");
         if (radius > 0) {
             query.append(" AND ").append(entity).append("x >= ? AND ").append(entity).append("x < ? AND ").append(entity).append("z >= ? AND ").append(entity).append("z < ?");
         }
         else {
             query.append(" AND ").append(entity).append("x >= ? AND ").append(entity).append("x < ? AND ").append(entity).append("y >= ? AND ").append(entity).append("y < ? AND ").append(entity).append("z >= ? AND ").append(entity).append("z < ?");
         }
-        query.append("))");
+        query.append(ending);
     }
 
     static void appendActionWhere(StringBuilder query, String alias, int[] actions) {
@@ -196,6 +240,45 @@ final class LookupFilter {
         }
     }
 
+    void appendBlockMaterialWhere(StringBuilder query) {
+        String entityActions = LookupActions.ENTITY_KILL + "," + LookupActions.ENTITY_SPAWN;
+        if (!includeMaterials.isEmpty()) {
+            query.append(" AND action NOT IN (").append(entityActions).append(") AND ").append(blockMaterialPredicate(includeMaterials));
+        }
+        if (!excludeMaterials.isEmpty()) {
+            query.append(" AND (action IN (").append(entityActions).append(") OR NOT ").append(blockMaterialPredicate(excludeMaterials)).append(")");
+        }
+    }
+
+    private String blockMaterialPredicate(List<Material> materials) {
+        List<Material> blockMaterials = new ArrayList<>(materials);
+        blockMaterials.removeAll(List.of(Material.STONE));
+        return "(type IN (" + materialIds(blockMaterials, false) + ") OR " + legacyStonePredicate(materials) + ")";
+    }
+
+    private String legacyStonePredicate(List<Material> materials) {
+        StringJoiner stoneData = new StringJoiner(",");
+        for (int data = 1; data <= 6; data++) {
+            Material material = Material.getMaterial(StringUtils.nameFilter("stone", data).toUpperCase(Locale.ROOT));
+            if (materials.contains(material)) {
+                stoneData.add(String.valueOf(data));
+            }
+        }
+
+        StringJoiner predicates = new StringJoiner(" OR ");
+        if (materials.contains(Material.STONE)) {
+            predicates.add("COALESCE(data,0) NOT BETWEEN 1 AND 6");
+        }
+        if (stoneData.length() > 0) {
+            predicates.add("COALESCE(data,0) IN (" + stoneData + ")");
+        }
+        if (predicates.length() == 0) {
+            return "1 = 0";
+        }
+
+        return "(type IN (" + materialIds(List.of(Material.STONE), false) + ") AND (" + predicates + "))";
+    }
+
     String table(Connection connection, String table, String alias) {
         if (location == null) {
             return ConfigHandler.prefix + table + alias(alias);
@@ -212,8 +295,16 @@ final class LookupFilter {
     }
 
     String entityContainerTable(Connection connection, String alias) throws Exception {
+        return trackedEntityTable(connection, "entity_container", alias);
+    }
+
+    String entityTable(Connection connection, String alias) throws Exception {
+        return trackedEntityTable(connection, "block", alias);
+    }
+
+    private String trackedEntityTable(Connection connection, String table, String alias) throws Exception {
         if (location == null || !ConfigHandler.databaseType.isDuckDB()) {
-            return ConfigHandler.prefix + "entity_container" + alias(alias);
+            return ConfigHandler.prefix + table + alias(alias);
         }
 
         int x = location.getBlockX();
@@ -223,25 +314,26 @@ final class LookupFilter {
         int minimumZ = radius > 0 ? MessageAPI.clampToInt((long) z - radius) : z;
         int maximumZ = radius > 0 ? MessageAPI.clampToInt((long) z + radius) : z;
         int worldId = WorldUtils.getWorldId(location.getWorld().getName());
-        List<Integer> entitySpawnRowIds = loadCurrentEntitySpawnRowIds(connection);
+        boolean block = table.equals("block");
+        List<Long> rowIds = loadCurrentEntityRowIds(connection, block ? "block_rowid" : "rowid");
         return DuckDBSpatialIndex.tableExpression(
                 connection,
                 ConfigHandler.prefix,
-                "entity_container",
+                table,
                 worldId,
                 minimumX,
                 maximumX,
                 minimumZ,
                 maximumZ,
-                entitySpawnRowIds,
-                Collections.emptySet(),
+                block ? Collections.emptySet() : rowIds.stream().map(Long::intValue).collect(Collectors.toList()),
+                block ? rowIds : Collections.emptySet(),
                 alias
         );
     }
 
-    private List<Integer> loadCurrentEntitySpawnRowIds(Connection connection) throws Exception {
-        List<Integer> rowIds = new ArrayList<>();
-        StringBuilder query = new StringBuilder("SELECT rowid FROM ").append(ConfigHandler.prefix).append("entity_spawn WHERE current_wid=?");
+    private List<Long> loadCurrentEntityRowIds(Connection connection, String column) throws Exception {
+        List<Long> rowIds = new ArrayList<>();
+        StringBuilder query = new StringBuilder("SELECT ").append(column).append(" FROM ").append(ConfigHandler.prefix).append("entity_spawn WHERE current_wid=?");
         if (radius > 0) {
             query.append(" AND x>=? AND x<? AND z>=? AND z<?");
         }
@@ -274,7 +366,10 @@ final class LookupFilter {
             }
             try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next() && rowIds.size() <= 4_096) {
-                    rowIds.add(resultSet.getInt(1));
+                    long rowId = resultSet.getLong(1);
+                    if (!resultSet.wasNull()) {
+                        rowIds.add(rowId);
+                    }
                 }
             }
         }
@@ -298,12 +393,14 @@ final class LookupFilter {
             statement.setInt(parameterIndex++, userId);
         }
 
+        if (world != null) {
+            statement.setInt(parameterIndex++, WorldUtils.getWorldId(world.getName()));
+        }
+
         if (location != null) {
             int x = location.getBlockX();
             int y = location.getBlockY();
             int z = location.getBlockZ();
-            statement.setInt(parameterIndex++, WorldUtils.getWorldId(location.getWorld().getName()));
-
             if (radius > 0) {
                 statement.setInt(parameterIndex++, MessageAPI.clampToInt((long) x - radius));
                 statement.setInt(parameterIndex++, MessageAPI.clampToInt((long) x + radius));
@@ -321,11 +418,22 @@ final class LookupFilter {
     }
 
     int bindEntityContainer(PreparedStatement statement, int parameterIndex) throws Exception {
+        return bindTrackedEntity(statement, parameterIndex);
+    }
+
+    int bindTrackedEntity(PreparedStatement statement, int parameterIndex) throws Exception {
         statement.setInt(parameterIndex++, checkTime);
         if (userId != null) {
             statement.setInt(parameterIndex++, userId);
         }
+        if (world == null) {
+            return parameterIndex;
+        }
+
         if (location == null) {
+            int worldId = WorldUtils.getWorldId(world.getName());
+            statement.setInt(parameterIndex++, worldId);
+            statement.setInt(parameterIndex++, worldId);
             return parameterIndex;
         }
 

@@ -1,6 +1,7 @@
 package net.coreprotect.command;
 
 import java.util.List;
+import java.util.Locale;
 
 import org.bukkit.Location;
 import org.bukkit.command.Command;
@@ -20,7 +21,8 @@ public class UndoCommand {
                 List<Object> list = ConfigHandler.lastRollback.get(user.getName());
                 long startTime = (Long) list.get(0);
                 long endTime = (Long) list.get(1);
-                args = (String[]) list.get(2);
+                args = ((String[]) list.get(2)).clone();
+                args[0] = args[0].toLowerCase(Locale.ROOT);
                 Location location = (Location) list.get(3);
                 for (String arg : args) {
                     if (arg.equals("#preview")) {
@@ -39,8 +41,8 @@ public class UndoCommand {
                     valid = false;
                 }
                 if (valid) {
-                    ConfigHandler.lastRollback.remove(user.getName());
-                    RollbackRestoreCommand.runCommand(user, command, permission, args, location, startTime, endTime);
+                    // Keep the saved operation until its inverse completes successfully.
+                    RollbackRestoreCommand.runCommand(user, command, permission && user.hasPermission("coreprotect." + args[0]), args, location, startTime, endTime);
                 }
             }
             else {

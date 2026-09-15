@@ -10,6 +10,7 @@ ___
 | [/co help](#co-help) | Display a list of commands |
 | [/co inspect](#co-inspect) | Toggle the inspector |
 | [/co lookup](#co-lookup) | Lookup block data |
+| [/co find](#co-find) | Search item properties |
 | [/co rollback](#co-rollback) | Rollback block data |
 | [/co restore](#co-restore) | Restore block data |
 | [/co purge](#co-purge) | Delete old block data |
@@ -65,6 +66,35 @@ If multiple pages are returned, use the command `/co lookup <page>` to switch pa
 To change the number of lines displayed on a page, use `/co lookup <page>:<lines>`. 
 
 > *For example, `/co l 1:10` will return 10 lines of data, starting at the first page.*
+
+---
+
+### /co find
+Search item properties in recorded transactions or online players' inventories and Ender Chests.
+
+| Parameter | Description |
+| --- | --- |
+| `i:<item>` | Match an item material. |
+| `name:<text>` | Match a name, ignoring colors and case. Quote names containing spaces. |
+| `exact:true` | Require a full name match. |
+| `enchant:<key>[=<level>]` | Match an enchantment, optionally at an exact level. |
+| `model:<number>` | Match integer custom model data. |
+| `data:<namespace:key>[=<value>]` | Match a persistent-data key, optionally with an exact string value. |
+| `source:history` or `source:online` | Search recorded transactions (default) or online players. |
+| `contents:false` | Search outer items only. Bundle and shulker contents are included by default. |
+| `t:<time>` | Historical time window, from 1 second to 31 days. Defaults to 1 day. |
+| `u:<player>` | Restrict the search to a player. |
+| `page:<number>` | Show ten matching entries per page. |
+
+Examples:
+
+* `/co find i:netherite_pickaxe name:"Excavator" t:2d`
+* `/co find enchant:fortune=3 t:1d u:Steve`
+* `/co find source:online i:diamond`
+
+Historical searches examine up to 10,000 recent transaction rows and report partial results when a limit is reached. Narrow `t:` or `u:` to search a smaller set. Each page runs a new search, so results may change as activity is logged. Nested contents are shown with their parent transaction and slot path. Matching records do not establish current ownership.
+
+Online searches include armor, offhand, Ender Chests, and carried bundles and shulkers. Offline players and world chests are not scanned. Unavailable players are reported. Historical searches require `api-enabled` and the inventory, container, and item lookup permissions in addition to the [find permissions](permissions.md).
 
 ---
 

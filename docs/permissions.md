@@ -15,6 +15,15 @@ The following permissions can be used to restrict functionality within the plugi
 * **coreprotect.lookup** *(default: op)*  
   Allows access to the CoreProtect lookup command.  
   &nbsp;
+* **coreprotect.find** *(default: op)*  
+  Allows access to the item search command.  
+  &nbsp;
+* **coreprotect.find.online** *(default: op)*  
+  Allows searching online inventories and Ender Chests. Also requires `coreprotect.find`.  
+  &nbsp;
+* **coreprotect.find.history** *(default: op)*  
+  Allows searching recorded item transactions. Also requires `coreprotect.find` and the inventory, container, and item lookup permissions.  
+  &nbsp;
 * **coreprotect.rollback** *(default: op)*  
   Allows access to the CoreProtect rollback command.  
   &nbsp;

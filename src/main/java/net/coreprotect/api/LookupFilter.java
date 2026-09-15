@@ -13,6 +13,7 @@ import java.util.StringJoiner;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.DuckDBLookupQuery;
@@ -28,6 +29,7 @@ final class LookupFilter {
     private final Integer userId;
     private final int checkTime;
     private final Location location;
+    private final World world;
     private final int radius;
     private final int limitOffset;
     private final int limitCount;
@@ -37,10 +39,11 @@ final class LookupFilter {
     private final String includeUserIds;
     private final String excludeUserIds;
 
-    private LookupFilter(Integer userId, int checkTime, Location location, int radius, int limitOffset, int limitCount, List<Material> includeMaterials, List<Material> excludeMaterials, Map<Integer, Material> materialTypes, String includeUserIds, String excludeUserIds) {
+    private LookupFilter(Integer userId, int checkTime, Location location, World world, int radius, int limitOffset, int limitCount, List<Material> includeMaterials, List<Material> excludeMaterials, Map<Integer, Material> materialTypes, String includeUserIds, String excludeUserIds) {
         this.userId = userId;
         this.checkTime = checkTime;
         this.location = location;
+        this.world = location == null ? world : location.getWorld();
         this.radius = radius;
         this.limitOffset = limitOffset;
         this.limitCount = limitCount;
@@ -72,7 +75,7 @@ final class LookupFilter {
             }
         }
 
-        return new LookupFilter(userId, checkTime, options.getLocation(), options.getRadius(), options.getLimitOffset(), options.getLimitCount(),
+        return new LookupFilter(userId, checkTime, options.getLocation(), options.getWorld(), options.getRadius(), options.getLimitOffset(), options.getLimitCount(),
                 options.getIncludeMaterials(), options.getExcludeMaterials(), materialTypes,
                 userIds(connection, options.getUsers()), userIds(connection, options.getExcludeUsers()));
     }
@@ -122,8 +125,10 @@ final class LookupFilter {
         }
         appendUserWhere(query, alias, includeUserIds, excludeUserIds);
 
-        if (location != null) {
+        if (world != null) {
             query.append(" AND ").append(LocationQuery.predicate(qualifier + "wid", " = ?"));
+        }
+        if (location != null) {
             if (radius > 0) {
                 query.append(" AND ").append(LocationQuery.predicate(qualifier + "x", " >= ?"))
                         .append(" AND ").append(LocationQuery.predicate(qualifier + "x", " <= ?"))
@@ -145,7 +150,12 @@ final class LookupFilter {
             query.append(" AND ").append(transaction).append(ConfigHandler.databaseType.getUserColumn()).append(" = ?");
         }
         appendUserWhere(query, transactionAlias, includeUserIds, excludeUserIds);
+        if (world == null) {
+            return;
+        }
+
         if (location == null) {
+            query.append(" AND ((").append(LocationQuery.predicate(transaction + "wid", " = ?")).append(") OR ").append(entity).append("current_wid = ?)");
             return;
         }
 
@@ -339,12 +349,14 @@ final class LookupFilter {
             statement.setInt(parameterIndex++, userId);
         }
 
+        if (world != null) {
+            statement.setInt(parameterIndex++, WorldUtils.getWorldId(world.getName()));
+        }
+
         if (location != null) {
             int x = location.getBlockX();
             int y = location.getBlockY();
             int z = location.getBlockZ();
-            statement.setInt(parameterIndex++, WorldUtils.getWorldId(location.getWorld().getName()));
-
             if (radius > 0) {
                 statement.setInt(parameterIndex++, MessageAPI.clampToInt((long) x - radius));
                 statement.setInt(parameterIndex++, MessageAPI.clampToInt((long) x + radius));
@@ -366,7 +378,14 @@ final class LookupFilter {
         if (userId != null) {
             statement.setInt(parameterIndex++, userId);
         }
+        if (world == null) {
+            return parameterIndex;
+        }
+
         if (location == null) {
+            int worldId = WorldUtils.getWorldId(world.getName());
+            statement.setInt(parameterIndex++, worldId);
+            statement.setInt(parameterIndex++, worldId);
             return parameterIndex;
         }
 

@@ -136,12 +136,26 @@ public class CoreProtectAPI extends Queue {
      * @param block
      *            The block to look up
      * @param options
-     *            Lookup options. User, time, and limit are applied; location and radius are ignored because the block supplies the exact location.
+     *            Lookup options. World, location, and radius are ignored because the block supplies the exact location.
      * @return List of results or null if API is disabled
      */
     public List<BlockResult> blockLookup(Block block, LookupOptions options) {
         if (isEnabled()) {
             return BlockAPI.performLookup(block, options);
+        }
+        return null;
+    }
+
+    /**
+     * Performs a typed block lookup using shared lookup options.
+     *
+     * @param options
+     *            Lookup options
+     * @return List of results or null if API is disabled
+     */
+    public List<BlockResult> blockLookup(LookupOptions options) {
+        if (isEnabled()) {
+            return BlockAPI.performLookup(options);
         }
         return null;
     }

@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 
 /**
  * Shared options for typed lookup API methods.
@@ -13,6 +14,7 @@ public final class LookupOptions {
     private final int time;
     private final int radius;
     private final Location location;
+    private final World world;
     private final int limitOffset;
     private final int limitCount;
     private final List<Material> includeMaterials;
@@ -30,6 +32,7 @@ public final class LookupOptions {
         this.time = builder.time;
         this.radius = builder.radius;
         this.location = builder.location;
+        this.world = builder.world;
         this.limitOffset = builder.limitOffset;
         this.limitCount = builder.limitCount;
         this.includeMaterials = builder.includeMaterials;
@@ -61,6 +64,10 @@ public final class LookupOptions {
 
     public Location getLocation() {
         return location;
+    }
+
+    public World getWorld() {
+        return world;
     }
 
     public int getLimitOffset() {
@@ -116,6 +123,7 @@ public final class LookupOptions {
         private int time;
         private int radius = -1;
         private Location location;
+        private World world;
         private int limitOffset = -1;
         private int limitCount = -1;
         private List<Material> includeMaterials = List.of();
@@ -143,13 +151,22 @@ public final class LookupOptions {
 
         public Builder location(Location location) {
             this.location = location;
+            this.world = null;
             this.radius = 0;
             return this;
         }
 
         public Builder radius(Location location, int radius) {
             this.location = location;
+            this.world = null;
             this.radius = radius;
+            return this;
+        }
+
+        public Builder world(World world) {
+            this.world = world;
+            this.location = null;
+            this.radius = -1;
             return this;
         }
 

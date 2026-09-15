@@ -163,6 +163,9 @@ public class BlockAPI {
                 query.append(" AND ").append(ConfigHandler.databaseType.getUserColumn()).append(" = ?");
             }
             LookupFilter.appendUserWhere(query, "", LookupFilter.userIds(connection, options.getUsers()), LookupFilter.userIds(connection, options.getExcludeUsers()));
+            if (!options.getIncludeMaterials().isEmpty() || !options.getExcludeMaterials().isEmpty()) {
+                LookupFilter.fromOptions(connection, options).appendBlockMaterialWhere(query);
+            }
             LookupFilter.appendActionWhere(query, "", options.getBlockActions().stream().mapToInt(BlockAction::id).toArray());
             query.append(" ORDER BY ").append(ConfigHandler.getDescendingEventOrder());
             if (options.hasLimit()) {

@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.StringJoiner;
 
@@ -17,8 +18,10 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.DuckDBLookupQuery;
 import net.coreprotect.database.DuckDBSpatialIndex;
 import net.coreprotect.database.LocationQuery;
+import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.utility.StringUtils;
 import net.coreprotect.utility.WorldUtils;
 
 final class LookupFilter {
@@ -194,6 +197,44 @@ final class LookupFilter {
         if (!excludeMaterials.isEmpty()) {
             query.append(" AND ").append(qualifier).append("type NOT IN (").append(materialIds(excludeMaterials, inventoryBlock)).append(")");
         }
+    }
+
+    void appendBlockMaterialWhere(StringBuilder query) {
+        String entityActions = LookupActions.ENTITY_KILL + "," + LookupActions.ENTITY_SPAWN;
+        if (!includeMaterials.isEmpty()) {
+            query.append(" AND action NOT IN (").append(entityActions).append(") AND ").append(blockMaterialPredicate(includeMaterials));
+        }
+        if (!excludeMaterials.isEmpty()) {
+            query.append(" AND (action IN (").append(entityActions).append(") OR NOT ").append(blockMaterialPredicate(excludeMaterials)).append(")");
+        }
+    }
+
+    private String blockMaterialPredicate(List<Material> materials) {
+        StringJoiner ids = new StringJoiner(",");
+        StringJoiner predicates = new StringJoiner(" OR ", "(", ")");
+        boolean includeStone = materials.contains(Material.STONE);
+        StringJoiner stoneData = new StringJoiner(",");
+        for (int data = 1; data <= 6; data++) {
+            Material material = Material.getMaterial(StringUtils.nameFilter("stone", data).toUpperCase(Locale.ROOT));
+            if (materials.contains(material) != includeStone) {
+                stoneData.add(String.valueOf(data));
+            }
+        }
+        for (Map.Entry<Integer, Material> entry : materialTypes.entrySet()) {
+            if (entry.getValue() == Material.STONE) {
+                if (stoneData.length() > 0) {
+                    predicates.add("(type = " + entry.getKey() + " AND COALESCE(data,0)" + (includeStone ? " NOT IN (" : " IN (") + stoneData + "))");
+                }
+                else if (includeStone) {
+                    ids.add(String.valueOf(entry.getKey()));
+                }
+            }
+            else if (entry.getValue() != null && materials.contains(entry.getValue())) {
+                ids.add(String.valueOf(entry.getKey()));
+            }
+        }
+        predicates.add("type IN (" + (ids.length() == 0 ? "-1" : ids.toString()) + ")");
+        return predicates.toString();
     }
 
     String table(Connection connection, String table, String alias) {

@@ -17,7 +17,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockDispenseEvent;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.util.Vector;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
@@ -54,7 +53,6 @@ public final class BlockDispenseListener extends Queue implements Listener {
                 Block newBlock = block.getRelative(dispenser.getFacing());
                 BlockData newBlockData = newBlock.getBlockData();
                 Location velocityLocation = event.getVelocity().toLocation(world);
-                boolean dispenseSuccess = !event.getVelocity().equals(new Vector()); // true if velocity is set
                 boolean dispenseRelative = newBlock.getLocation().equals(velocityLocation); // true if velocity location matches relative location
 
                 if (!BlockPreDispenseListener.useBlockPreDispenseEvent || (!BlockPreDispenseListener.useForDroppers && block.getType() == Material.DROPPER)) {
@@ -89,11 +87,19 @@ public final class BlockDispenseListener extends Queue implements Listener {
                     type = BukkitAdapter.ADAPTER.getBucketContents(material);
                 }
 
-                if (!dispenseSuccess && material == Material.BONE_MEAL) {
+                // Bone meal is applied to the block a dispenser faces, so remember that block for
+                // BlockFertilizeListener to attribute the growth to the dispenser. Droppers eject
+                // the item as an entity instead, so they must not claim the block.
+                if (material == Material.BONE_MEAL && block.getType() == Material.DISPENSER) {
                     String key = CacheHandler.locationKey(newBlock.getLocation());
                     if (!key.isEmpty()) {
                         CacheHandler.redstoneCache.put(key, new Object[] { System.currentTimeMillis(), user });
                     }
+                }
+
+                // The item transaction and bone meal hand-off above are unaffected by this option.
+                if (!config.DISPENSERS) {
+                    return;
                 }
 
                 if (type == Material.FIRE && (!config.BLOCK_IGNITE || !(newBlockData instanceof Lightable))) {

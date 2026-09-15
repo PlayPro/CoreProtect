@@ -8,6 +8,7 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Lightable;
+import org.bukkit.entity.Fireball;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -15,6 +16,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.block.BlockIgniteEvent.IgniteCause;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.projectiles.BlockProjectileSource;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
@@ -32,6 +34,10 @@ public final class BlockIgniteListener extends Queue implements Listener {
         World world = event.getBlock().getWorld();
         Config config = Config.getConfig(world);
         if (!event.isCancelled() && config.BLOCK_IGNITE) {
+            if (!config.DISPENSERS && isDispenserIgnition(event)) {
+                return;
+            }
+
             Block block = event.getBlock();
             if (block == null) {
                 return;
@@ -147,6 +153,22 @@ public final class BlockIgniteListener extends Queue implements Listener {
                 CacheHandler.lookupCache.put("" + block.getX() + "." + block.getY() + "." + block.getZ() + "." + world_id + "", new Object[] { unixtimestamp, player.getName(), block.getType() });
             }
         }
+    }
+
+    private static boolean isDispenserIgnition(BlockIgniteEvent event) {
+        Block ignitingBlock = event.getIgnitingBlock();
+        if (ignitingBlock != null && ignitingBlock.getType() == Material.DISPENSER) {
+            return true;
+        }
+
+        // A dispensed fire charge becomes a fireball, and fireball ignitions report no igniting
+        // block. Dispensers are the only blocks that launch projectiles, so the shooter still
+        // identifies the dispenser after it has been broken and the block is gone.
+        if (event.getIgnitingEntity() instanceof Fireball) {
+            return ((Fireball) event.getIgnitingEntity()).getShooter() instanceof BlockProjectileSource;
+        }
+
+        return false;
     }
 
 }

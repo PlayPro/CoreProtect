@@ -220,31 +220,32 @@ final class LookupFilter {
     }
 
     private String blockMaterialPredicate(List<Material> materials) {
-        StringJoiner ids = new StringJoiner(",");
-        StringJoiner predicates = new StringJoiner(" OR ", "(", ")");
-        boolean includeStone = materials.contains(Material.STONE);
+        List<Material> blockMaterials = new ArrayList<>(materials);
+        blockMaterials.removeAll(List.of(Material.STONE));
+        return "(type IN (" + materialIds(blockMaterials, false) + ") OR " + legacyStonePredicate(materials) + ")";
+    }
+
+    private String legacyStonePredicate(List<Material> materials) {
         StringJoiner stoneData = new StringJoiner(",");
         for (int data = 1; data <= 6; data++) {
             Material material = Material.getMaterial(StringUtils.nameFilter("stone", data).toUpperCase(Locale.ROOT));
-            if (materials.contains(material) != includeStone) {
+            if (materials.contains(material)) {
                 stoneData.add(String.valueOf(data));
             }
         }
-        for (Map.Entry<Integer, Material> entry : materialTypes.entrySet()) {
-            if (entry.getValue() == Material.STONE) {
-                if (stoneData.length() > 0) {
-                    predicates.add("(type = " + entry.getKey() + " AND COALESCE(data,0)" + (includeStone ? " NOT IN (" : " IN (") + stoneData + "))");
-                }
-                else if (includeStone) {
-                    ids.add(String.valueOf(entry.getKey()));
-                }
-            }
-            else if (entry.getValue() != null && materials.contains(entry.getValue())) {
-                ids.add(String.valueOf(entry.getKey()));
-            }
+
+        StringJoiner predicates = new StringJoiner(" OR ");
+        if (materials.contains(Material.STONE)) {
+            predicates.add("COALESCE(data,0) NOT BETWEEN 1 AND 6");
         }
-        predicates.add("type IN (" + (ids.length() == 0 ? "-1" : ids.toString()) + ")");
-        return predicates.toString();
+        if (stoneData.length() > 0) {
+            predicates.add("COALESCE(data,0) IN (" + stoneData + ")");
+        }
+        if (predicates.length() == 0) {
+            return "1 = 0";
+        }
+
+        return "(type IN (" + materialIds(List.of(Material.STONE), false) + ") AND (" + predicates + "))";
     }
 
     String table(Connection connection, String table, String alias) {

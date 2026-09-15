@@ -5,6 +5,7 @@ import java.util.List;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.entity.EntityType;
 
 /**
  * Shared options for typed lookup API methods.
@@ -26,6 +27,9 @@ public final class LookupOptions {
     private final List<InventoryAction> inventoryActions;
     private final List<BlockAction> blockActions;
     private final List<SessionAction> sessionActions;
+    private final List<EntityAction> entityActions;
+    private final List<EntityType> includeEntities;
+    private final List<EntityType> excludeEntities;
 
     private LookupOptions(Builder builder) {
         this.user = builder.user;
@@ -44,6 +48,9 @@ public final class LookupOptions {
         this.inventoryActions = builder.inventoryActions;
         this.blockActions = builder.blockActions;
         this.sessionActions = builder.sessionActions;
+        this.entityActions = builder.entityActions;
+        this.includeEntities = builder.includeEntities;
+        this.excludeEntities = builder.excludeEntities;
     }
 
     public static Builder builder() {
@@ -118,6 +125,18 @@ public final class LookupOptions {
         return sessionActions;
     }
 
+    public List<EntityAction> getEntityActions() {
+        return entityActions;
+    }
+
+    public List<EntityType> getIncludeEntities() {
+        return includeEntities;
+    }
+
+    public List<EntityType> getExcludeEntities() {
+        return excludeEntities;
+    }
+
     public static final class Builder {
         private String user;
         private int time;
@@ -135,6 +154,9 @@ public final class LookupOptions {
         private List<InventoryAction> inventoryActions = List.of();
         private List<BlockAction> blockActions = List.of();
         private List<SessionAction> sessionActions = List.of();
+        private List<EntityAction> entityActions = List.of();
+        private List<EntityType> includeEntities = List.of();
+        private List<EntityType> excludeEntities = List.of();
 
         private Builder() {
         }
@@ -218,6 +240,21 @@ public final class LookupOptions {
 
         public Builder sessionActions(List<SessionAction> actions) {
             this.sessionActions = List.copyOf(actions);
+            return this;
+        }
+
+        public Builder entityActions(List<EntityAction> actions) {
+            this.entityActions = List.copyOf(actions);
+            return this;
+        }
+
+        public Builder includeEntities(List<EntityType> entities) {
+            this.includeEntities = List.copyOf(entities);
+            return this;
+        }
+
+        public Builder excludeEntities(List<EntityType> entities) {
+            this.excludeEntities = List.copyOf(entities);
             return this;
         }
 

@@ -19,6 +19,7 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 
 import net.coreprotect.api.BlockAPI;
+import net.coreprotect.api.EntityAPI;
 import net.coreprotect.api.InventoryAPI;
 import net.coreprotect.api.ItemAPI;
 import net.coreprotect.api.LookupOptions;
@@ -29,6 +30,7 @@ import net.coreprotect.api.SignAPI;
 import net.coreprotect.api.UsernameAPI;
 import net.coreprotect.api.result.BlockResult;
 import net.coreprotect.api.result.ContainerResult;
+import net.coreprotect.api.result.EntityResult;
 import net.coreprotect.api.result.InventoryResult;
 import net.coreprotect.api.result.ItemResult;
 import net.coreprotect.api.result.MessageResult;
@@ -156,6 +158,20 @@ public class CoreProtectAPI extends Queue {
     public List<BlockResult> blockLookup(LookupOptions options) {
         if (isEnabled()) {
             return BlockAPI.performLookup(options);
+        }
+        return null;
+    }
+
+    /**
+     * Performs a typed lookup of entity spawn and kill events.
+     *
+     * @param options
+     *            Lookup options
+     * @return List of results in an EntityResult format
+     */
+    public List<EntityResult> entityLookup(LookupOptions options) {
+        if (isEnabled()) {
+            return EntityAPI.performLookup(options);
         }
         return null;
     }

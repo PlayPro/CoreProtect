@@ -167,8 +167,9 @@ final class LookupFilter {
         String tracked = ") OR (";
         String ending = "))";
         if (originalTable != null) {
+            String trackingId = ConfigHandler.databaseType.isClickHouse() ? "accurateCastOrNull(linked_rows.data, 'UInt64')" : "linked_rows.data";
             String trackedRows = "SELECT " + entity + "block_rowid FROM " + ConfigHandler.prefix + "entity_spawn " + entityAlias
-                    + " INNER JOIN " + ConfigHandler.prefix + "block linked_rows ON linked_rows.rowid=" + entity + "block_rowid AND linked_rows.data=" + entity + "rowid"
+                    + " INNER JOIN " + ConfigHandler.prefix + "block linked_rows ON linked_rows.rowid=" + entity + "block_rowid AND " + trackingId + "=" + entity + "rowid"
                     + " AND linked_rows.action=" + LookupActions.ENTITY_SPAWN + " WHERE (";
             if (location == null) {
                 query.append(" AND (").append(LocationQuery.predicate(transaction + "wid", " = ?"))

@@ -155,3 +155,13 @@ permissions:
     coreprotect.give:
         description: Has permission to use the give command
         default: false
+
+    coreprotect.find:
+        description: Search item properties
+        default: op
+    coreprotect.find.online:
+        description: Search online inventories and Ender Chests
+        default: op
+    coreprotect.find.history:
+        description: Search recorded item transactions
+        default: op

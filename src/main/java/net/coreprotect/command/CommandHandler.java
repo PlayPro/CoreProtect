@@ -81,7 +81,10 @@ public class CommandHandler implements CommandExecutor {
                     }
                 }
 
-                if (corecommand.equals("rollback") || corecommand.equals("restore") || corecommand.equals("rb") || corecommand.equals("rs") || corecommand.equals("ro") || corecommand.equals("re")) {
+                if (corecommand.equals("find")) {
+                    FindCommand.runCommand(user, argumentArray);
+                }
+                else if (corecommand.equals("rollback") || corecommand.equals("restore") || corecommand.equals("rb") || corecommand.equals("rs") || corecommand.equals("ro") || corecommand.equals("re")) {
                     RollbackRestoreCommand.runCommand(user, command, permission, argumentArray, null, 0, 0);
                 }
                 else if (corecommand.equals("apply")) {

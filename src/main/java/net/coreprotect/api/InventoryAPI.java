@@ -28,6 +28,17 @@ public class InventoryAPI {
     }
 
     public static List<InventoryResult> performLookup(LookupOptions options) {
+        try {
+            return performLookupChecked(options);
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+            return new ArrayList<>();
+        }
+    }
+
+    /** Internal callers can distinguish failed queries from empty results. */
+    public static List<InventoryResult> performLookupChecked(LookupOptions options) throws Exception {
         List<InventoryResult> result = new ArrayList<>();
 
         if (!Config.getGlobal().API_ENABLED) {
@@ -40,7 +51,7 @@ public class InventoryAPI {
 
         try (Connection connection = Database.getConnection(false, 1000)) {
             if (connection == null) {
-                return result;
+                throw new java.sql.SQLException("Database is busy.");
             }
 
             LookupFilter filter = LookupFilter.fromOptions(connection, options);
@@ -91,9 +102,6 @@ public class InventoryAPI {
             finally {
                 filter.endDuckDBSnapshot(connection, snapshot);
             }
-        }
-        catch (Exception e) {
-            ErrorReporter.report(e);
         }
 
         return result;

@@ -201,7 +201,9 @@ public class Config extends Language {
         HEADERS.put("natural-break", new String[] { "# Logs blocks that break off of other blocks; for example, a sign or torch", "# falling off of a dirt block that a player breaks. This is required for", "# beds/doors to properly rollback." });
         HEADERS.put("block-movement", new String[] { "# Properly track block movement, such as sand or gravel falling." });
         HEADERS.put("pistons", new String[] { "# Properly track blocks moved by pistons." });
-        HEADERS.put("dispensers", new String[] { "# Logs world changes caused by dispensers, such as dispensing water,", "# lava, or fire, and the growth caused by dispensed bone meal." });
+        HEADERS.put("dispensers", new String[] { "# Logs direct block changes caused by dispensers: bucket use, ignition,",
+                "# and the growth caused by dispensed bone meal. Fluid flow, fire spread,",
+                "# and TNT priming and explosions remain controlled by their own options." });
         HEADERS.put("block-burn", new String[] { "# Logs blocks that burn up in a fire." });
         HEADERS.put("block-ignite", new String[] { "# Logs when a block naturally ignites, such as from fire spreading." });
         HEADERS.put("fire-extinguish", new String[] { "# Logs when fire naturally extinguishes." });

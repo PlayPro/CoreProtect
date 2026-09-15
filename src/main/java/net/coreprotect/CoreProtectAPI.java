@@ -149,7 +149,7 @@ public class CoreProtectAPI extends Queue {
     }
 
     /**
-     * Performs a typed block lookup using shared lookup options.
+     * Performs a typed lookup of block breaks, placements, and interactions using shared lookup options. Entity events are excluded.
      *
      * @param options
      *            Lookup options

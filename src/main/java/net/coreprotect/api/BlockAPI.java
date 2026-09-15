@@ -127,7 +127,7 @@ public class BlockAPI {
                 .user(options.getUser()).users(options.getUsers()).excludeUsers(options.getExcludeUsers())
                 .time(options.getTime()).limit(options.getLimitOffset(), options.getLimitCount())
                 .includeMaterials(options.getIncludeMaterials()).excludeMaterials(options.getExcludeMaterials())
-                .blockActions(options.getBlockActions()).build());
+                .blockActions(options.getBlockActions()).build(), false);
     }
 
     /**
@@ -138,6 +138,10 @@ public class BlockAPI {
      * @return List of results in a BlockResult format
      */
     public static List<BlockResult> performLookup(LookupOptions options) {
+        return performLookup(options, true);
+    }
+
+    private static List<BlockResult> performLookup(LookupOptions options, boolean blocksOnly) {
         List<BlockResult> result = new ArrayList<>();
 
         if (!Config.getGlobal().API_ENABLED) {
@@ -165,7 +169,10 @@ public class BlockAPI {
             }
             filter.appendWhere(query);
             filter.appendBlockMaterialWhere(query);
-            LookupFilter.appendActionWhere(query, "", options.getBlockActions().stream().mapToInt(BlockAction::id).toArray());
+            int[] actions = blocksOnly && options.getBlockActions().isEmpty()
+                    ? new int[] { BlockAction.BREAK.id(), BlockAction.PLACE.id(), BlockAction.INTERACTION.id() }
+                    : options.getBlockActions().stream().mapToInt(BlockAction::id).toArray();
+            LookupFilter.appendActionWhere(query, "", actions);
             query.append(" ORDER BY ").append(ConfigHandler.getDescendingEventOrder());
             filter.appendLimit(query);
 

@@ -57,9 +57,8 @@ public class EntityAPI {
             try {
                 StringBuilder query = new StringBuilder("SELECT entity_rows.time,entity_rows." + ConfigHandler.databaseType.getUserColumn() + ",entity_rows.wid,entity_rows.x,entity_rows.y,entity_rows.z,entity_rows.type,entity_rows.action,entity_rows.rolled_back FROM ");
                 query.append(filter.entityTable(connection, "entity_rows"));
-                query.append(" LEFT JOIN ").append(ConfigHandler.prefix).append("entity_spawn spawn_rows ON entity_rows.action=").append(LookupActions.ENTITY_SPAWN)
-                        .append(" AND spawn_rows.rowid=entity_rows.data AND spawn_rows.block_rowid=entity_rows.rowid ");
-                filter.appendTrackedEntityWhere(query, "entity_rows", "spawn_rows", true);
+                query.append(' ');
+                filter.appendEntityWhere(connection, query, "entity_rows");
                 int[] actions = options.getEntityActions().isEmpty()
                         ? new int[] { LookupActions.ENTITY_KILL, LookupActions.ENTITY_SPAWN }
                         : options.getEntityActions().stream().mapToInt(EntityAction::id).toArray();

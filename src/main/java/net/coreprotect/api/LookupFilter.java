@@ -144,13 +144,16 @@ final class LookupFilter {
     }
 
     void appendEntityContainerWhere(StringBuilder query, String transactionAlias, String entityAlias) {
-        appendTrackedEntityWhere(query, transactionAlias, entityAlias, false);
+        appendTrackedEntityWhere(query, transactionAlias, entityAlias, null);
     }
 
-    void appendTrackedEntityWhere(StringBuilder query, String transactionAlias, String entityAlias, boolean requireEntityMatch) {
+    void appendEntityWhere(Connection connection, StringBuilder query, String alias) {
+        appendTrackedEntityWhere(query, alias, "spawn_rows", table(connection, "block", "original_rows"));
+    }
+
+    private void appendTrackedEntityWhere(StringBuilder query, String transactionAlias, String entityAlias, String originalTable) {
         String transaction = transactionAlias + ".";
         String entity = entityAlias + ".";
-        String entityMatch = requireEntityMatch ? entity + "rowid > 0 AND " : "";
         query.append("WHERE ").append(transaction).append("time > ?");
         if (userId != null) {
             query.append(" AND ").append(transaction).append(ConfigHandler.databaseType.getUserColumn()).append(" = ?");
@@ -160,31 +163,52 @@ final class LookupFilter {
             return;
         }
 
+        String original = originalTable == null ? transaction : "original_rows.";
+        String tracked = ") OR (";
+        String ending = "))";
+        if (originalTable != null) {
+            String trackedRows = "SELECT " + entity + "block_rowid FROM " + ConfigHandler.prefix + "entity_spawn " + entityAlias
+                    + " INNER JOIN " + ConfigHandler.prefix + "block linked_rows ON linked_rows.rowid=" + entity + "block_rowid AND linked_rows.data=" + entity + "rowid"
+                    + " AND linked_rows.action=" + LookupActions.ENTITY_SPAWN + " WHERE (";
+            if (location == null) {
+                query.append(" AND (").append(LocationQuery.predicate(transaction + "wid", " = ?"))
+                        .append(" OR ").append(transaction).append("rowid IN (").append(trackedRows).append(entity).append("current_wid = ?)))");
+                return;
+            }
+            // Separate location candidates keep both spatial indexes usable, including on MySQL.
+            query.append(" AND ").append(transaction).append("rowid IN (SELECT rowid FROM (SELECT original_rows.rowid FROM ").append(originalTable).append(" WHERE (");
+            tracked = ") UNION ALL " + trackedRows;
+            ending = ")) entity_locations)";
+        }
+        else {
+            query.append(" AND ((");
+        }
+
+        query.append(LocationQuery.predicate(original + "wid", " = ?"));
         if (location == null) {
-            query.append(" AND ((").append(LocationQuery.predicate(transaction + "wid", " = ?")).append(") OR (").append(entityMatch).append(entity).append("current_wid = ?))");
+            query.append(tracked).append(entity).append("current_wid = ?").append(ending);
             return;
         }
 
-        query.append(" AND ((").append(LocationQuery.predicate(transaction + "wid", " = ?"));
         if (radius > 0) {
-            query.append(" AND ").append(LocationQuery.predicate(transaction + "x", " >= ?"))
-                    .append(" AND ").append(LocationQuery.predicate(transaction + "x", " <= ?"))
-                    .append(" AND ").append(LocationQuery.predicate(transaction + "z", " >= ?"))
-                    .append(" AND ").append(LocationQuery.predicate(transaction + "z", " <= ?"));
+            query.append(" AND ").append(LocationQuery.predicate(original + "x", " >= ?"))
+                    .append(" AND ").append(LocationQuery.predicate(original + "x", " <= ?"))
+                    .append(" AND ").append(LocationQuery.predicate(original + "z", " >= ?"))
+                    .append(" AND ").append(LocationQuery.predicate(original + "z", " <= ?"));
         }
         else {
-            query.append(" AND ").append(LocationQuery.predicate(transaction + "x", " = ?"))
-                    .append(" AND ").append(transaction).append("y = ? AND ").append(LocationQuery.predicate(transaction + "z", " = ?"));
+            query.append(" AND ").append(LocationQuery.predicate(original + "x", " = ?"))
+                    .append(" AND ").append(original).append("y = ? AND ").append(LocationQuery.predicate(original + "z", " = ?"));
         }
 
-        query.append(") OR (").append(entityMatch).append(entity).append("current_wid = ?");
+        query.append(tracked).append(entity).append("current_wid = ?");
         if (radius > 0) {
             query.append(" AND ").append(entity).append("x >= ? AND ").append(entity).append("x < ? AND ").append(entity).append("z >= ? AND ").append(entity).append("z < ?");
         }
         else {
             query.append(" AND ").append(entity).append("x >= ? AND ").append(entity).append("x < ? AND ").append(entity).append("y >= ? AND ").append(entity).append("y < ? AND ").append(entity).append("z >= ? AND ").append(entity).append("z < ?");
         }
-        query.append("))");
+        query.append(ending);
     }
 
     static void appendActionWhere(StringBuilder query, String alias, int[] actions) {

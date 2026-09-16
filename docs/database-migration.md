@@ -12,7 +12,7 @@ Database migration can be used to move from SQLite or DuckDB to an external data
 
 | Command | Parameters | Description |
 | --- | --- | --- |
-| `/co migrate-db` | `<sqlite|mysql|duckdb|clickhouse>` | Migrate the active database to the selected backend |
+| `/co migrate-db` | `<sqlite|mysql|duckdb|clickhouse> [--full-validation]` | Migrate the active database to the selected backend |
 
 The command must be run from the server console, and the destination must differ from the active source.
 
@@ -21,6 +21,7 @@ For example:
 ```text
 co migrate-db duckdb
 co migrate-db clickhouse
+co migrate-db duckdb --full-validation
 ```
 
 ## Before You Start
@@ -55,7 +56,13 @@ Do not run `/co reload`, start a purge or rollback, or otherwise change database
 
 The migration copies all logical CoreProtect history and reference data, including rollback state and entity tracking. It preserves copied row IDs. MySQL, DuckDB, and ClickHouse targets also preserve allocator high-water marks; SQLite continues after the largest surviving row ID, matching its existing allocation behavior.
 
-CoreProtect compares table statistics and every copied data row before activation. Database-lock metadata is initialized separately; ClickHouse targets also initialize their own current version row. For a ClickHouse source, the current logical version of each row is copied; superseded internal ClickHouse revisions are storage-engine history rather than separate CoreProtect records.
+CoreProtect checks every table's row count, minimum and maximum row IDs, and applicable allocator high-water marks before activation. By default, it also compares approximately 1% of rows in each large history table, including their complete metadata. Tables with at most 100,000 rows and reference tables (`*_map`, `user`, `world`, and `version`) receive full comparisons.
+
+Samples are random contiguous ranges distributed across each million rows actually copied, rather than across the numeric row-ID space. Deleted-ID gaps therefore do not bias selection. Only selected ranges are reread for content verification, and the console reports the validation mode and progress against the number of rows selected for comparison. A small temporary file containing sample boundaries is removed after success or failure.
+
+Sampled validation can miss differences outside the selected ranges. Add `--full-validation` to compare every copied row instead. Any detected mismatch prevents activation in either mode. Sampling reduces content comparisons, but storage-engine scans and statistics checks can still make verification expensive.
+
+Database-lock metadata is initialized separately; ClickHouse targets also initialize their own current version row. For a ClickHouse source, the current logical version of each row is copied; superseded internal ClickHouse revisions are storage-engine history rather than separate CoreProtect records.
 
 Source history rows are not deleted or replaced. Migration may update operational metadata such as database-lock heartbeats and allocator state.
 

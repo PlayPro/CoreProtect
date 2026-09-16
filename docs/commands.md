@@ -140,7 +140,9 @@ Migrate data from the active database backend to a different backend. This is a 
 
 | Command | Parameters |
 | --- | --- |
-| /co migrate-db | `<sqlite|mysql|duckdb|clickhouse>` |
+| /co migrate-db | `<sqlite|mysql|duckdb|clickhouse> [--full-validation]` |
+
+By default, migration validates all table statistics and compares approximately 1% of each large history table, with full comparisons for small and reference tables. Add `--full-validation` to compare every copied row.
 
 The target namespace must contain no CoreProtect data; a DuckDB target must use a new database file, and `database-lock` must remain enabled. After a successful migration, CoreProtect automatically updates `database-type` in `config.yml` before queued writes resume.
 

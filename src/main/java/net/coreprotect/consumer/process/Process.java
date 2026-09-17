@@ -479,6 +479,12 @@ public class Process {
                                     if (object instanceof EntitySpawnData) {
                                         EntitySpawnData update = (EntitySpawnData) object;
                                         invalidateEntityInteractionIdentityConfirmation(update, pendingEntityIdentityConfirmations, invalidatedEntityIdentityConfirmations);
+                                        if (update.getPreviousUuid() != null) {
+                                            EntitySpawnIdentity previousIdentity = entitySpawnIdentities.get(update.getPreviousUuid());
+                                            if (previousIdentity != null) {
+                                                entitySpawnIdentities.putIfAbsent(update.getUuid(), previousIdentity);
+                                            }
+                                        }
                                         EntitySpawnIdentity createdIdentity = entitySpawnUpdates.apply(update);
                                         if (createdIdentity != null) {
                                             entitySpawnIdentities.put(createdIdentity.getUuid(), createdIdentity);

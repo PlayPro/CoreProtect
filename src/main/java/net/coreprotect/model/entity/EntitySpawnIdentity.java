@@ -10,14 +10,20 @@ public final class EntitySpawnIdentity {
     private final int originalX;
     private final int originalY;
     private final int originalZ;
+    private boolean spawnLogged;
 
     public EntitySpawnIdentity(int rowId, UUID uuid, int originalWorldId, double originalX, double originalY, double originalZ) {
+        this(rowId, uuid, originalWorldId, originalX, originalY, originalZ, false);
+    }
+
+    public EntitySpawnIdentity(int rowId, UUID uuid, int originalWorldId, double originalX, double originalY, double originalZ, boolean spawnLogged) {
         this.rowId = rowId;
         this.uuid = uuid;
         this.originalWorldId = originalWorldId;
         this.originalX = (int) Math.floor(originalX);
         this.originalY = (int) Math.floor(originalY);
         this.originalZ = (int) Math.floor(originalZ);
+        this.spawnLogged = spawnLogged;
     }
 
     public int getRowId() {
@@ -42,5 +48,13 @@ public final class EntitySpawnIdentity {
 
     public int getOriginalZ() {
         return originalZ;
+    }
+
+    public boolean hasSpawnLog() {
+        return spawnLogged;
+    }
+
+    public void markSpawnLogged() {
+        spawnLogged = true;
     }
 }

@@ -11,10 +11,10 @@ final class EntitySpawnLogProcess {
     private EntitySpawnLogProcess() {
     }
 
-    static EntitySpawnIdentity process(ConsumerWriteBatch batch, Object object, String user) throws Exception {
+    static EntitySpawnIdentity process(ConsumerWriteBatch batch, Object object, String user, EntitySpawnIdentity identity) throws Exception {
         if (object instanceof EntitySpawnData) {
             EntitySpawnData data = (EntitySpawnData) object;
-            return EntitySpawnLogger.logIdentity(batch, user, data);
+            return EntitySpawnLogger.logIdentity(batch, user, data, identity);
         }
         return null;
     }

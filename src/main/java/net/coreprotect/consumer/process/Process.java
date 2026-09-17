@@ -187,6 +187,7 @@ public class Process {
             }
 
             boolean hasEntitySpawnUpdates = false;
+            boolean hasEntitySpawnLogs = false;
             boolean hasEntityContainerTransactions = false;
             boolean hasEntityInteractions = false;
             List<EntitySpawnData> entitySpawnUpdateData = new ArrayList<>();
@@ -201,6 +202,7 @@ public class Process {
                 preflightUser(writeBatch, data, users);
                 int action = (int) data[1];
                 hasEntitySpawnUpdates |= action == Process.ENTITY_SPAWN_UPDATE || action == Process.ENTITY_CONTAINER_TRANSITION_UPDATE;
+                hasEntitySpawnLogs |= action == Process.ENTITY_SPAWN_LOG;
                 hasEntityContainerTransactions |= action == Process.ENTITY_CONTAINER_TRANSACTION;
                 hasEntityInteractions |= action == Process.ENTITY_INTERACTION;
 
@@ -214,6 +216,15 @@ public class Process {
                     Object object = consumerObject.get((int) data[0]);
                     if (object instanceof EntityInteraction) {
                         entityIdentityUuids.add(((EntityInteraction) object).getEntityUuid());
+                    }
+                }
+                else if (action == Process.ENTITY_SPAWN_LOG) {
+                    Object object = consumerObject.get((int) data[0]);
+                    if (object instanceof EntitySpawnData) {
+                        UUID uuid = ((EntitySpawnData) object).getUuid();
+                        if (uuid != null) {
+                            entityIdentityUuids.add(uuid);
+                        }
                     }
                 }
                 else if (action == Process.ENTITY_SPAWN_UPDATE || action == Process.ENTITY_CONTAINER_TRANSITION_UPDATE) {
@@ -241,7 +252,7 @@ public class Process {
             }
             preflightCommitted = true;
 
-            if (hasEntityContainerTransactions || hasEntityInteractions) {
+            if (hasEntityContainerTransactions || hasEntityInteractions || hasEntitySpawnLogs) {
                 entitySpawnIdentities.putAll(EntitySpawnStatement.loadIdentities(connection, entityIdentityUuids));
                 Map<Integer, EntitySpawnIdentity> identitiesByRowId = EntitySpawnStatement.loadIdentitiesByRowIds(connection, entityIdentityRowIds);
                 bindPendingEntitySpawnIdentities(consumerData, consumerObject, entitySpawnIdentities, identitiesByRowId);
@@ -454,25 +465,31 @@ public class Process {
                                         break;
                                     }
                                     EntitySpawnData spawnData = (EntitySpawnData) object;
+                                    EntitySpawnIdentity existingSpawnIdentity = entitySpawnIdentities.get(spawnData.getUuid());
                                     EntitySpawnIdentity spawnIdentity;
                                     try {
-                                        spawnIdentity = EntitySpawnLogProcess.process(writeBatch, spawnData, user);
+                                        spawnIdentity = EntitySpawnLogProcess.process(writeBatch, spawnData, user, existingSpawnIdentity);
                                     }
                                     catch (Exception e) {
                                         if (ConfigHandler.databaseType.isColumnar()) {
                                             pendingEntitySpawnLogs.add(new PendingEntitySpawnLog(user, spawnData, false, true));
                                         }
-                                        else {
+                                        else if (existingSpawnIdentity == null) {
                                             EntitySpawnTracking.clearTracking(spawnData.getUuid());
                                         }
                                         throw e;
                                     }
                                     if (spawnIdentity != null) {
-                                        entitySpawnIdentities.put(spawnIdentity.getUuid(), spawnIdentity);
-                                        pendingEntitySpawnLogs.add(new PendingEntitySpawnLog(user, spawnData, true, false));
-                                        if (entitySpawnUpdates != null) {
-                                            entitySpawnUpdates.identityFound(spawnIdentity.getUuid());
+                                        entitySpawnIdentities.put(spawnData.getUuid(), spawnIdentity);
+                                        if (existingSpawnIdentity == null) {
+                                            pendingEntitySpawnLogs.add(new PendingEntitySpawnLog(user, spawnData, true, false));
+                                            if (entitySpawnUpdates != null) {
+                                                entitySpawnUpdates.identityFound(spawnData.getUuid());
+                                            }
                                         }
+                                    }
+                                    else if (existingSpawnIdentity == null) {
+                                        EntitySpawnTracking.clearTracking(spawnData.getUuid());
                                     }
                                     break;
                                 case Process.ENTITY_SPAWN_UPDATE:

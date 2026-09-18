@@ -12,7 +12,7 @@ import net.coreprotect.api.result.SignResult;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
-import net.coreprotect.database.MessageFilterQuery;
+import net.coreprotect.database.LookupRaw;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.model.action.SignActions;
 import net.coreprotect.utility.WorldUtils;
@@ -59,7 +59,7 @@ public class SignAPI {
             }
             filter.appendWhere(query);
             List<String> messageBindings = new ArrayList<>();
-            query = new StringBuilder(MessageFilterQuery.append(query.toString(),
+            query = new StringBuilder(LookupRaw.appendMessageFilters(query.toString(),
                     options == null ? List.of() : options.getMessageFilters(), "sign", messageBindings));
             query.append(" AND action = '").append(SignActions.PLACE).append("' AND (LENGTH(line_1) > 0 OR LENGTH(line_2) > 0 OR LENGTH(line_3) > 0 OR LENGTH(line_4) > 0 OR LENGTH(line_5) > 0 OR LENGTH(line_6) > 0 OR LENGTH(line_7) > 0 OR LENGTH(line_8) > 0)");
             query.append(" ORDER BY ").append(ConfigHandler.getDescendingEventOrder());

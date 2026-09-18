@@ -10,7 +10,7 @@ import net.coreprotect.api.result.MessageResult;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
-import net.coreprotect.database.MessageFilterQuery;
+import net.coreprotect.database.LookupRaw;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.WorldUtils;
@@ -63,7 +63,7 @@ public class MessageAPI {
             }
             filter.appendWhere(query);
             List<String> messageBindings = new ArrayList<>();
-            query = new StringBuilder(MessageFilterQuery.append(query.toString(),
+            query = new StringBuilder(LookupRaw.appendMessageFilters(query.toString(),
                     options == null ? List.of() : options.getMessageFilters(), table, messageBindings));
             query.append(" ORDER BY ").append(ConfigHandler.getDescendingEventOrder());
             filter.appendLimit(query);

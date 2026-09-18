@@ -81,7 +81,7 @@ class MessageFilterQueryTest {
 
     private List<Integer> lookup(Connection connection, String table, List<String> filters, String limit) throws Exception {
         List<String> bindings = new ArrayList<>();
-        String query = MessageFilterQuery.append("SELECT rowid FROM co_" + table + " WHERE rowid > ?", filters, table, bindings) + " ORDER BY rowid" + limit;
+        String query = LookupRaw.appendMessageFilters("SELECT rowid FROM co_" + table + " WHERE rowid > ?", filters, table, bindings) + " ORDER BY rowid" + limit;
         List<Integer> rows = new ArrayList<>();
         try (PreparedStatement statement = connection.prepareStatement(query)) {
             statement.setInt(1, 0);

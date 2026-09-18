@@ -60,8 +60,8 @@ public class SignAPI {
             filter.appendWhere(query);
             List<String> messageBindings = new ArrayList<>();
             query = new StringBuilder(LookupRaw.appendMessageFilters(query.toString(),
-                    options == null ? List.of() : options.getIncludeMessagePrefixes(),
-                    options == null ? List.of() : options.getExcludeMessagePrefixes(), "sign", messageBindings));
+                    options == null ? List.of() : options.getTextStartsWithAny(),
+                    options == null ? List.of() : options.getTextStartsWithNone(), "sign", messageBindings));
             query.append(" AND action = '").append(SignActions.PLACE).append("' AND (LENGTH(line_1) > 0 OR LENGTH(line_2) > 0 OR LENGTH(line_3) > 0 OR LENGTH(line_4) > 0 OR LENGTH(line_5) > 0 OR LENGTH(line_6) > 0 OR LENGTH(line_7) > 0 OR LENGTH(line_8) > 0)");
             query.append(" ORDER BY ").append(ConfigHandler.getDescendingEventOrder());
             filter.appendLimit(query);

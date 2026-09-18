@@ -22,6 +22,7 @@ public final class LookupOptions {
     private final List<Material> excludeMaterials;
     private final List<String> users;
     private final List<String> excludeUsers;
+    private final List<String> messageFilters;
     private final List<ContainerAction> containerActions;
     private final List<ItemAction> itemActions;
     private final List<InventoryAction> inventoryActions;
@@ -43,6 +44,7 @@ public final class LookupOptions {
         this.excludeMaterials = builder.excludeMaterials;
         this.users = builder.users;
         this.excludeUsers = builder.excludeUsers;
+        this.messageFilters = builder.messageFilters;
         this.containerActions = builder.containerActions;
         this.itemActions = builder.itemActions;
         this.inventoryActions = builder.inventoryActions;
@@ -105,6 +107,10 @@ public final class LookupOptions {
         return excludeUsers;
     }
 
+    public List<String> getMessageFilters() {
+        return messageFilters;
+    }
+
     public List<ContainerAction> getContainerActions() {
         return containerActions;
     }
@@ -149,6 +155,7 @@ public final class LookupOptions {
         private List<Material> excludeMaterials = List.of();
         private List<String> users = List.of();
         private List<String> excludeUsers = List.of();
+        private List<String> messageFilters = List.of();
         private List<ContainerAction> containerActions = List.of();
         private List<ItemAction> itemActions = List.of();
         private List<InventoryAction> inventoryActions = List.of();
@@ -215,6 +222,27 @@ public final class LookupOptions {
 
         public Builder excludeUsers(List<String> users) {
             this.excludeUsers = List.copyOf(users);
+            return this;
+        }
+
+        /**
+         * Filters chat, command and sign text by literal prefix, like the command's f: option.
+         * Prefix a filter with '-' to exclude matches. Each prefix must contain at least
+         * three Unicode code points (excluding '-'). An empty list disables filtering.
+         * Each list entry is one prefix; commas and spaces are literal characters.
+         * Other lookup types ignore this option.
+         *
+         * @throws IllegalArgumentException if a prefix is shorter than three code points
+         */
+        public Builder messageFilters(List<String> filters) {
+            List<String> copy = List.copyOf(filters);
+            for (String filter : copy) {
+                int start = filter.startsWith("-") ? 1 : 0;
+                if (filter.codePointCount(start, filter.length()) < 3) {
+                    throw new IllegalArgumentException("Message filter prefixes must contain at least three code points");
+                }
+            }
+            this.messageFilters = copy;
             return this;
         }
 

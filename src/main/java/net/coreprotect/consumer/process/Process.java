@@ -654,6 +654,23 @@ public class Process {
         }
     }
 
+    protected static boolean requiresEntityUuidMaintenance(int processId) {
+        if (!ConfigHandler.databaseType.isDuckDB()) {
+            return false;
+        }
+        for (Object object : Consumer.consumerObjects.get(processId).values()) {
+            EntitySpawnData update = getEntitySpawnUpdate(object);
+            if (update == null) {
+                continue;
+            }
+            EntitySpawnData.Operation operation = update.getOperation();
+            if (operation == EntitySpawnData.Operation.REVIVED || operation == EntitySpawnData.Operation.RESTORE || operation == EntitySpawnData.Operation.KILL_ROLLBACK) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static void bindPendingEntitySpawnIdentities(ArrayList<Object[]> consumerData, Map<Integer, Object> consumerObjects, Map<UUID, EntitySpawnIdentity> identities, Map<Integer, EntitySpawnIdentity> identitiesByRowId) {
         for (Object[] data : consumerData) {
             if (data == null || ((int) data[1] != Process.ENTITY_SPAWN_UPDATE && (int) data[1] != Process.ENTITY_CONTAINER_TRANSITION_UPDATE)) {

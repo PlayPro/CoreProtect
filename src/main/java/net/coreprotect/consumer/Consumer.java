@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -17,6 +18,7 @@ import org.bukkit.inventory.ItemStack;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.process.Process;
+import net.coreprotect.database.Database;
 import net.coreprotect.database.DuckDBRecovery;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.utility.Chat;
@@ -452,6 +454,29 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         pausedSuccess = false;
     }
 
+    static void processConsumerBatch(int processId, boolean lastRun) throws InterruptedException {
+        Lock databaseLock = databaseLifecycle.readLock();
+        databaseLock.lock();
+        try {
+            boolean exclusive = requiresEntityUuidMaintenance(processId);
+            if (exclusive) {
+                databaseLock.unlock();
+                databaseLock = databaseLifecycle.writeLock();
+                databaseLock.lock();
+            }
+            if (databaseReloadPaused || isPaused || persistenceHalted) {
+                return;
+            }
+            if (exclusive && !Database.awaitConnectionDrain(0L)) {
+                return;
+            }
+            Process.processConsumer(processId, lastRun);
+        }
+        finally {
+            databaseLock.unlock();
+        }
+    }
+
     @Override
     public void run() {
         boolean lastRun = false;
@@ -492,19 +517,11 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
                 }
                 Thread.sleep(consumerDelay(lastRun || !drained[0] || !drained[1]));
                 pauseConsumer(process_id);
-                databaseLifecycle.readLock().lock();
-                boolean processingAttempted = false;
                 try {
-                    if (!databaseReloadPaused && !isPaused && !persistenceHalted) {
-                        processingAttempted = true;
-                        Process.processConsumer(process_id, lastRun);
-                    }
+                    processConsumerBatch(process_id, lastRun);
                 }
                 finally {
-                    if (processingAttempted) {
-                        drained[process_id] = getConsumerSize(process_id) == 0;
-                    }
-                    databaseLifecycle.readLock().unlock();
+                    drained[process_id] = getConsumerSize(process_id) == 0;
                 }
             }
             catch (Exception e) {

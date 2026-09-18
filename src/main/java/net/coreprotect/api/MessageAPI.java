@@ -64,7 +64,8 @@ public class MessageAPI {
             filter.appendWhere(query);
             List<String> messageBindings = new ArrayList<>();
             query = new StringBuilder(LookupRaw.appendMessageFilters(query.toString(),
-                    options == null ? List.of() : options.getMessageFilters(), table, messageBindings));
+                    options == null ? List.of() : options.getIncludeMessagePrefixes(),
+                    options == null ? List.of() : options.getExcludeMessagePrefixes(), table, messageBindings));
             query.append(" ORDER BY ").append(ConfigHandler.getDescendingEventOrder());
             filter.appendLimit(query);
 

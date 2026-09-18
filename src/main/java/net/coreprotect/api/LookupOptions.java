@@ -22,7 +22,8 @@ public final class LookupOptions {
     private final List<Material> excludeMaterials;
     private final List<String> users;
     private final List<String> excludeUsers;
-    private final List<String> messageFilters;
+    private final List<String> includeMessagePrefixes;
+    private final List<String> excludeMessagePrefixes;
     private final List<ContainerAction> containerActions;
     private final List<ItemAction> itemActions;
     private final List<InventoryAction> inventoryActions;
@@ -44,7 +45,8 @@ public final class LookupOptions {
         this.excludeMaterials = builder.excludeMaterials;
         this.users = builder.users;
         this.excludeUsers = builder.excludeUsers;
-        this.messageFilters = builder.messageFilters;
+        this.includeMessagePrefixes = builder.includeMessagePrefixes;
+        this.excludeMessagePrefixes = builder.excludeMessagePrefixes;
         this.containerActions = builder.containerActions;
         this.itemActions = builder.itemActions;
         this.inventoryActions = builder.inventoryActions;
@@ -107,8 +109,12 @@ public final class LookupOptions {
         return excludeUsers;
     }
 
-    public List<String> getMessageFilters() {
-        return messageFilters;
+    public List<String> getIncludeMessagePrefixes() {
+        return includeMessagePrefixes;
+    }
+
+    public List<String> getExcludeMessagePrefixes() {
+        return excludeMessagePrefixes;
     }
 
     public List<ContainerAction> getContainerActions() {
@@ -155,7 +161,8 @@ public final class LookupOptions {
         private List<Material> excludeMaterials = List.of();
         private List<String> users = List.of();
         private List<String> excludeUsers = List.of();
-        private List<String> messageFilters = List.of();
+        private List<String> includeMessagePrefixes = List.of();
+        private List<String> excludeMessagePrefixes = List.of();
         private List<ContainerAction> containerActions = List.of();
         private List<ItemAction> itemActions = List.of();
         private List<InventoryAction> inventoryActions = List.of();
@@ -226,24 +233,33 @@ public final class LookupOptions {
         }
 
         /**
-         * Filters chat, command and sign text by literal prefix, like the command's f: option.
-         * Prefix a filter with '-' to exclude matches. Each prefix must contain at least
-         * three Unicode code points (excluding '-'). An empty list disables filtering.
-         * Each list entry is one prefix; commas and spaces are literal characters.
-         * Other lookup types ignore this option.
-         *
-         * @throws IllegalArgumentException if a prefix is shorter than three code points
+         * Includes chat, command and sign text matching any literal prefix.
+         * Empty means no inclusion restriction. Other lookup types ignore this option.
+         * @throws IllegalArgumentException if a prefix has fewer than three Unicode code points
          */
-        public Builder messageFilters(List<String> filters) {
-            List<String> copy = List.copyOf(filters);
-            for (String filter : copy) {
-                int start = filter.startsWith("-") ? 1 : 0;
-                if (filter.codePointCount(start, filter.length()) < 3) {
+        public Builder includeMessagePrefixes(List<String> prefixes) {
+            this.includeMessagePrefixes = messagePrefixes(prefixes);
+            return this;
+        }
+
+        /**
+         * Excludes chat, command and sign text matching any literal prefix.
+         * Exclusions take precedence over inclusions. A leading '-' is literal.
+         * @throws IllegalArgumentException if a prefix has fewer than three Unicode code points
+         */
+        public Builder excludeMessagePrefixes(List<String> prefixes) {
+            this.excludeMessagePrefixes = messagePrefixes(prefixes);
+            return this;
+        }
+
+        private static List<String> messagePrefixes(List<String> prefixes) {
+            List<String> copy = List.copyOf(prefixes);
+            for (String prefix : copy) {
+                if (prefix.codePointCount(0, prefix.length()) < 3) {
                     throw new IllegalArgumentException("Message filter prefixes must contain at least three code points");
                 }
             }
-            this.messageFilters = copy;
-            return this;
+            return copy;
         }
 
         public Builder containerActions(List<ContainerAction> actions) {

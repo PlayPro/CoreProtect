@@ -1490,7 +1490,7 @@ public class LookupRaw extends Queue {
         return result.toString();
     }
 
-    public static String appendMessageFilters(String baseQuery, List<String> messageFilters, String table, List<String> bindings) {
+    private static String appendMessageFilters(String baseQuery, List<String> messageFilters, String table, List<String> bindings) {
         if (messageFilters == null || messageFilters.isEmpty()) {
             return baseQuery;
         }
@@ -1506,6 +1506,10 @@ public class LookupRaw extends Queue {
             }
         }
 
+        return appendMessageFilters(baseQuery, included, excluded, table, bindings);
+    }
+
+    public static String appendMessageFilters(String baseQuery, List<String> included, List<String> excluded, String table, List<String> bindings) {
         boolean sign = table.equals("sign");
         String query = sign ? appendSignMessagePrefixes(baseQuery, included, bindings) : appendMessagePrefixes(baseQuery, included, table, bindings);
         return appendMessageExclusions(query, excluded, sign, bindings);

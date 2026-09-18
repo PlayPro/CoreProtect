@@ -71,6 +71,25 @@ public final class PlayerInteractListener extends Queue implements Listener {
     private final ContainerInspector containerInspector = new ContainerInspector();
     private final InteractionInspector interactionInspector = new InteractionInspector();
 
+    private static boolean shouldInspect(PlayerInteractEvent event) {
+        EquipmentSlot eventHand = event.getHand();
+        String uuid = event.getPlayer().getUniqueId().toString();
+        long systemTime = System.currentTimeMillis();
+        Object[] lastEvent = lastInspectorEvent.get(uuid);
+
+        if (lastEvent != null) {
+            long lastTime = (long) lastEvent[0];
+            EquipmentSlot lastHand = (EquipmentSlot) lastEvent[1];
+
+            if (systemTime - lastTime < 50 && eventHand != lastHand) {
+                return false;
+            }
+        }
+
+        lastInspectorEvent.put(uuid, new Object[] { systemTime, eventHand });
+        return true;
+    }
+
     private static boolean containsItem(ItemStack itemStack) {
         return itemStack != null && itemStack.getType() != Material.AIR;
     }
@@ -183,8 +202,10 @@ public final class PlayerInteractListener extends Queue implements Listener {
                     final Block clickedBlock = event.getClickedBlock();
 
                     if (isSignBlock) {
-                        Location location = clickedBlock.getLocation();
-                        signInspector.performSignLookup(player, location);
+                        if (shouldInspect(event)) {
+                            Location location = clickedBlock.getLocation();
+                            signInspector.performSignLookup(player, location);
+                        }
                         event.setCancelled(true);
                     }
                     else if (isContainerBlock && Config.getConfig(world).ITEM_TRANSACTIONS) {
@@ -206,7 +227,9 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             location = clickedBlock.getLocation();
                         }
 
-                        containerInspector.performContainerLookup(player, location);
+                        if (shouldInspect(event)) {
+                            containerInspector.performContainerLookup(player, location);
+                        }
                         event.setCancelled(true);
                     }
                     else if (isInteractBlock) {
@@ -221,7 +244,9 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             }
                         }
 
-                        interactionInspector.performInteractionLookup(player, interactBlock);
+                        if (shouldInspect(event)) {
+                            interactionInspector.performInteractionLookup(player, interactBlock);
+                        }
 
                         if (!BlockGroup.SAFE_INTERACT_BLOCKS.contains(type) || player.isSneaking()) {
                             event.setCancelled(true);
@@ -229,28 +254,11 @@ public final class PlayerInteractListener extends Queue implements Listener {
                     }
                 }
                 else {
-                    boolean performLookup = true;
-                    EquipmentSlot eventHand = event.getHand();
-                    String uuid = event.getPlayer().getUniqueId().toString();
-                    long systemTime = System.currentTimeMillis();
-
-                    if (lastInspectorEvent.get(uuid) != null) {
-                        Object[] lastEvent = lastInspectorEvent.get(uuid);
-                        long lastTime = (long) lastEvent[0];
-                        EquipmentSlot lastHand = (EquipmentSlot) lastEvent[1];
-
-                        long timeSince = systemTime - lastTime;
-                        if (timeSince < 50 && !eventHand.equals(lastHand)) {
-                            performLookup = false;
-                        }
-                    }
-
-                    if (performLookup) {
+                    if (shouldInspect(event)) {
                         final BlockState finalBlock = event.getClickedBlock().getRelative(event.getBlockFace()).getState();
                         blockInspector.performAirBlockLookup(player, finalBlock);
 
                         ItemUtils.updateInventory(event.getPlayer());
-                        lastInspectorEvent.put(uuid, new Object[] { systemTime, eventHand });
 
                         if (event.hasItem()) {
                             Material eventItem = event.getItem().getType();

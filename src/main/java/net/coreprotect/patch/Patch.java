@@ -302,8 +302,8 @@ public class Patch {
                         }
                     }
                 }
-                (new Thread(new runPatch())).start();
-                (new Thread(new patchStatus())).start();
+                (new Thread(new runPatch(), "CoreProtect-Patch")).start();
+                (new Thread(new patchStatus(), "CoreProtect-PatchStatus")).start();
             }
             else if (lastVersion[0] == 0) {
                 Database.recordDatabaseVersion(statement, currentVersion[0] + "." + (ConfigHandler.EDITION_BRANCH.contains("-dev") ? (currentVersion[1] - 1) : currentVersion[1]) + "." + currentVersion[2]);

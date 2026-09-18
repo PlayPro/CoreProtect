@@ -30,17 +30,20 @@ public class CommandLogger {
                 return;
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.PLAYER_COMMAND, -1, null, null, message);
-            if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
+            String logUser = user;
+            Location eventLocation = location;
+            if (CoreProtectPreLogEvent.isObserved() && !Bukkit.isPrimaryThread()) {
+                CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.PLAYER_COMMAND, -1, null, null, message);
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+                if (event.isCancelled()) {
+                    return;
+                }
+
+                logUser = event.getUser();
+                eventLocation = event.getLocation();
             }
 
-            if (event.isCancelled()) {
-                return;
-            }
-
-            int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
-            Location eventLocation = event.getLocation();
+            int userId = UserStatement.getId(preparedStmt, logUser, true);
             int wid = WorldUtils.getWorldId(eventLocation.getWorld().getName());
             int x = eventLocation.getBlockX();
             int y = eventLocation.getBlockY();

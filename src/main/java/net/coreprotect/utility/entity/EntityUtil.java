@@ -195,10 +195,13 @@ public class EntityUtil {
                         }
                         else if (count == 1) {
                             String set = (String) value;
-                            if (set.length() > 0) {
+                            // An offline owner the server never saw a name for is stored as null
+                            if (set != null && set.length() > 0) {
                                 Player owner = Bukkit.getServer().getPlayer(set);
                                 if (owner == null) {
-                                    OfflinePlayer offlinePlayer = Bukkit.getServer().getOfflinePlayer(set);
+                                    // getOfflinePlayer(String) can block on a web profile lookup, the UUID overload does not
+                                    UUID ownerUuid = parseUuid(ConfigHandler.uuidCache.get(set.toLowerCase(Locale.ROOT)));
+                                    OfflinePlayer offlinePlayer = ownerUuid != null ? Bukkit.getServer().getOfflinePlayer(ownerUuid) : Bukkit.getServer().getOfflinePlayer(set);
                                     if (offlinePlayer != null) {
                                         tameable.setOwner(offlinePlayer);
                                     }
@@ -745,6 +748,19 @@ public class EntityUtil {
                     entityAttribute.addModifier(AttributeModifier.deserialize(serializedModifier));
                 }
             }
+        }
+    }
+
+    private static UUID parseUuid(String value) {
+        if (value == null || value.isEmpty()) {
+            return null;
+        }
+
+        try {
+            return UUID.fromString(value);
+        }
+        catch (IllegalArgumentException e) {
+            return null;
         }
     }
 

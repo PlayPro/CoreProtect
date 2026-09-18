@@ -44,6 +44,9 @@ import net.coreprotect.utility.ErrorReporter;
 
 public final class BlockBreakListener extends Queue implements Listener {
 
+    // (dx, dy, dz) per scan index 1..6: +x, -x, +z, -z, +y, -y
+    private static final int[] SCAN_OFFSETS = { 1, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, -1, 0, 1, 0, 0, -1, 0 };
+
     private static boolean isAttached(Block block, Block scanBlock, int scanMin) {
         BlockData blockData = scanBlock.getBlockData();
         if (blockData instanceof Directional && !(blockData instanceof Bisected) && scanMin != BlockUtil.BOTTOM && scanMin != BlockUtil.TOP) {
@@ -96,14 +99,6 @@ public final class BlockBreakListener extends Queue implements Listener {
         int z = block.getZ();
         int physics = 0;
 
-        Location[] locationMap = new Location[6];
-        locationMap[0] = new Location(world, x + 1, y, z);
-        locationMap[1] = new Location(world, x - 1, y, z);
-        locationMap[2] = new Location(world, x, y, z + 1);
-        locationMap[3] = new Location(world, x, y, z - 1);
-        locationMap[4] = new Location(world, x, y + 1, z);
-        locationMap[5] = new Location(world, x, y - 1, z);
-
         int scanMin = 1;
         int scanMax = 8;
         if (!Config.getConfig(world).NATURAL_BREAK) {
@@ -112,6 +107,10 @@ public final class BlockBreakListener extends Queue implements Listener {
         if (!logBreak) { // log base block breakage
             scanMax = 7;
         }
+        if (scanMin >= scanMax) {
+            return;
+        }
+
         while (scanMin < scanMax) {
             Block blockLog = block;
             boolean scanDown = false;
@@ -123,8 +122,8 @@ public final class BlockBreakListener extends Queue implements Listener {
             }
 
             if (scanMin < 7) {
-                Location scanLocation = locationMap[scanMin - 1];
-                Block scanBlock = world.getBlockAt(scanLocation);
+                int offset = (scanMin - 1) * 3;
+                Block scanBlock = world.getBlockAt(x + SCAN_OFFSETS[offset], y + SCAN_OFFSETS[offset + 1], z + SCAN_OFFSETS[offset + 2]);
                 Material scanType = scanBlock.getType();
                 if (scanMin == 5 && (scanType.hasGravity() || BukkitAdapter.ADAPTER.isSuspiciousBlock(scanType)) && Config.getConfig(world).BLOCK_MOVEMENT) {
                     // FallingBlock listeners read lookupCache to attribute the chain reaction; overwrite the cache up the gravity stack so falls record under whoever broke this block instead of #gravity or the original placer.
@@ -236,8 +235,14 @@ public final class BlockBreakListener extends Queue implements Listener {
                     }
                 }
                 if (log) {
-                    blockLog = world.getBlockAt(scanLocation);
+                    blockLog = scanBlock;
                 }
+            }
+
+            // Everything below only runs for logged blocks, so skip the snapshot for unattached neighbors
+            if (!log) {
+                scanMin++;
+                continue;
             }
 
             int blockNumber = scanMin;
@@ -259,7 +264,7 @@ public final class BlockBreakListener extends Queue implements Listener {
                 if (Config.getConfig(world).SIGN_TEXT) {
                     try {
                         Location location = blockState.getLocation();
-                        Sign sign = (Sign) blockLog.getState();
+                        Sign sign = (Sign) blockState;
                         String line1 = PaperAdapter.ADAPTER.getLine(sign, 0);
                         String line2 = PaperAdapter.ADAPTER.getLine(sign, 1);
                         String line3 = PaperAdapter.ADAPTER.getLine(sign, 2);

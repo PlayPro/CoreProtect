@@ -51,7 +51,7 @@ public class ReloadCommand {
             }
             try {
                 Runnable runnable = new BasicThread();
-                Thread thread = new Thread(runnable);
+                Thread thread = new Thread(runnable, "CoreProtect-Reload");
                 thread.start();
             }
             catch (RuntimeException | Error e) {
@@ -105,7 +105,7 @@ public class ReloadCommand {
             resumePersistence = true;
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.RELOAD_SUCCESS));
 
-            Thread networkHandler = new Thread(new NetworkHandler(false, false));
+            Thread networkHandler = new Thread(new NetworkHandler(false, false), "CoreProtect-Network");
             networkHandler.start();
             return true;
         }

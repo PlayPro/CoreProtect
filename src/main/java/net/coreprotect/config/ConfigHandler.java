@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -46,6 +47,7 @@ import net.coreprotect.database.clickhouse.ClickHouseJdbcConfig;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.ListenerHandler;
+import net.coreprotect.listener.player.PlayerInteractListener;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.model.action.EntityActionFilter;
 import net.coreprotect.model.lookup.LookupCursor;
@@ -59,6 +61,7 @@ import net.coreprotect.utility.Color;
 import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.SystemUtils;
+import net.coreprotect.utility.TransactionId;
 import net.coreprotect.utility.VersionUtils;
 
 public class ConfigHandler extends Queue {
@@ -128,6 +131,7 @@ public class ConfigHandler extends Queue {
     public static volatile boolean pauseConsumer = false;
     public static volatile boolean worldeditEnabled = false;
     public static volatile boolean databaseReachable = true;
+    public static final Object IDENTIFIER_ALLOCATION_LOCK = new Object();
     public static volatile int worldId = 0;
     public static volatile int materialId = 0;
     public static volatile int blockdataId = 0;
@@ -140,8 +144,12 @@ public class ConfigHandler extends Queue {
         return Collections.synchronizedMap(new HashMap<>());
     }
 
-    private static <K, V> Map<K, V> syncMap(Map<K, V> values) {
-        return Collections.synchronizedMap(new HashMap<>(values));
+    private static <K, V> Map<K, V> concurrentMap() {
+        return new ConcurrentHashMap<>(16, 0.75f, 2);
+    }
+
+    private static <K, V> Map<K, V> concurrentMap(Map<K, V> values) {
+        return new ConcurrentHashMap<>(values);
     }
 
     private static IdentifierCache loadIdentifierCache(Statement statement, String table, String valueColumn)
@@ -220,25 +228,25 @@ public class ConfigHandler extends Queue {
 
     }
 
-    public static volatile Map<String, Integer> worlds = syncMap();
-    public static volatile Map<Integer, String> worldsReversed = syncMap();
-    public static volatile Map<String, Integer> materials = syncMap();
-    public static volatile Map<Integer, String> materialsReversed = syncMap();
-    public static volatile Map<String, Integer> blockdata = syncMap();
-    public static volatile Map<Integer, String> blockdataReversed = syncMap();
-    public static volatile Map<String, Integer> entities = syncMap();
-    public static volatile Map<Integer, String> entitiesReversed = syncMap();
-    public static volatile Map<String, Integer> art = syncMap();
-    public static volatile Map<Integer, String> artReversed = syncMap();
+    public static volatile Map<String, Integer> worlds = concurrentMap();
+    public static volatile Map<Integer, String> worldsReversed = concurrentMap();
+    public static volatile Map<String, Integer> materials = concurrentMap();
+    public static volatile Map<Integer, String> materialsReversed = concurrentMap();
+    public static volatile Map<String, Integer> blockdata = concurrentMap();
+    public static volatile Map<Integer, String> blockdataReversed = concurrentMap();
+    public static volatile Map<String, Integer> entities = concurrentMap();
+    public static volatile Map<Integer, String> entitiesReversed = concurrentMap();
+    public static volatile Map<String, Integer> art = concurrentMap();
+    public static volatile Map<Integer, String> artReversed = concurrentMap();
     private static final Map<ReferenceKind, IdentifierStore> IDENTIFIER_STORES = identifierStores();
     public static Map<String, int[]> rollbackHash = syncMap();
-    public static Map<String, Boolean> inspecting = syncMap();
+    public static Map<String, Boolean> inspecting = concurrentMap();
     public static Map<String, Boolean> blacklist = syncMap();
     public static Map<String, HashSet<String>> FilteredBlacklist = syncMap();
-    public static Map<String, Integer> loggingChest = syncMap();
-    public static Map<String, Integer> loggingItem = syncMap();
+    public static Map<String, Integer> loggingChest = concurrentMap();
+    public static Map<String, Integer> loggingItem = concurrentMap();
     public static ConcurrentHashMap<String, List<ItemStack[]>> oldContainer = new ConcurrentHashMap<>();
-    public static ConcurrentHashMap<String, Set<String>> oldContainerViewers = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, List<String>> oldContainerViewers = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, List<ItemStack>> itemsPickup = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, List<ItemStack>> itemsDrop = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, List<ItemStack>> itemsThrown = new ConcurrentHashMap<>();
@@ -250,8 +258,8 @@ public class ConfigHandler extends Queue {
     public static ConcurrentHashMap<String, List<ItemStack>> itemsBuy = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, Object[]> hopperAbort = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, Object[]> hopperSuccess = new ConcurrentHashMap<>();
-    public static ConcurrentHashMap<String, ConcurrentHashMap<String, Long>> dispenserNoChange = new ConcurrentHashMap<>();
-    public static ConcurrentHashMap<String, Object[]> dispenserPending = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<TransactionId, ConcurrentHashMap<Object, Long>> dispenserNoChange = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<TransactionId, Object[]> dispenserPending = new ConcurrentHashMap<>();
     public static Map<String, List<ItemStack[]>> forceContainer = syncMap();
     public static Map<String, Integer> lookupType = syncMap();
     public static Map<String, Object[]> lookupThrottle = syncMap();
@@ -280,7 +288,7 @@ public class ConfigHandler extends Queue {
     public static Map<String, List<Object>> lastRollback = syncMap();
     public static Map<String, Boolean> activeRollbacks = syncMap();
     public static Map<String, Object[]> entityBlockMapper = new ConcurrentHashMap<>();
-    public static ConcurrentHashMap<Long, Long> populatedChunks = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<UUID, ConcurrentHashMap<Long, Long>> populatedChunks = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, String> language = new ConcurrentHashMap<>();
     public static List<String> databaseTables = new ArrayList<>();
 
@@ -315,33 +323,82 @@ public class ConfigHandler extends Queue {
     public static void addOldContainerViewer(String locationSuffix, String loggingId) {
         ConfigHandler.oldContainerViewers.compute(locationSuffix, (key, viewers) -> {
             if (viewers == null) {
-                viewers = ConcurrentHashMap.newKeySet();
+                return List.of(loggingId);
             }
-            viewers.add(loggingId);
-            return viewers;
+            if (viewers.contains(loggingId)) {
+                return viewers;
+            }
+
+            List<String> updated = new ArrayList<>(viewers.size() + 1);
+            updated.addAll(viewers);
+            updated.add(loggingId);
+            return List.copyOf(updated);
         });
     }
 
     public static void removeOldContainerViewer(String locationSuffix, String loggingId) {
         ConfigHandler.oldContainerViewers.computeIfPresent(locationSuffix, (key, viewers) -> {
-            viewers.remove(loggingId);
-            return viewers.isEmpty() ? null : viewers;
+            if (!viewers.contains(loggingId)) {
+                return viewers;
+            }
+            if (viewers.size() == 1) {
+                return null;
+            }
+
+            List<String> updated = new ArrayList<>(viewers);
+            updated.remove(loggingId);
+            return List.copyOf(updated);
         });
     }
 
+    /**
+     * Drops the per-session state keyed by a player's name or UUID. Without this each map keeps one
+     * entry per distinct player for the lifetime of the process.
+     * <p>
+     * rollbackHash is deliberately not cleared here: a rollback the player started still reads it
+     * after they disconnect.
+     */
+    public static void clearPlayerSession(String playerName, String playerUuid) {
+        ConfigHandler.inspecting.remove(playerName);
+        ConfigHandler.lookupType.remove(playerName);
+        ConfigHandler.lookupPage.remove(playerName);
+        ConfigHandler.lookupCommand.remove(playerName);
+        ConfigHandler.lookupThrottle.remove(playerName);
+        ConfigHandler.teleportThrottle.remove(playerName);
+        ConfigHandler.lookupOutputMode.remove(playerName);
+        ConfigHandler.lookupRollbackState.remove(playerName);
+        ConfigHandler.lookupEntityContainer.remove(playerName);
+        PlayerInteractListener.suspiciousBlockEvent.remove(playerName);
+        PlayerInteractListener.lastInspectorEvent.remove(playerUuid);
+    }
+
+    /**
+     * Whether any blacklist entry exists. Callers use this to avoid building a namespaced-key
+     * string for the two-argument check when no filter could match it.
+     */
+    public static boolean hasFilters() {
+        return !ConfigHandler.blacklist.isEmpty() || !ConfigHandler.FilteredBlacklist.isEmpty();
+    }
+
     public static boolean isBlacklisted(String user) {
+        if (ConfigHandler.blacklist.isEmpty()) {
+            return false;
+        }
         return ConfigHandler.blacklist.containsKey(user.toLowerCase(Locale.ROOT));
     }
 
     public static boolean isBlacklisted(String user, String object) {
-        if (ConfigHandler.blacklist.containsKey(object)
-                || ConfigHandler.blacklist.containsKey(user.toLowerCase(Locale.ROOT))) {
+        if (!ConfigHandler.blacklist.isEmpty() && (ConfigHandler.blacklist.containsKey(object)
+                || ConfigHandler.blacklist.containsKey(user.toLowerCase(Locale.ROOT)))) {
             return true;
         }
         return isFilterBlacklisted(user, object);
     }
 
     public static boolean isFilterBlacklisted(String user, String object) {
+        if (FilteredBlacklist.isEmpty()) {
+            return false;
+        }
         HashSet<String> blUserSet = FilteredBlacklist.get(object);
         if (blUserSet == null) {
             return false;
@@ -572,8 +629,8 @@ public class ConfigHandler extends Queue {
     public static boolean loadMaterials(Statement statement) {
         try {
             IdentifierCache cache = loadIdentifierCache(statement, "material_map", "material");
-            ConfigHandler.materials = syncMap(cache.values);
-            ConfigHandler.materialsReversed = syncMap(cache.reversed);
+            ConfigHandler.materials = concurrentMap(cache.values);
+            ConfigHandler.materialsReversed = concurrentMap(cache.reversed);
             materialId = cache.maximumId;
             return true;
         } catch (Exception e) {
@@ -585,8 +642,8 @@ public class ConfigHandler extends Queue {
     public static boolean loadBlockdata(Statement statement) {
         try {
             IdentifierCache cache = loadIdentifierCache(statement, "blockdata_map", "data");
-            ConfigHandler.blockdata = syncMap(cache.values);
-            ConfigHandler.blockdataReversed = syncMap(cache.reversed);
+            ConfigHandler.blockdata = concurrentMap(cache.values);
+            ConfigHandler.blockdataReversed = concurrentMap(cache.reversed);
             blockdataId = cache.maximumId;
             return true;
         } catch (Exception e) {
@@ -598,8 +655,8 @@ public class ConfigHandler extends Queue {
     public static boolean loadArt(Statement statement) {
         try {
             IdentifierCache cache = loadIdentifierCache(statement, "art_map", "art");
-            ConfigHandler.art = syncMap(cache.values);
-            ConfigHandler.artReversed = syncMap(cache.reversed);
+            ConfigHandler.art = concurrentMap(cache.values);
+            ConfigHandler.artReversed = concurrentMap(cache.reversed);
             artId = cache.maximumId;
             return true;
         } catch (Exception e) {
@@ -611,8 +668,8 @@ public class ConfigHandler extends Queue {
     public static boolean loadEntities(Statement statement) {
         try {
             IdentifierCache cache = loadIdentifierCache(statement, "entity_map", "entity");
-            ConfigHandler.entities = syncMap(cache.values);
-            ConfigHandler.entitiesReversed = syncMap(cache.reversed);
+            ConfigHandler.entities = concurrentMap(cache.values);
+            ConfigHandler.entitiesReversed = concurrentMap(cache.reversed);
             entityId = cache.maximumId;
             return true;
         } catch (Exception e) {
@@ -839,8 +896,8 @@ public class ConfigHandler extends Queue {
                     throw new IllegalStateException("Database persistence halted before the ClickHouse world identifiers could be queued");
                 }
             }
-            ConfigHandler.worlds = syncMap(cache.values);
-            ConfigHandler.worldsReversed = syncMap(cache.reversed);
+            ConfigHandler.worlds = concurrentMap(cache.values);
+            ConfigHandler.worldsReversed = concurrentMap(cache.reversed);
             worldId = cache.maximumId;
             if (!clickHouse) {
                 queueIdentifiers(ReferenceKind.WORLD, queuedWorlds);
@@ -913,10 +970,13 @@ public class ConfigHandler extends Queue {
 
     public static boolean performInitialization(boolean startup) {
         try {
-            BukkitAdapter.loadAdapter();
-            SpigotAdapter.loadAdapter();
-            PaperAdapter.loadAdapter();
-            BlockGroup.initialize();
+            // Version-derived state that region threads read unlocked, so reload leaves it alone
+            if (startup) {
+                BukkitAdapter.loadAdapter();
+                SpigotAdapter.loadAdapter();
+                PaperAdapter.loadAdapter();
+                BlockGroup.initialize();
+            }
 
             ConfigHandler.loadConfig(); // Load (or create) the configuration file.
             ConfigHandler.loadDatabase(); // Initialize MySQL and create tables if necessary.

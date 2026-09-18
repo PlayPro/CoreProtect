@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
 import org.json.simple.JSONObject;
@@ -31,6 +32,12 @@ public final class ErrorReporter {
     private static final int MAX_FRAMES = 32;
     private static final int MAX_CAUSE_DEPTH = 4;
     private static final int MAX_MESSAGE_LENGTH = 500;
+    private static final int MAX_FINGERPRINTS = 10_000;
+    private static final Pattern OBJECT_ID = Pattern.compile("@[0-9a-fA-F]{4,16}");
+    private static final Pattern UUID_TEXT = Pattern.compile("\\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\b");
+    private static final Pattern IP_ADDRESS = Pattern.compile("\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b");
+    private static final Pattern FILE_PATH = Pattern.compile("([A-Za-z]:)?[/\\\\][^\\s:;]+");
+    private static final Pattern LONG_NUMBER = Pattern.compile("\\b\\d{10,}\\b");
     private static final Set<String> SENT_FINGERPRINTS = Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
     private static final LinkedBlockingQueue<JSONObject> QUEUE = new LinkedBlockingQueue<>(MAX_QUEUE_SIZE);
     private static final AtomicBoolean WORKER_RUNNING = new AtomicBoolean(false);
@@ -64,16 +71,15 @@ public final class ErrorReporter {
             return false;
         }
 
-        if (printStackTrace) {
+        String fingerprint = fingerprint(throwable);
+        // Coordinates in messages survive normalization, so cap the set against error storms
+        boolean firstOccurrence = SENT_FINGERPRINTS.size() < MAX_FINGERPRINTS && SENT_FINGERPRINTS.add(fingerprint);
+
+        if (printStackTrace && firstOccurrence) {
             throwable.printStackTrace();
         }
 
-        if (!isEnabled()) {
-            return false;
-        }
-
-        String fingerprint = fingerprint(throwable);
-        if (!SENT_FINGERPRINTS.add(fingerprint)) {
+        if (!isEnabled() || !firstOccurrence) {
             return false;
         }
 
@@ -217,11 +223,11 @@ public final class ErrorReporter {
             return "";
         }
 
-        String normalized = message.replaceAll("@[0-9a-fA-F]{4,16}", "@");
-        normalized = normalized.replaceAll("\\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\b", "<uuid>");
-        normalized = normalized.replaceAll("\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b", "<ip>");
-        normalized = normalized.replaceAll("([A-Za-z]:)?[/\\\\][^\\s:;]+", "<path>");
-        normalized = normalized.replaceAll("\\b\\d{10,}\\b", "<number>");
+        String normalized = OBJECT_ID.matcher(message).replaceAll("@");
+        normalized = UUID_TEXT.matcher(normalized).replaceAll("<uuid>");
+        normalized = IP_ADDRESS.matcher(normalized).replaceAll("<ip>");
+        normalized = FILE_PATH.matcher(normalized).replaceAll("<path>");
+        normalized = LONG_NUMBER.matcher(normalized).replaceAll("<number>");
         if (normalized.length() > MAX_MESSAGE_LENGTH) {
             normalized = normalized.substring(0, MAX_MESSAGE_LENGTH);
         }

@@ -17,6 +17,7 @@ public class __2_18_1 {
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            return false;
         }
 
         return true;

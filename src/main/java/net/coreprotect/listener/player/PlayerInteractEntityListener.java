@@ -1,6 +1,7 @@
 package net.coreprotect.listener.player;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.bukkit.Location;
@@ -33,6 +34,7 @@ import net.coreprotect.utility.Color;
 import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.HopperTransactionUtils;
 import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.TransactionId;
 
 public final class PlayerInteractEntityListener extends Queue implements Listener {
 
@@ -169,7 +171,7 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
     public static void queueContainerSpecifiedItems(String user, Material type, Object container, Location location, boolean logDrop) {
         ItemStack[] contents = (ItemStack[]) ((Object[]) container)[0];
 
-        String transactingChestId = HopperTransactionUtils.getTransactionId(location);
+        TransactionId transactingChestId = HopperTransactionUtils.getTransactionId(location);
         String loggingChestIdSuffix = HopperTransactionUtils.getLoggingIdSuffix(location);
         String loggingChestId = HopperTransactionUtils.getLoggingId(user, loggingChestIdSuffix);
         HopperTransactionUtils.synchronizeTransaction(transactingChestId, () -> {
@@ -187,7 +189,7 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
                 }
             }
             else {
-                List<ItemStack[]> list = new ArrayList<>();
+                List<ItemStack[]> list = Collections.synchronizedList(new ArrayList<>());
                 list.add(ItemUtils.getContainerState(contents));
                 ConfigHandler.oldContainer.put(loggingChestId, list);
                 ConfigHandler.addOldContainerViewer(loggingChestIdSuffix, loggingChestId);

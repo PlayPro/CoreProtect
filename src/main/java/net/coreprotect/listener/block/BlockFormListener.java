@@ -17,7 +17,7 @@ import net.coreprotect.utility.WorldUtils;
 
 public final class BlockFormListener extends Queue implements Listener {
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     protected void onBlockForm(BlockFormEvent event) {
         // random form, snow/ice
         Block block = event.getBlock();
@@ -75,12 +75,14 @@ public final class BlockFormListener extends Queue implements Listener {
                 }
                 */
                 if (log) {
-                    Queue.queueBlockPlace(player, block.getLocation().getBlock().getState(), block.getType(), block.getState(), newState.getType(), -1, 0, newState.getBlockData().getAsString());
+                    BlockState formedState = block.getState();
+                    Queue.queueBlockPlace(player, formedState, block.getType(), formedState, newState.getType(), -1, 0, newState.getBlockData().getAsString());
                 }
             }
         }
         if (!log && Config.getConfig(world).UNKNOWN_LOGGING && Lookup.whoPlacedCache(block).length() == 0) {
-            Queue.queueBlockPlace("#unknown", block.getLocation().getBlock().getState(), block.getType(), block.getState(), newState.getType(), -1, 0, newState.getBlockData().getAsString());
+            BlockState formedState = block.getState();
+            Queue.queueBlockPlace("#unknown", formedState, block.getType(), formedState, newState.getType(), -1, 0, newState.getBlockData().getAsString());
         }
     }
 

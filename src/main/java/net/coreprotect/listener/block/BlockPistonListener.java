@@ -1,13 +1,11 @@
 package net.coreprotect.listener.block;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
-import org.bukkit.block.BlockState;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -34,47 +32,20 @@ public final class BlockPistonListener extends Queue implements Listener {
         World world = event.getBlock().getWorld();
         Config config = Config.getConfig(world);
         if (config.PISTONS && !event.isCancelled()) {
-            List<Block> nblocks = new ArrayList<>();
-            List<Block> blocks = new ArrayList<>();
-
-            for (Block block : event_blocks) {
-                Block block_relative = block.getRelative(event.getDirection());
-                nblocks.add(block_relative);
-                blocks.add(block);
-            }
-
-            Block b = event.getBlock();
+            List<Block> blocks = event_blocks;
             BlockFace d = event.getDirection();
-            Block bm = b.getRelative(d);
+            Block bm = event.getBlock().getRelative(d);
             int wid = WorldUtils.getWorldId(bm.getWorld().getName());
 
-            int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
             boolean duplicateSuppression = config.DUPLICATE_SUPPRESSION;
+            // The sweeper only reads the timestamp, so every key from this event can share one value
+            Object[] stamp = new Object[] { (int) (System.currentTimeMillis() / 1000L) };
             int log = 0;
-            int l = 0;
-            while (l <= nblocks.size()) {
-                int ll = l - 1;
-                Block n = null;
-                if (ll == -1) {
-                    n = bm;
+            for (int l = -1; l < blocks.size(); l++) {
+                Block n = l == -1 ? bm : blocks.get(l).getRelative(d);
+                if (!duplicateSuppression || CacheHandler.pistonCache.put(new MovedBlockKey(n.getX(), n.getY(), n.getZ(), wid, n.getType()), stamp) == null) {
+                    log = 1;
                 }
-                else {
-                    n = nblocks.get(ll);
-                }
-                if (n != null) {
-                    int x = n.getX();
-                    int y = n.getY();
-                    int z = n.getZ();
-                    Material t = n.getType();
-                    String cords = "" + x + "." + y + "." + z + "." + wid + "." + t.name() + "";
-                    if (!duplicateSuppression || CacheHandler.pistonCache.get(cords) == null) {
-                        log = 1;
-                    }
-                    if (duplicateSuppression) {
-                        CacheHandler.pistonCache.put(cords, new Object[] { unixtimestamp });
-                    }
-                }
-                l++;
             }
             if (log == 1) {
                 String e = "#piston";
@@ -83,13 +54,56 @@ public final class BlockPistonListener extends Queue implements Listener {
                 }
                 // Queue.queueBlockPlaceDelayed(e,bm,null,20);
 
-                int c = 0;
-                for (Block nblock : nblocks) {
-                    BlockState block = blocks.get(c).getState();
+                for (Block block : blocks) {
+                    Block nblock = block.getRelative(d);
                     queueBlockPlaceValidate(e, nblock.getState(), nblock, null, block.getType(), -1, 0, block.getBlockData().getAsString(), 3);
-                    c++;
                 }
             }
+        }
+    }
+
+    /**
+     * Equal exactly when the old "x.y.z.worldId.TYPE" string keys were equal, without building a string per moved block.
+     */
+    private static final class MovedBlockKey {
+        private final int x;
+        private final int y;
+        private final int z;
+        private final int worldId;
+        private final Material type;
+        private final int hash;
+
+        private MovedBlockKey(int x, int y, int z, int worldId, Material type) {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.worldId = worldId;
+            this.type = type;
+
+            int result = x;
+            result = 31 * result + y;
+            result = 31 * result + z;
+            result = 31 * result + worldId;
+            result = 31 * result + type.ordinal();
+            this.hash = result;
+        }
+
+        @Override
+        public boolean equals(Object object) {
+            if (this == object) {
+                return true;
+            }
+            if (!(object instanceof MovedBlockKey)) {
+                return false;
+            }
+
+            MovedBlockKey other = (MovedBlockKey) object;
+            return x == other.x && y == other.y && z == other.z && worldId == other.worldId && type == other.type;
+        }
+
+        @Override
+        public int hashCode() {
+            return hash;
         }
     }
 

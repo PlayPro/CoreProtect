@@ -49,6 +49,7 @@ public class Language {
         phrases.put(Phrase.COMMAND_CONSOLE, "Please run the command from the console.");
         phrases.put(Phrase.COMMAND_NOT_FOUND, "Command \"{0}\" not found.");
         phrases.put(Phrase.COMMAND_THROTTLED, "Please wait a moment and try again.");
+        phrases.put(Phrase.CONSUMER_BACKLOG, "Logging is falling behind. {0} items are waiting in the queue.");
         phrases.put(Phrase.CONSUMER_ERROR, "Consumer queue processing already {paused|resumed}.");
         phrases.put(Phrase.CONSUMER_TOGGLED, "Consumer queue processing has been {paused|resumed}.");
         phrases.put(Phrase.CONTAINER_HEADER, "Container Transactions");

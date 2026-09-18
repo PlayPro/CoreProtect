@@ -183,7 +183,7 @@ public class StatusCommand {
             }
         }
         Runnable runnable = new BasicThread();
-        Thread thread = new Thread(runnable);
+        Thread thread = new Thread(runnable, "CoreProtect-Status");
         thread.start();
     }
 }

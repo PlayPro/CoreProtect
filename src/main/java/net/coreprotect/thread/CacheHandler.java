@@ -1,32 +1,59 @@
 package net.coreprotect.thread;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentHashMap;
-
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.TransactionId;
 import org.bukkit.Location;
 import org.bukkit.World;
 
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.utility.ErrorReporter;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class CacheHandler implements Runnable {
 
-    public static Map<String, Object[]> lookupCache = Collections.synchronizedMap(new HashMap<>());
-    public static Map<String, Object[]> breakCache = Collections.synchronizedMap(new HashMap<>());
-    public static Map<String, Object[]> interactCache = Collections.synchronizedMap(new HashMap<>());
-    public static Map<String, Object[]> entityCache = Collections.synchronizedMap(new HashMap<>());
-    public static ConcurrentHashMap<String, Object[]> pistonCache = new ConcurrentHashMap<>(16, 0.75f, 2);
+    public static Map<String, Object[]> lookupCache = new ConcurrentHashMap<>(16, 0.75f, 2);
+    public static Map<String, Object[]> breakCache = new ConcurrentHashMap<>(16, 0.75f, 2);
+    public static Map<String, Object[]> interactCache = new ConcurrentHashMap<>(16, 0.75f, 2);
+    public static Map<String, Object[]> entityCache = new ConcurrentHashMap<>(16, 0.75f, 2);
+    public static ConcurrentHashMap<Object, Object[]> pistonCache = new ConcurrentHashMap<>(16, 0.75f, 2);
     public static ConcurrentHashMap<String, Object[]> spreadCache = new ConcurrentHashMap<>(16, 0.75f, 2);
     public static ConcurrentHashMap<String, Object[]> containerDuplicateCache = new ConcurrentHashMap<>(16, 0.75f, 2);
     public static ConcurrentHashMap<String, Object[]> flowDuplicateCache = new ConcurrentHashMap<>(16, 0.75f, 2);
     public static ConcurrentHashMap<String, Object[]> bonemealDuplicateCache = new ConcurrentHashMap<>(16, 0.75f, 2);
     public static ConcurrentHashMap<String, Object[]> entityKillDuplicateCache = new ConcurrentHashMap<>(16, 0.75f, 2);
-    public static ConcurrentHashMap<String, Object[]> redstoneCache = new ConcurrentHashMap<>(16, 0.75f, 2);
-    public static ConcurrentHashMap<String, Object[]> fallingBlockSpawnCache = new ConcurrentHashMap<>(16, 0.75f, 2);
+    public static ConcurrentHashMap<TransactionId, Object[]> redstoneCache = new ConcurrentHashMap<>(16, 0.75f, 2);
+    public static ConcurrentHashMap<UUID, Object[]> fallingBlockSpawnCache = new ConcurrentHashMap<>(16, 0.75f, 2);
+
+    private static volatile Thread thread;
+
+    public static void startThread() {
+        Thread cacheThread = new Thread(new CacheHandler(), "CoreProtect-Cache");
+        cacheThread.setDaemon(true);
+        thread = cacheThread;
+        cacheThread.start();
+    }
+
+    /**
+     * Wakes the sweeper out of its sleep and waits briefly for it to exit, so a disabled plugin leaves no thread behind.
+     */
+    public static void stopThread(long timeoutMillis) {
+        Thread cacheThread = thread;
+        thread = null;
+        if (cacheThread == null) {
+            return;
+        }
+
+        cacheThread.interrupt();
+        try {
+            cacheThread.join(timeoutMillis);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
 
     public static String locationKey(Location location) {
         if (location == null || location.getWorld() == null) {
@@ -59,20 +86,27 @@ public class CacheHandler implements Runnable {
                 count = threshold + 1;
             }
 
-            return new Object[] { timestamp, count };
+            if (value != null) {
+                value[0] = timestamp;
+                value[1] = count;
+                return value;
+            }
+
+            return new Object[]{timestamp, count};
         });
 
         return ((int) result[1]) > threshold;
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @SuppressWarnings({"unchecked", "rawtypes"})
     @Override
     public void run() {
         while (ConfigHandler.serverRunning) {
             try {
-                for (int id = 0; id < 14; id++) {
+                for (int id = 0; id < 16 && ConfigHandler.serverRunning; id++) {
                     Thread.sleep(1000);
                     int scanTime = 30;
+                    int timestampIndex = 0;
                     Map cache = CacheHandler.lookupCache;
 
                     switch (id) {
@@ -106,6 +140,7 @@ public class CacheHandler implements Runnable {
                         case 8:
                             // Clean up dispenserNoChange cache
                             cleanupDispenserCache();
+                            cleanupPopulatedChunks();
                             continue;
                         case 9:
                             cache = CacheHandler.containerDuplicateCache;
@@ -127,6 +162,16 @@ public class CacheHandler implements Runnable {
                             cache = CacheHandler.fallingBlockSpawnCache;
                             scanTime = 30; // 30 seconds
                             break;
+                        case 14:
+                            cache = ConfigHandler.hopperAbort;
+                            scanTime = 900; // 15 minutes
+                            timestampIndex = 2;
+                            break;
+                        case 15:
+                            cache = ConfigHandler.hopperSuccess;
+                            scanTime = 900; // 15 minutes
+                            timestampIndex = 2;
+                            break;
                     }
 
                     int timestamp = (int) (System.currentTimeMillis() / 1000L) - scanTime;
@@ -135,25 +180,34 @@ public class CacheHandler implements Runnable {
                         try {
                             Map.Entry entry = iterator.next();
                             Object[] data = (Object[]) entry.getValue();
-                            int time = (data[0] instanceof Long) ? (int) ((long) data[0] / 1000L) : (int) data[0];
+                            Object marker = data[timestampIndex];
+                            int time = (marker instanceof Long) ? (int) ((long) marker / 1000L) : (int) marker;
 
                             if (time < timestamp) {
-                                try {
-                                    iterator.remove();
-                                }
-                                catch (Exception e) {
-                                }
+                                iterator.remove();
                             }
-                        }
-                        catch (Exception e) {
-                            break;
+                        } catch (Exception e) {
+                            // Skip the malformed entry rather than abandoning the rest of the sweep
+                            continue;
                         }
                     }
                 }
-            }
-            catch (Exception e) {
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            } catch (Exception e) {
                 ErrorReporter.report(e);
             }
+        }
+    }
+
+    /**
+     * Drops chunk population stamps once they are past the longest window BlockPlaceLogger checks (240 seconds)
+     */
+    private void cleanupPopulatedChunks() {
+        long cutoff = (System.currentTimeMillis() / 1000L) - 240;
+        for (ConcurrentHashMap<Long, Long> worldChunks : ConfigHandler.populatedChunks.values()) {
+            worldChunks.values().removeIf(populatedAt -> populatedAt < cutoff);
         }
     }
 
@@ -166,10 +220,10 @@ public class CacheHandler implements Runnable {
             long expiryTime = 5000; // 5 seconds
 
             // Clean up dispenserNoChange map (now a nested map)
-            Iterator<Entry<String, ConcurrentHashMap<String, Long>>> locationIterator = ConfigHandler.dispenserNoChange.entrySet().iterator();
+            Iterator<Entry<TransactionId, ConcurrentHashMap<Object, Long>>> locationIterator = ConfigHandler.dispenserNoChange.entrySet().iterator();
             while (locationIterator.hasNext()) {
-                Entry<String, ConcurrentHashMap<String, Long>> locationEntry = locationIterator.next();
-                ConcurrentHashMap<String, Long> eventMap = locationEntry.getValue();
+                Entry<TransactionId, ConcurrentHashMap<Object, Long>> locationEntry = locationIterator.next();
+                ConcurrentHashMap<Object, Long> eventMap = locationEntry.getValue();
 
                 if (eventMap.isEmpty()) {
                     // Remove empty location entries
@@ -178,9 +232,9 @@ public class CacheHandler implements Runnable {
                 }
 
                 // Clean up expired events within this location
-                Iterator<Entry<String, Long>> eventIterator = eventMap.entrySet().iterator();
+                Iterator<Entry<Object, Long>> eventIterator = eventMap.entrySet().iterator();
                 while (eventIterator.hasNext()) {
-                    Entry<String, Long> eventEntry = eventIterator.next();
+                    Entry<Object, Long> eventEntry = eventIterator.next();
                     if ((currentTime - eventEntry.getValue()) > expiryTime) {
                         eventIterator.remove();
                     }
@@ -193,9 +247,9 @@ public class CacheHandler implements Runnable {
             }
 
             // Clean up dispenserPending map
-            Iterator<Entry<String, Object[]>> pendingIterator = ConfigHandler.dispenserPending.entrySet().iterator();
+            Iterator<Entry<TransactionId, Object[]>> pendingIterator = ConfigHandler.dispenserPending.entrySet().iterator();
             while (pendingIterator.hasNext()) {
-                Entry<String, Object[]> entry = pendingIterator.next();
+                Entry<TransactionId, Object[]> entry = pendingIterator.next();
                 Object[] data = entry.getValue();
                 if (data != null && data.length > 1) {
                     long timestamp = (long) data[1];
@@ -204,8 +258,7 @@ public class CacheHandler implements Runnable {
                     }
                 }
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             ErrorReporter.report(e);
         }
     }

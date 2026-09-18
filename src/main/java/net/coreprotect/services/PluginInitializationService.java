@@ -1,12 +1,5 @@
 package net.coreprotect.services;
 
-import java.io.File;
-
-import org.bstats.bukkit.Metrics;
-import org.bukkit.Bukkit;
-import org.bukkit.plugin.PluginDescriptionFile;
-import org.bukkit.plugin.java.JavaPlugin;
-
 import net.coreprotect.CoreProtect;
 import net.coreprotect.command.CommandHandler;
 import net.coreprotect.command.PurgeCommand;
@@ -20,16 +13,20 @@ import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.NetworkHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.thread.TickTimeMonitor;
-import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.ChatUtils;
-import net.coreprotect.utility.Extensions;
-import net.coreprotect.utility.EntitySpawnTracking;
-import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.*;
+import org.bstats.bukkit.Metrics;
+import org.bukkit.Bukkit;
+import org.bukkit.plugin.PluginDescriptionFile;
+import org.bukkit.plugin.java.JavaPlugin;
+
+import java.io.File;
 
 /**
  * Service responsible for plugin initialization tasks
  */
 public class PluginInitializationService {
+
+    private static volatile Metrics metrics;
 
     private PluginInitializationService() {
         throw new IllegalStateException("Utility class");
@@ -38,8 +35,7 @@ public class PluginInitializationService {
     /**
      * Initializes plugin components and configurations
      *
-     * @param plugin
-     *            The CoreProtect plugin instance
+     * @param plugin The CoreProtect plugin instance
      * @return true if initialization was successful, false otherwise
      */
     public static boolean initializePlugin(CoreProtect plugin) {
@@ -68,8 +64,7 @@ public class PluginInitializationService {
             if (start) {
                 new ListenerHandler(plugin);
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             ErrorReporter.report(e);
             return false;
         }
@@ -91,8 +86,7 @@ public class PluginInitializationService {
     /**
      * Registers plugin commands
      *
-     * @param plugin
-     *            The CoreProtect plugin instance
+     * @param plugin The CoreProtect plugin instance
      */
     private static void registerCommands(JavaPlugin plugin) {
         plugin.getCommand("coreprotect").setExecutor(CommandHandler.getInstance());
@@ -116,8 +110,7 @@ public class PluginInitializationService {
     /**
      * Displays startup messages in the console
      *
-     * @param plugin
-     *            The CoreProtect plugin instance
+     * @param plugin The CoreProtect plugin instance
      */
     private static void displayStartupMessages(JavaPlugin plugin) {
         PluginDescriptionFile pluginDescription = plugin.getDescription();
@@ -125,11 +118,9 @@ public class PluginInitializationService {
 
         if (ConfigHandler.databaseType.isMySQL()) {
             Chat.console(Phrase.build(Phrase.USING_MYSQL));
-        }
-        else if (ConfigHandler.databaseType.isSQLite()) {
+        } else if (ConfigHandler.databaseType.isSQLite()) {
             Chat.console(Phrase.build(Phrase.USING_SQLITE));
-        }
-        else {
+        } else {
             Chat.console(Phrase.build(Phrase.USING_DATABASE, ConfigHandler.databaseType.getDisplayName()));
         }
 
@@ -142,17 +133,15 @@ public class PluginInitializationService {
     /**
      * Starts background services
      *
-     * @param plugin
-     *            The CoreProtect plugin instance
+     * @param plugin The CoreProtect plugin instance
      */
     private static void startBackgroundServices(CoreProtect plugin) {
         // Start network handler
         Scheduler.scheduleSyncDelayedTask(plugin, () -> {
             try {
-                Thread networkHandler = new Thread(new NetworkHandler(true, true));
+                Thread networkHandler = new Thread(new NetworkHandler(true, true), "CoreProtect-Network");
                 networkHandler.start();
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 ErrorReporter.report(e);
             }
         }, 0);
@@ -161,8 +150,7 @@ public class PluginInitializationService {
         TickTimeMonitor.initialize(plugin);
 
         // Start cache cleanup thread
-        Thread cacheCleanUpThread = new Thread(new CacheHandler());
-        cacheCleanUpThread.start();
+        CacheHandler.startThread();
 
         Consumer.startConsumer();
         EntitySpawnTracking.initializeLoadedEntities();
@@ -172,15 +160,31 @@ public class PluginInitializationService {
     /**
      * Enables metrics reporting
      *
-     * @param plugin
-     *            The CoreProtect plugin instance
+     * @param plugin The CoreProtect plugin instance
      */
     private static void enableMetrics(JavaPlugin plugin) {
         try {
-            new Metrics(plugin, 2876);
-        }
-        catch (Exception e) {
+            metrics = new Metrics(plugin, 2876);
+        } catch (Exception e) {
             // Failed to connect to bStats server or something else went wrong
+        }
+    }
+
+    /**
+     * Shuts down the bStats scheduler. Without this its executor outlives a plugin disable and
+     * keeps the old classloader alive.
+     */
+    public static void disableMetrics() {
+        Metrics current = metrics;
+        metrics = null;
+        if (current == null) {
+            return;
+        }
+
+        try {
+            current.shutdown();
+        } catch (Exception e) {
+            ErrorReporter.report(e);
         }
     }
 }

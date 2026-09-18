@@ -33,6 +33,7 @@ import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
 import net.coreprotect.CoreProtect;
@@ -106,11 +107,22 @@ public final class EntitySpawnTracking {
     }
 
     public static boolean isTracked(Entity entity) {
-        return entity != null && entity.getPersistentDataContainer().has(getKey(), PersistentDataType.BYTE);
+        if (entity == null) {
+            return false;
+        }
+
+        // Most entities carry no persistent data, and has() builds a key string per call
+        PersistentDataContainer container = entity.getPersistentDataContainer();
+        return !container.isEmpty() && container.has(getKey(), PersistentDataType.BYTE);
     }
 
     public static boolean isTrackedOrPendingIdentity(Entity entity) {
-        return entity != null && (isTracked(entity) || entity.getPersistentDataContainer().has(getPendingIdentityKey(), PersistentDataType.BYTE));
+        if (entity == null) {
+            return false;
+        }
+
+        PersistentDataContainer container = entity.getPersistentDataContainer();
+        return !container.isEmpty() && (container.has(getKey(), PersistentDataType.BYTE) || container.has(getPendingIdentityKey(), PersistentDataType.BYTE));
     }
 
     public static boolean beginDatabaseIdentityPromotion(Entity entity) {
@@ -181,12 +193,18 @@ public final class EntitySpawnTracking {
     }
 
     public static void seedOrigin(Entity entity) {
-        if (!isEligibleInteractionEntity(entity) || isTracked(entity)) {
+        if (!isEligibleInteractionEntity(entity)) {
             return;
         }
-        byte[] existingSeed = entity.getPersistentDataContainer().get(getOriginSeedKey(), PersistentDataType.BYTE_ARRAY);
-        if (existingSeed != null && existingSeed.length == ORIGIN_SEED_SIZE) {
-            return;
+        PersistentDataContainer container = entity.getPersistentDataContainer();
+        if (!container.isEmpty()) {
+            if (container.has(getKey(), PersistentDataType.BYTE)) {
+                return;
+            }
+            byte[] existingSeed = container.get(getOriginSeedKey(), PersistentDataType.BYTE_ARRAY);
+            if (existingSeed != null && existingSeed.length == ORIGIN_SEED_SIZE) {
+                return;
+            }
         }
 
         Location location = entity.getLocation();
@@ -815,7 +833,10 @@ public final class EntitySpawnTracking {
 
         if (!pending.isEmpty()) {
             try {
-                CompletableFuture.allOf(pending.toArray(new CompletableFuture<?>[0])).get(30, TimeUnit.SECONDS);
+                CompletableFuture.allOf(pending.toArray(new CompletableFuture<?>[0])).get(5, TimeUnit.SECONDS);
+            }
+            catch (TimeoutException e) {
+                // Region schedulers may already be halted while the server stops, and first load re-verifies these locations
             }
             catch (Exception e) {
                 ErrorReporter.report(e);

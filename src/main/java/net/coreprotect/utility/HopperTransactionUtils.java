@@ -12,10 +12,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.inventory.ItemStack;
 
 public final class HopperTransactionUtils {
@@ -23,7 +25,8 @@ public final class HopperTransactionUtils {
     private static final long APPLY_ALL_MARK = -1L;
     private static final int TRANSACTION_LOCK_COUNT = 256;
 
-    private static final ConcurrentHashMap<String, PendingTransaction> pendingTransactions = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<TransactionId, PendingTransaction> pendingTransactions = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<UUID, String> worldIds = new ConcurrentHashMap<>();
     private static final Object[] transactionLocks = new Object[TRANSACTION_LOCK_COUNT];
 
     static {
@@ -34,8 +37,19 @@ public final class HopperTransactionUtils {
         throw new IllegalStateException("Utility class");
     }
 
-    public static String getTransactionId(Location location) {
-        return location.getWorld().getUID().toString() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+    public static TransactionId getTransactionId(Location location) {
+        return TransactionId.of(location);
+    }
+
+    private static String getWorldId(World world) {
+        UUID uid = world.getUID();
+        String worldId = worldIds.get(uid);
+        if (worldId == null) {
+            worldId = uid.toString();
+            worldIds.put(uid, worldId);
+        }
+
+        return worldId;
     }
 
     public static String getLoggingId(String user, Location location) {
@@ -47,36 +61,44 @@ public final class HopperTransactionUtils {
     }
 
     public static String getLoggingIdSuffix(Location location) {
-        return "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ() + "." + location.getWorld().getUID().toString();
+        return "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ() + "." + getWorldId(location.getWorld());
     }
 
     public static String getHopperPushId(Location location) {
-        return "#hopper-push" + getLoggingIdSuffix(location);
+        return getHopperPushId(getLoggingIdSuffix(location));
+    }
+
+    public static String getHopperPushId(String locationSuffix) {
+        return "#hopper-push" + locationSuffix;
     }
 
     public static String getHopperPullId(Location location) {
-        return "#hopper-pull" + getLoggingIdSuffix(location);
+        return getHopperPullId(getLoggingIdSuffix(location));
     }
 
-    public static void synchronizeTransaction(String transactionId, Runnable operation) {
+    public static String getHopperPullId(String locationSuffix) {
+        return "#hopper-pull" + locationSuffix;
+    }
+
+    public static void synchronizeTransaction(TransactionId transactionId, Runnable operation) {
         Objects.requireNonNull(operation);
         synchronized (getTransactionLock(transactionId)) {
             operation.run();
         }
     }
 
-    public static <T> T synchronizeTransaction(String transactionId, Supplier<T> operation) {
+    public static <T> T synchronizeTransaction(TransactionId transactionId, Supplier<T> operation) {
         Objects.requireNonNull(operation);
         synchronized (getTransactionLock(transactionId)) {
             return operation.get();
         }
     }
 
-    public static boolean hasTransaction(String transactionId) {
+    public static boolean hasTransaction(TransactionId transactionId) {
         return pendingTransactions.containsKey(transactionId);
     }
 
-    public static int pendingDeltaCount(String transactionId) {
+    public static int pendingDeltaCount(TransactionId transactionId) {
         PendingTransaction transaction = pendingTransactions.get(transactionId);
         if (transaction == null) {
             return -1;
@@ -87,7 +109,7 @@ public final class HopperTransactionUtils {
         }
     }
 
-    public static void registerSnapshot(String transactionId, String loggingId, boolean fresh) {
+    public static void registerSnapshot(TransactionId transactionId, String loggingId, boolean fresh) {
         PendingTransaction transaction = pendingTransactions.computeIfAbsent(transactionId, k -> new PendingTransaction());
         synchronized (transaction) {
             Deque<Long> marks = transaction.ownerMarks.computeIfAbsent(loggingId, k -> new ArrayDeque<>());
@@ -100,11 +122,11 @@ public final class HopperTransactionUtils {
         }
     }
 
-    public static long peekSnapshotMark(String transactionId, String loggingId) {
+    public static long peekSnapshotMark(TransactionId transactionId, String loggingId) {
         return getSnapshotMark(transactionId, loggingId, 0);
     }
 
-    public static long getSnapshotMark(String transactionId, String loggingId, int index) {
+    public static long getSnapshotMark(TransactionId transactionId, String loggingId, int index) {
         PendingTransaction transaction = pendingTransactions.get(transactionId);
         if (transaction == null) {
             return APPLY_ALL_MARK;
@@ -130,11 +152,11 @@ public final class HopperTransactionUtils {
         }
     }
 
-    public static void consumeSnapshot(String transactionId, String loggingId) {
+    public static void consumeSnapshot(TransactionId transactionId, String loggingId) {
         consumeSnapshot(transactionId, loggingId, 0);
     }
 
-    public static void consumeSnapshot(String transactionId, String loggingId, int index) {
+    public static void consumeSnapshot(TransactionId transactionId, String loggingId, int index) {
         PendingTransaction transaction = pendingTransactions.get(transactionId);
         if (transaction == null) {
             return;
@@ -159,7 +181,7 @@ public final class HopperTransactionUtils {
         }
     }
 
-    public static void removeOwner(String transactionId, String loggingId) {
+    public static void removeOwner(TransactionId transactionId, String loggingId) {
         PendingTransaction transaction = pendingTransactions.get(transactionId);
         if (transaction == null) {
             return;
@@ -177,15 +199,15 @@ public final class HopperTransactionUtils {
         }
     }
 
-    public static void recordItemAdded(String transactionId, ItemStack item) {
+    public static void recordItemAdded(TransactionId transactionId, ItemStack item) {
         recordDelta(transactionId, item, false, item == null ? 0 : item.getAmount());
     }
 
-    public static void recordItemRemoved(String transactionId, ItemStack item) {
+    public static void recordItemRemoved(TransactionId transactionId, ItemStack item) {
         recordDelta(transactionId, item, true, item == null ? 0 : item.getAmount());
     }
 
-    public static boolean shouldForceBatchBoundary(String transactionId, String loggingId, ItemStack item) {
+    public static boolean shouldForceBatchBoundary(TransactionId transactionId, String loggingId, ItemStack item) {
         if (item == null || item.getAmount() <= 0) {
             return false;
         }
@@ -211,10 +233,10 @@ public final class HopperTransactionUtils {
             movedItems.add(movedItem.clone());
         }
 
-        return new Object[] { movedItems, ItemUtils.getContainerState(destinationContents) };
+        return new Object[] { movedItems, ItemUtils.getContainerState(destinationContents), (int) (System.currentTimeMillis() / 1000L) };
     }
 
-    public static ItemStack[] applyPendingChanges(ItemStack[] containerState, String transactionId, long sinceMark) {
+    public static ItemStack[] applyPendingChanges(ItemStack[] containerState, TransactionId transactionId, long sinceMark) {
         if (containerState == null) {
             return null;
         }
@@ -267,7 +289,7 @@ public final class HopperTransactionUtils {
         return result;
     }
 
-    private static void recordDelta(String transactionId, ItemStack item, boolean addBack, int amount) {
+    private static void recordDelta(TransactionId transactionId, ItemStack item, boolean addBack, int amount) {
         if (item == null || amount <= 0 || item.getAmount() <= 0) {
             return;
         }
@@ -296,9 +318,9 @@ public final class HopperTransactionUtils {
         }
     }
 
-    private static Object getTransactionLock(String transactionId) {
+    private static Object getTransactionLock(TransactionId transactionId) {
         Objects.requireNonNull(transactionId);
-        return transactionLocks[Math.floorMod(transactionId.hashCode(), TRANSACTION_LOCK_COUNT)];
+        return transactionLocks[transactionId.hashCode() & (TRANSACTION_LOCK_COUNT - 1)];
     }
 
     private static void pruneDeltas(PendingTransaction transaction) {

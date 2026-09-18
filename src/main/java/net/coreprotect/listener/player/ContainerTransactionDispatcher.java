@@ -10,7 +10,6 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.ErrorReporter;
-import net.coreprotect.utility.HopperTransactionUtils;
 
 final class ContainerTransactionDispatcher {
 
@@ -32,9 +31,15 @@ final class ContainerTransactionDispatcher {
             return;
         }
 
-        String transactionId = HopperTransactionUtils.getTransactionId(location);
-        Stripe stripe = STRIPES[(transactionId.hashCode() & Integer.MAX_VALUE) % STRIPE_COUNT];
-        stripe.submit(task);
+        STRIPES[stripeIndex(location)].submit(task);
+    }
+
+    private static int stripeIndex(Location location) {
+        int hash = location.getWorld().getUID().hashCode();
+        hash = hash * 31 + location.getBlockX();
+        hash = hash * 31 + location.getBlockY();
+        hash = hash * 31 + location.getBlockZ();
+        return (hash & Integer.MAX_VALUE) % STRIPE_COUNT;
     }
 
     static int pendingTasks() {

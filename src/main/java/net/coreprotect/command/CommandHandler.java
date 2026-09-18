@@ -168,7 +168,7 @@ public class CommandHandler implements CommandExecutor {
                             }
                         }
                     }
-                    (new Thread(new updateAlert())).start();
+                    (new Thread(new updateAlert(), "CoreProtect-UpdateAlert")).start();
                 }
             }
 

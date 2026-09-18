@@ -1,11 +1,13 @@
 package net.coreprotect.listener.block;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Map.Entry;
-
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.Database;
+import net.coreprotect.model.BlockGroup;
+import net.coreprotect.model.action.SignActions;
+import net.coreprotect.paper.PaperAdapter;
+import net.coreprotect.utility.ErrorReporter;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -20,74 +22,66 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockExplodeEvent;
 
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.config.Config;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.database.Database;
-import net.coreprotect.model.BlockGroup;
-import net.coreprotect.model.action.SignActions;
-import net.coreprotect.paper.PaperAdapter;
-import net.coreprotect.utility.ErrorReporter;
+import java.util.*;
 
 public final class BlockExplodeListener extends Queue implements Listener {
 
+    // (dx, dy, dz) for the five scanned neighbors: +x, -x, +z, -z, +y
+    private static final int[] EXPLODE_OFFSETS = {1, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, -1, 0, 1, 0};
+
+    /**
+     * Packs block coordinates into a long the way Minecraft does, so the explosion scan can key a
+     * map without cloning a Location per block and hashing three doubles.
+     */
+    private static long positionKey(int x, int y, int z) {
+        return ((long) x & 0x3FFFFFFL) << 38 | ((long) z & 0x3FFFFFFL) << 12 | ((long) y & 0xFFFL);
+    }
+
     public static void processBlockExplode(String user, World world, List<Block> blockList) {
-        HashMap<Location, Block> blockMap = new HashMap<>();
+        Map<Long, Block> blockMap = new HashMap<>();
 
         for (Block block : blockList) {
-            blockMap.put(block.getLocation(), block);
+            blockMap.put(positionKey(block.getX(), block.getY(), block.getZ()), block);
         }
 
         if (Config.getConfig(world).NATURAL_BREAK) {
-            for (Entry<Location, Block> data : new HashMap<>(blockMap).entrySet()) {
-                Block block = data.getValue();
+            int worldMaxHeight = world.getMaxHeight();
+            int worldMinHeight = BukkitAdapter.ADAPTER.getMinHeight(world);
+            for (Block block : new ArrayList<>(blockMap.values())) {
                 int x = block.getX();
                 int y = block.getY();
                 int z = block.getZ();
 
-                Location[] locationMap = new Location[5];
-                locationMap[0] = new Location(world, (x + 1), y, z);
-                locationMap[1] = new Location(world, (x - 1), y, z);
-                locationMap[2] = new Location(world, x, y, (z + 1));
-                locationMap[3] = new Location(world, x, y, (z - 1));
-                locationMap[4] = new Location(world, x, (y + 1), z);
+                for (int scan = 0; scan < 5; scan++) {
+                    int offset = scan * 3;
+                    int scanX = x + EXPLODE_OFFSETS[offset];
+                    int scanY = y + EXPLODE_OFFSETS[offset + 1];
+                    int scanZ = z + EXPLODE_OFFSETS[offset + 2];
+                    long key = positionKey(scanX, scanY, scanZ);
+                    if (blockMap.get(key) != null) {
+                        continue;
+                    }
 
-                int scanMin = 0;
-                int scanMax = 5;
-                while (scanMin < scanMax) {
-                    Location location = locationMap[scanMin];
-                    if (blockMap.get(location) == null) {
-                        Block scanBlock = world.getBlockAt(location);
-                        Material scanType = scanBlock.getType();
-                        if (BlockGroup.TRACK_ANY.contains(scanType) || BlockGroup.TRACK_TOP.contains(scanType) || BlockGroup.TRACK_TOP_BOTTOM.contains(scanType) || BlockGroup.TRACK_BOTTOM.contains(scanType) || BlockGroup.TRACK_SIDE.contains(scanType)) {
-                            blockMap.put(location, scanBlock);
+                    Block scanBlock = world.getBlockAt(scanX, scanY, scanZ);
+                    Material scanType = scanBlock.getType();
+                    if (BlockGroup.TRACK_ANY.contains(scanType) || BlockGroup.TRACK_TOP.contains(scanType) || BlockGroup.TRACK_TOP_BOTTOM.contains(scanType) || BlockGroup.TRACK_BOTTOM.contains(scanType) || BlockGroup.TRACK_SIDE.contains(scanType)) {
+                        blockMap.put(key, scanBlock);
 
-                            // Properly log double blocks, such as doors
-                            BlockData blockData = scanBlock.getBlockData();
-                            if (blockData instanceof Bisected) {
-                                Bisected bisected = (Bisected) blockData;
-                                Location bisectLocation = location.clone();
-                                if (bisected.getHalf() == Half.TOP) {
-                                    bisectLocation.setY(bisectLocation.getY() - 1);
-                                }
-                                else {
-                                    bisectLocation.setY(bisectLocation.getY() + 1);
-                                }
-
-                                int worldMaxHeight = world.getMaxHeight();
-                                int worldMinHeight = BukkitAdapter.ADAPTER.getMinHeight(world);
-                                if (bisectLocation.getBlockY() >= worldMinHeight && bisectLocation.getBlockY() < worldMaxHeight && blockMap.get(bisectLocation) == null) {
-                                    blockMap.put(bisectLocation, world.getBlockAt(bisectLocation));
-                                }
+                        // Properly log double blocks, such as doors
+                        BlockData blockData = scanBlock.getBlockData();
+                        if (blockData instanceof Bisected) {
+                            int bisectY = ((Bisected) blockData).getHalf() == Half.TOP ? scanY - 1 : scanY + 1;
+                            long bisectKey = positionKey(scanX, bisectY, scanZ);
+                            if (bisectY >= worldMinHeight && bisectY < worldMaxHeight && blockMap.get(bisectKey) == null) {
+                                blockMap.put(bisectKey, world.getBlockAt(scanX, bisectY, scanZ));
                             }
                         }
                     }
-                    scanMin++;
                 }
             }
         }
 
-        for (Map.Entry<Location, Block> entry : blockMap.entrySet()) {
+        for (Map.Entry<Long, Block> entry : blockMap.entrySet()) {
             Block block = entry.getValue();
             Material blockType = block.getType();
             BlockState blockState = block.getState();
@@ -112,8 +106,7 @@ public final class BlockExplodeListener extends Queue implements Listener {
                     boolean isWaxed = BukkitAdapter.ADAPTER.isWaxed(sign);
 
                     Queue.queueSignText(user, location, SignActions.BREAK, color, colorSecondary, frontGlowing, backGlowing, isWaxed, isFront, line1, line2, line3, line4, line5, line6, line7, line8, 5);
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                     ErrorReporter.report(e);
                 }
             }
@@ -128,7 +121,7 @@ public final class BlockExplodeListener extends Queue implements Listener {
         Material eventMaterial = BukkitAdapter.ADAPTER.getExplodedBlock(event);
         World world = event.getBlock().getLocation().getWorld();
 
-        if (!BukkitAdapter.ADAPTER.shouldLogExplosion(event)){
+        if (!BukkitAdapter.ADAPTER.shouldLogExplosion(event)) {
             return;
         }
 
@@ -138,12 +131,11 @@ public final class BlockExplodeListener extends Queue implements Listener {
 
             if (user.contains("respawn_anchor")) {
                 user = "#respawn_anchor";
-            }
-            else if (user.contains("_bed")) {
+            } else if (user.contains("_bed")) {
                 user = "#bed";
             }
         }
-        
+
         if (!user.startsWith("#")) {
             user = "#explosion";
         }

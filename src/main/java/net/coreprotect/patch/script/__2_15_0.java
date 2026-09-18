@@ -55,6 +55,7 @@ public class __2_15_0 {
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            return false;
         }
 
         return true;

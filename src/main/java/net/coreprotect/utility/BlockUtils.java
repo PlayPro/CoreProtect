@@ -2,8 +2,11 @@ package net.coreprotect.utility;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Material;
 import org.bukkit.block.Banner;
@@ -21,57 +24,146 @@ import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.model.PendingBlockChange;
 import net.coreprotect.thread.Scheduler;
 
 public class BlockUtils {
 
+    private static final int BLOCK_DATA_CACHE_LIMIT = 4096;
+
     private BlockUtils() {
         throw new IllegalStateException("Utility class");
     }
 
-    public static byte[] stringToByteData(String string, int type) {
-        byte[] result = null;
-        if (string != null) {
-            Material material = MaterialUtils.getType(type);
-            String blockKey = MaterialUtils.getBlockName(type);
-            if ((blockKey == null || blockKey.length() == 0) && material != null) {
-                blockKey = material.getKey().toString();
-            }
-            if (blockKey == null || blockKey.length() == 0) {
-                return result;
-            }
+    private static volatile BlockDataCache blockDataCache;
+    private static volatile Set<Material> singleChestMaterials;
 
-            BlockData defaultBlockData = createBlockData(type);
-            if (defaultBlockData != null && !defaultBlockData.getAsString().equals(string) && string.startsWith(blockKey + "[") && string.endsWith("]")) {
-                String substring = string.substring(blockKey.length() + 1, string.length() - 1);
-                String[] blockDataSplit = substring.split(",");
-                ArrayList<String> blockDataArray = new ArrayList<>();
-                for (String data : blockDataSplit) {
-                    int id = MaterialUtils.getBlockdataId(data, true);
-                    if (id > -1) {
-                        blockDataArray.add(Integer.toString(id));
-                    }
-                }
-                string = String.join(",", blockDataArray);
-            }
-            else if (material != null && !string.contains(":") && (material == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(material))) {
-                int id = MaterialUtils.getBlockdataId(string, true);
-                if (id > -1) {
-                    string = Integer.toString(id);
-                }
-                else {
-                    return result;
-                }
-            }
-            else {
-                return result;
-            }
-
-            result = string.getBytes(StandardCharsets.UTF_8);
+    private static Set<Material> singleChestMaterials() {
+        Set<Material> cached = singleChestMaterials;
+        if (cached == null) {
+            cached = EnumSet.of(Material.CHEST, Material.TRAPPED_CHEST);
+            cached.addAll(BukkitAdapter.ADAPTER.copperChestMaterials());
+            singleChestMaterials = cached;
         }
 
+        return cached;
+    }
+
+    /**
+     * Replaces String.matches("\\d+"), which compiled a fresh Pattern on every lookup row.
+     */
+    private static boolean isDigits(String value) {
+        if (value.isEmpty()) {
+            return false;
+        }
+
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+            if (character < '0' || character > '9') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public static byte[] stringToByteData(String string, int type) {
+        if (string == null) {
+            return null;
+        }
+
+        // ClickHouse uncaches identifiers when a batch is discarded, so cached ids could point at unpublished rows
+        Map<String, CachedBlockData> cache = ConfigHandler.databaseType.isClickHouse() ? null : blockDataCache();
+        if (cache != null) {
+            CachedBlockData cached = cache.get(string);
+            if (cached != null && cached.type == type) {
+                return cached.data;
+            }
+        }
+
+        Material material = MaterialUtils.getType(type);
+        String blockKey = MaterialUtils.getBlockName(type);
+        if ((blockKey == null || blockKey.length() == 0) && material != null) {
+            blockKey = material.getKey().toString();
+        }
+        if (blockKey == null || blockKey.length() == 0) {
+            return null;
+        }
+
+        byte[] result = null;
+        boolean resolved = true;
+        BlockData defaultBlockData = createBlockData(type);
+        if (defaultBlockData != null && !defaultBlockData.getAsString().equals(string) && string.startsWith(blockKey + "[") && string.endsWith("]")) {
+            String substring = string.substring(blockKey.length() + 1, string.length() - 1);
+            String[] blockDataSplit = substring.split(",");
+            ArrayList<String> blockDataArray = new ArrayList<>();
+            for (String data : blockDataSplit) {
+                int id = MaterialUtils.getBlockdataId(data, true);
+                if (id > -1) {
+                    blockDataArray.add(Integer.toString(id));
+                }
+                else {
+                    resolved = false;
+                }
+            }
+            result = String.join(",", blockDataArray).getBytes(StandardCharsets.UTF_8);
+        }
+        else if (material != null && !string.contains(":") && (material == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(material))) {
+            int id = MaterialUtils.getBlockdataId(string, true);
+            if (id > -1) {
+                result = Integer.toString(id).getBytes(StandardCharsets.UTF_8);
+            }
+            else {
+                resolved = false;
+            }
+        }
+
+        if (cache != null && resolved) {
+            if (cache.size() >= BLOCK_DATA_CACHE_LIMIT) {
+                cache.clear();
+            }
+            cache.put(string, new CachedBlockData(type, result));
+        }
         return result;
+    }
+
+    /**
+     * The encoded bytes depend on the material and blockdata id maps. Loading those maps replaces the map instances,
+     * so a changed instance starts a new cache.
+     */
+    private static Map<String, CachedBlockData> blockDataCache() {
+        BlockDataCache cache = blockDataCache;
+        Map<Integer, String> materials = ConfigHandler.materialsReversed;
+        Map<String, Integer> blockdata = ConfigHandler.blockdata;
+        if (cache == null || cache.materials != materials || cache.blockdata != blockdata) {
+            cache = new BlockDataCache(materials, blockdata);
+            blockDataCache = cache;
+        }
+        return cache.entries;
+    }
+
+    private static final class BlockDataCache {
+
+        private final Map<Integer, String> materials;
+        private final Map<String, Integer> blockdata;
+        private final Map<String, CachedBlockData> entries = new ConcurrentHashMap<>();
+
+        private BlockDataCache(Map<Integer, String> materials, Map<String, Integer> blockdata) {
+            this.materials = materials;
+            this.blockdata = blockdata;
+        }
+    }
+
+    private static final class CachedBlockData {
+
+        private final int type;
+        private final byte[] data;
+
+        private CachedBlockData(int type, byte[] data) {
+            this.type = type;
+            this.data = data;
+        }
     }
 
     public static String byteDataToString(byte[] data, int type) {
@@ -88,7 +180,7 @@ public class BlockUtils {
 
             result = new String(data, StandardCharsets.UTF_8);
             if (result.length() > 0) {
-                if (result.matches("\\d+")) {
+                if (isDigits(result)) {
                     result = result + ",";
                 }
                 if (result.contains(",")) {
@@ -249,13 +341,8 @@ public class BlockUtils {
         Inventory inventory = null;
         try {
             if (blockState instanceof BlockInventoryHolder) {
-                if (singleBlock) {
-                    List<Material> chests = new java.util.ArrayList<>(java.util.Arrays.asList(Material.CHEST, Material.TRAPPED_CHEST));
-                    chests.addAll(BukkitAdapter.ADAPTER.copperChestMaterials());
-                    Material type = blockState.getType();
-                    if (chests.contains(type)) {
-                        inventory = ((org.bukkit.block.Chest) blockState).getBlockInventory();
-                    }
+                if (singleBlock && singleChestMaterials().contains(blockState.getType())) {
+                    inventory = ((org.bukkit.block.Chest) blockState).getBlockInventory();
                 }
                 if (inventory == null) {
                     inventory = ((BlockInventoryHolder) blockState).getInventory();

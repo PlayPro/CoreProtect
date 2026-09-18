@@ -379,7 +379,7 @@ public class LookupCommand {
             final Location location = new Location(Bukkit.getServer().getWorld(world), dx, dy, dz);
 
             Runnable runnable = new ChestTransactionLookupThread(player, command, location, p, re);
-            Thread thread = new Thread(runnable);
+            Thread thread = new Thread(runnable, "CoreProtect-Lookup");
             thread.start();
         }
         else if (type == 2 || type == 3 || type == 7 || type == 8 || type == 9) {
@@ -426,7 +426,7 @@ public class LookupCommand {
             // String bc = x+"."+y+"."+z+"."+wid+"."+rstring+"."+lookup_user;
             if (type == 9) {
                 Runnable runnable = new EntityInteractionLookupThread(player, command, page, re);
-                Thread thread = new Thread(runnable);
+                Thread thread = new Thread(runnable, "CoreProtect-Lookup");
                 thread.start();
                 return;
             }
@@ -454,7 +454,7 @@ public class LookupCommand {
             final BlockState blockState = block.getState();
 
             Runnable runnable = new BlockLookupThread(player, command, block, blockState, page, re, type, entitySpawnRowId);
-            Thread thread = new Thread(runnable);
+            Thread thread = new Thread(runnable, "CoreProtect-Lookup");
             thread.start();
         }
         else if (type == 4 || type == 5) {
@@ -657,7 +657,7 @@ public class LookupCommand {
                     Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Color.ITALIC + Phrase.build(Phrase.LOOKUP_SEARCHING));
 
                     Runnable runnable = new StandardLookupThread(player, command, rollbackusers, argBlocks, argExclude, argExcludeUsers, argAction, argEntityActionFilter, argFilters, argRadius, lo, x, y, z, wid, argWid, timeStart, timeEnd, argNoisy, argExcluded, argRestricted, pa, re, type, ts, outputMode, rollbackState);
-                    Thread thread = new Thread(runnable);
+                    Thread thread = new Thread(runnable, "CoreProtect-Lookup");
                     thread.start();
                 }
                 catch (Exception e) {

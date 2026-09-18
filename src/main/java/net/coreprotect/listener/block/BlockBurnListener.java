@@ -13,7 +13,7 @@ import net.coreprotect.consumer.Queue;
 
 public final class BlockBurnListener extends Queue implements Listener {
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     protected void onBlockBurn(BlockBurnEvent event) {
         World world = event.getBlock().getWorld();
         if (!event.isCancelled() && Config.getConfig(world).BLOCK_BURN) {

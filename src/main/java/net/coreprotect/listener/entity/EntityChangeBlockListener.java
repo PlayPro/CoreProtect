@@ -3,6 +3,7 @@ package net.coreprotect.listener.entity;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.entity.EnderDragon;
 import org.bukkit.entity.Enderman;
 import org.bukkit.entity.Entity;
@@ -25,7 +26,7 @@ import net.coreprotect.utility.WorldUtils;
 
 public final class EntityChangeBlockListener extends Queue implements Listener {
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     protected void onEntityChangeBlock(EntityChangeBlockEvent event) {
         World world = event.getBlock().getWorld();
         if (event.isCancelled()) {
@@ -48,7 +49,7 @@ public final class EntityChangeBlockListener extends Queue implements Listener {
 
         if (entity instanceof FallingBlock) {
             if (!config.BLOCK_MOVEMENT) {
-                CacheHandler.fallingBlockSpawnCache.remove(entity.getUniqueId().toString());
+                CacheHandler.fallingBlockSpawnCache.remove(entity.getUniqueId());
                 return;
             }
             handleFallingBlock(event, (FallingBlock) entity, block, newtype, type, world);
@@ -91,7 +92,8 @@ public final class EntityChangeBlockListener extends Queue implements Listener {
                 Queue.queueBlockBreak(e, block.getState(), type, block.getBlockData().getAsString(), 0);
             }
             else {
-                queueBlockPlace(e, block.getState(), type, block.getState(), newtype, -1, 0, event.getBlockData().getAsString());
+                BlockState changedState = block.getState();
+                queueBlockPlace(e, changedState, type, changedState, newtype, -1, 0, event.getBlockData().getAsString());
             }
         }
     }
@@ -121,7 +123,7 @@ public final class EntityChangeBlockListener extends Queue implements Listener {
             return;
         }
 
-        Object[] originData = CacheHandler.fallingBlockSpawnCache.remove(fallingBlock.getUniqueId().toString());
+        Object[] originData = CacheHandler.fallingBlockSpawnCache.remove(fallingBlock.getUniqueId());
         String user = "#gravity";
         if (originData != null) {
             String originKey = (String) originData[1];
@@ -131,7 +133,8 @@ public final class EntityChangeBlockListener extends Queue implements Listener {
             }
         }
 
-        queueBlockPlace(user, block.getState(), type, block.getState(), newtype, -1, 0, event.getBlockData().getAsString());
+        BlockState landedState = block.getState();
+        queueBlockPlace(user, landedState, type, landedState, newtype, -1, 0, event.getBlockData().getAsString());
     }
 
     private static String lookupCachedUser(String coordKey, Material expectedType) {

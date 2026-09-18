@@ -10,6 +10,7 @@ import org.bukkit.inventory.ItemStack;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.logger.ContainerBreakLogger;
 import net.coreprotect.utility.HopperTransactionUtils;
+import net.coreprotect.utility.TransactionId;
 
 class ContainerBreakProcess {
 
@@ -19,7 +20,7 @@ class ContainerBreakProcess {
             Map<Integer, ItemStack[]> containers = Consumer.consumerContainers.get(processId);
             if (containers.get(id) != null) {
                 ItemStack[] container = containers.get(id);
-                String transactionId = HopperTransactionUtils.getTransactionId(location);
+                TransactionId transactionId = HopperTransactionUtils.getTransactionId(location);
                 HopperTransactionUtils.synchronizeTransaction(transactionId, () -> ContainerBreakLogger.log(preparedStmt, batchCount, user, location, type, container));
             }
         }

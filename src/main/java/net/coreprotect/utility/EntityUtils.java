@@ -34,22 +34,30 @@ public class EntityUtils extends Queue {
         if (ConfigHandler.databaseType.isClickHouse()) {
             return ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.ENTITIES, name, internal);
         }
-        if (ConfigHandler.entities.get(name) != null) {
-            id = ConfigHandler.entities.get(name);
+        Integer existing = ConfigHandler.entities.get(name);
+        if (existing != null) {
+            id = existing;
         }
         else if (internal) {
-            // Check if another server has already added this entity (multi-server setup)
-            id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.ENTITIES, name);
-            if (id != -1) {
-                return id;
-            }
+            synchronized (ConfigHandler.IDENTIFIER_ALLOCATION_LOCK) {
+                Integer allocated = ConfigHandler.entities.get(name);
+                if (allocated != null) {
+                    return allocated;
+                }
 
-            int entityID = ConfigHandler.entityId + 1;
-            ConfigHandler.entities.put(name, entityID);
-            ConfigHandler.entitiesReversed.put(entityID, name);
-            ConfigHandler.entityId = entityID;
-            Queue.queueEntityInsert(entityID, name);
-            id = ConfigHandler.entities.get(name);
+                // Check if another server has already added this entity (multi-server setup)
+                id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.ENTITIES, name);
+                if (id != -1) {
+                    return id;
+                }
+
+                int entityID = ConfigHandler.entityId + 1;
+                ConfigHandler.entities.put(name, entityID);
+                ConfigHandler.entitiesReversed.put(entityID, name);
+                ConfigHandler.entityId = entityID;
+                Queue.queueEntityInsert(entityID, name);
+                id = entityID;
+            }
         }
 
         return id;

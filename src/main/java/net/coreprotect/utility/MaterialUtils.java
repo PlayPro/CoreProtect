@@ -12,6 +12,7 @@ import net.coreprotect.consumer.Queue;
 public class MaterialUtils extends Queue {
 
     private static final String NAMESPACE = "minecraft:";
+    private static final String NAMESPACE_UPPER = "MINECRAFT:";
 
     private MaterialUtils() {
         throw new IllegalStateException("Utility class");
@@ -44,22 +45,30 @@ public class MaterialUtils extends Queue {
         if (ConfigHandler.databaseType.isClickHouse()) {
             return ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.MATERIALS, name, internal);
         }
-        if (ConfigHandler.materials.get(name) != null) {
-            id = ConfigHandler.materials.get(name);
+        Integer existing = ConfigHandler.materials.get(name);
+        if (existing != null) {
+            id = existing;
         }
         else if (internal) {
-            // Check if another server has already added this material (multi-server setup)
-            id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.MATERIALS, name);
-            if (id != -1) {
-                return id;
-            }
+            synchronized (ConfigHandler.IDENTIFIER_ALLOCATION_LOCK) {
+                Integer allocated = ConfigHandler.materials.get(name);
+                if (allocated != null) {
+                    return allocated;
+                }
 
-            int mid = ConfigHandler.materialId + 1;
-            ConfigHandler.materials.put(name, mid);
-            ConfigHandler.materialsReversed.put(mid, name);
-            ConfigHandler.materialId = mid;
-            Queue.queueMaterialInsert(mid, name);
-            id = ConfigHandler.materials.get(name);
+                // Check if another server has already added this material (multi-server setup)
+                id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.MATERIALS, name);
+                if (id != -1) {
+                    return id;
+                }
+
+                int mid = ConfigHandler.materialId + 1;
+                ConfigHandler.materials.put(name, mid);
+                ConfigHandler.materialsReversed.put(mid, name);
+                ConfigHandler.materialId = mid;
+                Queue.queueMaterialInsert(mid, name);
+                id = mid;
+            }
         }
 
         return id;
@@ -72,22 +81,30 @@ public class MaterialUtils extends Queue {
         if (ConfigHandler.databaseType.isClickHouse()) {
             return ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.BLOCKDATA, data, internal);
         }
-        if (ConfigHandler.blockdata.get(data) != null) {
-            id = ConfigHandler.blockdata.get(data);
+        Integer existingBlockdata = ConfigHandler.blockdata.get(data);
+        if (existingBlockdata != null) {
+            id = existingBlockdata;
         }
         else if (internal) {
-            // Check if another server has already added this blockdata (multi-server setup)
-            id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.BLOCKDATA, data);
-            if (id != -1) {
-                return id;
-            }
+            synchronized (ConfigHandler.IDENTIFIER_ALLOCATION_LOCK) {
+                Integer allocated = ConfigHandler.blockdata.get(data);
+                if (allocated != null) {
+                    return allocated;
+                }
 
-            int bid = ConfigHandler.blockdataId + 1;
-            ConfigHandler.blockdata.put(data, bid);
-            ConfigHandler.blockdataReversed.put(bid, data);
-            ConfigHandler.blockdataId = bid;
-            Queue.queueBlockDataInsert(bid, data);
-            id = ConfigHandler.blockdata.get(data);
+                // Check if another server has already added this blockdata (multi-server setup)
+                id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.BLOCKDATA, data);
+                if (id != -1) {
+                    return id;
+                }
+
+                int bid = ConfigHandler.blockdataId + 1;
+                ConfigHandler.blockdata.put(data, bid);
+                ConfigHandler.blockdataReversed.put(bid, data);
+                ConfigHandler.blockdataId = bid;
+                Queue.queueBlockDataInsert(bid, data);
+                id = bid;
+            }
         }
 
         return id;
@@ -146,11 +163,7 @@ public class MaterialUtils extends Queue {
     public static Material getTypeFromStoredName(String blockName) {
         Material material = null;
         if (!blockName.isEmpty()) {
-            String name = blockName.toUpperCase(Locale.ROOT);
-            if (name.contains(NAMESPACE.toUpperCase(Locale.ROOT))) {
-                name = name.split(":")[1];
-            }
-
+            String name = stripNamespace(blockName.toUpperCase(Locale.ROOT));
             name = net.coreprotect.bukkit.BukkitAdapter.ADAPTER.parseLegacyName(name);
             material = Material.getMaterial(name);
 
@@ -167,15 +180,39 @@ public class MaterialUtils extends Queue {
         Material material = null;
         name = name.toUpperCase(Locale.ROOT).trim();
         if (!name.startsWith("#")) {
-            if (name.contains(NAMESPACE.toUpperCase(Locale.ROOT))) {
-                name = name.split(":")[1];
-            }
-
-            name = net.coreprotect.bukkit.BukkitAdapter.ADAPTER.parseLegacyName(name);
-            material = Material.matchMaterial(name);
+            name = net.coreprotect.bukkit.BukkitAdapter.ADAPTER.parseLegacyName(stripNamespace(name));
+            material = isEnumName(name) ? Material.getMaterial(name) : Material.matchMaterial(name);
         }
 
         return material;
+    }
+
+    /**
+     * matchMaterial only strips a lowercase namespace, uppercases, turns whitespace into underscores and drops
+     * non-word characters before calling getMaterial. None of that changes a name made of A-Z, 0-9 and underscores,
+     * so getMaterial returns the same result without the two regex replacements.
+     */
+    private static boolean isEnumName(String name) {
+        for (int index = 0; index < name.length(); index++) {
+            char character = name.charAt(index);
+            if ((character < 'A' || character > 'Z') && (character < '0' || character > '9') && character != '_') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Drops a leading "MINECRAFT:" from an already-uppercased name. Avoids the split() array and
+     * the uppercase copy of the namespace constant the previous form rebuilt on every call.
+     */
+    private static String stripNamespace(String name) {
+        if (!name.startsWith(NAMESPACE_UPPER)) {
+            return name;
+        }
+
+        return name.substring(NAMESPACE_UPPER.length());
     }
 
     public static int getArtId(String name, boolean internal) {
@@ -185,22 +222,30 @@ public class MaterialUtils extends Queue {
         if (ConfigHandler.databaseType.isClickHouse()) {
             return ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.ART, name, internal);
         }
-        if (ConfigHandler.art.get(name) != null) {
-            id = ConfigHandler.art.get(name);
+        Integer existingArt = ConfigHandler.art.get(name);
+        if (existingArt != null) {
+            id = existingArt;
         }
         else if (internal) {
-            // Check if another server has already added this art (multi-server setup)
-            id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.ART, name);
-            if (id != -1) {
-                return id;
-            }
+            synchronized (ConfigHandler.IDENTIFIER_ALLOCATION_LOCK) {
+                Integer allocated = ConfigHandler.art.get(name);
+                if (allocated != null) {
+                    return allocated;
+                }
 
-            int artID = ConfigHandler.artId + 1;
-            ConfigHandler.art.put(name, artID);
-            ConfigHandler.artReversed.put(artID, name);
-            ConfigHandler.artId = artID;
-            Queue.queueArtInsert(artID, name);
-            id = ConfigHandler.art.get(name);
+                // Check if another server has already added this art (multi-server setup)
+                id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.ART, name);
+                if (id != -1) {
+                    return id;
+                }
+
+                int artID = ConfigHandler.artId + 1;
+                ConfigHandler.art.put(name, artID);
+                ConfigHandler.artReversed.put(artID, name);
+                ConfigHandler.artId = artID;
+                Queue.queueArtInsert(artID, name);
+                id = artID;
+            }
         }
 
         return id;
@@ -229,14 +274,7 @@ public class MaterialUtils extends Queue {
     }
 
     public static boolean listContains(Set<Material> list, Material value) {
-        boolean result = false;
-        for (Material list_value : list) {
-            if (list_value.equals(value)) {
-                result = true;
-                break;
-            }
-        }
-        return result;
+        return list.contains(value);
     }
 
     public static int rolledBack(int rolledBack, boolean isInventory) {

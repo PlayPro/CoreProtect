@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
@@ -29,7 +30,7 @@ public class Config extends Language {
 
     private static final Map<String, String[]> HEADERS = new HashMap<>();
     private static final Map<String, String> DEFAULT_VALUES = new LinkedHashMap<>();
-    private static final Map<String, Config> CONFIG_BY_WORLD_NAME = new HashMap<>();
+    private static final Map<String, Config> CONFIG_BY_WORLD_NAME = new ConcurrentHashMap<>();
     private static final String DEFAULT_FILE_HEADER = "# CoreProtect Config";
     private static final Pattern NON_DIGIT_PATTERN = Pattern.compile("[^0-9]");
     public static final String LINE_SEPARATOR = "\n";
@@ -101,6 +102,7 @@ public class Config extends Language {
     public boolean ITEM_DROPS;
     public boolean ITEM_PICKUPS;
     public boolean HOPPER_TRANSACTIONS;
+    public boolean DISPENSER_TRANSACTIONS;
     public boolean PLAYER_INTERACTIONS;
     public boolean PLAYER_MESSAGES;
     public boolean PLAYER_COMMANDS;
@@ -173,6 +175,7 @@ public class Config extends Language {
         DEFAULT_VALUES.put("item-drops", "true");
         DEFAULT_VALUES.put("item-pickups", "true");
         DEFAULT_VALUES.put("hopper-transactions", "true");
+        DEFAULT_VALUES.put("dispenser-transactions", "true");
         DEFAULT_VALUES.put("player-interactions", "true");
         DEFAULT_VALUES.put("player-messages", "true");
         DEFAULT_VALUES.put("player-commands", "true");
@@ -224,6 +227,7 @@ public class Config extends Language {
         HEADERS.put("item-drops", new String[] { "# Logs items dropped by players." });
         HEADERS.put("item-pickups", new String[] { "# Logs items picked up by players." });
         HEADERS.put("hopper-transactions", new String[] { "# Track all hopper transactions, such as when a hopper removes items from a", "# chest, furnace, or dispenser." });
+        HEADERS.put("dispenser-transactions", new String[] { "# Track items leaving dispensers and droppers when they fire.", "# Requires item-transactions. Can be turned off per world for redstone clocks." });
         HEADERS.put("player-interactions", new String[] { "# Track player interactions, such as when a player opens a door, presses", "# a button, or opens a chest. Player interactions can't be rolled back." });
         HEADERS.put("player-messages", new String[] { "# Logs messages that players send in the chat." });
         HEADERS.put("player-commands", new String[] { "# Logs all commands used by players." });
@@ -305,6 +309,7 @@ public class Config extends Language {
         this.ITEM_DROPS = this.getBoolean("item-drops");
         this.ITEM_PICKUPS = this.getBoolean("item-pickups");
         this.HOPPER_TRANSACTIONS = this.getBoolean("hopper-transactions");
+        this.DISPENSER_TRANSACTIONS = this.getBoolean("dispenser-transactions");
         this.PLAYER_INTERACTIONS = this.getBoolean("player-interactions");
         this.PLAYER_MESSAGES = this.getBoolean("player-messages");
         this.PLAYER_COMMANDS = this.getBoolean("player-commands");
@@ -328,12 +333,7 @@ public class Config extends Language {
     }
 
     public static Config getConfig(final String worldName) {
-        Config ret = CONFIG_BY_WORLD_NAME.get(worldName);
-        if (ret == null) {
-            ret = CONFIG_BY_WORLD_NAME.getOrDefault(worldName, GLOBAL);
-            CONFIG_BY_WORLD_NAME.put(worldName, ret);
-        }
-        return ret;
+        return CONFIG_BY_WORLD_NAME.getOrDefault(worldName, GLOBAL);
     }
 
     public Config() {
@@ -488,8 +488,6 @@ public class Config extends Language {
             return;
         }
 
-        CONFIG_BY_WORLD_NAME.clear();
-
         // we need to load global first since it is used for config defaults
         final byte[] defaultData = data.get("config");
         if (defaultData != null) {
@@ -504,6 +502,7 @@ public class Config extends Language {
             GLOBAL.loadDefaults();
         }
 
+        final Map<String, Config> worldConfigs = new HashMap<>();
         for (final Map.Entry<String, byte[]> entry : data.entrySet()) {
             final String worldName = entry.getKey();
             if (worldName.equals("config")) {
@@ -521,8 +520,12 @@ public class Config extends Language {
                 throw new RuntimeException(ex); // shouldn't happen
             }
 
-            CONFIG_BY_WORLD_NAME.put(worldName, config);
+            worldConfigs.put(worldName, config);
         }
+
+        // Replace entries instead of clearing first so region threads never see a configured world fall back to global
+        CONFIG_BY_WORLD_NAME.putAll(worldConfigs);
+        CONFIG_BY_WORLD_NAME.keySet().retainAll(worldConfigs.keySet());
     }
 
     public void addMissingOptions(final File file) throws IOException {

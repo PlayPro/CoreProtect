@@ -1,10 +1,8 @@
 package net.coreprotect.listener.player;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -25,6 +23,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.utility.EntityUtils;
+import net.coreprotect.utility.ItemUtils;
 
 public final class ProjectileLaunchListener extends Queue implements Listener {
 
@@ -36,7 +35,6 @@ public final class ProjectileLaunchListener extends Queue implements Listener {
         }
 
         String loggingItemId = user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
-        int itemId = getItemId(loggingItemId);
 
         itemStack = itemStack.clone();
         if (amount > 0) {
@@ -44,15 +42,12 @@ public final class ProjectileLaunchListener extends Queue implements Listener {
         }
 
         if (action == ItemLogger.ITEM_SHOOT) {
-            List<ItemStack> list = ConfigHandler.itemsShot.getOrDefault(loggingItemId, new ArrayList<>());
-            list.add(itemStack);
-            ConfigHandler.itemsShot.put(loggingItemId, list);
+            ItemUtils.addPendingItems(ConfigHandler.itemsShot, loggingItemId, itemStack);
         }
         else {
-            List<ItemStack> list = ConfigHandler.itemsThrown.getOrDefault(loggingItemId, new ArrayList<>());
-            list.add(itemStack);
-            ConfigHandler.itemsThrown.put(loggingItemId, list);
+            ItemUtils.addPendingItems(ConfigHandler.itemsThrown, loggingItemId, itemStack);
         }
+        int itemId = getItemId(loggingItemId);
 
         int time = (int) (System.currentTimeMillis() / 1000L) + delay;
         Queue.queueItemTransaction(user, location.clone(), time, offset, itemId);
@@ -60,15 +55,19 @@ public final class ProjectileLaunchListener extends Queue implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     protected void onProjectileLaunch(ProjectileLaunchEvent event) {
+        if (ConfigHandler.entityBlockMapper.isEmpty()) {
+            return;
+        }
+
         Location location = event.getEntity().getLocation();
         String key = location.getWorld().getName() + "-" + location.getBlockX() + "-" + location.getBlockY() + "-" + location.getBlockZ();
+        Material entityMaterial = EntityUtils.getEntityMaterial(event.getEntity());
         Iterator<Entry<String, Object[]>> it = ConfigHandler.entityBlockMapper.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<String, Object[]> pair = it.next();
             String name = pair.getKey();
             Object[] data = pair.getValue();
             ItemStack itemStack = (ItemStack) data[3];
-            Material entityMaterial = EntityUtils.getEntityMaterial(event.getEntity());
             boolean isBow = BOWS.contains(itemStack.getType());
             if ((data[1].equals(key) || data[2].equals(key)) && (entityMaterial == itemStack.getType() || (itemStack.getType() == Material.LINGERING_POTION && entityMaterial == Material.SPLASH_POTION) || isBow)) {
                 boolean thrownItem = (itemStack.getType() != Material.FIREWORK_ROCKET && !isBow);

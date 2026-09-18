@@ -455,7 +455,7 @@ public class RollbackRestoreCommand {
                                                 completed = ContainerRollback.performContainerRollbackRestore(statement, player2, uuidList, rollbackusers2, rtime, blist, elist, euserlist, finalArgAction, location, radius, finalTimeStart, finalTimeEnd, restrictWorld, false, verbose, action);
                                             }
                                             else {
-                                                completed = Rollback.performRollbackRestore(statement, player2, uuidList, rollbackusers2, rtime, blist, elist, euserlist, finalArgAction, finalEntityActionFilter, location, radius, finalTimeStart, finalTimeEnd, restrictWorld, false, verbose, action, finalPreview) != null;
+                                                completed = Rollback.performRollbackRestore(statement, player2, null, uuidList, rollbackusers2, rtime, blist, elist, euserlist, finalArgAction, finalEntityActionFilter, location, radius, finalTimeStart, finalTimeEnd, restrictWorld, false, verbose, action, finalPreview, false) != null;
                                             }
                                             if (completed && finalPreview < 2) {
                                                 List<Object> list = new ArrayList<>();
@@ -485,7 +485,7 @@ public class RollbackRestoreCommand {
                             }
                         }
                         Runnable runnable = new BasicThread2();
-                        Thread thread = new Thread(runnable);
+                        Thread thread = new Thread(runnable, "CoreProtect-Rollback");
                         try {
                             thread.start();
                         }

@@ -20,6 +20,7 @@ public class __2_10_0 {
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            return false;
         }
 
         return true;

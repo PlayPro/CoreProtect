@@ -19,7 +19,7 @@ import net.coreprotect.utility.WorldUtils;
 
 public final class BlockSpreadListener extends Queue implements Listener {
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     protected void onBlockSpread(BlockSpreadEvent event) {
         // mushrooms, fire
 
@@ -47,7 +47,8 @@ public final class BlockSpreadListener extends Queue implements Listener {
                 queueBlockPlace("#vine", block.getState(), block.getType(), null, type, -1, 0, blockstate.getBlockData().getAsString());
             }
             else if (BlockGroup.AMETHYST.contains(type)) {
-                queueBlockPlace("#amethyst", block.getState(), block.getType(), block.getState(), type, -1, 0, blockstate.getBlockData().getAsString());
+                BlockState grownState = block.getState();
+                queueBlockPlace("#amethyst", grownState, block.getType(), grownState, type, -1, 0, blockstate.getBlockData().getAsString());
             }
             else if (type.equals(Material.CHORUS_FLOWER)) {
                 Block sourceBlock = event.getSource();
@@ -79,7 +80,8 @@ public final class BlockSpreadListener extends Queue implements Listener {
                 return;
             }
 
-            queueBlockPlace("#sculk_catalyst", block.getState(), block.getType(), block.getState(), type, -1, 0, blockstate.getBlockData().getAsString());
+            BlockState spreadState = block.getState();
+            queueBlockPlace("#sculk_catalyst", spreadState, block.getType(), spreadState, type, -1, 0, blockstate.getBlockData().getAsString());
         }
     }
 

@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.HumanEntity;
@@ -30,6 +29,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.logger.ItemLogger;
+import net.coreprotect.utility.ItemUtils;
 
 public final class CraftItemListener extends Queue implements Listener {
 
@@ -39,31 +39,51 @@ public final class CraftItemListener extends Queue implements Listener {
         }
 
         String loggingItemId = user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
-        int itemId = getItemId(loggingItemId);
 
         if (action == ItemLogger.ITEM_BUY) {
-            List<ItemStack> list = ConfigHandler.itemsBuy.getOrDefault(loggingItemId, new ArrayList<>());
-            list.add(itemStack);
-            ConfigHandler.itemsBuy.put(loggingItemId, list);
+            ItemUtils.addPendingItems(ConfigHandler.itemsBuy, loggingItemId, itemStack);
         }
         else if (action == ItemLogger.ITEM_SELL) {
-            List<ItemStack> list = ConfigHandler.itemsSell.getOrDefault(loggingItemId, new ArrayList<>());
-            list.add(itemStack);
-            ConfigHandler.itemsSell.put(loggingItemId, list);
+            ItemUtils.addPendingItems(ConfigHandler.itemsSell, loggingItemId, itemStack);
         }
         else if (action == ItemLogger.ITEM_CREATE) {
-            List<ItemStack> list = ConfigHandler.itemsCreate.getOrDefault(loggingItemId, new ArrayList<>());
-            list.add(itemStack);
-            ConfigHandler.itemsCreate.put(loggingItemId, list);
+            ItemUtils.addPendingItems(ConfigHandler.itemsCreate, loggingItemId, itemStack);
         }
         else {
-            List<ItemStack> list = ConfigHandler.itemsDestroy.getOrDefault(loggingItemId, new ArrayList<>());
-            list.add(itemStack);
-            ConfigHandler.itemsDestroy.put(loggingItemId, list);
+            ItemUtils.addPendingItems(ConfigHandler.itemsDestroy, loggingItemId, itemStack);
         }
+        int itemId = getItemId(loggingItemId);
 
         int time = (int) (System.currentTimeMillis() / 1000L) + 1;
         Queue.queueItemTransaction(user, location.clone(), time, 0, itemId);
+    }
+
+    /**
+     * Counts how many of the item CraftInventory.addItem would accept when called once per single item. Every
+     * accepted item uses up exactly one unit of room, and a call only fails once no similar partial stack and no
+     * empty slot is left, so the count is the free room in similar partial stacks plus a full stack per empty slot.
+     */
+    private static int getAddableAmount(Inventory inventory, ItemStack item, int limit) {
+        int inventoryMaxStackSize = inventory.getMaxStackSize();
+        int emptySlotRoom = Math.min(item.getMaxStackSize(), inventoryMaxStackSize);
+        int addable = 0;
+        for (ItemStack slotItem : inventory.getStorageContents()) {
+            if (addable >= limit) {
+                break;
+            }
+
+            if (slotItem == null || slotItem.getType() == Material.AIR || slotItem.getAmount() <= 0) {
+                addable += emptySlotRoom;
+            }
+            else if (slotItem.isSimilar(item)) {
+                int slotMaxStackSize = Math.min(slotItem.getMaxStackSize(), inventoryMaxStackSize);
+                if (slotItem.getAmount() < slotMaxStackSize) {
+                    addable += slotMaxStackSize - slotItem.getAmount();
+                }
+            }
+        }
+
+        return Math.min(addable, limit);
     }
 
     protected static void playerCraftItem(InventoryClickEvent event, boolean isTrade) {
@@ -138,24 +158,12 @@ public final class CraftItemListener extends Queue implements Listener {
             amountMultiplier = (newMultiplier == Integer.MIN_VALUE ? 1 : newMultiplier);
 
             int addAmount = amount * amountMultiplier;
-            Inventory virtualInventory = Bukkit.createInventory(null, 36);
-            virtualInventory.setStorageContents(bottomInventory.getStorageContents());
-            addItem.setAmount(1);
-
-            int addSuccess = 0;
-            for (int i = 0; i < addAmount; i++) {
-                if (!virtualInventory.addItem(addItem).isEmpty()) {
-                    break;
-                }
-                addSuccess++;
-            }
-
+            int addSuccess = getAddableAmount(bottomInventory, addItem, addAmount);
             if (addSuccess < addAmount) {
                 addAmount = (int) (Math.ceil(addSuccess / (double) amount) * amount);
                 amountMultiplier = addAmount / amount;
             }
 
-            virtualInventory.clear();
             addItem.setAmount(addAmount);
         }
 

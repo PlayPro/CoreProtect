@@ -3,6 +3,7 @@ package net.coreprotect.utility;
 import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Array;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -25,10 +26,24 @@ import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 
 public class ItemUtils {
-    private static final Map<ItemStack, Integer> GIVABLE_ITEMS = Collections.synchronizedMap(new LinkedHashMap<>());
+    private static final int MAX_GIVABLE_ITEMS = 4096;
+    private static final Map<Integer, ItemStack> GIVABLE_BY_ID = new HashMap<>();
+    private static final Map<ItemStack, Integer> GIVABLE_IDS = new LinkedHashMap<ItemStack, Integer>() {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<ItemStack, Integer> eldest) {
+            if (size() <= MAX_GIVABLE_ITEMS) {
+                return false;
+            }
+
+            GIVABLE_BY_ID.remove(eldest.getValue());
+            return true;
+        }
+    };
+    private static int nextGivableId = 0;
 
     private static final Object UNSERIALIZABLE_VALUE = new Object();
     private static final Logger LOGGER = Logger.getLogger("CoreProtect");
@@ -63,16 +78,44 @@ public class ItemUtils {
     }
 
     public static ItemStack getGivableItem(int id) {
-        //we can use skip here because it's a linked map from which elements are never removed
-        return GIVABLE_ITEMS.keySet().stream().skip(id).findFirst().orElse(null);
+        synchronized (GIVABLE_IDS) {
+            return GIVABLE_BY_ID.get(id);
+        }
     }
 
+    /**
+     * Assigns a stable id to an item surfaced by a lookup so it can be handed back via /co give.
+     * Ids come from a counter rather than the map size, so evicting the oldest entries once
+     * {@value #MAX_GIVABLE_ITEMS} is reached cannot renumber the ids still in use.
+     */
     public static Integer makeGivableItem(ItemStack item) {
         if (item == null) {
-          return null;
+            return null;
         }
 
-        return GIVABLE_ITEMS.computeIfAbsent(item, k -> GIVABLE_ITEMS.size());
+        synchronized (GIVABLE_IDS) {
+            Integer existing = GIVABLE_IDS.get(item);
+            if (existing != null) {
+                return existing;
+            }
+
+            int id = nextGivableId++;
+            GIVABLE_IDS.put(item, id);
+            GIVABLE_BY_ID.put(id, item);
+            return id;
+        }
+    }
+
+    /**
+     * Appends to a pending item list inside compute. ItemLogger takes each list with remove, so an item either
+     * lands in the list being taken or in a fresh one for the next pass.
+     */
+    public static void addPendingItems(ConcurrentHashMap<String, List<ItemStack>> pendingItems, String key, ItemStack... items) {
+        pendingItems.compute(key, (id, list) -> {
+            List<ItemStack> result = list == null ? new ArrayList<>(items.length) : list;
+            Collections.addAll(result, items);
+            return result;
+        });
     }
 
     public static void mergeItems(Material material, ItemStack[] items) {
@@ -80,20 +123,19 @@ public class ItemUtils {
             return;
         }
         try {
-            int c1 = 0;
-            for (ItemStack o1 : items) {
-                if (o1 != null && o1.getAmount() > 0) {
-                    int c2 = 0;
-                    for (ItemStack o2 : items) {
-                        if (o2 != null && c2 > c1 && o1.isSimilar(o2) && !BlockUtils.isAir(o1.getType())) { // Ignores amount
-                            int namount = o1.getAmount() + o2.getAmount();
-                            o1.setAmount(namount);
-                            o2.setAmount(0);
-                        }
-                        c2++;
+            for (int c1 = 0; c1 < items.length; c1++) {
+                ItemStack o1 = items[c1];
+                if (o1 == null || o1.getAmount() <= 0 || BlockUtils.isAir(o1.getType())) {
+                    continue;
+                }
+
+                for (int c2 = c1 + 1; c2 < items.length; c2++) {
+                    ItemStack o2 = items[c2];
+                    if (o2 != null && o1.isSimilar(o2)) { // Ignores amount
+                        o1.setAmount(o1.getAmount() + o2.getAmount());
+                        o2.setAmount(0);
                     }
                 }
-                c1++;
             }
         }
         catch (Exception e) {
@@ -102,19 +144,14 @@ public class ItemUtils {
     }
 
     public static ItemStack[] getContainerState(ItemStack[] array) {
-        ItemStack[] result = array == null ? null : array.clone();
-        if (result == null) {
-            return result;
+        if (array == null) {
+            return null;
         }
 
-        int count = 0;
-        for (ItemStack itemStack : array) {
-            ItemStack clonedItem = null;
-            if (itemStack != null) {
-                clonedItem = itemStack.clone();
-            }
-            result[count] = clonedItem;
-            count++;
+        ItemStack[] result = new ItemStack[array.length];
+        for (int i = 0; i < array.length; i++) {
+            ItemStack itemStack = array[i];
+            result[i] = itemStack == null ? null : itemStack.clone();
         }
 
         return result;
@@ -317,7 +354,7 @@ public class ItemUtils {
                 }
                 else {
                     Block block = (Block) container;
-                    Inventory inventory = BlockUtils.getContainerInventory(block.getState(), true);
+                    Inventory inventory = BlockUtils.getContainerInventory(PaperAdapter.ADAPTER.getBlockState(block, false), true);
                     if (inventory != null) {
                         contents = inventory.getContents();
                     }

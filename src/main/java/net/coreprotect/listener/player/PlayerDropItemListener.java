@@ -1,12 +1,11 @@
 package net.coreprotect.listener.player;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.bukkit.Location;
 import org.bukkit.entity.Item;
@@ -19,11 +18,13 @@ import org.bukkit.inventory.ItemStack;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.utility.ItemUtils;
 
 public final class PlayerDropItemListener extends Queue implements Listener {
 
     private static final long ITEM_DROP_ATTRIBUTION_MS = TimeUnit.MINUTES.toMillis(5);
     private static final Map<UUID, DropAttribution> itemDropAttributions = new ConcurrentHashMap<>();
+    private static final AtomicLong nextCleanup = new AtomicLong();
 
     private static class DropAttribution {
         private final String user;
@@ -41,11 +42,8 @@ public final class PlayerDropItemListener extends Queue implements Listener {
         }
 
         String loggingItemId = user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+        ItemUtils.addPendingItems(ConfigHandler.itemsDrop, loggingItemId, itemStack.clone());
         int itemId = getItemId(loggingItemId);
-
-        List<ItemStack> list = ConfigHandler.itemsDrop.getOrDefault(loggingItemId, new ArrayList<>());
-        list.add(itemStack.clone());
-        ConfigHandler.itemsDrop.put(loggingItemId, list);
 
         int time = (int) (System.currentTimeMillis() / 1000L) + 1;
         Queue.queueItemTransaction(user, location.clone(), time, 0, itemId);
@@ -83,6 +81,11 @@ public final class PlayerDropItemListener extends Queue implements Listener {
     }
 
     private static void clearExpiredAttributions(long timestamp) {
+        long scheduled = nextCleanup.get();
+        if (timestamp < scheduled || !nextCleanup.compareAndSet(scheduled, timestamp + 1000L)) {
+            return;
+        }
+
         itemDropAttributions.entrySet().removeIf(entry -> entry.getValue().expiresAt < timestamp);
     }
 

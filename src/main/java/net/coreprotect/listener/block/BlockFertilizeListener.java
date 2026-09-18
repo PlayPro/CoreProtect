@@ -1,9 +1,8 @@
 package net.coreprotect.listener.block;
 
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
-import java.util.Locale;
+import java.util.Set;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -19,13 +18,15 @@ import org.bukkit.event.block.BlockFertilizeEvent;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.utility.TransactionId;
 
 public final class BlockFertilizeListener extends Queue implements Listener {
 
+    private static final Set<Material> MUSHROOM_GROWTH_BLOCKS = mushroomGrowthBlocks();
     private static final int BONEMEAL_DUPLICATE_THRESHOLD = 256;
     private static final int BONEMEAL_DUPLICATE_WINDOW_SECONDS = 900;
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     protected void onBlockFertilize(BlockFertilizeEvent event) {
         if (event.isCancelled()) {
             return;
@@ -59,7 +60,7 @@ public final class BlockFertilizeListener extends Queue implements Listener {
             user = player.getName();
         }
         else {
-            String key = CacheHandler.locationKey(location);
+            TransactionId key = TransactionId.of(location);
             Object[] data = CacheHandler.redstoneCache.get(key);
             if (data != null) {
                 long newTime = System.currentTimeMillis();
@@ -88,7 +89,17 @@ public final class BlockFertilizeListener extends Queue implements Listener {
     }
 
     private static boolean isMushroomGrowthBlock(Material blockType) {
-        return blockType == Material.CRIMSON_FUNGUS || blockType == Material.WARPED_FUNGUS || blockType.name().toLowerCase(Locale.ROOT).contains("mushroom");
+        return MUSHROOM_GROWTH_BLOCKS.contains(blockType);
+    }
+
+    private static Set<Material> mushroomGrowthBlocks() {
+        Set<Material> materials = EnumSet.of(Material.CRIMSON_FUNGUS, Material.WARPED_FUNGUS);
+        for (Material material : Material.values()) {
+            if (material.name().contains("MUSHROOM")) {
+                materials.add(material);
+            }
+        }
+        return materials;
     }
 
     private boolean shouldSuppressBonemealDuplicate(Location location, List<BlockState> blocks) {
@@ -96,13 +107,14 @@ public final class BlockFertilizeListener extends Queue implements Listener {
             return false;
         }
 
-        List<String> states = new ArrayList<>();
+        // Summing mixed per-block hashes identifies the same set of changes in any order, without building and sorting strings
+        long statesHash = 0L;
         for (BlockState newBlock : blocks) {
-            Location newLocation = newBlock.getLocation();
-            states.add(newLocation.getBlockX() + "." + newLocation.getBlockY() + "." + newLocation.getBlockZ() + "." + newBlock.getType().name() + "." + newBlock.getBlockData().getAsString());
+            long blockHash = ((long) newBlock.getX() * 73856093L) ^ ((long) newBlock.getY() * 19349663L) ^ ((long) newBlock.getZ() * 83492791L);
+            blockHash = blockHash * 31 + newBlock.getBlockData().hashCode();
+            statesHash += blockHash * 0x9E3779B97F4A7C15L;
         }
-        Collections.sort(states);
-        String signature = location.getWorld().getUID().toString() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ() + "." + Integer.toHexString(String.join("|", states).hashCode());
+        String signature = location.getWorld().getUID() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ() + "." + Long.toHexString(statesHash);
         return CacheHandler.shouldSuppressRepeat(CacheHandler.bonemealDuplicateCache, signature, BONEMEAL_DUPLICATE_THRESHOLD, BONEMEAL_DUPLICATE_WINDOW_SECONDS);
     }
 

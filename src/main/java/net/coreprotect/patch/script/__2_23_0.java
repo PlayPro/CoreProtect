@@ -26,6 +26,7 @@ public class __2_23_0 {
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            return false;
         }
 
         return true;

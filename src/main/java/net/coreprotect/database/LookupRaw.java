@@ -1,24 +1,5 @@
 package net.coreprotect.database;
 
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.StringJoiner;
-import java.util.UUID;
-
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.command.CommandSender;
-import org.bukkit.entity.EntityType;
-
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
@@ -35,12 +16,16 @@ import net.coreprotect.model.item.ItemTransactionActions;
 import net.coreprotect.model.lookup.EntityLookupContext;
 import net.coreprotect.model.lookup.LookupCursor;
 import net.coreprotect.model.lookup.LookupRollbackState;
-import net.coreprotect.utility.EntitySpawnTracking;
-import net.coreprotect.utility.EntityUtils;
-import net.coreprotect.utility.ErrorReporter;
-import net.coreprotect.utility.DatabaseUtils;
-import net.coreprotect.utility.MaterialUtils;
-import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.*;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.EntityType;
+
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.*;
 
 public class LookupRaw extends Queue {
 
@@ -85,10 +70,7 @@ public class LookupRaw extends Queue {
 
         boolean paused = false;
         try {
-            while (Consumer.isPaused && !Consumer.isPersistenceHalted()) {
-                Thread.sleep(1);
-            }
-            Consumer.isPaused = true;
+            Consumer.claimLookupPause();
             paused = true;
 
             Map<Integer, List<Long>> pageRows = new HashMap<>();
@@ -132,12 +114,10 @@ public class LookupRaw extends Queue {
             int currentPage = limitCount > 0 ? (limitOffset / limitCount) + 1 : 1;
             LookupCursor nextCursor = foundPageRow ? new LookupCursor(currentPage + 1, limitCount, cursorTime, cursorSource, cursorRowId, orderByTime) : null;
             return new RawLookupPage(totalRows, rows == null ? Collections.emptyList() : rows, nextCursor);
-        }
-        catch (Exception exception) {
+        } catch (Exception exception) {
             ErrorReporter.report(exception);
             return new RawLookupPage(knownTotalRows > 0L ? knownTotalRows : 0L, Collections.emptyList(), null);
-        }
-        finally {
+        } finally {
             if (paused && !Consumer.isPersistenceHalted()) {
                 Consumer.isPaused = false;
             }
@@ -165,12 +145,10 @@ public class LookupRaw extends Queue {
         }
 
         boolean paused = false;
+        ResultSet results = null;
         try {
-            while (managePause && Consumer.isPaused && !Consumer.isPersistenceHalted()) {
-                Thread.sleep(1);
-            }
             if (managePause) {
-                Consumer.isPaused = true;
+                Consumer.claimLookupPause();
                 paused = true;
             }
 
@@ -193,29 +171,34 @@ public class LookupRaw extends Queue {
                 limitCount = -1;
             }
 
-            ResultSet results = rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, false, entityContainerId, false, false, false, rollbackState, pageRows, false);
+            results = rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, false, entityContainerId, false, false, false, rollbackState, pageRows, false);
             if (results == null) {
                 return null;
             }
 
+            boolean chatOrCommandRows = actionList.contains(LookupActions.CHAT) || actionList.contains(LookupActions.COMMAND);
+            boolean sessionRows = actionList.contains(LookupActions.SESSION);
+            boolean usernameRows = actionList.contains(LookupActions.USERNAME);
+            boolean signRows = actionList.contains(LookupActions.SIGN);
+            boolean extendedColumnRows = (lookup && actionList.isEmpty()) || actionList.contains(LookupActions.INTERACTION) || actionList.contains(LookupActions.CONTAINER) || actionList.contains(5) || actionList.contains(LookupActions.ITEM);
+
             while (results.next()) {
-                if (actionList.contains(LookupActions.CHAT) || actionList.contains(LookupActions.COMMAND)) {
+                if (chatOrCommandRows) {
                     long resultId = results.getLong("id");
                     int resultTime = results.getInt("time");
                     int resultUserId = results.getInt("user");
                     String resultMessage = results.getString("message");
 
-                    Object[] dataArray = new Object[] { resultId, resultTime, resultUserId, resultMessage };
+                    Object[] dataArray = new Object[]{resultId, resultTime, resultUserId, resultMessage};
                     if (PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(user)) {
                         int resultWorldId = results.getInt("wid");
                         int resultX = results.getInt("x");
                         int resultY = results.getInt("y");
                         int resultZ = results.getInt("z");
-                        dataArray = new Object[] { resultId, resultTime, resultUserId, resultMessage, resultWorldId, resultX, resultY, resultZ };
+                        dataArray = new Object[]{resultId, resultTime, resultUserId, resultMessage, resultWorldId, resultX, resultY, resultZ};
                     }
                     list.add(dataArray);
-                }
-                else if (actionList.contains(LookupActions.SESSION)) {
+                } else if (sessionRows) {
                     long resultId = results.getLong("id");
                     int resultTime = results.getInt("time");
                     int resultUserId = results.getInt("user");
@@ -225,19 +208,17 @@ public class LookupRaw extends Queue {
                     int resultZ = results.getInt("z");
                     int resultAction = results.getInt("action");
 
-                    Object[] dataArray = new Object[] { resultId, resultTime, resultUserId, resultWorldId, resultX, resultY, resultZ, resultAction };
+                    Object[] dataArray = new Object[]{resultId, resultTime, resultUserId, resultWorldId, resultX, resultY, resultZ, resultAction};
                     list.add(dataArray);
-                }
-                else if (actionList.contains(LookupActions.USERNAME)) {
+                } else if (usernameRows) {
                     long resultId = results.getLong("id");
                     int resultTime = results.getInt("time");
                     String resultUuid = results.getString("uuid");
                     String resultUser = results.getString("user");
 
-                    Object[] dataArray = new Object[] { resultId, resultTime, resultUuid, resultUser };
+                    Object[] dataArray = new Object[]{resultId, resultTime, resultUuid, resultUser};
                     list.add(dataArray);
-                }
-                else if (actionList.contains(LookupActions.SIGN)) {
+                } else if (signRows) {
                     long resultId = results.getLong("id");
                     int resultTime = results.getInt("time");
                     int resultUserId = results.getInt("user");
@@ -305,10 +286,9 @@ public class LookupRaw extends Queue {
                         }
                     }
 
-                    Object[] dataArray = new Object[] { resultId, resultTime, resultUserId, resultWorldId, resultX, resultY, resultZ, message.toString() };
+                    Object[] dataArray = new Object[]{resultId, resultTime, resultUserId, resultWorldId, resultX, resultY, resultZ, message.toString()};
                     list.add(dataArray);
-                }
-                else {
+                } else {
                     int resultData = 0;
                     int resultAmount = -1;
                     int resultTable = 0;
@@ -327,15 +307,14 @@ public class LookupRaw extends Queue {
                     int resultWorldId = results.getInt("wid");
 
                     boolean hasTbl = false;
-                    if ((lookup && actionList.size() == 0) || actionList.contains(LookupActions.INTERACTION) || actionList.contains(LookupActions.CONTAINER) || actionList.contains(5) || actionList.contains(LookupActions.ITEM)) {
+                    if (extendedColumnRows) {
                         resultData = results.getInt("data");
                         resultAmount = results.getInt("amount");
                         resultMeta = DatabaseUtils.getBytes(results, "metadata");
                         resultTable = results.getInt("tbl");
                         resultEntitySpawnId = results.getInt("entity_spawn_rowid");
                         hasTbl = true;
-                    }
-                    else {
+                    } else {
                         resultData = results.getInt("data");
                         resultMeta = DatabaseUtils.getBytes(results, "meta");
                         resultBlockData = DatabaseUtils.getBytes(results, "blockdata");
@@ -349,18 +328,24 @@ public class LookupRaw extends Queue {
                     }
 
                     if (valid) {
-                        Object[] dataArray = new Object[] { resultId, resultTime, resultUserId, resultX, resultY, resultZ, resultType, resultData, resultAction, resultRolledBack, resultWorldId, resultAmount, resultMeta, resultBlockData, resultTable, resultEntitySpawnId };
+                        Object[] dataArray = new Object[]{resultId, resultTime, resultUserId, resultX, resultY, resultZ, resultType, resultData, resultAction, resultRolledBack, resultWorldId, resultAmount, resultMeta, resultBlockData, resultTable, resultEntitySpawnId};
                         list.add(dataArray);
                     }
                 }
             }
-            results.close();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             ErrorReporter.report(e);
             return null;
-        }
-        finally {
+        } finally {
+            // Closed here rather than at the end of the try: the previous form leaked the
+            // ResultSet, and its closeOnCompletion statement, on every exception path.
+            if (results != null) {
+                try {
+                    results.close();
+                } catch (Exception e) {
+                    ErrorReporter.report(e);
+                }
+            }
             if (paused && !Consumer.isPersistenceHalted()) {
                 Consumer.isPaused = false;
             }
@@ -474,7 +459,7 @@ public class LookupRaw extends Queue {
             }
             Integer[] sourceBounds = radius;
             if (sourceBounds == null && actionList.contains(5) && entityContainerId == null) {
-                sourceBounds = new Integer[] {
+                sourceBounds = new Integer[]{
                         0,
                         (int) Math.floor(location.getX()),
                         (int) Math.ceil(location.getX()),
@@ -543,8 +528,7 @@ public class LookupRaw extends Queue {
                 for (String value : checkUuids) {
                     if (list.length() == 0) {
                         list = "'" + value + "'";
-                    }
-                    else {
+                    } else {
                         list = list + ",'" + value + "'";
                     }
                 }
@@ -560,8 +544,7 @@ public class LookupRaw extends Queue {
                         int userId = UserStatement.findId(statement.getConnection(), checkUser);
                         if (checkUserText.length() == 0) {
                             checkUserText = checkUserText.append(userId);
-                        }
-                        else {
+                        } else {
                             checkUserText.append(",").append(userId);
                         }
                     }
@@ -580,8 +563,7 @@ public class LookupRaw extends Queue {
                         targetName = ((Material) restrictTarget).name();
                         if (includeListMaterial.length() == 0) {
                             includeListMaterial = includeListMaterial.append(MaterialUtils.getBlockId(targetName, false));
-                        }
-                        else {
+                        } else {
                             includeListMaterial.append(",").append(MaterialUtils.getBlockId(targetName, false));
                         }
 
@@ -590,22 +572,18 @@ public class LookupRaw extends Queue {
                         if (legacyId > 0) {
                             includeListMaterial.append(",").append(legacyId);
                         }
-                    }
-                    else if (restrictTarget instanceof EntityType) {
+                    } else if (restrictTarget instanceof EntityType) {
                         targetName = ((EntityType) restrictTarget).name();
                         if (includeListEntity.length() == 0) {
                             includeListEntity = includeListEntity.append(EntityUtils.getEntityId(targetName, false));
-                        }
-                        else {
+                        } else {
                             includeListEntity.append(",").append(EntityUtils.getEntityId(targetName, false));
                         }
-                    }
-                    else if (restrictTarget instanceof String) {
+                    } else if (restrictTarget instanceof String) {
                         int blockId = MaterialUtils.getBlockId((String) restrictTarget, false);
                         if (includeListMaterial.length() == 0) {
                             includeListMaterial = includeListMaterial.append(blockId);
-                        }
-                        else {
+                        } else {
                             includeListMaterial.append(",").append(blockId);
                         }
                     }
@@ -626,8 +604,7 @@ public class LookupRaw extends Queue {
                         targetName = ((Material) restrictTarget).name();
                         if (excludeListMaterial.length() == 0) {
                             excludeListMaterial = excludeListMaterial.append(MaterialUtils.getBlockId(targetName, false));
-                        }
-                        else {
+                        } else {
                             excludeListMaterial.append(",").append(MaterialUtils.getBlockId(targetName, false));
                         }
 
@@ -636,23 +613,19 @@ public class LookupRaw extends Queue {
                         if (legacyId > 0) {
                             excludeListMaterial.append(",").append(legacyId);
                         }
-                    }
-                    else if (restrictTarget instanceof EntityType) {
+                    } else if (restrictTarget instanceof EntityType) {
                         targetName = ((EntityType) restrictTarget).name();
                         if (excludeListEntity.length() == 0) {
                             excludeListEntity = excludeListEntity.append(EntityUtils.getEntityId(targetName, false));
-                        }
-                        else {
+                        } else {
                             excludeListEntity.append(",").append(EntityUtils.getEntityId(targetName, false));
                         }
-                    }
-                    else if (restrictTarget instanceof String) {
+                    } else if (restrictTarget instanceof String) {
                         int blockId = MaterialUtils.getBlockId((String) restrictTarget, false);
                         if (blockId > -1) {
                             if (excludeListMaterial.length() == 0) {
                                 excludeListMaterial = excludeListMaterial.append(blockId);
-                            }
-                            else {
+                            } else {
                                 excludeListMaterial.append(",").append(blockId);
                             }
                         }
@@ -673,8 +646,7 @@ public class LookupRaw extends Queue {
                     }
                     if (excludeUserText.length() == 0) {
                         excludeUserText = excludeUserText.append(userId);
-                    }
-                    else {
+                    } else {
                         excludeUserText.append(",").append(userId);
                     }
                 }
@@ -701,16 +673,14 @@ public class LookupRaw extends Queue {
                         if (actionList.contains(LookupActions.ITEM) && !actionList.contains(LookupActions.CONTAINER)) {
                             if (actionTarget == ItemTransactionActions.REMOVE && !actionList.contains(ItemTransactionActions.DROP)) {
                                 actionTarget = ItemTransactionActions.DROP;
-                            }
-                            else if (actionTarget == ItemTransactionActions.ADD && !actionList.contains(ItemTransactionActions.PICKUP)) {
+                            } else if (actionTarget == ItemTransactionActions.ADD && !actionList.contains(ItemTransactionActions.PICKUP)) {
                                 actionTarget = ItemTransactionActions.PICKUP;
                             }
                         }
 
                         if (actionText.length() == 0) {
                             actionText = actionText.append(actionTarget);
-                        }
-                        else {
+                        } else {
                             actionText.append(",").append(actionTarget);
                         }
 
@@ -802,8 +772,7 @@ public class LookupRaw extends Queue {
                 if (materializeEntityLocations) {
                     if (entityContext.isReusable()) {
                         entityLocationCte = entityLocationCte(entityContext, databaseLocation);
-                    }
-                    else {
+                    } else {
                         entityLocationCte = "entity_location_rows AS MATERIALIZED (SELECT rowid,block_rowid,time FROM " + ConfigHandler.prefix + "entity_spawn WHERE (" + databaseLocation + "))";
                     }
                 }
@@ -834,8 +803,7 @@ public class LookupRaw extends Queue {
 
                 standardLocationQuery = originalLocation;
                 queryBlock = queryBlock + " " + (entitySpawnLocation ? entitySpawnLocationQuery : originalLocation) + " AND";
-            }
-            else {
+            } else {
                 if (restrictWorld) {
                     queryBlock = queryBlock + " " + LocationQuery.predicate("wid", "=" + locationWorldId) + " AND";
                 }
@@ -860,8 +828,7 @@ public class LookupRaw extends Queue {
             if (validAction) {
                 actionPredicate = standardActionLookup ? buildActionPredicate(action, actionList, entityActionFilter) : "action IN(" + action + ")";
                 queryBlock = queryBlock + " " + actionPredicate + " AND";
-            }
-            else if (inventoryQuery || actionExclude.length() > 0 || includeBlock.length() > 0 || includeEntity.length() > 0 || excludeBlock.length() > 0 || excludeEntity.length() > 0) {
+            } else if (inventoryQuery || actionExclude.length() > 0 || includeBlock.length() > 0 || includeEntity.length() > 0 || excludeBlock.length() > 0 || excludeEntity.length() > 0) {
                 queryBlock = queryBlock + " action NOT IN(-1) AND";
             }
 
@@ -952,8 +919,7 @@ public class LookupRaw extends Queue {
             if (actionList.contains(LookupActions.CONTAINER) || actionList.contains(5)) {
                 queryTable = "container";
                 rows = "rowid as id,time," + userColumn + ",wid,x,y,z,action,type,data,rolled_back,amount,metadata,0 as entity_spawn_rowid";
-            }
-            else if (actionList.contains(LookupActions.CHAT) || actionList.contains(LookupActions.COMMAND)) {
+            } else if (actionList.contains(LookupActions.CHAT) || actionList.contains(LookupActions.COMMAND)) {
                 queryTable = "chat";
                 rows = "rowid as id,time," + userColumn + ",message";
                 if (PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(user)) {
@@ -963,20 +929,16 @@ public class LookupRaw extends Queue {
                 if (!actionList.contains(LookupActions.CHAT) && actionList.contains(LookupActions.COMMAND)) {
                     queryTable = "command";
                 }
-            }
-            else if (actionList.contains(LookupActions.SESSION)) {
+            } else if (actionList.contains(LookupActions.SESSION)) {
                 queryTable = "session";
                 rows = "rowid as id,time," + userColumn + ",wid,x,y,z,action";
-            }
-            else if (actionList.contains(LookupActions.USERNAME)) {
+            } else if (actionList.contains(LookupActions.USERNAME)) {
                 queryTable = "username_log";
                 rows = "rowid as id,time,uuid," + userColumn;
-            }
-            else if (actionList.contains(LookupActions.SIGN)) {
+            } else if (actionList.contains(LookupActions.SIGN)) {
                 queryTable = "sign";
                 rows = "rowid as id,time," + userColumn + ",wid,x,y,z,face,line_1,line_2,line_3,line_4,line_5,line_6,line_7,line_8";
-            }
-            else if (actionList.contains(LookupActions.ITEM)) {
+            } else if (actionList.contains(LookupActions.ITEM)) {
                 queryTable = "item";
                 rows = "rowid as id,time," + userColumn + ",wid,x,y,z,type,data as metadata,0 as data,amount,action,rolled_back,0 as entity_spawn_rowid";
             }
@@ -998,21 +960,17 @@ public class LookupRaw extends Queue {
                 if (queryTable.equals("block")) {
                     if (!entitySpawnRadius && radius != null && (radius[2] - radius[1]) <= 50 && (radius[6] - radius[5]) <= 50) {
                         index = "USE INDEX(wid) ";
-                    }
-                    else if (users.length() > 0) {
+                    } else if (users.length() > 0) {
                         index = "USE INDEX(user) ";
-                    }
-                    else if (includeBlock.length() > 0 || includeEntity.length() > 0) {
+                    } else if (includeBlock.length() > 0 || includeEntity.length() > 0) {
                         index = "USE INDEX(type) ";
-                    }
-                    else if (restrictWorld && !entitySpawnLocation) {
+                    } else if (restrictWorld && !entitySpawnLocation) {
                         index = "USE INDEX(wid) ";
                     }
                 }
 
                 unionSelect = "(";
-            }
-            else if (ConfigHandler.databaseType.isSQLite()) {
+            } else if (ConfigHandler.databaseType.isSQLite()) {
                 if (queryTable.equals("block")) {
                     if (includeBlock.length() > 0 || includeEntity.length() > 0) {
                         index = "INDEXED BY block_type_index ";
@@ -1058,8 +1016,7 @@ public class LookupRaw extends Queue {
                 if (!count) {
                     queryOrder = " ORDER BY time DESC, tbl DESC, id DESC";
                 }
-            }
-            else if (chatLookup || commandLookup) {
+            } else if (chatLookup || commandLookup) {
                 baseQuery = appendMessageFilters(baseQuery, messageFilters, queryTable, messageFilterBindings);
             }
             else if (actionList.contains(LookupActions.SIGN)) {
@@ -1075,8 +1032,7 @@ public class LookupRaw extends Queue {
                 if (inventoryQuery) {
                     if (validAction) {
                         baseQuery = baseQuery.replace("action IN(" + action + ")", "action IN(" + LookupActions.BLOCK_PLACE + ")");
-                    }
-                    else {
+                    } else {
                         baseQuery = baseQuery.replace("action NOT IN(-1)", "action IN(" + LookupActions.BLOCK_PLACE + ")");
                     }
 
@@ -1179,7 +1135,7 @@ public class LookupRaw extends Queue {
 
                 boolean entityFallback = queryTable.equals("block") ? entitySpawnLocation
                         : queryTable.equals("entity_container") ? entityContainerLocation
-                                : queryTable.equals("entity_interaction") && entityInteractionLocation;
+                        : queryTable.equals("entity_interaction") && entityInteractionLocation;
                 baseQuery = restrictSource(baseQuery, pageRows, 0);
                 Integer exactEntitySpawnRowId = queryTable.equals("entity_container") ? entityContainerId : null;
                 String sourceTable = sourceTable(statement, queryTable, locationWorldId, sourceBounds, entityContext, entityFallback, pageRows, exactEntitySpawnRowId);
@@ -1191,19 +1147,15 @@ public class LookupRaw extends Queue {
             if (selectPageRows) {
                 if (ConfigHandler.databaseType.isClickHouse()) {
                     query = buildClickHousePageQuery(query, queryOrder, limitOffset, limitCount);
-                }
-                else {
+                } else {
                     query = buildDuckDBPageQuery(query, entityLocationCte, pageOffset, limitCount, knownTotalRows, cursor, queryOrder.contains("time DESC"));
                 }
-            }
-            else if (summary) {
+            } else if (summary) {
                 query = buildSummaryQuery(query, inventoryQuery, countGroups, includeGroupCount, limitOffset, limitCount);
-            }
-            else {
+            } else {
                 if (ConfigHandler.databaseType.isClickHouse() && query.contains(" UNION ALL ")) {
                     query = "SELECT * FROM (" + query + ") AS coreprotectLookupUnion" + queryOrder + queryLimit;
-                }
-                else {
+                } else {
                     query = query + queryOrder + queryLimit;
                 }
             }
@@ -1214,8 +1166,7 @@ public class LookupRaw extends Queue {
                 messageFilterBindings.clear();
             }
             results = executeQuery(statement, query, messageFilterBindings);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             ErrorReporter.report(e);
         }
 
@@ -1357,8 +1308,7 @@ public class LookupRaw extends Queue {
                         .append(",id := ")
                         .append(cursor.getRowId())
                         .append(")");
-            }
-            else {
+            } else {
                 query.append("id<").append(cursor.getRowId());
             }
             query.append("),");
@@ -1376,8 +1326,7 @@ public class LookupRaw extends Queue {
         query.append("MAX_BY(STRUCT_PACK(tbl := tbl,id := id,sort_time := COALESCE(time,-2147483648)),");
         if (orderByTime) {
             query.append("STRUCT_PACK(sort_time := COALESCE(time,-2147483648),tbl := tbl,id := id)");
-        }
-        else {
+        } else {
             query.append("STRUCT_PACK(id := id)");
         }
         long requestedRows = cursor == null ? (long) offset + limit : limit;
@@ -1393,8 +1342,7 @@ public class LookupRaw extends Queue {
                 .append("LEFT JOIN LATERAL UNNEST(newest) AS page_row(candidate) ON true ");
         if (orderByTime) {
             query.append("ORDER BY candidate.sort_time DESC NULLS LAST,candidate.tbl DESC NULLS LAST,candidate.id DESC NULLS LAST");
-        }
-        else {
+        } else {
             query.append("ORDER BY candidate.id DESC NULLS LAST");
         }
         if (cursor == null && offset > 0) {
@@ -1454,11 +1402,9 @@ public class LookupRaw extends Queue {
     private static void addEntityActionPredicate(List<String> predicates, int action, boolean includePlaced, boolean includeOther, String placedEntityTypes) {
         if (includePlaced && includeOther) {
             predicates.add("action=" + action);
-        }
-        else if (includePlaced) {
+        } else if (includePlaced) {
             predicates.add("(action=" + action + " AND type IN(" + placedEntityTypes + "))");
-        }
-        else if (includeOther) {
+        } else if (includeOther) {
             predicates.add("(action=" + action + " AND type NOT IN(" + placedEntityTypes + "))");
         }
     }
@@ -1720,8 +1666,7 @@ public class LookupRaw extends Queue {
             }
             preparedStatement.closeOnCompletion();
             return preparedStatement.executeQuery();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             preparedStatement.close();
             throw e;
         }

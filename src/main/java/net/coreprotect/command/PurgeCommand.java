@@ -858,7 +858,7 @@ public class PurgeCommand extends Consumer {
         }
 
         Runnable runnable = new BasicThread();
-        Thread thread = new Thread(runnable);
+        Thread thread = new Thread(runnable, "CoreProtect-Purge");
         thread.start();
     }
 

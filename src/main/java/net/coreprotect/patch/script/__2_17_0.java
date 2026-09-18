@@ -19,6 +19,7 @@ public class __2_17_0 {
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            return false;
         }
 
         return true;

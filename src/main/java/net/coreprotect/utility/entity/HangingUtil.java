@@ -1,5 +1,6 @@
 package net.coreprotect.utility.entity;
 
+import java.util.Collection;
 import java.util.Locale;
 
 import org.bukkit.Art;
@@ -7,7 +8,6 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
-import org.bukkit.block.BlockState;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Hanging;
 import org.bukkit.entity.ItemFrame;
@@ -27,9 +27,9 @@ public class HangingUtil {
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    public static void spawnHanging(final BlockState blockstate, final Material rowType, final String hangingData, final int rowData) {
+    public static void spawnHanging(final Block hangingBlock, final Material rowType, final String hangingData, final int rowData) {
         try {
-            Block block = blockstate.getBlock();
+            Block block = hangingBlock;
             int x = block.getX();
             int y = block.getY();
             int z = block.getZ();
@@ -44,7 +44,7 @@ public class HangingUtil {
                 }
             }
 
-            for (Entity e : block.getChunk().getEntities()) {
+            for (Entity e : getHangingEntities(block)) {
                 if ((BukkitAdapter.ADAPTER.isItemFrame(rowType) && e instanceof ItemFrame) || (rowType.equals(Material.PAINTING) && e instanceof Painting)) {
                     Location el = e.getLocation();
                     if (el.getBlockX() == x && el.getBlockY() == y && el.getBlockZ() == z) {
@@ -173,7 +173,7 @@ public class HangingUtil {
         }
     }
 
-    public static void removeHanging(final BlockState block, final String hangingData) {
+    public static void removeHanging(final Block block, final String hangingData) {
         try {
             BlockFace hangingFace = null;
             if (hangingData != null && !hangingData.contains(":") && hangingData.contains("=")) {
@@ -185,7 +185,7 @@ public class HangingUtil {
                 }
             }
 
-            for (Entity e : block.getChunk().getEntities()) {
+            for (Entity e : getHangingEntities(block)) {
                 if (e instanceof ItemFrame || e instanceof Painting) {
                     Location el = e.getLocation();
                     if (el.getBlockX() == block.getX() && el.getBlockY() == block.getY() && el.getBlockZ() == block.getZ()) {
@@ -199,6 +199,12 @@ public class HangingUtil {
         catch (Exception e) {
             ErrorReporter.report(e);
         }
+    }
+
+    // A hanging entity located in the block always overlaps the block's cell, so this finds the same matches as a whole-chunk scan
+    private static Collection<Entity> getHangingEntities(Block block) {
+        Location center = block.getLocation().add(0.5, 0.5, 0.5);
+        return block.getWorld().getNearbyEntities(center, 0.5, 0.5, 0.5, entity -> entity instanceof Hanging);
     }
 
 }

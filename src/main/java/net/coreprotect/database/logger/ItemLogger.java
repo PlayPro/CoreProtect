@@ -9,10 +9,9 @@ import org.bukkit.Location;
 import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.CoreProtect;
-import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.database.Database;
 import net.coreprotect.database.ConsumerWriteBatch;
+import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.ItemStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
@@ -45,10 +44,6 @@ public class ItemLogger {
 
     public static void log(ConsumerWriteBatch preparedStmt, int batchCount, Location location, int offset, String user) {
         try {
-            if (ConfigHandler.isBlacklisted(user)) {
-                return;
-            }
-
             prepare(location, offset, user).log(preparedStmt, batchCount, user);
         }
         catch (Exception e) {
@@ -56,13 +51,18 @@ public class ItemLogger {
         }
     }
 
+    /**
+     * Takes the pending item lists for this user and block. Each list is removed whole, so an item appended meanwhile
+     * starts a fresh list for the next transaction instead of racing this read. Blacklisted users are taken too so
+     * their lists do not linger.
+     */
     public static PreparedTransaction prepare(Location location, int offset, String user) {
         String key = user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
         ItemStack[][] items = {
-                snapshot(ConfigHandler.itemsPickup, key), snapshot(ConfigHandler.itemsDrop, key),
-                snapshot(ConfigHandler.itemsThrown, key), snapshot(ConfigHandler.itemsShot, key),
-                snapshot(ConfigHandler.itemsBreak, key), snapshot(ConfigHandler.itemsDestroy, key),
-                snapshot(ConfigHandler.itemsCreate, key), snapshot(ConfigHandler.itemsSell, key), snapshot(ConfigHandler.itemsBuy, key)
+                take(ConfigHandler.itemsPickup, key), take(ConfigHandler.itemsDrop, key),
+                take(ConfigHandler.itemsThrown, key), take(ConfigHandler.itemsShot, key),
+                take(ConfigHandler.itemsBreak, key), take(ConfigHandler.itemsDestroy, key),
+                take(ConfigHandler.itemsCreate, key), take(ConfigHandler.itemsSell, key), take(ConfigHandler.itemsBuy, key)
         };
         for (ItemStack[] group : items) {
             ItemUtils.mergeItems(null, group);
@@ -70,8 +70,8 @@ public class ItemLogger {
         return new PreparedTransaction(location, (int) (System.currentTimeMillis() / 1000L) - offset, items);
     }
 
-    private static ItemStack[] snapshot(Map<String, List<ItemStack>> source, String key) {
-        List<ItemStack> values = source.get(key);
+    private static ItemStack[] take(Map<String, List<ItemStack>> source, String key) {
+        List<ItemStack> values = source.remove(key);
         return values == null ? new ItemStack[0] : ItemUtils.getContainerState(values.toArray(new ItemStack[0]));
     }
 
@@ -106,7 +106,7 @@ public class ItemLogger {
             for (ItemStack item : items) {
                 if (item != null && item.getAmount() > 0 && !BlockUtils.isAir(item.getType())) {
                     // Object[] metadata = new Object[] { slot, item.getItemMeta() };
-                    if (ConfigHandler.isFilterBlacklisted(user, item.getType().getKey().toString())){
+                    if (ConfigHandler.hasFilters() && ConfigHandler.isFilterBlacklisted(user, item.getType().getKey().toString())) {
                         continue;
                     }
 
@@ -115,17 +115,20 @@ public class ItemLogger {
                         data = null;
                     }
 
-                    CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.ITEM_TRANSACTION, action, item.getType(), null, null);
-                    if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
+                    String logUser = user;
+                    Location eventLocation = location;
+                    if (CoreProtectPreLogEvent.isObserved() && !Bukkit.isPrimaryThread()) {
+                        CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.ITEM_TRANSACTION, action, item.getType(), null, null);
                         CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+                        if (event.isCancelled()) {
+                            return;
+                        }
+
+                        logUser = event.getUser();
+                        eventLocation = event.getLocation();
                     }
 
-                    if (event.isCancelled()) {
-                        return;
-                    }
-                    
-                    int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
-                    Location eventLocation = event.getLocation();
+                    int userId = UserStatement.getId(preparedStmt, logUser, true);
                     int wid = WorldUtils.getWorldId(eventLocation.getWorld().getName());
                     int time = preparedTime == null ? (int) (System.currentTimeMillis() / 1000L) - offset : preparedTime;
                     int x = eventLocation.getBlockX();

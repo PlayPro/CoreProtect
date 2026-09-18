@@ -117,12 +117,19 @@ public class ItemMetaHandler {
     }
 
     public static List<List<Map<String, Object>>> serialize(ItemStack item, Material type, String faceData, int slot) {
+        boolean hasMeta = item != null && item.hasItemMeta();
+        boolean isArmorStand = type != null && type.equals(Material.ARMOR_STAND);
+        boolean hasFaceData = faceData != null && faceData.length() > 0;
+        if (!hasMeta && !isArmorStand && !hasFaceData) {
+            return new ArrayList<>(0);
+        }
+
         List<List<Map<String, Object>>> metadata = new ArrayList<>();
         List<Map<String, Object>> list = new ArrayList<>();
         List<Object> modifiers = new ArrayList<>();
 
-        if (item != null && item.hasItemMeta() && item.getItemMeta() != null) {
-            ItemMeta itemMeta = item.getItemMeta().clone();
+        ItemMeta itemMeta = hasMeta ? item.getItemMeta() : null;
+        if (itemMeta != null) {
 
             if (itemMeta.hasAttributeModifiers()) {
                 for (Map.Entry<Attribute, AttributeModifier> entry : itemMeta.getAttributeModifiers().entries()) {

@@ -29,7 +29,7 @@ import net.coreprotect.utility.WorldUtils;
 
 public final class BlockIgniteListener extends Queue implements Listener {
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     protected void onBlockIgnite(BlockIgniteEvent event) {
         World world = event.getBlock().getWorld();
         Config config = Config.getConfig(world);

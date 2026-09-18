@@ -18,7 +18,17 @@ public class WorldUtils extends Queue {
         }
         int id = -1;
         try {
-            if (ConfigHandler.worlds.get(name) == null) {
+            Integer existing = ConfigHandler.worlds.get(name);
+            if (existing != null) {
+                return existing;
+            }
+
+            synchronized (ConfigHandler.IDENTIFIER_ALLOCATION_LOCK) {
+                Integer allocated = ConfigHandler.worlds.get(name);
+                if (allocated != null) {
+                    return allocated;
+                }
+
                 // Check if another server has already added this world (multi-server setup)
                 id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.WORLDS, name);
                 if (id != -1) {
@@ -30,8 +40,8 @@ public class WorldUtils extends Queue {
                 ConfigHandler.worldsReversed.put(wid, name);
                 ConfigHandler.worldId = wid;
                 Queue.queueWorldInsert(wid, name);
+                id = wid;
             }
-            id = ConfigHandler.worlds.get(name);
         }
         catch (Exception e) {
             ErrorReporter.report(e);

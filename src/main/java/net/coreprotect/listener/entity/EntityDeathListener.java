@@ -1,10 +1,12 @@
 package net.coreprotect.listener.entity;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collection;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
@@ -21,6 +23,7 @@ import org.bukkit.entity.AbstractArrow;
 import org.bukkit.entity.AbstractHorse;
 import org.bukkit.entity.AbstractVillager;
 import org.bukkit.entity.Ageable;
+import org.bukkit.entity.AnimalTamer;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Bee;
 import org.bukkit.entity.Cat;
@@ -73,6 +76,7 @@ import com.google.common.collect.Lists;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.player.EntityInteractionListener;
 import net.coreprotect.paper.PaperAdapter;
@@ -84,6 +88,19 @@ import net.coreprotect.utility.entity.LivingEntityDetails;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 
 public final class EntityDeathListener extends Queue implements Listener {
+
+    private static final Set<DamageCause> GENERIC_DAMAGE_CAUSES = EnumSet.of(DamageCause.SUICIDE, DamageCause.POISON, DamageCause.THORNS, DamageCause.MAGIC, DamageCause.WITHER);
+    private static volatile List<Attribute> attributeRegistry;
+
+    private static List<Attribute> attributeRegistry() {
+        List<Attribute> cached = attributeRegistry;
+        if (cached == null) {
+            cached = Lists.newArrayList(Registry.ATTRIBUTE);
+            attributeRegistry = cached;
+        }
+
+        return cached;
+    }
 
     private static final int ENTITY_KILL_DUPLICATE_THRESHOLD = 256;
     private static final int ENTITY_KILL_DUPLICATE_WINDOW_SECONDS = 900;
@@ -149,10 +166,8 @@ public final class EntityDeathListener extends Queue implements Listener {
             return;
         }
 
-        List<DamageCause> validDamageCauses = Arrays.asList(DamageCause.SUICIDE, DamageCause.POISON, DamageCause.THORNS, DamageCause.MAGIC, DamageCause.WITHER);
-
         boolean skip = true;
-        if (cause != null && (!Config.getConfig(entity.getWorld()).SKIP_GENERIC_DATA || (!(entity instanceof Zombie) && !(entity instanceof Skeleton)) || (validDamageCauses.contains(cause) || cause.name().equals("KILL")))) {
+        if (cause != null && (!Config.getConfig(entity.getWorld()).SKIP_GENERIC_DATA || (!(entity instanceof Zombie) && !(entity instanceof Skeleton)) || (GENERIC_DAMAGE_CAUSES.contains(cause) || cause.name().equals("KILL")))) {
             skip = false;
         }
 
@@ -300,27 +315,28 @@ public final class EntityDeathListener extends Queue implements Listener {
                 Tameable tameable = (Tameable) entity;
                 tame.add(tameable.isTamed());
                 if (tameable.isTamed()) {
-                    if (tameable.getOwner() != null) {
-                        tame.add(tameable.getOwner().getName());
+                    AnimalTamer owner = tameable.getOwner();
+                    if (owner != null) {
+                        tame.add(ownerName(owner));
                     }
                 }
             }
 
             if (entity instanceof Attributable) {
                 Attributable attributable = entity;
-                for (Attribute attribute : Lists.newArrayList(Registry.ATTRIBUTE)) {
+                for (Attribute attribute : attributeRegistry()) {
                     AttributeInstance attributeInstance = attributable.getAttribute(attribute);
                     if (attributeInstance != null) {
                         List<Object> attributeData = new ArrayList<>();
-                        List<Object> attributeModifiers = new ArrayList<>();
                         attributeData.add(BukkitAdapter.ADAPTER.getRegistryKey(attributeInstance.getAttribute()));
                         attributeData.add(attributeInstance.getBaseValue());
 
-                        for (AttributeModifier modifier : attributeInstance.getModifiers()) {
-                            attributeModifiers.add(modifier.serialize());
-                        }
-
-                        if (!attributeModifiers.isEmpty()) {
+                        Collection<AttributeModifier> modifiers = attributeInstance.getModifiers();
+                        if (!modifiers.isEmpty()) {
+                            List<Object> attributeModifiers = new ArrayList<>(modifiers.size());
+                            for (AttributeModifier modifier : modifiers) {
+                                attributeModifiers.add(modifier.serialize());
+                            }
                             attributeData.add(attributeModifiers);
                         }
                         attributes.add(attributeData);
@@ -595,6 +611,20 @@ public final class EntityDeathListener extends Queue implements Listener {
         }
     }
 
+    /**
+     * OfflinePlayer#getName loads the owner's player file from disk on this thread, so prefer the name CoreProtect already stored.
+     */
+    private static String ownerName(AnimalTamer owner) {
+        if (!(owner instanceof Player)) {
+            String cachedName = ConfigHandler.uuidCacheReversed.get(owner.getUniqueId().toString());
+            if (cachedName != null) {
+                return cachedName;
+            }
+        }
+
+        return owner.getName();
+    }
+
     private static void trimTrailingNulls(List<Object> values) {
         while (!values.isEmpty() && values.get(values.size() - 1) == null) {
             values.remove(values.size() - 1);
@@ -666,7 +696,8 @@ public final class EntityDeathListener extends Queue implements Listener {
             return;
         }
 
-        if (EntitySpawnTracking.isTrackedOrPendingIdentity(entity)) {
+        // A cancelled death leaves the entity alive, so its tracking must survive
+        if (!event.isCancelled() && EntitySpawnTracking.isTrackedOrPendingIdentity(entity)) {
             EntityInteractionListener.flushPendingInteractions(entity);
             Queue.queueEntitySpawnRemoved(entity);
             EntitySpawnTracking.clearTracking(entity.getUniqueId());

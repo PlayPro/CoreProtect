@@ -2,6 +2,7 @@ package net.coreprotect.database.logger;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -82,33 +83,40 @@ public class BlockPlaceLogger {
             int y = block.getY();
             int z = block.getZ();
             long chunkKey = (x >> 4) & 0xffffffffL | ((z >> 4) & 0xffffffffL) << 32;
-            if (ConfigHandler.populatedChunks.get(chunkKey) != null) {
+            ConcurrentHashMap<Long, Long> worldChunks = ConfigHandler.populatedChunks.get(block.getWorld().getUID());
+            Long populatedAt = worldChunks == null ? null : worldChunks.get(chunkKey);
+            if (populatedAt != null) {
                 boolean isWater = user.equals("#water");
                 boolean isLava = user.equals("#lava");
                 boolean isVine = user.equals("#vine");
                 if (isWater || isLava || isVine) {
                     int timeDelay = isWater ? 60 : 240;
-                    long timeSincePopulation = ((System.currentTimeMillis() / 1000L) - ConfigHandler.populatedChunks.getOrDefault(chunkKey, 0L));
+                    long timeSincePopulation = (System.currentTimeMillis() / 1000L) - populatedAt;
                     if (timeSincePopulation <= timeDelay) {
                         return;
                     }
 
                     if (timeSincePopulation > 240) {
-                        ConfigHandler.populatedChunks.remove(chunkKey);
+                        worldChunks.remove(chunkKey);
                     }
                 }
                 else if (type == Material.WATER || type == Material.LAVA) {
-                    ConfigHandler.populatedChunks.remove(chunkKey);
+                    worldChunks.remove(chunkKey);
                 }
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, block.getLocation(), CoreProtectPreLogEvent.Action.BLOCK_PLACE, LookupActions.BLOCK_PLACE, type, null, null);
-            if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
+            String logUser = user;
+            Location eventLocation = block.getLocation();
+            boolean cancelled = false;
+            if (CoreProtectPreLogEvent.isObserved() && !Bukkit.isPrimaryThread()) {
+                CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, eventLocation, CoreProtectPreLogEvent.Action.BLOCK_PLACE, LookupActions.BLOCK_PLACE, type, null, null);
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+                logUser = event.getUser();
+                eventLocation = event.getLocation();
+                cancelled = event.isCancelled();
             }
 
-            int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
-            Location eventLocation = event.getLocation();
+            int userId = UserStatement.getId(preparedStmt, logUser, true);
             int wid = WorldUtils.getWorldId(eventLocation.getWorld().getName());
             int time = (int) (System.currentTimeMillis() / 1000L);
 
@@ -117,11 +125,11 @@ public class BlockPlaceLogger {
             y = eventLocation.getBlockY();
             z = eventLocation.getBlockZ();
 
-            if (event.getUser().length() > 0) {
-                CacheHandler.lookupCache.put("" + x + "." + y + "." + z + "." + wid + "", new Object[] { time, event.getUser(), type });
+            if (logUser.length() > 0) {
+                CacheHandler.lookupCache.put("" + x + "." + y + "." + z + "." + wid + "", new Object[] { time, logUser, type });
             }
 
-            if (event.isCancelled()) {
+            if (cancelled) {
                 return;
             }
 

@@ -66,6 +66,7 @@ import net.coreprotect.listener.player.SpawnEggUseListener;
 import net.coreprotect.listener.world.ChunkPopulateListener;
 import net.coreprotect.listener.world.LeavesDecayListener;
 import net.coreprotect.listener.world.PortalCreateListener;
+import net.coreprotect.listener.world.WorldLoadListener;
 import net.coreprotect.listener.world.StructureGrowListener;
 import net.coreprotect.paper.listener.BlockPreDispenseListener;
 import net.coreprotect.paper.listener.CopperGolemChestListener;
@@ -209,6 +210,7 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new LeavesDecayListener(), plugin);
         pluginManager.registerEvents(new PortalCreateListener(), plugin);
         pluginManager.registerEvents(new StructureGrowListener(), plugin);
+        pluginManager.registerEvents(new WorldLoadListener(), plugin);
 
         // Plugin channel events
         pluginManager.registerEvents(new PluginChannelListener(), plugin);

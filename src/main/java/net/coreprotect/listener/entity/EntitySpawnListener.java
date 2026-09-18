@@ -31,7 +31,7 @@ public final class EntitySpawnListener implements Listener {
         String originKey = location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ() + "." + worldId;
         int timestamp = (int) (System.currentTimeMillis() / 1000L);
 
-        CacheHandler.fallingBlockSpawnCache.put(event.getEntity().getUniqueId().toString(), new Object[] { timestamp, originKey });
+        CacheHandler.fallingBlockSpawnCache.put(event.getEntity().getUniqueId(), new Object[] { timestamp, originKey });
     }
 
 }

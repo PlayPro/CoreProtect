@@ -1,18 +1,10 @@
 package net.coreprotect.database.logger;
 
-import java.util.List;
-import java.util.Locale;
-
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.database.Database;
 import net.coreprotect.database.ConsumerWriteBatch;
+import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.BlockStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
@@ -21,6 +13,11 @@ import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.BlockTypeUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
+
+import java.util.List;
 
 public class BlockBreakLogger {
 
@@ -34,8 +31,7 @@ public class BlockBreakLogger {
             String blockKey = BlockTypeUtils.getBlockDataKey(blockData);
             if (blockKey.length() == 0 && checkType != null) {
                 blockKey = checkType.getKey().toString();
-            }
-            else if (checkType != null && (checkType == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(checkType) || checkType == Material.ARMOR_STAND || checkType == Material.END_CRYSTAL)) {
+            } else if (checkType != null && (checkType == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(checkType) || checkType == Material.ARMOR_STAND || checkType == Material.END_CRYSTAL)) {
                 blockKey = checkType.getKey().toString();
             }
             if (checkType != null && blockKey.length() > 0) {
@@ -48,8 +44,7 @@ public class BlockBreakLogger {
 
             if (checkType == null && blockKey.length() == 0) {
                 return;
-            }
-            else if (checkType != null && (checkType.equals(Material.AIR) || checkType.equals(Material.CAVE_AIR)) && BlockTypeUtils.isAir(blockKey)) {
+            } else if (checkType != null && (checkType.equals(Material.AIR) || checkType.equals(Material.CAVE_AIR)) && BlockTypeUtils.isAir(blockKey)) {
                 return;
             }
 
@@ -69,28 +64,32 @@ public class BlockBreakLogger {
                 blockData = overrideData;
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.BLOCK_BREAK, LookupActions.BLOCK_BREAK, checkType, null, null);
-            if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
+            String logUser = user;
+            Location eventLocation = location;
+            boolean cancelled = false;
+            if (CoreProtectPreLogEvent.isObserved() && !Bukkit.isPrimaryThread()) {
+                CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.BLOCK_BREAK, LookupActions.BLOCK_BREAK, checkType, null, null);
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+                logUser = event.getUser();
+                eventLocation = event.getLocation();
+                cancelled = event.isCancelled();
             }
 
-            int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
-            Location eventLocation = event.getLocation();
+            int userId = UserStatement.getId(preparedStmt, logUser, true);
             int wid = WorldUtils.getWorldId(eventLocation.getWorld().getName());
             int time = (int) (System.currentTimeMillis() / 1000L);
             int x = eventLocation.getBlockX();
             int y = eventLocation.getBlockY();
             int z = eventLocation.getBlockZ();
-            CacheHandler.breakCache.put("" + x + "." + y + "." + z + "." + wid + "", new Object[] { time, event.getUser(), type });
+            CacheHandler.breakCache.put("" + x + "." + y + "." + z + "." + wid + "", new Object[]{time, logUser, type});
 
-            if (event.isCancelled()) {
+            if (cancelled) {
                 return;
             }
 
             int internalType = blockKey.length() > 0 ? MaterialUtils.getBlockId(blockKey, true) : type;
             BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, internalType, data, meta, blockData, LookupActions.BLOCK_BREAK, 0);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             Database.handleWriteFailure(e);
         }
     }

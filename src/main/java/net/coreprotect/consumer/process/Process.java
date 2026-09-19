@@ -281,6 +281,7 @@ public class Process {
                     int replaceData = (int) data[5];
                     int forceData = (int) data[6];
                     boolean isolatedTransaction = requiresIsolatedDuckDBTransaction(action);
+                    Exception duplicateEntityUuidFailure = null;
                     preparingEvent = null;
 
                     if (isolatedTransaction && i > processedThrough) {
@@ -364,8 +365,7 @@ public class Process {
                                     catch (Exception e) {
                                         if (shouldDiscardFailedEvent(ConfigHandler.databaseType, action, e)) {
                                             Database.acknowledgeRollbackOnlyTransaction();
-                                            cancelEntityInteractionPromotion(interaction);
-                                            ErrorReporter.report(new IllegalStateException("Dropped entity interaction after a duplicate DuckDB entity UUID prevented identity creation: " + interaction.getEntityUuid(), e));
+                                            duplicateEntityUuidFailure = e;
                                             break;
                                         }
                                         pendingEntityInteractions.add(new PendingEntityInteraction(user, interaction, false, true));
@@ -571,6 +571,13 @@ public class Process {
                         completeTransactionState(entitySpawnUpdates, pendingEntityContainerTransactions, pendingEntityContainerRollbacks, pendingEntityInteractions, pendingEntityIdentityConfirmations, invalidatedEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, pendingEntitySpawnLogs, outcome);
                         if (outcome != TransactionOutcome.COMMITTED) {
                             completeFailedConsumerBatch(processId, consumerData, users, consumerObject, processedThrough, i + 1, outcome == TransactionOutcome.RETAINED);
+                            return;
+                        }
+                        if (duplicateEntityUuidFailure != null) {
+                            EntityInteraction interaction = (EntityInteraction) consumerObject.get(id);
+                            cancelEntityInteractionPromotion(interaction);
+                            ErrorReporter.report(new IllegalStateException("Dropped entity interaction after a duplicate DuckDB entity UUID prevented identity creation: " + interaction.getEntityUuid(), duplicateEntityUuidFailure));
+                            retryConsumerBatch(processId, consumerData, users, consumerObject, processedThrough);
                             return;
                         }
                         if (!beginConsumerTransaction(writeBatch)) {

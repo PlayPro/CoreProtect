@@ -25,6 +25,7 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.ConsumerEntitySpawnUpdates;
 import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.DatabaseType;
 import net.coreprotect.database.DuckDBRecovery;
 import net.coreprotect.database.logger.EntityInteractionLogger;
 import net.coreprotect.database.rollback.EntitySpawnRollbackHandler;
@@ -361,6 +362,12 @@ public class Process {
                                         });
                                     }
                                     catch (Exception e) {
+                                        if (shouldDiscardFailedEvent(ConfigHandler.databaseType, action, e)) {
+                                            Database.acknowledgeRollbackOnlyTransaction();
+                                            cancelEntityInteractionPromotion(interaction);
+                                            ErrorReporter.report(new IllegalStateException("Dropped entity interaction after a duplicate DuckDB entity UUID prevented identity creation: " + interaction.getEntityUuid(), e));
+                                            break;
+                                        }
                                         pendingEntityInteractions.add(new PendingEntityInteraction(user, interaction, false, true));
                                         throw e;
                                     }
@@ -1062,6 +1069,24 @@ public class Process {
             failure = failure.getCause();
         }
         return !sqlFailure;
+    }
+
+    static boolean shouldDiscardFailedEvent(DatabaseType databaseType, int action, Throwable failure) {
+        if (!databaseType.isDuckDB() || action != ENTITY_INTERACTION) {
+            return false;
+        }
+
+        Set<Throwable> visited = new HashSet<>();
+        while (failure != null && visited.add(failure)) {
+            String message = failure.getMessage();
+            if (failure instanceof SQLException && message != null
+                    && message.contains("Constraint Error: Duplicate key \"uuid: ")
+                    && message.contains("violates unique constraint")) {
+                return true;
+            }
+            failure = failure.getCause();
+        }
+        return false;
     }
 
     private static void clearConsumerData(int processId, ArrayList<Object[]> consumerData, Map<Integer, String[]> users, Map<Integer, Object> consumerObject) {

@@ -1,24 +1,19 @@
 package net.coreprotect.api;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
+import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Consumer;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.consumer.process.Process;
+import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.utility.StringUtils;
+import net.coreprotect.utility.WorldUtils;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 
-import net.coreprotect.config.Config;
-import net.coreprotect.consumer.Consumer;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.consumer.process.Process;
-import net.coreprotect.utility.MaterialUtils;
-import net.coreprotect.utility.StringUtils;
-import net.coreprotect.utility.WorldUtils;
-import net.coreprotect.utility.ErrorReporter;
+import java.util.*;
 
 /**
  * Provides API methods for looking up block-related actions in the processing queue.
@@ -54,54 +49,43 @@ public class QueueLookup extends Queue {
         }
 
         try {
-            ArrayList<Object[]> consumerData;
-            Map<Integer, String[]> users;
-            Map<Integer, Object> consumerObject;
-            synchronized (Queue.class) {
-                synchronized (Consumer.consumer_id) {
-                    int currentConsumer = Consumer.currentConsumer;
-                    consumerData = new ArrayList<>(Consumer.consumer.get(currentConsumer));
-                    users = new HashMap<>(Consumer.consumerUsers.get(currentConsumer));
-                    consumerObject = new HashMap<>(Consumer.consumerObjects.get(currentConsumer));
+            List<Object[]> matches = new ArrayList<>();
+            synchronized (Consumer.consumer_id) {
+                int currentConsumer = Consumer.currentConsumer;
+                Map<Integer, String[]> users = Consumer.consumerUsers.get(currentConsumer);
+                Map<Integer, Object> consumerObject = Consumer.consumerObjects.get(currentConsumer);
+                for (Object[] data : Consumer.consumer.get(currentConsumer)) {
+                    int action = (int) data[1];
+                    if (action != Process.BLOCK_BREAK && action != Process.BLOCK_PLACE) {
+                        continue;
+                    }
+
+                    int id = (int) data[0];
+                    String[] userData = users.get(id);
+                    Object objectData = consumerObject.get(id);
+                    if (isActionForBlock(userData, objectData, block)) {
+                        matches.add(new Object[]{data, userData, objectData});
+                    }
                 }
             }
 
-            if (consumerData.isEmpty()) {
-                return result;
-            }
-
-            // Current block location for comparison with actions in the queue
-            Location blockLocation = block.getLocation();
-
-            // Check for block actions in the processing queue
-            for (Object[] data : consumerData) {
-                int id = (int) data[0];
+            for (Object[] match : matches) {
+                Object[] data = (Object[]) match[0];
+                String[] userData = (String[]) match[1];
                 int action = (int) data[1];
+                Material blockType = (Material) data[2];
+                int legacyData = (int) data[3];
+                String blockData = (String) data[7];
+                String user = userData[0];
+                BlockState blockState = (BlockState) match[2];
+                Location location = blockState.getLocation();
+                int worldId = WorldUtils.getWorldId(location.getWorld().getName());
+                int resultType = MaterialUtils.getBlockId(blockType);
+                int time = (int) (System.currentTimeMillis() / 1000L);
 
-                // Only process block break and place actions
-                if (action != Process.BLOCK_BREAK && action != Process.BLOCK_PLACE) {
-                    continue;
-                }
+                String[] lookupData = new String[]{String.valueOf(time), user, String.valueOf(location.getBlockX()), String.valueOf(location.getBlockY()), String.valueOf(location.getBlockZ()), String.valueOf(resultType), String.valueOf(legacyData), String.valueOf(action), "0", String.valueOf(worldId), blockData};
 
-                String[] userData = users.get(id);
-                Object objectData = consumerObject.get(id);
-
-                // Verify the action pertains to the requested block
-                if (isActionForBlock(userData, objectData, blockLocation)) {
-                    Material blockType = (Material) data[2];
-                    int legacyData = (int) data[3];
-                    String blockData = (String) data[7];
-                    String user = userData[0];
-                    BlockState blockState = (BlockState) objectData;
-                    Location location = blockState.getLocation();
-                    int worldId = WorldUtils.getWorldId(location.getWorld().getName());
-                    int resultType = MaterialUtils.getBlockId(blockType);
-                    int time = (int) (System.currentTimeMillis() / 1000L);
-
-                    String[] lookupData = new String[] { String.valueOf(time), user, String.valueOf(location.getBlockX()), String.valueOf(location.getBlockY()), String.valueOf(location.getBlockZ()), String.valueOf(resultType), String.valueOf(legacyData), String.valueOf(action), "0", String.valueOf(worldId), blockData };
-
-                    result.add(StringUtils.toStringArray(lookupData));
-                }
+                result.add(StringUtils.toStringArray(lookupData));
             }
 
             // Reverse the result list to match database lookup order (most recent first)
@@ -121,11 +105,16 @@ public class QueueLookup extends Queue {
      *            User data associated with the action
      * @param objectData
      *            Object data associated with the action
-     * @param blockLocation
-     *            Location of the block being looked up
+     * @param block
+     *            The block being looked up
      * @return true if the action pertains to the specified block, false otherwise
      */
-    private static boolean isActionForBlock(String[] userData, Object objectData, Location blockLocation) {
-        return userData != null && objectData != null && (objectData instanceof BlockState) && ((BlockState) objectData).getLocation().equals(blockLocation);
+    private static boolean isActionForBlock(String[] userData, Object objectData, Block block) {
+        if (userData == null || !(objectData instanceof BlockState)) {
+            return false;
+        }
+
+        BlockState state = (BlockState) objectData;
+        return state.getX() == block.getX() && state.getY() == block.getY() && state.getZ() == block.getZ() && Objects.equals(state.getWorld(), block.getWorld());
     }
 }

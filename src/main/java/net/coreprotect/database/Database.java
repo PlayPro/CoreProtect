@@ -1,27 +1,5 @@
 package net.coreprotect.database;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.IdentityHashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.inventory.ItemStack;
-
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
@@ -35,11 +13,14 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.model.rollback.RollbackUpdateTargets;
-import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.Color;
-import net.coreprotect.utility.ItemUtils;
-import net.coreprotect.utility.ErrorReporter;
-import net.coreprotect.utility.VersionUtils;
+import net.coreprotect.utility.*;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.inventory.ItemStack;
+
+import java.io.File;
+import java.sql.*;
+import java.util.*;
 
 public class Database extends Queue {
 
@@ -69,13 +50,19 @@ public class Database extends Queue {
     private static final int ROLLED_BACK_UPDATE_BATCH_SIZE = 1000;
     private static final int DUCKDB_ROLLED_BACK_UPDATE_BATCH_SIZE = 5000;
     private static final long CLICKHOUSE_CONNECTION_ERROR_INTERVAL_NANOS = 30_000_000_000L;
+    private static final long SQLITE_WAL_TRUNCATE_BYTES = 16L * 1024L * 1024L;
 
     private static final Map<Integer, String> SQL_QUERIES = new HashMap<>();
     private static final Set<Connection> ACTIVE_CONNECTIONS = Collections.newSetFromMap(new IdentityHashMap<>());
     private static final ThreadLocal<Boolean> TRANSACTION_ROLLBACK_ONLY = ThreadLocal.withInitial(() -> false);
     private static final ThreadLocal<Boolean> TRANSACTION_ROLLBACK_ACKNOWLEDGED = ThreadLocal.withInitial(() -> false);
+    private static final Object CONSUMER_CONNECTION_LOCK = new Object();
     private static volatile ClickHouseDatabase clickHouseDatabase;
     private static long nextClickHouseConnectionErrorReport;
+    private static Connection idleConsumerConnection;
+    private static String idleConsumerConnectionUrl;
+    private static String leasedConsumerConnectionUrl;
+    private static boolean closeLeasedConsumerConnection;
 
     static {
         // Initialize SQL queries for different table types
@@ -256,7 +243,7 @@ public class Database extends Queue {
         }
     }
 
-    static boolean isTransactionRollbackOnly() {
+    public static boolean isTransactionRollbackOnly() {
         return TRANSACTION_ROLLBACK_ONLY.get();
     }
 
@@ -307,9 +294,14 @@ public class Database extends Queue {
         }
     }
 
+    /**
+     * PASSIVE never waits on readers or blocks writers. TRUNCATE also waits for readers, so it only runs to shrink a
+     * WAL that a backlog or a long reader grew past the limit.
+     */
     public static void performCheckpoint(Statement statement, DatabaseType databaseType) throws SQLException {
         if (databaseType.isSQLite()) {
-            statement.executeUpdate("PRAGMA wal_checkpoint(TRUNCATE)");
+            boolean truncate = new File(ConfigHandler.path + ConfigHandler.sqlite + "-wal").length() > SQLITE_WAL_TRUNCATE_BYTES;
+            statement.executeUpdate(truncate ? "PRAGMA wal_checkpoint(TRUNCATE)" : "PRAGMA wal_checkpoint(PASSIVE)");
         }
     }
 
@@ -380,6 +372,20 @@ public class Database extends Queue {
     }
 
     public static Connection getConnection(boolean force, boolean startup, boolean onlyCheckTransacting, int waitTime) {
+        return getConnection(force, startup, onlyCheckTransacting, waitTime, false, false);
+    }
+
+    /**
+     * On SQLite the consumer keeps one connection between passes, so every pass must hand it back through
+     * {@link #releaseConsumerConnection(Connection, boolean)}. Other backends open a connection per pass.
+     *
+     * @param ignorePause Skip waiting on a lookup pause. The shutdown drain only runs a pass while a lookup holds the pause once its deadline forces it.
+     */
+    public static Connection getConsumerConnection(int waitTime, boolean ignorePause) {
+        return getConnection(false, false, false, waitTime, true, ignorePause);
+    }
+
+    private static Connection getConnection(boolean force, boolean startup, boolean onlyCheckTransacting, int waitTime, boolean consumer, boolean ignorePause) {
         Connection connection = null;
         if (Consumer.isDatabaseReloadBlocked()) {
             return null;
@@ -417,7 +423,7 @@ public class Database extends Queue {
                 }
 
                 long startTime = System.nanoTime();
-                while (Consumer.isPaused && !force && (Consumer.transacting || !onlyCheckTransacting)) {
+                while (Consumer.isPaused && !force && !ignorePause && (Consumer.transacting || !onlyCheckTransacting)) {
                     Thread.sleep(1);
                     long pauseTime = (System.nanoTime() - startTime) / 1000000;
 
@@ -427,7 +433,7 @@ public class Database extends Queue {
                 }
 
                 String database = "jdbc:sqlite:" + ConfigHandler.path + ConfigHandler.sqlite + "";
-                connection = DriverManager.getConnection(database);
+                connection = consumer ? leaseConsumerConnection(database) : DriverManager.getConnection(database);
 
                 ConfigHandler.databaseReachable = true;
             }
@@ -453,6 +459,7 @@ public class Database extends Queue {
     }
 
     public static boolean awaitConnectionDrain(long timeoutMillis) throws InterruptedException {
+        closeConsumerConnection();
         long deadline = System.nanoTime() + timeoutMillis * 1_000_000L;
         while (hasActiveConnections()) {
             if (System.nanoTime() >= deadline) {
@@ -461,6 +468,80 @@ public class Database extends Queue {
             Thread.sleep(10L);
         }
         return true;
+    }
+
+    private static Connection leaseConsumerConnection(String url) throws SQLException {
+        Connection idle;
+        String idleUrl;
+        synchronized (CONSUMER_CONNECTION_LOCK) {
+            idle = idleConsumerConnection;
+            idleUrl = idleConsumerConnectionUrl;
+            idleConsumerConnection = null;
+            idleConsumerConnectionUrl = null;
+            leasedConsumerConnectionUrl = url;
+            closeLeasedConsumerConnection = false;
+        }
+        if (idle != null) {
+            if (url.equals(idleUrl) && isValidConnection(idle)) {
+                return idle;
+            }
+            closeConsumerConnection(idle);
+        }
+        return DriverManager.getConnection(url);
+    }
+
+    /**
+     * Keeps the SQLite consumer connection open for the next pass only when the pass ended with no open
+     * transaction. Any other connection, or a pass that failed, is closed.
+     */
+    public static void releaseConsumerConnection(Connection connection, boolean reusable) {
+        if (connection == null) {
+            return;
+        }
+        if (reusable && ConfigHandler.databaseType.isSQLite() && !Consumer.transacting) {
+            synchronized (CONSUMER_CONNECTION_LOCK) {
+                if (!closeLeasedConsumerConnection && idleConsumerConnection == null && leasedConsumerConnectionUrl != null) {
+                    idleConsumerConnection = connection;
+                    idleConsumerConnectionUrl = leasedConsumerConnectionUrl;
+                    leasedConsumerConnectionUrl = null;
+                    return;
+                }
+            }
+        }
+        closeConsumerConnection(connection);
+    }
+
+    /**
+     * Closes the idle SQLite consumer connection, and marks a connection still in use by a pass to close when the
+     * pass releases it. Safe to call when no connection was ever opened.
+     */
+    public static void closeConsumerConnection() {
+        Connection connection;
+        synchronized (CONSUMER_CONNECTION_LOCK) {
+            connection = idleConsumerConnection;
+            idleConsumerConnection = null;
+            idleConsumerConnectionUrl = null;
+            closeLeasedConsumerConnection = true;
+        }
+        if (connection != null) {
+            closeConsumerConnection(connection);
+        }
+    }
+
+    private static void closeConsumerConnection(Connection connection) {
+        try {
+            connection.close();
+        } catch (Exception e) {
+            reportDatabaseFailure(e);
+        }
+    }
+
+    private static boolean isValidConnection(Connection connection) {
+        try {
+            return connection.isValid(1);
+        } catch (SQLException e) {
+            return false;
+        }
     }
 
     private static void registerConnection(Connection connection) {
@@ -511,6 +592,7 @@ public class Database extends Queue {
     }
 
     public static void closeConnection() {
+        closeConsumerConnection();
         if (ConfigHandler.hikariDataSource != null) {
             try {
                 ConfigHandler.hikariDataSource.close();

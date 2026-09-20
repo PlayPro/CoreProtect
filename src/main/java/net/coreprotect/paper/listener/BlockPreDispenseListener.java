@@ -1,7 +1,13 @@
 package net.coreprotect.paper.listener;
 
-import java.util.concurrent.ConcurrentHashMap;
-
+import io.papermc.paper.event.block.BlockPreDispenseEvent;
+import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.listener.player.InventoryChangeListener;
+import net.coreprotect.paper.PaperAdapter;
+import net.coreprotect.utility.HopperTransactionUtils;
+import net.coreprotect.utility.TransactionId;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -14,11 +20,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
-import io.papermc.paper.event.block.BlockPreDispenseEvent;
-import net.coreprotect.config.Config;
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.listener.player.InventoryChangeListener;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class BlockPreDispenseListener extends Queue implements Listener {
 
@@ -43,7 +46,7 @@ public final class BlockPreDispenseListener extends Queue implements Listener {
                 useForDroppers = true;
             }
 
-            if (!config.ITEM_TRANSACTIONS) {
+            if (!config.ITEM_TRANSACTIONS || !config.DISPENSER_TRANSACTIONS) {
                 return;
             }
 
@@ -53,20 +56,20 @@ public final class BlockPreDispenseListener extends Queue implements Listener {
                 return;
             }
 
-            String locationKey = world.getUID().toString() + "." + block.getX() + "." + block.getY() + "." + block.getZ();
+            TransactionId locationKey = HopperTransactionUtils.getTransactionId(block.getLocation());
             if (config.DUPLICATE_SUPPRESSION) {
-                String eventKey = event.getSlot() + "." + item.getType().name() + ":" + item.getAmount();
+                Object eventKey = List.of(event.getSlot(), item.getType(), item.getAmount());
 
                 if (item.hasItemMeta()) {
                     try {
-                        eventKey += ":" + item.getItemMeta().hashCode();
+                        eventKey = List.of(event.getSlot(), item.getType(), item.getAmount(), item.getItemMeta().hashCode());
                     }
                     catch (Exception e) {
                     }
                 }
 
-                ConcurrentHashMap<String, Long> locationMap = ConfigHandler.dispenserNoChange.computeIfAbsent(locationKey, k -> new ConcurrentHashMap<>());
-                Long lastNoChangeTime = locationMap.get(eventKey);
+                ConcurrentHashMap<Object, Long> locationMap = ConfigHandler.dispenserNoChange.get(locationKey);
+                Long lastNoChangeTime = locationMap == null ? null : locationMap.get(eventKey);
 
                 long currentTime = System.currentTimeMillis();
                 if (lastNoChangeTime != null && (currentTime - lastNoChangeTime) < CACHE_EXPIRY_TIME) {
@@ -75,7 +78,7 @@ public final class BlockPreDispenseListener extends Queue implements Listener {
                 }
 
                 ConfigHandler.dispenserNoChange.remove(locationKey);
-                ConfigHandler.dispenserPending.put(locationKey, new Object[] { eventKey, currentTime, event.getSlot(), item.clone() });
+                ConfigHandler.dispenserPending.put(locationKey, new Object[]{eventKey, currentTime});
             }
             else {
                 ConfigHandler.dispenserNoChange.remove(locationKey);
@@ -84,7 +87,7 @@ public final class BlockPreDispenseListener extends Queue implements Listener {
 
             // Process the inventory transaction
             String user = "#dispenser";
-            BlockState blockState = block.getState();
+            BlockState blockState = PaperAdapter.ADAPTER.getBlockState(block, false);
             ItemStack[] inventory = ((InventoryHolder) blockState).getInventory().getStorageContents();
             InventoryChangeListener.inventoryTransaction(user, blockState, inventory);
         }

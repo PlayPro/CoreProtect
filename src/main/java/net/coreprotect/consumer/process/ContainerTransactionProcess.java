@@ -1,15 +1,5 @@
 package net.coreprotect.consumer.process;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
-
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
@@ -19,6 +9,14 @@ import net.coreprotect.model.entity.EntityContainerTransaction;
 import net.coreprotect.model.entity.EntitySpawnIdentity;
 import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.HopperTransactionUtils;
+import net.coreprotect.utility.TransactionId;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+
+import java.util.List;
+import java.util.Map;
 
 class ContainerTransactionProcess {
 
@@ -29,12 +27,10 @@ class ContainerTransactionProcess {
 
         if (ConfigHandler.databaseType.isColumnar()) {
             preparedStmtContainer.executeAtomically("entity_container_transaction", () -> ContainerLogger.logEntity(preparedStmtContainer, batchCount, user, identity, (EntityContainerTransaction) object));
-        }
-        else {
+        } else {
             try {
                 ContainerLogger.logEntity(preparedStmtContainer, batchCount, user, identity, (EntityContainerTransaction) object);
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 ErrorReporter.report(e);
             }
         }
@@ -57,7 +53,7 @@ class ContainerTransactionProcess {
             return;
         }
 
-        String transactingChestId = HopperTransactionUtils.getTransactionId(location);
+        TransactionId transactingChestId = HopperTransactionUtils.getTransactionId(location);
         String loggingChestIdSuffix = HopperTransactionUtils.getLoggingIdSuffix(location);
         String loggingChestId = HopperTransactionUtils.getLoggingId(user, loggingChestIdSuffix);
         HopperTransactionUtils.synchronizeTransaction(transactingChestId,
@@ -65,12 +61,13 @@ class ContainerTransactionProcess {
     }
 
     private static void processTransaction(ConsumerWriteBatch preparedStmtContainer, ConsumerWriteBatch preparedStmtItems, int batchCount, int processId, int id, Material type, int forceData, String user, Object inventory,
-            Location location, String transactingChestId, String loggingChestIdSuffix, String loggingChestId) {
-        if (ConfigHandler.loggingChest.get(loggingChestId) == null) {
+                                           Location location, TransactionId transactingChestId, String loggingChestIdSuffix, String loggingChestId) {
+        Integer loggedChest = ConfigHandler.loggingChest.get(loggingChestId);
+        if (loggedChest == null) {
             return;
         }
 
-        int current_chest = ConfigHandler.loggingChest.get(loggingChestId);
+        int current_chest = loggedChest;
         if (ConfigHandler.oldContainer.get(loggingChestId) == null) {
             clearContainerTransaction(transactingChestId, loggingChestIdSuffix, loggingChestId);
             return;
@@ -92,17 +89,16 @@ class ContainerTransactionProcess {
                     clearContainerTransaction(transactingChestId, loggingChestIdSuffix, loggingChestId);
                 }
             }
-        }
-        else if (loggingChestId.startsWith("#hopper")) {
-            if (force_size == 0 && ConfigHandler.oldContainer.getOrDefault(loggingChestId, Collections.synchronizedList(new ArrayList<>())).size() == 1
+        } else if (loggingChestId.startsWith("#hopper")) {
+            List<ItemStack[]> pendingSnapshots = ConfigHandler.oldContainer.get(loggingChestId);
+            if (force_size == 0 && pendingSnapshots != null && pendingSnapshots.size() == 1
                     && HopperTransactionUtils.pendingDeltaCount(transactingChestId) == 0) {
                 int loopCount = ConfigHandler.loggingChest.getOrDefault(loggingChestId, 0);
                 int maxInventorySize = (99 * 54);
                 try {
                     Inventory checkInventory = (Inventory) inventory;
                     maxInventorySize = checkInventory.getSize() * checkInventory.getMaxStackSize();
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                     // use default of 5,346
                 }
 
@@ -126,7 +122,7 @@ class ContainerTransactionProcess {
         }
     }
 
-    private static void clearContainerTransaction(String transactionId, String locationSuffix, String loggingId) {
+    private static void clearContainerTransaction(TransactionId transactionId, String locationSuffix, String loggingId) {
         ConfigHandler.oldContainer.remove(loggingId);
         ConfigHandler.removeOldContainerViewer(locationSuffix, loggingId);
         ConfigHandler.loggingChest.remove(loggingId);
@@ -138,7 +134,7 @@ class ContainerTransactionProcess {
         if (location.getWorld() == null) {
             return;
         }
-        String transactionId = HopperTransactionUtils.getTransactionId(location);
+        TransactionId transactionId = HopperTransactionUtils.getTransactionId(location);
         String locationSuffix = HopperTransactionUtils.getLoggingIdSuffix(location);
         String loggingId = HopperTransactionUtils.getLoggingId(user, locationSuffix);
         HopperTransactionUtils.synchronizeTransaction(transactionId, () -> {

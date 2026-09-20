@@ -1,27 +1,24 @@
 package net.coreprotect.spigot;
 
-import java.lang.reflect.Method;
-import java.util.List;
-import java.util.UUID;
-import java.util.regex.Matcher;
-
-import org.bukkit.command.CommandSender;
-import org.bukkit.command.ConsoleCommandSender;
-import org.bukkit.entity.Villager;
-
 import net.coreprotect.config.Config;
 import net.coreprotect.model.entity.VillagerReputationData;
-import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.Color;
-import net.coreprotect.utility.StringUtils;
-import net.coreprotect.utility.Util;
-import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.*;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.chat.hover.content.Text;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.ConsoleCommandSender;
+import org.bukkit.entity.Villager;
+
+import java.lang.reflect.Method;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
 
 public class SpigotHandler extends SpigotAdapter implements SpigotInterface {
 
@@ -196,9 +193,20 @@ public class SpigotHandler extends SpigotAdapter implements SpigotInterface {
         builder.setLength(0);
     }
 
+    private static final Map<Class<?>, Map<String, Method>> NO_ARGUMENT_METHODS = new ConcurrentHashMap<>();
+
     private static Object invokeNoArgumentMethod(Object target, String methodName) {
         try {
-            return target.getClass().getMethod(methodName).invoke(target);
+            Class<?> owner = target.getClass();
+            Method method = NO_ARGUMENT_METHODS.computeIfAbsent(owner, k -> new ConcurrentHashMap<>()).computeIfAbsent(methodName, name -> {
+                try {
+                    return owner.getMethod(name);
+                } catch (Exception e) {
+                    return null;
+                }
+            });
+
+            return method == null ? null : method.invoke(target);
         }
         catch (Exception e) {
             return null;

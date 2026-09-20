@@ -1,14 +1,9 @@
 package net.coreprotect.database.logger;
 
-import org.bukkit.Bukkit;
-import org.bukkit.Material;
-import org.bukkit.Location;
-
 import net.coreprotect.CoreProtect;
-import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.database.Database;
 import net.coreprotect.database.ConsumerWriteBatch;
+import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.BlockStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
@@ -16,6 +11,9 @@ import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.utility.BlockTypeUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
 
 public class PlayerInteractLogger {
 
@@ -45,17 +43,20 @@ public class PlayerInteractLogger {
                 return;
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location.clone(), CoreProtectPreLogEvent.Action.PLAYER_INTERACTION, LookupActions.INTERACTION, blockType, null, null);
-            if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
+            String logUser = user;
+            Location eventLocation = location;
+            if (CoreProtectPreLogEvent.isObserved() && !Bukkit.isPrimaryThread()) {
+                CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location.clone(), CoreProtectPreLogEvent.Action.PLAYER_INTERACTION, LookupActions.INTERACTION, blockType, null, null);
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+                if (event.isCancelled()) {
+                    return;
+                }
+
+                logUser = event.getUser();
+                eventLocation = event.getLocation();
             }
 
-            if (event.isCancelled()) {
-                return;
-            }
-
-            int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
-            Location eventLocation = event.getLocation();
+            int userId = UserStatement.getId(preparedStmt, logUser, true);
             int wid = WorldUtils.getWorldId(eventLocation.getWorld().getName());
             int time = (int) (System.currentTimeMillis() / 1000L);
             int x = eventLocation.getBlockX();

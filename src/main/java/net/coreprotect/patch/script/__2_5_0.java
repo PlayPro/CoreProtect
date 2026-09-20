@@ -1,11 +1,11 @@
 package net.coreprotect.patch.script;
 
-import java.sql.Statement;
-
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.patch.Patch;
 import net.coreprotect.utility.ErrorReporter;
+
+import java.sql.Statement;
 
 public class __2_5_0 {
 
@@ -32,6 +32,7 @@ public class __2_5_0 {
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            return false;
         }
 
         return true;

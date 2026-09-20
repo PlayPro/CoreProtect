@@ -1,12 +1,5 @@
 package net.coreprotect.worldedit;
 
-import java.util.Objects;
-import java.util.Set;
-
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.inventory.ItemStack;
-
 import com.sk89q.worldedit.MaxChangedBlocksException;
 import com.sk89q.worldedit.WorldEditException;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
@@ -25,10 +18,16 @@ import com.sk89q.worldedit.world.World;
 import com.sk89q.worldedit.world.block.BaseBlock;
 import com.sk89q.worldedit.world.block.BlockState;
 import com.sk89q.worldedit.world.block.BlockStateHolder;
-
 import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.ItemUtils;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.inventory.ItemStack;
+
+import java.util.Objects;
+import java.util.Set;
 
 public class CoreProtectLogger extends AbstractDelegateExtent {
     private final Actor eventActor;
@@ -45,7 +44,7 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
         Extent eventExtent = getExtent();
         org.bukkit.World world = BukkitAdapter.adapt(eventWorld);
         Config config = Config.getConfig(world);
-        if (!config.WORLDEDIT) {
+        if (!ConfigHandler.serverRunning || !config.WORLDEDIT) {
             return eventExtent.setBlock(position, block);
         }
 
@@ -80,7 +79,7 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
     public int replaceBlocks(final Region region, final Mask mask, final Pattern pattern) throws MaxChangedBlocksException {
         Extent eventExtent = getExtent();
         org.bukkit.World world = BukkitAdapter.adapt(eventWorld);
-        if (!Config.getConfig(world).WORLDEDIT) {
+        if (!ConfigHandler.serverRunning || !Config.getConfig(world).WORLDEDIT) {
             return eventExtent.replaceBlocks(region, mask, pattern);
         }
 
@@ -98,7 +97,7 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
     public int setBlocks(Region region, Pattern pattern) throws MaxChangedBlocksException {
         Extent eventExtent = getExtent();
         org.bukkit.World world = BukkitAdapter.adapt(eventWorld);
-        if (!Config.getConfig(world).WORLDEDIT) {
+        if (!ConfigHandler.serverRunning || !Config.getConfig(world).WORLDEDIT) {
             return eventExtent.setBlocks(region, pattern);
         }
 
@@ -109,7 +108,7 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
     public int setBlocks(Set<BlockVector3> vset, Pattern pattern) {
         Extent eventExtent = getExtent();
         org.bukkit.World world = BukkitAdapter.adapt(eventWorld);
-        if (!Config.getConfig(world).WORLDEDIT) {
+        if (!ConfigHandler.serverRunning || !Config.getConfig(world).WORLDEDIT) {
             return eventExtent.setBlocks(vset, pattern);
         }
 

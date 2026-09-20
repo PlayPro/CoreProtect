@@ -1,18 +1,17 @@
 package net.coreprotect.database;
 
-import java.sql.ResultSet;
-import java.sql.Statement;
-
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.statement.UserStatement;
+import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.utility.WorldUtils;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.database.statement.UserStatement;
-import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.MaterialUtils;
-import net.coreprotect.utility.WorldUtils;
-import net.coreprotect.utility.ErrorReporter;
+import java.sql.ResultSet;
+import java.sql.Statement;
 
 public class BlockLookup {
 
@@ -58,7 +57,14 @@ public class BlockLookup {
             return "";
         }
 
-        return whoPlacedCache(block.getState());
+        try {
+            String cords = "" + block.getX() + "." + block.getY() + "." + block.getZ() + "." + WorldUtils.getWorldId(block.getWorld().getName()) + "";
+            Object[] data = CacheHandler.lookupCache.get(cords);
+            return data != null ? (String) data[1] : "";
+        } catch (Exception e) {
+            ErrorReporter.report(e);
+            return "";
+        }
     }
 
     public static String whoPlacedCache(BlockState block) {

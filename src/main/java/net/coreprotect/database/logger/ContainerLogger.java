@@ -1,24 +1,11 @@
 package net.coreprotect.database.logger;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
-import java.util.concurrent.ConcurrentHashMap;
-
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.block.BlockFace;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
-
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
-import net.coreprotect.database.Database;
 import net.coreprotect.database.ConsumerWriteBatch;
+import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.ContainerStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
@@ -26,18 +13,27 @@ import net.coreprotect.model.entity.EntityContainerTransaction;
 import net.coreprotect.model.entity.EntitySpawnIdentity;
 import net.coreprotect.model.item.ItemTransactionActions;
 import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.BlockUtils;
-import net.coreprotect.utility.HopperTransactionUtils;
-import net.coreprotect.utility.ItemUtils;
-import net.coreprotect.utility.MaterialUtils;
-import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.*;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.block.BlockFace;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ContainerLogger extends Queue {
 
     private static final int CONTAINER_DUPLICATE_THRESHOLD_DROPPER = 512;
     private static final int CONTAINER_DUPLICATE_THRESHOLD_DISPENSER = 256;
     private static final int CONTAINER_DUPLICATE_WINDOW_SECONDS = 1200;
+    private static final int LIVE_READ_RETRIES = 3;
 
     private ContainerLogger() {
         throw new IllegalStateException("Database class");
@@ -65,7 +61,7 @@ public class ContainerLogger extends Queue {
             else {
                 Inventory inventory = (Inventory) container;
                 if (inventory != null) {
-                    contents = inventory.getContents();
+                    contents = getLiveContents(inventory);
                 }
             }
 
@@ -74,14 +70,14 @@ public class ContainerLogger extends Queue {
             }
 
             String loggingContainerId = HopperTransactionUtils.getLoggingId(player, location);
-            String transactingChestId = HopperTransactionUtils.getTransactionId(location);
+            TransactionId transactingChestId = HopperTransactionUtils.getTransactionId(location);
             List<ItemStack[]> oldList = ConfigHandler.oldContainer.get(loggingContainerId);
             if (oldList == null || oldList.isEmpty()) {
                 return;
             }
             ItemStack[] oi1 = oldList.get(0);
             ItemStack[] oldInventory = ItemUtils.getContainerState(oi1);
-            ItemStack[] newInventory = ItemUtils.getContainerState(contents);
+            ItemStack[] newInventory = container instanceof Inventory ? contents : ItemUtils.getContainerState(contents);
             if (oldInventory == null || newInventory == null) {
                 return;
             }
@@ -90,26 +86,14 @@ public class ContainerLogger extends Queue {
             // Check if this is a dispenser with no actual changes
             if (duplicateSuppression && "#dispenser".equals(player) && getForceContainerSize(loggingContainerId) == 0 && ItemUtils.compareContainers(oldInventory, newInventory)) {
                 // No changes detected, mark this dispenser in the dispenserNoChange map
-                // Extract the location key from the loggingContainerId
-                // Format: #dispenser.x.y.z
-                String[] parts = loggingContainerId.split("\\.");
-                if (parts.length >= 4) {
-                    int x = Integer.parseInt(parts[1]);
-                    int y = Integer.parseInt(parts[2]);
-                    int z = Integer.parseInt(parts[3]);
+                // Check if we have pending event details for this dispenser
+                Object[] pendingEvent = ConfigHandler.dispenserPending.remove(transactingChestId);
+                if (pendingEvent != null) {
+                    // We have the exact event details, use them to mark this event as unchanged
+                    Object eventKey = pendingEvent[0];
 
-                    // Create the location key
-                    String locationKey = location.getWorld().getUID().toString() + "." + x + "." + y + "." + z;
-
-                    // Check if we have pending event details for this dispenser
-                    Object[] pendingEvent = ConfigHandler.dispenserPending.remove(locationKey);
-                    if (pendingEvent != null) {
-                        // We have the exact event details, use them to mark this event as unchanged
-                        String eventKey = (String) pendingEvent[0];
-
-                        // Get or create the inner map for this location
-                        ConfigHandler.dispenserNoChange.computeIfAbsent(locationKey, k -> new ConcurrentHashMap<>()).put(eventKey, System.currentTimeMillis());
-                    }
+                    // Get or create the inner map for this location
+                    ConfigHandler.dispenserNoChange.computeIfAbsent(transactingChestId, k -> new ConcurrentHashMap<>()).put(eventKey, System.currentTimeMillis());
                 }
                 if (capture != null) {
                     capture.accept(new PreparedTransaction(type, faceData, location, new ItemStack[0], new ItemStack[0]));
@@ -123,20 +107,11 @@ public class ContainerLogger extends Queue {
             // If we reach here, the dispenser event resulted in changes
             // Remove any pending event for this dispenser
             if (duplicateSuppression && "#dispenser".equals(player)) {
-                String[] parts = loggingContainerId.split("\\.");
-                if (parts.length >= 4) {
-                    int x = Integer.parseInt(parts[1]);
-                    int y = Integer.parseInt(parts[2]);
-                    int z = Integer.parseInt(parts[3]);
+                // Remove the pending event since it resulted in changes
+                ConfigHandler.dispenserPending.remove(transactingChestId);
 
-                    String locationKey = location.getWorld().getUID().toString() + "." + x + "." + y + "." + z;
-
-                    // Remove the pending event since it resulted in changes
-                    ConfigHandler.dispenserPending.remove(locationKey);
-
-                    // Clear any existing dispenserNoChange entries for this location
-                    ConfigHandler.dispenserNoChange.remove(locationKey);
-                }
+                // Clear any existing dispenserNoChange entries for this location
+                ConfigHandler.dispenserNoChange.remove(transactingChestId);
             }
 
             ItemStack[] forceState = peekForceContainer(loggingContainerId);
@@ -230,6 +205,24 @@ public class ContainerLogger extends Queue {
         }
     }
 
+    /**
+     * Inventory events fire before the change lands, so the new state is only readable when the consumer runs. That
+     * read races the thread that owns the container, so a read or copy that throws is retried before giving up.
+     */
+    private static ItemStack[] getLiveContents(Inventory inventory) {
+        RuntimeException failure = null;
+        for (int attempt = 0; attempt <= LIVE_READ_RETRIES; attempt++) {
+            try {
+                return ItemUtils.getContainerState(inventory.getContents());
+            } catch (RuntimeException e) {
+                failure = e;
+            }
+        }
+
+        ErrorReporter.report(failure);
+        return null;
+    }
+
     public static void logEntity(ConsumerWriteBatch preparedStmtContainer, int batchCount, String player, EntitySpawnIdentity identity, EntityContainerTransaction transaction) throws Exception {
         if (identity == null || transaction == null || ConfigHandler.isBlacklisted(player)) {
             return;
@@ -264,7 +257,7 @@ public class ContainerLogger extends Queue {
                 if (item != null) {
                     if (item.getAmount() > 0 && !BlockUtils.isAir(item.getType())) {
                         // Object[] metadata = new Object[] { slot, item.getItemMeta() };
-                        if (ConfigHandler.isFilterBlacklisted(user, item.getType().getKey().toString())){
+                        if (ConfigHandler.hasFilters() && ConfigHandler.isFilterBlacklisted(user, item.getType().getKey().toString())) {
                             continue;
                         }
 
@@ -273,18 +266,20 @@ public class ContainerLogger extends Queue {
                             metadata = null;
                         }
 
-                        CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.CONTAINER_TRANSACTION, action, item.getType(), null, null);
-                        if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
+                        String logUser = user;
+                        Location eventLocation = location;
+                        if (CoreProtectPreLogEvent.isObserved() && !Bukkit.isPrimaryThread()) {
+                            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.CONTAINER_TRANSACTION, action, item.getType(), null, null);
                             CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+                            if (event.isCancelled()) {
+                                return;
+                            }
+
+                            logUser = event.getUser();
+                            eventLocation = event.getLocation();
                         }
 
-                        if (event.isCancelled()) {
-                            return;
-                        }  
-
-
-                        int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
-                        Location eventLocation = event.getLocation();
+                        int userId = UserStatement.getId(preparedStmt, logUser, true);
                         int wid = WorldUtils.getWorldId(eventLocation.getWorld().getName());
                         int time = preparedTime == null ? (int) (System.currentTimeMillis() / 1000L) : preparedTime;
                         int x = eventLocation.getBlockX();
@@ -318,7 +313,7 @@ public class ContainerLogger extends Queue {
                 slot++;
                 continue;
             }
-            if (ConfigHandler.isFilterBlacklisted(user, item.getType().getKey().toString())) {
+            if (ConfigHandler.hasFilters() && ConfigHandler.isFilterBlacklisted(user, item.getType().getKey().toString())) {
                 slot++;
                 continue;
             }
@@ -328,28 +323,31 @@ public class ContainerLogger extends Queue {
                 metadata = null;
             }
 
-            Location initialEventLocation = currentLocation.clone();
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, initialEventLocation.clone(), CoreProtectPreLogEvent.Action.CONTAINER_TRANSACTION, action, item.getType(), null, null);
-            if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
-                CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
-            }
-            if (event.isCancelled()) {
-                return;
-            }
-
             int wid = identity.getOriginalWorldId();
             int x = identity.getOriginalX();
             int y = identity.getOriginalY();
             int z = identity.getOriginalZ();
-            Location loggedLocation = event.getLocation();
-            if (!samePosition(initialEventLocation, loggedLocation)) {
-                wid = WorldUtils.getWorldId(loggedLocation.getWorld().getName());
-                x = loggedLocation.getBlockX();
-                y = loggedLocation.getBlockY();
-                z = loggedLocation.getBlockZ();
+            String logUser = user;
+            if (CoreProtectPreLogEvent.isObserved() && !Bukkit.isPrimaryThread()) {
+                Location initialEventLocation = currentLocation.clone();
+                CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, initialEventLocation.clone(), CoreProtectPreLogEvent.Action.CONTAINER_TRANSACTION, action, item.getType(), null, null);
+                CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+                if (event.isCancelled()) {
+                    return;
+                }
+
+                Location loggedLocation = event.getLocation();
+                if (!samePosition(initialEventLocation, loggedLocation)) {
+                    wid = WorldUtils.getWorldId(loggedLocation.getWorld().getName());
+                    x = loggedLocation.getBlockX();
+                    y = loggedLocation.getBlockY();
+                    z = loggedLocation.getBlockZ();
+                }
+
+                logUser = event.getUser();
             }
 
-            int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
+            int userId = UserStatement.getId(preparedStmt, logUser, true);
             int time = (int) (System.currentTimeMillis() / 1000L);
             int typeId = MaterialUtils.getBlockId(item.getType().name(), true);
             ContainerStatement.insertEntity(preparedStmt, batchCount, time, userId, identity.getRowId(), wid, x, y, z, typeId, 0, item.getAmount(), metadata, action, 0);
@@ -363,14 +361,21 @@ public class ContainerLogger extends Queue {
 
     private static void subtractSharedItems(ItemStack[] oldInventory, ItemStack[] newInventory) {
         for (ItemStack oldItem : oldInventory) {
+            if (oldItem == null || oldItem.getAmount() <= 0 || BlockUtils.isAir(oldItem.getType())) {
+                continue;
+            }
+
             for (ItemStack newItem : newInventory) {
-                if (oldItem == null || newItem == null || !oldItem.isSimilar(newItem) || BlockUtils.isAir(oldItem.getType())) {
+                if (newItem == null || newItem.getAmount() <= 0 || !oldItem.isSimilar(newItem)) {
                     continue;
                 }
 
                 int sharedAmount = Math.min(oldItem.getAmount(), newItem.getAmount());
                 oldItem.setAmount(oldItem.getAmount() - sharedAmount);
                 newItem.setAmount(newItem.getAmount() - sharedAmount);
+                if (oldItem.getAmount() <= 0) {
+                    break;
+                }
             }
         }
     }
@@ -409,31 +414,38 @@ public class ContainerLogger extends Queue {
             return "-";
         }
 
-        Map<String, Integer> itemCounts = new HashMap<>();
+        Map<Integer, Integer> itemCounts = new HashMap<>();
         for (ItemStack itemStack : inventory) {
             if (itemStack == null || itemStack.getAmount() <= 0 || BlockUtils.isAir(itemStack.getType())) {
                 continue;
             }
 
-            ItemStack normalized = itemStack.clone();
-            normalized.setAmount(1);
-            String key = normalized.toString();
-            itemCounts.merge(key, itemStack.getAmount(), Integer::sum);
+            itemCounts.merge(identityHash(itemStack), itemStack.getAmount(), Integer::sum);
         }
 
         if (itemCounts.isEmpty()) {
             return "-";
         }
 
-        StringBuilder builder = new StringBuilder();
-        for (Map.Entry<String, Integer> entry : new TreeMap<>(itemCounts).entrySet()) {
-            if (builder.length() > 0) {
-                builder.append('|');
-            }
-            builder.append(entry.getKey()).append('*').append(entry.getValue());
+        long signature = 0;
+        for (Map.Entry<Integer, Integer> entry : itemCounts.entrySet()) {
+            signature += (entry.getKey() * 31L) ^ (entry.getValue() * 1000003L);
         }
 
-        return Integer.toHexString(builder.toString().hashCode());
+        return Long.toHexString(signature);
+    }
+
+    /**
+     * Identifies a stack ignoring its amount, matching what isSimilar compares.
+     */
+    private static int identityHash(ItemStack itemStack) {
+        int hash = itemStack.getType().ordinal();
+        if (itemStack.hasItemMeta()) {
+            ItemMeta meta = itemStack.getItemMeta();
+            hash = hash * 31 + (meta == null ? 0 : meta.hashCode());
+        }
+
+        return hash;
     }
 
 }

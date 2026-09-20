@@ -1018,8 +1018,7 @@ public class LookupRaw extends Queue {
                 }
             } else if (chatLookup || commandLookup) {
                 baseQuery = appendMessageFilters(baseQuery, messageFilters, queryTable, messageFilterBindings);
-            }
-            else if (actionList.contains(LookupActions.SIGN)) {
+            } else if (actionList.contains(LookupActions.SIGN)) {
                 baseQuery = appendMessageFilters(baseQuery, messageFilters, "sign", messageFilterBindings);
             }
 

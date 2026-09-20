@@ -1,20 +1,5 @@
 package net.coreprotect.consumer;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.LockSupport;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-
-import org.bukkit.Bukkit;
-import org.bukkit.block.BlockState;
-import org.bukkit.inventory.ItemStack;
-
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.process.Process;
@@ -24,6 +9,17 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.ErrorReporter;
+import org.bukkit.Bukkit;
+import org.bukkit.block.BlockState;
+import org.bukkit.inventory.ItemStack;
+
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.LockSupport;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class Consumer extends Process implements Runnable, Thread.UncaughtExceptionHandler {
 
@@ -36,7 +32,13 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         INTERRUPTED
     }
 
+    private static final long SHUTDOWN_DRAIN_NANOS = TimeUnit.SECONDS.toNanos(30);
+    private static final long SHUTDOWN_FORCE_NANOS = TimeUnit.SECONDS.toNanos(5);
+    private static final int BACKLOG_WARNING_ROWS = 500_000;
+    private static final long BACKLOG_WARNING_INTERVAL_MILLIS = TimeUnit.MINUTES.toMillis(5);
+
     private static Thread consumerThread = null;
+    private static final Object lookupPauseClaim = new Object();
     private static final ReentrantReadWriteLock databaseLifecycle = new ReentrantReadWriteLock(true);
     private static final Object rollbackPurgeGate = new Object();
     private static long pendingRollbackPublications = 0;
@@ -56,6 +58,8 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
     public static ConcurrentHashMap<Integer, ArrayList<Object[]>> consumer = new ConcurrentHashMap<>(4, 0.75f, 2);
     // public static ConcurrentHashMap<Integer, Integer[]> consumer_id = new ConcurrentHashMap<>();
     public static Map<Integer, Integer[]> consumer_id = Collections.synchronizedMap(new HashMap<>());
+    private static final int[] nextConsumerId = new int[2];
+    private static final int[] outstandingReservations = new int[2];
     public static ConcurrentHashMap<Integer, Map<Integer, String[]>> consumerUsers = new ConcurrentHashMap<>(4, 0.75f, 2);
     @Deprecated
     public static ConcurrentHashMap<Integer, Map<Integer, String>> consumerStrings = new ConcurrentHashMap<>(4, 0.75f, 2);
@@ -88,12 +92,20 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         return reserveConsumers(1);
     }
 
+    /**
+     * Hands out the next id in a buffer. The caller must hold consumer_id and publish the row before releasing it,
+     * which is what lets single-row publishes skip the reservation bookkeeping.
+     */
+    static int nextConsumerIdLocked(int consumer) {
+        return nextConsumerId[consumer]++;
+    }
+
     protected static long reserveConsumers(int count) {
         synchronized (Consumer.consumer_id) {
             int consumer = Consumer.currentConsumer;
-            Integer[] state = Consumer.consumer_id.get(consumer);
-            int id = state[0];
-            Consumer.consumer_id.put(consumer, new Integer[] { id + count, state[1] + count });
+            int id = nextConsumerId[consumer];
+            nextConsumerId[consumer] = id + count;
+            outstandingReservations[consumer] += count;
             return ((long) consumer << 32) | (id & 0xffffffffL);
         }
     }
@@ -101,11 +113,26 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
     protected static void completeReservation(long reservation, int count) {
         int consumer = (int) (reservation >>> 32);
         synchronized (Consumer.consumer_id) {
-            Integer[] state = Consumer.consumer_id.get(consumer);
-            if (count <= 0 || state == null || state[1] < count) {
+            if (count <= 0 || outstandingReservations[consumer] < count) {
                 throw new IllegalStateException("Invalid consumer reservation completion");
             }
-            Consumer.consumer_id.put(consumer, new Integer[] { state[0], state[1] - count });
+            outstandingReservations[consumer] -= count;
+        }
+    }
+
+    /**
+     * Number of reservations handed out but not yet published or abandoned.
+     */
+    public static int outstandingReservations(int processId) {
+        synchronized (Consumer.consumer_id) {
+            return outstandingReservations[processId];
+        }
+    }
+
+    public static void resetReservations(int processId) {
+        synchronized (Consumer.consumer_id) {
+            nextConsumerId[processId] = 0;
+            outstandingReservations[processId] = 0;
         }
     }
 
@@ -133,8 +160,8 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         DuckDBRecovery.reset();
         Consumer.consumer.put(0, new ArrayList<>());
         Consumer.consumer.put(1, new ArrayList<>());
-        Consumer.consumer_id.put(0, new Integer[] { 0, 0 });
-        Consumer.consumer_id.put(1, new Integer[] { 0, 0 });
+        resetReservations(0);
+        resetReservations(1);
         Consumer.consumerUsers.put(0, new HashMap<>());
         Consumer.consumerUsers.put(1, new HashMap<>());
         Consumer.consumerObjects.put(0, new HashMap<>());
@@ -161,6 +188,18 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
 
     public static boolean isPersistenceHalted() {
         return persistenceHalted;
+    }
+
+    /**
+     * Waits for the pause flag to clear and sets it in one step, so two lookups can never both see it clear.
+     */
+    public static void claimLookupPause() throws InterruptedException {
+        synchronized (lookupPauseClaim) {
+            while (isPaused && !persistenceHalted) {
+                lookupPauseClaim.wait(1);
+            }
+            isPaused = true;
+        }
     }
 
     public static void lockDatabaseAccess() {
@@ -443,7 +482,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
 
     private static void pauseConsumer(int process_id) {
         try {
-            while (Consumer.consumer_id.get(process_id)[1] > 0 || ((ConfigHandler.serverRunning || ConfigHandler.converterRunning || ConfigHandler.migrationRunning) && (Consumer.isPaused || ConfigHandler.pauseConsumer || ConfigHandler.purgeRunning))) {
+            while (outstandingReservations(process_id) > 0 || ((ConfigHandler.serverRunning || ConfigHandler.converterRunning || ConfigHandler.migrationRunning) && (Consumer.isPaused || ConfigHandler.pauseConsumer || ConfigHandler.purgeRunning))) {
                 pausedSuccess = true;
                 Thread.sleep(100);
             }
@@ -454,7 +493,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         pausedSuccess = false;
     }
 
-    static void processConsumerBatch(int processId, boolean lastRun) throws InterruptedException {
+    static void processConsumerBatch(int processId, boolean lastRun, boolean pauseHeld) throws InterruptedException {
         Lock databaseLock = databaseLifecycle.readLock();
         databaseLock.lock();
         try {
@@ -464,7 +503,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
                 databaseLock = databaseLifecycle.writeLock();
                 databaseLock.lock();
             }
-            if (databaseReloadPaused || isPaused || persistenceHalted) {
+            if (databaseReloadPaused || pauseHeld || persistenceHalted) {
                 return;
             }
             if (exclusive && !Database.awaitConnectionDrain(0L)) {
@@ -477,23 +516,45 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         }
     }
 
+    private static boolean shutdownDrainPending(long deadline) {
+        if (deadline == 0L || System.nanoTime() >= deadline) {
+            return false;
+        }
+
+        return getConsumerSize(0) > 0 || getConsumerSize(1) > 0 || outstandingReservations(0) > 0 || outstandingReservations(1) > 0;
+    }
+
+    private static long warnBacklog(long nextWarning) {
+        int pending = getConsumerSize(0) + getConsumerSize(1);
+        long now = System.currentTimeMillis();
+        if (pending < BACKLOG_WARNING_ROWS || now < nextWarning) {
+            return nextWarning;
+        }
+
+        Chat.console(Phrase.build(Phrase.CONSUMER_BACKLOG, String.format("%,d", pending)));
+        return now + BACKLOG_WARNING_INTERVAL_MILLIS;
+    }
+
     @Override
     public void run() {
         boolean lastRun = false;
         boolean[] drained = { true, true };
+        long shutdownDeadline = 0L;
+        long nextBacklogWarning = 0L;
 
-        while (ConfigHandler.serverRunning || ConfigHandler.converterRunning || !lastRun) {
-            if (!ConfigHandler.serverRunning && !ConfigHandler.converterRunning) {
+        while (ConfigHandler.serverRunning || ConfigHandler.converterRunning || !lastRun || shutdownDrainPending(shutdownDeadline)) {
+            if (!lastRun && !ConfigHandler.serverRunning && !ConfigHandler.converterRunning) {
                 lastRun = true;
+                shutdownDeadline = System.nanoTime() + SHUTDOWN_DRAIN_NANOS;
             }
             if (persistenceHalted) {
-                if (!lastRun) {
-                    if (databaseReloadBlockedForShutdown) {
-                        LockSupport.parkNanos(100_000_000L);
-                    }
-                    else {
-                        errorDelay();
-                    }
+                if (lastRun) {
+                    break;
+                }
+                if (databaseReloadBlockedForShutdown) {
+                    LockSupport.parkNanos(100_000_000L);
+                } else {
+                    errorDelay();
                 }
                 continue;
             }
@@ -515,10 +576,15 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
                         currentConsumer = 0;
                     }
                 }
+                if (!lastRun) {
+                    nextBacklogWarning = warnBacklog(nextBacklogWarning);
+                }
                 Thread.sleep(consumerDelay(lastRun || !drained[0] || !drained[1]));
                 pauseConsumer(process_id);
                 try {
-                    processConsumerBatch(process_id, lastRun);
+                    // A lookup still holding the pause near the shutdown deadline must not cost the queued rows
+                    boolean pauseHeld = isPaused && !(lastRun && System.nanoTime() >= shutdownDeadline - SHUTDOWN_FORCE_NANOS);
+                    processConsumerBatch(process_id, lastRun, pauseHeld);
                 }
                 finally {
                     drained[process_id] = getConsumerSize(process_id) == 0;
@@ -526,7 +592,9 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
             }
             catch (Exception e) {
                 ErrorReporter.report(e);
-                errorDelay();
+                if (!lastRun) {
+                    errorDelay();
+                }
             }
         }
     }
@@ -539,7 +607,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
 
     public static void startConsumer() {
         if (!isRunning()) {
-            consumerThread = new Thread(new Consumer());
+            consumerThread = new Thread(new Consumer(), "CoreProtect-Consumer");
             consumerThread.setUncaughtExceptionHandler(new Consumer());
             consumerThread.start();
         }

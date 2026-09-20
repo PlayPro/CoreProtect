@@ -1,8 +1,11 @@
 package net.coreprotect.utility.entity;
 
-import java.util.Collection;
-import java.util.Locale;
-
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.model.BlockGroup;
+import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.MaterialUtils;
 import org.bukkit.Art;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -14,11 +17,8 @@ import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.Painting;
 import org.bukkit.inventory.ItemStack;
 
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.model.BlockGroup;
-import net.coreprotect.utility.BlockUtils;
-import net.coreprotect.utility.MaterialUtils;
-import net.coreprotect.utility.ErrorReporter;
+import java.util.Collection;
+import java.util.Locale;
 
 public class HangingUtil {
 
@@ -131,6 +131,17 @@ public class HangingUtil {
                     if (hangingFace == null) {
                         BlockUtils.setTypeAndData(spawnBlock, Material.AIR, null, true);
                     }
+                    Location target = block.getWorld().getBlockAt(paintingX, paintingY, paintingZ).getLocation();
+                    if (ConfigHandler.isFolia) {
+                        // folia rejects Entity#teleport, so the painting is set up at its target before it joins the world
+                        BlockFace facing = faceSet;
+                        block.getWorld().spawn(target, Painting.class, spawned -> {
+                            spawned.setFacingDirection(facing, true);
+                            spawned.setArt(painting, true);
+                        });
+                        return;
+                    }
+
                     Painting hanging = null;
                     try {
                         hanging = block.getWorld().spawn(spawnBlock.getLocation(), Painting.class);
@@ -138,7 +149,7 @@ public class HangingUtil {
                     catch (Exception e) {
                     }
                     if (hanging != null) {
-                        hanging.teleport(block.getWorld().getBlockAt(paintingX, paintingY, paintingZ).getLocation());
+                        hanging.teleport(target);
                         hanging.setFacingDirection(faceSet, true);
                         hanging.setArt(painting, true);
                     }
@@ -150,15 +161,27 @@ public class HangingUtil {
                             BlockUtils.setTypeAndData(spawnBlock, Material.AIR, null, true);
                         }
                         Class itemFrame = BukkitAdapter.ADAPTER.getFrameClass(rowType);
+                        Material frameItem = MaterialUtils.getType(rowData);
+                        if (ConfigHandler.isFolia) {
+                            // folia rejects Entity#teleport, so the frame is set up at its target before it joins the world
+                            BlockFace facing = faceSet;
+                            block.getWorld().spawn(block.getWorld().getBlockAt(x, y, z).getLocation(), (Class<? extends ItemFrame>) itemFrame, spawned -> {
+                                spawned.setFacingDirection(facing, true);
+                                if (frameItem != null) {
+                                    spawned.setItem(new ItemStack(frameItem, 1));
+                                }
+                            });
+                            return;
+                        }
+
                         Entity entity = block.getWorld().spawn(spawnBlock.getLocation(), itemFrame);
                         if (entity instanceof ItemFrame) {
                             ItemFrame hanging = (ItemFrame) entity;
                             hanging.teleport(block.getWorld().getBlockAt(x, y, z).getLocation());
                             hanging.setFacingDirection(faceSet, true);
 
-                            Material type = MaterialUtils.getType(rowData);
-                            if (type != null) {
-                                ItemStack istack = new ItemStack(type, 1);
+                            if (frameItem != null) {
+                                ItemStack istack = new ItemStack(frameItem, 1);
                                 hanging.setItem(istack);
                             }
                         }

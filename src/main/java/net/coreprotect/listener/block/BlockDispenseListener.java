@@ -1,7 +1,18 @@
 package net.coreprotect.listener.block;
 
-import java.util.Arrays;
-
+import net.coreprotect.CoreProtect;
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.listener.player.InventoryChangeListener;
+import net.coreprotect.model.BlockGroup;
+import net.coreprotect.paper.PaperAdapter;
+import net.coreprotect.paper.listener.BlockPreDispenseListener;
+import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.TransactionId;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -18,22 +29,11 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
-import net.coreprotect.CoreProtect;
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.config.Config;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.listener.player.InventoryChangeListener;
-import net.coreprotect.model.BlockGroup;
-import net.coreprotect.paper.PaperAdapter;
-import net.coreprotect.paper.listener.BlockPreDispenseListener;
-import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.thread.Scheduler;
-import net.coreprotect.utility.BlockUtils;
-import net.coreprotect.utility.ErrorReporter;
-import net.coreprotect.utility.TransactionId;
+import java.util.Arrays;
 
 public final class BlockDispenseListener extends Queue implements Listener {
 
+    private static final Vector NO_VELOCITY = new Vector();
     private static final int DISPENSER_LIQUID_DUPLICATE_THRESHOLD = 256;
     private static final int DISPENSER_LIQUID_DUPLICATE_WINDOW_SECONDS = 1200;
 
@@ -86,10 +86,7 @@ public final class BlockDispenseListener extends Queue implements Listener {
                     type = BukkitAdapter.ADAPTER.getBucketContents(material);
                 }
 
-                // Bone meal is applied to the block a dispenser faces, so remember that block for
-                // BlockFertilizeListener to attribute the growth to the dispenser. Droppers eject
-                // the item as an entity instead, so they must not claim the block.
-                if (material == Material.BONE_MEAL && block.getType() == Material.DISPENSER) {
+                if (material == Material.BONE_MEAL && event.getVelocity().equals(NO_VELOCITY)) {
                     CacheHandler.redstoneCache.put(TransactionId.of(newBlock.getLocation()), new Object[] { System.currentTimeMillis(), user });
                 }
 

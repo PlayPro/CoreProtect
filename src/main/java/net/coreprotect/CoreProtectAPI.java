@@ -1,42 +1,7 @@
 package net.coreprotect;
 
-import java.sql.Connection;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
-
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.Server;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockState;
-import org.bukkit.block.data.BlockData;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Player;
-
-import net.coreprotect.api.BlockAPI;
-import net.coreprotect.api.EntityAPI;
-import net.coreprotect.api.InventoryAPI;
-import net.coreprotect.api.ItemAPI;
-import net.coreprotect.api.LookupOptions;
-import net.coreprotect.api.MessageAPI;
-import net.coreprotect.api.QueueLookup;
-import net.coreprotect.api.SessionLookup;
-import net.coreprotect.api.SignAPI;
-import net.coreprotect.api.UsernameAPI;
-import net.coreprotect.api.result.BlockResult;
-import net.coreprotect.api.result.ContainerResult;
-import net.coreprotect.api.result.EntityResult;
-import net.coreprotect.api.result.InventoryResult;
-import net.coreprotect.api.result.ItemResult;
-import net.coreprotect.api.result.MessageResult;
-import net.coreprotect.api.result.SignResult;
-import net.coreprotect.api.result.SessionResult;
-import net.coreprotect.api.result.UsernameResult;
+import net.coreprotect.api.*;
+import net.coreprotect.api.result.*;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
@@ -46,10 +11,27 @@ import net.coreprotect.database.Lookup;
 import net.coreprotect.database.rollback.Rollback;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.player.InventoryChangeListener;
+import net.coreprotect.model.action.EntityActionFilter;
 import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.MaterialUtils;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.Server;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
+
+import java.sql.Connection;
+import java.sql.Statement;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * The main API class for CoreProtect.
@@ -64,6 +46,9 @@ public class CoreProtectAPI extends Queue {
      */
     private static final int API_VERSION = 13;
     private static final AtomicLong API_ROLLBACK_SEQUENCE = new AtomicLong();
+    private static final int MAX_TICK_THREAD_LOOKUP_WARNINGS = 64;
+    private static final Set<String> TICK_THREAD_LOOKUP_CALLERS = ConcurrentHashMap.newKeySet();
+    private static final StackWalker CALLER_WALKER = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE);
 
     public static class ParseResult extends net.coreprotect.api.result.ParseResult {
 
@@ -127,6 +112,7 @@ public class CoreProtectAPI extends Queue {
      */
     public List<String[]> blockLookup(Block block, int time) {
         if (isEnabled()) {
+            warnTickThreadLookup();
             return BlockAPI.performLookup(block, time);
         }
         return null;
@@ -143,6 +129,7 @@ public class CoreProtectAPI extends Queue {
      */
     public List<BlockResult> blockLookup(Block block, LookupOptions options) {
         if (isEnabled()) {
+            warnTickThreadLookup();
             return BlockAPI.performLookup(block, options);
         }
         return null;
@@ -198,6 +185,7 @@ public class CoreProtectAPI extends Queue {
      */
     public List<ContainerResult> containerLookup(Location location, int time) {
         if (isEnabled()) {
+            warnTickThreadLookup();
             return BlockAPI.performContainerLookup(location, time);
         }
         return null;
@@ -212,6 +200,7 @@ public class CoreProtectAPI extends Queue {
      */
     public List<ContainerResult> containerLookup(LookupOptions options) {
         if (isEnabled()) {
+            warnTickThreadLookup();
             return BlockAPI.performContainerLookup(options);
         }
         return null;
@@ -226,6 +215,7 @@ public class CoreProtectAPI extends Queue {
      */
     public List<ItemResult> itemLookup(LookupOptions options) {
         if (isEnabled()) {
+            warnTickThreadLookup();
             return ItemAPI.performLookup(options);
         }
         return null;
@@ -240,6 +230,7 @@ public class CoreProtectAPI extends Queue {
      */
     public List<InventoryResult> inventoryLookup(LookupOptions options) {
         if (isEnabled()) {
+            warnTickThreadLookup();
             return InventoryAPI.performLookup(options);
         }
         return null;
@@ -255,6 +246,7 @@ public class CoreProtectAPI extends Queue {
      * @return List of results
      */
     public List<String[]> sessionLookup(String user, int time) {
+        warnTickThreadLookup();
         return SessionLookup.performLookup(user, time);
     }
 
@@ -267,6 +259,7 @@ public class CoreProtectAPI extends Queue {
      */
     public List<SessionResult> sessionLookup(LookupOptions options) {
         if (isEnabled()) {
+            warnTickThreadLookup();
             return SessionLookup.performLookup(options);
         }
         return null;
@@ -283,6 +276,7 @@ public class CoreProtectAPI extends Queue {
      */
     public List<UsernameResult> usernameLookup(String user, int time) {
         if (isEnabled()) {
+            warnTickThreadLookup();
             return UsernameAPI.performLookup(user, time);
         }
         return null;
@@ -297,6 +291,7 @@ public class CoreProtectAPI extends Queue {
      */
     public List<UsernameResult> usernameLookup(LookupOptions options) {
         if (isEnabled()) {
+            warnTickThreadLookup();
             return UsernameAPI.performLookup(options);
         }
         return null;
@@ -313,6 +308,7 @@ public class CoreProtectAPI extends Queue {
      */
     public List<MessageResult> chatLookup(String user, int time) {
         if (isEnabled()) {
+            warnTickThreadLookup();
             return MessageAPI.performChatLookup(user, time);
         }
         return null;
@@ -327,6 +323,7 @@ public class CoreProtectAPI extends Queue {
      */
     public List<MessageResult> chatLookup(LookupOptions options) {
         if (isEnabled()) {
+            warnTickThreadLookup();
             return MessageAPI.performChatLookup(options);
         }
         return null;
@@ -343,6 +340,7 @@ public class CoreProtectAPI extends Queue {
      */
     public List<MessageResult> commandLookup(String user, int time) {
         if (isEnabled()) {
+            warnTickThreadLookup();
             return MessageAPI.performCommandLookup(user, time);
         }
         return null;
@@ -357,6 +355,7 @@ public class CoreProtectAPI extends Queue {
      */
     public List<MessageResult> commandLookup(LookupOptions options) {
         if (isEnabled()) {
+            warnTickThreadLookup();
             return MessageAPI.performCommandLookup(options);
         }
         return null;
@@ -373,6 +372,7 @@ public class CoreProtectAPI extends Queue {
      */
     public List<SignResult> signLookup(Location location, int time) {
         if (isEnabled()) {
+            warnTickThreadLookup();
             return SignAPI.performLookup(location, time);
         }
         return null;
@@ -387,6 +387,7 @@ public class CoreProtectAPI extends Queue {
      */
     public List<SignResult> signLookup(LookupOptions options) {
         if (isEnabled()) {
+            warnTickThreadLookup();
             return SignAPI.performLookup(options);
         }
         return null;
@@ -1028,6 +1029,10 @@ public class CoreProtectAPI extends Queue {
      * @return List of results or null if the parameters are invalid
      */
     private List<String[]> processData(int time, int radius, Location location, Map<Object, Boolean> restrictBlocksMap, Map<Object, Boolean> excludeBlocks, List<String> restrictUsers, List<String> excludeUsers, List<Integer> actionList, int action, int lookup, int offset, int rowCount, boolean useLimit) {
+        if (lookup == 1) {
+            warnTickThreadLookup();
+        }
+
         List<String[]> result = new ArrayList<>();
         List<String> uuids = new ArrayList<>();
 
@@ -1125,7 +1130,7 @@ public class CoreProtectAPI extends Queue {
                         if (Consumer.claimRollback(rollbackKey) == Consumer.OperationStartResult.STARTED) {
                             try {
                                 boolean verbose = false;
-                                result = Rollback.performRollbackRestore(statement, null, uuids, restrictUsers, null, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, startTime, endTime, restrictWorld, false, verbose, action, 0);
+                                result = Rollback.performRollbackRestore(statement, null, rollbackKey, uuids, restrictUsers, null, restrictBlocks, excludeBlocks, excludeUsers, actionList, EntityActionFilter.DEFAULT, location, argRadius, startTime, endTime, restrictWorld, false, verbose, action, 0, true);
                             }
                             finally {
                                 Consumer.releaseRollback(rollbackKey);
@@ -1193,6 +1198,35 @@ public class CoreProtectAPI extends Queue {
      */
     public void testAPI() {
         Chat.console(Phrase.build(Phrase.API_TEST));
+    }
+
+    /**
+     * Warns once per calling plugin when a database lookup runs on a server tick thread. The lookup still runs because existing plugins
+     * depend on it.
+     */
+    private static void warnTickThreadLookup() {
+        if (!Bukkit.isPrimaryThread() || TICK_THREAD_LOOKUP_CALLERS.size() >= MAX_TICK_THREAD_LOOKUP_WARNINGS) {
+            return;
+        }
+
+        String caller = getLookupCaller();
+        if (TICK_THREAD_LOOKUP_CALLERS.add(caller)) {
+            Chat.console("API lookup called on a server tick thread by " + caller + ". Lookups query the database and should be called asynchronously.");
+        }
+    }
+
+    private static String getLookupCaller() {
+        ClassLoader pluginClassLoader = CoreProtectAPI.class.getClassLoader();
+        Class<?> callerClass = CALLER_WALKER.walk(frames -> frames.map(StackWalker.StackFrame::getDeclaringClass).filter(type -> type.getClassLoader() != pluginClassLoader).findFirst().orElse(null));
+        if (callerClass == null) {
+            return "unknown";
+        }
+
+        try {
+            return JavaPlugin.getProvidingPlugin(callerClass).getName();
+        } catch (RuntimeException e) {
+            return callerClass.getName();
+        }
     }
 
     /**

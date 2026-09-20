@@ -1,22 +1,27 @@
 package net.coreprotect.listener.player;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
+import net.coreprotect.CoreProtect;
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.language.Phrase;
+import net.coreprotect.listener.block.CampfireStartListener;
+import net.coreprotect.listener.player.inspector.BlockInspector;
+import net.coreprotect.listener.player.inspector.ContainerInspector;
+import net.coreprotect.listener.player.inspector.InteractionInspector;
+import net.coreprotect.listener.player.inspector.SignInspector;
+import net.coreprotect.model.BlockGroup;
+import net.coreprotect.model.action.SignActions;
+import net.coreprotect.paper.PaperAdapter;
+import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.*;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockState;
-import org.bukkit.block.Chest;
-import org.bukkit.block.DoubleChest;
-import org.bukkit.block.Jukebox;
-import org.bukkit.block.Sign;
+import org.bukkit.block.*;
 import org.bukkit.block.data.Bisected;
 import org.bukkit.block.data.Bisected.Half;
 import org.bukkit.block.data.BlockData;
@@ -38,33 +43,18 @@ import org.bukkit.inventory.BlockInventoryHolder;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.util.BoundingBox;
 
-import net.coreprotect.CoreProtect;
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.config.Config;
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.language.Phrase;
-import net.coreprotect.listener.block.CampfireStartListener;
-import net.coreprotect.listener.player.inspector.BlockInspector;
-import net.coreprotect.listener.player.inspector.ContainerInspector;
-import net.coreprotect.listener.player.inspector.InteractionInspector;
-import net.coreprotect.listener.player.inspector.SignInspector;
-import net.coreprotect.model.BlockGroup;
-import net.coreprotect.model.action.SignActions;
-import net.coreprotect.paper.PaperAdapter;
-import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.thread.Scheduler;
-import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.Color;
-import net.coreprotect.utility.ItemUtils;
-import net.coreprotect.utility.WorldUtils;
-import net.coreprotect.utility.ErrorReporter;
+import java.util.EnumSet;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class PlayerInteractListener extends Queue implements Listener {
 
     public static ConcurrentHashMap<String, Object[]> lastInspectorEvent = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, Object[]> suspiciousBlockEvent = new ConcurrentHashMap<>();
+
+    private static final Set<Material> ENTITY_BLOCK_TYPES = createEntityBlockTypes();
 
     private final BlockInspector blockInspector = new BlockInspector();
     private final SignInspector signInspector = new SignInspector();
@@ -88,6 +78,32 @@ public final class PlayerInteractListener extends Queue implements Listener {
 
         lastInspectorEvent.put(uuid, new Object[] { systemTime, eventHand });
         return true;
+    }
+
+    private static Set<Material> createEntityBlockTypes() {
+        Set<Material> types = EnumSet.of(Material.ARMOR_STAND, Material.END_CRYSTAL, Material.BOW, Material.CROSSBOW, Material.TRIDENT, Material.EXPERIENCE_BOTTLE, Material.SPLASH_POTION, Material.LINGERING_POTION, Material.ENDER_PEARL, Material.FIREWORK_ROCKET, Material.EGG, Material.SNOWBALL);
+        for (String name : new String[]{"WIND_CHARGE", "BLUE_EGG", "BROWN_EGG"}) {
+            Material material = Material.getMaterial(name);
+            if (material != null) {
+                types.add(material);
+            }
+        }
+
+        return types;
+    }
+
+    private static EnderCrystal findEnderCrystal(Location location) {
+        int x = location.getBlockX();
+        int y = location.getBlockY();
+        int z = location.getBlockZ();
+        for (Entity entity : location.getWorld().getNearbyEntities(new BoundingBox(x, y, z, x + 1, y + 1, z + 1), candidate -> candidate instanceof EnderCrystal)) {
+            Location entityLocation = entity.getLocation();
+            if (entityLocation.getBlockX() == x && entityLocation.getBlockY() == y && entityLocation.getBlockZ() == z) {
+                return (EnderCrystal) entity;
+            }
+        }
+
+        return null;
     }
 
     private static boolean containsItem(ItemStack itemStack) {
@@ -211,8 +227,8 @@ public final class PlayerInteractListener extends Queue implements Listener {
                     else if (isContainerBlock && Config.getConfig(world).ITEM_TRANSACTIONS) {
                         Location location = null;
                         if (type.equals(Material.CHEST) || type.equals(Material.TRAPPED_CHEST) || BukkitAdapter.ADAPTER.isCopperChest(type)) {
-                            Chest chest = (Chest) clickedBlock.getState();
-                            InventoryHolder inventoryHolder = chest.getInventory().getHolder();
+                            Chest chest = (Chest) PaperAdapter.ADAPTER.getBlockState(clickedBlock, false);
+                            InventoryHolder inventoryHolder = PaperAdapter.ADAPTER.getHolder(chest.getInventory(), false);
 
                             if (inventoryHolder instanceof DoubleChest) {
                                 DoubleChest doubleChest = (DoubleChest) inventoryHolder;
@@ -438,7 +454,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                         isCake = type.name().endsWith(Material.CAKE.name());
                     }
                     else if (type == Material.JUKEBOX) {
-                        BlockState blockState = block.getState();
+                        BlockState blockState = PaperAdapter.ADAPTER.getBlockState(block, false);
                         if (blockState instanceof Jukebox) {
                             Jukebox jukebox = (Jukebox) blockState;
                             ItemStack jukeboxRecord = jukebox.isPlaying() ? jukebox.getRecord() : new ItemStack(Material.AIR);
@@ -479,7 +495,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                         }
                     }
                     else if (type == Material.LECTERN && Config.getConfig(world).ITEM_TRANSACTIONS && event.useItemInHand() != Event.Result.DENY) {
-                        BlockState blockState = block.getState();
+                        BlockState blockState = PaperAdapter.ADAPTER.getBlockState(block, false);
                         if (blockState instanceof InventoryHolder) {
                             InventoryHolder inventoryHolder = (InventoryHolder) blockState;
                             ItemStack[] oldContents = ItemUtils.getContainerState(inventoryHolder.getInventory().getContents());
@@ -493,7 +509,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                         }
                     }
                     else if (BukkitAdapter.ADAPTER.isChiseledBookshelf(type)) {
-                        BlockState blockState = block.getState();
+                        BlockState blockState = PaperAdapter.ADAPTER.getBlockState(block, false);
                         if (blockState instanceof BlockInventoryHolder) {
                             ItemStack book = BukkitAdapter.ADAPTER.getChiseledBookshelfBook(blockState, event);
                             if (book != null) {
@@ -537,8 +553,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                         }
                     }
                     else if (BukkitAdapter.ADAPTER.isDecoratedPot(type)) {
-                        BlockState blockState = block.getState();
-                        InventoryChangeListener.inventoryTransaction(player.getName(), blockState.getLocation(), null);
+                        InventoryChangeListener.inventoryTransaction(player.getName(), block.getLocation(), null);
                     }
                     else if (BukkitAdapter.ADAPTER.isSuspiciousBlock(type)) {
                         ItemStack handItem = null;
@@ -619,23 +634,13 @@ public final class PlayerInteractListener extends Queue implements Listener {
             }
 
             if (event.useItemInHand() != Event.Result.DENY) {
-                List<Material> entityBlockTypes = new ArrayList<>(Arrays.asList(Material.ARMOR_STAND, Material.END_CRYSTAL, Material.BOW, Material.CROSSBOW, Material.TRIDENT, Material.EXPERIENCE_BOTTLE, Material.SPLASH_POTION, Material.LINGERING_POTION, Material.ENDER_PEARL, Material.FIREWORK_ROCKET, Material.EGG, Material.SNOWBALL));
-                try {
-                    entityBlockTypes.add(Material.valueOf("WIND_CHARGE"));
-                    entityBlockTypes.add(Material.valueOf("BLUE_EGG"));
-                    entityBlockTypes.add(Material.valueOf("BROWN_EGG"));
-                }
-                catch (Exception e) {
-                    // not running MC 1.21+
-                }
                 ItemStack handItem = null;
                 ItemStack mainHand = player.getInventory().getItemInMainHand();
                 ItemStack offHand = player.getInventory().getItemInOffHand();
 
-                if (event.getHand().equals(EquipmentSlot.HAND) && mainHand != null && entityBlockTypes.contains(mainHand.getType())) {
+                if (event.getHand().equals(EquipmentSlot.HAND) && mainHand != null && ENTITY_BLOCK_TYPES.contains(mainHand.getType())) {
                     handItem = mainHand;
-                }
-                else if (event.getHand().equals(EquipmentSlot.OFF_HAND) && offHand != null && entityBlockTypes.contains(offHand.getType())) {
+                } else if (event.getHand().equals(EquipmentSlot.OFF_HAND) && offHand != null && ENTITY_BLOCK_TYPES.contains(offHand.getType())) {
                     handItem = offHand;
                 }
                 else {
@@ -646,14 +651,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                     if (block != null && Config.getConfig(world).BLOCK_PLACE && (block.getType().equals(Material.OBSIDIAN) || block.getType().equals(Material.BEDROCK))) {
                         Location crystalLocation = block.getLocation().clone();
                         crystalLocation.setY(crystalLocation.getY() + 1);
-                        boolean exists = false;
-
-                        for (Entity entity : crystalLocation.getChunk().getEntities()) {
-                            if (entity instanceof EnderCrystal && entity.getLocation().getBlockX() == crystalLocation.getBlockX() && entity.getLocation().getBlockY() == crystalLocation.getBlockY() && entity.getLocation().getBlockZ() == crystalLocation.getBlockZ()) {
-                                exists = true;
-                                break;
-                            }
-                        }
+                        boolean exists = findEnderCrystal(crystalLocation) != null;
 
                         if (!exists) {
                             final Player playerFinal = player;
@@ -663,13 +661,10 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                     boolean blockExists = false;
                                     int showingBottom = 0;
 
-                                    for (Entity entity : locationFinal.getChunk().getEntities()) {
-                                        if (entity instanceof EnderCrystal && entity.getLocation().getBlockX() == locationFinal.getBlockX() && entity.getLocation().getBlockY() == locationFinal.getBlockY() && entity.getLocation().getBlockZ() == locationFinal.getBlockZ()) {
-                                            EnderCrystal enderCrystal = (EnderCrystal) entity;
-                                            showingBottom = enderCrystal.isShowingBottom() ? 1 : 0;
-                                            blockExists = true;
-                                            break;
-                                        }
+                                    EnderCrystal enderCrystal = findEnderCrystal(locationFinal);
+                                    if (enderCrystal != null) {
+                                        showingBottom = enderCrystal.isShowingBottom() ? 1 : 0;
+                                        blockExists = true;
                                     }
                                     if (blockExists) {
                                         Queue.queueBlockPlace(playerFinal.getName(), locationFinal.getBlock().getState(), locationFinal.getBlock().getType(), locationFinal.getBlock().getState(), Material.END_CRYSTAL, showingBottom, 1, null);
@@ -700,7 +695,8 @@ public final class PlayerInteractListener extends Queue implements Listener {
 
                     String relativeBlockKey = world.getName() + "-" + relativeBlockLocation.getBlockX() + "-" + relativeBlockLocation.getBlockY() + "-" + relativeBlockLocation.getBlockZ();
                     String blockKey = world.getName() + "-" + blockLocation.getBlockX() + "-" + blockLocation.getBlockY() + "-" + blockLocation.getBlockZ();
-                    Object[] keys = new Object[] { System.currentTimeMillis(), relativeBlockKey, blockKey, handItem };
+                    // Projectile launches in other regions read this entry, so it must not be the live hand item mirror
+                    Object[] keys = new Object[]{System.currentTimeMillis(), relativeBlockKey, blockKey, handItem.clone()};
                     ConfigHandler.entityBlockMapper.put(player.getName(), keys);
                 }
             }

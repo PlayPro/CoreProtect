@@ -1,16 +1,15 @@
 package net.coreprotect.consumer.process;
 
-import java.util.ArrayList;
-import java.util.Locale;
-import java.util.Map;
-
-import org.bukkit.Location;
-
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.logger.ItemLogger;
+import org.bukkit.Location;
+
+import java.util.ArrayList;
+import java.util.Locale;
+import java.util.Map;
 
 class ItemTransactionProcess extends Queue {
 
@@ -23,14 +22,17 @@ class ItemTransactionProcess extends Queue {
             Location location = (Location) object;
             String loggingItemId = getLoggingId(user, location);
 
-            if (ConfigHandler.loggingItem.get(loggingItemId) != null) {
-                int current_chest = ConfigHandler.loggingItem.get(loggingItemId);
+            Integer loggedItem = ConfigHandler.loggingItem.get(loggingItemId);
+            if (loggedItem != null) {
+                int current_chest = loggedItem;
                 if (ConfigHandler.itemsPickup.get(loggingItemId) == null && ConfigHandler.itemsDrop.get(loggingItemId) == null && ConfigHandler.itemsThrown.get(loggingItemId) == null && ConfigHandler.itemsShot.get(loggingItemId) == null && ConfigHandler.itemsBreak.get(loggingItemId) == null && ConfigHandler.itemsDestroy.get(loggingItemId) == null && ConfigHandler.itemsCreate.get(loggingItemId) == null && ConfigHandler.itemsSell.get(loggingItemId) == null && ConfigHandler.itemsBuy.get(loggingItemId) == null) {
+                    ConfigHandler.loggingItem.remove(loggingItemId, forceData);
                     return;
                 }
                 if (current_chest == forceData) {
                     int currentTime = (int) (System.currentTimeMillis() / 1000L);
                     if (currentTime > time) {
+                        // prepare takes the pending lists, so only the counter is left to drop, and only if no writer bumped it since
                         ItemLogger.PreparedTransaction prepared = null;
                         if (ConfigHandler.databaseType.isColumnar()) {
                             prepared = ItemLogger.prepare(location, offset, user);
@@ -39,7 +41,7 @@ class ItemTransactionProcess extends Queue {
                         else {
                             ItemLogger.log(preparedStmt, batchCount, location, offset, user);
                         }
-                        clearItemTransaction(loggingItemId);
+                        ConfigHandler.loggingItem.remove(loggingItemId, forceData);
                         if (prepared != null) {
                             prepared.log(preparedStmt, batchCount, user);
                         }

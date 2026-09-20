@@ -1,13 +1,7 @@
 package net.coreprotect.command;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
-import java.util.stream.Collectors;
-
+import net.coreprotect.command.parser.RollbackStateParser;
+import net.coreprotect.config.ConfigHandler;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -17,8 +11,8 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.bukkit.util.StringUtil;
 
-import net.coreprotect.command.parser.RollbackStateParser;
-import net.coreprotect.config.ConfigHandler;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class TabHandler implements TabCompleter {
 
@@ -403,11 +397,14 @@ public class TabHandler implements TabCompleter {
 
         initializeMaterialsIfNeeded();
 
-        List<String> completions = new ArrayList<>(materials);
-        for (int index = 0; index < completions.size(); index++) {
-            completions.set(index, filter + completions.get(index));
+        List<String> completions = new ArrayList<>();
+        for (String material : materials) {
+            if (material.regionMatches(true, 0, arg, 0, arg.length())) {
+                completions.add(filter.isEmpty() ? material : filter + material);
+            }
         }
-        return StringUtil.copyPartialMatches(filter + arg, completions, new ArrayList<>(completions.size()));
+
+        return completions;
     }
 
     private void initializeMaterialsIfNeeded() {

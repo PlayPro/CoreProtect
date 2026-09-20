@@ -1,5 +1,6 @@
 package net.coreprotect.event;
 
+import net.coreprotect.config.Config;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.EntityType;
@@ -119,6 +120,15 @@ public class CoreProtectPreLogEvent extends Event implements Cancellable {
 
     public static HandlerList getHandlerList() {
         return handlers;
+    }
+
+    /**
+     * Whether firing this event could reach anything. Loggers check this before building an
+     * event, so servers with the API off, or with no plugin subscribed, do not allocate one
+     * per logged row.
+     */
+    public static boolean isObserved() {
+        return Config.getGlobal().API_ENABLED && handlers.getRegisteredListeners().length > 0;
     }
 
 }

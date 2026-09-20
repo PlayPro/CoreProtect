@@ -1,27 +1,18 @@
 package net.coreprotect.database;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.sql.Types;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
-import java.util.UUID;
-
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.statement.EntitySpawnStatement;
 import org.duckdb.DuckDBAppender;
 import org.duckdb.DuckDBConnection;
 
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.database.statement.EntitySpawnStatement;
+import java.sql.*;
+import java.util.*;
 
 public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
 
     private static final int SIGN_BATCH = 0;
     private static final int BLOCK_BATCH = 1;
+    private static final int ENTITY_BATCH = 2;
     private static final int CONTAINER_BATCH = 3;
     private static final int ENTITY_CONTAINER_BATCH = 4;
     private static final int ITEM_BATCH = 5;
@@ -34,14 +25,16 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     private static final int ENTITY_MAP_BATCH = 13;
     private static final int BLOCK_DATA_BATCH = 14;
     private static final int ENTITY_KILL_LINK_BATCH = 15;
-    private static final int INITIAL_DUCKDB_BLOCK_ID_RESERVATION = 256;
-    private static final int MAXIMUM_DUCKDB_BLOCK_ID_RESERVATION = 65536;
+    private static final int INITIAL_DUCKDB_ROW_ID_RESERVATION = 256;
+    private static final int MAXIMUM_DUCKDB_ROW_ID_RESERVATION = 65536;
+    private static final int COMMIT_ROW_LIMIT = 10_000;
     private static final long[] EMPTY_ROW_IDS = new long[0];
 
     private final Connection connection;
     private final DatabaseType databaseType;
     private final Statement transactionStatement;
     private final PreparedStatement[] batchStatements = new PreparedStatement[16];
+    private final int[] pendingBatchRows = new int[16];
     private final List<PreparedStatement> statements = new ArrayList<>();
 
     private PreparedStatement blockReturningStatement;
@@ -60,14 +53,17 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     private PreparedStatement usernameHistoryStatement;
     private PreparedStatement usernameHistoryInsertStatement;
     private PreparedStatement databaseLockStatement;
-    private PreparedStatement duckDBBlockRowIdStatement;
-    private DuckDBAppender duckDBBlockAppender;
-    private long[] duckDBBlockRowIds = EMPTY_ROW_IDS;
-    private int duckDBBlockRowIdIndex;
-    private int duckDBBlockIdReservationSize = INITIAL_DUCKDB_BLOCK_ID_RESERVATION;
+    private final DuckDBTableAppender duckDBBlock = new DuckDBTableAppender("block");
+    private final DuckDBTableAppender duckDBContainer = new DuckDBTableAppender("container");
+    private final DuckDBTableAppender duckDBEntityContainer = new DuckDBTableAppender("entity_container");
+    private final DuckDBTableAppender duckDBItem = new DuckDBTableAppender("item");
+    private final DuckDBTableAppender duckDBEntity = new DuckDBTableAppender("entity");
+    private final DuckDBTableAppender[] duckDBTables = {duckDBBlock, duckDBContainer, duckDBEntityContainer, duckDBItem, duckDBEntity};
     private DuckDBSpatialIndex.Transaction duckDBSpatialIndex;
     private EntitySpawnStatement.Updates entitySpawnUpdates;
     private boolean commitAttempted;
+    private int transactionRows;
+    private int nextSQLiteEntityId;
 
     public RelationalConsumerWriteBatch(Connection connection, DatabaseType databaseType) throws SQLException {
         this.connection = Objects.requireNonNull(connection, "connection");
@@ -78,6 +74,8 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     @Override
     public void begin() throws Exception {
         commitAttempted = false;
+        transactionRows = 0;
+        nextSQLiteEntityId = 0;
         if (databaseType.isDuckDB()) {
             duckDBSpatialIndex = DuckDBSpatialIndex.begin(connection, ConfigHandler.prefix);
         }
@@ -88,11 +86,13 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     public boolean commit() throws Exception {
         commitAttempted = false;
         try {
-            finishDuckDBBlockAppender();
+            finishDuckDBAppenders();
             boolean acknowledgedRollback = Database.isRollbackOnlyTransactionAcknowledged();
             if (!Database.isTransactionRollbackOnly()) {
-                for (PreparedStatement statement : batchStatements) {
+                for (int index = 0; index < batchStatements.length; index++) {
+                    PreparedStatement statement = batchStatements[index];
                     if (statement != null) {
+                        pendingBatchRows[index] = 0;
                         statement.executeBatch();
                     }
                 }
@@ -104,7 +104,15 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
             if (!committed) {
                 boolean rolledBack = Database.rollbackTransaction(transactionStatement, databaseType);
                 duckDBSpatialIndex = null;
+                discardUncommittedDuckDBRowIds();
                 return acknowledgedRollback && rolledBack;
+            }
+            if (acknowledgedRollback) {
+                discardUncommittedDuckDBRowIds();
+            } else {
+                for (DuckDBTableAppender table : duckDBTables) {
+                    table.markReservationCommitted();
+                }
             }
             if (duckDBSpatialIndex != null) {
                 duckDBSpatialIndex.publish();
@@ -116,6 +124,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
             Database.reportDatabaseFailure(exception);
             Database.rollbackTransaction(transactionStatement, databaseType);
             duckDBSpatialIndex = null;
+            discardUncommittedDuckDBRowIds();
             return false;
         }
     }
@@ -125,16 +134,26 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         return commitAttempted;
     }
 
+    /**
+     * Bounds a relational transaction so a backlog after an outage commits in chunks instead of one transaction.
+     */
+    @Override
+    public boolean shouldCommit() {
+        return transactionRows >= COMMIT_ROW_LIMIT;
+    }
+
     @Override
     public void rollback() {
         try {
-            finishDuckDBBlockAppender();
+            finishDuckDBAppenders();
         }
         catch (Exception exception) {
             Database.reportDatabaseFailure(exception);
         }
         Database.rollbackTransaction(transactionStatement, databaseType);
         duckDBSpatialIndex = null;
+        discardUncommittedDuckDBRowIds();
+        Arrays.fill(pendingBatchRows, 0);
     }
 
     @Override
@@ -242,28 +261,34 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     @Override
     public void addReference(ReferenceKind kind, int batchCount, int id, String value) throws Exception {
         PreparedStatement statement;
+        int batchIndex;
         switch (kind) {
             case ART:
-                statement = batchStatement(Database.ART, ART_BATCH);
+                batchIndex = ART_BATCH;
+                statement = batchStatement(Database.ART, batchIndex);
                 break;
             case BLOCK_DATA:
-                statement = batchStatement(Database.BLOCKDATA, BLOCK_DATA_BATCH);
+                batchIndex = BLOCK_DATA_BATCH;
+                statement = batchStatement(Database.BLOCKDATA, batchIndex);
                 break;
             case ENTITY:
-                statement = batchStatement(Database.ENTITY_MAP, ENTITY_MAP_BATCH);
+                batchIndex = ENTITY_MAP_BATCH;
+                statement = batchStatement(Database.ENTITY_MAP, batchIndex);
                 break;
             case MATERIAL:
-                statement = batchStatement(Database.MATERIAL, MATERIAL_BATCH);
+                batchIndex = MATERIAL_BATCH;
+                statement = batchStatement(Database.MATERIAL, batchIndex);
                 break;
             case WORLD:
-                statement = batchStatement(Database.WORLD, WORLD_BATCH);
+                batchIndex = WORLD_BATCH;
+                statement = batchStatement(Database.WORLD, batchIndex);
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported reference kind " + kind);
         }
         statement.setInt(1, id);
         statement.setString(2, value);
-        addBatch(statement, batchCount);
+        addBatch(statement, batchIndex);
     }
 
     @Override
@@ -274,22 +299,21 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         }
         PreparedStatement statement = batchStatement(Database.BLOCK, BLOCK_BATCH);
         setBlock(statement, time, userId, worldId, x, y, z, type, data, meta, blockData, action, rolledBack);
-        addBatch(statement, batchCount);
+        addBatch(statement, BLOCK_BATCH);
     }
 
     @Override
     public long addBlockReturningId(int time, int userId, int worldId, int x, int y, int z, int type, int data, byte[] meta, byte[] blockData, int action, int rolledBack) throws Exception {
         if (databaseType.isDuckDB()) {
-            flushDuckDBBlockAppender();
-            resetDuckDBBlockRowIds();
+            long rowId = appendDuckDBBlock(time, userId, worldId, x, y, z, type, data, meta, blockData, action, rolledBack);
+            duckDBBlock.flush();
+            return rowId;
         }
         if (blockReturningStatement == null) {
             blockReturningStatement = own(required(Database.prepareStatement(connection, Database.BLOCK, true), "block insert"));
         }
         setBlock(blockReturningStatement, time, userId, worldId, x, y, z, type, data, meta, blockData, action, rolledBack);
-        long rowId = executeReturningId(blockReturningStatement, "block insert");
-        trackDuckDBBlock(rowId, worldId, x, z);
-        return rowId;
+        return executeReturningId(blockReturningStatement, "block insert");
     }
 
     @Override
@@ -305,6 +329,26 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
 
     @Override
     public void addContainer(int batchCount, int time, int userId, int worldId, int x, int y, int z, int type, int data, int amount, byte[] metadata, int action, int rolledBack) throws Exception {
+        if (databaseType.isDuckDB()) {
+            int rowId = Math.toIntExact(duckDBContainer.nextRowId());
+            DuckDBAppender appender = duckDBContainer.beginRow()
+                    .append(rowId)
+                    .append(time)
+                    .append(userId)
+                    .append(worldId)
+                    .append(x)
+                    .append(y)
+                    .append(z)
+                    .append(type)
+                    .append(data)
+                    .append(amount);
+            appendNullable(appender, metadata);
+            appender.append((byte) action)
+                    .append((byte) rolledBack)
+                    .endRow();
+            trackDuckDBRow("container", rowId, worldId, x, z, null);
+            return;
+        }
         PreparedStatement statement = batchStatement(Database.CONTAINER, CONTAINER_BATCH);
         statement.setInt(1, time);
         statement.setInt(2, userId);
@@ -318,12 +362,33 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         statement.setObject(10, metadata);
         statement.setInt(11, action);
         statement.setInt(12, rolledBack);
-        addBatch(statement, batchCount);
+        addBatch(statement, CONTAINER_BATCH);
         trackDuckDBGenerated("container", worldId, x, z);
     }
 
     @Override
     public void addEntityContainer(int batchCount, int time, int userId, int entitySpawnRowId, int worldId, int x, int y, int z, int type, int data, int amount, byte[] metadata, int action, int rolledBack) throws Exception {
+        if (databaseType.isDuckDB()) {
+            int rowId = Math.toIntExact(duckDBEntityContainer.nextRowId());
+            DuckDBAppender appender = duckDBEntityContainer.beginRow()
+                    .append(rowId)
+                    .append(time)
+                    .append(userId)
+                    .append(entitySpawnRowId)
+                    .append(worldId)
+                    .append(x)
+                    .append(y)
+                    .append(z)
+                    .append(type)
+                    .append(data)
+                    .append(amount);
+            appendNullable(appender, metadata);
+            appender.append((byte) action)
+                    .append((byte) rolledBack)
+                    .endRow();
+            trackDuckDBRow("entity_container", rowId, worldId, x, z, entitySpawnRowId);
+            return;
+        }
         PreparedStatement statement = batchStatement(Database.ENTITY_CONTAINER, ENTITY_CONTAINER_BATCH);
         statement.setInt(1, time);
         statement.setInt(2, userId);
@@ -338,12 +403,31 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         statement.setObject(11, metadata);
         statement.setInt(12, action);
         statement.setInt(13, rolledBack);
-        addBatch(statement, batchCount);
+        addBatch(statement, ENTITY_CONTAINER_BATCH);
         trackDuckDBGenerated("entity_container", worldId, x, z, entitySpawnRowId);
     }
 
     @Override
     public void addItem(int batchCount, int time, int userId, int worldId, int x, int y, int z, int type, byte[] data, int amount, int action, int rolledBack) throws Exception {
+        if (databaseType.isDuckDB()) {
+            int rowId = Math.toIntExact(duckDBItem.nextRowId());
+            DuckDBAppender appender = duckDBItem.beginRow()
+                    .append(rowId)
+                    .append(time)
+                    .append(userId)
+                    .append(worldId)
+                    .append(x)
+                    .append(y)
+                    .append(z)
+                    .append(type);
+            appendNullable(appender, data);
+            appender.append(amount)
+                    .append((byte) action)
+                    .append((byte) rolledBack)
+                    .endRow();
+            trackDuckDBRow("item", rowId, worldId, x, z, null);
+            return;
+        }
         PreparedStatement statement = batchStatement(Database.ITEM, ITEM_BATCH);
         statement.setInt(1, time);
         statement.setInt(2, userId);
@@ -356,7 +440,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         statement.setInt(9, amount);
         statement.setInt(10, action);
         statement.setInt(11, rolledBack);
-        addBatch(statement, batchCount);
+        addBatch(statement, ITEM_BATCH);
         trackDuckDBGenerated("item", worldId, x, z);
     }
 
@@ -364,7 +448,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     public void addChat(int batchCount, long time, int userId, int worldId, int x, int y, int z, String message) throws Exception {
         PreparedStatement statement = batchStatement(Database.CHAT, CHAT_BATCH);
         setMessage(statement, time, userId, worldId, x, y, z, message);
-        addBatch(statement, batchCount);
+        addBatch(statement, CHAT_BATCH);
         trackDuckDBGenerated("chat", worldId, x, z);
     }
 
@@ -372,7 +456,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     public void addCommand(int batchCount, long time, int userId, int worldId, int x, int y, int z, String message) throws Exception {
         PreparedStatement statement = batchStatement(Database.COMMAND, COMMAND_BATCH);
         setMessage(statement, time, userId, worldId, x, y, z, message);
-        addBatch(statement, batchCount);
+        addBatch(statement, COMMAND_BATCH);
         trackDuckDBGenerated("command", worldId, x, z);
     }
 
@@ -386,7 +470,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         statement.setInt(5, y);
         statement.setInt(6, z);
         statement.setInt(7, action);
-        addBatch(statement, batchCount);
+        addBatch(statement, SESSION_BATCH);
         trackDuckDBGenerated("session", worldId, x, z);
     }
 
@@ -411,23 +495,44 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         for (int index = 0; index < lines.length; index++) {
             statement.setString(13 + index, lines[index]);
         }
-        addBatch(statement, batchCount);
+        addBatch(statement, SIGN_BATCH);
         trackDuckDBGenerated("sign", worldId, x, z);
     }
 
     @Override
     public int addEntity(int time, byte[] data) throws Exception {
+        if (databaseType.isDuckDB()) {
+            int rowId = Math.toIntExact(duckDBEntity.nextRowId());
+            DuckDBAppender appender = duckDBEntity.beginRow()
+                    .append(rowId)
+                    .append(time);
+            appendNullable(appender, data);
+            appender.endRow();
+            return rowId;
+        }
+        if (nextSQLiteEntityId > 0) {
+            PreparedStatement statement = batchStatements[ENTITY_BATCH];
+            if (statement == null) {
+                statement = own(connection.prepareStatement("INSERT INTO " + ConfigHandler.prefix + "entity (rowid,time,data) VALUES (?,?,?)"));
+                batchStatements[ENTITY_BATCH] = statement;
+            }
+            int rowId = nextSQLiteEntityId++;
+            statement.setInt(1, rowId);
+            statement.setInt(2, time);
+            statement.setObject(3, data);
+            addBatch(statement, ENTITY_BATCH);
+            return rowId;
+        }
         if (entityStatement == null) {
             entityStatement = own(required(Database.prepareStatement(connection, Database.ENTITY, true), "entity insert"));
         }
         entityStatement.setInt(1, time);
-        if (databaseType.isDuckDB()) {
-            setDuckDBEntityData(entityStatement, 2, data);
+        entityStatement.setObject(2, data);
+        int rowId = Math.toIntExact(executeReturningId(entityStatement, "entity insert"));
+        if (databaseType.isSQLite()) {
+            nextSQLiteEntityId = rowId + 1;
         }
-        else {
-            entityStatement.setObject(2, data);
-        }
-        return Math.toIntExact(executeReturningId(entityStatement, "entity insert"));
+        return rowId;
     }
 
     @Override
@@ -552,6 +657,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
 
     @Override
     public void updateRolledBack(int target, int rolledBack, List<Long> rowIds) throws Exception {
+        transactionRows += rowIds.size();
         Database.performRolledBackUpdateChecked(transactionStatement, rolledBack, rowIds, target);
     }
 
@@ -567,7 +673,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     public void close() throws Exception {
         Exception failure = null;
         try {
-            finishDuckDBBlockAppender();
+            finishDuckDBAppenders();
         }
         catch (Exception exception) {
             failure = exception;
@@ -676,14 +782,9 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         return databaseLockStatement;
     }
 
-    private void appendDuckDBBlock(int time, int userId, int worldId, int x, int y, int z, int type, int data, byte[] meta, byte[] blockData, int action, int rolledBack) throws SQLException {
-        long rowId = nextDuckDBBlockRowId();
-        if (duckDBBlockAppender == null) {
-            DuckDBConnection duckDBConnection = connection.unwrap(DuckDBConnection.class);
-            duckDBBlockAppender = duckDBConnection.createAppender(DuckDBConnection.DEFAULT_SCHEMA, ConfigHandler.prefix + "block");
-        }
-
-        duckDBBlockAppender.beginRow()
+    private long appendDuckDBBlock(int time, int userId, int worldId, int x, int y, int z, int type, int data, byte[] meta, byte[] blockData, int action, int rolledBack) throws SQLException {
+        long rowId = duckDBBlock.nextRowId();
+        DuckDBAppender appender = duckDBBlock.beginRow()
                 .append(rowId)
                 .append(time)
                 .append(userId)
@@ -693,17 +794,18 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
                 .append(z)
                 .append(type)
                 .append(data);
-        appendNullable(duckDBBlockAppender, meta);
-        appendNullable(duckDBBlockAppender, blockData);
-        duckDBBlockAppender.append((byte) action)
+        appendNullable(appender, meta);
+        appendNullable(appender, blockData);
+        appender.append((byte) action)
                 .append((byte) rolledBack)
                 .endRow();
-        trackDuckDBBlock(rowId, worldId, x, z);
+        trackDuckDBRow("block", rowId, worldId, x, z, null);
+        return rowId;
     }
 
-    private void trackDuckDBBlock(long rowId, int worldId, int x, int z) throws SQLException {
+    private void trackDuckDBRow(String table, long rowId, int worldId, int x, int z, Integer entitySpawnRowId) throws SQLException {
         if (duckDBSpatialIndex != null) {
-            duckDBSpatialIndex.addBlock(rowId, worldId, x, z);
+            duckDBSpatialIndex.addRow(table, rowId, worldId, x, z, entitySpawnRowId);
         }
     }
 
@@ -717,69 +819,17 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         }
     }
 
-    private long nextDuckDBBlockRowId() throws SQLException {
-        if (duckDBBlockRowIdIndex >= duckDBBlockRowIds.length) {
-            reserveDuckDBBlockRowIds();
-        }
-        return duckDBBlockRowIds[duckDBBlockRowIdIndex++];
-    }
-
-    private void reserveDuckDBBlockRowIds() throws SQLException {
-        flushDuckDBBlockAppender();
-        if (duckDBBlockRowIdStatement == null) {
-            String sequence = ConfigHandler.prefix + "block_rowid_seq";
-            duckDBBlockRowIdStatement = own(connection.prepareStatement("SELECT nextval('" + sequence + "') FROM range(?)"));
-        }
-
-        int reservationSize = duckDBBlockIdReservationSize;
-        long[] rowIds = new long[reservationSize];
-        duckDBBlockRowIdStatement.setInt(1, reservationSize);
-        try (ResultSet resultSet = duckDBBlockRowIdStatement.executeQuery()) {
-            for (int index = 0; index < reservationSize; index++) {
-                if (!resultSet.next()) {
-                    throw new SQLException("DuckDB block row id reservation returned too few values");
-                }
-                rowIds[index] = resultSet.getLong(1);
-            }
-            if (resultSet.next()) {
-                throw new SQLException("DuckDB block row id reservation returned too many values");
-            }
-        }
-        duckDBBlockRowIds = rowIds;
-        duckDBBlockRowIdIndex = 0;
-        duckDBBlockIdReservationSize = Math.min(MAXIMUM_DUCKDB_BLOCK_ID_RESERVATION, reservationSize * 2);
-    }
-
-    private void flushDuckDBBlockAppender() throws SQLException {
-        if (duckDBBlockAppender != null) {
-            duckDBBlockAppender.flush();
-        }
-    }
-
-    private void finishDuckDBBlockAppender() throws SQLException {
-        DuckDBAppender appender = duckDBBlockAppender;
-        duckDBBlockAppender = null;
-        resetDuckDBBlockRowIds();
-        if (appender == null) {
-            return;
-        }
-
+    private void finishDuckDBAppenders() throws SQLException {
         SQLException failure = null;
-        try {
-            appender.flush();
-        }
-        catch (SQLException exception) {
-            failure = exception;
-        }
-        try {
-            appender.close();
-        }
-        catch (SQLException exception) {
-            if (failure == null) {
-                failure = exception;
-            }
-            else {
-                failure.addSuppressed(exception);
+        for (DuckDBTableAppender table : duckDBTables) {
+            try {
+                table.finish();
+            } catch (SQLException exception) {
+                if (failure == null) {
+                    failure = exception;
+                } else {
+                    failure.addSuppressed(exception);
+                }
             }
         }
         if (failure != null) {
@@ -787,10 +837,10 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         }
     }
 
-    private void resetDuckDBBlockRowIds() {
-        duckDBBlockRowIds = EMPTY_ROW_IDS;
-        duckDBBlockRowIdIndex = 0;
-        duckDBBlockIdReservationSize = INITIAL_DUCKDB_BLOCK_ID_RESERVATION;
+    private void discardUncommittedDuckDBRowIds() {
+        for (DuckDBTableAppender table : duckDBTables) {
+            table.discardUncommittedRowIds();
+        }
     }
 
     private static void appendNullable(DuckDBAppender appender, byte[] value) throws SQLException {
@@ -834,9 +884,16 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         return statement;
     }
 
-    private static void addBatch(PreparedStatement statement, int batchCount) throws SQLException {
+    /**
+     * Flushes on this statement's own row count. The previous form used the consumer loop index,
+     * shared across all 16 statements, so a statement only flushed if it happened to be used on
+     * an index divisible by 1000 and could otherwise hold the whole batch in JDBC parameter sets.
+     */
+    private void addBatch(PreparedStatement statement, int index) throws SQLException {
         statement.addBatch();
-        if (batchCount > 0 && batchCount % 1000 == 0) {
+        transactionRows++;
+        if (++pendingBatchRows[index] >= 1000) {
+            pendingBatchRows[index] = 0;
             statement.executeBatch();
         }
     }
@@ -911,6 +968,114 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         }
         failure.addSuppressed(exception);
         return failure;
+    }
+
+    /**
+     * Appends one DuckDB table with row ids reserved from its sequence. The appender is flushed and closed on every
+     * commit or rollback. Reserved ids outlive a commit, but a crash replays a sequence only up to its last committed
+     * advance, so ids reserved inside a transaction that did not commit are dropped.
+     */
+    private final class DuckDBTableAppender {
+
+        private final String table;
+        private PreparedStatement rowIdStatement;
+        private DuckDBAppender appender;
+        private long[] rowIds = EMPTY_ROW_IDS;
+        private int rowIdIndex;
+        private int reservationSize = INITIAL_DUCKDB_ROW_ID_RESERVATION;
+        private boolean reservationCommitted;
+
+        private DuckDBTableAppender(String table) {
+            this.table = table;
+        }
+
+        private DuckDBAppender beginRow() throws SQLException {
+            if (appender == null) {
+                DuckDBConnection duckDBConnection = connection.unwrap(DuckDBConnection.class);
+                appender = duckDBConnection.createAppender(DuckDBConnection.DEFAULT_SCHEMA, ConfigHandler.prefix + table);
+            }
+            transactionRows++;
+            return appender.beginRow();
+        }
+
+        private long nextRowId() throws SQLException {
+            if (rowIdIndex >= rowIds.length) {
+                reserveRowIds();
+            }
+            return rowIds[rowIdIndex++];
+        }
+
+        private void reserveRowIds() throws SQLException {
+            flush();
+            if (rowIdStatement == null) {
+                String sequence = ConfigHandler.prefix + table + "_rowid_seq";
+                rowIdStatement = own(connection.prepareStatement("SELECT nextval('" + sequence + "') FROM range(?)"));
+            }
+
+            int size = reservationSize;
+            long[] reserved = new long[size];
+            rowIdStatement.setInt(1, size);
+            try (ResultSet resultSet = rowIdStatement.executeQuery()) {
+                for (int index = 0; index < size; index++) {
+                    if (!resultSet.next()) {
+                        throw new SQLException("DuckDB " + table + " row id reservation returned too few values");
+                    }
+                    reserved[index] = resultSet.getLong(1);
+                }
+                if (resultSet.next()) {
+                    throw new SQLException("DuckDB " + table + " row id reservation returned too many values");
+                }
+            }
+            rowIds = reserved;
+            rowIdIndex = 0;
+            reservationSize = Math.min(MAXIMUM_DUCKDB_ROW_ID_RESERVATION, size * 2);
+            reservationCommitted = false;
+        }
+
+        private void flush() throws SQLException {
+            if (appender != null) {
+                appender.flush();
+            }
+        }
+
+        private void finish() throws SQLException {
+            DuckDBAppender current = appender;
+            appender = null;
+            if (current == null) {
+                return;
+            }
+
+            SQLException failure = null;
+            try {
+                current.flush();
+            } catch (SQLException exception) {
+                failure = exception;
+            }
+            try {
+                current.close();
+            } catch (SQLException exception) {
+                if (failure == null) {
+                    failure = exception;
+                } else {
+                    failure.addSuppressed(exception);
+                }
+            }
+            if (failure != null) {
+                throw failure;
+            }
+        }
+
+        private void markReservationCommitted() {
+            reservationCommitted = true;
+        }
+
+        private void discardUncommittedRowIds() {
+            if (!reservationCommitted) {
+                rowIds = EMPTY_ROW_IDS;
+                rowIdIndex = 0;
+                reservationSize = INITIAL_DUCKDB_ROW_ID_RESERVATION;
+            }
+        }
     }
 
 }

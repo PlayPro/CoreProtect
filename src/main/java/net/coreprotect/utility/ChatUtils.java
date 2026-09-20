@@ -12,6 +12,10 @@ import java.util.Locale;
 
 public class ChatUtils {
 
+    private static final ThreadLocal<DecimalFormat> COORDINATE_FORMAT = ThreadLocal.withInitial(() -> new DecimalFormat("#.##", new DecimalFormatSymbols(Locale.ROOT)));
+    private static final ThreadLocal<DecimalFormat> TIME_FORMAT = ThreadLocal.withInitial(() -> new DecimalFormat("0.00"));
+    private static final ThreadLocal<SimpleDateFormat> TIMESTAMP_FORMAT = ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z"));
+
     private ChatUtils() {
         throw new IllegalStateException("Utility class");
     }
@@ -33,7 +37,7 @@ public class ChatUtils {
 
     private static String getCoordinateComponent(String command, int worldId, int x, int y, int z, String display) {
         StringBuilder message = new StringBuilder(Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_COMMAND);
-        DecimalFormat decimalFormat = new DecimalFormat("#.##", new DecimalFormatSymbols(Locale.ROOT));
+        DecimalFormat decimalFormat = COORDINATE_FORMAT.get();
         message.append("|/" + command + " teleport wid:" + worldId + " " + decimalFormat.format(x + 0.50) + " " + y + " " + decimalFormat.format(z + 0.50) + "|");
         message.append(display);
 
@@ -143,7 +147,7 @@ public class ChatUtils {
             timeSince = 0.00;
         }
 
-        DecimalFormat decimalFormat = new DecimalFormat("0.00");
+        DecimalFormat decimalFormat = TIME_FORMAT.get();
 
         // minutes
         timeSince = timeSince / 60;
@@ -167,7 +171,7 @@ public class ChatUtils {
 
         if (component) {
             Date logDate = new Date(resultTime * 1000L);
-            String formattedTimestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z").format(logDate);
+            String formattedTimestamp = TIMESTAMP_FORMAT.get().format(logDate);
 
             return Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_POPUP + "|" + Color.GREY + formattedTimestamp + "|" + Color.GREY + message.toString() + Chat.COMPONENT_TAG_CLOSE;
         }

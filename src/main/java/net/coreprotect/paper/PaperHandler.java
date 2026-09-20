@@ -1,25 +1,23 @@
 package net.coreprotect.paper;
 
-import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
+import net.coreprotect.model.entity.VillagerReputationData;
 import org.bukkit.Location;
 import org.bukkit.Server;
 import org.bukkit.World;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Villager;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.MerchantRecipe;
 
-import net.coreprotect.model.entity.VillagerReputationData;
+import java.lang.reflect.Method;
+import java.util.*;
 
 public class PaperHandler extends PaperAdapter {
     private volatile boolean supportsSnapshotHolderLookup = true;
+    private volatile boolean supportsSnapshotStateLookup = true;
     private volatile boolean supportsAverageTickTime = true;
 
     @Override
@@ -65,6 +63,19 @@ public class PaperHandler extends PaperAdapter {
         }
 
         return holder.getHolder();
+    }
+
+    @Override
+    public BlockState getBlockState(Block block, boolean useSnapshot) {
+        if (supportsSnapshotStateLookup) {
+            try {
+                return block.getState(useSnapshot);
+            } catch (LinkageError ignored) {
+                supportsSnapshotStateLookup = false;
+            }
+        }
+
+        return block.getState();
     }
 
     @Override

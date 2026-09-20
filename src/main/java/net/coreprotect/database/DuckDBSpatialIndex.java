@@ -1,23 +1,11 @@
 package net.coreprotect.database;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.sql.Types;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.locks.ReentrantLock;
-
+import net.coreprotect.utility.DatabaseUtils;
 import org.duckdb.DuckDBConnection;
 
-import net.coreprotect.utility.DatabaseUtils;
+import java.sql.*;
+import java.util.*;
+import java.util.concurrent.locks.ReentrantLock;
 
 public final class DuckDBSpatialIndex {
 
@@ -62,7 +50,7 @@ public final class DuckDBSpatialIndex {
         String key = databaseKey(connection, prefix);
         synchronized (STATE_LOCK) {
             if (runtimeState != null && key.equals(runtimeKey)) {
-                return new Transaction(key, prefix, runtimeGeneration, runtimeState.copy());
+                return new Transaction(key, prefix, runtimeGeneration, runtimeState);
             }
         }
 
@@ -72,7 +60,7 @@ public final class DuckDBSpatialIndex {
                 long observedGeneration;
                 synchronized (STATE_LOCK) {
                     if (runtimeState != null && key.equals(runtimeKey)) {
-                        return new Transaction(key, prefix, runtimeGeneration, runtimeState.copy());
+                        return new Transaction(key, prefix, runtimeGeneration, runtimeState);
                     }
                     observedGeneration = runtimeGeneration;
                 }
@@ -86,7 +74,7 @@ public final class DuckDBSpatialIndex {
                     runtimeKey = key;
                     indexCache = null;
                     runtimeGeneration++;
-                    return new Transaction(key, prefix, runtimeGeneration, runtimeState.copy());
+                    return new Transaction(key, prefix, runtimeGeneration, runtimeState);
                 }
             }
         }
@@ -473,20 +461,28 @@ public final class DuckDBSpatialIndex {
         private final String key;
         private final String prefix;
         private final long generation;
-        private final WriterState state;
+        private final WriterState base;
+        private final WriterState state = new WriterState();
         private final Map<Source, List<PendingLocation>> generatedRows = new EnumMap<>(Source.class);
         private boolean flushed;
         private boolean metadataChanged;
 
-        private Transaction(String key, String prefix, long generation, WriterState state) {
+        /**
+         * The base state is shared with the published runtime state and never mutated here. Each source is copied on
+         * its first row, so a transaction only pays for the Bloom filters it writes to.
+         */
+        private Transaction(String key, String prefix, long generation, WriterState base) {
             this.key = key;
             this.prefix = prefix;
             this.generation = generation;
-            this.state = state;
+            this.base = base;
         }
 
-        void addBlock(long rowId, int worldId, int x, int z) throws SQLException {
-            state.accumulator(Source.BLOCK).add(rowId, worldId, x, z);
+        void addRow(String table, long rowId, int worldId, int x, int z, Integer entitySpawnRowId) throws SQLException {
+            Source source = Source.fromTable(table);
+            if (source != null) {
+                accumulator(source).add(rowId, worldId, x, z, entitySpawnRowId);
+            }
         }
 
         void addGenerated(String table, int worldId, int x, int z, Integer entitySpawnRowId) {
@@ -506,7 +502,7 @@ public final class DuckDBSpatialIndex {
                 long lastRowId = sequenceValue(connection, prefix, source.table);
                 long rowId = lastRowId - locations.size() + 1L;
                 for (PendingLocation location : locations) {
-                    state.accumulator(source).add(rowId++, location.worldId, location.x, location.z, location.entitySpawnRowId);
+                    accumulator(source).add(rowId++, location.worldId, location.x, location.z, location.entitySpawnRowId);
                 }
             }
             metadataChanged = state.writeCompleted(connection, prefix);
@@ -522,12 +518,25 @@ public final class DuckDBSpatialIndex {
                     runtimeGeneration++;
                     return;
                 }
-                runtimeState = state;
+                WriterState published = new WriterState();
+                published.accumulators.putAll(base.accumulators);
+                published.accumulators.putAll(state.accumulators);
+                runtimeState = published;
                 runtimeGeneration++;
                 if (metadataChanged) {
                     indexCache = null;
                 }
             }
+        }
+
+        private Accumulator accumulator(Source source) {
+            Accumulator accumulator = state.accumulators.get(source);
+            if (accumulator == null) {
+                Accumulator published = base.accumulators.get(source);
+                accumulator = published == null ? new Accumulator(source) : published.copy();
+                state.accumulators.put(source, accumulator);
+            }
+            return accumulator;
         }
     }
 
@@ -612,14 +621,6 @@ public final class DuckDBSpatialIndex {
             return count;
         }
 
-        private WriterState copy() {
-            WriterState copy = new WriterState();
-            for (Map.Entry<Source, Accumulator> entry : accumulators.entrySet()) {
-                copy.accumulators.put(entry.getKey(), entry.getValue().copy());
-            }
-            return copy;
-        }
-
         private boolean writeCompleted(Connection connection, String prefix) throws SQLException {
             List<PendingSegment> pending = new ArrayList<>();
             for (Map.Entry<Source, Accumulator> entry : accumulators.entrySet()) {
@@ -669,10 +670,6 @@ public final class DuckDBSpatialIndex {
         private Accumulator(Source source) {
             this.source = source;
             this.entities = source.entityRows ? new BloomFilter() : null;
-        }
-
-        private void add(long rowId, int worldId, int x, int z) throws SQLException {
-            add(rowId, worldId, x, z, null);
         }
 
         private void add(long rowId, int worldId, int x, int z, Integer entitySpawnRowId) throws SQLException {
@@ -848,6 +845,8 @@ public final class DuckDBSpatialIndex {
         SESSION(7, "session", false),
         SIGN(8, "sign", false);
 
+        private static final Source[] VALUES = values();
+
         private final int id;
         private final String table;
         private final boolean entityRows;
@@ -859,7 +858,7 @@ public final class DuckDBSpatialIndex {
         }
 
         private static Source fromId(int id) {
-            for (Source source : values()) {
+            for (Source source : VALUES) {
                 if (source.id == id) {
                     return source;
                 }
@@ -868,7 +867,7 @@ public final class DuckDBSpatialIndex {
         }
 
         private static Source fromTable(String table) {
-            for (Source source : values()) {
+            for (Source source : VALUES) {
                 if (source.table.equals(table)) {
                     return source;
                 }

@@ -1,14 +1,10 @@
 package net.coreprotect.paper;
 
-import java.util.List;
-import java.util.UUID;
-
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.OfflinePlayer;
-import org.bukkit.Server;
-import org.bukkit.World;
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.ConfigHandler;
+import org.bukkit.*;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 import org.bukkit.block.data.BlockData;
@@ -20,8 +16,8 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.plugin.Plugin;
 
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.config.ConfigHandler;
+import java.util.List;
+import java.util.UUID;
 
 public class PaperAdapter implements PaperInterface {
 
@@ -74,6 +70,11 @@ public class PaperAdapter implements PaperInterface {
     @Override
     public InventoryHolder getHolder(Inventory holder, boolean useSnapshot) {
         return holder.getHolder();
+    }
+
+    @Override
+    public BlockState getBlockState(Block block, boolean useSnapshot) {
+        return block.getState();
     }
 
     @Override

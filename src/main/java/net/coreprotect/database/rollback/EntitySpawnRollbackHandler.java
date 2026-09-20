@@ -1,31 +1,5 @@
 package net.coreprotect.database.rollback;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import org.bukkit.Bukkit;
-import org.bukkit.Chunk;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.World;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
-import org.bukkit.inventory.ItemStack;
-
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
@@ -38,13 +12,21 @@ import net.coreprotect.model.entity.EntitySpawnData;
 import net.coreprotect.model.entity.EntitySpawnRecord;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.Scheduler;
-import net.coreprotect.utility.EntitySpawnTracking;
-import net.coreprotect.utility.EntityUtils;
-import net.coreprotect.utility.ErrorReporter;
-import net.coreprotect.utility.ItemUtils;
-import net.coreprotect.utility.MaterialUtils;
-import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.*;
 import net.coreprotect.utility.entity.EntityUtil;
+import org.bukkit.*;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.ItemStack;
+
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public final class EntitySpawnRollbackHandler {
 
@@ -66,7 +48,7 @@ public final class EntitySpawnRollbackHandler {
         throw new IllegalStateException("Database class");
     }
 
-    static Context prepare(List<Object[]> rows, Map<Integer, EntitySpawnRecord> records, List<Object[]> killRows, Map<Integer, EntitySpawnRecord> killRecords, Map<Integer, List<Object>> killData, List<Object[]> containerRows, int rollbackType, boolean inventoryRollback, int preview, String userString, Location radiusOrigin, Integer[] radius) {
+    static Context prepare(List<Object[]> rows, Map<Integer, EntitySpawnRecord> records, List<Object[]> killRows, Map<Integer, EntitySpawnRecord> killRecords, Map<Integer, List<Object>> killData, List<Object[]> containerRows, int rollbackType, boolean inventoryRollback, int preview, String userString, String rollbackKey, Location radiusOrigin, Integer[] radius) {
         List<Work> scheduledWork = new ArrayList<>();
         List<NoWorldTransition> directTransitions = new ArrayList<>();
         Set<Integer> requiredRows = new HashSet<>();
@@ -244,7 +226,7 @@ public final class EntitySpawnRollbackHandler {
         }
 
         Set<Integer> claimedRows = preview == 0 ? claimTrackingRows(requiredRows) : ConcurrentHashMap.newKeySet();
-        Context context = new Context(userString, preview, rollbackType, inventoryRollback, claimedRows, radiusOrigin, radius);
+        Context context = new Context(userString, rollbackKey, preview, rollbackType, inventoryRollback, claimedRows, radiusOrigin, radius);
         if (claimedRows == null) {
             context.cancel();
             return context;
@@ -369,6 +351,13 @@ public final class EntitySpawnRollbackHandler {
                     }
                 }
                 else if (state.phase == ChunkPhase.LOAD) {
+                    // a sync load would stall the region thread, so resume once the async load lands and fall back to sync after the retries
+                    if (ConfigHandler.isFolia && state.chunkLoadRequests < MAX_ENTITY_LOAD_RETRIES && !state.world.isChunkLoaded(state.chunkX, state.chunkZ)) {
+                        state.chunkLoadRequests++;
+                        state.world.getChunkAtAsync(state.chunkX, state.chunkZ).whenComplete((loadedChunk, throwable) -> scheduleChunkContinuation(state));
+                        return;
+                    }
+
                     Chunk chunk = state.world.getChunkAt(state.chunkX, state.chunkZ);
                     if (!BukkitAdapter.ADAPTER.isChunkEntitiesLoaded(chunk) && state.entityLoadRetries < MAX_ENTITY_LOAD_RETRIES) {
                         state.entityLoadRetries++;
@@ -1353,6 +1342,7 @@ public final class EntitySpawnRollbackHandler {
         private Entity[] chunkEntities;
         private int index;
         private int entityLoadRetries;
+        private int chunkLoadRequests;
 
         private ChunkProcessingState(Context context, World world, int chunkX, int chunkZ, List<Work> work) {
             this.context = context;
@@ -1364,9 +1354,10 @@ public final class EntitySpawnRollbackHandler {
         }
     }
 
-    static final class Context implements AutoCloseable {
+    static final class Context {
 
         private final String userString;
+        private final String rollbackKey;
         private final int preview;
         private final int rollbackType;
         private final boolean inventoryRollback;
@@ -1385,8 +1376,9 @@ public final class EntitySpawnRollbackHandler {
         private boolean transactionWorkActive;
         private boolean transactionWorkAdvancing;
 
-        private Context(String userString, int preview, int rollbackType, boolean inventoryRollback, Set<Integer> claimedRows, Location radiusOrigin, Integer[] radius) {
+        private Context(String userString, String rollbackKey, int preview, int rollbackType, boolean inventoryRollback, Set<Integer> claimedRows, Location radiusOrigin, Integer[] radius) {
             this.userString = userString;
+            this.rollbackKey = rollbackKey;
             this.preview = preview;
             this.rollbackType = rollbackType;
             this.inventoryRollback = inventoryRollback;
@@ -1454,8 +1446,7 @@ public final class EntitySpawnRollbackHandler {
         }
 
         boolean isCancelled() {
-            int[] rollbackData = ConfigHandler.rollbackHash.get(userString);
-            return cancelled.get() || (preview == 0 && Consumer.isPersistenceHalted()) || (rollbackData != null && rollbackData[3] == 2);
+            return cancelled.get() || (preview == 0 && Consumer.isPersistenceHalted()) || Rollback.isRollbackAborted(rollbackKey);
         }
 
         void cancel() {
@@ -1518,12 +1509,17 @@ public final class EntitySpawnRollbackHandler {
             notifyAll();
         }
 
-        private synchronized void cancelAndAwaitMutations() {
+        private synchronized boolean cancelAndAwaitMutations(long timeoutMillis) {
             cancelled.set(true);
+            long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
             boolean interrupted = false;
             while (activeMutations > 0) {
+                long remaining = deadline - System.nanoTime();
+                if (remaining <= 0) {
+                    break;
+                }
                 try {
-                    wait();
+                    TimeUnit.NANOSECONDS.timedWait(this, remaining);
                 }
                 catch (InterruptedException e) {
                     interrupted = true;
@@ -1532,6 +1528,7 @@ public final class EntitySpawnRollbackHandler {
             if (interrupted) {
                 Thread.currentThread().interrupt();
             }
+            return activeMutations == 0;
         }
 
         private boolean isWithinRadius(Location location) {
@@ -1657,9 +1654,10 @@ public final class EntitySpawnRollbackHandler {
             }
         }
 
-        @Override
-        public void close() {
-            cancelAndAwaitMutations();
+        void close(long timeoutMillis) {
+            if (!cancelAndAwaitMutations(timeoutMillis)) {
+                Chat.console("Rollback entity changes were still running when the rollback ended (" + userString + ").");
+            }
             for (Integer trackingRowId : new HashSet<>(claimedRows)) {
                 releaseClaim(trackingRowId);
             }

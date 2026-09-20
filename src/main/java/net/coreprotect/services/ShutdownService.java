@@ -1,27 +1,25 @@
 package net.coreprotect.services;
 
-import java.util.Iterator;
-import java.util.Map.Entry;
-
+import net.coreprotect.command.PurgeCommand;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Consumer;
+import net.coreprotect.consumer.process.Process;
+import net.coreprotect.database.rollback.Rollback;
+import net.coreprotect.language.Phrase;
+import net.coreprotect.listener.player.EntityInteractionListener;
+import net.coreprotect.listener.player.InventoryChangeListener;
+import net.coreprotect.listener.player.PlayerQuitListener;
+import net.coreprotect.listener.player.inspector.BaseInspector;
+import net.coreprotect.paper.PaperAdapter;
+import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.utility.*;
 import org.bukkit.Location;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
-import net.coreprotect.command.PurgeCommand;
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.Consumer;
-import net.coreprotect.consumer.process.Process;
-import net.coreprotect.language.Phrase;
-import net.coreprotect.listener.player.EntityInteractionListener;
-import net.coreprotect.listener.player.InventoryChangeListener;
-import net.coreprotect.listener.player.PlayerQuitListener;
-import net.coreprotect.paper.PaperAdapter;
-import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.Extensions;
-import net.coreprotect.utility.EntitySpawnTracking;
-import net.coreprotect.utility.Teleport;
-import net.coreprotect.utility.ErrorReporter;
+import java.util.Iterator;
+import java.util.Map.Entry;
 
 /**
  * Service responsible for handling plugin shutdown operations
@@ -31,6 +29,7 @@ public class ShutdownService {
     private static final long ALERT_INTERVAL_MS = 30 * 1000; // 30 seconds
     private static final long MAX_SHUTDOWN_WAIT_MS = 15 * 60 * 1000; // 15 minutes
     private static final long DB_UNREACHABLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+    private static final long ROLLBACK_ABORT_TIMEOUT_MS = 5 * 1000; // 5 seconds
 
     private ShutdownService() {
         throw new IllegalStateException("Utility class");
@@ -45,7 +44,11 @@ public class ShutdownService {
     public static void safeShutdown(Plugin plugin) {
         try {
             Consumer.blockDatabaseReloadForShutdown();
+            if (ConfigHandler.worldeditEnabled) {
+                VersionUtils.unloadWorldEdit();
+            }
             Extensions.stopBackgroundService();
+            PluginInitializationService.disableMetrics();
 
             // Log disconnections of online players if server is stopping
             if (ConfigHandler.serverRunning && PaperAdapter.ADAPTER.isStopping(plugin.getServer())) {
@@ -70,6 +73,7 @@ public class ShutdownService {
 
                 long shutdownTime = System.currentTimeMillis();
                 PurgeCommand.cancelForShutdown();
+                Rollback.abortAllForShutdown(ROLLBACK_ABORT_TIMEOUT_MS);
                 waitForMaintenanceCompletion(shutdownTime);
                 ConfigHandler.serverRunning = false;
                 long nextAlertTime = System.currentTimeMillis() + ALERT_INTERVAL_MS;
@@ -87,6 +91,8 @@ public class ShutdownService {
                 ConfigHandler.shutdownDrainRunning = false;
             }
 
+            CacheHandler.stopThread(2000L);
+            BaseInspector.shutdown();
             ConfigHandler.performDisable();
             Chat.console(Phrase.build(Phrase.DISABLE_SUCCESS, "CoreProtect v" + plugin.getDescription().getVersion()));
         }

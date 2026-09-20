@@ -1,27 +1,37 @@
 package net.coreprotect.database.clickhouse;
 
+import com.clickhouse.data.format.BinaryStreamUtils;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.TimeZone;
-import java.util.UUID;
-
-import com.clickhouse.data.format.BinaryStreamUtils;
+import java.util.*;
 
 final class ClickHouseRowBinaryBuffer implements AutoCloseable {
 
     private static final UUID ZERO_UUID = new UUID(0, 0);
 
+    private static final TimeZone UTC = TimeZone.getTimeZone("UTC");
+
+    private static final int TYPE_UUID = 0;
+    private static final int TYPE_STRING = 1;
+    private static final int TYPE_UINT8 = 2;
+    private static final int TYPE_UINT32 = 3;
+    private static final int TYPE_UINT64 = 4;
+    private static final int TYPE_INT32 = 5;
+    private static final int TYPE_INT64 = 6;
+    private static final int TYPE_FLOAT32 = 7;
+    private static final int TYPE_FLOAT64 = 8;
+    private static final int TYPE_DATETIME64_UTC = 9;
+
     private final RowBuffer rows = new RowBuffer();
     private final Map<String, Integer> columnIndexes = new HashMap<>();
     private final String[] types;
+    private final int[] typeCodes;
+    private final boolean[] nullable;
     private final Object[] defaults;
     private final Object[] values;
     private final List<RowSpan> rowSpans = new ArrayList<>();
@@ -36,12 +46,51 @@ final class ClickHouseRowBinaryBuffer implements AutoCloseable {
         this.types = types.toArray(new String[0]);
         defaults = new Object[types.size()];
         values = new Object[types.size()];
+        typeCodes = new int[types.size()];
+        nullable = new boolean[types.size()];
         for (int index = 0; index < columns.size(); index++) {
             String column = columns.get(index);
             if (columnIndexes.put(column, index) != null) {
                 throw new IllegalArgumentException("Duplicate ClickHouse RowBinary column: " + column);
             }
             defaults[index] = defaultValue(types.get(index));
+
+            String type = types.get(index);
+            if (type.startsWith("Nullable(") && type.endsWith(")")) {
+                nullable[index] = true;
+                type = type.substring(9, type.length() - 1);
+            }
+            if (type.startsWith("LowCardinality(") && type.endsWith(")")) {
+                type = type.substring(15, type.length() - 1);
+            }
+            typeCodes[index] = typeCode(type, this.types[index]);
+        }
+    }
+
+    private static int typeCode(String type, String declaredType) {
+        switch (type) {
+            case "UUID":
+                return TYPE_UUID;
+            case "String":
+                return TYPE_STRING;
+            case "UInt8":
+                return TYPE_UINT8;
+            case "UInt32":
+                return TYPE_UINT32;
+            case "UInt64":
+                return TYPE_UINT64;
+            case "Int32":
+                return TYPE_INT32;
+            case "Int64":
+                return TYPE_INT64;
+            case "Float32":
+                return TYPE_FLOAT32;
+            case "Float64":
+                return TYPE_FLOAT64;
+            case "DateTime64(3, 'UTC')":
+                return TYPE_DATETIME64_UTC;
+            default:
+                throw new IllegalArgumentException("Unsupported ClickHouse RowBinary type: " + declaredType);
         }
     }
 
@@ -77,7 +126,7 @@ final class ClickHouseRowBinaryBuffer implements AutoCloseable {
         int start = rows.size();
         try {
             for (int index = 0; index < values.length; index++) {
-                writeValue(types[index], values[index]);
+                writeValue(index, values[index]);
             }
             rowSpans.add(new RowSpan(partitionId, start, rows.size() - start));
             rowStarted = false;
@@ -162,27 +211,23 @@ final class ClickHouseRowBinaryBuffer implements AutoCloseable {
         }
     }
 
-    private void writeValue(String declaredType, Object value) throws IOException {
-        String type = declaredType;
-        if (type.startsWith("Nullable(") && type.endsWith(")")) {
+    private void writeValue(int index, Object value) throws IOException {
+        if (nullable[index]) {
             if (value == null) {
                 BinaryStreamUtils.writeNull(rows);
                 return;
             }
             BinaryStreamUtils.writeNonNull(rows);
-            type = type.substring(9, type.length() - 1);
         }
         else if (value == null) {
             throw new IllegalArgumentException("Non-nullable ClickHouse value cannot be null");
         }
-        if (type.startsWith("LowCardinality(") && type.endsWith(")")) {
-            type = type.substring(15, type.length() - 1);
-        }
-        switch (type) {
-            case "UUID":
+
+        switch (typeCodes[index]) {
+            case TYPE_UUID:
                 BinaryStreamUtils.writeUuid(rows, (UUID) value);
                 return;
-            case "String":
+            case TYPE_STRING:
                 if (value instanceof byte[]) {
                     BinaryStreamUtils.writeString(rows, (byte[]) value);
                 }
@@ -190,32 +235,32 @@ final class ClickHouseRowBinaryBuffer implements AutoCloseable {
                     BinaryStreamUtils.writeString(rows, (String) value);
                 }
                 return;
-            case "UInt8":
+            case TYPE_UINT8:
                 BinaryStreamUtils.writeUnsignedInt8(rows, unsignedInt8(value));
                 return;
-            case "UInt32":
+            case TYPE_UINT32:
                 BinaryStreamUtils.writeUnsignedInt32(rows, unsignedInt32(value));
                 return;
-            case "UInt64":
+            case TYPE_UINT64:
                 BinaryStreamUtils.writeUnsignedInt64(rows, unsignedInt64(value));
                 return;
-            case "Int32":
+            case TYPE_INT32:
                 BinaryStreamUtils.writeInt32(rows, int32(value));
                 return;
-            case "Int64":
+            case TYPE_INT64:
                 BinaryStreamUtils.writeInt64(rows, ((Number) value).longValue());
                 return;
-            case "Float32":
+            case TYPE_FLOAT32:
                 BinaryStreamUtils.writeFloat32(rows, ((Number) value).floatValue());
                 return;
-            case "Float64":
+            case TYPE_FLOAT64:
                 BinaryStreamUtils.writeFloat64(rows, ((Number) value).doubleValue());
                 return;
-            case "DateTime64(3, 'UTC')":
-                BinaryStreamUtils.writeDateTime64(rows, (LocalDateTime) value, 3, TimeZone.getTimeZone("UTC"));
+            case TYPE_DATETIME64_UTC:
+                BinaryStreamUtils.writeDateTime64(rows, (LocalDateTime) value, 3, UTC);
                 return;
             default:
-                throw new IllegalArgumentException("Unsupported ClickHouse RowBinary type: " + declaredType);
+                throw new IllegalArgumentException("Unsupported ClickHouse RowBinary type: " + types[index]);
         }
     }
 

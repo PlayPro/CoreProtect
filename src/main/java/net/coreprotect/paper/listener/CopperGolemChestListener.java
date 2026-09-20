@@ -1,12 +1,15 @@
 package net.coreprotect.paper.listener;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-
+import net.coreprotect.CoreProtect;
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Queue;
+import net.coreprotect.listener.player.InventoryChangeListener;
+import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.HopperTransactionUtils;
+import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.TransactionId;
 import org.bukkit.GameEvent;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -23,15 +26,8 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
-import net.coreprotect.CoreProtect;
-import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.config.Config;
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.listener.player.InventoryChangeListener;
-import net.coreprotect.thread.Scheduler;
-import net.coreprotect.utility.HopperTransactionUtils;
-import net.coreprotect.utility.ItemUtils;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class CopperGolemChestListener implements Listener {
 
@@ -523,7 +519,7 @@ public final class CopperGolemChestListener implements Listener {
         }
 
         String loggingContainerId = HopperTransactionUtils.getLoggingId(USERNAME, location);
-        String transactionId = HopperTransactionUtils.getTransactionId(location);
+        TransactionId transactionId = HopperTransactionUtils.getTransactionId(location);
         HopperTransactionUtils.synchronizeTransaction(transactionId, () -> {
             List<ItemStack[]> oldList = ConfigHandler.oldContainer.get(loggingContainerId);
             boolean hasPendingBaseline = oldList != null && !oldList.isEmpty();

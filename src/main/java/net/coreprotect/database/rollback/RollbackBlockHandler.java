@@ -1,44 +1,5 @@
 package net.coreprotect.database.rollback;
 
-import java.util.ArrayList;
-import java.util.Map;
-import java.util.Map.Entry;
-
-import org.bukkit.DyeColor;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.World;
-import org.bukkit.block.Banner;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
-import org.bukkit.block.CommandBlock;
-import org.bukkit.block.CreatureSpawner;
-import org.bukkit.block.banner.Pattern;
-import org.bukkit.block.data.Bisected;
-import org.bukkit.block.data.Bisected.Half;
-import org.bukkit.block.data.BlockData;
-import org.bukkit.block.data.MultipleFacing;
-import org.bukkit.block.data.Waterlogged;
-import org.bukkit.block.data.type.Bed;
-import org.bukkit.block.data.type.Bed.Part;
-import org.bukkit.block.data.type.Chest;
-import org.bukkit.block.data.type.Door;
-import org.bukkit.block.data.type.Door.Hinge;
-import org.bukkit.block.data.type.Piston;
-import org.bukkit.block.data.type.PistonHead;
-import org.bukkit.block.data.type.RedstoneWire;
-import org.bukkit.block.data.type.Snow;
-import org.bukkit.block.data.type.Stairs;
-import org.bukkit.block.data.type.TechnicalPiston;
-import org.bukkit.block.data.type.TrapDoor;
-import org.bukkit.entity.ArmorStand;
-import org.bukkit.entity.EnderCrystal;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Player;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
-
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.player.InventoryChangeListener;
@@ -46,13 +7,32 @@ import net.coreprotect.model.BlockGroup;
 import net.coreprotect.model.PendingBlockChange;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.BlockUtils;
-import net.coreprotect.utility.ChestTool;
-import net.coreprotect.utility.EntityUtils;
-import net.coreprotect.utility.ItemUtils;
-import net.coreprotect.utility.Util;
+import net.coreprotect.utility.*;
 import net.coreprotect.utility.entity.HangingUtil;
-import net.coreprotect.utility.ErrorReporter;
+import org.bukkit.DyeColor;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.World;
+import org.bukkit.block.*;
+import org.bukkit.block.CommandBlock;
+import org.bukkit.block.banner.Pattern;
+import org.bukkit.block.data.Bisected;
+import org.bukkit.block.data.Bisected.Half;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.MultipleFacing;
+import org.bukkit.block.data.Waterlogged;
+import org.bukkit.block.data.type.*;
+import org.bukkit.block.data.type.Bed;
+import org.bukkit.block.data.type.Bed.Part;
+import org.bukkit.block.data.type.Chest;
+import org.bukkit.block.data.type.Door.Hinge;
+import org.bukkit.entity.*;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.Map.Entry;
 
 public class RollbackBlockHandler extends Queue {
 
@@ -90,10 +70,10 @@ public class RollbackBlockHandler extends Queue {
                 }
 
                 if ((rowType == Material.AIR) && ((BukkitAdapter.ADAPTER.isItemFrame(oldTypeMaterial)) || (oldTypeMaterial == Material.PAINTING))) {
-                    HangingUtil.removeHanging(block.getState(), blockDataString);
+                    HangingUtil.removeHanging(block, blockDataString);
                 }
                 else if ((BukkitAdapter.ADAPTER.isItemFrame(rowType)) || (rowType == Material.PAINTING)) {
-                    HangingUtil.spawnHanging(block.getState(), rowType, blockDataString, rowData);
+                    HangingUtil.spawnHanging(block, rowType, blockDataString, rowData);
                 }
                 else if ((rowType == Material.ARMOR_STAND)) {
                     Location location1 = block.getLocation();
@@ -167,7 +147,7 @@ public class RollbackBlockHandler extends Queue {
                 else if ((rowType == Material.AIR) || (rowType == Material.TNT)) {
                     if (clearInventories) {
                         if (BlockGroup.CONTAINERS.contains(changeType)) {
-                            Inventory inventory = BlockUtils.getContainerInventory(block.getState(), false);
+                            Inventory inventory = BlockUtils.getContainerInventory(PaperAdapter.ADAPTER.getBlockState(block, false), false);
                             if (inventory != null) {
                                 InventoryChangeListener.flushPendingContainer(inventory, block.getLocation());
                                 inventory.clear();
@@ -285,7 +265,7 @@ public class RollbackBlockHandler extends Queue {
                         counters.addBlocks(1);
                     }
                     if (meta != null) {
-                        Inventory inventory = BlockUtils.getContainerInventory(block.getState(), false);
+                        Inventory inventory = BlockUtils.getContainerInventory(PaperAdapter.ADAPTER.getBlockState(block, false), false);
                         InventoryChangeListener.flushPendingContainer(inventory, block.getLocation());
                         for (Object value : meta) {
                             ItemStack item = ItemUtils.unserializeItemStackLegacy(value);

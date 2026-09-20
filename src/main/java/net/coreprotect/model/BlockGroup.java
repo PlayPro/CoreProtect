@@ -1,13 +1,14 @@
 package net.coreprotect.model;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
-
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Tag;
+
+import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.Set;
 
 public final class BlockGroup {
 
@@ -35,6 +36,7 @@ public final class BlockGroup {
     public static Set<Material> UPDATE_STATE = new HashSet<>(Arrays.asList(Material.TORCH, Material.WALL_TORCH, Material.REDSTONE_WIRE, Material.RAIL, Material.POWERED_RAIL, Material.DETECTOR_RAIL, Material.FURNACE, Material.BLAST_FURNACE, Material.SMOKER, Material.LEVER, Material.REDSTONE_TORCH, Material.REDSTONE_WALL_TORCH, Material.GLOWSTONE, Material.JACK_O_LANTERN, Material.REPEATER, Material.REDSTONE_LAMP, Material.BEACON, Material.COMPARATOR, Material.DAYLIGHT_DETECTOR, Material.REDSTONE_BLOCK, Material.HOPPER, Material.CHEST, Material.TRAPPED_CHEST, Material.ACTIVATOR_RAIL, Material.SOUL_TORCH, Material.SOUL_WALL_TORCH, Material.SHROOMLIGHT, Material.RESPAWN_ANCHOR, Material.CRYING_OBSIDIAN, Material.TARGET));
     public static Set<Material> NATURAL_BLOCKS = new HashSet<>(Arrays.asList(Material.STONE, Material.GOLD_ORE, Material.IRON_ORE, Material.COAL_ORE, Material.LAPIS_ORE, Material.SANDSTONE, Material.COBWEB, Material.FERN, Material.DEAD_BUSH, Material.DANDELION, Material.POPPY, Material.BLUE_ORCHID, Material.ALLIUM, Material.AZURE_BLUET, Material.RED_TULIP, Material.ORANGE_TULIP, Material.WHITE_TULIP, Material.PINK_TULIP, Material.OXEYE_DAISY, Material.BROWN_MUSHROOM, Material.RED_MUSHROOM, Material.OBSIDIAN, Material.DIAMOND_ORE, Material.WHEAT, Material.REDSTONE_ORE, Material.SNOW, Material.ICE, Material.CACTUS, Material.CLAY, Material.SUGAR_CANE, Material.PUMPKIN, Material.NETHERRACK, Material.SOUL_SAND, Material.MELON, Material.PUMPKIN_STEM, Material.MELON_STEM, Material.MYCELIUM, Material.LILY_PAD, Material.NETHER_WART, Material.END_STONE, Material.EMERALD_ORE, Material.CARROT, Material.POTATO, Material.KELP, Material.CHORUS_FLOWER, Material.CHORUS_PLANT, Material.CORNFLOWER, Material.LILY_OF_THE_VALLEY, Material.WITHER_ROSE, Material.SWEET_BERRY_BUSH));
     public static Set<Material> SCULK = new HashSet<>(Arrays.asList());
+    public static Set<Material> LOGGED_BY_LOWER_HALF = new HashSet<>(Arrays.asList(Material.IRON_DOOR, Material.SUNFLOWER, Material.LILAC, Material.TALL_GRASS, Material.LARGE_FERN, Material.ROSE_BUSH, Material.PEONY));
 
     /* blocks that support vertical scanning */
     public static Set<Material> VERTICAL_TOP_BOTTOM = new HashSet<>(Arrays.asList());
@@ -71,6 +73,7 @@ public final class BlockGroup {
 
         TRACK_ANY.addAll(BUTTONS);
         TRACK_TOP.addAll(DOORS);
+        LOGGED_BY_LOWER_HALF.addAll(DOORS);
         TRACK_TOP.addAll(PRESSURE_PLATES);
         TRACK_TOP.addAll(Tag.CARPETS.getValues());
         TRACK_TOP_BOTTOM.addAll(LANTERNS);
@@ -137,6 +140,55 @@ public final class BlockGroup {
         NATURAL_BLOCKS.addAll(Tag.NYLIUM.getValues());
         NATURAL_BLOCKS.addAll(Tag.PORTALS.getValues());
         */
+
+        packGroups();
+    }
+
+    /**
+     * Swaps every group over to an EnumSet once population is complete. Membership tests then
+     * become a bitmask check instead of a hash lookup, which matters on the block scan and
+     * rollback paths that test a material against many groups in a row.
+     */
+    private static void packGroups() {
+        TRACK_ANY = pack(TRACK_ANY);
+        TRACK_TOP_BOTTOM = pack(TRACK_TOP_BOTTOM);
+        TRACK_TOP = pack(TRACK_TOP);
+        TRACK_BOTTOM = pack(TRACK_BOTTOM);
+        TRACK_SIDE = pack(TRACK_SIDE);
+        SHULKER_BOXES = pack(SHULKER_BOXES);
+        BUNDLES = pack(BUNDLES);
+        CONTAINERS = pack(CONTAINERS);
+        DOORS = pack(DOORS);
+        BUTTONS = pack(BUTTONS);
+        PRESSURE_PLATES = pack(PRESSURE_PLATES);
+        VINES = pack(VINES);
+        AMETHYST = pack(AMETHYST);
+        LIGHTABLES = pack(LIGHTABLES);
+        CANDLES = pack(CANDLES);
+        FIRE = pack(FIRE);
+        LANTERNS = pack(LANTERNS);
+        SOUL_BLOCKS = pack(SOUL_BLOCKS);
+        DIRECTIONAL_BLOCKS = pack(DIRECTIONAL_BLOCKS);
+        INTERACT_BLOCKS = pack(INTERACT_BLOCKS);
+        SAFE_INTERACT_BLOCKS = pack(SAFE_INTERACT_BLOCKS);
+        UPDATE_STATE = pack(UPDATE_STATE);
+        NATURAL_BLOCKS = pack(NATURAL_BLOCKS);
+        SCULK = pack(SCULK);
+        VERTICAL_TOP_BOTTOM = pack(VERTICAL_TOP_BOTTOM);
+        VERTICAL_TOP = pack(VERTICAL_TOP);
+        VERTICAL_BOTTOM = pack(VERTICAL_BOTTOM);
+        VERTICAL = pack(VERTICAL);
+        NON_ATTACHABLE = pack(NON_ATTACHABLE);
+    }
+
+    private static Set<Material> pack(Set<Material> source) {
+        if (source instanceof EnumSet) {
+            return source;
+        }
+
+        Set<Material> packed = EnumSet.noneOf(Material.class);
+        packed.addAll(source);
+        return packed;
     }
 
     private static void addBlockTag(Set<Material> blockGroup, String... keys) {

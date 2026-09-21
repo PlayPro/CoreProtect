@@ -12,6 +12,7 @@ import net.coreprotect.api.result.SignResult;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.LookupRaw;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.model.action.SignActions;
 import net.coreprotect.utility.WorldUtils;
@@ -57,12 +58,19 @@ public class SignAPI {
                 query.append(WorldUtils.getWidIndex("sign"));
             }
             filter.appendWhere(query);
+            List<String> messageBindings = new ArrayList<>();
+            query = new StringBuilder(LookupRaw.appendMessageFilters(query.toString(),
+                    options == null ? List.of() : options.getTextStartsWithAny(),
+                    options == null ? List.of() : options.getTextStartsWithNone(), "sign", messageBindings));
             query.append(" AND action = '").append(SignActions.PLACE).append("' AND (LENGTH(line_1) > 0 OR LENGTH(line_2) > 0 OR LENGTH(line_3) > 0 OR LENGTH(line_4) > 0 OR LENGTH(line_5) > 0 OR LENGTH(line_6) > 0 OR LENGTH(line_7) > 0 OR LENGTH(line_8) > 0)");
             query.append(" ORDER BY ").append(ConfigHandler.getDescendingEventOrder());
             filter.appendLimit(query);
 
             try (PreparedStatement statement = connection.prepareStatement(query.toString())) {
-                filter.bind(statement);
+                int parameterIndex = filter.bind(statement);
+                for (String binding : messageBindings) {
+                    statement.setString(parameterIndex++, binding);
+                }
 
                 try (ResultSet results = statement.executeQuery()) {
                     while (results.next()) {

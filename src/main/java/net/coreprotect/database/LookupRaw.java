@@ -1506,6 +1506,10 @@ public class LookupRaw extends Queue {
             }
         }
 
+        return appendMessageFilters(baseQuery, included, excluded, table, bindings);
+    }
+
+    public static String appendMessageFilters(String baseQuery, List<String> included, List<String> excluded, String table, List<String> bindings) {
         boolean sign = table.equals("sign");
         String query = sign ? appendSignMessagePrefixes(baseQuery, included, bindings) : appendMessagePrefixes(baseQuery, included, table, bindings);
         return appendMessageExclusions(query, excluded, sign, bindings);

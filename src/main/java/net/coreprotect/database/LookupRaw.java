@@ -165,6 +165,7 @@ public class LookupRaw extends Queue {
         }
 
         boolean paused = false;
+        ResultSet results = null;
         try {
             while (managePause && Consumer.isPaused && !Consumer.isPersistenceHalted()) {
                 Thread.sleep(1);
@@ -193,7 +194,7 @@ public class LookupRaw extends Queue {
                 limitCount = -1;
             }
 
-            ResultSet results = rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, false, entityContainerId, false, false, false, rollbackState, pageRows, false);
+            results = rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, false, entityContainerId, false, false, false, rollbackState, pageRows, false);
             if (results == null) {
                 return null;
             }
@@ -354,13 +355,20 @@ public class LookupRaw extends Queue {
                     }
                 }
             }
-            results.close();
         }
         catch (Exception e) {
             ErrorReporter.report(e);
             return null;
         }
         finally {
+            if (results != null) {
+                try {
+                    results.close();
+                }
+                catch (Exception e) {
+                    ErrorReporter.report(e);
+                }
+            }
             if (paused && !Consumer.isPersistenceHalted()) {
                 Consumer.isPaused = false;
             }

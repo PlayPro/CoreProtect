@@ -19,6 +19,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.player.InventoryChangeListener;
+import net.coreprotect.paper.PaperAdapter;
 
 public final class BlockPreDispenseListener extends Queue implements Listener {
 
@@ -84,7 +85,7 @@ public final class BlockPreDispenseListener extends Queue implements Listener {
 
             // Process the inventory transaction
             String user = "#dispenser";
-            BlockState blockState = block.getState();
+            BlockState blockState = PaperAdapter.ADAPTER.getBlockState(block, false);
             ItemStack[] inventory = ((InventoryHolder) blockState).getInventory().getStorageContents();
             InventoryChangeListener.inventoryTransaction(user, blockState, inventory);
         }

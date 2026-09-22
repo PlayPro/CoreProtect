@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -36,7 +37,11 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         INTERRUPTED
     }
 
+    private static final long SHUTDOWN_DRAIN_NANOS = TimeUnit.SECONDS.toNanos(30);
+    private static final long SHUTDOWN_FORCE_NANOS = TimeUnit.SECONDS.toNanos(5);
+
     private static Thread consumerThread = null;
+    private static final Object lookupPauseClaim = new Object();
     private static final ReentrantReadWriteLock databaseLifecycle = new ReentrantReadWriteLock(true);
     private static final Object rollbackPurgeGate = new Object();
     private static long pendingRollbackPublications = 0;
@@ -161,6 +166,18 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
 
     public static boolean isPersistenceHalted() {
         return persistenceHalted;
+    }
+
+    /**
+     * Waits for the pause flag to clear and sets it in one step, so two lookups can never both see it clear.
+     */
+    public static void claimLookupPause() throws InterruptedException {
+        synchronized (lookupPauseClaim) {
+            while (isPaused && !persistenceHalted) {
+                lookupPauseClaim.wait(1);
+            }
+            isPaused = true;
+        }
     }
 
     public static void lockDatabaseAccess() {
@@ -454,7 +471,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         pausedSuccess = false;
     }
 
-    static void processConsumerBatch(int processId, boolean lastRun) throws InterruptedException {
+    static void processConsumerBatch(int processId, boolean lastRun, boolean pauseHeld) throws InterruptedException {
         Lock databaseLock = databaseLifecycle.readLock();
         databaseLock.lock();
         try {
@@ -464,7 +481,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
                 databaseLock = databaseLifecycle.writeLock();
                 databaseLock.lock();
             }
-            if (databaseReloadPaused || isPaused || persistenceHalted) {
+            if (databaseReloadPaused || pauseHeld || persistenceHalted) {
                 return;
             }
             if (exclusive && !Database.awaitConnectionDrain(0L)) {
@@ -477,23 +494,34 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         }
     }
 
+    private static boolean shutdownDrainPending(long deadline) {
+        if (deadline == 0L || System.nanoTime() >= deadline) {
+            return false;
+        }
+
+        return getConsumerSize(0) > 0 || getConsumerSize(1) > 0 || Consumer.consumer_id.get(0)[1] > 0 || Consumer.consumer_id.get(1)[1] > 0;
+    }
+
     @Override
     public void run() {
         boolean lastRun = false;
         boolean[] drained = { true, true };
+        long shutdownDeadline = 0L;
 
-        while (ConfigHandler.serverRunning || ConfigHandler.converterRunning || !lastRun) {
-            if (!ConfigHandler.serverRunning && !ConfigHandler.converterRunning) {
+        while (ConfigHandler.serverRunning || ConfigHandler.converterRunning || !lastRun || shutdownDrainPending(shutdownDeadline)) {
+            if (!lastRun && !ConfigHandler.serverRunning && !ConfigHandler.converterRunning) {
                 lastRun = true;
+                shutdownDeadline = System.nanoTime() + SHUTDOWN_DRAIN_NANOS;
             }
             if (persistenceHalted) {
-                if (!lastRun) {
-                    if (databaseReloadBlockedForShutdown) {
-                        LockSupport.parkNanos(100_000_000L);
-                    }
-                    else {
-                        errorDelay();
-                    }
+                if (lastRun) {
+                    break;
+                }
+                if (databaseReloadBlockedForShutdown) {
+                    LockSupport.parkNanos(100_000_000L);
+                }
+                else {
+                    errorDelay();
                 }
                 continue;
             }
@@ -518,7 +546,9 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
                 Thread.sleep(consumerDelay(lastRun || !drained[0] || !drained[1]));
                 pauseConsumer(process_id);
                 try {
-                    processConsumerBatch(process_id, lastRun);
+                    // A lookup still holding the pause near the shutdown deadline must not cost the queued rows
+                    boolean pauseHeld = isPaused && !(lastRun && System.nanoTime() >= shutdownDeadline - SHUTDOWN_FORCE_NANOS);
+                    processConsumerBatch(process_id, lastRun, pauseHeld);
                 }
                 finally {
                     drained[process_id] = getConsumerSize(process_id) == 0;
@@ -526,7 +556,9 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
             }
             catch (Exception e) {
                 ErrorReporter.report(e);
-                errorDelay();
+                if (!lastRun) {
+                    errorDelay();
+                }
             }
         }
     }

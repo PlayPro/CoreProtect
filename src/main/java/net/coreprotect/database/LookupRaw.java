@@ -85,10 +85,7 @@ public class LookupRaw extends Queue {
 
         boolean paused = false;
         try {
-            while (Consumer.isPaused && !Consumer.isPersistenceHalted()) {
-                Thread.sleep(1);
-            }
-            Consumer.isPaused = true;
+            Consumer.claimLookupPause();
             paused = true;
 
             Map<Integer, List<Long>> pageRows = new HashMap<>();
@@ -166,11 +163,8 @@ public class LookupRaw extends Queue {
 
         boolean paused = false;
         try {
-            while (managePause && Consumer.isPaused && !Consumer.isPersistenceHalted()) {
-                Thread.sleep(1);
-            }
             if (managePause) {
-                Consumer.isPaused = true;
+                Consumer.claimLookupPause();
                 paused = true;
             }
 

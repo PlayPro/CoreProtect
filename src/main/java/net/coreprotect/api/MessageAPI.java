@@ -10,6 +10,7 @@ import net.coreprotect.api.result.MessageResult;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.LookupRaw;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.WorldUtils;
@@ -61,11 +62,18 @@ public class MessageAPI {
                 query.append(WorldUtils.getWidIndex(table));
             }
             filter.appendWhere(query);
+            List<String> messageBindings = new ArrayList<>();
+            query = new StringBuilder(LookupRaw.appendMessageFilters(query.toString(),
+                    options == null ? List.of() : options.getTextStartsWithAny(),
+                    options == null ? List.of() : options.getTextStartsWithNone(), table, messageBindings));
             query.append(" ORDER BY ").append(ConfigHandler.getDescendingEventOrder());
             filter.appendLimit(query);
 
             try (PreparedStatement statement = connection.prepareStatement(query.toString())) {
-                filter.bind(statement);
+                int parameterIndex = filter.bind(statement);
+                for (String binding : messageBindings) {
+                    statement.setString(parameterIndex++, binding);
+                }
 
                 try (ResultSet results = statement.executeQuery()) {
                     while (results.next()) {

@@ -22,6 +22,8 @@ public final class LookupOptions {
     private final List<Material> excludeMaterials;
     private final List<String> users;
     private final List<String> excludeUsers;
+    private final List<String> textStartsWithAny;
+    private final List<String> textStartsWithNone;
     private final List<ContainerAction> containerActions;
     private final List<ItemAction> itemActions;
     private final List<InventoryAction> inventoryActions;
@@ -43,6 +45,8 @@ public final class LookupOptions {
         this.excludeMaterials = builder.excludeMaterials;
         this.users = builder.users;
         this.excludeUsers = builder.excludeUsers;
+        this.textStartsWithAny = builder.textStartsWithAny;
+        this.textStartsWithNone = builder.textStartsWithNone;
         this.containerActions = builder.containerActions;
         this.itemActions = builder.itemActions;
         this.inventoryActions = builder.inventoryActions;
@@ -105,6 +109,14 @@ public final class LookupOptions {
         return excludeUsers;
     }
 
+    public List<String> getTextStartsWithAny() {
+        return textStartsWithAny;
+    }
+
+    public List<String> getTextStartsWithNone() {
+        return textStartsWithNone;
+    }
+
     public List<ContainerAction> getContainerActions() {
         return containerActions;
     }
@@ -149,6 +161,8 @@ public final class LookupOptions {
         private List<Material> excludeMaterials = List.of();
         private List<String> users = List.of();
         private List<String> excludeUsers = List.of();
+        private List<String> textStartsWithAny = List.of();
+        private List<String> textStartsWithNone = List.of();
         private List<ContainerAction> containerActions = List.of();
         private List<ItemAction> itemActions = List.of();
         private List<InventoryAction> inventoryActions = List.of();
@@ -216,6 +230,36 @@ public final class LookupOptions {
         public Builder excludeUsers(List<String> users) {
             this.excludeUsers = List.copyOf(users);
             return this;
+        }
+
+        /**
+         * Includes chat, command and sign text matching any literal prefix.
+         * Empty means no inclusion restriction. Other lookup types ignore this option.
+         * @throws IllegalArgumentException if a prefix has fewer than three Unicode code points
+         */
+        public Builder textStartsWithAny(List<String> prefixes) {
+            this.textStartsWithAny = textPrefixes(prefixes);
+            return this;
+        }
+
+        /**
+         * Excludes chat, command and sign text matching any literal prefix.
+         * Exclusions take precedence over inclusions. A leading '-' is literal.
+         * @throws IllegalArgumentException if a prefix has fewer than three Unicode code points
+         */
+        public Builder textStartsWithNone(List<String> prefixes) {
+            this.textStartsWithNone = textPrefixes(prefixes);
+            return this;
+        }
+
+        private static List<String> textPrefixes(List<String> prefixes) {
+            List<String> copy = List.copyOf(prefixes);
+            for (String prefix : copy) {
+                if (prefix.codePointCount(0, prefix.length()) < 3) {
+                    throw new IllegalArgumentException("Text filter prefixes must contain at least three code points");
+                }
+            }
+            return copy;
         }
 
         public Builder containerActions(List<ContainerAction> actions) {

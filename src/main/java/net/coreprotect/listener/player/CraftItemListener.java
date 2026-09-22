@@ -30,6 +30,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.logger.ItemLogger;
+import net.coreprotect.utility.ItemUtils;
 
 public final class CraftItemListener extends Queue implements Listener {
 
@@ -39,28 +40,20 @@ public final class CraftItemListener extends Queue implements Listener {
         }
 
         String loggingItemId = user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
-        int itemId = getItemId(loggingItemId);
 
         if (action == ItemLogger.ITEM_BUY) {
-            List<ItemStack> list = ConfigHandler.itemsBuy.getOrDefault(loggingItemId, new ArrayList<>());
-            list.add(itemStack);
-            ConfigHandler.itemsBuy.put(loggingItemId, list);
+            ItemUtils.addPendingItems(ConfigHandler.itemsBuy, loggingItemId, itemStack);
         }
         else if (action == ItemLogger.ITEM_SELL) {
-            List<ItemStack> list = ConfigHandler.itemsSell.getOrDefault(loggingItemId, new ArrayList<>());
-            list.add(itemStack);
-            ConfigHandler.itemsSell.put(loggingItemId, list);
+            ItemUtils.addPendingItems(ConfigHandler.itemsSell, loggingItemId, itemStack);
         }
         else if (action == ItemLogger.ITEM_CREATE) {
-            List<ItemStack> list = ConfigHandler.itemsCreate.getOrDefault(loggingItemId, new ArrayList<>());
-            list.add(itemStack);
-            ConfigHandler.itemsCreate.put(loggingItemId, list);
+            ItemUtils.addPendingItems(ConfigHandler.itemsCreate, loggingItemId, itemStack);
         }
         else {
-            List<ItemStack> list = ConfigHandler.itemsDestroy.getOrDefault(loggingItemId, new ArrayList<>());
-            list.add(itemStack);
-            ConfigHandler.itemsDestroy.put(loggingItemId, list);
+            ItemUtils.addPendingItems(ConfigHandler.itemsDestroy, loggingItemId, itemStack);
         }
+        int itemId = getItemId(loggingItemId);
 
         int time = (int) (System.currentTimeMillis() / 1000L) + 1;
         Queue.queueItemTransaction(user, location.clone(), time, 0, itemId);

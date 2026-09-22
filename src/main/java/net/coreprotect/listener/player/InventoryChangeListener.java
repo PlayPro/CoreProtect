@@ -547,18 +547,13 @@ public final class InventoryChangeListener extends Queue implements Listener {
         // Process the enchantment operation
         Location location = player.getLocation();
         String loggingItemId = player.getName().toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
-        int itemId = getItemId(loggingItemId);
 
         // Log the input items as removed
-        List<ItemStack> removedItems = new ArrayList<>();
-        removedItems.add(firstItem.clone());
-        removedItems.add(secondItem.clone());
-        ConfigHandler.itemsDestroy.put(loggingItemId, removedItems);
+        ItemUtils.addPendingItems(ConfigHandler.itemsDestroy, loggingItemId, firstItem.clone(), secondItem.clone());
 
         // Log the output item as created
-        List<ItemStack> createdItems = new ArrayList<>();
-        createdItems.add(resultItem.clone());
-        ConfigHandler.itemsCreate.put(loggingItemId, createdItems);
+        ItemUtils.addPendingItems(ConfigHandler.itemsCreate, loggingItemId, resultItem.clone());
+        int itemId = getItemId(loggingItemId);
 
         int time = (int) (System.currentTimeMillis() / 1000L) + 1;
         Queue.queueItemTransaction(player.getName(), location.clone(), time, 0, itemId);

@@ -30,6 +30,7 @@ import com.sk89q.worldedit.world.block.BlockStateHolder;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.player.InventoryChangeListener;
+import net.coreprotect.model.BlockGroup;
 import net.coreprotect.model.action.SignActions;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.EntityUtils;
@@ -50,11 +51,25 @@ public class WorldEditLogger extends Queue {
         return type == Material.SPAWNER || (config.SIGN_TEXT && net.coreprotect.bukkit.BukkitAdapter.ADAPTER.isSign(type));
     }
 
-    protected static void postProcess(Extent extent, Actor actor, BlockVector3 position, Location location, BlockStateHolder<?> blockStateHolder, BaseBlock baseBlock, Material oldType, com.sk89q.worldedit.world.block.BlockState oldBlockState, ItemStack[] containerContents) {
-        postProcess(extent, actor, position, location, blockStateHolder, baseBlock, oldType, oldBlockState, containerContents, true);
+    private static boolean isLoggedTopHalf(Material type, BlockData blockData) {
+        return BlockGroup.LOGGED_BY_LOWER_HALF.contains(type) && blockData instanceof Bisected && ((Bisected) blockData).getHalf() == Half.TOP;
     }
 
-    protected static void postProcess(Extent extent, Actor actor, BlockVector3 position, Location location, BlockStateHolder<?> blockStateHolder, BaseBlock baseBlock, Material oldType, com.sk89q.worldedit.world.block.BlockState oldBlockState, ItemStack[] containerContents, boolean logBlockPhysics) {
+    private static WorldEditBlockState getExtentState(Extent extent, BlockVector3 position, Location location, int yOffset) {
+        BlockData blockData = BukkitAdapter.adapt(extent.getBlock(position.add(0, yOffset, 0)));
+        Location offsetLocation = location.clone();
+        offsetLocation.setY(offsetLocation.getY() + yOffset);
+        return new WorldEditBlockState(offsetLocation, blockData.getMaterial(), blockData);
+    }
+
+    protected static void postProcess(Extent extent, Actor actor, BlockVector3 position, Location location, BlockStateHolder<?> blockStateHolder, BaseBlock baseBlock, Material oldType, com.sk89q.worldedit.world.block.BlockState oldBlockState, ItemStack[] containerContents) {
+        postProcess(extent, actor, position, location, blockStateHolder, baseBlock, oldType, oldBlockState, containerContents, true, null);
+    }
+
+    /**
+     * @param lowerHalf The block below a top half as the edit leaves it, for callers that cannot read the extent. Unused when logBlockPhysics is true.
+     */
+    protected static void postProcess(Extent extent, Actor actor, BlockVector3 position, Location location, BlockStateHolder<?> blockStateHolder, BaseBlock baseBlock, Material oldType, com.sk89q.worldedit.world.block.BlockState oldBlockState, ItemStack[] containerContents, boolean logBlockPhysics, BlockState lowerHalf) {
         BlockData oldBlockData = BukkitAdapter.adapt(oldBlockState);
         BlockData newBlockData = BukkitAdapter.adapt(blockStateHolder.toImmutableState());
         Material newType = newBlockData.getMaterial();
@@ -65,6 +80,10 @@ public class WorldEditLogger extends Queue {
         if (!oldType.equals(newType) || !oldBlockDataString.equals(newBlockDataString)) {
             BlockState oldBlock = new WorldEditBlockState(location, oldType, oldBlockData);
             BlockState newBlock = new WorldEditBlockState(location, newType, newBlockData);
+            if (isLoggedTopHalf(oldType, oldBlockData)) {
+                // Queue logs a double block by its lower half, and an edit thread must not read it from the live world
+                ((WorldEditBlockState) oldBlock).setLowerHalf(logBlockPhysics ? getExtentState(extent, position, location, -1) : lowerHalf);
+            }
             int oldBlockExtraData = 0;
             int newBlockExtraData = -1;
 
@@ -140,18 +159,17 @@ public class WorldEditLogger extends Queue {
                 }
                 else if (logBlockPhysics && oldBlockData instanceof Bisected) {
                     Bisected bisected = (Bisected) oldBlockData;
-                    Location bisectLocation = location.clone();
-                    if (bisected.getHalf() == Half.TOP) {
-                        bisectLocation.setY(bisectLocation.getY() - 1);
-                    }
-                    else {
-                        bisectLocation.setY(bisectLocation.getY() + 1);
-                    }
+                    int offset = bisected.getHalf() == Half.TOP ? -1 : 1;
 
                     int worldMaxHeight = location.getWorld().getMaxHeight();
                     int worldMinHeight = net.coreprotect.bukkit.BukkitAdapter.ADAPTER.getMinHeight(location.getWorld());
-                    if (bisectLocation.getBlockY() >= worldMinHeight && bisectLocation.getBlockY() < worldMaxHeight) {
-                        BlockState bisectBlock = location.getWorld().getBlockAt(bisectLocation).getState();
+                    int bisectY = location.getBlockY() + offset;
+                    if (bisectY >= worldMinHeight && bisectY < worldMaxHeight) {
+                        // Read the other half through the edit extent, which sees this edit's own changes
+                        WorldEditBlockState bisectBlock = getExtentState(extent, position, location, offset);
+                        if (isLoggedTopHalf(bisectBlock.getType(), bisectBlock.getBlockData())) {
+                            bisectBlock.setLowerHalf(getExtentState(extent, position, location, offset - 1));
+                        }
                         Queue.queueBlockBreak(actor.getName(), bisectBlock, bisectBlock.getType(), bisectBlock.getBlockData().getAsString(), null, 0, 0);
                     }
                 }

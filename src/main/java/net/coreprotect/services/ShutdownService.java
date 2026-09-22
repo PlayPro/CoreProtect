@@ -16,12 +16,15 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.player.EntityInteractionListener;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.listener.player.PlayerQuitListener;
+import net.coreprotect.listener.player.inspector.BaseInspector;
 import net.coreprotect.paper.PaperAdapter;
+import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Extensions;
 import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.Teleport;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.VersionUtils;
 
 /**
  * Service responsible for handling plugin shutdown operations
@@ -45,7 +48,11 @@ public class ShutdownService {
     public static void safeShutdown(Plugin plugin) {
         try {
             Consumer.blockDatabaseReloadForShutdown();
+            if (ConfigHandler.worldeditEnabled) {
+                VersionUtils.unloadWorldEdit();
+            }
             Extensions.stopBackgroundService();
+            PluginInitializationService.disableMetrics();
 
             // Log disconnections of online players if server is stopping
             if (ConfigHandler.serverRunning && PaperAdapter.ADAPTER.isStopping(plugin.getServer())) {
@@ -87,6 +94,8 @@ public class ShutdownService {
                 ConfigHandler.shutdownDrainRunning = false;
             }
 
+            CacheHandler.stopThread(2000L);
+            BaseInspector.shutdown();
             ConfigHandler.performDisable();
             Chat.console(Phrase.build(Phrase.DISABLE_SUCCESS, "CoreProtect v" + plugin.getDescription().getVersion()));
         }

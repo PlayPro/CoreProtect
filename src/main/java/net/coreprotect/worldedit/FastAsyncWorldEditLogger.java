@@ -18,6 +18,7 @@ import com.sk89q.worldedit.world.block.BlockState;
 import com.sk89q.worldedit.world.block.BlockTypesCache;
 
 import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
 
 final class FastAsyncWorldEditLogger implements IBatchProcessor {
     private static final ProcessorScope SCOPE = resolveScope();
@@ -40,7 +41,7 @@ final class FastAsyncWorldEditLogger implements IBatchProcessor {
     @Override
     public IChunkSet processSet(IChunk chunk, IChunkGet get, IChunkSet set) {
         Config config = Config.getConfig(world);
-        if (!config.WORLDEDIT) {
+        if (!ConfigHandler.serverRunning || !config.WORLDEDIT) {
             return set;
         }
 

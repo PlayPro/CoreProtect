@@ -26,6 +26,7 @@ import net.coreprotect.database.Database;
 import net.coreprotect.database.lookup.BlockLookup;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.player.PlayerInteractEntityListener;
+import net.coreprotect.listener.player.inspector.BaseInspector;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.MaterialUtils;
@@ -89,15 +90,7 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
                 }
             }
         }
-        try {
-            Runnable runnable = new BasicThread();
-            Thread thread = new Thread(runnable);
-            thread.start();
-        }
-        catch (RuntimeException | Error e) {
-            LookupThrottle.release(player.getName());
-            throw e;
-        }
+        BaseInspector.runLookup(player, new BasicThread());
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)

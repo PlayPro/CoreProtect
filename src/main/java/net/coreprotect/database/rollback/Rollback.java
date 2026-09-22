@@ -848,26 +848,19 @@ public class Rollback extends RollbackUtil {
     }
 
     private static void prepareChunkCounters(String userString) {
-        int[] rollbackHashData = ConfigHandler.rollbackHash.get(userString);
-        int itemCount = rollbackHashData[0];
-        int blockCount = rollbackHashData[1];
-        int entityCount = rollbackHashData[2];
-        int scannedWorlds = rollbackHashData[4];
-        ConfigHandler.rollbackHash.put(userString, new int[] { itemCount, blockCount, entityCount, 0, scannedWorlds });
+        // Atomic because Folia player inventory tasks add item counts from other threads
+        ConfigHandler.rollbackHash.computeIfPresent(userString, (key, rollbackHashData) -> new int[] { rollbackHashData[0], rollbackHashData[1], rollbackHashData[2], 0, rollbackHashData[4] });
     }
 
     private static boolean completeChunk(String userString, Integer chunkCount, int totalChunks, boolean verbose, CommandSender user, int preview, List<Integer> actionList) {
         int[] rollbackHashData = ConfigHandler.rollbackHash.get(userString);
-        int itemCount = rollbackHashData[0];
-        int blockCount = rollbackHashData[1];
-        int entityCount = rollbackHashData[2];
         int next = rollbackHashData[3];
 
         if (next == 2) {
             return false;
         }
 
-        ConfigHandler.rollbackHash.put(userString, new int[] { itemCount, blockCount, entityCount, 0, 0 });
+        ConfigHandler.rollbackHash.computeIfPresent(userString, (key, data) -> new int[] { data[0], data[1], data[2], 0, 0 });
 
         if (verbose && user != null && preview == 0 && !actionList.contains(LookupActions.ITEM)) {
             Integer chunks = totalChunks;
@@ -895,7 +888,17 @@ public class Rollback extends RollbackUtil {
             return true;
         }
         Player rollbackPlayer = user instanceof Player ? (Player) user : null;
-        return RollbackProcessor.processChunk(chunkX, chunkZ, chunkKey, blockData, itemData, rollbackType, preview, userString, rollbackPlayer, world, inventoryRollback, blockDataCache);
+        if (!ConfigHandler.isFolia) {
+            return RollbackProcessor.processChunk(chunkX, chunkZ, chunkKey, blockData, itemData, rollbackType, preview, userString, rollbackPlayer, world, inventoryRollback, blockDataCache, null);
+        }
+
+        // Player inventories belong to each player's entity scheduler. The batch waits for these tasks with the entity spawn tasks.
+        List<CompletableFuture<Boolean>> inventoryTasks = new ArrayList<>();
+        boolean result = RollbackProcessor.processChunk(chunkX, chunkZ, chunkKey, blockData, itemData, rollbackType, preview, userString, rollbackPlayer, world, inventoryRollback, blockDataCache, inventoryTasks);
+        for (CompletableFuture<Boolean> inventoryTask : inventoryTasks) {
+            entitySpawnContext.addPending(inventoryTask);
+        }
+        return result;
     }
 
     private static final class RollbackBatchState {

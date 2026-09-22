@@ -170,7 +170,7 @@ public class BlockAPI {
             filter.appendWhere(query);
             filter.appendBlockMaterialWhere(query);
             int[] actions = blocksOnly && options.getBlockActions().isEmpty()
-                    ? new int[] { BlockAction.BREAK.id(), BlockAction.PLACE.id(), BlockAction.INTERACTION.id() }
+                    ? new int[] { BlockAction.BREAK.id(), BlockAction.PLACE.id(), BlockAction.INTERACTION.id(), BlockAction.BONE_MEAL.id() }
                     : options.getBlockActions().stream().mapToInt(BlockAction::id).toArray();
             LookupFilter.appendActionWhere(query, "", actions);
             query.append(" ORDER BY ").append(ConfigHandler.getDescendingEventOrder());

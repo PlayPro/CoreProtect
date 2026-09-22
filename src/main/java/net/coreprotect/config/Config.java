@@ -79,6 +79,7 @@ public class Config extends Language {
     public boolean BLOCK_MOVEMENT;
     public boolean PISTONS;
     public boolean DISPENSERS;
+    public boolean BONE_MEAL_TRACKING;
     public boolean BLOCK_BURN;
     public boolean BLOCK_IGNITE;
     public boolean FIRE_EXTINGUISH;
@@ -151,6 +152,7 @@ public class Config extends Language {
         DEFAULT_VALUES.put("block-movement", "true");
         DEFAULT_VALUES.put("pistons", "true");
         DEFAULT_VALUES.put("dispensers", "true");
+        DEFAULT_VALUES.put("bone-meal-tracking", "true");
         DEFAULT_VALUES.put("block-burn", "true");
         DEFAULT_VALUES.put("block-ignite", "true");
         DEFAULT_VALUES.put("fire-extinguish", "false");
@@ -202,6 +204,7 @@ public class Config extends Language {
         HEADERS.put("block-movement", new String[] { "# Properly track block movement, such as sand or gravel falling." });
         HEADERS.put("pistons", new String[] { "# Properly track blocks moved by pistons." });
         HEADERS.put("dispensers", new String[] { "# Logs block placement and removal events caused by dispensers." });
+        HEADERS.put("bone-meal-tracking", new String[] { "# Logs block placement events caused by bone meal." });
         HEADERS.put("block-burn", new String[] { "# Logs blocks that burn up in a fire." });
         HEADERS.put("block-ignite", new String[] { "# Logs when a block naturally ignites, such as from fire spreading." });
         HEADERS.put("fire-extinguish", new String[] { "# Logs when fire naturally extinguishes." });
@@ -283,6 +286,7 @@ public class Config extends Language {
         this.BLOCK_MOVEMENT = this.getBoolean("block-movement");
         this.PISTONS = this.getBoolean("pistons");
         this.DISPENSERS = this.getBoolean("dispensers");
+        this.BONE_MEAL_TRACKING = this.getBoolean("bone-meal-tracking");
         this.BLOCK_BURN = this.getBoolean("block-burn");
         this.BLOCK_IGNITE = this.getBoolean("block-ignite");
         this.FIRE_EXTINGUISH = this.getBoolean("fire-extinguish");

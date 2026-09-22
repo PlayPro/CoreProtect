@@ -35,6 +35,7 @@ import net.coreprotect.model.entity.EntityContainerTransaction;
 import net.coreprotect.model.entity.EntityInteraction;
 import net.coreprotect.model.entity.EntitySpawnData;
 import net.coreprotect.model.entity.EntitySpawnIdentity;
+import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.model.rollback.RollbackUpdateTargets;
 import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.EntitySpawnTracking;
@@ -76,6 +77,7 @@ public class Process {
     public static final int ENTITY_CONTAINER_ROLLBACK_UPDATE = 33;
     public static final int ENTITY_CONTAINER_TRANSITION_UPDATE = 34;
     public static final int ENTITY_INTERACTION = 35;
+    public static final int BONE_MEAL_PLACE = 36;
 
     public static int lastLockUpdate = 0;
     private static volatile int currentConsumerSize = 0;
@@ -311,7 +313,10 @@ public class Process {
                                     BlockBreakProcess.process(writeBatch, writeBatch, i, processId, id, blockType, blockData, replaceType, forceData, user, object, (String) data[7]);
                                     break;
                                 case Process.BLOCK_PLACE:
-                                    BlockPlaceProcess.process(writeBatch, writeBatch, i, blockType, blockData, replaceType, replaceData, forceData, user, object, (String) data[7], (String) data[8]);
+                                    BlockPlaceProcess.process(writeBatch, writeBatch, i, LookupActions.BLOCK_PLACE, blockType, blockData, replaceType, replaceData, forceData, user, object, (String) data[7], (String) data[8]);
+                                    break;
+                                case Process.BONE_MEAL_PLACE:
+                                    BlockPlaceProcess.process(writeBatch, writeBatch, i, LookupActions.BONE_MEAL, blockType, blockData, replaceType, replaceData, forceData, user, object, (String) data[7], (String) data[8]);
                                     break;
                                 case Process.SIGN_TEXT:
                                     SignTextProcess.process(writeBatch, i, processId, id, forceData, user, object, replaceData, blockData);

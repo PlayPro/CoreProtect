@@ -267,6 +267,47 @@ public class Queue {
         queueStandardData(new Object[] { null, Process.BLOCK_PLACE, type, data, replaceType, replaceData, forceData, blockData, replacedBlockData }, new String[] { user, null }, blockLocation, false, Consumer.reserveConsumer());
     }
 
+    protected static void queueBoneMealPlace(String user, BlockState blockLocation, Material blockType, BlockState blockReplaced, Material forceType, int forceD, int forceData, String blockData) {
+        Material type = blockType;
+        int data = 0;
+        Material replaceType = null;
+        int replaceData = 0;
+
+        if (type == Material.SPAWNER && blockLocation instanceof CreatureSpawner) {
+            CreatureSpawner mobSpawner = (CreatureSpawner) blockLocation;
+            data = EntityUtils.getSpawnerType(mobSpawner.getSpawnedType());
+            forceData = 1;
+        }
+
+        if (blockReplaced != null) {
+            replaceType = blockReplaced.getType();
+            replaceData = 0;
+
+            if (replaceType != null && (replaceType == Material.IRON_DOOR || BlockGroup.DOORS.contains(replaceType) || replaceType.equals(Material.SUNFLOWER) || replaceType.equals(Material.LILAC) || replaceType.equals(Material.TALL_GRASS) || replaceType.equals(Material.LARGE_FERN) || replaceType.equals(Material.ROSE_BUSH) || replaceType.equals(Material.PEONY)) && replaceData >= 8) {
+                BlockState blockBelow = blockReplaced.getWorld().getBlockAt(blockReplaced.getX(), blockReplaced.getY() - 1, blockReplaced.getZ()).getState();
+                Material belowType = blockBelow.getType();
+                Queue.queueBlockBreak(user, blockBelow, belowType, blockBelow.getBlockData().getAsString(), 0);
+            }
+        }
+
+        if (forceType != null) {
+            type = forceType;
+            forceData = 1;
+        }
+
+        if (forceD != -1) {
+            data = forceD;
+            forceData = 1;
+        }
+
+        String replacedBlockData = null;
+        if (blockReplaced != null) {
+            replacedBlockData = blockReplaced.getBlockData().getAsString();
+        }
+
+        queueStandardData(new Object[] { null, Process.BONE_MEAL_PLACE, type, data, replaceType, replaceData, forceData, blockData, replacedBlockData }, new String[] { user, null }, blockLocation, false, Consumer.reserveConsumer());
+    }
+
     protected static void queueBlockPlaceDelayed(final String user, final Location placed, final Material type, final String blockData, final BlockState replaced, int ticks) {
         Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
             try {

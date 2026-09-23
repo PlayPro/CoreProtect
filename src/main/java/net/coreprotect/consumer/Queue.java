@@ -343,11 +343,43 @@ public class Queue {
         queueEntityContainerTransaction(user, new EntityContainerTransaction(entityUuid, currentLocation, oldContents, newContents));
     }
 
-    public static void queueEntityContainerTransaction(String user, EntityContainerTransaction transaction) {
-        if (user == null || user.isEmpty() || transaction == null) {
+    public static void queueEntityContainerTransaction(String user, Entity entity, ItemStack[] oldContents, ItemStack[] newContents) {
+        if (entity == null) {
             return;
         }
-        queueStandardData(new Object[] { null, Process.ENTITY_CONTAINER_TRANSACTION, null, 0, null, 0, 0, null }, new String[] { user, null }, transaction, false, Consumer.reserveConsumer());
+        Location currentLocation = entity.getLocation();
+        EntityInteractionOrigin origin = null;
+        boolean promotion = false;
+        if (!EntitySpawnTracking.isTracked(entity)) {
+            origin = EntitySpawnTracking.getOrCreateInteractionOrigin(entity);
+            if (origin == null || currentLocation.getWorld() == null) {
+                return;
+            }
+            promotion = EntitySpawnTracking.beginDatabaseIdentityPromotion(entity);
+            if (!promotion) {
+                return;
+            }
+        }
+        EntityContainerTransaction transaction = new EntityContainerTransaction(entity.getUniqueId(), origin, currentLocation, oldContents, newContents).withIdentityPromotion(promotion);
+        queueEntityContainerTransaction(user, transaction);
+    }
+
+    public static void queueEntityContainerTransaction(String user, EntityContainerTransaction transaction) {
+        if (user == null || user.isEmpty() || transaction == null) {
+            if (transaction != null && transaction.hasIdentityPromotion()) {
+                EntitySpawnTracking.cancelDatabaseIdentityPromotion(transaction.getEntityUuid(), transaction.getCurrentLocation());
+            }
+            return;
+        }
+        boolean queued = false;
+        try {
+            queued = queueStandardData(new Object[] { null, Process.ENTITY_CONTAINER_TRANSACTION, null, 0, null, 0, 0, null }, new String[] { user, null }, transaction, false, Consumer.reserveConsumer());
+        }
+        finally {
+            if (!queued && transaction.hasIdentityPromotion()) {
+                EntitySpawnTracking.cancelDatabaseIdentityPromotion(transaction.getEntityUuid(), transaction.getCurrentLocation());
+            }
+        }
     }
 
     public static void queueEntityInteraction(String user, Entity entity, EntityInteractionAction action) {

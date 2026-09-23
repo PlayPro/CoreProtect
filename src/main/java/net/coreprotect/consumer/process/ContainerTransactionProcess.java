@@ -15,6 +15,8 @@ import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.logger.ContainerLogger;
+import net.coreprotect.database.statement.EntityInteractionStatement;
+import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.model.entity.EntityContainerTransaction;
 import net.coreprotect.model.entity.EntitySpawnIdentity;
 import net.coreprotect.utility.ErrorReporter;
@@ -22,23 +24,53 @@ import net.coreprotect.utility.HopperTransactionUtils;
 
 class ContainerTransactionProcess {
 
-    static boolean processEntity(ConsumerWriteBatch preparedStmtContainer, int batchCount, String user, Object object, EntitySpawnIdentity identity) throws Exception {
-        if (!(object instanceof EntityContainerTransaction) || identity == null) {
-            return false;
+    static EntityProcessResult processEntity(ConsumerWriteBatch preparedStmtContainer, int batchCount, String user, Object object, EntitySpawnIdentity identity) throws Exception {
+        if (!(object instanceof EntityContainerTransaction)) {
+            return null;
         }
 
-        if (ConfigHandler.databaseType.isColumnar()) {
-            preparedStmtContainer.executeAtomically("entity_container_transaction", () -> ContainerLogger.logEntity(preparedStmtContainer, batchCount, user, identity, (EntityContainerTransaction) object));
+        EntityContainerTransaction transaction = (EntityContainerTransaction) object;
+        if (identity == null && (!transaction.hasIdentityPromotion() || transaction.getOrigin() == null)) {
+            return null;
+        }
+
+        EntitySpawnIdentity[] resolvedIdentity = { identity };
+        boolean[] identityActive = { identity != null };
+        boolean createdIdentity = identity == null;
+        if (transaction.hasIdentityPromotion()) {
+            preparedStmtContainer.executeAtomically("entity_container_transaction", () -> {
+                if (resolvedIdentity[0] == null) {
+                    resolvedIdentity[0] = EntitySpawnStatement.insertIdentity(preparedStmtContainer, transaction.getTime(), transaction.getEntityUuid(), transaction.getOrigin(), transaction.getCurrentLocation());
+                }
+                identityActive[0] = EntityInteractionStatement.checkpoint(preparedStmtContainer, resolvedIdentity[0], transaction.getCurrentLocation());
+                ContainerLogger.logEntity(preparedStmtContainer, batchCount, user, resolvedIdentity[0], transaction);
+            });
+        }
+        else if (ConfigHandler.databaseType.isColumnar()) {
+            preparedStmtContainer.executeAtomically("entity_container_transaction", () -> ContainerLogger.logEntity(preparedStmtContainer, batchCount, user, resolvedIdentity[0], transaction));
         }
         else {
             try {
-                ContainerLogger.logEntity(preparedStmtContainer, batchCount, user, identity, (EntityContainerTransaction) object);
+                ContainerLogger.logEntity(preparedStmtContainer, batchCount, user, resolvedIdentity[0], transaction);
             }
             catch (Exception e) {
                 ErrorReporter.report(e);
             }
         }
-        return true;
+        return new EntityProcessResult(resolvedIdentity[0], identityActive[0], createdIdentity);
+    }
+
+    static final class EntityProcessResult {
+
+        final EntitySpawnIdentity identity;
+        final boolean identityActive;
+        final boolean createdIdentity;
+
+        private EntityProcessResult(EntitySpawnIdentity identity, boolean identityActive, boolean createdIdentity) {
+            this.identity = identity;
+            this.identityActive = identityActive;
+            this.createdIdentity = createdIdentity;
+        }
     }
 
     static void process(ConsumerWriteBatch preparedStmtContainer, ConsumerWriteBatch preparedStmtItems, int batchCount, int processId, int id, Material type, int forceData, String user, Object object) {

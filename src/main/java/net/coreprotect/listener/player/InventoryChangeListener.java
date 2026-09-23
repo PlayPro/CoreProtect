@@ -16,6 +16,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.DoubleChest;
 import org.bukkit.block.Hopper;
+import org.bukkit.entity.ChestedHorse;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
@@ -25,8 +26,10 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
+import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.inventory.InventoryPickupItemEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.BlockInventoryHolder;
@@ -54,6 +57,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
 
     private static ConcurrentHashMap<String, Boolean> inventoryProcessing = new ConcurrentHashMap<>();
     private static final Map<UUID, PendingEntityContainerTransaction> pendingEntityTransactions = new HashMap<>();
+    private static final Map<UUID, OpenHorseContainer> openHorseContainers = new ConcurrentHashMap<>();
 
     public static boolean inventoryTransaction(String user, Location location, ItemStack[] inventoryData) {
         if (location != null) {
@@ -273,8 +277,11 @@ public final class InventoryChangeListener extends Queue implements Listener {
             return;
         }
 
-        Entity entityContainer = getTrackedEntityContainer(PaperAdapter.ADAPTER.getHolder(inventory, false));
+        Entity entityContainer = getEntityContainer(PaperAdapter.ADAPTER.getHolder(inventory, false));
         if (entityContainer != null) {
+            if (entityContainer instanceof ChestedHorse) {
+                return;
+            }
             captureEntityContainerTransaction(player.getName(), entityContainer, inventory);
             return;
         }
@@ -455,7 +462,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
     }
 
     private static void queueEntityContainerDelta(String user, Entity entity, ItemStack[] oldContents, ItemStack[] newContents) {
-        if (!EntitySpawnTracking.isTracked(entity)) {
+        if (!isEntityContainer(entity)) {
             return;
         }
         if (oldContents == null || newContents == null || ItemUtils.compareContainers(oldContents, newContents)) {
@@ -463,20 +470,75 @@ public final class InventoryChangeListener extends Queue implements Listener {
         }
         Location currentLocation = entity.getLocation();
         EntitySpawnTracking.checkpoint(entity, currentLocation);
-        Queue.queueEntityContainerTransaction(user, entity.getUniqueId(), currentLocation, oldContents, newContents);
+        Queue.queueEntityContainerTransaction(user, entity, oldContents, newContents);
     }
 
-    private static Entity getTrackedEntityContainer(InventoryHolder holder) {
+    private static Entity getEntityContainer(InventoryHolder holder) {
         if (!(holder instanceof Entity)) {
             return null;
         }
 
         Entity entity = (Entity) holder;
-        return EntitySpawnTracking.isPlacedEntity(entity) && EntitySpawnTracking.isTracked(entity) ? entity : null;
+        return isEntityContainer(entity) ? entity : null;
+    }
+
+    public static boolean isEntityContainer(Entity entity) {
+        if (!(entity instanceof InventoryHolder)) {
+            return false;
+        }
+        if (EntitySpawnTracking.isPlacedEntity(entity)) {
+            return EntitySpawnTracking.isTracked(entity);
+        }
+        return entity instanceof ChestedHorse && ((ChestedHorse) entity).isCarryingChest();
     }
 
     private static boolean isSupportedContainer(InventoryHolder holder) {
-        return holder instanceof BlockInventoryHolder || holder instanceof DoubleChest || getTrackedEntityContainer(holder) != null;
+        return holder instanceof BlockInventoryHolder || holder instanceof DoubleChest || getEntityContainer(holder) != null;
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    protected void onInventoryOpen(InventoryOpenEvent event) {
+        if (!(event.getPlayer() instanceof Player)) {
+            return;
+        }
+        Inventory inventory = event.getInventory();
+        InventoryHolder holder = PaperAdapter.ADAPTER.getHolder(inventory, false);
+        if (!(holder instanceof ChestedHorse)) {
+            return;
+        }
+        ChestedHorse horse = (ChestedHorse) holder;
+        if (!horse.isCarryingChest() || !Config.getConfig(horse.getWorld()).ITEM_TRANSACTIONS) {
+            return;
+        }
+        Player player = (Player) event.getPlayer();
+        openHorseContainers.put(player.getUniqueId(), new OpenHorseContainer(player.getName(), horse, inventory.getContents()));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    protected void onInventoryClose(InventoryCloseEvent event) {
+        OpenHorseContainer opened = openHorseContainers.remove(event.getPlayer().getUniqueId());
+        if (opened != null) {
+            opened.log(event.getInventory().getContents());
+        }
+    }
+
+    private static final class OpenHorseContainer {
+
+        private final String user;
+        private final ChestedHorse horse;
+        private final ItemStack[] contents;
+
+        private OpenHorseContainer(String user, ChestedHorse horse, ItemStack[] contents) {
+            this.user = user;
+            this.horse = horse;
+            this.contents = ItemUtils.getContainerState(contents);
+        }
+
+        private void log(ItemStack[] currentContents) {
+            if (horse.isValid()) {
+                queueEntityContainerDelta(user, horse, contents, currentContents);
+            }
+        }
     }
 
     private static final class PendingEntityContainerTransaction {
@@ -737,8 +799,8 @@ public final class InventoryChangeListener extends Queue implements Listener {
             return;
         }
 
-        Entity sourceEntity = getTrackedEntityContainer(sourceHolder);
-        Entity destinationEntity = getTrackedEntityContainer(destinationHolder);
+        Entity sourceEntity = getEntityContainer(sourceHolder);
+        Entity destinationEntity = getEntityContainer(destinationHolder);
         if (sourceEntity != null || destinationEntity != null) {
             processEntityInventoryMove(location, sourceHolder, destinationHolder, sourceEntity, destinationEntity, event.getItem(), hopperTransactions);
             return;
@@ -856,7 +918,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
         }
 
         InventoryHolder holder = PaperAdapter.ADAPTER.getHolder(inventory, false);
-        Entity entityContainer = getTrackedEntityContainer(holder);
+        Entity entityContainer = getEntityContainer(holder);
         if (!(holder instanceof Hopper) && (entityContainer == null || !Validate.isHopper(holder))) {
             return;
         }

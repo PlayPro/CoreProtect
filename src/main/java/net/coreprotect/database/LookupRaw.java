@@ -1584,7 +1584,9 @@ public class LookupRaw extends Queue {
         String alias = "signFilterRows";
         String likeOperator = ConfigHandler.databaseType.isColumnar() ? " ILIKE " : " LIKE ";
         String escapeClause = ConfigHandler.databaseType.isClickHouse() ? "" : " ESCAPE '~'";
-        StringBuilder query = new StringBuilder(baseQuery).append(" AND rowid IN (");
+        // MySQL runs an IN (UNION ...) subquery once per outer row. A derived table is materialized once through the prefix indexes.
+        boolean mysql = ConfigHandler.databaseType.isMySQL();
+        StringBuilder query = new StringBuilder(baseQuery).append(mysql ? " AND rowid IN (SELECT rowid FROM (" : " AND rowid IN (");
         boolean union = false;
         for (String filter : messageFilters) {
             String prefix = escapeLike(firstCodePoints(filter, 16)) + "%";
@@ -1606,7 +1608,7 @@ public class LookupRaw extends Queue {
                 union = true;
             }
         }
-        return query.append(")").toString();
+        return query.append(mysql ? ") signFilterMatches)" : ")").toString();
     }
 
     private static String appendMessageExclusions(String baseQuery, List<String> excluded, boolean sign, List<String> bindings) {

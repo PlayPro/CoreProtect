@@ -272,7 +272,7 @@ public class ConfigHandler extends Queue {
     public static Map<String, Integer[]> lookupRadius = syncMap();
     public static Map<String, String> lookupTime = syncMap();
     public static Map<String, Long[]> lookupRows = syncMap();
-    public static Map<String, LookupCursor> lookupDuckDBCursor = syncMap();
+    public static Map<String, LookupCursor> lookupCursor = syncMap();
     public static Map<String, String> uuidCache = syncMap();
     public static Map<String, String> uuidCacheReversed = syncMap();
     public static Map<String, Integer> playerIdCache = syncMap();

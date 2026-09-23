@@ -127,13 +127,15 @@ public final class EntityDamageByEntityListener extends Queue implements Listene
                         if (Config.getConfig(entityLocation.getWorld()).ITEM_TRANSACTIONS) {
                             String killer = user;
                             ItemStack[] contents = ItemUtils.getContainerContents(Material.ARMOR_STAND, entity, block.getLocation());
-                            Scheduler.runTask(CoreProtect.getInstance(), () -> {
+                            Runnable logBreak = () -> {
                                 if (entity != null && entity.isDead()) {
                                     entityLocation.setY(entityLocation.getY() + 0.99);
                                     Database.containerBreakCheck(killer, Material.ARMOR_STAND, entity, contents, block.getLocation());
                                     Queue.queueBlockBreak(killer, block.getState(), Material.ARMOR_STAND, null, (int) entityLocation.getYaw());
                                 }
-                            }, entity);
+                            };
+                            // Folia retires the task instead of running it once the stand is removed, so log from either callback
+                            Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), logBreak, logBreak, entity, 0);
                         }
                     }
                 }

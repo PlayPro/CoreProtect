@@ -1088,7 +1088,7 @@ public final class EntitySpawnRollbackHandler {
                     current.setAmount(current.getAmount() - removed);
                 }
             }
-            return remaining == 0;
+            return true;
         }
 
         int maxStackSize = itemStack.getMaxStackSize();
@@ -1120,7 +1120,7 @@ public final class EntitySpawnRollbackHandler {
             contents[index] = addedItem;
             remaining -= added;
         }
-        return remaining == 0;
+        return true;
     }
 
     private static void scheduleTransactionStart(Context context, Work work, Entity entity, CompletableFuture<Boolean> completion) {

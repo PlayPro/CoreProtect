@@ -913,10 +913,13 @@ public class ConfigHandler extends Queue {
 
     public static boolean performInitialization(boolean startup) {
         try {
-            BukkitAdapter.loadAdapter();
-            SpigotAdapter.loadAdapter();
-            PaperAdapter.loadAdapter();
-            BlockGroup.initialize();
+            // The adapters and block groups depend only on the server version, and listeners read them without a lock, so reload leaves them alone
+            if (startup) {
+                BukkitAdapter.loadAdapter();
+                SpigotAdapter.loadAdapter();
+                PaperAdapter.loadAdapter();
+                BlockGroup.initialize();
+            }
 
             ConfigHandler.loadConfig(); // Load (or create) the configuration file.
             ConfigHandler.loadDatabase(); // Initialize MySQL and create tables if necessary.

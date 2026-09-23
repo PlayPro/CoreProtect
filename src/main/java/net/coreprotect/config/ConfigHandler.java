@@ -55,7 +55,7 @@ public class ConfigHandler extends Queue {
     public static final String COMMUNITY_EDITION = "Community Edition";
     public static final String JAVA_VERSION = "11.0";
     public static final String MINECRAFT_VERSION = "1.16.5";
-    public static final String PATCH_VERSION = "24.0";
+    public static final String PATCH_VERSION = "24.1";
     public static final String LATEST_VERSION = "26.2";
     public static String path = "plugins/CoreProtect/";
     public static String sqlite = "database.db";

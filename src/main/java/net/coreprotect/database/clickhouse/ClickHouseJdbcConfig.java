@@ -85,6 +85,12 @@ public final class ClickHouseJdbcConfig {
         return config;
     }
 
+    ClickHouseJdbcConfig forPatches() {
+        ClickHouseJdbcConfig config = new ClickHouseJdbcConfig(host, port, database, username, password, tls);
+        config.properties.setProperty("socket_timeout", "0");
+        return config;
+    }
+
     public Properties getProperties() {
         Properties copy = new Properties();
         copy.putAll(properties);

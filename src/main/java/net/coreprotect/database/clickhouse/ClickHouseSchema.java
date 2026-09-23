@@ -27,11 +27,13 @@ public final class ClickHouseSchema {
             + "),toYYYYMM(toDateTime(time,'UTC')),0))";
     private static final String EVENT_SORTING_KEY = "(family,wid,x,z,if(family IN ('database_lock','user','version'),0,time),rowid,if(family='"
             + BATCH_RECEIPT_FAMILY + "',toString(batch_id),''))";
+    private static final String[] ENTITY_SPAWN_INDEX = { "entity_spawn_rowid_idx", "entity_spawn_rowid", "bloom_filter(0.01)", "1" };
     private static final String[][] EVENT_DATA_SKIPPING_INDEX_DEFINITIONS = {
             { "batch_sequence_idx", "batch_sequence", "minmax", "1" },
             { "rowid_idx", "rowid", "bloom_filter(0.01)", "1" },
             { "entity_uuid_idx", "uuid", "bloom_filter(0.01)", "1" },
-            { "entity_kill_rowid_idx", "kill_rowid", "bloom_filter(0.01)", "1" }
+            { "entity_kill_rowid_idx", "kill_rowid", "bloom_filter(0.01)", "1" },
+            ENTITY_SPAWN_INDEX
     };
     private static final String[][] STORAGE_METADATA_COLUMN_DEFINITIONS = {
             { "dataset_id", "UUID" + VALUE_CODEC },
@@ -283,6 +285,9 @@ public final class ClickHouseSchema {
                 statement.setString(3, expectedIndex[0]);
                 try (ResultSet resultSet = statement.executeQuery()) {
                     if (!resultSet.next()) {
+                        if (ENTITY_SPAWN_INDEX[0].equals(expectedIndex[0])) {
+                            continue;
+                        }
                         throw new SQLException("ClickHouse table is missing required data-skipping index " + expectedIndex[0] + ": " + table);
                     }
                     boolean matches = normalizeSql(expectedIndex[2]).equals(normalizeSql(resultSet.getString(1)))

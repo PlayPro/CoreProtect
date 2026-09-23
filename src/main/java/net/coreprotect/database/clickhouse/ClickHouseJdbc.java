@@ -40,6 +40,11 @@ public final class ClickHouseJdbc implements AutoCloseable {
         return dataSource.getConnection();
     }
 
+    public static Connection openPatchConnection(ClickHouseJdbcConfig config) throws SQLException {
+        ClickHouseJdbcConfig patch = config.forPatches();
+        return new DataSourceImpl(patch.getJdbcUrl(), patch.getProperties()).getConnection();
+    }
+
     Connection openAuxiliaryConnection() throws SQLException {
         return auxiliaryDataSource.getConnection();
     }

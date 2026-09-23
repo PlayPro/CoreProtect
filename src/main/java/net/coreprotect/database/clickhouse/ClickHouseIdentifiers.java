@@ -2,7 +2,7 @@ package net.coreprotect.database.clickhouse;
 
 import java.util.regex.Pattern;
 
-final class ClickHouseIdentifiers {
+public final class ClickHouseIdentifiers {
 
     private static final Pattern IDENTIFIER = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
 
@@ -21,7 +21,7 @@ final class ClickHouseIdentifiers {
         return "`" + requireIdentifier(value, name) + "`";
     }
 
-    static String qualified(String database, String table) {
+    public static String qualified(String database, String table) {
         return quote(database, "ClickHouse database") + "." + quote(table, "ClickHouse table");
     }
 }

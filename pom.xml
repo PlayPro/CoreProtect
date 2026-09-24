@@ -219,7 +219,7 @@
     <dependency>
       <groupId>io.papermc.paper</groupId>
       <artifactId>paper-api</artifactId>
-      <version>26.2.build.48-alpha</version> <!-- https://repo.papermc.io/repository/maven-public/ -->
+      <version>26.3.build.38-alpha</version> <!-- https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api/ -->
       <scope>provided</scope>
     </dependency>
     <dependency>

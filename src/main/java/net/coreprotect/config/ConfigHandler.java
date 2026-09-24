@@ -524,7 +524,7 @@ public class ConfigHandler extends Queue {
 
                 Class.forName(ConfigHandler.databaseType.isDuckDB() ? "org.duckdb.DuckDBDriver" : "org.sqlite.JDBC");
             } catch (Exception e) {
-                ErrorReporter.report(e);
+                throw new IllegalStateException("Failed to initialize " + ConfigHandler.databaseType.getDisplayName(), e);
             }
         } else {
             HikariConfig config = new HikariConfig();

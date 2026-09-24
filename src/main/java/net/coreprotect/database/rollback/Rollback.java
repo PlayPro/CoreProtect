@@ -106,7 +106,7 @@ public class Rollback extends RollbackUtil {
             }
 
             if (lookupList == null) {
-                sendAborted(user);
+                sendAborted(user, "Unable to load rollback records from the database.");
                 return null;
             }
 
@@ -188,7 +188,7 @@ public class Rollback extends RollbackUtil {
                 }
                 itemList = Lookup.performLookupRaw(statement, user, checkUuids, checkUsers, itemRestrictList, itemExcludeList, excludeUserList, itemActionList, EntityActionFilter.DEFAULT, entityContext, location, radius, null, startTime, endTime, -1, -1, restrictWorld, lookup, null);
                 if (itemList == null) {
-                    sendAborted(user);
+                    sendAborted(user, "Unable to load container rollback records from the database.");
                     return null;
                 }
 
@@ -323,6 +323,7 @@ public class Rollback extends RollbackUtil {
             // Perform update transaction(s) in consumer
             if (preview == 0) {
                 if (Consumer.isPersistenceHalted()) {
+                    entitySpawnContext.reportFailure("Database persistence halted before rollback updates could be queued.", null);
                     entitySpawnContext.cancel();
                     sendAborted(user);
                     return null;
@@ -468,6 +469,11 @@ public class Rollback extends RollbackUtil {
         }
     }
 
+    protected static void sendAborted(CommandSender user, String reason) {
+        Chat.console("Rollback/restore for " + (user == null ? "#server" : user.getName()) + " aborted: " + reason);
+        sendAborted(user);
+    }
+
     private static List<Object[]> routeEntityContainerInventoryRows(List<Object[]> rows, Map<Integer, EntitySpawnRecord> records, Location commandLocation) {
         World fallbackWorld = commandLocation == null ? null : commandLocation.getWorld();
         List<World> loadedWorlds = Bukkit.getWorlds();
@@ -542,7 +548,7 @@ public class Rollback extends RollbackUtil {
             }
 
             CompletableFuture<Boolean> batchFuture = scheduleFoliaChunkBatchTask(batchState, rollbackType, preview, userString, user, inventoryRollback, verbose, actionList, blockDataCache, entitySpawnContext);
-            if (!awaitChunkTasks(Collections.singletonList(batchFuture), preview) || !awaitChunkTasks(entitySpawnContext.drainPending(), preview)) {
+            if (!awaitChunkTasks(Collections.singletonList(batchFuture), preview, entitySpawnContext) || !awaitChunkTasks(entitySpawnContext.drainPending(), preview, entitySpawnContext)) {
                 Chat.console(Phrase.build(Phrase.ROLLBACK_ABORTED));
                 entitySpawnContext.cancel();
                 break;
@@ -650,7 +656,7 @@ public class Rollback extends RollbackUtil {
 
         CompletableFuture<Boolean> completion = new CompletableFuture<>();
         scheduleChunkBatchTask(batchState, worldMap, dataList, itemDataList, rollbackType, preview, userString, user, inventoryRollback, verbose, actionList, blockDataCache, entitySpawnContext, completion, 0);
-        if (!awaitRollbackCompletion(completion, batchState, preview) || !awaitChunkTasks(entitySpawnContext.drainPending(), preview)) {
+        if (!awaitRollbackCompletion(completion, batchState, preview, entitySpawnContext) || !awaitChunkTasks(entitySpawnContext.drainPending(), preview, entitySpawnContext)) {
             Chat.console(Phrase.build(Phrase.ROLLBACK_ABORTED));
             entitySpawnContext.cancel();
         }
@@ -709,7 +715,7 @@ public class Rollback extends RollbackUtil {
         }, delay);
     }
 
-    private static boolean awaitRollbackCompletion(CompletableFuture<Boolean> completion, RollbackBatchState batchState, int preview) throws InterruptedException {
+    private static boolean awaitRollbackCompletion(CompletableFuture<Boolean> completion, RollbackBatchState batchState, int preview, EntitySpawnRollbackHandler.Context context) throws InterruptedException {
         int delay = preview == 1 ? 1 : 5;
         int lastChunkCount = -1;
         long stalledTime = 0;
@@ -723,6 +729,7 @@ public class Rollback extends RollbackUtil {
 
             stalledTime += delay;
             if (stalledTime > 300000) {
+                context.reportFailure("Rollback chunk processing made no progress for 300 seconds (chunk " + chunkCount + " of " + batchState.totalChunks() + ").", null);
                 completion.complete(false);
                 return false;
             }
@@ -733,6 +740,8 @@ public class Rollback extends RollbackUtil {
             return Boolean.TRUE.equals(completion.getNow(Boolean.FALSE));
         }
         catch (Exception e) {
+            context.reportFailure("A scheduled rollback chunk task completed exceptionally.", null);
+            ErrorReporter.report(e);
             return false;
         }
     }
@@ -879,6 +888,7 @@ public class Rollback extends RollbackUtil {
 
     private static boolean processChunkWorld(int chunkX, int chunkZ, long chunkKey, int worldId, HashMap<Long, ArrayList<Object[]>> blockList, HashMap<Long, ArrayList<Object[]>> itemList, int rollbackType, int preview, String userString, CommandSender user, World world, boolean inventoryRollback, RollbackBlockDataCache blockDataCache, EntitySpawnRollbackHandler.Context entitySpawnContext) {
         if (preview == 0 && Consumer.isPersistenceHalted()) {
+            entitySpawnContext.reportFailure("Database persistence halted during rollback chunk processing.", null);
             return false;
         }
         ArrayList<Object[]> blockData = blockList != null ? blockList.getOrDefault(chunkKey, new ArrayList<>()) : new ArrayList<>();
@@ -968,7 +978,7 @@ public class Rollback extends RollbackUtil {
         }
     }
 
-    private static boolean awaitChunkTasks(List<CompletableFuture<Boolean>> futures, int preview) throws InterruptedException {
+    private static boolean awaitChunkTasks(List<CompletableFuture<Boolean>> futures, int preview, EntitySpawnRollbackHandler.Context context) throws InterruptedException {
         if (futures.isEmpty()) {
             return true;
         }
@@ -990,6 +1000,7 @@ public class Rollback extends RollbackUtil {
             int delay = preview == 1 ? 1 : 5;
             sleepTime += delay;
             if (sleepTime > 300000) {
+                context.reportFailure("Timed out after 300 seconds waiting for scheduled rollback tasks.", null);
                 return false;
             }
             Thread.sleep(delay);
@@ -1001,6 +1012,8 @@ public class Rollback extends RollbackUtil {
                 result = future.getNow(Boolean.FALSE);
             }
             catch (Exception e) {
+                context.reportFailure("A scheduled rollback task completed exceptionally.", null);
+                ErrorReporter.report(e);
                 return false;
             }
 

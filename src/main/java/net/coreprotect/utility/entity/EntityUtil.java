@@ -110,7 +110,7 @@ public class EntityUtil {
             return completion;
         }
         if (!legacyTransition) {
-            completion.completeOnTimeout(null, ENTITY_RESTORE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            completion.orTimeout(ENTITY_RESTORE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         }
 
         Location restoreLocation = EntitySpawnTracking.isPlacedEntityType(type) ? EntitySpawnTracking.getKillRestoreLocation(blockLocation.getWorld(), list) : null;

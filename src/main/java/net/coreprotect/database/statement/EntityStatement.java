@@ -68,7 +68,7 @@ public class EntityStatement {
             return serializeDataStrict(data, kind, databaseType);
         }
         catch (Exception e) {
-            ErrorReporter.report(e, ConfigHandler.EDITION_BRANCH.contains("-dev"));
+            ErrorReporter.report(e);
             return null;
         }
     }
@@ -142,8 +142,8 @@ public class EntityStatement {
 
             resultSet.close();
         }
-        catch (Exception e) { // only print exception on development branch
-            ErrorReporter.report(e, ConfigHandler.EDITION_BRANCH.contains("-dev"));
+        catch (Exception e) {
+            ErrorReporter.report(e);
         }
 
         return result;
@@ -195,7 +195,7 @@ public class EntityStatement {
             return deserializeDataStrict(data, kind);
         }
         catch (Exception e) {
-            ErrorReporter.report(e, ConfigHandler.EDITION_BRANCH.contains("-dev"));
+            ErrorReporter.report(e);
             return result;
         }
     }

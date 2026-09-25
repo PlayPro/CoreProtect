@@ -508,7 +508,9 @@ public class ConfigHandler extends Queue {
                         DuckDBNativeSupport.verifyAvailable();
                     } catch (Throwable failure) {
                         if (!DuckDBNativeSupport.isNativeUnavailable(failure)) {
-                            throw new IllegalStateException("Unable to verify DuckDB on this system", failure);
+                            throw new IllegalStateException("Unable to verify DuckDB on this system. For native-library extraction or loading errors, check free space and permissions in the JVM temporary directory. "
+                                    + "To select another directory, add -Djava.io.tmpdir=/absolute/path/to/cache before -jar and fully restart the server. "
+                                    + "The directory must already exist, have sufficient space, and permit writing and native-library loading.", failure);
                         }
                         DatabaseConfigWriter.persistDatabaseType(DatabaseType.SQLITE);
                         ConfigHandler.databaseType = DatabaseType.SQLITE;

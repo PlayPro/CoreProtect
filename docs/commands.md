@@ -95,7 +95,7 @@ Purge old block data. Useful for freeing up space on your HDD if you don't need 
 
 | Command | Parameters |
 | --- | --- |
-| /co purge | `t:<time> r:<world> i:<include>` |
+| /co purge | `t:<time> r:<world> i:<include> e:<exclude> a:kill` |
 
 For example, `/co purge t:30d` will delete all data older than one month, and only keep the last 30 days of data.
 
@@ -109,6 +109,16 @@ For example, `/co purge t:30d r:#world_nether` will delete all data older than o
 **Purging Blocks**  
 You can optionally specify block types in CoreProtect v23+.  
 For example, `/co purge t:30d i:stone,dirt` will delete all stone and dirt data older than one month, without removing other block data.
+
+**Purging Entity Kills**  
+Entity kill logs can be purged separately from other data on SQLite, MySQL, and DuckDB. Each kill also removes the saved entity data used to restore the mob on rollback.
+
+* `/co purge t:30d a:kill` deletes all entity kills older than one month, and keeps all other data.
+* `/co purge t:30d i:zombie,skeleton` deletes zombie and skeleton kills older than one month. Entity and block types can be combined in `i:`.
+* `/co purge t:30d e:villager,wolf` deletes all data older than one month, but keeps villager and wolf kills.
+* `/co purge t:30d a:kill e:villager r:#world` deletes entity kills older than one month in the overworld, except villager kills.
+
+`e:` only accepts entity types. It cannot be combined with entity types in `i:`, or with only block types in `i:`, because a block restriction already keeps every kill. `a:kill` cannot be combined with block types in `i:`.
 
 **Database Optimization**
 

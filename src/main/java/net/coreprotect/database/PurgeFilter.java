@@ -21,6 +21,9 @@ public final class PurgeFilter {
     private final long timeEnd;
     private final int worldId;
     private final List<Integer> blockTypes;
+    private final List<Integer> entityTypes;
+    private final List<Integer> excludedEntityTypes;
+    private final boolean killsOnly;
 
     /**
      * @param timeStart
@@ -31,26 +34,35 @@ public final class PurgeFilter {
      *            the world to purge, or 0 for every world
      * @param blockTypes
      *            material ids (i:) that restrict the purge to those co_block rows, or an empty list
+     * @param entityTypes
+     *            entity type ids (i:) that restrict the purge to kills of those types, or an empty list
+     * @param excludedEntityTypes
+     *            entity type ids (e:) whose kills the purge keeps, or an empty list
+     * @param killsOnly
+     *            true (a:kill) to restrict the purge to kill rows
      */
-    public PurgeFilter(long timeStart, long timeEnd, int worldId, List<Integer> blockTypes) {
+    public PurgeFilter(long timeStart, long timeEnd, int worldId, List<Integer> blockTypes, List<Integer> entityTypes, List<Integer> excludedEntityTypes, boolean killsOnly) {
         this.timeStart = timeStart;
         this.timeEnd = timeEnd;
         this.worldId = worldId;
         this.blockTypes = List.copyOf(blockTypes);
+        this.entityTypes = List.copyOf(entityTypes);
+        this.excludedEntityTypes = List.copyOf(excludedEntityTypes);
+        this.killsOnly = killsOnly;
     }
 
     /**
      * Returns whether the purge is limited to selected co_block rows, which leaves the other tables untouched.
      */
     private boolean restrictsTables() {
-        return !blockTypes.isEmpty();
+        return !blockTypes.isEmpty() || !entityTypes.isEmpty() || killsOnly;
     }
 
     /**
-     * Returns whether the purge removes co_block kill rows. A restriction to materials keeps every kill row.
+     * Returns whether the purge removes co_block kill rows. A restriction to materials alone keeps every kill row.
      */
     public boolean removesKills() {
-        return blockTypes.isEmpty();
+        return blockTypes.isEmpty() || !entityTypes.isEmpty() || killsOnly;
     }
 
     /**
@@ -58,7 +70,7 @@ public final class PurgeFilter {
      * is purged, because a co_entity row always has the same time as its kill row.
      */
     public boolean purgesEntitiesByTime() {
-        return worldId <= 0 && !restrictsTables();
+        return worldId <= 0 && !restrictsTables() && excludedEntityTypes.isEmpty();
     }
 
     /**
@@ -105,9 +117,22 @@ public final class PurgeFilter {
             condition.append(" AND ").append(qualifier).append("wid = ").append(worldId);
         }
 
+        List<String> restrictions = new ArrayList<>();
         if (!blockTypes.isEmpty()) {
-            condition.append(" AND ").append(qualifier).append("action NOT IN(").append(LookupActions.ENTITY_KILL).append(",").append(LookupActions.ENTITY_SPAWN).append(")");
-            condition.append(" AND ").append(qualifier).append("type IN(").append(joinIds(blockTypes)).append(")");
+            restrictions.add("(" + qualifier + "action NOT IN(" + LookupActions.ENTITY_KILL + "," + LookupActions.ENTITY_SPAWN + ") AND " + qualifier + "type IN(" + joinIds(blockTypes) + "))");
+        }
+        if (!entityTypes.isEmpty()) {
+            restrictions.add("(" + qualifier + "action = " + LookupActions.ENTITY_KILL + " AND " + qualifier + "type IN(" + joinIds(entityTypes) + "))");
+        }
+        else if (killsOnly) {
+            restrictions.add(qualifier + "action = " + LookupActions.ENTITY_KILL);
+        }
+        if (!restrictions.isEmpty()) {
+            condition.append(" AND (").append(String.join(" OR ", restrictions)).append(")");
+        }
+
+        if (!excludedEntityTypes.isEmpty()) {
+            condition.append(" AND NOT (").append(qualifier).append("action = ").append(LookupActions.ENTITY_KILL).append(" AND ").append(qualifier).append("type IN(").append(joinIds(excludedEntityTypes)).append("))");
         }
         return condition.toString();
     }

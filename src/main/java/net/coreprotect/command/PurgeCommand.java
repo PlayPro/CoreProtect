@@ -13,6 +13,7 @@ import java.sql.Statement;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -32,6 +33,7 @@ import net.coreprotect.database.PurgeFilter;
 import net.coreprotect.database.PurgePolicy;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
+import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.patch.Patch;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.ChatMessage;
@@ -105,7 +107,7 @@ public class PurgeCommand extends Consumer {
         ErrorReporter.report(exception);
     }
 
-    private static String findUnsupportedPurgeArgument(String[] args) {
+    static String findUnsupportedPurgeArgument(String[] args) {
         boolean includeContinuation = false;
         for (int i = 1; i < args.length; i++) {
             String token = args[i].trim();
@@ -129,6 +131,20 @@ public class PurgeCommand extends Consumer {
             if (argument.startsWith("i:") || argument.startsWith("include:") || argument.startsWith("item:") || argument.startsWith("items:") || argument.startsWith("b:") || argument.startsWith("block:") || argument.startsWith("blocks:")) {
                 String includeValues = argument.replaceAll("include:", "").replaceAll("i:", "").replaceAll("items:", "").replaceAll("item:", "").replaceAll("blocks:", "").replaceAll("block:", "").replaceAll("b:", "");
                 includeContinuation = includeValues.length() == 0 || includeValues.endsWith(",");
+                continue;
+            }
+
+            if (argument.startsWith("e:") || argument.startsWith("exclude:")) {
+                String excludeValues = argument.replaceAll("exclude:", "").replaceAll("e:", "");
+                includeContinuation = excludeValues.length() == 0 || excludeValues.endsWith(",");
+                continue;
+            }
+
+            if (argument.startsWith("a:") || argument.startsWith("action:")) {
+                // Only kills can be purged by action; any other value must not fall through to an unrestricted purge.
+                if (!CommandParser.parseAction(new String[] { "purge", argument }).equals(Collections.singletonList(LookupActions.ENTITY_KILL))) {
+                    return token;
+                }
                 continue;
             }
 
@@ -158,7 +174,7 @@ public class PurgeCommand extends Consumer {
         final List<String> argExcludeUsers = CommandParser.parseExcludedUsers(player, args);
         final long[] argTime = CommandParser.parseTime(args);
         final int argWid = CommandParser.parseWorld(args, false, false);
-        final List<Integer> supportedActions = Arrays.asList();
+        final List<Integer> supportedActions = Arrays.asList(LookupActions.ENTITY_KILL);
         long startTime = argTime[1] > 0 ? argTime[0] : 0;
         long endTime = argTime[1] > 0 ? argTime[1] : argTime[0];
 
@@ -219,15 +235,13 @@ public class PurgeCommand extends Consumer {
 
         StringBuilder restrict = new StringBuilder();
         List<Integer> includeBlockIds = new ArrayList<>();
-        String includeEntity = "";
+        List<Integer> includeEntityIds = new ArrayList<>();
         boolean hasBlock = false;
         boolean item = false;
         boolean entity = false;
         int restrictCount = 0;
 
         if (argBlocks.size() > 0) {
-            StringBuilder includeListEntity = new StringBuilder();
-
             for (Object restrictTarget : argBlocks) {
                 String targetName = "";
 
@@ -247,14 +261,7 @@ public class PurgeCommand extends Consumer {
                     hasBlock = true;
                 }
                 else if (restrictTarget instanceof EntityType) {
-                    targetName = ((EntityType) restrictTarget).name();
-                    if (includeListEntity.length() == 0) {
-                        includeListEntity = includeListEntity.append(EntityUtils.getEntityId(targetName, false));
-                    }
-                    else {
-                        includeListEntity.append(",").append(EntityUtils.getEntityId(targetName, false));
-                    }
-
+                    includeEntityIds.add(EntityUtils.getEntityId(((EntityType) restrictTarget).name(), false));
                     targetName = ((EntityType) restrictTarget).name().toLowerCase(Locale.ROOT);
                     entity = true;
                 }
@@ -275,11 +282,28 @@ public class PurgeCommand extends Consumer {
 
                 restrictCount++;
             }
-
-            includeEntity = includeListEntity.toString();
         }
 
-        if (entity) {
+        List<Integer> excludeEntityIds = new ArrayList<>();
+        StringBuilder exclude = new StringBuilder();
+        for (Object excludeTarget : argExclude.keySet()) {
+            if (!(excludeTarget instanceof EntityType)) {
+                // Purge exclusions only support entity types (kills to keep).
+                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, "e:" + excludeTarget.toString().toLowerCase(Locale.ROOT)));
+                return;
+            }
+            excludeEntityIds.add(EntityUtils.getEntityId(((EntityType) excludeTarget).name(), false));
+            exclude.append(exclude.length() == 0 ? "" : ", ").append(((EntityType) excludeTarget).name().toLowerCase(Locale.ROOT));
+        }
+        if (!argExcludeUsers.isEmpty()) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, "e:" + argExcludeUsers.get(0)));
+            return;
+        }
+
+        boolean killsOnly = argAction.contains(LookupActions.ENTITY_KILL);
+        boolean entityFilter = entity || killsOnly || !excludeEntityIds.isEmpty();
+        boolean excludeWithoutKills = !excludeEntityIds.isEmpty() && hasBlock && !entity; // a block restriction keeps every kill
+        if ((killsOnly && hasBlock) || (entity && !excludeEntityIds.isEmpty()) || excludeWithoutKills || (entityFilter && ConfigHandler.databaseType.isClickHouse())) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ACTION_NOT_SUPPORTED));
             return;
         }
@@ -293,10 +317,21 @@ public class PurgeCommand extends Consumer {
         }
 
         final StringBuilder restrictTargets = restrict;
+        final StringBuilder excludeTargets = exclude;
         final List<Integer> includeBlockIdsFinal = List.copyOf(includeBlockIds);
+        final List<Integer> includeEntityIdsFinal = List.copyOf(includeEntityIds);
+        final List<Integer> excludeEntityIdsFinal = List.copyOf(excludeEntityIds);
+        final boolean killsOnlyFinal = killsOnly;
         final boolean optimize = optimizeCheck;
-        final boolean hasBlockRestriction = hasBlock;
         final int restrictCountFinal = restrictCount;
+        String restrictSelector = Selector.FIRST; // block
+        if (hasBlock && entity) {
+            restrictSelector = Selector.THIRD; // target
+        }
+        else if (entity) {
+            restrictSelector = Selector.SECOND; // entity
+        }
+        final String restrictKind = restrictSelector;
 
         class BasicThread implements Runnable {
 
@@ -323,7 +358,7 @@ public class PurgeCommand extends Consumer {
                     long timeStart = startTime > 0 ? (timestamp - startTime) : 0;
                     long timeEnd = timestamp - endTime;
                     long removed = 0;
-                    PurgeFilter purgeFilter = new PurgeFilter(timeStart, timeEnd, argWid, includeBlockIdsFinal);
+                    PurgeFilter purgeFilter = new PurgeFilter(timeStart, timeEnd, argWid, includeBlockIdsFinal, includeEntityIdsFinal, excludeEntityIdsFinal, killsOnlyFinal);
 
                     for (int i = 0; i <= 5; i++) {
                         requirePurgeNotCancelled();
@@ -366,8 +401,11 @@ public class PurgeCommand extends Consumer {
                         Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_STARTED, "#global"));
                     }
 
-                    if (hasBlockRestriction) {
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.ROLLBACK_INCLUDE, restrictTargets.toString(), Selector.FIRST, Selector.FIRST, (restrictCountFinal == 1 ? Selector.FIRST : Selector.SECOND))); // include
+                    if (restrictCountFinal > 0) {
+                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.ROLLBACK_INCLUDE, restrictTargets.toString(), Selector.FIRST, restrictKind, (restrictCountFinal == 1 ? Selector.FIRST : Selector.SECOND))); // include
+                    }
+                    if (excludeEntityIdsFinal.size() > 0) {
+                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.ROLLBACK_INCLUDE, excludeTargets.toString(), Selector.SECOND, Selector.SECOND, (excludeEntityIdsFinal.size() == 1 ? Selector.FIRST : Selector.SECOND))); // exclude
                     }
 
                     Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_NOTICE_1));

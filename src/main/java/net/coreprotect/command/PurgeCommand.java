@@ -513,7 +513,7 @@ public class PurgeCommand extends Consumer {
                                                     timeLimit = " WHERE (" + worldMatch + " AND (time >= '" + timeEnd + "' OR time < '" + timeStart + "')) OR NOT " + worldMatch;
                                                 }
                                             }
-                                            else {
+                                            else if (purge) {
                                                 timeLimit = " WHERE (" + blockRestriction + "wid = '" + argWid + "' AND (time >= '" + timeEnd + "' OR time < '" + timeStart + "'))) OR (wid != '" + argWid + "')";
                                             }
                                         }

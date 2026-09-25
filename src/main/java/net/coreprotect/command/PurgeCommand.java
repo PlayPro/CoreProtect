@@ -42,6 +42,7 @@ import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.VersionUtils;
+import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.ErrorReporter;
 
 public class PurgeCommand extends Consumer {
@@ -208,8 +209,16 @@ public class PurgeCommand extends Consumer {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co purge t:<time>"));
             return;
         }
-        // Without a location (console), a numeric radius parses to null and the purge would run server-wide
-        if (argRadius != null || CommandParser.parseRadius(args, player, new Location(null, 0, 0, 0)) != null) {
+        if (CommandParser.parseWorldEdit(args)) {
+            Chat.sendMessage(player, new ChatMessage(Phrase.build(Phrase.INVALID_WORLD)).build());
+            return;
+        }
+        if (argRadius != null && argRadius[0] == -1) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_RADIUS));
+            return;
+        }
+        if (argRadius == null && CommandParser.parseRadius(args, player, new Location(null, 0, 0, 0)) != null) {
+            // A numeric radius without a location (console) must not fall through to a world-wide purge
             Chat.sendMessage(player, new ChatMessage(Phrase.build(Phrase.INVALID_WORLD)).build());
             return;
         }
@@ -304,8 +313,13 @@ public class PurgeCommand extends Consumer {
         boolean killsOnly = argAction.contains(LookupActions.ENTITY_KILL);
         boolean entityFilter = entity || killsOnly || !excludeEntityIds.isEmpty();
         boolean excludeWithoutKills = !excludeEntityIds.isEmpty() && hasBlock && !entity; // a block restriction keeps every kill
-        if ((killsOnly && hasBlock) || (entity && !excludeEntityIds.isEmpty()) || excludeWithoutKills || (entityFilter && ConfigHandler.databaseType.isClickHouse())) {
+        if ((killsOnly && hasBlock) || (entity && !excludeEntityIds.isEmpty()) || excludeWithoutKills || ((entityFilter || argRadius != null) && ConfigHandler.databaseType.isClickHouse())) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ACTION_NOT_SUPPORTED));
+            return;
+        }
+        if (argRadius != null && !hasBlock && !entity && !killsOnly) {
+            // A radius only limits co_block rows, so the purge must be restricted to them
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co purge t:<time> r:<radius> i:<include>"));
             return;
         }
 
@@ -325,6 +339,7 @@ public class PurgeCommand extends Consumer {
         final boolean killsOnlyFinal = killsOnly;
         final boolean optimize = optimizeCheck;
         final int restrictCountFinal = restrictCount;
+        final int purgeWorldId = argRadius != null ? WorldUtils.getWorldId(location.getWorld().getName()) : argWid;
         String restrictSelector = Selector.FIRST; // block
         if (hasBlock && entity) {
             restrictSelector = Selector.THIRD; // target
@@ -359,7 +374,7 @@ public class PurgeCommand extends Consumer {
                     long timeStart = startTime > 0 ? (timestamp - startTime) : 0;
                     long timeEnd = timestamp - endTime;
                     long removed = 0;
-                    PurgeFilter purgeFilter = new PurgeFilter(timeStart, timeEnd, argWid, includeBlockIdsFinal, includeEntityIdsFinal, excludeEntityIdsFinal, killsOnlyFinal);
+                    PurgeFilter purgeFilter = new PurgeFilter(timeStart, timeEnd, purgeWorldId, argRadius, includeBlockIdsFinal, includeEntityIdsFinal, excludeEntityIdsFinal, killsOnlyFinal);
 
                     for (int i = 0; i <= 5; i++) {
                         requirePurgeNotCancelled();
@@ -394,7 +409,11 @@ public class PurgeCommand extends Consumer {
                     activePurgeThread = Thread.currentThread();
                     requirePurgeNotCancelled();
 
-                    if (argWid > 0) {
+                    if (argRadius != null) {
+                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_STARTED, location.getWorld().getName()));
+                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.ROLLBACK_RADIUS, argRadius[0].toString(), (argRadius[0] == 1 ? Selector.FIRST : Selector.SECOND)));
+                    }
+                    else if (argWid > 0) {
                         String worldName = CommandParser.parseWorldName(args, false);
                         Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_STARTED, worldName));
                     }

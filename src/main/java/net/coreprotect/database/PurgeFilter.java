@@ -20,6 +20,7 @@ public final class PurgeFilter {
     private final long timeStart;
     private final long timeEnd;
     private final int worldId;
+    private final Integer[] radius;
     private final List<Integer> blockTypes;
     private final List<Integer> entityTypes;
     private final List<Integer> excludedEntityTypes;
@@ -32,6 +33,9 @@ public final class PurgeFilter {
      *            the newest time (exclusive) to purge
      * @param worldId
      *            the world to purge, or 0 for every world
+     * @param radius
+     *            the area to purge, as returned by CommandParser.parseRadius, or null for the whole world. It limits
+     *            co_block rows only, so it counts as a restriction that leaves the other tables untouched.
      * @param blockTypes
      *            material ids (i:) that restrict the purge to those co_block rows, or an empty list
      * @param entityTypes
@@ -41,10 +45,11 @@ public final class PurgeFilter {
      * @param killsOnly
      *            true (a:kill) to restrict the purge to kill rows
      */
-    public PurgeFilter(long timeStart, long timeEnd, int worldId, List<Integer> blockTypes, List<Integer> entityTypes, List<Integer> excludedEntityTypes, boolean killsOnly) {
+    public PurgeFilter(long timeStart, long timeEnd, int worldId, Integer[] radius, List<Integer> blockTypes, List<Integer> entityTypes, List<Integer> excludedEntityTypes, boolean killsOnly) {
         this.timeStart = timeStart;
         this.timeEnd = timeEnd;
         this.worldId = worldId;
+        this.radius = radius == null ? null : radius.clone();
         this.blockTypes = List.copyOf(blockTypes);
         this.entityTypes = List.copyOf(entityTypes);
         this.excludedEntityTypes = List.copyOf(excludedEntityTypes);
@@ -55,7 +60,7 @@ public final class PurgeFilter {
      * Returns whether the purge is limited to selected co_block rows, which leaves the other tables untouched.
      */
     private boolean restrictsTables() {
-        return !blockTypes.isEmpty() || !entityTypes.isEmpty() || killsOnly;
+        return radius != null || !blockTypes.isEmpty() || !entityTypes.isEmpty() || killsOnly;
     }
 
     /**
@@ -115,6 +120,13 @@ public final class PurgeFilter {
         StringBuilder condition = new StringBuilder(timeCondition(qualifier));
         if (worldId > 0) {
             condition.append(" AND ").append(qualifier).append("wid = ").append(worldId);
+        }
+        if (radius != null) {
+            condition.append(" AND ").append(qualifier).append("x >= ").append(radius[1]).append(" AND ").append(qualifier).append("x <= ").append(radius[2]);
+            if (radius[3] != null) {
+                condition.append(" AND ").append(qualifier).append("y >= ").append(radius[3]).append(" AND ").append(qualifier).append("y <= ").append(radius[4]);
+            }
+            condition.append(" AND ").append(qualifier).append("z >= ").append(radius[5]).append(" AND ").append(qualifier).append("z <= ").append(radius[6]);
         }
 
         List<String> restrictions = new ArrayList<>();

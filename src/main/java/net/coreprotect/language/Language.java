@@ -113,7 +113,7 @@ public class Language {
         phrases.put(Phrase.HELP_PURGE_1, "Delete data older than specified time.");
         phrases.put(Phrase.HELP_PURGE_2, "For example, \"{0}\" will delete all data older than one month, and only keep the last 30 days of data.");
         phrases.put(Phrase.HELP_PURGE_3, "Specify the amount of time to purge.");
-        phrases.put(Phrase.HELP_PURGE_4, "Specify a world to limit the purge to.");
+        phrases.put(Phrase.HELP_PURGE_4, "Specify a world or radius to limit the purge to.");
         phrases.put(Phrase.HELP_PURGE_5, "Include specific blocks or entity kills in the purge.");
         phrases.put(Phrase.HELP_PURGE_6, "Keep entity kills of these types.");
         phrases.put(Phrase.HELP_PURGE_7, "Only purge entity kills.");

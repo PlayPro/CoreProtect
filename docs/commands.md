@@ -95,7 +95,7 @@ Purge old block data. Useful for freeing up space on your HDD if you don't need 
 
 | Command | Parameters |
 | --- | --- |
-| /co purge | `t:<time> r:<world> i:<include> e:<exclude> a:kill` |
+| /co purge | `t:<time> r:<world/radius> i:<include> e:<exclude> a:kill` |
 
 For example, `/co purge t:30d` will delete all data older than one month, and only keep the last 30 days of data.
 
@@ -105,6 +105,10 @@ For example, `/co purge t:30d` will delete all data older than one month, and on
 **Purging Worlds**  
 You can optionally specify a world in CoreProtect v19+.  
 For example, `/co purge t:30d r:#world_nether` will delete all data older than one month in the Nether, without removing data in any other worlds.
+
+**Purging by Radius**  
+A radius can limit a purge of specific block types or entity kills to the area around you. It only applies to block and entity kill data, so it must be combined with `i:` or `a:kill`, and it can only be used in-game.
+For example, `/co purge t:30d r:50 i:zombie` will delete zombie kills older than one month within 50 blocks of you, without removing any other data. Use `r:50x10` to also limit the height to 10 blocks above and below you.
 
 **Purging Blocks**  
 You can optionally specify block types in CoreProtect v23+.  

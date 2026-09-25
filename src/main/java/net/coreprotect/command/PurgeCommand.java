@@ -208,7 +208,8 @@ public class PurgeCommand extends Consumer {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co purge t:<time>"));
             return;
         }
-        if (argRadius != null) {
+        // Without a location (console), a numeric radius parses to null and the purge would run server-wide
+        if (argRadius != null || CommandParser.parseRadius(args, player, new Location(null, 0, 0, 0)) != null) {
             Chat.sendMessage(player, new ChatMessage(Phrase.build(Phrase.INVALID_WORLD)).build());
             return;
         }

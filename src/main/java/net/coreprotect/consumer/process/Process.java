@@ -328,19 +328,25 @@ public class Process {
                                 case Process.ENTITY_CONTAINER_TRANSACTION:
                                     EntityContainerTransaction transaction = (EntityContainerTransaction) object;
                                     EntitySpawnIdentity identity = entitySpawnIdentities.get(transaction.getEntityUuid());
-                                    boolean processedEntityContainerTransaction;
+                                    ContainerTransactionProcess.EntityProcessResult entityContainerResult;
                                     try {
-                                        processedEntityContainerTransaction = ContainerTransactionProcess.processEntity(writeBatch, i, user, transaction, identity);
+                                        entityContainerResult = ContainerTransactionProcess.processEntity(writeBatch, i, user, transaction, identity);
                                     }
                                     catch (Exception e) {
-                                        pendingEntityContainerTransactions.add(new PendingEntityContainerTransaction(user, transaction, true));
+                                        pendingEntityContainerTransactions.add(new PendingEntityContainerTransaction(user, transaction, false, true));
                                         throw e;
                                     }
-                                    if (!processedEntityContainerTransaction) {
-                                        pendingEntityContainerTransactions.add(new PendingEntityContainerTransaction(user, transaction, true));
+                                    if (entityContainerResult == null) {
+                                        pendingEntityContainerTransactions.add(new PendingEntityContainerTransaction(user, transaction, false, true));
                                     }
-                                    else if (ConfigHandler.databaseType.isColumnar()) {
-                                        pendingEntityContainerTransactions.add(new PendingEntityContainerTransaction(user, transaction, false));
+                                    else {
+                                        entitySpawnIdentities.put(transaction.getEntityUuid(), entityContainerResult.identity);
+                                        if (entityContainerResult.createdIdentity) {
+                                            promotedEntityIdentities.add(transaction.getEntityUuid());
+                                        }
+                                        if (ConfigHandler.databaseType.isColumnar() || transaction.hasIdentityPromotion()) {
+                                            pendingEntityContainerTransactions.add(new PendingEntityContainerTransaction(user, transaction, entityContainerResult.identityActive, false));
+                                        }
                                     }
                                     break;
                                 case Process.ENTITY_INTERACTION:
@@ -730,7 +736,14 @@ public class Process {
             Queue.queueEntityContainerTransaction(user, retry);
         }
         else { // only print exception on development branch
+            cancelEntityContainerPromotion(transaction);
             ErrorReporter.report(new IllegalStateException("Dropped entity container transaction without tracking row: " + transaction.getEntityUuid()), ConfigHandler.EDITION_BRANCH.contains("-dev"));
+        }
+    }
+
+    private static void cancelEntityContainerPromotion(EntityContainerTransaction transaction) {
+        if (transaction.hasIdentityPromotion()) {
+            EntitySpawnTracking.cancelDatabaseIdentityPromotion(transaction.getEntityUuid(), transaction.getCurrentLocation());
         }
     }
 
@@ -1103,20 +1116,70 @@ public class Process {
     }
 
     private static void completeEntityContainerTransactions(List<PendingEntityContainerTransaction> transactions, TransactionOutcome outcome) {
+        if (outcome == TransactionOutcome.COMMITTED) {
+            confirmEntityContainerPromotions(transactions);
+        }
+        else if (outcome == TransactionOutcome.DISCARDED) {
+            verifyEntityContainerPromotions(transactions);
+        }
         if (outcome == TransactionOutcome.COMMITTED || outcome == TransactionOutcome.RETRY) {
-            for (PendingEntityContainerTransaction pending : transactions) {
-                if (outcome == TransactionOutcome.COMMITTED && !pending.retryRequired) {
-                    continue;
-                }
-                try {
-                    retryEntityContainerTransaction(pending.user, pending.transaction);
-                }
-                catch (Exception e) {
-                    ErrorReporter.report(e);
-                }
-            }
+            retryEntityContainerTransactions(transactions, outcome);
         }
         transactions.clear();
+    }
+
+    private static void confirmEntityContainerPromotions(List<PendingEntityContainerTransaction> transactions) {
+        for (PendingEntityContainerTransaction pending : transactions) {
+            if (pending.retryRequired || !pending.transaction.hasIdentityPromotion()) {
+                continue;
+            }
+            try {
+                if (pending.identityActive) {
+                    EntitySpawnTracking.confirmDatabaseIdentity(pending.transaction.getEntityUuid(), pending.transaction.getCurrentLocation());
+                }
+                else {
+                    EntitySpawnTracking.clearTracking(pending.transaction.getEntityUuid());
+                }
+            }
+            catch (Exception e) {
+                ErrorReporter.report(e);
+            }
+        }
+    }
+
+    private static void verifyEntityContainerPromotions(List<PendingEntityContainerTransaction> transactions) {
+        Set<UUID> verifiedIdentities = new HashSet<>();
+        for (PendingEntityContainerTransaction pending : transactions) {
+            if (pending.retryRequired || !pending.transaction.hasIdentityPromotion() || !verifiedIdentities.add(pending.transaction.getEntityUuid())) {
+                continue;
+            }
+            try {
+                EntitySpawnTracking.verifyPendingDatabaseIdentity(pending.transaction.getEntityUuid(), pending.transaction.getCurrentLocation());
+            }
+            catch (Exception e) {
+                verifiedIdentities.remove(pending.transaction.getEntityUuid());
+                ErrorReporter.report(e);
+            }
+        }
+        for (PendingEntityContainerTransaction pending : transactions) {
+            if (!pending.retryRequired && verifiedIdentities.contains(pending.transaction.getEntityUuid())) {
+                cancelEntityContainerPromotion(pending.transaction);
+            }
+        }
+    }
+
+    private static void retryEntityContainerTransactions(List<PendingEntityContainerTransaction> transactions, TransactionOutcome outcome) {
+        for (PendingEntityContainerTransaction pending : transactions) {
+            if (outcome == TransactionOutcome.COMMITTED && !pending.retryRequired) {
+                continue;
+            }
+            try {
+                retryEntityContainerTransaction(pending.user, pending.transaction);
+            }
+            catch (Exception e) {
+                ErrorReporter.report(e);
+            }
+        }
     }
 
     private static void completeEntitySpawnLogs(List<PendingEntitySpawnLog> pendingEntitySpawnLogs, TransactionOutcome outcome) {
@@ -1234,11 +1297,13 @@ public class Process {
 
         private final String user;
         private final EntityContainerTransaction transaction;
+        private final boolean identityActive;
         private final boolean retryRequired;
 
-        private PendingEntityContainerTransaction(String user, EntityContainerTransaction transaction, boolean retryRequired) {
+        private PendingEntityContainerTransaction(String user, EntityContainerTransaction transaction, boolean identityActive, boolean retryRequired) {
             this.user = user;
             this.transaction = transaction;
+            this.identityActive = identityActive;
             this.retryRequired = retryRequired;
         }
     }

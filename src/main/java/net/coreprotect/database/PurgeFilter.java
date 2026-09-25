@@ -62,6 +62,37 @@ public final class PurgeFilter {
     }
 
     /**
+     * Builds the condition that matches the rows this purge removes from a table.
+     *
+     * @param table
+     *            the table name without prefix
+     * @param prefix
+     *            the prefix of the tables that subqueries read from
+     * @return the SQL condition, or null when the purge keeps every row of the table
+     */
+    public String deleteCondition(String table, String prefix) {
+        if (table.equals("block")) {
+            return blockCondition("");
+        }
+        if (table.equals("entity")) {
+            return purgesEntitiesByTime() ? timeCondition("") : null;
+        }
+        if (!PurgePolicy.isPurgeable(table) || restrictsTables()) {
+            return null;
+        }
+        if (worldId <= 0) {
+            return timeCondition("");
+        }
+        if (!PurgePolicy.isWorldScoped(table)) {
+            return null;
+        }
+        if (table.equals("entity_container") || table.equals("entity_interaction")) {
+            return timeCondition("") + " AND (wid = " + worldId + " OR entity_spawn_rowid IN(SELECT rowid FROM " + prefix + "entity_spawn WHERE current_wid = " + worldId + "))";
+        }
+        return timeCondition("") + " AND wid = " + worldId;
+    }
+
+    /**
      * Builds the condition that matches the co_block rows this purge removes.
      *
      * @param qualifier

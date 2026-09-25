@@ -32,7 +32,6 @@ import net.coreprotect.database.PurgeFilter;
 import net.coreprotect.database.PurgePolicy;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
-import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.patch.Patch;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.ChatMessage;
@@ -219,7 +218,6 @@ public class PurgeCommand extends Consumer {
         }
 
         StringBuilder restrict = new StringBuilder();
-        String includeBlock = "";
         List<Integer> includeBlockIds = new ArrayList<>();
         String includeEntity = "";
         boolean hasBlock = false;
@@ -228,7 +226,6 @@ public class PurgeCommand extends Consumer {
         int restrictCount = 0;
 
         if (argBlocks.size() > 0) {
-            StringBuilder includeListMaterial = new StringBuilder();
             StringBuilder includeListEntity = new StringBuilder();
 
             for (Object restrictTarget : argBlocks) {
@@ -238,17 +235,10 @@ public class PurgeCommand extends Consumer {
                     targetName = ((Material) restrictTarget).name();
                     int blockId = MaterialUtils.getBlockId(targetName, false);
                     includeBlockIds.add(blockId);
-                    if (includeListMaterial.length() == 0) {
-                        includeListMaterial = includeListMaterial.append(blockId);
-                    }
-                    else {
-                        includeListMaterial.append(",").append(blockId);
-                    }
 
                     /* Include legacy IDs */
                     int legacyId = BukkitAdapter.ADAPTER.getLegacyBlockId((Material) restrictTarget);
                     if (legacyId > 0) {
-                        includeListMaterial.append(",").append(legacyId);
                         includeBlockIds.add(legacyId);
                     }
 
@@ -271,12 +261,6 @@ public class PurgeCommand extends Consumer {
                 else if (restrictTarget instanceof String) {
                     int blockId = MaterialUtils.getBlockId((String) restrictTarget, false);
                     includeBlockIds.add(blockId);
-                    if (includeListMaterial.length() == 0) {
-                        includeListMaterial = includeListMaterial.append(blockId);
-                    }
-                    else {
-                        includeListMaterial.append(",").append(blockId);
-                    }
 
                     targetName = ((String) restrictTarget).toLowerCase(Locale.ROOT);
                     hasBlock = true;
@@ -292,7 +276,6 @@ public class PurgeCommand extends Consumer {
                 restrictCount++;
             }
 
-            includeBlock = includeListMaterial.toString();
             includeEntity = includeListEntity.toString();
         }
 
@@ -310,7 +293,6 @@ public class PurgeCommand extends Consumer {
         }
 
         final StringBuilder restrictTargets = restrict;
-        final String includeBlockFinal = includeBlock;
         final List<Integer> includeBlockIdsFinal = List.copyOf(includeBlockIds);
         final boolean optimize = optimizeCheck;
         final boolean hasBlockRestriction = hasBlock;
@@ -494,7 +476,6 @@ public class PurgeCommand extends Consumer {
                             boolean error = false;
                             if (!excludeTables.contains(table)) {
                                 try {
-                                    boolean purge = true;
                                     String timeLimit = "";
                                     if (table.equals("entity_spawn")) {
                                         timeLimit = " WHERE removed=0 OR block_rowid IN(SELECT rowid FROM " + purgePrefix + "block) OR kill_rowid IN(SELECT rowid FROM " + purgePrefix + "entity) OR rowid IN(SELECT entity_spawn_rowid FROM " + purgePrefix + "entity_container) OR rowid IN(SELECT entity_spawn_rowid FROM " + purgePrefix + "entity_interaction)";
@@ -502,28 +483,10 @@ public class PurgeCommand extends Consumer {
                                     else if (table.equals("entity")) {
                                         timeLimit = " WHERE " + PurgeFilter.entityRetainCondition(purgePrefix + "block");
                                     }
-                                    else if (PurgePolicy.isPurgeable(table)) {
-                                        String blockRestriction = "(";
-                                        if (hasBlockRestriction && PurgePolicy.supportsBlockRestriction(table)) {
-                                            blockRestriction = "action IN(" + LookupActions.ENTITY_KILL + "," + LookupActions.ENTITY_SPAWN + ") OR type NOT IN(" + includeBlockFinal + ") OR (type IN(" + includeBlockFinal + ") AND ";
-                                        }
-                                        else if (hasBlockRestriction) {
-                                            purge = false;
-                                        }
-
-                                        if (argWid > 0 && PurgePolicy.isWorldScoped(table)) {
-                                            if (table.equals("entity_container") || table.equals("entity_interaction")) {
-                                                if (purge) {
-                                                    String worldMatch = "(wid = '" + argWid + "' OR entity_spawn_rowid IN(SELECT rowid FROM " + ConfigHandler.prefix + "entity_spawn WHERE current_wid = '" + argWid + "'))";
-                                                    timeLimit = " WHERE (" + worldMatch + " AND (time >= '" + timeEnd + "' OR time < '" + timeStart + "')) OR NOT " + worldMatch;
-                                                }
-                                            }
-                                            else if (purge) {
-                                                timeLimit = " WHERE (" + blockRestriction + "wid = '" + argWid + "' AND (time >= '" + timeEnd + "' OR time < '" + timeStart + "'))) OR (wid != '" + argWid + "')";
-                                            }
-                                        }
-                                        else if (argWid == 0 && purge) {
-                                            timeLimit = " WHERE " + blockRestriction + "(time >= '" + timeEnd + "' OR time < '" + timeStart + "'))";
+                                    else {
+                                        String purgeCondition = purgeFilter.deleteCondition(table, ConfigHandler.prefix);
+                                        if (purgeCondition != null) {
+                                            timeLimit = " WHERE NOT (" + purgeCondition + ")";
                                         }
                                     }
                                     query = "INSERT INTO " + purgePrefix + table + insertColumns + " SELECT " + selectColumns + " FROM " + ConfigHandler.prefix + table + timeLimit;
@@ -576,40 +539,20 @@ public class PurgeCommand extends Consumer {
                                 }
 
                                 try {
-                                    boolean purge = PurgePolicy.isPurgeable(table);
-
-                                    String blockRestriction = "";
-                                    if (hasBlockRestriction && PurgePolicy.supportsBlockRestriction(table)) {
-                                        blockRestriction = "action NOT IN(" + LookupActions.ENTITY_KILL + "," + LookupActions.ENTITY_SPAWN + ") AND type IN(" + includeBlockFinal + ") AND ";
-                                    }
-                                    else if (hasBlockRestriction) {
-                                        purge = false;
-                                    }
-
-                                    String worldRestriction = "";
-                                    if (argWid > 0 && PurgePolicy.isWorldScoped(table)) {
-                                        if (table.equals("entity_container") || table.equals("entity_interaction")) {
-                                            worldRestriction = " AND (wid = '" + argWid + "' OR entity_spawn_rowid IN(SELECT rowid FROM " + ConfigHandler.prefix + "entity_spawn WHERE current_wid = '" + argWid + "'))";
-                                        }
-                                        else {
-                                            worldRestriction = " AND wid = '" + argWid + "'";
-                                        }
-                                    }
-                                    else if (argWid > 0) {
-                                        purge = false;
-                                    }
-
                                     if (table.equals("entity")) {
                                         query = PurgeFilter.deleteUnreferencedEntities(purgePrefix + "entity", purgePrefix + "block");
                                         preparedStmt = preparePurgeStatement(connection, query);
                                         preparedStmt.execute();
                                         preparedStmt.close();
                                     }
-                                    else if (purge) {
-                                        query = "DELETE FROM " + purgePrefix + table + " WHERE " + blockRestriction + "time < '" + timeEnd + "' AND time >= '" + timeStart + "'" + worldRestriction;
-                                        preparedStmt = preparePurgeStatement(connection, query);
-                                        preparedStmt.execute();
-                                        preparedStmt.close();
+                                    else {
+                                        String purgeCondition = purgeFilter.deleteCondition(table, ConfigHandler.prefix);
+                                        if (purgeCondition != null) {
+                                            query = "DELETE FROM " + purgePrefix + table + " WHERE " + purgeCondition;
+                                            preparedStmt = preparePurgeStatement(connection, query);
+                                            preparedStmt.execute();
+                                            preparedStmt.close();
+                                        }
                                     }
                                 }
                                 catch (Exception e) {
@@ -654,38 +597,16 @@ public class PurgeCommand extends Consumer {
 
                         if (!ConfigHandler.databaseType.isSQLite()) {
                             try {
-                                boolean purge = PurgePolicy.isPurgeable(table);
-
-                                String blockRestriction = "";
-                                if (hasBlockRestriction && PurgePolicy.supportsBlockRestriction(table)) {
-                                    blockRestriction = "action NOT IN(" + LookupActions.ENTITY_KILL + "," + LookupActions.ENTITY_SPAWN + ") AND type IN(" + includeBlockFinal + ") AND ";
-                                }
-                                else if (hasBlockRestriction) {
-                                    purge = false;
-                                }
-
-                                String worldRestriction = "";
-                                if (argWid > 0 && PurgePolicy.isWorldScoped(table)) {
-                                    if (table.equals("entity_container") || table.equals("entity_interaction")) {
-                                        worldRestriction = " AND (wid = '" + argWid + "' OR entity_spawn_rowid IN(SELECT rowid FROM " + ConfigHandler.prefix + "entity_spawn WHERE current_wid = '" + argWid + "'))";
-                                    }
-                                    else {
-                                        worldRestriction = " AND wid = '" + argWid + "'";
-                                    }
-                                }
-                                else if (argWid > 0) {
-                                    purge = false;
-                                }
-
-                                if (purge && table.equals("block") && purgeFilter.removesKills() && !purgeFilter.purgesEntitiesByTime()) {
+                                String purgeCondition = purgeFilter.deleteCondition(table, ConfigHandler.prefix);
+                                if (purgeCondition != null && table.equals("block") && purgeFilter.removesKills() && !purgeFilter.purgesEntitiesByTime()) {
                                     query = purgeFilter.deleteEntitiesOfPurgedKills(ConfigHandler.databaseType, ConfigHandler.prefix);
                                     preparedStmt = preparePurgeStatement(connection, query);
                                     removed = removed + preparedStmt.executeUpdate();
                                     preparedStmt.close();
                                 }
 
-                                if (purge) {
-                                    query = "DELETE FROM " + ConfigHandler.prefix + table + " WHERE " + blockRestriction + "time < '" + timeEnd + "' AND time >= '" + timeStart + "'" + worldRestriction;
+                                if (purgeCondition != null) {
+                                    query = "DELETE FROM " + ConfigHandler.prefix + table + " WHERE " + purgeCondition;
                                     preparedStmt = preparePurgeStatement(connection, query);
                                     removed = removed + preparedStmt.executeUpdate();
                                     preparedStmt.close();

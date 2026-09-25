@@ -28,6 +28,7 @@ import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.PurgeFilter;
 import net.coreprotect.database.PurgePolicy;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
@@ -340,6 +341,7 @@ public class PurgeCommand extends Consumer {
                     long timeStart = startTime > 0 ? (timestamp - startTime) : 0;
                     long timeEnd = timestamp - endTime;
                     long removed = 0;
+                    PurgeFilter purgeFilter = new PurgeFilter(timeStart, timeEnd, argWid, includeBlockIdsFinal);
 
                     for (int i = 0; i <= 5; i++) {
                         requirePurgeNotCancelled();
@@ -497,6 +499,9 @@ public class PurgeCommand extends Consumer {
                                     if (table.equals("entity_spawn")) {
                                         timeLimit = " WHERE removed=0 OR block_rowid IN(SELECT rowid FROM " + purgePrefix + "block) OR kill_rowid IN(SELECT rowid FROM " + purgePrefix + "entity) OR rowid IN(SELECT entity_spawn_rowid FROM " + purgePrefix + "entity_container) OR rowid IN(SELECT entity_spawn_rowid FROM " + purgePrefix + "entity_interaction)";
                                     }
+                                    else if (table.equals("entity")) {
+                                        timeLimit = " WHERE " + PurgeFilter.entityRetainCondition(purgePrefix + "block");
+                                    }
                                     else if (PurgePolicy.isPurgeable(table)) {
                                         String blockRestriction = "(";
                                         if (hasBlockRestriction && PurgePolicy.supportsBlockRestriction(table)) {
@@ -594,7 +599,13 @@ public class PurgeCommand extends Consumer {
                                         purge = false;
                                     }
 
-                                    if (purge) {
+                                    if (table.equals("entity")) {
+                                        query = PurgeFilter.deleteUnreferencedEntities(purgePrefix + "entity", purgePrefix + "block");
+                                        preparedStmt = preparePurgeStatement(connection, query);
+                                        preparedStmt.execute();
+                                        preparedStmt.close();
+                                    }
+                                    else if (purge) {
                                         query = "DELETE FROM " + purgePrefix + table + " WHERE " + blockRestriction + "time < '" + timeEnd + "' AND time >= '" + timeStart + "'" + worldRestriction;
                                         preparedStmt = preparePurgeStatement(connection, query);
                                         preparedStmt.execute();
@@ -664,6 +675,13 @@ public class PurgeCommand extends Consumer {
                                 }
                                 else if (argWid > 0) {
                                     purge = false;
+                                }
+
+                                if (purge && table.equals("block") && purgeFilter.removesKills() && !purgeFilter.purgesEntitiesByTime()) {
+                                    query = purgeFilter.deleteEntitiesOfPurgedKills(ConfigHandler.databaseType, ConfigHandler.prefix);
+                                    preparedStmt = preparePurgeStatement(connection, query);
+                                    removed = removed + preparedStmt.executeUpdate();
+                                    preparedStmt.close();
                                 }
 
                                 if (purge) {

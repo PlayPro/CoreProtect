@@ -31,6 +31,10 @@ public class BlockPlaceLogger {
     }
 
     public static void log(ConsumerWriteBatch preparedStmt, int batchCount, String user, BlockState block, int replacedType, int replacedData, Material forceType, int forceData, boolean force, List<Object> meta, String blockData, String replaceBlockData) {
+        logWithAction(preparedStmt, batchCount, user, block, replacedType, replacedData, forceType, forceData, force, meta, blockData, replaceBlockData, LookupActions.BLOCK_PLACE);
+    }
+
+    public static void logWithAction(ConsumerWriteBatch preparedStmt, int batchCount, String user, BlockState block, int replacedType, int replacedData, Material forceType, int forceData, boolean force, List<Object> meta, String blockData, String replaceBlockData, int action) {
         try {
             Material type = block.getType();
             if (blockData == null && (forceType == null || (!forceType.equals(Material.WATER)) && (!forceType.equals(Material.LAVA)))) {
@@ -104,7 +108,7 @@ public class BlockPlaceLogger {
                 }
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, block.getLocation(), CoreProtectPreLogEvent.Action.BLOCK_PLACE, LookupActions.BLOCK_PLACE, type, null, null);
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, block.getLocation(), CoreProtectPreLogEvent.Action.BLOCK_PLACE, action, type, null, null);
             if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
             }
@@ -133,7 +137,7 @@ public class BlockPlaceLogger {
                 BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, replacedInternalType, replacedData, null, replaceBlockData, LookupActions.BLOCK_BREAK, 0);
             }
 
-            BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, internalType, data, meta, blockData, LookupActions.BLOCK_PLACE, 0);
+            BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, internalType, data, meta, blockData, action, 0);
         }
         catch (Exception e) {
             Database.handleWriteFailure(e);

@@ -163,6 +163,10 @@ public class ActionParser {
                         result.add(LookupActions.ITEM);
                         result.add(ItemTransactionActions.ADD);
                     }
+                    else if (argument.equals("bonemeal") || argument.equals("bone-meal") || argument.equals("fertilize") || argument.equals("fertilizer") || argument.equals("fertilised") || argument.equals("fertilized")) {
+                        result.add(LookupActions.BONE_MEAL);
+                        entityActionFilter = EntityActionFilter.ALIASED;
+                    }
                     else {
                         result.add(-1);
                     }

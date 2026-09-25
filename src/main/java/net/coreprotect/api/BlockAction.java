@@ -8,7 +8,8 @@ import net.coreprotect.model.action.LookupActions;
 public enum BlockAction {
     BREAK(LookupActions.BLOCK_BREAK),
     PLACE(LookupActions.BLOCK_PLACE),
-    INTERACTION(LookupActions.INTERACTION);
+    INTERACTION(LookupActions.INTERACTION),
+    BONE_MEAL(LookupActions.BONE_MEAL);
 
     private final int id;
 

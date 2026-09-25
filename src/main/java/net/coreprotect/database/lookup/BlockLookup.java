@@ -80,7 +80,7 @@ public class BlockLookup {
             String where;
             String index;
             if (entitySpawnRowId == null) {
-                String actionPredicate = "(action IN(0,1," + LookupActions.ENTITY_SPAWN + ") OR (action=" + LookupActions.ENTITY_KILL + " AND type IN(" + placedEntityTypeIds() + ")))";
+                String actionPredicate = "(action IN(0,1," + LookupActions.ENTITY_SPAWN + "," + LookupActions.BONE_MEAL + ") OR (action=" + LookupActions.ENTITY_KILL + " AND type IN(" + placedEntityTypeIds() + ")))";
                 where = LocationQuery.predicate("wid", " = " + worldId) + " AND " + LocationQuery.predicate("x", " = " + x) + " AND " + LocationQuery.predicate("z", " = " + z) + " AND y = " + y + " AND " + actionPredicate + " AND time >= " + checkTime;
                 index = WorldUtils.getWidIndex("block");
             }

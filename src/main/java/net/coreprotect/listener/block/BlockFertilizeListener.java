@@ -36,6 +36,9 @@ public final class BlockFertilizeListener extends Queue implements Listener {
         if (!config.BLOCK_PLACE) {
             return;
         }
+        if (!config.BONE_MEAL_TRACKING) {
+            return;
+        }
 
         Material blockType = block.getType();
         Location location = block.getLocation();
@@ -83,7 +86,7 @@ public final class BlockFertilizeListener extends Queue implements Listener {
         }
 
         for (BlockState newBlock : blocks) {
-            Queue.queueBlockPlace(user, newBlock, newBlock.getType(), newBlock.getBlock().getState(), newBlock.getType(), -1, 0, newBlock.getBlockData().getAsString());
+            Queue.queueBoneMealPlace(user, newBlock, newBlock.getType(), newBlock.getBlock().getState(), newBlock.getType(), -1, 0, newBlock.getBlockData().getAsString());
         }
     }
 

@@ -15,6 +15,7 @@ public final class LookupActions {
     public static final int SIGN = 10;
     public static final int ITEM = 11;
     public static final int ENTITY_SPAWN = 13;
+    public static final int BONE_MEAL = 14;
 
     private LookupActions() {
         throw new IllegalStateException("Model class");
@@ -46,6 +47,8 @@ public final class LookupActions {
                 return "item";
             case ENTITY_SPAWN:
                 return "spawn";
+            case BONE_MEAL:
+                return "bonemeal";
             default:
                 return "unknown";
         }

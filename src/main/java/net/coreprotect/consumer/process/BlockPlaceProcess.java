@@ -13,7 +13,7 @@ import net.coreprotect.utility.MaterialUtils;
 
 class BlockPlaceProcess {
 
-    static void process(ConsumerWriteBatch preparedStmt, ConsumerWriteBatch preparedStmtSkulls, int batchCount, Material blockType, int blockData, Material replaceType, int replaceData, int forceData, String user, Object object, String newBlockData, String replacedBlockData) {
+    static void process(ConsumerWriteBatch preparedStmt, ConsumerWriteBatch preparedStmtSkulls, int batchCount, int action, Material blockType, int blockData, Material replaceType, int replaceData, int forceData, String user, Object object, String newBlockData, String replacedBlockData) {
         if (object instanceof BlockState) {
             BlockState block = (BlockState) object;
             List<Object> meta = BlockUtils.processMeta(block);
@@ -21,10 +21,10 @@ class BlockPlaceProcess {
                 SkullPlaceLogger.log(preparedStmt, preparedStmtSkulls, batchCount, user, block, MaterialUtils.getBlockId(replaceType), replaceData);
             }
             else if (forceData == 1) {
-                BlockPlaceLogger.log(preparedStmt, batchCount, user, block, MaterialUtils.getBlockId(replaceType), replaceData, blockType, blockData, true, meta, newBlockData, replacedBlockData);
+                BlockPlaceLogger.logWithAction(preparedStmt, batchCount, user, block, MaterialUtils.getBlockId(replaceType), replaceData, blockType, blockData, true, meta, newBlockData, replacedBlockData, action);
             }
             else {
-                BlockPlaceLogger.log(preparedStmt, batchCount, user, block, MaterialUtils.getBlockId(replaceType), replaceData, blockType, blockData, false, meta, newBlockData, replacedBlockData);
+                BlockPlaceLogger.logWithAction(preparedStmt, batchCount, user, block, MaterialUtils.getBlockId(replaceType), replaceData, blockType, blockData, false, meta, newBlockData, replacedBlockData, action);
             }
         }
     }

@@ -188,10 +188,22 @@ public class MaterialUtils extends Queue {
             }
 
             name = net.coreprotect.bukkit.BukkitAdapter.ADAPTER.parseLegacyName(name);
-            material = Material.matchMaterial(name);
+            material = isEnumName(name) ? Material.getMaterial(name) : Material.matchMaterial(name);
         }
 
         return material;
+    }
+
+    // matchMaterial only uppercases and strips whitespace and non-word characters before getMaterial, none of which changes an A-Z, 0-9 and underscore name
+    private static boolean isEnumName(String name) {
+        for (int index = 0; index < name.length(); index++) {
+            char character = name.charAt(index);
+            if ((character < 'A' || character > 'Z') && (character < '0' || character > '9') && character != '_') {
+                return false;
+            }
+        }
+
+        return !name.isEmpty();
     }
 
     public static int getArtId(String name, boolean internal) {

@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Material;
 import org.bukkit.block.Banner;
@@ -21,57 +22,112 @@ import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.model.PendingBlockChange;
 import net.coreprotect.thread.Scheduler;
 
 public class BlockUtils {
+
+    private static final int BLOCK_DATA_CACHE_LIMIT = 4096;
+    private static volatile BlockDataCache blockDataCache;
 
     private BlockUtils() {
         throw new IllegalStateException("Utility class");
     }
 
     public static byte[] stringToByteData(String string, int type) {
-        byte[] result = null;
-        if (string != null) {
-            Material material = MaterialUtils.getType(type);
-            String blockKey = MaterialUtils.getBlockName(type);
-            if ((blockKey == null || blockKey.length() == 0) && material != null) {
-                blockKey = material.getKey().toString();
-            }
-            if (blockKey == null || blockKey.length() == 0) {
-                return result;
-            }
-
-            BlockData defaultBlockData = createBlockData(type);
-            if (defaultBlockData != null && !defaultBlockData.getAsString().equals(string) && string.startsWith(blockKey + "[") && string.endsWith("]")) {
-                String substring = string.substring(blockKey.length() + 1, string.length() - 1);
-                String[] blockDataSplit = substring.split(",");
-                ArrayList<String> blockDataArray = new ArrayList<>();
-                for (String data : blockDataSplit) {
-                    int id = MaterialUtils.getBlockdataId(data, true);
-                    if (id > -1) {
-                        blockDataArray.add(Integer.toString(id));
-                    }
-                }
-                string = String.join(",", blockDataArray);
-            }
-            else if (material != null && !string.contains(":") && (material == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(material))) {
-                int id = MaterialUtils.getBlockdataId(string, true);
-                if (id > -1) {
-                    string = Integer.toString(id);
-                }
-                else {
-                    return result;
-                }
-            }
-            else {
-                return result;
-            }
-
-            result = string.getBytes(StandardCharsets.UTF_8);
+        if (string == null) {
+            return null;
         }
 
+        // ClickHouse uncaches identifiers when a batch is discarded, so a cached encoding could point at an unpublished id
+        Map<String, CachedBlockData> cache = ConfigHandler.databaseType.isClickHouse() ? null : blockDataCache();
+        if (cache != null) {
+            CachedBlockData cached = cache.get(string);
+            if (cached != null && cached.type == type) {
+                return cached.data;
+            }
+        }
+
+        byte[] result = null;
+        boolean resolved = true;
+        Material material = MaterialUtils.getType(type);
+        String blockKey = MaterialUtils.getBlockName(type);
+        if ((blockKey == null || blockKey.length() == 0) && material != null) {
+            blockKey = material.getKey().toString();
+        }
+        if (blockKey == null || blockKey.length() == 0) {
+            return null;
+        }
+
+        BlockData defaultBlockData = createBlockData(type);
+        if (defaultBlockData != null && !defaultBlockData.getAsString().equals(string) && string.startsWith(blockKey + "[") && string.endsWith("]")) {
+            String substring = string.substring(blockKey.length() + 1, string.length() - 1);
+            String[] blockDataSplit = substring.split(",");
+            ArrayList<String> blockDataArray = new ArrayList<>();
+            for (String data : blockDataSplit) {
+                int id = MaterialUtils.getBlockdataId(data, true);
+                if (id > -1) {
+                    blockDataArray.add(Integer.toString(id));
+                }
+                else {
+                    resolved = false;
+                }
+            }
+            result = String.join(",", blockDataArray).getBytes(StandardCharsets.UTF_8);
+        }
+        else if (material != null && !string.contains(":") && (material == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(material))) {
+            int id = MaterialUtils.getBlockdataId(string, true);
+            if (id > -1) {
+                result = Integer.toString(id).getBytes(StandardCharsets.UTF_8);
+            }
+            else {
+                resolved = false;
+            }
+        }
+
+        if (cache != null && resolved) {
+            if (cache.size() >= BLOCK_DATA_CACHE_LIMIT) {
+                cache.clear();
+            }
+            cache.put(string, new CachedBlockData(type, result));
+        }
         return result;
+    }
+
+    // Loading the material or blockdata maps assigns new map instances, which starts a new cache
+    private static Map<String, CachedBlockData> blockDataCache() {
+        BlockDataCache cache = blockDataCache;
+        Map<Integer, String> materials = ConfigHandler.materialsReversed;
+        Map<String, Integer> blockdata = ConfigHandler.blockdata;
+        if (cache == null || cache.materials != materials || cache.blockdata != blockdata) {
+            cache = new BlockDataCache(materials, blockdata);
+            blockDataCache = cache;
+        }
+        return cache.entries;
+    }
+
+    private static final class BlockDataCache {
+
+        private final Map<Integer, String> materials;
+        private final Map<String, Integer> blockdata;
+        private final Map<String, CachedBlockData> entries = new ConcurrentHashMap<>();
+
+        private BlockDataCache(Map<Integer, String> materials, Map<String, Integer> blockdata) {
+            this.materials = materials;
+            this.blockdata = blockdata;
+        }
+    }
+
+    private static final class CachedBlockData {
+
+        private final int type;
+        private final byte[] data;
+
+        private CachedBlockData(int type, byte[] data) {
+            this.type = type;
+            this.data = data;
+        }
     }
 
     public static String byteDataToString(byte[] data, int type) {

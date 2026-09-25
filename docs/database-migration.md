@@ -40,7 +40,7 @@ Prepare the target as follows:
 | SQLite | Move or archive an existing `plugins/CoreProtect/database.db` if it contains CoreProtect data. CoreProtect creates the file and schema when needed. |
 | DuckDB | `plugins/CoreProtect/database.duckdb` must be a new database file so its row ID sequences can be initialized from the source. |
 | MySQL | Configure the `mysql-*` options and create the configured database and account. The selected table-prefix namespace must contain no CoreProtect data. |
-| ClickHouse | Use ClickHouse 25.6 or newer, create the configured database with persistent UUID-backed table identities (`Atomic` is the normal self-hosted choice), create the account, configure the `clickhouse-*` options, and use a table-prefix namespace containing no CoreProtect data. |
+| ClickHouse | Use ClickHouse 26.1 or newer, create the configured database with persistent UUID-backed table identities (`Atomic` is the normal self-hosted choice), create the account, configure the `clickhouse-*` options, and use a table-prefix namespace containing no CoreProtect data. |
 
 `table-prefix` is shared by MySQL and ClickHouse. If the source is MySQL or ClickHouse, leave its prefix unchanged; an external target will use that same prefix. If the source is SQLite or DuckDB, you may select the external target prefix before starting the migration session. Embedded SQLite and DuckDB targets always use `co_`.
 
@@ -97,7 +97,7 @@ If target activation or the atomic `config.yml` update fails after verification,
 * Confirm that the target settings were loaded while `database-type` still selected the source.
 * Verify the target host, port, database, credentials, table prefix, and available storage.
 * Confirm that the target account can create, read, insert, update or mutate, and delete or drop the required objects.
-* For ClickHouse, confirm the server is version 25.6 or newer, no other process is using the same CoreProtect data directory, and every other CoreProtect installation sharing the source or target namespace is stopped.
+* For ClickHouse, confirm the server is version 26.1 or newer, no other process is using the same CoreProtect data directory, and every other CoreProtect installation sharing the source or target namespace is stopped.
 
 ### Verification Failure or Interruption
 

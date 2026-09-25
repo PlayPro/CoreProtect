@@ -21,8 +21,8 @@ public final class ClickHouseDatabase implements AutoCloseable {
 
     public static final String USER_NAME_ORDER = "(uuid!='') DESC,time DESC,rowid DESC";
 
-    private static final int MINIMUM_SERVER_MAJOR = 25;
-    private static final int MINIMUM_SERVER_MINOR = 6;
+    private static final int MINIMUM_SERVER_MAJOR = 26;
+    private static final int MINIMUM_SERVER_MINOR = 1;
 
     private final ClickHouseJdbc jdbc;
     private final String database;
@@ -478,7 +478,7 @@ public final class ClickHouseDatabase implements AutoCloseable {
         return version;
     }
 
-    private static void requireServerVersion(Connection connection) throws SQLException {
+    static void requireServerVersion(Connection connection) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement("SELECT version()"); ResultSet resultSet = statement.executeQuery()) {
             if (!resultSet.next()) {
                 throw new SQLException("ClickHouse did not return its server version");

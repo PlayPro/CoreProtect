@@ -42,6 +42,7 @@ import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.worldedit.WorldEditBlockState;
 
 public class Queue {
 
@@ -198,7 +199,7 @@ public class Queue {
             CreatureSpawner mobSpawner = (CreatureSpawner) block;
             extraData = EntityUtils.getSpawnerType(mobSpawner.getSpawnedType());
         }
-        else if (type != null && (type == Material.IRON_DOOR || BlockGroup.DOORS.contains(type) || type.equals(Material.SUNFLOWER) || type.equals(Material.LILAC) || type.equals(Material.TALL_GRASS) || type.equals(Material.LARGE_FERN) || type.equals(Material.ROSE_BUSH) || type.equals(Material.PEONY))) { // Double plant
+        else if (type != null && BlockGroup.LOGGED_BY_LOWER_HALF.contains(type)) { // Double plant
             if (block.getBlockData() instanceof Bisected) {
                 if (((Bisected) block.getBlockData()).getHalf().equals(Half.TOP)) {
                     if (blockNumber == 5) {
@@ -206,8 +207,8 @@ public class Queue {
                     }
 
                     if (block.getY() > BukkitAdapter.ADAPTER.getMinHeight(block.getWorld())) {
-                        block = block.getWorld().getBlockAt(block.getX(), block.getY() - 1, block.getZ()).getState();
-                        if (type != block.getType()) {
+                        block = block instanceof WorldEditBlockState ? ((WorldEditBlockState) block).getLowerHalf() : block.getWorld().getBlockAt(block.getX(), block.getY() - 1, block.getZ()).getState();
+                        if (block == null || type != block.getType()) {
                             return;
                         }
 

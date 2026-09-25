@@ -2,6 +2,7 @@ package net.coreprotect.worldedit;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.block.data.BlockData;
 
 import com.fastasyncworldedit.core.extent.processor.ProcessorScope;
 import com.fastasyncworldedit.core.queue.IBatchProcessor;
@@ -18,6 +19,7 @@ import com.sk89q.worldedit.world.block.BlockState;
 import com.sk89q.worldedit.world.block.BlockTypesCache;
 
 import net.coreprotect.config.Config;
+import net.coreprotect.model.BlockGroup;
 
 final class FastAsyncWorldEditLogger implements IBatchProcessor {
     private static final ProcessorScope SCOPE = resolveScope();
@@ -76,10 +78,37 @@ final class FastAsyncWorldEditLogger implements IBatchProcessor {
                 BlockVector3 position = BlockVector3.at(chunkX + x, y, chunkZ + z);
                 Location location = new Location(world, chunkX + x, y, chunkZ + z);
                 BaseBlock baseBlock = WorldEditLogger.needsBaseBlock(oldType, config) ? get.getFullBlock(x, y, z) : null;
-                WorldEditLogger.postProcess(extent, actor, position, location, newBlock, baseBlock, oldType, oldBlock, null, false);
+                org.bukkit.block.BlockState lowerHalf = BlockGroup.LOGGED_BY_LOWER_HALF.contains(oldType) ? getLowerHalf(get, set, x, y, z, chunkX + x, chunkZ + z) : null;
+                WorldEditLogger.postProcess(extent, actor, position, location, newBlock, baseBlock, oldType, oldBlock, null, false, lowerHalf);
             }
         }
         return set;
+    }
+
+    /**
+     * The block below as this edit leaves it, read from the chunk data the processor already holds instead of the world.
+     * Null when the edit changes that block too, since its own row then covers the double block.
+     */
+    private org.bukkit.block.BlockState getLowerHalf(IChunkGet get, IChunkSet set, int x, int y, int z, int worldX, int worldZ) {
+        int lowerY = y - 1;
+        int layer = lowerY >> 4;
+        if (layer < get.getMinSectionPosition()) {
+            return null;
+        }
+
+        int index = ((lowerY & 15) << 8) | (z << 4) | x;
+        char[] original = get.load(layer);
+        int ordinal = original == null ? BlockTypesCache.ReservedIDs.AIR : original[index];
+        if (ordinal == BlockTypesCache.ReservedIDs.__RESERVED__) {
+            ordinal = BlockTypesCache.ReservedIDs.AIR;
+        }
+        char[] changed = set.loadIfPresent(layer);
+        if (changed != null && changed[index] != BlockTypesCache.ReservedIDs.__RESERVED__ && changed[index] != ordinal) {
+            return null;
+        }
+
+        BlockData blockData = BukkitAdapter.adapt(BlockState.getFromOrdinal(ordinal));
+        return new WorldEditBlockState(new Location(world, worldX, lowerY, worldZ), blockData.getMaterial(), blockData);
     }
 
     @Override

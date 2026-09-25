@@ -95,7 +95,7 @@ Purge old block data. Useful for freeing up space on your HDD if you don't need 
 
 | Command | Parameters |
 | --- | --- |
-| /co purge | `t:<time> r:<world> i:<include>` |
+| /co purge | `t:<time> r:<world/radius> i:<include> e:<exclude> a:kill` |
 
 For example, `/co purge t:30d` will delete all data older than one month, and only keep the last 30 days of data.
 
@@ -106,16 +106,30 @@ For example, `/co purge t:30d` will delete all data older than one month, and on
 You can optionally specify a world in CoreProtect v19+.  
 For example, `/co purge t:30d r:#world_nether` will delete all data older than one month in the Nether, without removing data in any other worlds.
 
+**Purging by Radius**  
+A radius can limit a purge of specific block types or entity kills to the area around you. It only applies to block and entity kill data, so it must be combined with `i:` or `a:kill`, and it can only be used in-game.
+For example, `/co purge t:30d r:50 i:zombie` will delete zombie kills older than one month within 50 blocks of you, without removing any other data. Use `r:50x10` to also limit the height to 10 blocks above and below you.
+
 **Purging Blocks**  
 You can optionally specify block types in CoreProtect v23+.  
 For example, `/co purge t:30d i:stone,dirt` will delete all stone and dirt data older than one month, without removing other block data.
+
+**Purging Entity Kills**  
+Entity kill logs can be purged separately from other data on SQLite, MySQL, and DuckDB. Each kill also removes the saved entity data used to restore the mob on rollback.
+
+* `/co purge t:30d a:kill` deletes all entity kills older than one month, and keeps all other data.
+* `/co purge t:30d i:zombie,skeleton` deletes zombie and skeleton kills older than one month. Entity and block types can be combined in `i:`.
+* `/co purge t:30d e:villager,wolf` deletes all data older than one month, but keeps villager and wolf kills.
+* `/co purge t:30d a:kill e:villager r:#world` deletes entity kills older than one month in the overworld, except villager kills.
+
+`e:` only accepts entity types. It cannot be combined with entity types in `i:`, or with only block types in `i:`, because a block restriction already keeps every kill. `a:kill` cannot be combined with block types in `i:`.
 
 **Database Optimization**
 
 In CoreProtect v2.15+, adding `#optimize` to the end of the command (for example, `/co purge t:30d #optimize`) will also optimize supported database tables and reclaim unused disk space. How this option is handled depends on the database backend:
 
 * SQLite already rebuilds the database from retained data and reclaims unused file space as part of a manual purge, so `#optimize` is not needed.
-* MySQL normally deletes matching rows. Adding `#optimize` also optimizes its tables to reclaim unused space.
+* MySQL normally deletes matching rows. Adding `#optimize` also removes saved entity data that no entity kill references anymore (this requires the `CREATE TEMPORARY TABLES` privilege), then optimizes its tables to reclaim unused space.
 * DuckDB deletes matching rows in one transaction and checkpoints afterward. `#optimize` has no additional effect.
 * ClickHouse drops fully covered monthly partitions for an unfiltered time purge and synchronously removes rows from partial or filtered partitions. Adding `#optimize` also runs `OPTIMIZE TABLE ... FINAL`.
 

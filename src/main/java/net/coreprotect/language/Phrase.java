@@ -90,6 +90,8 @@ public enum Phrase {
     HELP_PURGE_3,
     HELP_PURGE_4,
     HELP_PURGE_5,
+    HELP_PURGE_6,
+    HELP_PURGE_7,
     HELP_PURGE_COMMAND,
     HELP_RADIUS_1,
     HELP_RADIUS_2,

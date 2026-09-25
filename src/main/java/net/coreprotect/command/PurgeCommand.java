@@ -705,6 +705,32 @@ public class PurgeCommand extends Consumer {
                         }
                     }
 
+                    if (ConfigHandler.databaseType.isMySQL() && optimize) {
+                        try {
+                            for (String sweepQuery : PurgeFilter.mysqlOrphanSweepSetup(ConfigHandler.prefix)) {
+                                preparedStmt = preparePurgeStatement(connection, sweepQuery);
+                                preparedStmt.execute();
+                                preparedStmt.close();
+                            }
+                            preparedStmt = preparePurgeStatement(connection, PurgeFilter.mysqlOrphanSweepDelete(ConfigHandler.prefix));
+                            removed = removed + preparedStmt.executeUpdate();
+                            preparedStmt.close();
+                        }
+                        catch (Exception e) {
+                            reportPurgeFailure(e);
+                        }
+                        finally {
+                            try {
+                                preparedStmt = preparePurgeStatement(connection, PurgeFilter.mysqlOrphanSweepTeardown(ConfigHandler.prefix));
+                                preparedStmt.execute();
+                                preparedStmt.close();
+                            }
+                            catch (Exception e) {
+                                reportPurgeFailure(e);
+                            }
+                        }
+                    }
+
                     requirePurgeNotCancelled();
                     String retainedPrefix = ConfigHandler.databaseType.isSQLite() ? purgePrefix : ConfigHandler.prefix;
                     query = "UPDATE " + retainedPrefix + "entity_spawn SET kill_rowid=NULL WHERE kill_rowid IS NOT NULL AND NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity WHERE " + retainedPrefix + "entity.rowid=" + retainedPrefix + "entity_spawn.kill_rowid)";

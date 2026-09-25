@@ -1,5 +1,6 @@
 package net.coreprotect.database;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.StringJoiner;
 
@@ -120,6 +121,46 @@ public final class PurgeFilter {
      */
     public static String deleteUnreferencedEntities(String entityTable, String blockTable) {
         return "DELETE FROM " + entityTable + " WHERE rowid NOT IN(" + killReferences(blockTable) + ")";
+    }
+
+    /**
+     * Builds the MySQL statements that prepare an orphan sweep: a temporary table of the co_entity ids that kill rows
+     * reference. The table avoids an anti-join on the unindexed co_block.data column.
+     *
+     * @param prefix
+     *            the table prefix
+     * @return the SQL statements, in order
+     */
+    public static List<String> mysqlOrphanSweepSetup(String prefix) {
+        String keepTable = prefix + "entity_keep";
+        List<String> statements = new ArrayList<>();
+        statements.add("DROP TEMPORARY TABLE IF EXISTS " + keepTable);
+        statements.add("CREATE TEMPORARY TABLE " + keepTable + " (rowid INT NOT NULL PRIMARY KEY) ENGINE=InnoDB");
+        statements.add("INSERT IGNORE INTO " + keepTable + " (rowid) " + killReferences(prefix + "block"));
+        return statements;
+    }
+
+    /**
+     * Builds the MySQL statement that deletes co_entity rows no kill row references, such as rows left by earlier
+     * world purges. Run {@link #mysqlOrphanSweepSetup(String)} first.
+     *
+     * @param prefix
+     *            the table prefix
+     * @return the SQL statement
+     */
+    public static String mysqlOrphanSweepDelete(String prefix) {
+        return "DELETE e FROM " + prefix + "entity AS e LEFT JOIN " + prefix + "entity_keep AS k ON k.rowid = e.rowid WHERE k.rowid IS NULL";
+    }
+
+    /**
+     * Builds the MySQL statement that drops the temporary table of an orphan sweep.
+     *
+     * @param prefix
+     *            the table prefix
+     * @return the SQL statement
+     */
+    public static String mysqlOrphanSweepTeardown(String prefix) {
+        return "DROP TEMPORARY TABLE IF EXISTS " + prefix + "entity_keep";
     }
 
     private String timeCondition(String qualifier) {

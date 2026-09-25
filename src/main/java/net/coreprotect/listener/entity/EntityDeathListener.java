@@ -80,6 +80,7 @@ import net.coreprotect.spigot.SpigotAdapter;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.EntitySpawnTracking;
+import net.coreprotect.utility.entity.EntityUtil;
 import net.coreprotect.utility.entity.LivingEntityDetails;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 
@@ -310,7 +311,7 @@ public final class EntityDeathListener extends Queue implements Listener {
                 Attributable attributable = entity;
                 for (Attribute attribute : Lists.newArrayList(Registry.ATTRIBUTE)) {
                     AttributeInstance attributeInstance = attributable.getAttribute(attribute);
-                    if (attributeInstance != null) {
+                    if (attributeInstance != null && EntityUtil.isAttributeModified(attributeInstance)) {
                         List<Object> attributeData = new ArrayList<>();
                         List<Object> attributeModifiers = new ArrayList<>();
                         attributeData.add(BukkitAdapter.ADAPTER.getRegistryKey(attributeInstance.getAttribute()));
@@ -582,9 +583,9 @@ public final class EntityDeathListener extends Queue implements Listener {
             data.add(entity.getCustomName());
             data.add(attributes);
             data.add(details);
-            if (EntitySpawnTracking.isTracked(entity)) {
-                data.add(entity.getUniqueId().toString());
-            }
+            data.add(EntitySpawnTracking.isTracked(entity) ? entity.getUniqueId().toString() : null);
+            data.add(null); // kill location, only stored for placed entities
+            data.add(EntityUtil.SPARSE_ATTRIBUTES);
 
             if (!(entity instanceof Player)) {
                 Queue.queueEntityKill(e, entity.getLocation(), data, type);

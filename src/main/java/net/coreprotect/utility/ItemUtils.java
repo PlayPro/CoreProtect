@@ -3,6 +3,7 @@ package net.coreprotect.utility;
 import java.io.ByteArrayOutputStream;
 import java.lang.reflect.Array;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -73,6 +74,15 @@ public class ItemUtils {
         }
 
         return GIVABLE_ITEMS.computeIfAbsent(item, k -> GIVABLE_ITEMS.size());
+    }
+
+    // Appends inside compute so the consumer's remove in ItemLogger either sees the item or leaves it for the next pass
+    public static void addPendingItems(ConcurrentHashMap<String, List<ItemStack>> pendingItems, String key, ItemStack... items) {
+        pendingItems.compute(key, (id, list) -> {
+            List<ItemStack> result = list == null ? new ArrayList<>(items.length) : list;
+            Collections.addAll(result, items);
+            return result;
+        });
     }
 
     public static void mergeItems(Material material, ItemStack[] items) {

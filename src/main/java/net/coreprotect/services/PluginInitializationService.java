@@ -31,6 +31,8 @@ import net.coreprotect.utility.ErrorReporter;
  */
 public class PluginInitializationService {
 
+    private static volatile Metrics metrics;
+
     private PluginInitializationService() {
         throw new IllegalStateException("Utility class");
     }
@@ -161,8 +163,7 @@ public class PluginInitializationService {
         TickTimeMonitor.initialize(plugin);
 
         // Start cache cleanup thread
-        Thread cacheCleanUpThread = new Thread(new CacheHandler());
-        cacheCleanUpThread.start();
+        CacheHandler.startThread();
 
         Consumer.startConsumer();
         EntitySpawnTracking.initializeLoadedEntities();
@@ -177,10 +178,28 @@ public class PluginInitializationService {
      */
     private static void enableMetrics(JavaPlugin plugin) {
         try {
-            new Metrics(plugin, 2876);
+            metrics = new Metrics(plugin, 2876);
         }
         catch (Exception e) {
             // Failed to connect to bStats server or something else went wrong
+        }
+    }
+
+    /**
+     * Stops the bStats scheduler so its thread does not outlive a disable
+     */
+    public static void disableMetrics() {
+        Metrics current = metrics;
+        metrics = null;
+        if (current == null) {
+            return;
+        }
+
+        try {
+            current.shutdown();
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
         }
     }
 }

@@ -1,6 +1,11 @@
 package net.coreprotect.listener.player.inspector;
 
 import java.sql.Connection;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.bukkit.entity.Player;
 
@@ -13,6 +18,23 @@ import net.coreprotect.utility.LookupThrottle;
 
 public abstract class BaseInspector {
 
+    private static final int LOOKUP_THREADS = 2;
+    private static final int LOOKUP_QUEUE_SIZE = 64;
+    private static final long LOOKUP_THREAD_IDLE_SECONDS = 30L;
+    private static final long SHUTDOWN_WAIT_SECONDS = 5L;
+    private static final AtomicInteger lookupThreadCount = new AtomicInteger();
+    private static final ThreadPoolExecutor lookupExecutor = createLookupExecutor();
+
+    private static ThreadPoolExecutor createLookupExecutor() {
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(LOOKUP_THREADS, LOOKUP_THREADS, LOOKUP_THREAD_IDLE_SECONDS, TimeUnit.SECONDS, new ArrayBlockingQueue<>(LOOKUP_QUEUE_SIZE), runnable -> {
+            Thread thread = new Thread(runnable, "CoreProtect-Inspector-" + lookupThreadCount.incrementAndGet());
+            thread.setDaemon(true);
+            return thread;
+        });
+        executor.allowCoreThreadTimeOut(true);
+        return executor;
+    }
+
     protected void startInspection(Player player, Runnable inspection) {
         try {
             acquireInspection(player);
@@ -22,20 +44,44 @@ public abstract class BaseInspector {
             return;
         }
 
+        runLookup(player, () -> {
+            try {
+                inspection.run();
+            }
+            finally {
+                LookupThrottle.release(player.getName());
+            }
+        });
+    }
+
+    /**
+     * Runs a lookup on the shared inspector threads. The caller holds the player's throttle slot and the lookup
+     * releases it, so it is only released here when the lookup is rejected.
+     */
+    public static void runLookup(Player player, Runnable lookup) {
         try {
-            Thread thread = new Thread(() -> {
-                try {
-                    inspection.run();
-                }
-                finally {
-                    LookupThrottle.release(player.getName());
-                }
-            });
-            thread.start();
+            lookupExecutor.execute(lookup);
+        }
+        catch (RejectedExecutionException e) {
+            LookupThrottle.release(player.getName());
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
         }
         catch (RuntimeException | Error e) {
             LookupThrottle.release(player.getName());
             throw e;
+        }
+    }
+
+    public static void shutdown() {
+        lookupExecutor.shutdown();
+        try {
+            if (!lookupExecutor.awaitTermination(SHUTDOWN_WAIT_SECONDS, TimeUnit.SECONDS)) {
+                lookupExecutor.shutdownNow();
+            }
+        }
+        catch (InterruptedException e) {
+            lookupExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
         }
     }
 

@@ -303,13 +303,13 @@ public final class ClickHouseSchema {
 
     private static void addCompatibilityViews(List<String> statements, Names names) {
         statements.add(currentView(names, ClickHouseFamily.ART_MAP, "e.rowid AS rowid,e.id AS id,e.name AS art"));
-        statements.add(rollbackView(names, ClickHouseFamily.BLOCK, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.type AS type,e.data AS data," + binary("e.meta", "meta") + "," + binary("e.blockdata", "blockdata") + ",e.action AS action"));
+        statements.add(rollbackView(names, ClickHouseFamily.BLOCK));
         statements.add(view(names, ClickHouseFamily.CHAT, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.message AS message"));
         statements.add(view(names, ClickHouseFamily.COMMAND, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.message AS message"));
-        statements.add(rollbackView(names, ClickHouseFamily.CONTAINER, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.type AS type,e.data AS data,e.amount AS amount," + binary("e.metadata", "metadata") + ",e.action AS action"));
-        statements.add(rollbackView(names, ClickHouseFamily.ENTITY_CONTAINER, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.entity_spawn_rowid AS entity_spawn_rowid," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.type AS type,e.data AS data,e.amount AS amount," + binary("e.metadata", "metadata") + ",e.action AS action"));
+        statements.add(rollbackView(names, ClickHouseFamily.CONTAINER));
+        statements.add(rollbackView(names, ClickHouseFamily.ENTITY_CONTAINER));
         statements.add(view(names, ClickHouseFamily.ENTITY_INTERACTION, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.entity_spawn_rowid AS entity_spawn_rowid," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.type AS type,e.action AS action," + binary("e.metadata", "metadata") + ",e.rolled_back AS rolled_back"));
-        statements.add(rollbackView(names, ClickHouseFamily.ITEM, "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.type AS type," + binary("e.payload", "data") + ",e.amount AS amount,e.action AS action"));
+        statements.add(rollbackView(names, ClickHouseFamily.ITEM));
         statements.add(currentView(names, ClickHouseFamily.DATABASE_LOCK, "e.rowid AS rowid,e.status AS status,e.database_lock_time AS time"));
         statements.add(view(names, ClickHouseFamily.ENTITY, "e.rowid AS rowid,e.time AS time," + binary("e.payload", "data")));
         statements.add(entitySpawnView(names));
@@ -337,8 +337,41 @@ public final class ClickHouseSchema {
                 + " FROM " + currentEvents(names, family) + " AS e";
     }
 
-    private static String rollbackView(Names names, ClickHouseFamily family, String projection) {
-        return currentView(names, family, projection + ",e.rolled_back AS rolled_back");
+    public static String lookupTable(String prefix, String table, String keyPredicate) {
+        String projection = rollbackProjection(table);
+        if (projection == null || keyPredicate.isEmpty()) {
+            return prefix + table;
+        }
+        String eventData = ClickHouseIdentifiers.quote(prefix + "event_data", "ClickHouse table");
+        return "(" + rollbackSelect(eventData, table, projection, keyPredicate) + ")";
+    }
+
+    private static String rollbackView(Names names, ClickHouseFamily family) {
+        String table = family.getTableName();
+        return "CREATE OR REPLACE VIEW " + names.table(table)
+                + " AS " + rollbackSelect(names.eventData, table, rollbackProjection(table), "");
+    }
+
+    private static String rollbackSelect(String eventData, String table, String projection, String keyPredicate) {
+        return "SELECT " + projection + ",e.rolled_back AS rolled_back" + locationKeys(ClickHouseFamily.fromTableName(table))
+                + " FROM (SELECT * FROM " + eventData + " FINAL"
+                + (keyPredicate.isEmpty() ? "" : " PREWHERE " + keyPredicate)
+                + " WHERE family='" + table + "') AS e";
+    }
+
+    private static String rollbackProjection(String table) {
+        switch (table) {
+            case "block":
+                return "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.type AS type,e.data AS data," + binary("e.meta", "meta") + "," + binary("e.blockdata", "blockdata") + ",e.action AS action";
+            case "container":
+                return "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.type AS type,e.data AS data,e.amount AS amount," + binary("e.metadata", "metadata") + ",e.action AS action";
+            case "entity_container":
+                return "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.entity_spawn_rowid AS entity_spawn_rowid," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.type AS type,e.data AS data,e.amount AS amount," + binary("e.metadata", "metadata") + ",e.action AS action";
+            case "item":
+                return "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.type AS type," + binary("e.payload", "data") + ",e.amount AS amount,e.action AS action";
+            default:
+                return null;
+        }
     }
 
     private static String entitySpawnView(Names names) {

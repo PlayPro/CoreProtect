@@ -24,6 +24,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.clickhouse.ClickHouseSchema;
 import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
@@ -908,12 +909,16 @@ public class LookupRaw extends Queue {
                 queryBlock = queryBlock + " " + userColumn + " NOT IN(" + excludeUsers + ") AND";
             }
 
+            StringJoiner timeConditions = new StringJoiner(" AND ");
             if (startTime > 0) {
-                queryBlock = queryBlock + " time > " + startTime + " AND";
+                timeConditions.add("time > " + startTime);
             }
-
             if (endTime > 0) {
-                queryBlock = queryBlock + " time <= " + endTime + " AND";
+                timeConditions.add("time <= " + endTime);
+            }
+            String timeQuery = timeConditions.toString();
+            if (!timeQuery.isEmpty()) {
+                queryBlock = queryBlock + " " + timeQuery + " AND";
             }
 
             String rollbackPredicate = buildRollbackPredicate(rollbackState, actionList.contains(LookupActions.ITEM));
@@ -1074,8 +1079,8 @@ public class LookupRaw extends Queue {
                 String commandQuery = appendMessageFilters(baseQuery, messageFilters, "command", messageFilterBindings);
                 chatQuery = restrictSource(chatQuery, pageRows, 0);
                 commandQuery = restrictSource(commandQuery, pageRows, 1);
-                String chatTable = sourceTable(statement, "chat", locationWorldId, sourceBounds, entityContext, false, pageRows);
-                String commandTable = sourceTable(statement, "command", locationWorldId, sourceBounds, entityContext, false, pageRows);
+                String chatTable = sourceTable(statement, "chat", locationWorldId, sourceBounds, entityContext, false, pageRows, pageRows == null ? timeQuery : chatQuery.trim());
+                String commandTable = sourceTable(statement, "command", locationWorldId, sourceBounds, entityContext, false, pageRows, pageRows == null ? timeQuery : commandQuery.trim());
                 query = unionSelect + "SELECT 0 as tbl," + rows + " FROM " + chatTable + " WHERE" + chatQuery + unionLimit + ") UNION ALL ";
                 query += unionSelect + "SELECT 1 as tbl," + rows + " FROM " + commandTable + " WHERE" + commandQuery + unionLimit + ")";
                 if (!count) {
@@ -1113,7 +1118,7 @@ public class LookupRaw extends Queue {
                 }
 
                 String sourceQuery = restrictSource(baseQuery, pageRows, InventorySources.BLOCK);
-                String sourceTable = sourceTable(statement, "block", locationWorldId, sourceBounds, entityContext, entitySpawnLocation, pageRows);
+                String sourceTable = sourceTable(statement, "block", locationWorldId, sourceBounds, entityContext, entitySpawnLocation, pageRows, pageRows == null ? timeQuery : sourceQuery.trim());
                 query = unionSelect + blockQuery(rows, sourceTable, index, sourceQuery, entitySpawnLocationQuery, originalBlockLocationQuery, currentBlockLocationQuery, count) + unionLimit + ") UNION ALL ";
                 itemLookup = true;
             }
@@ -1123,14 +1128,14 @@ public class LookupRaw extends Queue {
                     rows = "rowid as id,time," + userColumn + ",wid,x,y,z,type,metadata,data,amount,action,rolled_back,0 as entity_spawn_rowid";
                 }
                 String containerSourceQuery = restrictSource(queryNonBlock, pageRows, InventorySources.CONTAINER);
-                String containerTable = sourceTable(statement, "container", locationWorldId, sourceBounds, entityContext, false, pageRows);
+                String containerTable = sourceTable(statement, "container", locationWorldId, sourceBounds, entityContext, false, pageRows, pageRows == null ? timeQuery : containerSourceQuery.trim());
                 query = query + unionSelect + "SELECT 1 as tbl," + rows + " FROM " + containerTable + " WHERE" + containerSourceQuery + unionLimit + ") UNION ALL ";
 
                 if (!count && !selectPageRows) {
                     rows = "rowid as id,time," + userColumn + ",wid,x,y,z,type,metadata,data,amount,action,rolled_back,entity_spawn_rowid";
                 }
                 String entityContainerSourceQuery = restrictSource(queryEntityContainer, pageRows, InventorySources.ENTITY_CONTAINER);
-                String entityContainerTable = sourceTable(statement, "entity_container", locationWorldId, sourceBounds, entityContext, entityContainerLocation, pageRows, entityContainerId);
+                String entityContainerTable = sourceTable(statement, "entity_container", locationWorldId, sourceBounds, entityContext, entityContainerLocation, pageRows, pageRows == null ? timeQuery : entityContainerSourceQuery.trim(), entityContainerId);
                 query = query + unionSelect + "SELECT " + InventorySources.ENTITY_CONTAINER + " as tbl," + rows + " FROM " + entityContainerTable + " WHERE" + entityContainerSourceQuery + unionLimit + ") UNION ALL ";
 
                 if (!count && !selectPageRows) {
@@ -1145,7 +1150,7 @@ public class LookupRaw extends Queue {
                 }
 
                 String itemSourceQuery = restrictSource(queryNonBlock, pageRows, InventorySources.ITEM);
-                String itemTable = sourceTable(statement, "item", locationWorldId, sourceBounds, entityContext, false, pageRows);
+                String itemTable = sourceTable(statement, "item", locationWorldId, sourceBounds, entityContext, false, pageRows, pageRows == null ? timeQuery : itemSourceQuery.trim());
                 query = query + unionSelect + "SELECT 2 as tbl," + rows + " FROM " + itemTable + " WHERE" + itemSourceQuery + unionLimit + ")";
             }
 
@@ -1155,7 +1160,7 @@ public class LookupRaw extends Queue {
                 }
                 if (entityContainerId == null) {
                     String sourceQuery = restrictSource(queryNonBlock, pageRows, 0);
-                    String sourceTable = sourceTable(statement, "container", locationWorldId, sourceBounds, entityContext, false, pageRows);
+                    String sourceTable = sourceTable(statement, "container", locationWorldId, sourceBounds, entityContext, false, pageRows, pageRows == null ? timeQuery : sourceQuery.trim());
                     query = unionSelect + "SELECT 0 as tbl," + rows + " FROM " + sourceTable + " WHERE" + sourceQuery + unionLimit + ")";
                 }
                 if (includeEntityContainers) {
@@ -1166,7 +1171,7 @@ public class LookupRaw extends Queue {
                         rows = "rowid as id,time," + userColumn + ",wid,x,y,z,type,metadata,data,amount,action,rolled_back,entity_spawn_rowid";
                     }
                     String sourceQuery = restrictSource(queryEntityContainer, pageRows, InventorySources.ENTITY_CONTAINER);
-                    String sourceTable = sourceTable(statement, "entity_container", locationWorldId, sourceBounds, entityContext, entityContainerLocation, pageRows, entityContainerId);
+                    String sourceTable = sourceTable(statement, "entity_container", locationWorldId, sourceBounds, entityContext, entityContainerLocation, pageRows, pageRows == null ? timeQuery : sourceQuery.trim(), entityContainerId);
                     query += unionSelect + "SELECT " + InventorySources.ENTITY_CONTAINER + " as tbl," + rows + " FROM " + sourceTable + " WHERE" + sourceQuery + unionLimit + ")";
                 }
                 if (!count) {
@@ -1180,7 +1185,7 @@ public class LookupRaw extends Queue {
                         rows = "rowid as id,time," + userColumn + ",wid,x,y,z,type,meta as metadata,data,-1 as amount,action,rolled_back,0 as entity_spawn_rowid";
                     }
                     String sourceQuery = restrictSource(blockSourceQuery, pageRows, InventorySources.BLOCK);
-                    String sourceTable = sourceTable(statement, "block", locationWorldId, sourceBounds, entityContext, entitySpawnLocation, pageRows);
+                    String sourceTable = sourceTable(statement, "block", locationWorldId, sourceBounds, entityContext, entitySpawnLocation, pageRows, pageRows == null ? timeQuery : sourceQuery.trim());
                     query = unionSelect + blockQuery(rows, sourceTable, index, sourceQuery, entitySpawnLocationQuery, originalBlockLocationQuery, currentBlockLocationQuery, count) + unionLimit + ")";
                 }
 
@@ -1188,7 +1193,7 @@ public class LookupRaw extends Queue {
                     rows = "rowid as id,time," + userColumn + ",wid,x,y,z,type,metadata,action as data,-1 as amount," + LookupActions.INTERACTION + " as action,rolled_back,entity_spawn_rowid";
                 }
                 String sourceQuery = restrictSource(queryEntityInteraction, pageRows, InventorySources.ENTITY_INTERACTION);
-                String sourceTable = sourceTable(statement, "entity_interaction", locationWorldId, sourceBounds, entityContext, entityInteractionLocation, pageRows);
+                String sourceTable = sourceTable(statement, "entity_interaction", locationWorldId, sourceBounds, entityContext, entityInteractionLocation, pageRows, pageRows == null ? timeQuery : sourceQuery.trim());
                 query += " UNION ALL " + unionSelect + "SELECT " + InventorySources.ENTITY_INTERACTION + " as tbl," + rows + " FROM " + sourceTable + " WHERE" + sourceQuery + unionLimit + ")";
                 if (!count) {
                     queryOrder = " ORDER BY time DESC, tbl DESC, id DESC";
@@ -1205,7 +1210,7 @@ public class LookupRaw extends Queue {
                                 : queryTable.equals("entity_interaction") && entityInteractionLocation;
                 baseQuery = restrictSource(baseQuery, pageRows, 0);
                 Integer exactEntitySpawnRowId = queryTable.equals("entity_container") ? entityContainerId : null;
-                String sourceTable = sourceTable(statement, queryTable, locationWorldId, sourceBounds, entityContext, entityFallback, pageRows, exactEntitySpawnRowId);
+                String sourceTable = sourceTable(statement, queryTable, locationWorldId, sourceBounds, entityContext, entityFallback, pageRows, pageRows == null ? timeQuery : baseQuery.trim(), exactEntitySpawnRowId);
                 query = queryTable.equals("block")
                         ? blockQuery(rows, sourceTable, index, baseQuery, entitySpawnLocationQuery, originalBlockLocationQuery, currentBlockLocationQuery, count)
                         : "SELECT 0 as tbl," + rows + " FROM " + sourceTable + " " + index + "WHERE" + baseQuery;
@@ -1273,12 +1278,15 @@ public class LookupRaw extends Queue {
         return query;
     }
 
-    private static String sourceTable(Statement statement, String table, int worldId, Integer[] sourceBounds, EntityLookupContext entityContext, boolean entityFallback, Map<Integer, List<Long>> pageRows) throws Exception {
-        return sourceTable(statement, table, worldId, sourceBounds, entityContext, entityFallback, pageRows, null);
+    private static String sourceTable(Statement statement, String table, int worldId, Integer[] sourceBounds, EntityLookupContext entityContext, boolean entityFallback, Map<Integer, List<Long>> pageRows, String keyPredicate) throws Exception {
+        return sourceTable(statement, table, worldId, sourceBounds, entityContext, entityFallback, pageRows, keyPredicate, null);
     }
 
-    private static String sourceTable(Statement statement, String table, int worldId, Integer[] sourceBounds, EntityLookupContext entityContext, boolean entityFallback, Map<Integer, List<Long>> pageRows, Integer exactEntitySpawnRowId) throws Exception {
+    private static String sourceTable(Statement statement, String table, int worldId, Integer[] sourceBounds, EntityLookupContext entityContext, boolean entityFallback, Map<Integer, List<Long>> pageRows, String keyPredicate, Integer exactEntitySpawnRowId) throws Exception {
         String tableName = ConfigHandler.prefix + table;
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            return ClickHouseSchema.lookupTable(ConfigHandler.prefix, table, keyPredicate);
+        }
         if (!ConfigHandler.databaseType.isDuckDB() || pageRows != null) {
             return tableName;
         }

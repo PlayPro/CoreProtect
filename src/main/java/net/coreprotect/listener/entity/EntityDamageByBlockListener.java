@@ -68,13 +68,15 @@ public final class EntityDamageByBlockListener extends Queue implements Listener
                 ItemStack[] contents = ItemUtils.getContainerContents(Material.ARMOR_STAND, armorStand, block.getLocation());
                 String killer = user;
 
-                Scheduler.runTask(CoreProtect.getInstance(), () -> {
+                Runnable logBreak = () -> {
                     if (armorStand.isDead()) {
                         entityLocation.setY(entityLocation.getY() + 0.99);
                         Database.containerBreakCheck(killer, Material.ARMOR_STAND, armorStand, contents, block.getLocation());
                         Queue.queueBlockBreak(killer, block.getState(), Material.ARMOR_STAND, null, (int) entityLocation.getYaw());
                     }
-                }, armorStand);
+                };
+                // Folia retires the task instead of running it once the stand is removed, so log from either callback
+                Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), logBreak, logBreak, armorStand, 0);
             }
         }
         else if (entity instanceof EnderCrystal && Config.getConfig(entity.getWorld()).BLOCK_BREAK) {

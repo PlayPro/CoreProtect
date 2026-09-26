@@ -15,6 +15,7 @@ import org.bukkit.entity.Painting;
 import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.MaterialUtils;
@@ -131,6 +132,15 @@ public class HangingUtil {
                     if (hangingFace == null) {
                         BlockUtils.setTypeAndData(spawnBlock, Material.AIR, null, true);
                     }
+                    if (ConfigHandler.isFolia) {
+                        // Folia does not support Entity#teleport, so the painting is placed at its target before it is added to the world
+                        BlockFace facing = faceSet;
+                        block.getWorld().spawn(block.getWorld().getBlockAt(paintingX, paintingY, paintingZ).getLocation(), Painting.class, spawned -> {
+                            spawned.setFacingDirection(facing, true);
+                            spawned.setArt(painting, true);
+                        });
+                        return;
+                    }
                     Painting hanging = null;
                     try {
                         hanging = block.getWorld().spawn(spawnBlock.getLocation(), Painting.class);
@@ -150,6 +160,18 @@ public class HangingUtil {
                             BlockUtils.setTypeAndData(spawnBlock, Material.AIR, null, true);
                         }
                         Class itemFrame = BukkitAdapter.ADAPTER.getFrameClass(rowType);
+                        if (ConfigHandler.isFolia) {
+                            // Folia does not support Entity#teleport, so the frame is placed at its target before it is added to the world
+                            BlockFace facing = faceSet;
+                            Material frameItem = MaterialUtils.getType(rowData);
+                            block.getWorld().spawn(block.getWorld().getBlockAt(x, y, z).getLocation(), (Class<? extends ItemFrame>) itemFrame, spawned -> {
+                                spawned.setFacingDirection(facing, true);
+                                if (frameItem != null) {
+                                    spawned.setItem(new ItemStack(frameItem, 1));
+                                }
+                            });
+                            return;
+                        }
                         Entity entity = block.getWorld().spawn(spawnBlock.getLocation(), itemFrame);
                         if (entity instanceof ItemFrame) {
                             ItemFrame hanging = (ItemFrame) entity;

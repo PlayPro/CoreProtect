@@ -23,7 +23,6 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.utility.EntityUtils;
-import net.coreprotect.utility.ItemUtils;
 
 public final class ProjectileLaunchListener extends Queue implements Listener {
 
@@ -41,13 +40,13 @@ public final class ProjectileLaunchListener extends Queue implements Listener {
             itemStack.setAmount(amount);
         }
 
+        int itemId;
         if (action == ItemLogger.ITEM_SHOOT) {
-            ItemUtils.addPendingItems(ConfigHandler.itemsShot, loggingItemId, itemStack);
+            itemId = addPendingItems(ConfigHandler.itemsShot, loggingItemId, itemStack);
         }
         else {
-            ItemUtils.addPendingItems(ConfigHandler.itemsThrown, loggingItemId, itemStack);
+            itemId = addPendingItems(ConfigHandler.itemsThrown, loggingItemId, itemStack);
         }
-        int itemId = getItemId(loggingItemId);
 
         int time = (int) (System.currentTimeMillis() / 1000L) + delay;
         Queue.queueItemTransaction(user, location.clone(), time, offset, itemId);

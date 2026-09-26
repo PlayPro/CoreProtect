@@ -12,7 +12,6 @@ import org.bukkit.inventory.ItemStack;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
-import net.coreprotect.utility.ItemUtils;
 
 public final class PlayerItemBreakListener extends Queue implements Listener {
 
@@ -22,8 +21,7 @@ public final class PlayerItemBreakListener extends Queue implements Listener {
         }
 
         String loggingItemId = user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
-        ItemUtils.addPendingItems(ConfigHandler.itemsBreak, loggingItemId, itemStack.clone());
-        int itemId = getItemId(loggingItemId);
+        int itemId = addPendingItems(ConfigHandler.itemsBreak, loggingItemId, itemStack.clone());
 
         int time = (int) (System.currentTimeMillis() / 1000L) + 1;
         Queue.queueItemTransaction(user, location.clone(), time, 0, itemId);

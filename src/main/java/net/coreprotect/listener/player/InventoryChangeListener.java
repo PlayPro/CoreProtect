@@ -549,11 +549,10 @@ public final class InventoryChangeListener extends Queue implements Listener {
         String loggingItemId = player.getName().toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
 
         // Log the input items as removed
-        ItemUtils.addPendingItems(ConfigHandler.itemsDestroy, loggingItemId, firstItem.clone(), secondItem.clone());
+        addPendingItems(ConfigHandler.itemsDestroy, loggingItemId, firstItem.clone(), secondItem.clone());
 
         // Log the output item as created
-        ItemUtils.addPendingItems(ConfigHandler.itemsCreate, loggingItemId, resultItem.clone());
-        int itemId = getItemId(loggingItemId);
+        int itemId = addPendingItems(ConfigHandler.itemsCreate, loggingItemId, resultItem.clone());
 
         int time = (int) (System.currentTimeMillis() / 1000L) + 1;
         Queue.queueItemTransaction(player.getName(), location.clone(), time, 0, itemId);

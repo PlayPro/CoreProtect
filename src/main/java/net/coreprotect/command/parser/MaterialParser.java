@@ -225,7 +225,7 @@ public class MaterialParser {
     public static Map<String, Set<Material>> getTags() {
         Map<String, Set<Material>> tagMap = new HashMap<>();
         tagMap.put("#button", BlockGroup.BUTTONS);
-        tagMap.put("#signs", BlockGroup.SIGNS);
+        tagMap.put("#sign", BlockGroup.SIGNS);
         tagMap.put("#container", BlockGroup.CONTAINERS);
         tagMap.put("#door", BlockGroup.DOORS);
         tagMap.put("#natural", BlockGroup.NATURAL_BLOCKS);

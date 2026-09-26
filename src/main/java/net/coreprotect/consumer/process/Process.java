@@ -152,7 +152,7 @@ public class Process {
         boolean preflightCommitted = false;
         int processedThrough = 0;
         try {
-            connection = Database.getConnection(false, 500);
+            connection = Database.getConsumerConnection(500, lastRun);
             if (connection == null) {
                 deferUnavailableColumnarDatabase(processId);
                 return;

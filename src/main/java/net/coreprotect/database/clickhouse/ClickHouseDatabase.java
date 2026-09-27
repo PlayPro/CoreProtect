@@ -39,7 +39,7 @@ public final class ClickHouseDatabase implements AutoCloseable {
     private boolean closed;
 
     private ClickHouseDatabase(ClickHouseJdbc jdbc, ClickHouseNativeClient nativeClient, String database, String prefix, UUID datasetId,
-            ClickHouseIdentityAllocator identityAllocator, ClickHouseIdentityReservation identifierReservation, ClickHouseWriterRegistration writerRegistration) {
+            ClickHouseIdentityAllocator identityAllocator, ClickHouseIdentityReservation identifierReservation, ClickHouseWriterRegistration writerRegistration) throws SQLException {
         this.jdbc = jdbc;
         this.nativeClient = nativeClient;
         this.database = database;
@@ -50,7 +50,7 @@ public final class ClickHouseDatabase implements AutoCloseable {
         this.writerRegistration = writerRegistration;
         publisher = new ClickHouseBatchPublisher(jdbc, nativeClient, writerRegistration, database, prefix);
         highWaterPublisher = new ClickHouseHighWaterPublisher(jdbc, nativeClient, writerRegistration, database, prefix);
-        retention = new ClickHouseRetention(jdbc, database, prefix);
+        retention = new ClickHouseRetention(jdbc, database, prefix, writerRegistration.schemaOwner());
         targetResolver = new ClickHouseTargetResolver(jdbc, database, prefix, datasetId);
     }
 
@@ -80,8 +80,12 @@ public final class ClickHouseDatabase implements AutoCloseable {
                 for (int index = 0; index < ClickHouseSchema.PHYSICAL_TABLE_COUNT; index++) {
                     jdbc.executeDdl(connection, statements.get(index));
                 }
+                try (Connection patch = ClickHouseJdbc.openPatchConnection(config)) {
+                    net.coreprotect.patch.script.__2_25_1.upgradeClickHouseSchema(patch, config.getDatabase(), validatedPrefix, writerRegistration.schemaOwner());
+                }
                 ClickHouseSchema.validatePhysicalSchema(connection, config.getDatabase(), validatedPrefix);
                 storageIdentity = loadStorageIdentity(connection, config.getDatabase(), validatedPrefix);
+                ClickHouseLookupIndex.recover(connection, config.getDatabase(), validatedPrefix, writerRegistration.schemaOwner());
                 for (int index = ClickHouseSchema.PHYSICAL_TABLE_COUNT; index < statements.size(); index++) {
                     jdbc.executeDdl(connection, statements.get(index));
                 }

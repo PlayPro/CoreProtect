@@ -129,7 +129,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
                     }
                 }
                 else {
-                    InventoryHolder inventoryHolder = inventory.getHolder();
+                    InventoryHolder inventoryHolder = PaperAdapter.ADAPTER.getHolder(inventory, false);
                     if (inventoryHolder == null) {
                         if (CoreProtect.getInstance().isAdvancedChestsEnabled()) {
                             AdvancedChest<?, ?> advancedChest = AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory);

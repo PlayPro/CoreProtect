@@ -815,10 +815,7 @@ public final class EntitySpawnTracking {
 
         if (!pending.isEmpty()) {
             try {
-                CompletableFuture.allOf(pending.toArray(new CompletableFuture<?>[0])).get(5, TimeUnit.SECONDS);
-            }
-            catch (TimeoutException e) {
-                // Region schedulers may already be halted while the server stops, and first load re-verifies these locations
+                CompletableFuture.allOf(pending.toArray(new CompletableFuture<?>[0])).get(30, TimeUnit.SECONDS);
             }
             catch (Exception e) {
                 ErrorReporter.report(e);

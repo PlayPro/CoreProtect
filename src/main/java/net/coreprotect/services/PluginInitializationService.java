@@ -16,6 +16,7 @@ import net.coreprotect.consumer.Consumer;
 import net.coreprotect.language.Language;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.ListenerHandler;
+import net.coreprotect.listener.player.inspector.BaseInspector;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.NetworkHandler;
 import net.coreprotect.thread.Scheduler;
@@ -164,6 +165,9 @@ public class PluginInitializationService {
 
         // Start cache cleanup thread
         CacheHandler.startThread();
+
+        // Start inspector lookup threads
+        BaseInspector.startLookups();
 
         Consumer.startConsumer();
         EntitySpawnTracking.initializeLoadedEntities();

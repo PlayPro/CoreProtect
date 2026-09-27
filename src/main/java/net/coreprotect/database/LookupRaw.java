@@ -83,10 +83,9 @@ public class LookupRaw extends Queue {
             throw new IllegalStateException("DuckDB lookup pages require DuckDB");
         }
 
-        boolean paused = false;
+        Object pauseClaim = null;
         try {
-            Consumer.claimLookupPause();
-            paused = true;
+            pauseClaim = Consumer.claimLookupPause();
 
             Map<Integer, List<Long>> pageRows = new HashMap<>();
             long totalRows = Math.max(knownTotalRows, 0L);
@@ -135,9 +134,7 @@ public class LookupRaw extends Queue {
             return new RawLookupPage(knownTotalRows > 0L ? knownTotalRows : 0L, Collections.emptyList(), null);
         }
         finally {
-            if (paused && !Consumer.isPersistenceHalted()) {
-                Consumer.isPaused = false;
-            }
+            Consumer.releaseLookupPause(pauseClaim);
         }
     }
 
@@ -161,11 +158,10 @@ public class LookupRaw extends Queue {
             invalidRollbackActions.clear();
         }
 
-        boolean paused = false;
+        Object pauseClaim = null;
         try {
             if (managePause) {
-                Consumer.claimLookupPause();
-                paused = true;
+                pauseClaim = Consumer.claimLookupPause();
             }
 
             if (ConfigHandler.databaseType.isClickHouse() && pageRows == null && limitOffset >= 0 && limitCount > 0) {
@@ -355,9 +351,7 @@ public class LookupRaw extends Queue {
             return null;
         }
         finally {
-            if (paused && !Consumer.isPersistenceHalted()) {
-                Consumer.isPaused = false;
-            }
+            Consumer.releaseLookupPause(pauseClaim);
         }
         return list;
     }

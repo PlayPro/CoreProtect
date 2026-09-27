@@ -37,11 +37,16 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         INTERRUPTED
     }
 
+    // No shutdown pass starts after this, and the consumer's own waits (delay, reservations, lifecycle lock) stop at it.
+    // A pass already writing when it passes is not interrupted, so the stop can overrun by one pass.
     private static final long SHUTDOWN_DRAIN_NANOS = TimeUnit.SECONDS.toNanos(30);
     private static final long SHUTDOWN_FORCE_NANOS = TimeUnit.SECONDS.toNanos(5);
 
     private static Thread consumerThread = null;
-    private static final Object lookupPauseClaim = new Object();
+    private static final Object pauseOwnership = new Object();
+    private static Object lookupPauseOwner = null;
+    private static boolean consumerPauseHeld = false;
+    private static volatile int shutdownUnsavedItems = 0;
     private static final ReentrantReadWriteLock databaseLifecycle = new ReentrantReadWriteLock(true);
     private static final Object rollbackPurgeGate = new Object();
     private static long pendingRollbackPublications = 0;
@@ -168,15 +173,62 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         return persistenceHalted;
     }
 
+    public static int getShutdownUnsavedItems() {
+        return shutdownUnsavedItems;
+    }
+
     /**
-     * Waits for the pause flag to clear and sets it in one step, so two lookups can never both see it clear.
+     * Waits for the pause flag to clear and claims it for the calling lookup in one step, so two lookups can never both see it clear.
+     *
+     * @return the claim to pass to releaseLookupPause
      */
-    public static void claimLookupPause() throws InterruptedException {
-        synchronized (lookupPauseClaim) {
+    public static Object claimLookupPause() throws InterruptedException {
+        synchronized (pauseOwnership) {
             while (isPaused && !persistenceHalted) {
-                lookupPauseClaim.wait(1);
+                pauseOwnership.wait(1);
             }
+            Object claim = new Object();
+            lookupPauseOwner = claim;
             isPaused = true;
+            return claim;
+        }
+    }
+
+    /**
+     * Releases a pause taken by claimLookupPause. The flag stays set while the consumer still holds its own claim.
+     */
+    public static void releaseLookupPause(Object claim) {
+        if (claim == null) {
+            return;
+        }
+        synchronized (pauseOwnership) {
+            if (lookupPauseOwner != claim) {
+                return;
+            }
+            lookupPauseOwner = null;
+            if (!consumerPauseHeld && !persistenceHalted) {
+                isPaused = false;
+            }
+        }
+    }
+
+    private static boolean claimConsumerPause(boolean overrideLookup) {
+        synchronized (pauseOwnership) {
+            if (isPaused && !(overrideLookup && lookupPauseOwner != null)) {
+                return false;
+            }
+            consumerPauseHeld = true;
+            isPaused = true;
+            return true;
+        }
+    }
+
+    private static void releaseConsumerPause() {
+        synchronized (pauseOwnership) {
+            consumerPauseHeld = false;
+            if (lookupPauseOwner == null && !persistenceHalted) {
+                isPaused = false;
+            }
         }
     }
 
@@ -458,39 +510,84 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         }
     }
 
-    private static void pauseConsumer(int process_id) {
+    private static boolean pauseConsumer(int process_id, long deadline) {
+        boolean ready = true;
         try {
             while (Consumer.consumer_id.get(process_id)[1] > 0 || ((ConfigHandler.serverRunning || ConfigHandler.converterRunning || ConfigHandler.migrationRunning) && (Consumer.isPaused || ConfigHandler.pauseConsumer || ConfigHandler.purgeRunning))) {
+                // A wait entered before shutdown returns so run() can start the drain deadline
+                boolean expired = deadline == 0L ? !ConfigHandler.serverRunning && !ConfigHandler.converterRunning : System.nanoTime() >= deadline;
+                if (expired) {
+                    ready = false;
+                    break;
+                }
                 pausedSuccess = true;
-                Thread.sleep(100);
+                sleepBefore(100L, deadline);
             }
         }
         catch (Exception e) {
             ErrorReporter.report(e);
         }
         pausedSuccess = false;
+        return ready;
     }
 
-    static void processConsumerBatch(int processId, boolean lastRun, boolean pauseHeld) throws InterruptedException {
+    private static void sleepBefore(long millis, long deadline) throws InterruptedException {
+        if (deadline != 0L) {
+            millis = Math.min(millis, TimeUnit.NANOSECONDS.toMillis(Math.max(0L, deadline - System.nanoTime())));
+        }
+        Thread.sleep(millis);
+    }
+
+    private static boolean lockBefore(Lock lock, long deadline) throws InterruptedException {
+        if (deadline == 0L) {
+            lock.lock();
+            return true;
+        }
+        long remaining = deadline - System.nanoTime();
+        return remaining > 0L && lock.tryLock(remaining, TimeUnit.NANOSECONDS);
+    }
+
+    /**
+     * @param deadline System.nanoTime() value after which a shutdown pass may no longer start, or 0 outside shutdown. It bounds the
+     *            lifecycle lock wait; a pass that has started runs its database work to completion.
+     */
+    static void processConsumerBatch(int processId, boolean lastRun, long deadline) throws InterruptedException {
         Lock databaseLock = databaseLifecycle.readLock();
-        databaseLock.lock();
+        if (!lockBefore(databaseLock, deadline)) {
+            return;
+        }
         try {
             boolean exclusive = requiresEntityUuidMaintenance(processId);
             if (exclusive) {
                 databaseLock.unlock();
                 databaseLock = databaseLifecycle.writeLock();
-                databaseLock.lock();
+                if (!lockBefore(databaseLock, deadline)) {
+                    databaseLock = null;
+                    return;
+                }
             }
-            if (databaseReloadPaused || pauseHeld || persistenceHalted) {
+            if (databaseReloadPaused || persistenceHalted) {
                 return;
             }
             if (exclusive && !Database.awaitConnectionDrain(0L)) {
                 return;
             }
-            Process.processConsumer(processId, lastRun);
+            // In the last seconds of a shutdown drain, write alongside a lookup that still holds the pause rather than lose the queued rows
+            boolean overrideLookup = lastRun && System.nanoTime() >= deadline - SHUTDOWN_FORCE_NANOS;
+            if (!claimConsumerPause(overrideLookup)) {
+                return;
+            }
+            try {
+                Process.processConsumer(processId, lastRun);
+            }
+            finally {
+                releaseConsumerPause();
+            }
         }
         finally {
-            databaseLock.unlock();
+            if (databaseLock != null) {
+                databaseLock.unlock();
+            }
         }
     }
 
@@ -529,7 +626,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
                 if (DuckDBRecovery.isPending()) {
                     DuckDBRecovery.recoverIfRequested();
                     if (DuckDBRecovery.isPending()) {
-                        Thread.sleep(500L);
+                        sleepBefore(500L, shutdownDeadline);
                         continue;
                     }
                 }
@@ -543,12 +640,12 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
                         currentConsumer = 0;
                     }
                 }
-                Thread.sleep(consumerDelay(lastRun || !drained[0] || !drained[1]));
-                pauseConsumer(process_id);
+                sleepBefore(consumerDelay(lastRun || !drained[0] || !drained[1]), shutdownDeadline);
+                if (!pauseConsumer(process_id, shutdownDeadline)) {
+                    continue;
+                }
                 try {
-                    // A lookup still holding the pause near the shutdown deadline must not cost the queued rows
-                    boolean pauseHeld = isPaused && !(lastRun && System.nanoTime() >= shutdownDeadline - SHUTDOWN_FORCE_NANOS);
-                    processConsumerBatch(process_id, lastRun, pauseHeld);
+                    processConsumerBatch(process_id, lastRun, shutdownDeadline);
                 }
                 finally {
                     drained[process_id] = getConsumerSize(process_id) == 0;
@@ -561,6 +658,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
                 }
             }
         }
+        shutdownUnsavedItems = getConsumerSize(0) + getConsumerSize(1);
     }
 
     @Override

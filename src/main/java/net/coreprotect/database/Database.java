@@ -384,10 +384,10 @@ public class Database extends Queue {
     }
 
     /**
-     * @param ignorePause Skip the SQLite wait on Consumer.isPaused. Set on shutdown passes, where Consumer.run has already decided whether a held pause blocks the pass.
+     * The consumer claims Consumer.isPaused itself before connecting, so it skips the SQLite wait on that flag.
      */
-    public static Connection getConsumerConnection(int waitTime, boolean ignorePause) {
-        return getConnection(false, false, false, waitTime, ignorePause);
+    public static Connection getConsumerConnection() {
+        return getConnection(false, false, false, 0, true);
     }
 
     private static Connection getConnection(boolean force, boolean startup, boolean onlyCheckTransacting, int waitTime, boolean ignorePause) {

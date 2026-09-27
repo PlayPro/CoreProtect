@@ -77,11 +77,11 @@ public class RollbackProcessor {
      *            The world to process
      * @param blockDataCache
      *            The rollback-scoped BlockData parse cache
-     * @param inventoryTasks
-     *            If not null, player inventory changes are scheduled on each player's entity scheduler and their futures added here (Folia)
+     * @param inventoryContext
+     *            If not null, player inventory changes are scheduled on each player's entity scheduler as mutations of this rollback context (Folia)
      * @return True if successful, false if there was an error
      */
-    public static boolean processChunk(int finalChunkX, int finalChunkZ, long chunkKey, ArrayList<Object[]> blockList, ArrayList<Object[]> itemList, int rollbackType, int preview, String finalUserString, Player finalUser, World bukkitRollbackWorld, boolean inventoryRollback, RollbackBlockDataCache blockDataCache, List<CompletableFuture<Boolean>> inventoryTasks) {
+    public static boolean processChunk(int finalChunkX, int finalChunkZ, long chunkKey, ArrayList<Object[]> blockList, ArrayList<Object[]> itemList, int rollbackType, int preview, String finalUserString, Player finalUser, World bukkitRollbackWorld, boolean inventoryRollback, RollbackBlockDataCache blockDataCache, EntitySpawnRollbackHandler.Context inventoryContext) {
         RollbackCounters counters = new RollbackCounters();
 
         try {
@@ -233,7 +233,7 @@ public class RollbackProcessor {
 
             // Process container items
             Map<Player, List<Integer>> sortPlayers = new HashMap<>();
-            Map<Player, List<InventoryRow>> inventoryRows = inventoryTasks != null && inventoryRollback ? new LinkedHashMap<>() : null;
+            Map<Player, List<InventoryRow>> inventoryRows = inventoryContext != null && inventoryRollback ? new LinkedHashMap<>() : null;
             Object container = null;
             Material containerType = null;
             boolean containerInit = false;
@@ -378,7 +378,7 @@ public class RollbackProcessor {
             sortPlayers.clear();
             if (inventoryRows != null) {
                 for (Entry<Player, List<InventoryRow>> playerRows : inventoryRows.entrySet()) {
-                    inventoryTasks.add(scheduleInventoryRows(playerRows.getKey(), playerRows.getValue(), rollbackType, finalUserString));
+                    scheduleInventoryRows(inventoryContext, playerRows.getKey(), playerRows.getValue(), rollbackType);
                 }
             }
 
@@ -408,12 +408,12 @@ public class RollbackProcessor {
     }
 
     private static void updateRollbackHash(String finalUserString, RollbackCounters counters, int status) {
-        // computeIfPresent keeps this atomic with item counts added from player entity tasks on Folia
-        ConfigHandler.rollbackHash.computeIfPresent(finalUserString, (key, rollbackHashData) -> new int[] { rollbackHashData[0] + counters.getItems(), rollbackHashData[1] + counters.getBlocks(), rollbackHashData[2] + counters.getEntities(), status, rollbackHashData[4] + 1 });
-    }
-
-    private static void addRollbackItems(String finalUserString, int items) {
-        ConfigHandler.rollbackHash.computeIfPresent(finalUserString, (key, rollbackHashData) -> new int[] { rollbackHashData[0] + items, rollbackHashData[1], rollbackHashData[2], rollbackHashData[3], rollbackHashData[4] });
+        int[] rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
+        int itemCount = rollbackHashData[0] + counters.getItems();
+        int blockCount = rollbackHashData[1] + counters.getBlocks();
+        int entityCount = rollbackHashData[2] + counters.getEntities();
+        int scannedWorlds = rollbackHashData[4] + 1;
+        ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount, blockCount, entityCount, status, scannedWorlds });
     }
 
     private static int applyInventoryRow(Player player, Object[] row, Material inventoryItem, int rollbackType) {
@@ -428,9 +428,15 @@ public class RollbackProcessor {
         return RollbackUtil.modifyContainerItems(null, player.getInventory(), (Integer) populatedStack[0], (ItemStack) populatedStack[2], action);
     }
 
-    private static CompletableFuture<Boolean> scheduleInventoryRows(Player player, List<InventoryRow> rows, int rollbackType, String finalUserString) {
+    private static void scheduleInventoryRows(EntitySpawnRollbackHandler.Context context, Player player, List<InventoryRow> rows, int rollbackType) {
         CompletableFuture<Boolean> completion = new CompletableFuture<>();
         Runnable task = () -> {
+            // Nothing is changed once the rollback is cancelled, and cleanup waits for a started mutation to finish
+            if (!context.beginMutation()) {
+                completion.complete(false);
+                return;
+            }
+
             int items = 0;
             try {
                 List<Integer> sortSlots = new ArrayList<>();
@@ -444,13 +450,17 @@ public class RollbackProcessor {
                 if (!sortSlots.isEmpty()) {
                     RollbackItemHandler.sortContainerItems(player.getInventory(), sortSlots);
                 }
-                addRollbackItems(finalUserString, items);
+                context.addItemCount(items);
                 completion.complete(true);
             }
             catch (Exception e) {
+                context.cancel();
                 ErrorReporter.report(e);
-                addRollbackItems(finalUserString, items);
+                context.addItemCount(items);
                 completion.complete(false);
+            }
+            finally {
+                context.endMutation();
             }
         };
 
@@ -459,7 +469,7 @@ public class RollbackProcessor {
         if (!PaperAdapter.ADAPTER.executeEntityTask(CoreProtect.getInstance(), player, task, retired)) {
             retired.run();
         }
-        return completion;
+        context.addPending(completion);
     }
 
     private static void loadChunk(World world, int chunkX, int chunkZ, boolean inventoryRollback) {

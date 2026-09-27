@@ -48,18 +48,26 @@ public class MaterialUtils extends Queue {
             id = ConfigHandler.materials.get(name);
         }
         else if (internal) {
-            // Check if another server has already added this material (multi-server setup)
-            id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.MATERIALS, name);
-            if (id != -1) {
-                return id;
-            }
+            // Same monitor as reloadAndGetId, so two threads cannot allocate the same id
+            synchronized (ConfigHandler.class) {
+                Integer existing = ConfigHandler.materials.get(name);
+                if (existing != null) {
+                    return existing;
+                }
 
-            int mid = ConfigHandler.materialId + 1;
-            ConfigHandler.materials.put(name, mid);
-            ConfigHandler.materialsReversed.put(mid, name);
-            ConfigHandler.materialId = mid;
-            Queue.queueMaterialInsert(mid, name);
-            id = ConfigHandler.materials.get(name);
+                // Check if another server has already added this material (multi-server setup)
+                id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.MATERIALS, name);
+                if (id != -1) {
+                    return id;
+                }
+
+                id = ConfigHandler.materialId + 1;
+                ConfigHandler.materials.put(name, id);
+                ConfigHandler.materialsReversed.put(id, name);
+                ConfigHandler.materialId = id;
+            }
+            // Queued outside the monitor so it is never held while the queue lock is taken
+            Queue.queueMaterialInsert(id, name);
         }
 
         return id;
@@ -76,18 +84,26 @@ public class MaterialUtils extends Queue {
             id = ConfigHandler.blockdata.get(data);
         }
         else if (internal) {
-            // Check if another server has already added this blockdata (multi-server setup)
-            id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.BLOCKDATA, data);
-            if (id != -1) {
-                return id;
-            }
+            // Same monitor as reloadAndGetId, so two threads cannot allocate the same id
+            synchronized (ConfigHandler.class) {
+                Integer existing = ConfigHandler.blockdata.get(data);
+                if (existing != null) {
+                    return existing;
+                }
 
-            int bid = ConfigHandler.blockdataId + 1;
-            ConfigHandler.blockdata.put(data, bid);
-            ConfigHandler.blockdataReversed.put(bid, data);
-            ConfigHandler.blockdataId = bid;
-            Queue.queueBlockDataInsert(bid, data);
-            id = ConfigHandler.blockdata.get(data);
+                // Check if another server has already added this blockdata (multi-server setup)
+                id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.BLOCKDATA, data);
+                if (id != -1) {
+                    return id;
+                }
+
+                id = ConfigHandler.blockdataId + 1;
+                ConfigHandler.blockdata.put(data, id);
+                ConfigHandler.blockdataReversed.put(id, data);
+                ConfigHandler.blockdataId = id;
+            }
+            // Queued outside the monitor so it is never held while the queue lock is taken
+            Queue.queueBlockDataInsert(id, data);
         }
 
         return id;
@@ -172,10 +188,22 @@ public class MaterialUtils extends Queue {
             }
 
             name = net.coreprotect.bukkit.BukkitAdapter.ADAPTER.parseLegacyName(name);
-            material = Material.matchMaterial(name);
+            material = isEnumName(name) ? Material.getMaterial(name) : Material.matchMaterial(name);
         }
 
         return material;
+    }
+
+    // matchMaterial only uppercases and strips whitespace and non-word characters before getMaterial, none of which changes an A-Z, 0-9 and underscore name
+    private static boolean isEnumName(String name) {
+        for (int index = 0; index < name.length(); index++) {
+            char character = name.charAt(index);
+            if ((character < 'A' || character > 'Z') && (character < '0' || character > '9') && character != '_') {
+                return false;
+            }
+        }
+
+        return !name.isEmpty();
     }
 
     public static int getArtId(String name, boolean internal) {
@@ -189,18 +217,26 @@ public class MaterialUtils extends Queue {
             id = ConfigHandler.art.get(name);
         }
         else if (internal) {
-            // Check if another server has already added this art (multi-server setup)
-            id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.ART, name);
-            if (id != -1) {
-                return id;
-            }
+            // Same monitor as reloadAndGetId, so two threads cannot allocate the same id
+            synchronized (ConfigHandler.class) {
+                Integer existing = ConfigHandler.art.get(name);
+                if (existing != null) {
+                    return existing;
+                }
 
-            int artID = ConfigHandler.artId + 1;
-            ConfigHandler.art.put(name, artID);
-            ConfigHandler.artReversed.put(artID, name);
-            ConfigHandler.artId = artID;
-            Queue.queueArtInsert(artID, name);
-            id = ConfigHandler.art.get(name);
+                // Check if another server has already added this art (multi-server setup)
+                id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.ART, name);
+                if (id != -1) {
+                    return id;
+                }
+
+                id = ConfigHandler.artId + 1;
+                ConfigHandler.art.put(name, id);
+                ConfigHandler.artReversed.put(id, name);
+                ConfigHandler.artId = id;
+            }
+            // Queued outside the monitor so it is never held while the queue lock is taken
+            Queue.queueArtInsert(id, name);
         }
 
         return id;

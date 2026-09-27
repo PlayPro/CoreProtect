@@ -54,6 +54,22 @@ final class ClickHouseRowBinaryBuffer implements AutoCloseable {
         rowStarted = true;
     }
 
+    void beginRow(String[] retainedColumns) {
+        Object[] retained = new Object[retainedColumns.length];
+        for (int index = 0; index < retainedColumns.length; index++) {
+            retained[index] = values[columnIndexes.get(retainedColumns[index])];
+        }
+        beginRow();
+        for (int index = 0; index < retainedColumns.length; index++) {
+            set(retainedColumns[index], retained[index]);
+        }
+    }
+
+    Object get(String column) {
+        requireActiveRow();
+        return values[columnIndexes.get(column)];
+    }
+
     void set(String column, Object value) {
         ensureWritable();
         requireActiveRow();

@@ -25,7 +25,6 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.consumer.process.Process;
 import net.coreprotect.database.rollback.Rollback;
 import net.coreprotect.database.rollback.RollbackComplete;
-import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.thread.Scheduler;
@@ -43,14 +42,14 @@ public class ContainerRollback extends Rollback {
 
             final List<Object[]> lookupList = Lookup.performLookupRaw(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, null, startTime, endTime, -1, -1, restrictWorld, lookup);
             if (lookupList == null) {
-                sendAborted(user);
+                sendAborted(user, "Unable to load container rollback records from the database.");
                 return false;
             }
             if (rollbackType == 1) {
                 Collections.reverse(lookupList);
             }
             if (Consumer.isPersistenceHalted()) {
-                sendAborted(user);
+                sendAborted(user, "Database persistence halted before container rollback updates could be queued.");
                 return false;
             }
 
@@ -61,7 +60,7 @@ public class ContainerRollback extends Rollback {
 
             Queue.queueRollbackUpdate(userString, location, lookupList, Process.CONTAINER_ROLLBACK_UPDATE, rollbackType); // Perform update transaction in consumer
             if (Consumer.isPersistenceHalted()) {
-                sendAborted(user);
+                sendAborted(user, "Database persistence halted while queuing container rollback updates.");
                 return false;
             }
 
@@ -74,6 +73,7 @@ public class ContainerRollback extends Rollback {
                     try {
                         int[] rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
                         if (Consumer.isPersistenceHalted()) {
+                            Chat.console("Container rollback/restore for " + finalUserString + " aborted: database persistence halted before the container could be modified.");
                             ConfigHandler.rollbackHash.put(finalUserString, new int[] { rollbackHashData[0], rollbackHashData[1], rollbackHashData[2], 2, rollbackHashData[4] });
                             return;
                         }
@@ -189,7 +189,7 @@ public class ContainerRollback extends Rollback {
                 rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
                 next = rollbackHashData[3];
                 if (sleepTime > 300000) {
-                    Chat.console(Phrase.build(Phrase.ROLLBACK_ABORTED));
+                    Chat.console("Container rollback/restore for " + finalUserString + " aborted: timed out after 300 seconds waiting for the container task.");
                     break;
                 }
             }

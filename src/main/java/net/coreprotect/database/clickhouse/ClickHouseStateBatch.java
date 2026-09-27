@@ -57,6 +57,9 @@ final class ClickHouseStateBatch implements AutoCloseable {
                 beginSparseRow(rows, update, ordinal++);
                 rows.set("rolled_back", update.rolledBack);
                 commitRow(rows, "rollback state update", update.family, update.time, partitionRowCounts);
+                int partition = ClickHouseSchema.eventPartitionId(update.family, update.time);
+                ClickHouseLookupIndex.append(rows, update.family, partition, true);
+                partitionRowCounts.merge(partition, 1, Math::addExact);
             }
         }
         for (ClickHouseEntityState state : entityStateUpdates.values()) {
@@ -157,6 +160,7 @@ final class ClickHouseStateBatch implements AutoCloseable {
 
     private void beginSparseRow(ClickHouseRowBinaryBuffer rows, ClickHouseFamily family, long rowId, int time, int worldId, int x, int z, int ordinal) {
         rows.beginRow();
+        rows.set("write_version", ClickHouseSchema.VERSION);
         rows.set("batch_sequence", identity.getBatchSequence());
         rows.set("batch_id", identity.getBatchId());
         rows.set("batch_ordinal", ordinal);

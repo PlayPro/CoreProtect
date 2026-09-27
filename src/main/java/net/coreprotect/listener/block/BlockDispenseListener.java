@@ -24,6 +24,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.paper.listener.BlockPreDispenseListener;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
@@ -64,7 +65,7 @@ public final class BlockDispenseListener extends Queue implements Listener {
                         forceItem = true; // droppers always drop items
                     }
 
-                    BlockState dispenserState = block.getState();
+                    BlockState dispenserState = PaperAdapter.ADAPTER.getBlockState(block, false);
                     ItemStack[] inventory = ((InventoryHolder) dispenserState).getInventory().getStorageContents();
                     if (forceItem) {
                         inventory = Arrays.copyOf(inventory, inventory.length + 1);

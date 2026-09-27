@@ -9,7 +9,7 @@ New installations use embedded DuckDB by default. Upgrading an existing SQLite o
 | Value | Storage | Requirements |
 | --- | --- | --- |
 | `duckdb` | Embedded columnar database; the default for new installations | CoreProtect 25.0+ |
-| `clickhouse` | External columnar database | CoreProtect 25.0+ and a reachable ClickHouse 25.6+ server |
+| `clickhouse` | External columnar database | CoreProtect 25.0+ and a reachable ClickHouse 26.1+ server |
 | `sqlite` | Embedded legacy relational database | None beyond CoreProtect |
 | `mysql` | External legacy relational database | A reachable MySQL server |
 

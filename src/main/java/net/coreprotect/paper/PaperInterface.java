@@ -6,6 +6,7 @@ import org.bukkit.Location;
 import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 import org.bukkit.block.data.BlockData;
@@ -20,6 +21,8 @@ import org.bukkit.plugin.Plugin;
 public interface PaperInterface {
 
     public InventoryHolder getHolder(Inventory holder, boolean useSnapshot);
+
+    public BlockState getBlockState(Block block, boolean useSnapshot);
 
     public boolean isStopping(Server server);
 

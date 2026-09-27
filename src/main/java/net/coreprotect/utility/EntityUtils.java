@@ -38,18 +38,26 @@ public class EntityUtils extends Queue {
             id = ConfigHandler.entities.get(name);
         }
         else if (internal) {
-            // Check if another server has already added this entity (multi-server setup)
-            id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.ENTITIES, name);
-            if (id != -1) {
-                return id;
-            }
+            // Same monitor as reloadAndGetId, so two threads cannot allocate the same id
+            synchronized (ConfigHandler.class) {
+                Integer existing = ConfigHandler.entities.get(name);
+                if (existing != null) {
+                    return existing;
+                }
 
-            int entityID = ConfigHandler.entityId + 1;
-            ConfigHandler.entities.put(name, entityID);
-            ConfigHandler.entitiesReversed.put(entityID, name);
-            ConfigHandler.entityId = entityID;
-            Queue.queueEntityInsert(entityID, name);
-            id = ConfigHandler.entities.get(name);
+                // Check if another server has already added this entity (multi-server setup)
+                id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.ENTITIES, name);
+                if (id != -1) {
+                    return id;
+                }
+
+                id = ConfigHandler.entityId + 1;
+                ConfigHandler.entities.put(name, id);
+                ConfigHandler.entitiesReversed.put(id, name);
+                ConfigHandler.entityId = id;
+            }
+            // Queued outside the monitor so it is never held while the queue lock is taken
+            Queue.queueEntityInsert(id, name);
         }
 
         return id;

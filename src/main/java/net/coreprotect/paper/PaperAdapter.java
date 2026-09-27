@@ -9,6 +9,7 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 import org.bukkit.block.data.BlockData;
@@ -74,6 +75,11 @@ public class PaperAdapter implements PaperInterface {
     @Override
     public InventoryHolder getHolder(Inventory holder, boolean useSnapshot) {
         return holder.getHolder();
+    }
+
+    @Override
+    public BlockState getBlockState(Block block, boolean useSnapshot) {
+        return block.getState();
     }
 
     @Override

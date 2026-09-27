@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -84,8 +85,8 @@ public class ConfigHandler extends Queue {
     public static final String COMMUNITY_EDITION = "Community Edition";
     public static final String JAVA_VERSION = "11.0";
     public static final String MINECRAFT_VERSION = "1.16.5";
-    public static final String PATCH_VERSION = "24.0";
-    public static final String LATEST_VERSION = "26.2";
+    public static final String PATCH_VERSION = "24.1";
+    public static final String LATEST_VERSION = "26.3";
     private static final String DEFAULT_SQLITE_DATABASE = "database.db";
     public static String path = "plugins/CoreProtect/";
     public static String sqlite = DEFAULT_SQLITE_DATABASE;
@@ -272,7 +273,7 @@ public class ConfigHandler extends Queue {
     public static Map<String, Integer[]> lookupRadius = syncMap();
     public static Map<String, String> lookupTime = syncMap();
     public static Map<String, Long[]> lookupRows = syncMap();
-    public static Map<String, LookupCursor> lookupDuckDBCursor = syncMap();
+    public static Map<String, LookupCursor> lookupCursor = syncMap();
     public static Map<String, String> uuidCache = syncMap();
     public static Map<String, String> uuidCacheReversed = syncMap();
     public static Map<String, Integer> playerIdCache = syncMap();
@@ -280,7 +281,7 @@ public class ConfigHandler extends Queue {
     public static Map<String, List<Object>> lastRollback = syncMap();
     public static Map<String, Boolean> activeRollbacks = syncMap();
     public static Map<String, Object[]> entityBlockMapper = new ConcurrentHashMap<>();
-    public static ConcurrentHashMap<Long, Long> populatedChunks = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<UUID, ConcurrentHashMap<Long, Long>> populatedChunks = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, String> language = new ConcurrentHashMap<>();
     public static List<String> databaseTables = new ArrayList<>();
 
@@ -508,7 +509,9 @@ public class ConfigHandler extends Queue {
                         DuckDBNativeSupport.verifyAvailable();
                     } catch (Throwable failure) {
                         if (!DuckDBNativeSupport.isNativeUnavailable(failure)) {
-                            throw new IllegalStateException("Unable to verify DuckDB on this system", failure);
+                            throw new IllegalStateException("Unable to verify DuckDB on this system. For native-library extraction or loading errors, check free space and permissions in the JVM temporary directory. "
+                                    + "To select another directory, add -Djava.io.tmpdir=/absolute/path/to/cache before -jar and fully restart the server. "
+                                    + "The directory must already exist, have sufficient space, and permit writing and native-library loading.", failure);
                         }
                         DatabaseConfigWriter.persistDatabaseType(DatabaseType.SQLITE);
                         ConfigHandler.databaseType = DatabaseType.SQLITE;
@@ -524,7 +527,7 @@ public class ConfigHandler extends Queue {
 
                 Class.forName(ConfigHandler.databaseType.isDuckDB() ? "org.duckdb.DuckDBDriver" : "org.sqlite.JDBC");
             } catch (Exception e) {
-                ErrorReporter.report(e);
+                throw new IllegalStateException("Failed to initialize " + ConfigHandler.databaseType.getDisplayName(), e);
             }
         } else {
             HikariConfig config = new HikariConfig();

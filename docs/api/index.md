@@ -4,8 +4,8 @@ The CoreProtect API enables you to log your own block changes, perform lookups, 
 
 | API Details |  |
 | --- | --- |
-| **API Version:** | 12 |
-| **Plugin Version:** | v24.0+ |
+| **API Version:** | 13 |
+| **Plugin Version:** | v25.0+ |
 | **Maven:** | [maven.playpro.com](https://maven.playpro.com) |
 
-*Documentation for the API version 12 can be found [here](/api/version/v12/).*
+*Documentation for the API version 13 can be found [here](/api/version/v13/).*

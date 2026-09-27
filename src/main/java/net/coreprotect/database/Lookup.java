@@ -61,16 +61,16 @@ public class Lookup extends Queue {
         try {
             pauseClaim = Consumer.claimLookupPause();
 
-            ResultSet results = LookupRaw.rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, null, startTime, endTime, -1, -1, restrictWorld, lookup, true, entityContainerId, rollbackState);
-            while (results.next()) {
-                int resultTable = results.getInt("tbl");
-                long count = results.getLong("count");
-                if (rowData != null && resultTable >= 0 && resultTable < rowData.length) {
-                    rowData[resultTable] = count;
+            try (ResultSet results = LookupRaw.rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, null, startTime, endTime, -1, -1, restrictWorld, lookup, true, entityContainerId, rollbackState)) {
+                while (results.next()) {
+                    int resultTable = results.getInt("tbl");
+                    long count = results.getLong("count");
+                    if (rowData != null && resultTable >= 0 && resultTable < rowData.length) {
+                        rowData[resultTable] = count;
+                    }
+                    rows += count;
                 }
-                rows += count;
             }
-            results.close();
         }
         catch (Exception e) {
             ErrorReporter.report(e);
@@ -277,11 +277,11 @@ public class Lookup extends Queue {
     }
 
     public static LookupPage performDuckDBLookupPage(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, List<String> messageFilters, EntityLookupContext entityContext, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitCount, boolean restrictWorld, boolean lookup, Integer entityContainerId, LookupRollbackState rollbackState) {
-        return performDuckDBLookupPage(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime, 0, limitCount, -1L, null, restrictWorld, lookup, entityContainerId, rollbackState);
+        return performLookupPage(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime, 0, limitCount, -1L, null, restrictWorld, lookup, entityContainerId, rollbackState);
     }
 
-    public static LookupPage performDuckDBLookupPage(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, List<String> messageFilters, EntityLookupContext entityContext, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, long knownTotalRows, LookupCursor cursor, boolean restrictWorld, boolean lookup, Integer entityContainerId, LookupRollbackState rollbackState) {
-        LookupRaw.RawLookupPage page = LookupRaw.performDuckDBLookupPage(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime, limitOffset, limitCount, knownTotalRows, cursor, restrictWorld, lookup, entityContainerId, rollbackState);
+    public static LookupPage performLookupPage(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, List<String> messageFilters, EntityLookupContext entityContext, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, long knownTotalRows, LookupCursor cursor, boolean restrictWorld, boolean lookup, Integer entityContainerId, LookupRollbackState rollbackState) {
+        LookupRaw.RawLookupPage page = LookupRaw.performLookupPage(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime, limitOffset, limitCount, knownTotalRows, cursor, restrictWorld, lookup, entityContainerId, rollbackState);
         List<String[]> rows = LookupConverter.convertRawLookup(statement, page.getRows());
         return new LookupPage(page.getTotalRows(), rows, page.getNextCursor());
     }

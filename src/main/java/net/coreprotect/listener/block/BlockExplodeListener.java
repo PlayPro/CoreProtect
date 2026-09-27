@@ -1,10 +1,10 @@
 package net.coreprotect.listener.block;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -31,63 +31,56 @@ import net.coreprotect.utility.ErrorReporter;
 
 public final class BlockExplodeListener extends Queue implements Listener {
 
+    // (dx, dy, dz) for the five scanned neighbours: +x, -x, +z, -z, +y
+    private static final int[] SCAN_OFFSETS = { 1, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, -1, 0, 1, 0 };
+
+    // Packs block coordinates into one long, so the scan keys its map without a Location per block
+    private static long positionKey(int x, int y, int z) {
+        return ((long) x & 0x3FFFFFFL) << 38 | ((long) z & 0x3FFFFFFL) << 12 | ((long) y & 0xFFFL);
+    }
+
     public static void processBlockExplode(String user, World world, List<Block> blockList) {
-        HashMap<Location, Block> blockMap = new HashMap<>();
+        HashMap<Long, Block> blockMap = new HashMap<>();
 
         for (Block block : blockList) {
-            blockMap.put(block.getLocation(), block);
+            blockMap.put(positionKey(block.getX(), block.getY(), block.getZ()), block);
         }
 
         if (Config.getConfig(world).NATURAL_BREAK) {
-            for (Entry<Location, Block> data : new HashMap<>(blockMap).entrySet()) {
-                Block block = data.getValue();
+            int worldMaxHeight = world.getMaxHeight();
+            int worldMinHeight = BukkitAdapter.ADAPTER.getMinHeight(world);
+            for (Block block : new ArrayList<>(blockMap.values())) {
                 int x = block.getX();
                 int y = block.getY();
                 int z = block.getZ();
 
-                Location[] locationMap = new Location[5];
-                locationMap[0] = new Location(world, (x + 1), y, z);
-                locationMap[1] = new Location(world, (x - 1), y, z);
-                locationMap[2] = new Location(world, x, y, (z + 1));
-                locationMap[3] = new Location(world, x, y, (z - 1));
-                locationMap[4] = new Location(world, x, (y + 1), z);
-
-                int scanMin = 0;
-                int scanMax = 5;
-                while (scanMin < scanMax) {
-                    Location location = locationMap[scanMin];
-                    if (blockMap.get(location) == null) {
-                        Block scanBlock = world.getBlockAt(location);
+                for (int scan = 0; scan < 5; scan++) {
+                    int scanX = x + SCAN_OFFSETS[scan * 3];
+                    int scanY = y + SCAN_OFFSETS[scan * 3 + 1];
+                    int scanZ = z + SCAN_OFFSETS[scan * 3 + 2];
+                    long key = positionKey(scanX, scanY, scanZ);
+                    if (blockMap.get(key) == null) {
+                        Block scanBlock = world.getBlockAt(scanX, scanY, scanZ);
                         Material scanType = scanBlock.getType();
                         if (BlockGroup.TRACK_ANY.contains(scanType) || BlockGroup.TRACK_TOP.contains(scanType) || BlockGroup.TRACK_TOP_BOTTOM.contains(scanType) || BlockGroup.TRACK_BOTTOM.contains(scanType) || BlockGroup.TRACK_SIDE.contains(scanType)) {
-                            blockMap.put(location, scanBlock);
+                            blockMap.put(key, scanBlock);
 
                             // Properly log double blocks, such as doors
                             BlockData blockData = scanBlock.getBlockData();
                             if (blockData instanceof Bisected) {
-                                Bisected bisected = (Bisected) blockData;
-                                Location bisectLocation = location.clone();
-                                if (bisected.getHalf() == Half.TOP) {
-                                    bisectLocation.setY(bisectLocation.getY() - 1);
-                                }
-                                else {
-                                    bisectLocation.setY(bisectLocation.getY() + 1);
-                                }
-
-                                int worldMaxHeight = world.getMaxHeight();
-                                int worldMinHeight = BukkitAdapter.ADAPTER.getMinHeight(world);
-                                if (bisectLocation.getBlockY() >= worldMinHeight && bisectLocation.getBlockY() < worldMaxHeight && blockMap.get(bisectLocation) == null) {
-                                    blockMap.put(bisectLocation, world.getBlockAt(bisectLocation));
+                                int bisectY = ((Bisected) blockData).getHalf() == Half.TOP ? scanY - 1 : scanY + 1;
+                                long bisectKey = positionKey(scanX, bisectY, scanZ);
+                                if (bisectY >= worldMinHeight && bisectY < worldMaxHeight && blockMap.get(bisectKey) == null) {
+                                    blockMap.put(bisectKey, world.getBlockAt(scanX, bisectY, scanZ));
                                 }
                             }
                         }
                     }
-                    scanMin++;
                 }
             }
         }
 
-        for (Map.Entry<Location, Block> entry : blockMap.entrySet()) {
+        for (Map.Entry<Long, Block> entry : blockMap.entrySet()) {
             Block block = entry.getValue();
             Material blockType = block.getType();
             BlockState blockState = block.getState();

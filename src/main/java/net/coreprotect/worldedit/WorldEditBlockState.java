@@ -34,7 +34,7 @@ public final class WorldEditBlockState implements BlockState {
     }
 
     /**
-     * The block below a top half as the edit sees it, so queueing a break never reads the live world from an edit thread.
+     * The matching lower half of a top half, captured before the edit changed it, so queueing a break does not read the world afterwards.
      */
     public BlockState getLowerHalf() {
         return lowerHalf;

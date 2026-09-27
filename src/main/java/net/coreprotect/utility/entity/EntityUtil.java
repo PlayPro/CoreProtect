@@ -110,7 +110,7 @@ public class EntityUtil {
             return completion;
         }
         if (!legacyTransition) {
-            completion.completeOnTimeout(null, ENTITY_RESTORE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            completion.orTimeout(ENTITY_RESTORE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         }
 
         Location restoreLocation = EntitySpawnTracking.isPlacedEntityType(type) ? EntitySpawnTracking.getKillRestoreLocation(blockLocation.getWorld(), list) : null;
@@ -195,7 +195,8 @@ public class EntityUtil {
                         }
                         else if (count == 1) {
                             String set = (String) value;
-                            if (set.length() > 0) {
+                            // An owner whose name the server never learned was stored as null
+                            if (set != null && set.length() > 0) {
                                 Player owner = Bukkit.getServer().getPlayer(set);
                                 if (owner == null) {
                                     OfflinePlayer offlinePlayer = Bukkit.getServer().getOfflinePlayer(set);

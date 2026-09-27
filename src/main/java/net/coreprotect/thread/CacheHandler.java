@@ -131,6 +131,7 @@ public class CacheHandler implements Runnable {
                         case 8:
                             // Clean up dispenserNoChange cache
                             cleanupDispenserCache();
+                            cleanupPopulatedChunks();
                             continue;
                         case 9:
                             cache = CacheHandler.containerDuplicateCache;
@@ -182,6 +183,16 @@ public class CacheHandler implements Runnable {
             catch (Exception e) {
                 ErrorReporter.report(e);
             }
+        }
+    }
+
+    /**
+     * Removes populated chunk entries older than 240 seconds, the longest window BlockPlaceLogger checks them against
+     */
+    private void cleanupPopulatedChunks() {
+        long expired = (System.currentTimeMillis() / 1000L) - 240;
+        for (ConcurrentHashMap<Long, Long> chunks : ConfigHandler.populatedChunks.values()) {
+            chunks.values().removeIf(populatedAt -> populatedAt < expired);
         }
     }
 

@@ -4,16 +4,20 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import org.bukkit.Color;
 import org.bukkit.DyeColor;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Tag;
+import org.bukkit.World;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.ChiseledBookshelf;
 import org.bukkit.block.Sign;
 import org.bukkit.block.sign.Side;
 import org.bukkit.entity.Arrow;
+import org.bukkit.entity.Entity;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -40,6 +44,7 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
     private Boolean hasClickedPosition;
     private Boolean hasBasePotionType;
     private Boolean hasItemName;
+    private Boolean hasSpawnFunction;
 
     /**
      * Initializes the Bukkit_v1_20 adapter with 1.20-specific block groups and mappings.
@@ -279,6 +284,22 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
         }
 
         return hasItemName && itemMeta.hasItemName() ? itemMeta.getItemName() : "";
+    }
+
+    @Override
+    public <T extends Entity> T spawn(World world, Location location, Class<T> entityClass, Consumer<? super T> function) {
+        if (hasSpawnFunction == null) {
+            try {
+                // Check if World#spawn accepts java.util.function.Consumer (Bukkit 1.20.2+)
+                World.class.getMethod("spawn", Location.class, Class.class, Consumer.class);
+                hasSpawnFunction = true;
+            }
+            catch (NoSuchMethodException e) {
+                hasSpawnFunction = false;
+            }
+        }
+
+        return hasSpawnFunction ? world.spawn(location, entityClass, function) : super.spawn(world, location, entityClass, function);
     }
 
     @Override

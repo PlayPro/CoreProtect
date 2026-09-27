@@ -135,7 +135,7 @@ public class HangingUtil {
                     if (ConfigHandler.isFolia) {
                         // Folia does not support Entity#teleport, so the painting is placed at its target before it is added to the world
                         BlockFace facing = faceSet;
-                        block.getWorld().spawn(block.getWorld().getBlockAt(paintingX, paintingY, paintingZ).getLocation(), Painting.class, spawned -> {
+                        BukkitAdapter.ADAPTER.spawn(block.getWorld(), block.getWorld().getBlockAt(paintingX, paintingY, paintingZ).getLocation(), Painting.class, spawned -> {
                             spawned.setFacingDirection(facing, true);
                             spawned.setArt(painting, true);
                         });
@@ -164,7 +164,7 @@ public class HangingUtil {
                             // Folia does not support Entity#teleport, so the frame is placed at its target before it is added to the world
                             BlockFace facing = faceSet;
                             Material frameItem = MaterialUtils.getType(rowData);
-                            block.getWorld().spawn(block.getWorld().getBlockAt(x, y, z).getLocation(), (Class<? extends ItemFrame>) itemFrame, spawned -> {
+                            BukkitAdapter.ADAPTER.spawn(block.getWorld(), block.getWorld().getBlockAt(x, y, z).getLocation(), (Class<? extends ItemFrame>) itemFrame, spawned -> {
                                 spawned.setFacingDirection(facing, true);
                                 if (frameItem != null) {
                                     spawned.setItem(new ItemStack(frameItem, 1));

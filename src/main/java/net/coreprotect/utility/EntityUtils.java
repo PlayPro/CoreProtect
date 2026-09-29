@@ -5,6 +5,9 @@ import java.util.Locale;
 import org.bukkit.Material;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
+import org.bukkit.projectiles.ProjectileSource;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
@@ -17,6 +20,24 @@ public class EntityUtils extends Queue {
 
     private EntityUtils() {
         throw new IllegalStateException("Utility class");
+    }
+
+    public static String getEntityUser(Entity entity) {
+        if (entity instanceof Projectile) {
+            ProjectileSource shooter = ((Projectile) entity).getShooter();
+            if (shooter instanceof Entity) {
+                entity = (Entity) shooter;
+            }
+        }
+        if (entity instanceof Player) {
+            return entity.getName();
+        }
+        if (entity == null) {
+            return null;
+        }
+
+        EntityType type = entity.getType();
+        return type == null ? null : "#" + type.name().toLowerCase(Locale.ROOT);
     }
 
     public static int getEntityId(EntityType type) {

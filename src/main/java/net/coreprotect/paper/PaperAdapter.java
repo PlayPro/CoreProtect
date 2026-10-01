@@ -93,6 +93,11 @@ public class PaperAdapter implements PaperInterface {
     }
 
     @Override
+    public boolean isCopperGolemInteracting(Entity entity) {
+        return false;
+    }
+
+    @Override
     public String getLine(Sign sign, int line) {
         return BukkitAdapter.ADAPTER.getLine(sign, line);
     }

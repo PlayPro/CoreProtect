@@ -3,6 +3,7 @@ package net.coreprotect.paper;
 import java.util.List;
 
 import org.bukkit.entity.Chicken;
+import org.bukkit.entity.CopperGolem;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
@@ -11,6 +12,15 @@ import org.bukkit.entity.Pig;
 import net.coreprotect.bukkit.BukkitAdapter;
 
 public class Paper_v26_1 extends Paper_26_0 {
+
+    @Override
+    public boolean isCopperGolemInteracting(Entity entity) {
+        if (!(entity instanceof CopperGolem)) {
+            return false;
+        }
+        CopperGolem.State state = ((CopperGolem) entity).getGolemState();
+        return state == CopperGolem.State.GETTING_ITEM || state == CopperGolem.State.DROPPING_ITEM;
+    }
 
     @Override
     public boolean getEntityMeta(LivingEntity entity, List<Object> info) {

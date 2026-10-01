@@ -23,12 +23,14 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
+import io.papermc.paper.event.entity.ItemTransportingEntityValidateTargetEvent;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.player.InventoryChangeListener;
+import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.HopperTransactionUtils;
 import net.coreprotect.utility.ItemUtils;
@@ -45,6 +47,7 @@ public final class CopperGolemChestListener implements Listener {
 
     private final CoreProtect plugin;
     private final Map<UUID, OpenInteraction> openInteractions = new ConcurrentHashMap<>();
+    private final Map<UUID, TransactionKey> transportTargets = new ConcurrentHashMap<>();
     private final Map<UUID, RecentEmptyCopperChestSkip> recentEmptyCopperChestSkips = new ConcurrentHashMap<>();
     private final Map<TransactionKey, OpenInteractionIndex> openInteractionIndexByContainerKey = new ConcurrentHashMap<>();
     private final Map<TransactionKey, Set<UUID>> emptySkipGolemsByContainerKey = new ConcurrentHashMap<>();
@@ -52,6 +55,17 @@ public final class CopperGolemChestListener implements Listener {
 
     public CopperGolemChestListener(CoreProtect plugin) {
         this.plugin = plugin;
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onValidateTarget(ItemTransportingEntityValidateTargetEvent event) {
+        if (!event.isAllowed() || !(event.getEntity() instanceof CopperGolem)
+                || !Config.getConfig(event.getBlock().getWorld()).ITEM_TRANSACTIONS) {
+            return;
+        }
+
+        cleanupOpenInteractions(System.currentTimeMillis());
+        transportTargets.put(event.getEntity().getUniqueId(), TransactionKey.of(event.getBlock().getLocation()));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -66,15 +80,8 @@ public final class CopperGolemChestListener implements Listener {
         }
 
         Entity entity = event.getEntity();
-        if (gameEvent == GameEvent.CONTAINER_OPEN) {
-            if (!(entity instanceof CopperGolem)) {
-                return;
-            }
-        }
-        else {
-            if (entity != null && !(entity instanceof CopperGolem)) {
-                return;
-            }
+        if (entity != null && !(entity instanceof CopperGolem)) {
+            return;
         }
 
         Location eventLocation = event.getLocation();
@@ -112,6 +119,12 @@ public final class CopperGolemChestListener implements Listener {
         TransactionKey containerKey = TransactionKey.of(canonicalLocation);
 
         if (gameEvent == GameEvent.CONTAINER_OPEN) {
+            if (entity == null) {
+                entity = findOpeningGolem(eventLocation, inventory);
+                if (entity == null) {
+                    return;
+                }
+            }
             handleContainerOpen((CopperGolem) entity, canonicalLocation, containerKey, containerType, inventoryHolder, now);
         }
         else {
@@ -122,6 +135,37 @@ public final class CopperGolemChestListener implements Listener {
                 handleContainerCloseWithoutEntity(containerKey, containerType, now);
             }
         }
+    }
+
+    private CopperGolem findOpeningGolem(Location location, Inventory inventory) {
+        if (inventory == null || !inventory.getViewers().isEmpty()) {
+            return null;
+        }
+
+        TransactionKey containerKey = TransactionKey.of(location);
+        TransactionKey otherHalfKey = containerKey;
+        InventoryHolder holder = inventory.getHolder();
+        if (holder instanceof DoubleChest) {
+            DoubleChest chest = (DoubleChest) holder;
+            if (chest.getLeftSide() instanceof BlockState && chest.getRightSide() instanceof BlockState) {
+                containerKey = TransactionKey.of(((BlockState) chest.getLeftSide()).getLocation());
+                otherHalfKey = TransactionKey.of(((BlockState) chest.getRightSide()).getLocation());
+            }
+        }
+
+        CopperGolem openingGolem = null;
+        for (Entity nearby : location.getWorld().getNearbyEntities(location, 3, 2, 3)) {
+            TransactionKey target = transportTargets.get(nearby.getUniqueId());
+            if (target == null || (!target.equals(containerKey) && !target.equals(otherHalfKey))
+                    || !PaperAdapter.ADAPTER.isOwnedByCurrentRegion(nearby) || !PaperAdapter.ADAPTER.isCopperGolemInteracting(nearby)) {
+                continue;
+            }
+            if (openingGolem != null) {
+                return null;
+            }
+            openingGolem = (CopperGolem) nearby;
+        }
+        return openingGolem;
     }
 
     static Location getCanonicalContainerLocation(Location containerLocation, Inventory inventory) {
@@ -545,6 +589,8 @@ public final class CopperGolemChestListener implements Listener {
             return;
         }
         lastCleanupMillis = nowMillis;
+
+        transportTargets.keySet().removeIf(golemId -> plugin.getServer().getEntity(golemId) == null);
 
         for (Map.Entry<UUID, OpenInteraction> entry : openInteractions.entrySet()) {
             UUID golemId = entry.getKey();

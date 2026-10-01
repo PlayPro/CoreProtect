@@ -549,7 +549,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
 
     /**
      * @param deadline System.nanoTime() value after which a shutdown pass may no longer start, or 0 outside shutdown. It bounds the
-     *            lifecycle lock wait; a pass that has started runs its database work to completion.
+     *            lifecycle lock wait. A pass that has started runs its database work to completion.
      */
     static void processConsumerBatch(int processId, boolean lastRun, long deadline) throws InterruptedException {
         Lock databaseLock = databaseLifecycle.readLock();

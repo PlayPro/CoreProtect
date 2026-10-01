@@ -1655,7 +1655,7 @@ public class LookupRaw extends Queue {
             return baseQuery;
         }
 
-        // Inline line predicates keep the outer restrictions usable; MySQL can still index merge the line prefix indexes when unrestricted.
+        // Inline line predicates keep the outer restrictions usable. MySQL can still index merge the line prefix indexes when unrestricted.
         if (ConfigHandler.databaseType.isDuckDB() || ConfigHandler.databaseType.isMySQL()) {
             String match = ConfigHandler.databaseType.isDuckDB() ? " ILIKE ? ESCAPE '~'" : " LIKE ? ESCAPE '~'";
             StringBuilder query = new StringBuilder(baseQuery).append(" AND (");

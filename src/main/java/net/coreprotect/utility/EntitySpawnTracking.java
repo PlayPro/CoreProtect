@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
+import org.bukkit.DyeColor;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.TreeSpecies;
@@ -33,6 +34,7 @@ import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.material.Colorable;
 import org.bukkit.persistence.PersistentDataType;
 
 import net.coreprotect.CoreProtect;
@@ -42,6 +44,7 @@ import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.entity.EntityInteractionOrigin;
 import net.coreprotect.model.entity.EntitySpawnData;
 import net.coreprotect.paper.PaperAdapter;
+import net.coreprotect.spigot.SpigotAdapter;
 import net.coreprotect.thread.Scheduler;
 
 public final class EntitySpawnTracking {
@@ -74,7 +77,11 @@ public final class EntitySpawnTracking {
     }
 
     public static boolean isPlacedEntity(Entity entity) {
-        return entity instanceof Boat || entity instanceof Minecart;
+        return entity instanceof Boat || entity instanceof Minecart || isCushion(entity);
+    }
+
+    public static boolean isCushion(Entity entity) {
+        return entity != null && entity.getType() != null && entity.getType().name().equals("CUSHION");
     }
 
     public static boolean isPlacedEntityType(EntityType type) {
@@ -83,7 +90,7 @@ public final class EntitySpawnTracking {
         }
 
         Class<? extends Entity> entityClass = type.getEntityClass();
-        return entityClass != null && (Boat.class.isAssignableFrom(entityClass) || Minecart.class.isAssignableFrom(entityClass));
+        return type.name().equals("CUSHION") || (entityClass != null && (Boat.class.isAssignableFrom(entityClass) || Minecart.class.isAssignableFrom(entityClass)));
     }
 
     public static Set<Integer> getPlacedEntityTypeIds() {
@@ -229,7 +236,7 @@ public final class EntitySpawnTracking {
     }
 
     public static boolean isEligibleInteractionEntity(Entity entity) {
-        return entity instanceof LivingEntity && !(entity instanceof Player) && !(entity instanceof ArmorStand);
+        return (entity instanceof LivingEntity && !(entity instanceof Player) && !(entity instanceof ArmorStand)) || isCushion(entity);
     }
 
     public static void confirmDatabaseIdentity(UUID uuid, Location location) {
@@ -988,12 +995,16 @@ public final class EntitySpawnTracking {
         state.add(entity.getCustomName());
         state.add(entity.isCustomNameVisible());
 
-        String boatType = null;
+        String variant = null;
         if (entity instanceof Boat) {
             TreeSpecies woodType = ((Boat) entity).getWoodType();
-            boatType = woodType == null ? null : woodType.name();
+            variant = woodType == null ? null : woodType.name();
         }
-        state.add(boatType);
+        else if (isCushion(entity)) {
+            DyeColor color = entity instanceof Colorable ? ((Colorable) entity).getColor() : SpigotAdapter.ADAPTER.getCushionColor(entity);
+            variant = color == null ? null : color.name();
+        }
+        state.add(variant);
 
         List<Object> inventoryData = null;
         if (entity instanceof InventoryHolder) {
@@ -1020,6 +1031,10 @@ public final class EntitySpawnTracking {
             }
         }
         state.add(equipmentData);
+        if (isCushion(entity)) {
+            Location location = entity.getLocation();
+            state.add(Arrays.asList(location.getYaw(), location.getPitch()));
+        }
         trimTrailingNulls(state);
         return state;
     }
@@ -1100,6 +1115,15 @@ public final class EntitySpawnTracking {
             catch (Exception ignored) {
             }
         }
+        else if (isCushion(entity) && state.size() > 2 && state.get(2) instanceof String) {
+            DyeColor color = DyeColor.valueOf((String) state.get(2));
+            if (entity instanceof Colorable) {
+                ((Colorable) entity).setColor(color);
+            }
+            else {
+                SpigotAdapter.ADAPTER.setCushionColor(entity, color);
+            }
+        }
         if (entity instanceof InventoryHolder && state.size() > 3 && state.get(3) instanceof List<?>) {
             Inventory inventory = ((InventoryHolder) entity).getInventory();
             List<?> inventoryData = (List<?>) state.get(3);
@@ -1119,6 +1143,12 @@ public final class EntitySpawnTracking {
                 equipment.setLeggings(getItem(equipmentData, 3));
                 equipment.setChestplate(getItem(equipmentData, 4));
                 equipment.setHelmet(getItem(equipmentData, 5));
+            }
+        }
+        if (isCushion(entity) && state.size() > 5 && state.get(5) instanceof List<?>) {
+            List<?> rotation = (List<?>) state.get(5);
+            if (rotation.size() == 2 && rotation.get(0) instanceof Number && rotation.get(1) instanceof Number) {
+                entity.setRotation(((Number) rotation.get(0)).floatValue(), ((Number) rotation.get(1)).floatValue());
             }
         }
     }

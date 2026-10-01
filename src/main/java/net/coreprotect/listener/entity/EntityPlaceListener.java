@@ -15,12 +15,14 @@ public final class EntityPlaceListener extends Queue implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onEntityPlace(EntityPlaceEvent event) {
-        Entity entity = event.getEntity();
+        logPlacement(event.getEntity(), event.getPlayer());
+    }
+
+    public static void logPlacement(Entity entity, Player player) {
         if (!EntitySpawnTracking.isPlacedEntity(entity) || EntitySpawnTracking.isTracked(entity) || !Config.getConfig(entity.getWorld()).ENTITY_SPAWNS) {
             return;
         }
 
-        Player player = event.getPlayer();
         String user = player == null ? "#dispenser" : player.getName();
         EntitySpawnTracking.track(entity);
         Queue.queueEntitySpawnLog(user, entity.getUniqueId(), entity.getType(), entity.getLocation());

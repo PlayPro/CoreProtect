@@ -32,6 +32,7 @@ import net.coreprotect.utility.Color;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.LookupThrottle;
+import net.coreprotect.utility.EntitySpawnTracking;
 
 public final class HangingBreakByEntityListener extends Queue implements Listener {
 
@@ -39,7 +40,7 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
         inspectEntity(block, player, null);
     }
 
-    static void inspectEntity(final BlockState block, final Player player, final UUID entityUuid) {
+    public static void inspectEntity(final BlockState block, final Player player, final UUID entityUuid) {
         // block check
         if (!player.hasPermission("coreprotect.inspect")) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
@@ -107,7 +108,7 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
             if (ConfigHandler.inspecting.get(player.getName()) != null) {
                 if (ConfigHandler.inspecting.get(player.getName())) {
                     // block check
-                    inspectItemFrame(blockEvent, player);
+                    inspectEntity(blockEvent, player, EntitySpawnTracking.isCushion(entity) ? entity.getUniqueId() : null);
                     event.setCancelled(true);
                     inspecting = true;
                 }

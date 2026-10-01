@@ -28,6 +28,8 @@ public interface PaperInterface {
 
     public double getAverageTickTime(Server server);
 
+    public boolean isCopperGolemInteracting(Entity entity);
+
     public String getLine(Sign sign, int line);
 
     public boolean isAttached(Block block, Block scanBlock, BlockData blockData, int scanMin);

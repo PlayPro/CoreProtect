@@ -31,6 +31,7 @@ final class ClickHouseNativeClient implements AutoCloseable {
                 .retryOnFailures(ClientFaultCause.None)
                 .useAsyncRequests(false)
                 .compressClientRequest(true)
+                .serverSetting("network_compression_method", "LZ4")
                 .serverSetting("async_insert", "0")
                 .serverSetting("max_insert_block_size", "1000000")
                 .serverSetting("max_insert_block_size_bytes", "0")

@@ -3,9 +3,6 @@ package net.coreprotect.listener.entity;
 import java.util.Locale;
 
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Player;
-import org.bukkit.entity.Projectile;
 import org.bukkit.entity.Vehicle;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -13,13 +10,13 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.vehicle.VehicleDestroyEvent;
-import org.bukkit.projectiles.ProjectileSource;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.player.EntityInteractionListener;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.utility.EntitySpawnTracking;
+import net.coreprotect.utility.EntityUtils;
 
 public final class VehicleDestroyListener extends Queue implements Listener {
 
@@ -53,7 +50,7 @@ public final class VehicleDestroyListener extends Queue implements Listener {
             attacker = ((EntityDamageByEntityEvent) damage).getDamager();
         }
 
-        String user = getEntityUser(attacker);
+        String user = EntityUtils.getEntityUser(attacker);
         if (user != null || damage == null) {
             return user;
         }
@@ -74,26 +71,5 @@ public final class VehicleDestroyListener extends Queue implements Listener {
             default:
                 return "#" + damage.getCause().name().toLowerCase(Locale.ROOT);
         }
-    }
-
-    private static String getEntityUser(Entity attacker) {
-        if (attacker instanceof Player) {
-            return attacker.getName();
-        }
-        if (attacker instanceof Projectile) {
-            ProjectileSource shooter = ((Projectile) attacker).getShooter();
-            if (shooter instanceof Player) {
-                return ((Player) shooter).getName();
-            }
-            if (shooter instanceof Entity) {
-                attacker = (Entity) shooter;
-            }
-        }
-        if (attacker == null) {
-            return null;
-        }
-
-        EntityType type = attacker.getType();
-        return type == null ? null : "#" + type.name().toLowerCase(Locale.ROOT);
     }
 }

@@ -380,6 +380,17 @@ public class Database extends Queue {
     }
 
     public static Connection getConnection(boolean force, boolean startup, boolean onlyCheckTransacting, int waitTime) {
+        return getConnection(force, startup, onlyCheckTransacting, waitTime, false);
+    }
+
+    /**
+     * The consumer claims Consumer.isPaused itself before connecting, so it skips the SQLite wait on that flag.
+     */
+    public static Connection getConsumerConnection() {
+        return getConnection(false, false, false, 0, true);
+    }
+
+    private static Connection getConnection(boolean force, boolean startup, boolean onlyCheckTransacting, int waitTime, boolean ignorePause) {
         Connection connection = null;
         if (Consumer.isDatabaseReloadBlocked()) {
             return null;
@@ -417,7 +428,7 @@ public class Database extends Queue {
                 }
 
                 long startTime = System.nanoTime();
-                while (Consumer.isPaused && !force && (Consumer.transacting || !onlyCheckTransacting)) {
+                while (Consumer.isPaused && !force && !ignorePause && (Consumer.transacting || !onlyCheckTransacting)) {
                     Thread.sleep(1);
                     long pauseTime = (System.nanoTime() - startTime) / 1000000;
 

@@ -18,6 +18,7 @@ import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.listener.player.PlayerQuitListener;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Extensions;
 import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.Teleport;
@@ -88,7 +89,13 @@ public class ShutdownService {
             }
 
             ConfigHandler.performDisable();
-            Chat.console(Phrase.build(Phrase.DISABLE_SUCCESS, "CoreProtect v" + plugin.getDescription().getVersion()));
+            int unsavedItems = Consumer.getShutdownUnsavedItems();
+            if (unsavedItems > 0) {
+                Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.LOGGING_INCOMPLETE, String.format("%,d", unsavedItems)));
+            }
+            else {
+                Chat.console(Phrase.build(Phrase.DISABLE_SUCCESS, "CoreProtect v" + plugin.getDescription().getVersion()));
+            }
         }
         catch (Exception e) {
             ErrorReporter.report(e);

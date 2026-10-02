@@ -28,13 +28,10 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.projectiles.ProjectileSource;
 
-import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
-import net.coreprotect.database.Database;
 import net.coreprotect.listener.player.PlayerInteractEntityListener;
-import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.ItemUtils;
 
 public final class EntityDamageByEntityListener extends Queue implements Listener {
@@ -125,15 +122,8 @@ public final class EntityDamageByEntityListener extends Queue implements Listene
                     else if (entity instanceof ArmorStand && Config.getConfig(entity.getWorld()).BLOCK_BREAK) {
                         // Do this here, as we're unable to read armor stand contents on EntityDeathEvent (in survival mode)
                         if (Config.getConfig(entityLocation.getWorld()).ITEM_TRANSACTIONS) {
-                            String killer = user;
                             ItemStack[] contents = ItemUtils.getContainerContents(Material.ARMOR_STAND, entity, block.getLocation());
-                            Scheduler.runTask(CoreProtect.getInstance(), () -> {
-                                if (entity != null && entity.isDead()) {
-                                    entityLocation.setY(entityLocation.getY() + 0.99);
-                                    Database.containerBreakCheck(killer, Material.ARMOR_STAND, entity, contents, block.getLocation());
-                                    Queue.queueBlockBreak(killer, block.getState(), Material.ARMOR_STAND, null, (int) entityLocation.getYaw());
-                                }
-                            }, entity);
+                            EntityDeathListener.trackArmorStandBreak(entity, user, contents);
                         }
                     }
                 }

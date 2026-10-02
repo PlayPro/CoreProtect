@@ -1,7 +1,5 @@
 package net.coreprotect.listener.player;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 
 import org.bukkit.Location;
@@ -23,11 +21,7 @@ public final class PlayerItemBreakListener extends Queue implements Listener {
         }
 
         String loggingItemId = user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
-        int itemId = getItemId(loggingItemId);
-
-        List<ItemStack> list = ConfigHandler.itemsBreak.getOrDefault(loggingItemId, new ArrayList<>());
-        list.add(itemStack.clone());
-        ConfigHandler.itemsBreak.put(loggingItemId, list);
+        int itemId = addPendingItems(ConfigHandler.itemsBreak, loggingItemId, itemStack.clone());
 
         int time = (int) (System.currentTimeMillis() / 1000L) + 1;
         Queue.queueItemTransaction(user, location.clone(), time, 0, itemId);

@@ -125,7 +125,7 @@ final class ClickHouseBatchPublisher {
     private ReceiptStatus readReceiptStatus(ClickHouseBatchIdentity identity, int partitionId) throws SQLException {
         String sql = "SELECT toString(batch_id),ifNull(amount,-1)"
                 + " FROM " + eventTable
-                + " WHERE family=? AND batch_sequence=? AND rowid=? AND wid=?"
+                + " WHERE family=? AND batch_sequence=? AND rowid=? AND wid=? AND x=0 AND z=0 AND lookup_kind=0"
                 + " GROUP BY batch_id,amount LIMIT 2";
         try (Connection connection = jdbc.openConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, ClickHouseSchema.BATCH_RECEIPT_FAMILY);

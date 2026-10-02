@@ -5,6 +5,7 @@ import java.util.Set;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.inventory.ItemStack;
 
 import com.sk89q.worldedit.MaxChangedBlocksException;
@@ -27,6 +28,7 @@ import com.sk89q.worldedit.world.block.BlockState;
 import com.sk89q.worldedit.world.block.BlockStateHolder;
 
 import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.ItemUtils;
 
@@ -45,7 +47,7 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
         Extent eventExtent = getExtent();
         org.bukkit.World world = BukkitAdapter.adapt(eventWorld);
         Config config = Config.getConfig(world);
-        if (!config.WORLDEDIT) {
+        if (!ConfigHandler.serverRunning || !config.WORLDEDIT) {
             return eventExtent.setBlock(position, block);
         }
 
@@ -55,8 +57,11 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
         }
 
         Material oldType = BukkitAdapter.adapt(oldBlock.getBlockType());
+        BlockData oldBlockData = BukkitAdapter.adapt(oldBlock);
         Location location = new Location(world, position.getBlockX(), position.getBlockY(), position.getBlockZ());
         BaseBlock baseBlock = WorldEditLogger.needsBaseBlock(oldType, config) ? eventExtent.getFullBlock(position) : null;
+        // Reads below this stage reach the live world, so capture the other half before setBlock or its physics can change it
+        org.bukkit.block.BlockState otherHalf = WorldEditLogger.getOtherHalf(eventExtent, position, location, oldBlockData);
 
         // No clear way to get container content data from within the WorldEdit API
         // Data may be available by converting oldBlock.toBaseBlock().getNbtData()
@@ -64,7 +69,7 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
         ItemStack[] containerData = !CoreProtectEditSessionEvent.isFAWE() && config.ITEM_TRANSACTIONS && BlockGroup.CONTAINERS.contains(oldType) ? ItemUtils.getContainerContents(oldType, null, location) : null;
 
         if (eventExtent.setBlock(position, block)) {
-            WorldEditLogger.postProcess(eventExtent, eventActor, position, location, block, baseBlock, oldType, oldBlock, containerData);
+            WorldEditLogger.postProcess(eventExtent, eventActor, position, location, block, baseBlock, oldType, oldBlockData, containerData, otherHalf);
             return true;
         }
 
@@ -80,7 +85,7 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
     public int replaceBlocks(final Region region, final Mask mask, final Pattern pattern) throws MaxChangedBlocksException {
         Extent eventExtent = getExtent();
         org.bukkit.World world = BukkitAdapter.adapt(eventWorld);
-        if (!Config.getConfig(world).WORLDEDIT) {
+        if (!ConfigHandler.serverRunning || !Config.getConfig(world).WORLDEDIT) {
             return eventExtent.replaceBlocks(region, mask, pattern);
         }
 
@@ -98,7 +103,7 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
     public int setBlocks(Region region, Pattern pattern) throws MaxChangedBlocksException {
         Extent eventExtent = getExtent();
         org.bukkit.World world = BukkitAdapter.adapt(eventWorld);
-        if (!Config.getConfig(world).WORLDEDIT) {
+        if (!ConfigHandler.serverRunning || !Config.getConfig(world).WORLDEDIT) {
             return eventExtent.setBlocks(region, pattern);
         }
 
@@ -109,7 +114,7 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
     public int setBlocks(Set<BlockVector3> vset, Pattern pattern) {
         Extent eventExtent = getExtent();
         org.bukkit.World world = BukkitAdapter.adapt(eventWorld);
-        if (!Config.getConfig(world).WORLDEDIT) {
+        if (!ConfigHandler.serverRunning || !Config.getConfig(world).WORLDEDIT) {
             return eventExtent.setBlocks(vset, pattern);
         }
 

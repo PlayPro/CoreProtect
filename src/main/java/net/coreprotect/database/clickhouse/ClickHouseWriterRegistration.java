@@ -1,14 +1,17 @@
 package net.coreprotect.database.clickhouse;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.sql.SQLException;
 import java.util.Objects;
+import java.util.UUID;
 
 final class ClickHouseWriterRegistration implements AutoCloseable {
 
@@ -43,6 +46,35 @@ final class ClickHouseWriterRegistration implements AutoCloseable {
         }
         catch (IOException exception) {
             throw new SQLException("Failed to open the local ClickHouse writer registration", exception);
+        }
+    }
+
+    synchronized UUID schemaOwner() throws SQLException {
+        verifyOwned();
+        try {
+            if (writerChannel.size() == 0) {
+                ByteBuffer value = StandardCharsets.US_ASCII.encode(UUID.randomUUID().toString());
+                writerChannel.position(0);
+                while (value.hasRemaining()) {
+                    writerChannel.write(value);
+                }
+                writerChannel.force(true);
+            }
+            if (writerChannel.size() != 36) {
+                throw new SQLException("Invalid ClickHouse schema owner identity in " + writerFile);
+            }
+            ByteBuffer value = ByteBuffer.allocate(36);
+            writerChannel.position(0);
+            while (value.hasRemaining() && writerChannel.read(value) >= 0) {
+            }
+            value.flip();
+            UUID stored = UUID.fromString(StandardCharsets.US_ASCII.decode(value).toString());
+            Object fileKey = Files.readAttributes(writerFile, java.nio.file.attribute.BasicFileAttributes.class).fileKey();
+            String identity = stored + "\n" + writerFile.toRealPath() + "\n" + fileKey;
+            return UUID.nameUUIDFromBytes(identity.getBytes(StandardCharsets.UTF_8));
+        }
+        catch (IOException | IllegalArgumentException exception) {
+            throw new SQLException("Unable to read ClickHouse schema owner identity", exception);
         }
     }
 

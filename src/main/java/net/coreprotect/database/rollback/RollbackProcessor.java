@@ -8,6 +8,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -35,6 +36,7 @@ import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.model.PendingBlockChange;
 import net.coreprotect.model.item.ItemTransactionActions;
+import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.ItemUtils;
@@ -75,9 +77,11 @@ public class RollbackProcessor {
      *            The world to process
      * @param blockDataCache
      *            The rollback-scoped BlockData parse cache
+     * @param inventoryContext
+     *            If not null, player inventory changes are scheduled on each player's entity scheduler as mutations of this rollback context (Folia)
      * @return True if successful, false if there was an error
      */
-    public static boolean processChunk(int finalChunkX, int finalChunkZ, long chunkKey, ArrayList<Object[]> blockList, ArrayList<Object[]> itemList, int rollbackType, int preview, String finalUserString, Player finalUser, World bukkitRollbackWorld, boolean inventoryRollback, RollbackBlockDataCache blockDataCache) {
+    public static boolean processChunk(int finalChunkX, int finalChunkZ, long chunkKey, ArrayList<Object[]> blockList, ArrayList<Object[]> itemList, int rollbackType, int preview, String finalUserString, Player finalUser, World bukkitRollbackWorld, boolean inventoryRollback, RollbackBlockDataCache blockDataCache, EntitySpawnRollbackHandler.Context inventoryContext) {
         RollbackCounters counters = new RollbackCounters();
 
         try {
@@ -229,6 +233,7 @@ public class RollbackProcessor {
 
             // Process container items
             Map<Player, List<Integer>> sortPlayers = new HashMap<>();
+            Map<Player, List<InventoryRow>> inventoryRows = inventoryContext != null && inventoryRollback ? new LinkedHashMap<>() : null;
             Object container = null;
             Material containerType = null;
             boolean containerInit = false;
@@ -275,14 +280,12 @@ public class RollbackProcessor {
                             continue;
                         }
 
-                        int inventoryAction = ItemTransactionActions.getInventoryActionId(rowAction);
-                        int action = rollbackType == 0 ? (inventoryAction ^ 1) : inventoryAction;
-                        ItemStack itemstack = new ItemStack(inventoryItem, rowAmount);
-                        Object[] populatedStack = RollbackItemHandler.populateItemStack(itemstack, rowMetadata);
-                        if (rowAction == ItemTransactionActions.REMOVE_ENDER || rowAction == ItemTransactionActions.ADD_ENDER) {
-                            RollbackUtil.modifyContainerItems(containerType, player.getEnderChest(), (Integer) populatedStack[0], ((ItemStack) populatedStack[2]).clone(), action ^ 1);
+                        if (inventoryRows != null) {
+                            inventoryRows.computeIfAbsent(player, key -> new ArrayList<>()).add(new InventoryRow(row, inventoryItem));
+                            continue;
                         }
-                        int modifiedArmor = RollbackUtil.modifyContainerItems(containerType, player.getInventory(), (Integer) populatedStack[0], (ItemStack) populatedStack[2], action);
+
+                        int modifiedArmor = applyInventoryRow(player, row, inventoryItem, rollbackType);
                         if (modifiedArmor > -1) {
                             List<Integer> currentSortList = sortPlayers.getOrDefault(player, new ArrayList<>());
                             if (!currentSortList.contains(modifiedArmor)) {
@@ -373,6 +376,11 @@ public class RollbackProcessor {
                 RollbackItemHandler.sortContainerItems(sortEntry.getKey().getInventory(), sortEntry.getValue());
             }
             sortPlayers.clear();
+            if (inventoryRows != null) {
+                for (Entry<Player, List<InventoryRow>> playerRows : inventoryRows.entrySet()) {
+                    scheduleInventoryRows(inventoryContext, playerRows.getKey(), playerRows.getValue(), rollbackType);
+                }
+            }
 
             updateRollbackHash(finalUserString, counters, 1);
 
@@ -408,6 +416,62 @@ public class RollbackProcessor {
         ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount, blockCount, entityCount, status, scannedWorlds });
     }
 
+    private static int applyInventoryRow(Player player, Object[] row, Material inventoryItem, int rollbackType) {
+        int rowAction = (Integer) row[8];
+        int inventoryAction = ItemTransactionActions.getInventoryActionId(rowAction);
+        int action = rollbackType == 0 ? (inventoryAction ^ 1) : inventoryAction;
+        ItemStack itemstack = new ItemStack(inventoryItem, (Integer) row[11]);
+        Object[] populatedStack = RollbackItemHandler.populateItemStack(itemstack, (byte[]) row[12]);
+        if (rowAction == ItemTransactionActions.REMOVE_ENDER || rowAction == ItemTransactionActions.ADD_ENDER) {
+            RollbackUtil.modifyContainerItems(null, player.getEnderChest(), (Integer) populatedStack[0], ((ItemStack) populatedStack[2]).clone(), action ^ 1);
+        }
+        return RollbackUtil.modifyContainerItems(null, player.getInventory(), (Integer) populatedStack[0], (ItemStack) populatedStack[2], action);
+    }
+
+    private static void scheduleInventoryRows(EntitySpawnRollbackHandler.Context context, Player player, List<InventoryRow> rows, int rollbackType) {
+        CompletableFuture<Boolean> completion = new CompletableFuture<>();
+        Runnable task = () -> {
+            // Nothing is changed once the rollback is cancelled, and cleanup waits for a started mutation to finish
+            if (!context.beginMutation()) {
+                completion.complete(false);
+                return;
+            }
+
+            int items = 0;
+            try {
+                List<Integer> sortSlots = new ArrayList<>();
+                for (InventoryRow inventoryRow : rows) {
+                    int modifiedArmor = applyInventoryRow(player, inventoryRow.row, inventoryRow.item, rollbackType);
+                    if (modifiedArmor > -1 && !sortSlots.contains(modifiedArmor)) {
+                        sortSlots.add(modifiedArmor);
+                    }
+                    items += (Integer) inventoryRow.row[11];
+                }
+                if (!sortSlots.isEmpty()) {
+                    RollbackItemHandler.sortContainerItems(player.getInventory(), sortSlots);
+                }
+                context.addItemCount(items);
+                completion.complete(true);
+            }
+            catch (Exception e) {
+                context.cancel();
+                ErrorReporter.report(e);
+                context.addItemCount(items);
+                completion.complete(false);
+            }
+            finally {
+                context.endMutation();
+            }
+        };
+
+        // A player who logged out is skipped, like an offline player on the inline path
+        Runnable retired = () -> completion.complete(true);
+        if (!PaperAdapter.ADAPTER.executeEntityTask(CoreProtect.getInstance(), player, task, retired)) {
+            retired.run();
+        }
+        context.addPending(completion);
+    }
+
     private static void loadChunk(World world, int chunkX, int chunkZ, boolean inventoryRollback) {
         if (inventoryRollback || world == null) {
             return;
@@ -415,6 +479,16 @@ public class RollbackProcessor {
 
         if (!world.isChunkLoaded(chunkX, chunkZ)) {
             world.getChunkAt(chunkX, chunkZ);
+        }
+    }
+
+    private static final class InventoryRow {
+        private final Object[] row;
+        private final Material item;
+
+        private InventoryRow(Object[] row, Material item) {
+            this.row = row;
+            this.item = item;
         }
     }
 

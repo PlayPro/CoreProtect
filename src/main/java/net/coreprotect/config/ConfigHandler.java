@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -280,7 +281,7 @@ public class ConfigHandler extends Queue {
     public static Map<String, List<Object>> lastRollback = syncMap();
     public static Map<String, Boolean> activeRollbacks = syncMap();
     public static Map<String, Object[]> entityBlockMapper = new ConcurrentHashMap<>();
-    public static ConcurrentHashMap<Long, Long> populatedChunks = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<UUID, ConcurrentHashMap<Long, Long>> populatedChunks = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, String> language = new ConcurrentHashMap<>();
     public static List<String> databaseTables = new ArrayList<>();
 
@@ -508,7 +509,9 @@ public class ConfigHandler extends Queue {
                         DuckDBNativeSupport.verifyAvailable();
                     } catch (Throwable failure) {
                         if (!DuckDBNativeSupport.isNativeUnavailable(failure)) {
-                            throw new IllegalStateException("Unable to verify DuckDB on this system", failure);
+                            throw new IllegalStateException("Unable to verify DuckDB on this system. For native-library extraction or loading errors, check free space and permissions in the JVM temporary directory. "
+                                    + "To select another directory, add -Djava.io.tmpdir=/absolute/path/to/cache before -jar and fully restart the server. "
+                                    + "The directory must already exist, have sufficient space, and permit writing and native-library loading.", failure);
                         }
                         DatabaseConfigWriter.persistDatabaseType(DatabaseType.SQLITE);
                         ConfigHandler.databaseType = DatabaseType.SQLITE;

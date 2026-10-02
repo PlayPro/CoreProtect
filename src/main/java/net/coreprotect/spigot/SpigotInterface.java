@@ -2,10 +2,16 @@ package net.coreprotect.spigot;
 
 import java.util.List;
 
+import org.bukkit.DyeColor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Villager;
 
 public interface SpigotInterface {
+
+    public DyeColor getCushionColor(Entity entity);
+
+    public void setCushionColor(Entity entity, DyeColor color);
 
     public void addHoverComponent(Object message, String[] data);
 

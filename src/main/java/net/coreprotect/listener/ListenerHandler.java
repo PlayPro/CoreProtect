@@ -32,6 +32,7 @@ import net.coreprotect.listener.entity.EntityPlaceListener;
 import net.coreprotect.listener.entity.EntityChunkListener;
 import net.coreprotect.listener.entity.LegacyEntityChunkListener;
 import net.coreprotect.listener.entity.EntityPickupItemListener;
+import net.coreprotect.listener.entity.CushionBreakListener;
 import net.coreprotect.listener.entity.EntitySpawnListener;
 import net.coreprotect.listener.entity.EntityTransformListener;
 import net.coreprotect.listener.entity.HangingBreakByEntityListener;
@@ -69,9 +70,11 @@ import net.coreprotect.listener.world.PortalCreateListener;
 import net.coreprotect.listener.world.StructureGrowListener;
 import net.coreprotect.paper.listener.BlockPreDispenseListener;
 import net.coreprotect.paper.listener.CopperGolemChestListener;
+import net.coreprotect.paper.listener.CushionListener;
 import net.coreprotect.paper.listener.FlowerPotManipulateListener;
 import net.coreprotect.paper.listener.LegacyTNTPrimeListener;
 import net.coreprotect.paper.listener.PaperChatListener;
+import net.coreprotect.spigot.listener.CushionPlaceListener;
 
 public final class ListenerHandler {
 
@@ -94,6 +97,19 @@ public final class ListenerHandler {
         }
         catch (Exception e) {
             // Ignore registration failures to remain compatible with older servers.
+        }
+
+        try {
+            Class.forName("io.papermc.paper.event.entity.EntityBreakEvent");
+            pluginManager.registerEvents(new CushionListener(), plugin);
+        }
+        catch (ClassNotFoundException e) {
+            try {
+                Class.forName("org.bukkit.entity.Cushion");
+                pluginManager.registerEvents(new CushionPlaceListener(), plugin);
+            }
+            catch (ClassNotFoundException ignored) {
+            }
         }
 
         // Block Listeners
@@ -144,6 +160,7 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new EntityPlaceListener(), plugin);
         pluginManager.registerEvents(new EntityPickupItemListener(), plugin);
         pluginManager.registerEvents(new EntitySpawnListener(), plugin);
+        pluginManager.registerEvents(new CushionBreakListener(), plugin);
         pluginManager.registerEvents(new EntityTransformListener(), plugin);
         pluginManager.registerEvents(new HangingPlaceListener(), plugin);
         pluginManager.registerEvents(new HangingBreakListener(), plugin);

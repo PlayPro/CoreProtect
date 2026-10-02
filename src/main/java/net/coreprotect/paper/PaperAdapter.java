@@ -9,6 +9,7 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 import org.bukkit.block.data.BlockData;
@@ -77,6 +78,11 @@ public class PaperAdapter implements PaperInterface {
     }
 
     @Override
+    public BlockState getBlockState(Block block, boolean useSnapshot) {
+        return block.getState();
+    }
+
+    @Override
     public boolean isStopping(Server server) {
         return false;
     }
@@ -84,6 +90,11 @@ public class PaperAdapter implements PaperInterface {
     @Override
     public double getAverageTickTime(Server server) {
         return -1.0D;
+    }
+
+    @Override
+    public boolean isCopperGolemInteracting(Entity entity) {
+        return false;
     }
 
     @Override

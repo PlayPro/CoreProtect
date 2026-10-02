@@ -115,7 +115,7 @@ For example, `/co purge t:30d i:stone,dirt` will delete all stone and dirt data 
 In CoreProtect v2.15+, adding `#optimize` to the end of the command (for example, `/co purge t:30d #optimize`) will also optimize supported database tables and reclaim unused disk space. How this option is handled depends on the database backend:
 
 * SQLite already rebuilds the database from retained data and reclaims unused file space as part of a manual purge, so `#optimize` is not needed.
-* MySQL normally deletes matching rows. Adding `#optimize` also optimizes its tables to reclaim unused space.
+* MySQL normally deletes matching rows. Adding `#optimize` also removes saved entity data that no entity kill references anymore (this requires the `CREATE TEMPORARY TABLES` privilege), then optimizes its tables to reclaim unused space.
 * DuckDB deletes matching rows in one transaction and checkpoints afterward. `#optimize` has no additional effect.
 * ClickHouse drops fully covered monthly partitions for an unfiltered time purge and synchronously removes rows from partial or filtered partitions. Adding `#optimize` also runs `OPTIMIZE TABLE ... FINAL`.
 

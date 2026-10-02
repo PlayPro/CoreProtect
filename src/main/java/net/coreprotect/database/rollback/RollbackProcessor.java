@@ -35,6 +35,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.model.PendingBlockChange;
+import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.model.item.ItemTransactionActions;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.Scheduler;
@@ -90,6 +91,13 @@ public class RollbackProcessor {
             ArrayList<Object[]> itemData = itemList != null ? itemList : new ArrayList<>();
             Map<Block, PendingBlockChange> chunkChanges = new LinkedHashMap<>();
             loadChunk(bukkitRollbackWorld, finalChunkX, finalChunkZ, inventoryRollback);
+
+            if (!data.isEmpty() && (Integer) data.get(0)[8] == LookupActions.SIGN) {
+                if (preview == 0) {
+                    RollbackSignHandler.processChunk(bukkitRollbackWorld, data, rollbackType, finalUserString, counters);
+                }
+                data.clear();
+            }
 
             // Process blocks
             for (Object[] row : data) {

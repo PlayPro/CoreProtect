@@ -27,8 +27,10 @@ import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.clickhouse.ClickHouseLookup;
 import net.coreprotect.database.statement.EntitySpawnStatement;
+import net.coreprotect.database.statement.SignStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
+import net.coreprotect.model.SignState;
 import net.coreprotect.model.action.EntityActionFilter;
 import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.model.action.SignActions;
@@ -37,6 +39,7 @@ import net.coreprotect.model.item.ItemTransactionActions;
 import net.coreprotect.model.lookup.EntityLookupContext;
 import net.coreprotect.model.lookup.LookupCursor;
 import net.coreprotect.model.lookup.LookupRollbackState;
+import net.coreprotect.model.rollback.SignRollbackChange;
 import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.ErrorReporter;
@@ -216,6 +219,8 @@ public class LookupRaw extends Queue {
                 return null;
             }
 
+            List<?> signIncludes = !lookup && actionList.contains(LookupActions.SIGN) ? List.copyOf(restrictList) : List.of();
+            List<?> signExcludes = !lookup && actionList.contains(LookupActions.SIGN) ? List.copyOf(excludeList.keySet()) : List.of();
             while (results.next()) {
                 if (actionList.contains(LookupActions.CHAT) || actionList.contains(LookupActions.COMMAND)) {
                     long resultId = results.getLong("id");
@@ -264,6 +269,11 @@ public class LookupRaw extends Queue {
                     int resultY = results.getInt("y");
                     int resultZ = results.getInt("z");
                     boolean isFront = results.getInt("face") == 0;
+                    if (!lookup) {
+                        SignRollbackChange change = new SignRollbackChange(SignState.read(results), isFront, signIncludes, signExcludes);
+                        list.add(new Object[] { resultId, resultTime, resultUserId, resultX, resultY, resultZ, 0, 0, LookupActions.SIGN, results.getInt("rolled_back"), resultWorldId, -1, null, null, change, 0 });
+                        continue;
+                    }
                     String line1 = results.getString("line_1");
                     String line2 = results.getString("line_2");
                     String line3 = results.getString("line_3");
@@ -371,6 +381,11 @@ public class LookupRaw extends Queue {
                         list.add(dataArray);
                     }
                 }
+            }
+            if (!lookup && actionList.contains(LookupActions.SIGN)) {
+                results.close();
+                results = null;
+                SignStatement.loadRollbackStates(statement, list);
             }
         }
         catch (Exception e) {
@@ -890,11 +905,11 @@ public class LookupRaw extends Queue {
                 queryBlock = queryBlock + " action NOT IN(-1) AND";
             }
 
-            if (includeBlock.length() > 0 || includeEntity.length() > 0) {
+            if ((lookup || !actionList.contains(LookupActions.SIGN)) && (includeBlock.length() > 0 || includeEntity.length() > 0)) {
                 queryBlock = queryBlock + " type IN(" + (includeBlock.length() > 0 ? includeBlock : "0") + ") AND";
             }
 
-            if (excludeBlock.length() > 0 || excludeEntity.length() > 0) {
+            if ((lookup || !actionList.contains(LookupActions.SIGN)) && (excludeBlock.length() > 0 || excludeEntity.length() > 0)) {
                 queryBlock = queryBlock + " type NOT IN(" + (excludeBlock.length() > 0 ? excludeBlock : "0") + ") AND";
             }
 
@@ -928,7 +943,12 @@ public class LookupRaw extends Queue {
             }
 
             if (actionList.contains(LookupActions.SIGN)) {
-                queryBlock = queryBlock + " action = " + SignActions.PLACE + " AND (LENGTH(line_1) > 0 OR LENGTH(line_2) > 0 OR LENGTH(line_3) > 0 OR LENGTH(line_4) > 0 OR LENGTH(line_5) > 0 OR LENGTH(line_6) > 0 OR LENGTH(line_7) > 0 OR LENGTH(line_8) > 0) AND";
+                if (lookup) {
+                    queryBlock = queryBlock + " action = " + SignActions.PLACE + " AND (LENGTH(line_1) > 0 OR LENGTH(line_2) > 0 OR LENGTH(line_3) > 0 OR LENGTH(line_4) > 0 OR LENGTH(line_5) > 0 OR LENGTH(line_6) > 0 OR LENGTH(line_7) > 0 OR LENGTH(line_8) > 0) AND";
+                }
+                else {
+                    queryBlock = queryBlock + " action IN(" + SignActions.PLACE + "," + SignActions.EDIT + ") AND";
+                }
             }
 
             if (queryBlock.length() > 0) {
@@ -1004,6 +1024,9 @@ public class LookupRaw extends Queue {
             else if (actionList.contains(LookupActions.SIGN)) {
                 queryTable = "sign";
                 rows = "rowid as id,time," + userColumn + ",wid,x,y,z,face,line_1,line_2,line_3,line_4,line_5,line_6,line_7,line_8";
+                if (!lookup) {
+                    rows += ",action,rolled_back,color,color_secondary,data,waxed";
+                }
             }
             else if (actionList.contains(LookupActions.ITEM)) {
                 queryTable = "item";

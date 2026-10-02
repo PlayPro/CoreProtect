@@ -340,6 +340,9 @@ public final class PlayerInteractListener extends Queue implements Listener {
                             String line7 = PaperAdapter.ADAPTER.getLine(sign, 6);
                             String line8 = PaperAdapter.ADAPTER.getLine(sign, 7);
 
+                            boolean changingColor = dyeSet.contains(handType);
+                            boolean changingGlow = handType.name().endsWith("INK_SAC");
+                            Boolean interactionFront = PaperAdapter.ADAPTER.getSignInteractionSide(sign, player);
                             boolean isFront = true;
                             int oldColor = BukkitAdapter.ADAPTER.getColor(sign, isFront);
                             int oldColorSecondary = BukkitAdapter.ADAPTER.getColor(sign, !isFront);
@@ -358,10 +361,21 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                         boolean newBackGlowing = BukkitAdapter.ADAPTER.isGlowing(newSign, !isFront);
                                         boolean newIsWaxed = BukkitAdapter.ADAPTER.isWaxed(newSign);
 
-                                        boolean modifyingFront = oldBackGlowing == newBackGlowing && oldColorSecondary == newColorSecondary;
-                                        if (oldColor != newColor || oldColorSecondary != newColorSecondary || oldFrontGlowing != newFrontGlowing || oldBackGlowing != newBackGlowing || oldIsWaxed != newIsWaxed) {
+                                        boolean frontChanged = changingColor ? oldColor != newColor : changingGlow && oldFrontGlowing != newFrontGlowing;
+                                        boolean backChanged = changingColor ? oldColorSecondary != newColorSecondary : changingGlow && oldBackGlowing != newBackGlowing;
+                                        if (interactionFront == null && (changingColor || changingGlow) && frontChanged == backChanged) {
+                                            return;
+                                        }
+                                        boolean modifyingFront = interactionFront != null ? interactionFront : !backChanged;
+                                        boolean propertyChanged = changingColor || changingGlow ? (modifyingFront ? frontChanged : backChanged) : oldIsWaxed != newIsWaxed;
+                                        if (propertyChanged) {
+                                            int beforeColor = changingColor && modifyingFront ? oldColor : newColor;
+                                            int beforeColorSecondary = changingColor && !modifyingFront ? oldColorSecondary : newColorSecondary;
+                                            boolean beforeFrontGlowing = changingGlow && modifyingFront ? oldFrontGlowing : newFrontGlowing;
+                                            boolean beforeBackGlowing = changingGlow && !modifyingFront ? oldBackGlowing : newBackGlowing;
+                                            boolean beforeIsWaxed = changingColor || changingGlow ? newIsWaxed : oldIsWaxed;
                                             Location location = blockState.getLocation();
-                                            Queue.queueSignText(player.getName(), location, SignActions.BREAK, oldColor, oldColorSecondary, oldFrontGlowing, oldBackGlowing, oldIsWaxed, modifyingFront, line1, line2, line3, line4, line5, line6, line7, line8, 1); // 1 second timeOffset
+                                            Queue.queueSignText(player.getName(), location, SignActions.BEFORE, beforeColor, beforeColorSecondary, beforeFrontGlowing, beforeBackGlowing, beforeIsWaxed, modifyingFront, line1, line2, line3, line4, line5, line6, line7, line8, 1);
                                             Queue.queueBlockPlace(player.getName(), blockState, block.getType(), blockState, block.getType(), -1, 0, blockState.getBlockData().getAsString());
                                             Queue.queueSignText(player.getName(), location, SignActions.EDIT, newColor, newColorSecondary, newFrontGlowing, newBackGlowing, newIsWaxed, modifyingFront, line1, line2, line3, line4, line5, line6, line7, line8, 0);
                                         }

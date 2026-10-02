@@ -174,6 +174,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         set("color", color);
         set("color_secondary", colorSecondary);
         set("sign_data", data);
+        set("rolled_back", 0);
         set("waxed", waxed);
         set("face", face);
         for (int index = 0; index < lines.length; index++) {

@@ -15,6 +15,7 @@ import org.bukkit.block.Skull;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
@@ -100,6 +101,11 @@ public class PaperAdapter implements PaperInterface {
     @Override
     public String getLine(Sign sign, int line) {
         return BukkitAdapter.ADAPTER.getLine(sign, line);
+    }
+
+    @Override
+    public Boolean getSignInteractionSide(Sign sign, Player player) {
+        return BukkitAdapter.ADAPTER.getSignInteractionSide(sign, player);
     }
 
     @Override

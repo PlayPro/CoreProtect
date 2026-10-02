@@ -362,7 +362,7 @@ public class Rollback extends RollbackUtil {
                     }
                 }
                 else {
-                    if (!rollbackLookupList.isEmpty()) {
+                    if (!rollbackLookupList.isEmpty() && !actionList.contains(LookupActions.SIGN)) {
                         Queue.queueRollbackUpdate(userString, location, rollbackLookupList, Process.ROLLBACK_UPDATE, rollbackType);
                     }
                     if (!itemList.isEmpty()) {

@@ -18,6 +18,7 @@ import org.bukkit.block.Sign;
 import org.bukkit.block.sign.Side;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -42,6 +43,7 @@ import net.coreprotect.model.BlockGroup;
 public class Bukkit_v1_20 extends Bukkit_v1_19 {
 
     private Boolean hasClickedPosition;
+    private Boolean hasSignTargetSide;
     private Boolean hasBasePotionType;
     private Boolean hasItemName;
     private Boolean hasSpawnFunction;
@@ -123,6 +125,21 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
                 targetGroup.add(value);
             }
         }
+    }
+
+    @Override
+    public Boolean getSignInteractionSide(Sign sign, Player player) {
+        if (hasSignTargetSide == null) {
+            try {
+                Sign.class.getMethod("getTargetSide", Player.class);
+                hasSignTargetSide = true;
+            }
+            catch (NoSuchMethodException e) {
+                hasSignTargetSide = false;
+            }
+        }
+
+        return hasSignTargetSide ? sign.getTargetSide(player) == sign.getSide(Side.FRONT) : null;
     }
 
     @Override

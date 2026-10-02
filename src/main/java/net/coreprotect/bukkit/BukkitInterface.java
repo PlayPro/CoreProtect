@@ -20,6 +20,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Painting;
+import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 import org.bukkit.event.Event;
 import org.bukkit.event.block.BlockExplodeEvent;
@@ -493,6 +494,8 @@ public interface BukkitInterface {
      * @return true if the event is for the front side, false otherwise
      */
     boolean isSignFront(SignChangeEvent event);
+
+    Boolean getSignInteractionSide(Sign sign, Player player);
 
 
 

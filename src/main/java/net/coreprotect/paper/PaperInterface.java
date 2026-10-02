@@ -12,6 +12,7 @@ import org.bukkit.block.Skull;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
@@ -31,6 +32,8 @@ public interface PaperInterface {
     public boolean isCopperGolemInteracting(Entity entity);
 
     public String getLine(Sign sign, int line);
+
+    public Boolean getSignInteractionSide(Sign sign, Player player);
 
     public boolean isAttached(Block block, Block scanBlock, BlockData blockData, int scanMin);
 

@@ -33,6 +33,7 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Painting;
+import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 import org.bukkit.event.Event;
 import org.bukkit.event.block.BlockExplodeEvent;
@@ -490,6 +491,11 @@ public class BukkitAdapter implements BukkitInterface {
 
     @Override
     public boolean isSignFront(SignChangeEvent event) {
+        return true;
+    }
+
+    @Override
+    public Boolean getSignInteractionSide(Sign sign, Player player) {
         return true;
     }
 

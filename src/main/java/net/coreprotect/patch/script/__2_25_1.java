@@ -12,6 +12,7 @@ import java.util.UUID;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.DatabaseType;
 import net.coreprotect.database.clickhouse.ClickHouseIdentifiers;
 import net.coreprotect.database.clickhouse.ClickHouseJdbc;
 import net.coreprotect.database.clickhouse.ClickHouseJdbcConfig;
@@ -315,8 +316,39 @@ public class __2_25_1 {
         return value == null ? "" : value.replaceAll("[\\s`]", "").toLowerCase(Locale.ROOT);
     }
 
+    private static void addSignRollbackColumn(Statement statement, DatabaseType databaseType) throws SQLException {
+        String table = ConfigHandler.prefix + "sign";
+        String query = databaseType.isMySQL() ? "SHOW COLUMNS FROM " + table : "PRAGMA table_info('" + table + "')";
+        String columnName = databaseType.isMySQL() ? "Field" : "name";
+        try (ResultSet columns = statement.executeQuery(query)) {
+            while (columns.next()) {
+                if ("rolled_back".equalsIgnoreCase(columns.getString(columnName))) {
+                    return;
+                }
+            }
+        }
+        catch (Exception ignored) {
+        }
+        String type = databaseType.isSQLite() ? "INTEGER" : "TINYINT";
+        try {
+            statement.executeUpdate("ALTER TABLE " + table + " ADD COLUMN rolled_back " + type + " DEFAULT 0");
+        }
+        catch (SQLException e) {
+            if (!databaseType.isMySQL() || e.getErrorCode() != 1060) {
+                throw e;
+            }
+        }
+    }
+
     protected static boolean patchDuckDB(Statement statement) {
-        return true;
+        try {
+            addSignRollbackColumn(statement, DatabaseType.DUCKDB);
+            return true;
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+            return false;
+        }
     }
 
     private static void widenMySQLBlockMetadata(Statement statement) throws SQLException {
@@ -350,6 +382,7 @@ public class __2_25_1 {
                 statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign MODIFY line_1 TEXT, MODIFY line_2 TEXT, MODIFY line_3 TEXT, MODIFY line_4 TEXT, MODIFY line_5 TEXT, MODIFY line_6 TEXT, MODIFY line_7 TEXT, MODIFY line_8 TEXT");
                 widenMySQLBlockMetadata(statement);
             }
+            addSignRollbackColumn(statement, Config.getGlobal().MYSQL ? DatabaseType.MYSQL : DatabaseType.SQLITE);
             return true;
         }
         catch (Exception e) {

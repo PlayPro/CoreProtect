@@ -58,8 +58,9 @@ final class ClickHouseStateBatch implements AutoCloseable {
                 rows.set("rolled_back", update.rolledBack);
                 commitRow(rows, "rollback state update", update.family, update.time, partitionRowCounts);
                 int partition = ClickHouseSchema.eventPartitionId(update.family, update.time);
-                ClickHouseLookupIndex.append(rows, update.family, partition, true);
-                partitionRowCounts.merge(partition, 1, Math::addExact);
+                if (ClickHouseLookupIndex.append(rows, update.family, partition, true)) {
+                    partitionRowCounts.merge(partition, 1, Math::addExact);
+                }
             }
         }
         for (ClickHouseEntityState state : entityStateUpdates.values()) {
@@ -198,7 +199,8 @@ final class ClickHouseStateBatch implements AutoCloseable {
         return family == ClickHouseFamily.BLOCK
                 || family == ClickHouseFamily.CONTAINER
                 || family == ClickHouseFamily.ENTITY_CONTAINER
-                || family == ClickHouseFamily.ITEM;
+                || family == ClickHouseFamily.ITEM
+                || family == ClickHouseFamily.SIGN;
     }
 
     static final class Checkpoint {

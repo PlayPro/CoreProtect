@@ -1655,16 +1655,18 @@ public class LookupRaw extends Queue {
             return baseQuery;
         }
 
-        if (ConfigHandler.databaseType.isDuckDB()) {
+        // Inline line predicates keep the outer restrictions usable. MySQL can still index merge the line prefix indexes when unrestricted.
+        if (ConfigHandler.databaseType.isDuckDB() || ConfigHandler.databaseType.isMySQL()) {
+            String match = ConfigHandler.databaseType.isDuckDB() ? " ILIKE ? ESCAPE '~'" : " LIKE ? ESCAPE '~'";
             StringBuilder query = new StringBuilder(baseQuery).append(" AND (");
             for (int filterIndex = 0; filterIndex < messageFilters.size(); filterIndex++) {
                 if (filterIndex > 0) {
                     query.append(" OR ");
                 }
                 query.append("((face=0 AND (");
-                appendDuckDBSignLines(query, 1, 4);
+                appendSignLines(query, 1, 4, match);
                 query.append(")) OR (face<>0 AND (");
-                appendDuckDBSignLines(query, 5, 8);
+                appendSignLines(query, 5, 8, match);
                 query.append(")))");
 
                 String filter = messageFilters.get(filterIndex) == null ? "" : messageFilters.get(filterIndex);
@@ -1741,12 +1743,12 @@ public class LookupRaw extends Queue {
         }
     }
 
-    private static void appendDuckDBSignLines(StringBuilder query, int firstLine, int lastLine) {
+    private static void appendSignLines(StringBuilder query, int firstLine, int lastLine, String match) {
         for (int line = firstLine; line <= lastLine; line++) {
             if (line > firstLine) {
                 query.append(" OR ");
             }
-            query.append("line_").append(line).append(" ILIKE ? ESCAPE '~'");
+            query.append("line_").append(line).append(match);
         }
     }
 

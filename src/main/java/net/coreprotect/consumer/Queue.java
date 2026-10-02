@@ -1,9 +1,11 @@
 package net.coreprotect.consumer;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -103,10 +105,17 @@ public class Queue {
         return chestId;
     }
 
-    protected static synchronized int getItemId(String id) {
-        int chestId = ConfigHandler.loggingItem.getOrDefault(id, -1) + 1;
-        ConfigHandler.loggingItem.put(id, chestId);
-        return chestId;
+    // The Queue lock keeps ItemTransactionProcess.discard from clearing an item before its generation is registered,
+    // and compute keeps the append atomic with the consumer's take in ItemLogger
+    protected static synchronized int addPendingItems(ConcurrentHashMap<String, List<ItemStack>> pendingItems, String id, ItemStack... items) {
+        pendingItems.compute(id, (key, list) -> {
+            List<ItemStack> result = list == null ? new ArrayList<>(items.length) : list;
+            Collections.addAll(result, items);
+            return result;
+        });
+        int itemId = ConfigHandler.loggingItem.getOrDefault(id, -1) + 1;
+        ConfigHandler.loggingItem.put(id, itemId);
+        return itemId;
     }
 
     private static boolean queueStandardData(Object[] data, String[] user, Object object, boolean first, long reservation) {

@@ -59,20 +59,19 @@ public class ItemLogger {
     public static PreparedTransaction prepare(Location location, int offset, String user) {
         String key = user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
         ItemStack[][] items = {
-                snapshot(ConfigHandler.itemsPickup, key), snapshot(ConfigHandler.itemsDrop, key),
-                snapshot(ConfigHandler.itemsThrown, key), snapshot(ConfigHandler.itemsShot, key),
-                snapshot(ConfigHandler.itemsBreak, key), snapshot(ConfigHandler.itemsDestroy, key),
-                snapshot(ConfigHandler.itemsCreate, key), snapshot(ConfigHandler.itemsSell, key), snapshot(ConfigHandler.itemsBuy, key)
+                take(ConfigHandler.itemsPickup, key), take(ConfigHandler.itemsDrop, key),
+                take(ConfigHandler.itemsThrown, key), take(ConfigHandler.itemsShot, key),
+                take(ConfigHandler.itemsBreak, key), take(ConfigHandler.itemsDestroy, key),
+                take(ConfigHandler.itemsCreate, key), take(ConfigHandler.itemsSell, key), take(ConfigHandler.itemsBuy, key)
         };
-        for (ItemStack[] group : items) {
-            ItemUtils.mergeItems(null, group);
-        }
         return new PreparedTransaction(location, (int) (System.currentTimeMillis() / 1000L) - offset, items);
     }
 
-    private static ItemStack[] snapshot(Map<String, List<ItemStack>> source, String key) {
-        List<ItemStack> values = source.get(key);
-        return values == null ? new ItemStack[0] : ItemUtils.getContainerState(values.toArray(new ItemStack[0]));
+    // Removing the whole list means an item appended after this point starts a new list for the next transaction.
+    // Cloning waits for PreparedTransaction.log, so the detached items are stored for a retry before anything can throw
+    private static ItemStack[] take(Map<String, List<ItemStack>> source, String key) {
+        List<ItemStack> values = source.remove(key);
+        return values == null ? new ItemStack[0] : values.toArray(new ItemStack[0]);
     }
 
     public static final class PreparedTransaction {
@@ -92,7 +91,10 @@ public class ItemLogger {
                 return;
             }
             for (int index = 0; index < items.length; index++) {
-                logTransaction(batch, batchCount, 0, user, location.clone(), ItemUtils.getContainerState(items[index]), ACTIONS[index], time);
+                // Clone before merging so a retry logs from the untouched detached items
+                ItemStack[] group = ItemUtils.getContainerState(items[index]);
+                ItemUtils.mergeItems(null, group);
+                logTransaction(batch, batchCount, 0, user, location.clone(), group, ACTIONS[index], time);
             }
         }
     }

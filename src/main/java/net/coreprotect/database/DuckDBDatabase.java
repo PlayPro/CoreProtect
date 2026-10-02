@@ -46,7 +46,7 @@ final class DuckDBDatabase {
         properties.setProperty("allow_community_extensions", "false");
         properties.setProperty("autoload_known_extensions", "false");
         properties.setProperty("autoinstall_known_extensions", "false");
-        rootConnection = (DuckDBConnection) java.sql.DriverManager.getConnection("jdbc:duckdb:" + databaseFile.getAbsolutePath(), properties);
+        rootConnection = DuckDBNativeSupport.openDatabase(() -> (DuckDBConnection) java.sql.DriverManager.getConnection("jdbc:duckdb:" + databaseFile.getAbsolutePath(), properties));
     }
 
     static synchronized Connection getConnection() throws Exception {

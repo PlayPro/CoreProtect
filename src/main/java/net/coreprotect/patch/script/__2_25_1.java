@@ -319,10 +319,36 @@ public class __2_25_1 {
         return true;
     }
 
+    private static void widenMySQLBlockMetadata(Statement statement) throws SQLException {
+        String table = ConfigHandler.prefix + "block";
+        String alterQuery = "ALTER TABLE " + table + " MODIFY meta MEDIUMBLOB";
+        boolean found;
+        String type;
+        try (ResultSet columns = statement.executeQuery("SHOW COLUMNS FROM " + table + " LIKE 'meta'")) {
+            found = columns.next();
+            type = found ? columns.getString("Type") : null;
+        }
+        catch (Exception ignored) {
+            statement.executeUpdate(alterQuery);
+            return;
+        }
+        if (!found) {
+            throw new SQLException("Missing MySQL column " + table + ".meta");
+        }
+        if ("mediumblob".equalsIgnoreCase(type) || "longblob".equalsIgnoreCase(type)) {
+            return;
+        }
+        if (!"blob".equalsIgnoreCase(type) && !"tinyblob".equalsIgnoreCase(type)) {
+            throw new SQLException("Unsupported MySQL " + table + ".meta type: " + type);
+        }
+        statement.executeUpdate(alterQuery);
+    }
+
     protected static boolean patch(Statement statement) {
         try {
             if (Config.getGlobal().MYSQL) {
                 statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign MODIFY line_1 TEXT, MODIFY line_2 TEXT, MODIFY line_3 TEXT, MODIFY line_4 TEXT, MODIFY line_5 TEXT, MODIFY line_6 TEXT, MODIFY line_7 TEXT, MODIFY line_8 TEXT");
+                widenMySQLBlockMetadata(statement);
             }
             return true;
         }

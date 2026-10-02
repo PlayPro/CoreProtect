@@ -21,6 +21,7 @@ public final class WorldEditBlockState implements BlockState {
     protected Location location;
     protected Material material;
     protected BlockData blockData;
+    private BlockState lowerHalf;
 
     public WorldEditBlockState(Location loc) {
         location = loc;
@@ -30,6 +31,17 @@ public final class WorldEditBlockState implements BlockState {
         location = loc;
         material = type;
         blockData = data;
+    }
+
+    /**
+     * The matching lower half of a top half, captured before the edit changed it, so queueing a break does not read the world afterwards.
+     */
+    public BlockState getLowerHalf() {
+        return lowerHalf;
+    }
+
+    public void setLowerHalf(BlockState lowerHalf) {
+        this.lowerHalf = lowerHalf;
     }
 
     @Override

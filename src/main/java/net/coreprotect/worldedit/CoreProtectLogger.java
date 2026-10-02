@@ -5,6 +5,7 @@ import java.util.Set;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.inventory.ItemStack;
 
 import com.sk89q.worldedit.MaxChangedBlocksException;
@@ -55,8 +56,11 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
         }
 
         Material oldType = BukkitAdapter.adapt(oldBlock.getBlockType());
+        BlockData oldBlockData = BukkitAdapter.adapt(oldBlock);
         Location location = new Location(world, position.getBlockX(), position.getBlockY(), position.getBlockZ());
         BaseBlock baseBlock = WorldEditLogger.needsBaseBlock(oldType, config) ? eventExtent.getFullBlock(position) : null;
+        // Reads below this stage reach the live world, so capture the other half before setBlock or its physics can change it
+        org.bukkit.block.BlockState otherHalf = WorldEditLogger.getOtherHalf(eventExtent, position, location, oldBlockData);
 
         // No clear way to get container content data from within the WorldEdit API
         // Data may be available by converting oldBlock.toBaseBlock().getNbtData()
@@ -64,7 +68,7 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
         ItemStack[] containerData = !CoreProtectEditSessionEvent.isFAWE() && config.ITEM_TRANSACTIONS && BlockGroup.CONTAINERS.contains(oldType) ? ItemUtils.getContainerContents(oldType, null, location) : null;
 
         if (eventExtent.setBlock(position, block)) {
-            WorldEditLogger.postProcess(eventExtent, eventActor, position, location, block, baseBlock, oldType, oldBlock, containerData);
+            WorldEditLogger.postProcess(eventExtent, eventActor, position, location, block, baseBlock, oldType, oldBlockData, containerData, otherHalf);
             return true;
         }
 

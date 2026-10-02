@@ -3,6 +3,7 @@ package net.coreprotect.bukkit;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import org.bukkit.Art;
 import org.bukkit.Chunk;
@@ -376,6 +377,21 @@ public interface BukkitInterface {
      * @return The frame class
      */
     Class<?> getFrameClass(Material material);
+
+    /**
+     * Spawns an entity, running a function on it before it is added to the world.
+     * 
+     * @param world
+     *            The world
+     * @param location
+     *            The spawn location
+     * @param entityClass
+     *            The entity class
+     * @param function
+     *            The function to run before the entity is added
+     * @return The spawned entity
+     */
+    <T extends Entity> T spawn(World world, Location location, Class<T> entityClass, Consumer<? super T> function);
 
     // --------------------------------------------------------------------------
     // Sign methods

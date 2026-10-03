@@ -108,7 +108,8 @@ public class PurgeCommand extends Consumer {
     }
 
     static String findUnsupportedPurgeArgument(String[] args) {
-        boolean includeContinuation = false;
+        boolean listContinuation = false;
+        String emptyList = null; // an include or exclude argument that has no value yet
         for (int i = 1; i < args.length; i++) {
             String token = args[i].trim();
             if (token.length() == 0) {
@@ -119,24 +120,32 @@ public class PurgeCommand extends Consumer {
             argument = argument.replaceAll("\\\\", "");
             argument = argument.replaceAll("'", "");
 
-            if (includeContinuation) {
-                includeContinuation = argument.endsWith(",");
-                continue;
-            }
-
             if (argument.equals("#optimize")) {
                 continue;
             }
 
+            String listValues = null;
             if (argument.startsWith("i:") || argument.startsWith("include:") || argument.startsWith("item:") || argument.startsWith("items:") || argument.startsWith("b:") || argument.startsWith("block:") || argument.startsWith("blocks:")) {
-                String includeValues = argument.replaceAll("include:", "").replaceAll("i:", "").replaceAll("items:", "").replaceAll("item:", "").replaceAll("blocks:", "").replaceAll("block:", "").replaceAll("b:", "");
-                includeContinuation = includeValues.length() == 0 || includeValues.endsWith(",");
+                listValues = argument.replaceAll("include:", "").replaceAll("i:", "").replaceAll("items:", "").replaceAll("item:", "").replaceAll("blocks:", "").replaceAll("block:", "").replaceAll("b:", "");
+            }
+            else if (argument.startsWith("e:") || argument.startsWith("exclude:")) {
+                listValues = argument.replaceAll("exclude:", "").replaceAll("e:", "");
+            }
+
+            if (listValues != null) {
+                if (emptyList != null) {
+                    return emptyList;
+                }
+                listContinuation = listValues.length() == 0 || listValues.endsWith(",");
+                emptyList = hasListValue(listValues) ? null : token;
                 continue;
             }
 
-            if (argument.startsWith("e:") || argument.startsWith("exclude:")) {
-                String excludeValues = argument.replaceAll("exclude:", "").replaceAll("e:", "");
-                includeContinuation = excludeValues.length() == 0 || excludeValues.endsWith(",");
+            if (listContinuation) {
+                listContinuation = argument.endsWith(",");
+                if (hasListValue(argument)) {
+                    emptyList = null;
+                }
                 continue;
             }
 
@@ -161,7 +170,12 @@ public class PurgeCommand extends Consumer {
             }
         }
 
-        return null;
+        // An empty list would silently purge without that include or exclude restriction
+        return emptyList;
+    }
+
+    private static boolean hasListValue(String values) {
+        return values.replace(",", "").length() > 0;
     }
 
     protected static void runCommand(final CommandSender player, boolean permission, String[] args) {

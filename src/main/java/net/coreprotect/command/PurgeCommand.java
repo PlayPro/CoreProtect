@@ -678,18 +678,45 @@ public class PurgeCommand extends Consumer {
                                     purge = false;
                                 }
 
-                                if (purge && table.equals("block") && purgeFilter.removesKills() && !purgeFilter.purgesEntitiesByTime()) {
-                                    query = purgeFilter.deleteEntitiesOfPurgedKills(ConfigHandler.databaseType, ConfigHandler.prefix);
-                                    preparedStmt = preparePurgeStatement(connection, query);
-                                    removed = removed + preparedStmt.executeUpdate();
-                                    preparedStmt.close();
+                                boolean deleteEntities = purge && table.equals("block") && purgeFilter.removesKills() && !purgeFilter.purgesEntitiesByTime();
+                                // Kill rows and their entity data go together, or the kept kills lose their rollback data
+                                boolean atomic = deleteEntities && ConfigHandler.databaseType.isMySQL();
+                                if (atomic) {
+                                    connection.setAutoCommit(false);
                                 }
+                                try {
+                                    long deleted = 0;
+                                    if (deleteEntities) {
+                                        query = purgeFilter.deleteEntitiesOfPurgedKills(ConfigHandler.databaseType, ConfigHandler.prefix);
+                                        preparedStmt = preparePurgeStatement(connection, query);
+                                        deleted = deleted + preparedStmt.executeUpdate();
+                                        preparedStmt.close();
+                                    }
 
-                                if (purge) {
-                                    query = "DELETE FROM " + ConfigHandler.prefix + table + " WHERE " + blockRestriction + "time < '" + timeEnd + "' AND time >= '" + timeStart + "'" + worldRestriction;
-                                    preparedStmt = preparePurgeStatement(connection, query);
-                                    removed = removed + preparedStmt.executeUpdate();
-                                    preparedStmt.close();
+                                    if (purge) {
+                                        query = "DELETE FROM " + ConfigHandler.prefix + table + " WHERE " + blockRestriction + "time < '" + timeEnd + "' AND time >= '" + timeStart + "'" + worldRestriction;
+                                        preparedStmt = preparePurgeStatement(connection, query);
+                                        deleted = deleted + preparedStmt.executeUpdate();
+                                        preparedStmt.close();
+                                    }
+
+                                    if (atomic) {
+                                        connection.commit();
+                                        connection.setAutoCommit(true);
+                                    }
+                                    removed = removed + deleted;
+                                }
+                                catch (Exception e) {
+                                    if (atomic) {
+                                        try {
+                                            connection.rollback();
+                                            connection.setAutoCommit(true);
+                                        }
+                                        catch (SQLException rollbackException) {
+                                            e.addSuppressed(rollbackException);
+                                        }
+                                    }
+                                    throw e;
                                 }
                             }
                             catch (Exception e) {
@@ -713,7 +740,7 @@ public class PurgeCommand extends Consumer {
                                 preparedStmt.execute();
                                 preparedStmt.close();
                             }
-                            preparedStmt = preparePurgeStatement(connection, PurgeFilter.mysqlOrphanSweepDelete(ConfigHandler.prefix));
+                            preparedStmt = preparePurgeStatement(connection, purgeFilter.mysqlOrphanSweepDelete(ConfigHandler.prefix));
                             removed = removed + preparedStmt.executeUpdate();
                             preparedStmt.close();
                         }

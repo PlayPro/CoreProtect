@@ -144,12 +144,16 @@ public final class PurgeFilter {
      * Builds the MySQL statement that deletes co_entity rows no kill row references, such as rows left by earlier
      * world purges. Run {@link #mysqlOrphanSweepSetup(String)} first.
      *
+     * <p>
+     * Only rows inside the purge time range are deleted. Another installation sharing the database can write a kill
+     * after the setup snapshot, but its co_entity row gets the current time, which is always newer than the range.
+     *
      * @param prefix
      *            the table prefix
      * @return the SQL statement
      */
-    public static String mysqlOrphanSweepDelete(String prefix) {
-        return "DELETE e FROM " + prefix + "entity AS e LEFT JOIN " + prefix + "entity_keep AS k ON k.rowid = e.rowid WHERE k.rowid IS NULL";
+    public String mysqlOrphanSweepDelete(String prefix) {
+        return "DELETE e FROM " + prefix + "entity AS e LEFT JOIN " + prefix + "entity_keep AS k ON k.rowid = e.rowid WHERE k.rowid IS NULL AND " + timeCondition("e.");
     }
 
     /**

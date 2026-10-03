@@ -79,6 +79,7 @@ import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.spigot.SpigotAdapter;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.AttributeUtils;
 import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.entity.EntityUtil;
 import net.coreprotect.utility.entity.LivingEntityDetails;
@@ -307,11 +308,19 @@ public final class EntityDeathListener extends Queue implements Listener {
                 }
             }
 
+            long baselineBits = 0;
             if (entity instanceof Attributable) {
                 Attributable attributable = entity;
                 for (Attribute attribute : Lists.newArrayList(Registry.ATTRIBUTE)) {
                     AttributeInstance attributeInstance = attributable.getAttribute(attribute);
-                    if (attributeInstance != null && EntityUtil.isAttributeModified(attributeInstance)) {
+                    if (attributeInstance == null) {
+                        continue;
+                    }
+                    int baselineBit = AttributeUtils.baselineBit(attributeInstance);
+                    if (baselineBit >= 0) {
+                        baselineBits |= 1L << baselineBit;
+                    }
+                    else {
                         List<Object> attributeData = new ArrayList<>();
                         List<Object> attributeModifiers = new ArrayList<>();
                         attributeData.add(BukkitAdapter.ADAPTER.getRegistryKey(attributeInstance.getAttribute()));
@@ -585,7 +594,8 @@ public final class EntityDeathListener extends Queue implements Listener {
             data.add(details);
             data.add(EntitySpawnTracking.isTracked(entity) ? entity.getUniqueId().toString() : null);
             data.add(null); // kill location, only stored for placed entities
-            data.add(EntityUtil.SPARSE_ATTRIBUTES);
+            data.add(EntityUtil.BASELINE_ATTRIBUTES);
+            data.add(baselineBits);
 
             if (!(entity instanceof Player)) {
                 Queue.queueEntityKill(e, entity.getLocation(), data, type);

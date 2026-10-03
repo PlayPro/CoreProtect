@@ -85,16 +85,17 @@ public class EntityUtil {
     private static final long ENTITY_RESTORE_TIMEOUT_SECONDS = 30L;
 
     /**
-     * Position in the entity kill data list of the attribute format marker. Index 7 holds the entity UUID or null,
-     * and index 8 the kill location that EntitySpawnTracking stores for placed entities.
+     * Position in the entity kill data list of the attribute format marker, followed by the baseline bits. Index 7
+     * holds the entity UUID or null, and index 8 the kill location that EntitySpawnTracking stores for placed entities.
      */
     public static final int ATTRIBUTE_FORMAT_INDEX = 9;
 
     /**
-     * Attribute format marker: the attribute list omits every attribute that had the default base value and no
-     * modifiers. Rows without the marker list every attribute the entity had.
+     * Attribute format marker: the attribute list leaves out the attributes whose bits are set in the long that
+     * follows the marker (see {@link AttributeUtils#baselineBit}). Rows without the marker list every attribute the
+     * entity had.
      */
-    public static final int SPARSE_ATTRIBUTES = 1;
+    public static final int BASELINE_ATTRIBUTES = 1;
 
     private EntityUtil() {
         throw new IllegalStateException("Utility class");
@@ -227,8 +228,9 @@ public class EntityUtil {
                     Attributable attributable = (Attributable) entity;
                     @SuppressWarnings("unchecked")
                     List<Object> attributes = (List<Object>) list.get(5);
-                    if (hasSparseAttributes(list)) {
-                        resetAttributes(attributeInstances(attributable));
+                    Long baselineBits = baselineBits(list);
+                    if (baselineBits != null) {
+                        AttributeUtils.restoreBaseline(attributable, baselineBits);
                     }
                     restoreAttributes(attributable, attributes);
                 }
@@ -732,50 +734,16 @@ public class EntityUtil {
         return completion;
     }
 
-    /**
-     * Returns whether an attribute has to be stored to restore the entity: its base value differs from the default,
-     * or it has modifiers. {@link #resetAttributes(Iterable)} rebuilds every attribute this skips.
-     *
-     * @param attributeInstance
-     *            the attribute of the entity that is being logged
-     * @return true when the attribute must be stored
-     */
-    @SuppressWarnings("deprecation") // The server default exists on every supported version; restore uses the same value.
-    public static boolean isAttributeModified(AttributeInstance attributeInstance) {
-        return !attributeInstance.getModifiers().isEmpty() || Double.compare(attributeInstance.getBaseValue(), attributeInstance.getDefaultValue()) != 0;
-    }
-
-    static boolean hasSparseAttributes(List<Object> list) {
-        if (list.size() <= ATTRIBUTE_FORMAT_INDEX) {
-            return false;
+    static Long baselineBits(List<Object> list) {
+        if (list.size() <= ATTRIBUTE_FORMAT_INDEX + 1) {
+            return null;
         }
         Object format = list.get(ATTRIBUTE_FORMAT_INDEX);
-        return format instanceof Number && ((Number) format).intValue() == SPARSE_ATTRIBUTES;
-    }
-
-    private static List<AttributeInstance> attributeInstances(Attributable attributable) {
-        List<AttributeInstance> attributeInstances = new ArrayList<>();
-        for (Attribute attribute : Registry.ATTRIBUTE) {
-            AttributeInstance attributeInstance = attributable.getAttribute(attribute);
-            if (attributeInstance != null) {
-                attributeInstances.add(attributeInstance);
-            }
+        Object bits = list.get(ATTRIBUTE_FORMAT_INDEX + 1);
+        if (format instanceof Number && ((Number) format).intValue() == BASELINE_ATTRIBUTES && bits instanceof Long) {
+            return (Long) bits;
         }
-        return attributeInstances;
-    }
-
-    /**
-     * Sets attributes of a restored entity to their default base value without modifiers, so that attributes a
-     * sparse attribute list omits match the logged entity. Spawning can randomize base values and add modifiers.
-     */
-    @SuppressWarnings("deprecation") // Same default value that isAttributeModified compares against.
-    static void resetAttributes(Iterable<AttributeInstance> attributeInstances) {
-        for (AttributeInstance attributeInstance : attributeInstances) {
-            attributeInstance.setBaseValue(attributeInstance.getDefaultValue());
-            for (AttributeModifier modifier : new ArrayList<>(attributeInstance.getModifiers())) {
-                attributeInstance.removeModifier(modifier);
-            }
-        }
+        return null;
     }
 
     static void restoreAttributes(Attributable attributable, List<Object> attributes) {

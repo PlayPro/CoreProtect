@@ -132,6 +132,7 @@ public class PurgeCommand extends Consumer {
     static String findUnsupportedPurgeArgument(String[] args) {
         boolean listContinuation = false;
         String emptyList = null; // an include or exclude argument that has no value yet
+        boolean hasRadius = false;
         for (int i = 1; i < args.length; i++) {
             String token = args[i].trim();
             if (token.length() == 0) {
@@ -184,6 +185,11 @@ public class PurgeCommand extends Consumer {
             }
 
             if (argument.startsWith("r:") || argument.startsWith("radius:")) {
+                if (hasRadius) {
+                    // A second radius conflicts with the first, such as r:50 with r:#world_nether
+                    return token;
+                }
+                hasRadius = true;
                 continue;
             }
 

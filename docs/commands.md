@@ -107,7 +107,7 @@ You can optionally specify a world in CoreProtect v19+.
 For example, `/co purge t:30d r:#world_nether` will delete all data older than one month in the Nether, without removing data in any other worlds.
 
 **Purging by Radius**  
-A radius can limit a purge of specific block types or entity kills to the area around you. It only applies to block and entity kill data, so it must be combined with `i:` or `a:kill`, and it can only be used in-game.
+A radius can limit a purge of specific block types or entity kills to the area around you. It only applies to block and entity kill data, so it must be combined with `i:` or `a:kill`, and it can only be used in-game. A radius always applies to the world you are in, so it cannot be combined with a world such as `r:#world_nether`.
 For example, `/co purge t:30d r:50 i:zombie` will delete zombie kills older than one month within 50 blocks of you, without removing any other data. Use `r:50x10` to also limit the height to 10 blocks above and below you.
 
 **Purging Blocks**  

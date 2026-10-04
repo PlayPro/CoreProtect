@@ -26,6 +26,7 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 
 import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.Database;
@@ -256,6 +257,11 @@ public class PurgeCommand extends Consumer {
         }
         if (argRadius != null && argRadius[0] == -1) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_RADIUS));
+            return;
+        }
+        int maxRadius = Config.getGlobal().MAX_RADIUS;
+        if (argRadius != null && maxRadius > 0 && argRadius[0] > maxRadius) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MAXIMUM_PURGE_RADIUS, Integer.toString(maxRadius)));
             return;
         }
         if (argRadius == null && CommandParser.parseRadius(args, player, new Location(null, 0, 0, 0)) != null) {

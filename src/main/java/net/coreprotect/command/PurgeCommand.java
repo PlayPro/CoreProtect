@@ -501,7 +501,7 @@ public class PurgeCommand extends Consumer {
                                         timeLimit = " WHERE removed=0 OR block_rowid IN(SELECT rowid FROM " + purgePrefix + "block) OR kill_rowid IN(SELECT rowid FROM " + purgePrefix + "entity) OR rowid IN(SELECT entity_spawn_rowid FROM " + purgePrefix + "entity_container) OR rowid IN(SELECT entity_spawn_rowid FROM " + purgePrefix + "entity_interaction)";
                                     }
                                     else if (table.equals("entity")) {
-                                        timeLimit = " WHERE " + PurgeFilter.entityRetainCondition(purgePrefix + "block");
+                                        timeLimit = " WHERE " + purgeFilter.entityRetainCondition(purgePrefix + "block");
                                     }
                                     else if (PurgePolicy.isPurgeable(table)) {
                                         String blockRestriction = "(";
@@ -601,7 +601,7 @@ public class PurgeCommand extends Consumer {
                                     }
 
                                     if (table.equals("entity")) {
-                                        query = PurgeFilter.deleteUnreferencedEntities(purgePrefix + "entity", purgePrefix + "block");
+                                        query = purgeFilter.deleteUnreferencedEntities(purgePrefix + "entity", purgePrefix + "block");
                                         preparedStmt = preparePurgeStatement(connection, query);
                                         preparedStmt.execute();
                                         preparedStmt.close();

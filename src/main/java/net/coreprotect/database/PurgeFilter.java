@@ -100,18 +100,19 @@ public final class PurgeFilter {
     }
 
     /**
-     * Builds the SQLite copy condition that keeps the co_entity rows still referenced by a retained kill row.
+     * Builds the SQLite copy condition that keeps the co_entity rows outside the purge time range, and those inside it
+     * that a retained kill row still references.
      *
      * @param retainedBlockTable
      *            the co_block table that holds the rows the purge keeps
      * @return the SQL condition
      */
-    public static String entityRetainCondition(String retainedBlockTable) {
-        return "rowid IN(" + killReferences(retainedBlockTable) + ")";
+    public String entityRetainCondition(String retainedBlockTable) {
+        return "NOT (" + timeCondition("") + ") OR rowid IN(" + killReferences(retainedBlockTable) + ")";
     }
 
     /**
-     * Builds the statement that deletes co_entity rows that no kill row references.
+     * Builds the statement that deletes co_entity rows inside the purge time range that no kill row references.
      *
      * @param entityTable
      *            the co_entity table to clean
@@ -119,8 +120,8 @@ public final class PurgeFilter {
      *            the co_block table that holds the kill rows
      * @return the SQL statement
      */
-    public static String deleteUnreferencedEntities(String entityTable, String blockTable) {
-        return "DELETE FROM " + entityTable + " WHERE rowid NOT IN(" + killReferences(blockTable) + ")";
+    public String deleteUnreferencedEntities(String entityTable, String blockTable) {
+        return "DELETE FROM " + entityTable + " WHERE " + timeCondition("") + " AND rowid NOT IN(" + killReferences(blockTable) + ")";
     }
 
     /**

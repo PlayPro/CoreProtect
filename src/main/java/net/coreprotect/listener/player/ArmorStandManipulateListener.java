@@ -21,6 +21,7 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.lookup.ChestTransactionLookup;
 import net.coreprotect.language.Phrase;
+import net.coreprotect.listener.player.inspector.BaseInspector;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
@@ -73,15 +74,7 @@ public final class ArmorStandManipulateListener extends Queue implements Listene
                 }
             }
         }
-        try {
-            Runnable runnable = new BasicThread();
-            Thread thread = new Thread(runnable);
-            thread.start();
-        }
-        catch (RuntimeException | Error e) {
-            LookupThrottle.release(finalPlayer.getName());
-            throw e;
-        }
+        BaseInspector.runLookup(finalPlayer, new BasicThread());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

@@ -26,23 +26,17 @@ class ItemTransactionProcess extends Queue {
             if (ConfigHandler.loggingItem.get(loggingItemId) != null) {
                 int current_chest = ConfigHandler.loggingItem.get(loggingItemId);
                 if (ConfigHandler.itemsPickup.get(loggingItemId) == null && ConfigHandler.itemsDrop.get(loggingItemId) == null && ConfigHandler.itemsThrown.get(loggingItemId) == null && ConfigHandler.itemsShot.get(loggingItemId) == null && ConfigHandler.itemsBreak.get(loggingItemId) == null && ConfigHandler.itemsDestroy.get(loggingItemId) == null && ConfigHandler.itemsCreate.get(loggingItemId) == null && ConfigHandler.itemsSell.get(loggingItemId) == null && ConfigHandler.itemsBuy.get(loggingItemId) == null) {
+                    ConfigHandler.loggingItem.remove(loggingItemId, forceData);
                     return;
                 }
                 if (current_chest == forceData) {
                     int currentTime = (int) (System.currentTimeMillis() / 1000L);
                     if (currentTime > time) {
-                        ItemLogger.PreparedTransaction prepared = null;
-                        if (ConfigHandler.databaseType.isColumnar()) {
-                            prepared = ItemLogger.prepare(location, offset, user);
-                            Consumer.consumerObjects.get(processId).put(id, prepared);
-                        }
-                        else {
-                            ItemLogger.log(preparedStmt, batchCount, location, offset, user);
-                        }
-                        clearItemTransaction(loggingItemId);
-                        if (prepared != null) {
-                            prepared.log(preparedStmt, batchCount, user);
-                        }
+                        // prepare takes the pending lists, so a retried batch has to log from the stored copy
+                        ItemLogger.PreparedTransaction prepared = ItemLogger.prepare(location, offset, user);
+                        Consumer.consumerObjects.get(processId).put(id, prepared);
+                        ConfigHandler.loggingItem.remove(loggingItemId, forceData);
+                        prepared.log(preparedStmt, batchCount, user);
                     }
                     else {
                         Queue.queueItemTransaction(user, location, time, offset, forceData);

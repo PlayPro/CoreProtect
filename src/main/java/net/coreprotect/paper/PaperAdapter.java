@@ -9,11 +9,13 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
@@ -77,6 +79,11 @@ public class PaperAdapter implements PaperInterface {
     }
 
     @Override
+    public BlockState getBlockState(Block block, boolean useSnapshot) {
+        return block.getState();
+    }
+
+    @Override
     public boolean isStopping(Server server) {
         return false;
     }
@@ -87,8 +94,18 @@ public class PaperAdapter implements PaperInterface {
     }
 
     @Override
+    public boolean isCopperGolemInteracting(Entity entity) {
+        return false;
+    }
+
+    @Override
     public String getLine(Sign sign, int line) {
         return BukkitAdapter.ADAPTER.getLine(sign, line);
+    }
+
+    @Override
+    public Boolean getSignInteractionSide(Sign sign, Player player) {
+        return BukkitAdapter.ADAPTER.getSignInteractionSide(sign, player);
     }
 
     @Override

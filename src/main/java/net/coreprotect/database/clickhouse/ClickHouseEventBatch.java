@@ -174,6 +174,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         set("color", color);
         set("color_secondary", colorSecondary);
         set("sign_data", data);
+        set("rolled_back", 0);
         set("waxed", waxed);
         set("face", face);
         for (int index = 0; index < lines.length; index++) {
@@ -237,7 +238,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
             if (canonicalColumn.equals("time")) {
                 continue;
             }
-            if (isReservedCompatibilityColumn(canonicalColumn)) {
+            if (canonicalColumn.equals("write_version") || isReservedCompatibilityColumn(canonicalColumn)) {
                 throw new IllegalArgumentException("Reserved ClickHouse compatibility column: " + canonicalColumn);
             }
             Object value = entry.getValue();
@@ -381,6 +382,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
             throw new IllegalArgumentException("ClickHouse compatibility row IDs must be positive");
         }
         rows.beginRow();
+        rows.set("write_version", ClickHouseSchema.VERSION);
         currentTime = time;
         currentWorldId = 0;
         currentX = 0;
@@ -488,7 +490,8 @@ public final class ClickHouseEventBatch implements AutoCloseable {
     private void commitRow(ClickHouseFamily family, long rowId) throws SQLException {
         int partitionId = ClickHouseSchema.eventPartitionId(family, currentTime);
         rows.commitRow(family.getTableName() + " event", partitionId);
-        partitionRowCounts.merge(partitionId, 1, Math::addExact);
+        int rowCount = ClickHouseLookupIndex.append(rows, family, partitionId, false) ? 2 : 1;
+        partitionRowCounts.merge(partitionId, rowCount, Math::addExact);
         if (isVersionedFamily(family) && !versionRowIds.computeIfAbsent(family, ignored -> new HashSet<>()).add(rowId)) {
             duplicateVersionCount++;
         }
@@ -500,6 +503,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         int ordinal = firstOrdinal;
         for (Map.Entry<Integer, Integer> partition : partitionRowCounts.entrySet()) {
             rows.beginRow();
+            rows.set("write_version", ClickHouseSchema.VERSION);
             rows.set("batch_sequence", identity.getBatchSequence());
             rows.set("batch_id", identity.getBatchId());
             rows.set("batch_ordinal", ordinal++);

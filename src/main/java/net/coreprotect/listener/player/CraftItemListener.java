@@ -39,27 +39,18 @@ public final class CraftItemListener extends Queue implements Listener {
         }
 
         String loggingItemId = user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
-        int itemId = getItemId(loggingItemId);
-
+        int itemId;
         if (action == ItemLogger.ITEM_BUY) {
-            List<ItemStack> list = ConfigHandler.itemsBuy.getOrDefault(loggingItemId, new ArrayList<>());
-            list.add(itemStack);
-            ConfigHandler.itemsBuy.put(loggingItemId, list);
+            itemId = addPendingItems(ConfigHandler.itemsBuy, loggingItemId, itemStack);
         }
         else if (action == ItemLogger.ITEM_SELL) {
-            List<ItemStack> list = ConfigHandler.itemsSell.getOrDefault(loggingItemId, new ArrayList<>());
-            list.add(itemStack);
-            ConfigHandler.itemsSell.put(loggingItemId, list);
+            itemId = addPendingItems(ConfigHandler.itemsSell, loggingItemId, itemStack);
         }
         else if (action == ItemLogger.ITEM_CREATE) {
-            List<ItemStack> list = ConfigHandler.itemsCreate.getOrDefault(loggingItemId, new ArrayList<>());
-            list.add(itemStack);
-            ConfigHandler.itemsCreate.put(loggingItemId, list);
+            itemId = addPendingItems(ConfigHandler.itemsCreate, loggingItemId, itemStack);
         }
         else {
-            List<ItemStack> list = ConfigHandler.itemsDestroy.getOrDefault(loggingItemId, new ArrayList<>());
-            list.add(itemStack);
-            ConfigHandler.itemsDestroy.put(loggingItemId, list);
+            itemId = addPendingItems(ConfigHandler.itemsDestroy, loggingItemId, itemStack);
         }
 
         int time = (int) (System.currentTimeMillis() / 1000L) + 1;

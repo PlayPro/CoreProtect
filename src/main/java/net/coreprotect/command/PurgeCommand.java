@@ -108,8 +108,30 @@ public class PurgeCommand extends Consumer {
         ErrorReporter.report(exception);
     }
 
+    /**
+     * Returns the entity_map ids of every name that resolves to an entity type. A renamed type keeps the kills logged
+     * under its old name, such as zombie_pigman for zombified_piglin.
+     */
+    private static List<Integer> killTypeIds(EntityType entityType) {
+        List<Integer> ids = new ArrayList<>();
+        synchronized (ConfigHandler.entities) {
+            for (Map.Entry<String, Integer> entry : ConfigHandler.entities.entrySet()) {
+                try {
+                    if (EntityUtils.getEntityType(entry.getKey()) == entityType) {
+                        ids.add(entry.getValue());
+                    }
+                }
+                catch (IllegalArgumentException e) {
+                    // An entity that no longer exists in this version
+                }
+            }
+        }
+        return ids;
+    }
+
     static String findUnsupportedPurgeArgument(String[] args) {
-        boolean includeContinuation = false;
+        boolean listContinuation = false;
+        String emptyList = null; // an include or exclude argument that has no value yet
         for (int i = 1; i < args.length; i++) {
             String token = args[i].trim();
             if (token.length() == 0) {
@@ -120,24 +142,32 @@ public class PurgeCommand extends Consumer {
             argument = argument.replaceAll("\\\\", "");
             argument = argument.replaceAll("'", "");
 
-            if (includeContinuation) {
-                includeContinuation = argument.endsWith(",");
-                continue;
-            }
-
             if (argument.equals("#optimize")) {
                 continue;
             }
 
+            String listValues = null;
             if (argument.startsWith("i:") || argument.startsWith("include:") || argument.startsWith("item:") || argument.startsWith("items:") || argument.startsWith("b:") || argument.startsWith("block:") || argument.startsWith("blocks:")) {
-                String includeValues = argument.replaceAll("include:", "").replaceAll("i:", "").replaceAll("items:", "").replaceAll("item:", "").replaceAll("blocks:", "").replaceAll("block:", "").replaceAll("b:", "");
-                includeContinuation = includeValues.length() == 0 || includeValues.endsWith(",");
+                listValues = argument.replaceAll("include:", "").replaceAll("i:", "").replaceAll("items:", "").replaceAll("item:", "").replaceAll("blocks:", "").replaceAll("block:", "").replaceAll("b:", "");
+            }
+            else if (argument.startsWith("e:") || argument.startsWith("exclude:")) {
+                listValues = argument.replaceAll("exclude:", "").replaceAll("e:", "");
+            }
+
+            if (listValues != null) {
+                if (emptyList != null) {
+                    return emptyList;
+                }
+                listContinuation = listValues.length() == 0 || listValues.endsWith(",");
+                emptyList = hasListValue(listValues) ? null : token;
                 continue;
             }
 
-            if (argument.startsWith("e:") || argument.startsWith("exclude:")) {
-                String excludeValues = argument.replaceAll("exclude:", "").replaceAll("e:", "");
-                includeContinuation = excludeValues.length() == 0 || excludeValues.endsWith(",");
+            if (listContinuation) {
+                listContinuation = argument.endsWith(",");
+                if (hasListValue(argument)) {
+                    emptyList = null;
+                }
                 continue;
             }
 
@@ -162,7 +192,12 @@ public class PurgeCommand extends Consumer {
             }
         }
 
-        return null;
+        // An empty list would silently purge without that include or exclude restriction
+        return emptyList;
+    }
+
+    private static boolean hasListValue(String values) {
+        return values.replace(",", "").length() > 0;
     }
 
     protected static void runCommand(final CommandSender player, boolean permission, String[] args) {
@@ -271,7 +306,7 @@ public class PurgeCommand extends Consumer {
                     hasBlock = true;
                 }
                 else if (restrictTarget instanceof EntityType) {
-                    includeEntityIds.add(EntityUtils.getEntityId(((EntityType) restrictTarget).name(), false));
+                    includeEntityIds.addAll(killTypeIds((EntityType) restrictTarget));
                     targetName = ((EntityType) restrictTarget).name().toLowerCase(Locale.ROOT);
                     entity = true;
                 }
@@ -302,7 +337,7 @@ public class PurgeCommand extends Consumer {
                 Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, "e:" + excludeTarget.toString().toLowerCase(Locale.ROOT)));
                 return;
             }
-            excludeEntityIds.add(EntityUtils.getEntityId(((EntityType) excludeTarget).name(), false));
+            excludeEntityIds.addAll(killTypeIds((EntityType) excludeTarget));
             exclude.append(exclude.length() == 0 ? "" : ", ").append(((EntityType) excludeTarget).name().toLowerCase(Locale.ROOT));
         }
         if (!argExcludeUsers.isEmpty()) {
@@ -539,7 +574,7 @@ public class PurgeCommand extends Consumer {
                                         timeLimit = " WHERE removed=0 OR block_rowid IN(SELECT rowid FROM " + purgePrefix + "block) OR kill_rowid IN(SELECT rowid FROM " + purgePrefix + "entity) OR rowid IN(SELECT entity_spawn_rowid FROM " + purgePrefix + "entity_container) OR rowid IN(SELECT entity_spawn_rowid FROM " + purgePrefix + "entity_interaction)";
                                     }
                                     else if (table.equals("entity")) {
-                                        timeLimit = " WHERE " + PurgeFilter.entityRetainCondition(purgePrefix + "block");
+                                        timeLimit = " WHERE " + purgeFilter.entityRetainCondition(purgePrefix + "block");
                                     }
                                     else {
                                         String purgeCondition = purgeFilter.deleteCondition(table, ConfigHandler.prefix);
@@ -598,7 +633,7 @@ public class PurgeCommand extends Consumer {
 
                                 try {
                                     if (table.equals("entity")) {
-                                        query = PurgeFilter.deleteUnreferencedEntities(purgePrefix + "entity", purgePrefix + "block");
+                                        query = purgeFilter.deleteUnreferencedEntities(purgePrefix + "entity", purgePrefix + "block");
                                         preparedStmt = preparePurgeStatement(connection, query);
                                         preparedStmt.execute();
                                         preparedStmt.close();
@@ -656,18 +691,45 @@ public class PurgeCommand extends Consumer {
                         if (!ConfigHandler.databaseType.isSQLite()) {
                             try {
                                 String purgeCondition = purgeFilter.deleteCondition(table, ConfigHandler.prefix);
-                                if (purgeCondition != null && table.equals("block") && purgeFilter.removesKills() && !purgeFilter.purgesEntitiesByTime()) {
-                                    query = purgeFilter.deleteEntitiesOfPurgedKills(ConfigHandler.databaseType, ConfigHandler.prefix);
-                                    preparedStmt = preparePurgeStatement(connection, query);
-                                    removed = removed + preparedStmt.executeUpdate();
-                                    preparedStmt.close();
+                                boolean deleteEntities = purgeCondition != null && table.equals("block") && purgeFilter.removesKills() && !purgeFilter.purgesEntitiesByTime();
+                                // Kill rows and their entity data go together, or the kept kills lose their rollback data
+                                boolean atomic = deleteEntities && ConfigHandler.databaseType.isMySQL();
+                                if (atomic) {
+                                    connection.setAutoCommit(false);
                                 }
+                                try {
+                                    long deleted = 0;
+                                    if (deleteEntities) {
+                                        query = purgeFilter.deleteEntitiesOfPurgedKills(ConfigHandler.databaseType, ConfigHandler.prefix);
+                                        preparedStmt = preparePurgeStatement(connection, query);
+                                        deleted = deleted + preparedStmt.executeUpdate();
+                                        preparedStmt.close();
+                                    }
 
-                                if (purgeCondition != null) {
-                                    query = "DELETE FROM " + ConfigHandler.prefix + table + " WHERE " + purgeCondition;
-                                    preparedStmt = preparePurgeStatement(connection, query);
-                                    removed = removed + preparedStmt.executeUpdate();
-                                    preparedStmt.close();
+                                    if (purgeCondition != null) {
+                                        query = "DELETE FROM " + ConfigHandler.prefix + table + " WHERE " + purgeCondition;
+                                        preparedStmt = preparePurgeStatement(connection, query);
+                                        deleted = deleted + preparedStmt.executeUpdate();
+                                        preparedStmt.close();
+                                    }
+
+                                    if (atomic) {
+                                        connection.commit();
+                                        connection.setAutoCommit(true);
+                                    }
+                                    removed = removed + deleted;
+                                }
+                                catch (Exception e) {
+                                    if (atomic) {
+                                        try {
+                                            connection.rollback();
+                                            connection.setAutoCommit(true);
+                                        }
+                                        catch (SQLException rollbackException) {
+                                            e.addSuppressed(rollbackException);
+                                        }
+                                    }
+                                    throw e;
                                 }
                             }
                             catch (Exception e) {
@@ -691,7 +753,7 @@ public class PurgeCommand extends Consumer {
                                 preparedStmt.execute();
                                 preparedStmt.close();
                             }
-                            preparedStmt = preparePurgeStatement(connection, PurgeFilter.mysqlOrphanSweepDelete(ConfigHandler.prefix));
+                            preparedStmt = preparePurgeStatement(connection, purgeFilter.mysqlOrphanSweepDelete(ConfigHandler.prefix));
                             removed = removed + preparedStmt.executeUpdate();
                             preparedStmt.close();
                         }

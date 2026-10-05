@@ -2,6 +2,7 @@ package net.coreprotect.database.logger;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -82,23 +83,24 @@ public class BlockPlaceLogger {
             int y = block.getY();
             int z = block.getZ();
             long chunkKey = (x >> 4) & 0xffffffffL | ((z >> 4) & 0xffffffffL) << 32;
-            if (ConfigHandler.populatedChunks.get(chunkKey) != null) {
+            Map<Long, Long> populatedChunks = ConfigHandler.populatedChunks.get(block.getWorld().getUID());
+            if (populatedChunks != null && populatedChunks.get(chunkKey) != null) {
                 boolean isWater = user.equals("#water");
                 boolean isLava = user.equals("#lava");
                 boolean isVine = user.equals("#vine");
                 if (isWater || isLava || isVine) {
                     int timeDelay = isWater ? 60 : 240;
-                    long timeSincePopulation = ((System.currentTimeMillis() / 1000L) - ConfigHandler.populatedChunks.getOrDefault(chunkKey, 0L));
+                    long timeSincePopulation = ((System.currentTimeMillis() / 1000L) - populatedChunks.getOrDefault(chunkKey, 0L));
                     if (timeSincePopulation <= timeDelay) {
                         return;
                     }
 
                     if (timeSincePopulation > 240) {
-                        ConfigHandler.populatedChunks.remove(chunkKey);
+                        populatedChunks.remove(chunkKey);
                     }
                 }
                 else if (type == Material.WATER || type == Material.LAVA) {
-                    ConfigHandler.populatedChunks.remove(chunkKey);
+                    populatedChunks.remove(chunkKey);
                 }
             }
 

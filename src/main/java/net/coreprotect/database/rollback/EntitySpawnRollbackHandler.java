@@ -1472,6 +1472,10 @@ public final class EntitySpawnRollbackHandler {
             return items.get();
         }
 
+        void addItemCount(int count) {
+            items.addAndGet(count);
+        }
+
         boolean completeDirectTransitions() {
             for (NoWorldTransition transition : directTransitions) {
                 if (isCancelled() || !transition(transition)) {
@@ -1557,7 +1561,7 @@ public final class EntitySpawnRollbackHandler {
             }
         }
 
-        private synchronized boolean beginMutation() {
+        synchronized boolean beginMutation() {
             if (isCancelled()) {
                 return false;
             }
@@ -1565,7 +1569,7 @@ public final class EntitySpawnRollbackHandler {
             return true;
         }
 
-        private synchronized void endMutation() {
+        synchronized void endMutation() {
             activeMutations--;
             notifyAll();
         }

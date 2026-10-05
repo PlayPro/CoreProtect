@@ -3,7 +3,9 @@ package net.coreprotect.spigot;
 import java.util.List;
 import java.util.regex.Matcher;
 
+import org.bukkit.DyeColor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Villager;
 
 import net.coreprotect.bukkit.BukkitAdapter;
@@ -36,6 +38,15 @@ public class SpigotAdapter implements SpigotInterface {
         }
 
         SpigotAdapter.ADAPTER = new SpigotHandler();
+    }
+
+    @Override
+    public DyeColor getCushionColor(Entity entity) {
+        return null;
+    }
+
+    @Override
+    public void setCushionColor(Entity entity, DyeColor color) {
     }
 
     @Override

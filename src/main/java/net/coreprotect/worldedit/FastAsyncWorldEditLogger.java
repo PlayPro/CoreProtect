@@ -2,6 +2,7 @@ package net.coreprotect.worldedit;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.block.data.BlockData;
 
 import com.fastasyncworldedit.core.extent.processor.ProcessorScope;
 import com.fastasyncworldedit.core.queue.IBatchProcessor;
@@ -18,6 +19,7 @@ import com.sk89q.worldedit.world.block.BlockState;
 import com.sk89q.worldedit.world.block.BlockTypesCache;
 
 import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
 
 final class FastAsyncWorldEditLogger implements IBatchProcessor {
     private static final ProcessorScope SCOPE = resolveScope();
@@ -40,7 +42,7 @@ final class FastAsyncWorldEditLogger implements IBatchProcessor {
     @Override
     public IChunkSet processSet(IChunk chunk, IChunkGet get, IChunkSet set) {
         Config config = Config.getConfig(world);
-        if (!config.WORLDEDIT) {
+        if (!ConfigHandler.serverRunning || !config.WORLDEDIT) {
             return set;
         }
 
@@ -73,13 +75,45 @@ final class FastAsyncWorldEditLogger implements IBatchProcessor {
                 BlockState oldBlock = BlockState.getFromOrdinal(oldOrdinal);
                 BlockState newBlock = BlockState.getFromOrdinal(newOrdinal);
                 Material oldType = BukkitAdapter.adapt(oldBlock.getBlockType());
+                BlockData oldBlockData = BukkitAdapter.adapt(oldBlock);
                 BlockVector3 position = BlockVector3.at(chunkX + x, y, chunkZ + z);
                 Location location = new Location(world, chunkX + x, y, chunkZ + z);
                 BaseBlock baseBlock = WorldEditLogger.needsBaseBlock(oldType, config) ? get.getFullBlock(x, y, z) : null;
-                WorldEditLogger.postProcess(extent, actor, position, location, newBlock, baseBlock, oldType, oldBlock, null, false);
+                org.bukkit.block.BlockState lowerHalf = WorldEditLogger.isLoggedTopHalf(oldType, oldBlockData) ? getLowerHalf(get, set, x, y, z, chunkX + x, chunkZ + z, oldBlockData) : null;
+                WorldEditLogger.postProcess(extent, actor, position, location, newBlock, baseBlock, oldType, oldBlockData, null, false, lowerHalf);
             }
         }
         return set;
+    }
+
+    /**
+     * The matching lower half of a top half as this edit leaves it, read from the chunk data the processor already holds instead of the world.
+     * Null when the block below is not that lower half, or when the edit changes it too, since its own row then covers the double block.
+     */
+    private org.bukkit.block.BlockState getLowerHalf(IChunkGet get, IChunkSet set, int x, int y, int z, int worldX, int worldZ, BlockData topHalf) {
+        int lowerY = y - 1;
+        int layer = lowerY >> 4;
+        if (layer < get.getMinSectionPosition()) {
+            return null;
+        }
+
+        int index = ((lowerY & 15) << 8) | (z << 4) | x;
+        char[] original = get.load(layer);
+        int ordinal = original == null ? BlockTypesCache.ReservedIDs.AIR : original[index];
+        if (ordinal == BlockTypesCache.ReservedIDs.__RESERVED__) {
+            ordinal = BlockTypesCache.ReservedIDs.AIR;
+        }
+        char[] changed = set.loadIfPresent(layer);
+        if (changed != null && changed[index] != BlockTypesCache.ReservedIDs.__RESERVED__ && changed[index] != ordinal) {
+            return null;
+        }
+
+        BlockData blockData = BukkitAdapter.adapt(BlockState.getFromOrdinal(ordinal));
+        if (!WorldEditLogger.isOtherHalf(topHalf, blockData)) {
+            return null;
+        }
+
+        return new WorldEditBlockState(new Location(world, worldX, lowerY, worldZ), blockData.getMaterial(), blockData);
     }
 
     @Override

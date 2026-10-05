@@ -362,7 +362,7 @@ public class Rollback extends RollbackUtil {
                     }
                 }
                 else {
-                    if (!rollbackLookupList.isEmpty()) {
+                    if (!rollbackLookupList.isEmpty() && !actionList.contains(LookupActions.SIGN)) {
                         Queue.queueRollbackUpdate(userString, location, rollbackLookupList, Process.ROLLBACK_UPDATE, rollbackType);
                     }
                     if (!itemList.isEmpty()) {
@@ -905,7 +905,9 @@ public class Rollback extends RollbackUtil {
             return true;
         }
         Player rollbackPlayer = user instanceof Player ? (Player) user : null;
-        return RollbackProcessor.processChunk(chunkX, chunkZ, chunkKey, blockData, itemData, rollbackType, preview, userString, rollbackPlayer, world, inventoryRollback, blockDataCache);
+        // On Folia, player inventories are changed on each player's entity scheduler as mutations of this rollback's context
+        EntitySpawnRollbackHandler.Context inventoryContext = ConfigHandler.isFolia ? entitySpawnContext : null;
+        return RollbackProcessor.processChunk(chunkX, chunkZ, chunkKey, blockData, itemData, rollbackType, preview, userString, rollbackPlayer, world, inventoryRollback, blockDataCache, inventoryContext);
     }
 
     private static final class RollbackBatchState {

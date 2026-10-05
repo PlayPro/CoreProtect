@@ -156,18 +156,19 @@ public final class PurgeFilter {
     }
 
     /**
-     * Builds the SQLite copy condition that keeps the co_entity rows still referenced by a retained kill row.
+     * Builds the SQLite copy condition that keeps the co_entity rows outside the purge time range, and those inside it
+     * that a retained kill row still references.
      *
      * @param retainedBlockTable
      *            the co_block table that holds the rows the purge keeps
      * @return the SQL condition
      */
-    public static String entityRetainCondition(String retainedBlockTable) {
-        return "rowid IN(" + killReferences(retainedBlockTable) + ")";
+    public String entityRetainCondition(String retainedBlockTable) {
+        return "NOT (" + timeCondition("") + ") OR rowid IN(" + killReferences(retainedBlockTable) + ")";
     }
 
     /**
-     * Builds the statement that deletes co_entity rows that no kill row references.
+     * Builds the statement that deletes co_entity rows inside the purge time range that no kill row references.
      *
      * @param entityTable
      *            the co_entity table to clean
@@ -175,8 +176,8 @@ public final class PurgeFilter {
      *            the co_block table that holds the kill rows
      * @return the SQL statement
      */
-    public static String deleteUnreferencedEntities(String entityTable, String blockTable) {
-        return "DELETE FROM " + entityTable + " WHERE rowid NOT IN(" + killReferences(blockTable) + ")";
+    public String deleteUnreferencedEntities(String entityTable, String blockTable) {
+        return "DELETE FROM " + entityTable + " WHERE " + timeCondition("") + " AND rowid NOT IN(" + killReferences(blockTable) + ")";
     }
 
     /**
@@ -200,12 +201,16 @@ public final class PurgeFilter {
      * Builds the MySQL statement that deletes co_entity rows no kill row references, such as rows left by earlier
      * world purges. Run {@link #mysqlOrphanSweepSetup(String)} first.
      *
+     * <p>
+     * Only rows inside the purge time range are deleted. Another installation sharing the database can write a kill
+     * after the setup snapshot, but its co_entity row gets the current time, which is always newer than the range.
+     *
      * @param prefix
      *            the table prefix
      * @return the SQL statement
      */
-    public static String mysqlOrphanSweepDelete(String prefix) {
-        return "DELETE e FROM " + prefix + "entity AS e LEFT JOIN " + prefix + "entity_keep AS k ON k.rowid = e.rowid WHERE k.rowid IS NULL";
+    public String mysqlOrphanSweepDelete(String prefix) {
+        return "DELETE e FROM " + prefix + "entity AS e LEFT JOIN " + prefix + "entity_keep AS k ON k.rowid = e.rowid WHERE k.rowid IS NULL AND " + timeCondition("e.");
     }
 
     /**

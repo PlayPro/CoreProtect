@@ -208,7 +208,8 @@ public class PurgeCommand extends Consumer {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co purge t:<time>"));
             return;
         }
-        if (argRadius != null) {
+        // Without a location (console), a numeric radius parses to null and the purge would run server-wide
+        if (argRadius != null || CommandParser.parseRadius(args, player, new Location(null, 0, 0, 0)) != null) {
             Chat.sendMessage(player, new ChatMessage(Phrase.build(Phrase.INVALID_WORLD)).build());
             return;
         }
@@ -519,7 +520,7 @@ public class PurgeCommand extends Consumer {
                                         timeLimit = " WHERE removed=0 OR block_rowid IN(SELECT rowid FROM " + purgePrefix + "block) OR kill_rowid IN(SELECT rowid FROM " + purgePrefix + "entity) OR rowid IN(SELECT entity_spawn_rowid FROM " + purgePrefix + "entity_container) OR rowid IN(SELECT entity_spawn_rowid FROM " + purgePrefix + "entity_interaction)";
                                     }
                                     else if (table.equals("entity")) {
-                                        timeLimit = " WHERE " + PurgeFilter.entityRetainCondition(purgePrefix + "block");
+                                        timeLimit = " WHERE " + purgeFilter.entityRetainCondition(purgePrefix + "block");
                                     }
                                     else {
                                         String purgeCondition = purgeFilter.deleteCondition(table, ConfigHandler.prefix);
@@ -578,7 +579,7 @@ public class PurgeCommand extends Consumer {
 
                                 try {
                                     if (table.equals("entity")) {
-                                        query = PurgeFilter.deleteUnreferencedEntities(purgePrefix + "entity", purgePrefix + "block");
+                                        query = purgeFilter.deleteUnreferencedEntities(purgePrefix + "entity", purgePrefix + "block");
                                         preparedStmt = preparePurgeStatement(connection, query);
                                         preparedStmt.execute();
                                         preparedStmt.close();
@@ -636,18 +637,45 @@ public class PurgeCommand extends Consumer {
                         if (!ConfigHandler.databaseType.isSQLite()) {
                             try {
                                 String purgeCondition = purgeFilter.deleteCondition(table, ConfigHandler.prefix);
-                                if (purgeCondition != null && table.equals("block") && purgeFilter.removesKills() && !purgeFilter.purgesEntitiesByTime()) {
-                                    query = purgeFilter.deleteEntitiesOfPurgedKills(ConfigHandler.databaseType, ConfigHandler.prefix);
-                                    preparedStmt = preparePurgeStatement(connection, query);
-                                    removed = removed + preparedStmt.executeUpdate();
-                                    preparedStmt.close();
+                                boolean deleteEntities = purgeCondition != null && table.equals("block") && purgeFilter.removesKills() && !purgeFilter.purgesEntitiesByTime();
+                                // Kill rows and their entity data go together, or the kept kills lose their rollback data
+                                boolean atomic = deleteEntities && ConfigHandler.databaseType.isMySQL();
+                                if (atomic) {
+                                    connection.setAutoCommit(false);
                                 }
+                                try {
+                                    long deleted = 0;
+                                    if (deleteEntities) {
+                                        query = purgeFilter.deleteEntitiesOfPurgedKills(ConfigHandler.databaseType, ConfigHandler.prefix);
+                                        preparedStmt = preparePurgeStatement(connection, query);
+                                        deleted = deleted + preparedStmt.executeUpdate();
+                                        preparedStmt.close();
+                                    }
 
-                                if (purgeCondition != null) {
-                                    query = "DELETE FROM " + ConfigHandler.prefix + table + " WHERE " + purgeCondition;
-                                    preparedStmt = preparePurgeStatement(connection, query);
-                                    removed = removed + preparedStmt.executeUpdate();
-                                    preparedStmt.close();
+                                    if (purgeCondition != null) {
+                                        query = "DELETE FROM " + ConfigHandler.prefix + table + " WHERE " + purgeCondition;
+                                        preparedStmt = preparePurgeStatement(connection, query);
+                                        deleted = deleted + preparedStmt.executeUpdate();
+                                        preparedStmt.close();
+                                    }
+
+                                    if (atomic) {
+                                        connection.commit();
+                                        connection.setAutoCommit(true);
+                                    }
+                                    removed = removed + deleted;
+                                }
+                                catch (Exception e) {
+                                    if (atomic) {
+                                        try {
+                                            connection.rollback();
+                                            connection.setAutoCommit(true);
+                                        }
+                                        catch (SQLException rollbackException) {
+                                            e.addSuppressed(rollbackException);
+                                        }
+                                    }
+                                    throw e;
                                 }
                             }
                             catch (Exception e) {
@@ -671,7 +699,7 @@ public class PurgeCommand extends Consumer {
                                 preparedStmt.execute();
                                 preparedStmt.close();
                             }
-                            preparedStmt = preparePurgeStatement(connection, PurgeFilter.mysqlOrphanSweepDelete(ConfigHandler.prefix));
+                            preparedStmt = preparePurgeStatement(connection, purgeFilter.mysqlOrphanSweepDelete(ConfigHandler.prefix));
                             removed = removed + preparedStmt.executeUpdate();
                             preparedStmt.close();
                         }

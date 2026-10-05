@@ -28,6 +28,31 @@ public class CacheHandler implements Runnable {
     public static ConcurrentHashMap<String, Object[]> redstoneCache = new ConcurrentHashMap<>(16, 0.75f, 2);
     public static ConcurrentHashMap<String, Object[]> fallingBlockSpawnCache = new ConcurrentHashMap<>(16, 0.75f, 2);
 
+    private static volatile Thread thread;
+
+    public static void startThread() {
+        Thread cacheThread = new Thread(new CacheHandler(), "CoreProtect-Cache");
+        cacheThread.setDaemon(true);
+        thread = cacheThread;
+        cacheThread.start();
+    }
+
+    public static void stopThread(long timeoutMillis) {
+        Thread cacheThread = thread;
+        thread = null;
+        if (cacheThread == null) {
+            return;
+        }
+
+        cacheThread.interrupt();
+        try {
+            cacheThread.join(timeoutMillis);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
     public static String locationKey(Location location) {
         if (location == null || location.getWorld() == null) {
             return "";
@@ -106,6 +131,7 @@ public class CacheHandler implements Runnable {
                         case 8:
                             // Clean up dispenserNoChange cache
                             cleanupDispenserCache();
+                            cleanupPopulatedChunks();
                             continue;
                         case 9:
                             cache = CacheHandler.containerDuplicateCache;
@@ -151,9 +177,22 @@ public class CacheHandler implements Runnable {
                     }
                 }
             }
+            catch (InterruptedException e) {
+                return;
+            }
             catch (Exception e) {
                 ErrorReporter.report(e);
             }
+        }
+    }
+
+    /**
+     * Removes populated chunk entries older than 240 seconds, the longest window BlockPlaceLogger checks them against
+     */
+    private void cleanupPopulatedChunks() {
+        long expired = (System.currentTimeMillis() / 1000L) - 240;
+        for (ConcurrentHashMap<Long, Long> chunks : ConfigHandler.populatedChunks.values()) {
+            chunks.values().removeIf(populatedAt -> populatedAt < expired);
         }
     }
 

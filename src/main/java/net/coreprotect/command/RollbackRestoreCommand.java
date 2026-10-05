@@ -130,6 +130,10 @@ public class RollbackRestoreCommand {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PREVIEW_IN_GAME));
             return;
         }
+        if (preview > 0 && argAction.contains(LookupActions.SIGN)) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ACTION_NOT_SUPPORTED));
+            return;
+        }
         if (argAction.contains(-1)) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_ACTION));
             return;
@@ -204,7 +208,7 @@ public class RollbackRestoreCommand {
                 argExclude.put(Material.FARMLAND, false);
                 argExcludeUsers.add("#hopper");
             }
-            else if (!argAction.contains(LookupActions.CONTAINER) && Config.getGlobal().EXCLUDE_TNT && !argExclude.containsKey(Material.TNT) && !argBlocks.contains(Material.TNT)) {
+            else if (!argAction.contains(LookupActions.CONTAINER) && !argAction.contains(LookupActions.SIGN) && Config.getGlobal().EXCLUDE_TNT && !argExclude.containsKey(Material.TNT) && !argBlocks.contains(Material.TNT)) {
                 argExclude.put(Material.TNT, true);
             }
 
@@ -229,7 +233,7 @@ public class RollbackRestoreCommand {
                             return;
                         }
                     }
-                    if (argAction.contains(LookupActions.SESSION) || (argAction.contains(LookupActions.ITEM) && !argAction.contains(LookupActions.CONTAINER)) || (!argAction.contains(LookupActions.BLOCK_BREAK) && !argAction.contains(LookupActions.BLOCK_PLACE) && !argAction.contains(LookupActions.ENTITY_KILL) && !argAction.contains(LookupActions.ENTITY_SPAWN) && !argAction.contains(LookupActions.CONTAINER))) {
+                    if (argAction.contains(LookupActions.SESSION) || (argAction.contains(LookupActions.ITEM) && !argAction.contains(LookupActions.CONTAINER)) || (!argAction.contains(LookupActions.BLOCK_BREAK) && !argAction.contains(LookupActions.BLOCK_PLACE) && !argAction.contains(LookupActions.ENTITY_KILL) && !argAction.contains(LookupActions.ENTITY_SPAWN) && !argAction.contains(LookupActions.CONTAINER) && !argAction.contains(LookupActions.SIGN))) {
                         if (finalAction == 0) {
                             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ACTION_NOT_SUPPORTED));
                         }

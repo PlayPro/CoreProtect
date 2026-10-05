@@ -65,16 +65,16 @@ public class Lookup extends Queue {
             Consumer.isPaused = true;
             paused = true;
 
-            ResultSet results = LookupRaw.rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, null, startTime, endTime, -1, -1, restrictWorld, lookup, true, entityContainerId, rollbackState);
-            while (results.next()) {
-                int resultTable = results.getInt("tbl");
-                long count = results.getLong("count");
-                if (rowData != null && resultTable >= 0 && resultTable < rowData.length) {
-                    rowData[resultTable] = count;
+            try (ResultSet results = LookupRaw.rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, null, startTime, endTime, -1, -1, restrictWorld, lookup, true, entityContainerId, rollbackState)) {
+                while (results.next()) {
+                    int resultTable = results.getInt("tbl");
+                    long count = results.getLong("count");
+                    if (rowData != null && resultTable >= 0 && resultTable < rowData.length) {
+                        rowData[resultTable] = count;
+                    }
+                    rows += count;
                 }
-                rows += count;
             }
-            results.close();
         }
         catch (Exception e) {
             ErrorReporter.report(e);

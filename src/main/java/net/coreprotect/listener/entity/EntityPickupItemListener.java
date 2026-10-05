@@ -1,7 +1,5 @@
 package net.coreprotect.listener.entity;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 
 import org.bukkit.Location;
@@ -26,11 +24,7 @@ public final class EntityPickupItemListener extends Queue implements Listener {
         }
 
         String loggingItemId = player.getName().toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
-        int itemId = getItemId(loggingItemId);
-
-        List<ItemStack> list = ConfigHandler.itemsPickup.getOrDefault(loggingItemId, new ArrayList<>());
-        list.add(itemStack.clone());
-        ConfigHandler.itemsPickup.put(loggingItemId, list);
+        int itemId = addPendingItems(ConfigHandler.itemsPickup, loggingItemId, itemStack.clone());
 
         int time = (int) (System.currentTimeMillis() / 1000L) + 1;
         Queue.queueItemTransaction(player.getName(), location.clone(), time, 0, itemId);

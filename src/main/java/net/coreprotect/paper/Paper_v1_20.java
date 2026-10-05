@@ -8,6 +8,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 import org.bukkit.block.sign.Side;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
 import org.bukkit.profile.PlayerTextures;
 
 import com.destroystokyo.paper.profile.PlayerProfile;
@@ -17,6 +19,28 @@ import net.coreprotect.utility.ErrorReporter;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 public class Paper_v1_20 extends Paper_v1_19 {
+
+    private Boolean hasSignInteractableSide;
+
+    @Override
+    public Boolean getSignInteractionSide(Sign sign, Player player) {
+        Boolean front = super.getSignInteractionSide(sign, player);
+        if (front != null) {
+            return front;
+        }
+
+        if (hasSignInteractableSide == null) {
+            try {
+                Sign.class.getMethod("getInteractableSideFor", Entity.class);
+                hasSignInteractableSide = true;
+            }
+            catch (NoSuchMethodException e) {
+                hasSignInteractableSide = false;
+            }
+        }
+
+        return hasSignInteractableSide ? sign.getInteractableSideFor(player) == Side.FRONT : null;
+    }
 
     @Override
     public String getLine(Sign sign, int line) {

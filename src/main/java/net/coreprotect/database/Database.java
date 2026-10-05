@@ -679,6 +679,9 @@ public class Database extends Queue {
     }
 
     private static String getRolledBackTableName(int table) {
+        if (table == RollbackUpdateTargets.SIGN) {
+            return "sign";
+        }
         if (table == RollbackUpdateTargets.ENTITY_CONTAINER) {
             return "entity_container";
         }
@@ -867,7 +870,7 @@ public class Database extends Queue {
 
         // Sign
         index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(time), INDEX line_1_prefix_index(line_1(16)), INDEX line_2_prefix_index(line_2(16)), INDEX line_3_prefix_index(line_3(16)), INDEX line_4_prefix_index(line_4(16)), INDEX line_5_prefix_index(line_5(16)), INDEX line_6_prefix_index(line_6(16)), INDEX line_7_prefix_index(line_7(16)), INDEX line_8_prefix_index(line_8(16))";
-        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "sign(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int, z int, action tinyint, color int, color_secondary int, data tinyint, waxed tinyint, face tinyint, line_1 TEXT, line_2 TEXT, line_3 TEXT, line_4 TEXT, line_5 TEXT, line_6 TEXT, line_7 TEXT, line_8 TEXT" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "sign(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),time int, user int, wid int, x int, y int, z int, action tinyint, color int, color_secondary int, data tinyint, waxed tinyint, face tinyint, line_1 TEXT, line_2 TEXT, line_3 TEXT, line_4 TEXT, line_5 TEXT, line_6 TEXT, line_7 TEXT, line_8 TEXT, rolled_back tinyint DEFAULT 0" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
         // Skull
         statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "skull(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid), time int, owner varchar(255), skin text) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
@@ -1093,7 +1096,7 @@ public class Database extends Queue {
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "session (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, action INTEGER);");
         }
         if (!tableData.contains(prefix + "sign")) {
-            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "sign (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, action INTEGER, color INTEGER, color_secondary INTEGER, data INTEGER, waxed INTEGER, face INTEGER, line_1 TEXT, line_2 TEXT, line_3 TEXT, line_4 TEXT, line_5 TEXT, line_6 TEXT, line_7 TEXT, line_8 TEXT);");
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "sign (time INTEGER, user INTEGER, wid INTEGER, x INTEGER, y INTEGER, z INTEGER, action INTEGER, color INTEGER, color_secondary INTEGER, data INTEGER, waxed INTEGER, face INTEGER, line_1 TEXT, line_2 TEXT, line_3 TEXT, line_4 TEXT, line_5 TEXT, line_6 TEXT, line_7 TEXT, line_8 TEXT, rolled_back INTEGER DEFAULT 0);");
         }
         if (!tableData.contains(prefix + "skull")) {
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "skull (id INTEGER PRIMARY KEY ASC, time INTEGER, owner TEXT, skin TEXT);");

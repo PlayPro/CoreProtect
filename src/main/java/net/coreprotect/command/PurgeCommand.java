@@ -165,13 +165,15 @@ public class PurgeCommand extends Consumer {
                 continue;
             }
 
-            if (listContinuation) {
+            if (listContinuation && isListValue(argument)) {
                 listContinuation = argument.endsWith(",");
                 if (hasListValue(argument)) {
                     emptyList = null;
                 }
                 continue;
             }
+            // The radius, world and action parsers read a key such as r: or a: even inside a list
+            listContinuation = false;
 
             if (argument.startsWith("a:") || argument.startsWith("action:")) {
                 // Only kills can be purged by action; any other value must not fall through to an unrestricted purge.
@@ -205,6 +207,11 @@ public class PurgeCommand extends Consumer {
 
     private static boolean hasListValue(String values) {
         return values.replace(",", "").length() > 0;
+    }
+
+    private static boolean isListValue(String argument) {
+        int separator = argument.indexOf(':');
+        return separator < 0 || argument.substring(0, separator).equals("minecraft");
     }
 
     protected static void runCommand(final CommandSender player, boolean permission, String[] args) {

@@ -153,7 +153,7 @@ public class Process {
         boolean preflightCommitted = false;
         int processedThrough = 0;
         try {
-            connection = Database.getConnection(false, 500);
+            connection = Database.getConsumerConnection();
             if (connection == null) {
                 deferUnavailableColumnarDatabase(processId);
                 return;
@@ -164,7 +164,6 @@ public class Process {
             writeBatch = batch;
             Database.performCheckpoint(statement, ConfigHandler.databaseType);
 
-            Consumer.isPaused = true;
             consumerData = Consumer.consumer.get(processId);
             users = Consumer.consumerUsers.get(processId);
             consumerObject = Consumer.consumerObjects.get(processId);
@@ -184,7 +183,6 @@ public class Process {
                 }
                 statement.close();
                 Consumer.consumer_id.put(processId, new Integer[] { 0, 0 });
-                Consumer.isPaused = false;
                 return;
             }
 
@@ -670,7 +668,6 @@ public class Process {
         if (consumerDataCleared) {
             currentConsumerSize = 0;
             Consumer.consumer_id.put(processId, new Integer[] { 0, 0 });
-            Consumer.isPaused = false;
         }
         else if (!Consumer.isPersistenceHalted()) {
             deferConsumerRetry();
@@ -889,7 +886,6 @@ public class Process {
 
     private static void deferConsumerRetry() {
         currentConsumerSize = 0;
-        Consumer.isPaused = false;
     }
 
     static void retryConsumerBatch(int processId, ArrayList<Object[]> consumerData, Map<Integer, String[]> users, Map<Integer, Object> consumerObject, int processedThrough) {
@@ -905,7 +901,6 @@ public class Process {
         if (consumerData != null) {
             currentConsumerSize = consumerData.size();
         }
-        Consumer.isPaused = false;
     }
 
     static void failConsumerBatch(int processId, ArrayList<Object[]> consumerData, Map<Integer, String[]> users, Map<Integer, Object> consumerObject, int processedThrough, int discardThrough) {

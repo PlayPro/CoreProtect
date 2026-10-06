@@ -99,13 +99,9 @@ public class LookupRaw extends Queue {
             cursor = null;
         }
 
-        boolean paused = false;
+        Object pauseClaim = null;
         try {
-            while (Consumer.isPaused && !Consumer.isPersistenceHalted()) {
-                Thread.sleep(1);
-            }
-            Consumer.isPaused = true;
-            paused = true;
+            pauseClaim = Consumer.claimLookupPause();
 
             Map<Integer, List<PageRow>> pageRows = new HashMap<>();
             long totalRows = Math.max(knownTotalRows, 0L);
@@ -158,9 +154,7 @@ public class LookupRaw extends Queue {
             return new RawLookupPage(knownTotalRows > 0L ? knownTotalRows : 0L, Collections.emptyList(), null);
         }
         finally {
-            if (paused && !Consumer.isPersistenceHalted()) {
-                Consumer.isPaused = false;
-            }
+            Consumer.releaseLookupPause(pauseClaim);
         }
     }
 
@@ -184,15 +178,11 @@ public class LookupRaw extends Queue {
             invalidRollbackActions.clear();
         }
 
-        boolean paused = false;
+        Object pauseClaim = null;
         ResultSet results = null;
         try {
-            while (managePause && Consumer.isPaused && !Consumer.isPersistenceHalted()) {
-                Thread.sleep(1);
-            }
             if (managePause) {
-                Consumer.isPaused = true;
-                paused = true;
+                pauseClaim = Consumer.claimLookupPause();
             }
 
             if (ConfigHandler.databaseType.isClickHouse() && pageRows == null && limitOffset >= 0 && limitCount > 0) {
@@ -401,9 +391,7 @@ public class LookupRaw extends Queue {
                     ErrorReporter.report(e);
                 }
             }
-            if (paused && !Consumer.isPersistenceHalted()) {
-                Consumer.isPaused = false;
-            }
+            Consumer.releaseLookupPause(pauseClaim);
         }
         return list;
     }

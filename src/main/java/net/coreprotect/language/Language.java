@@ -157,6 +157,7 @@ public class Language {
         phrases.put(Phrase.LINK_PATREON, "Patreon: {0}");
         phrases.put(Phrase.LINK_WIKI_BLOCK, "Block Names: {0}");
         phrases.put(Phrase.LINK_WIKI_ENTITY, "Entity Names: {0}");
+        phrases.put(Phrase.LOGGING_INCOMPLETE, "{0} queued items were not logged before shutdown and have been discarded.");
         phrases.put(Phrase.LOGGING_ITEMS, "{0} items left to log. Please wait...");
         phrases.put(Phrase.LOGGING_TIME_LIMIT, "Logging time limit reached. Discarding data and shutting down.");
         phrases.put(Phrase.LOOKUP_BLOCK, "{0} {placed|broke} {1}.");

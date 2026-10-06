@@ -113,8 +113,10 @@ public class Language {
         phrases.put(Phrase.HELP_PURGE_1, "Delete data older than specified time.");
         phrases.put(Phrase.HELP_PURGE_2, "For example, \"{0}\" will delete all data older than one month, and only keep the last 30 days of data.");
         phrases.put(Phrase.HELP_PURGE_3, "Specify the amount of time to purge.");
-        phrases.put(Phrase.HELP_PURGE_4, "Specify a world to limit the purge to.");
-        phrases.put(Phrase.HELP_PURGE_5, "Include specific blocks in the purge.");
+        phrases.put(Phrase.HELP_PURGE_4, "Specify a world or radius to limit the purge to.");
+        phrases.put(Phrase.HELP_PURGE_5, "Include specific blocks or entity kills in the purge.");
+        phrases.put(Phrase.HELP_PURGE_6, "Keep entity kills of these types.");
+        phrases.put(Phrase.HELP_PURGE_7, "Only purge entity kills.");
         phrases.put(Phrase.HELP_PURGE_COMMAND, "Delete old block data.");
         phrases.put(Phrase.HELP_RADIUS_1, "Specify a radius area.");
         phrases.put(Phrase.HELP_RADIUS_2, "Examples: [r:10] (Only make changes within 10 blocks of you)");
@@ -174,6 +176,7 @@ public class Language {
         phrases.put(Phrase.LOOKUP_STORAGE, "{0} {deposited|withdrew} {1} {2}.");
         phrases.put(Phrase.LOOKUP_TIME, "{0} ago");
         phrases.put(Phrase.LOOKUP_USERNAME, "{0} logged in as {1}.");
+        phrases.put(Phrase.MAXIMUM_PURGE_RADIUS, "The maximum purge radius is {0}.");
         phrases.put(Phrase.MAXIMUM_RADIUS, "The maximum {lookup|rollback|restore} radius is {0}.");
         phrases.put(Phrase.MESSAGE_FILTER_TOO_SHORT, "Minimum message filter length is {0} characters.");
         phrases.put(Phrase.MISSING_ACTION_USER, "To use that action, please specify a user.");

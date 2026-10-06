@@ -10,6 +10,8 @@ import java.util.UUID;
 import org.bukkit.Location;
 import org.bukkit.Server;
 import org.bukkit.World;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Villager;
 import org.bukkit.inventory.Inventory;
@@ -20,6 +22,7 @@ import net.coreprotect.model.entity.VillagerReputationData;
 
 public class PaperHandler extends PaperAdapter {
     private volatile boolean supportsSnapshotHolderLookup = true;
+    private volatile boolean supportsSnapshotStateLookup = true;
     private volatile boolean supportsAverageTickTime = true;
 
     @Override
@@ -65,6 +68,20 @@ public class PaperHandler extends PaperAdapter {
         }
 
         return holder.getHolder();
+    }
+
+    @Override
+    public BlockState getBlockState(Block block, boolean useSnapshot) {
+        if (supportsSnapshotStateLookup) {
+            try {
+                return block.getState(useSnapshot);
+            }
+            catch (LinkageError ignored) {
+                supportsSnapshotStateLookup = false;
+            }
+        }
+
+        return block.getState();
     }
 
     @Override

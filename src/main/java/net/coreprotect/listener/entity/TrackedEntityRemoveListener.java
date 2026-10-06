@@ -19,9 +19,13 @@ public final class TrackedEntityRemoveListener implements Listener {
         InventoryChangeListener.flushEntityContainer(entity);
         switch (event.getCause()) {
             case UNLOAD:
+                return;
             case DEATH:
             case HIT:
-                return;
+                if (!EntitySpawnTracking.isCushion(entity)) {
+                    return;
+                }
+                break;
             case PLUGIN:
                 if (EntitySpawnTracking.isCoreProtectRemoval(entity.getUniqueId())) {
                     return;

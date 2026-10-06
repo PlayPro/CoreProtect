@@ -5,6 +5,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
@@ -55,6 +57,7 @@ import org.bukkit.entity.Zoglin;
 import org.bukkit.entity.Zombie;
 import org.bukkit.entity.ZombieVillager;
 import org.bukkit.entity.memory.MemoryKey;
+import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -74,13 +77,16 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.Database;
 import net.coreprotect.listener.player.EntityInteractionListener;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.spigot.SpigotAdapter;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.AttributeUtils;
 import net.coreprotect.utility.EntitySpawnTracking;
+import net.coreprotect.utility.entity.EntityUtil;
 import net.coreprotect.utility.entity.LivingEntityDetails;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 
@@ -95,6 +101,33 @@ public final class EntityDeathListener extends Queue implements Listener {
         MemoryKey.MEETING_POINT,
         MemoryKey.LAST_WORKED_AT_POI
     };
+    private static final Map<UUID, Object[]> pendingArmorStandBreaks = new ConcurrentHashMap<>();
+
+    // Armor stand contents can't be read on EntityDeathEvent (in survival mode), so the damage listeners capture them here
+    protected static void trackArmorStandBreak(Entity armorStand, String user, ItemStack[] contents) {
+        UUID uuid = armorStand.getUniqueId();
+        Object[] pendingBreak = new Object[] { user, contents };
+        pendingArmorStandBreaks.put(uuid, pendingBreak);
+
+        // onEntityDeath logs the break if the hit was lethal. Otherwise, discard the capture on the next tick, or when Folia retires
+        // the stand's scheduler (unload or any other removal). Neither callback touches the world.
+        Runnable discard = () -> pendingArmorStandBreaks.remove(uuid, pendingBreak);
+        Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), discard, discard, armorStand, 0);
+    }
+
+    private static void logArmorStandBreak(ArmorStand armorStand) {
+        Object[] pendingBreak = pendingArmorStandBreaks.remove(armorStand.getUniqueId());
+        if (pendingBreak == null) {
+            return;
+        }
+
+        String user = (String) pendingBreak[0];
+        ItemStack[] contents = (ItemStack[]) pendingBreak[1];
+        Location entityLocation = armorStand.getLocation();
+        Block block = entityLocation.getBlock();
+        Database.containerBreakCheck(user, Material.ARMOR_STAND, armorStand, contents, block.getLocation());
+        Queue.queueBlockBreak(user, block.getState(), Material.ARMOR_STAND, null, (int) entityLocation.getYaw());
+    }
 
     public static void parseEntityKills(String message) {
         message = message.trim().toLowerCase(Locale.ROOT);
@@ -307,11 +340,19 @@ public final class EntityDeathListener extends Queue implements Listener {
                 }
             }
 
+            long baselineBits = 0;
             if (entity instanceof Attributable) {
                 Attributable attributable = entity;
                 for (Attribute attribute : Lists.newArrayList(Registry.ATTRIBUTE)) {
                     AttributeInstance attributeInstance = attributable.getAttribute(attribute);
-                    if (attributeInstance != null) {
+                    if (attributeInstance == null) {
+                        continue;
+                    }
+                    int baselineBit = AttributeUtils.baselineBit(attributeInstance);
+                    if (baselineBit >= 0) {
+                        baselineBits |= 1L << baselineBit;
+                    }
+                    else {
                         List<Object> attributeData = new ArrayList<>();
                         List<Object> attributeModifiers = new ArrayList<>();
                         attributeData.add(BukkitAdapter.ADAPTER.getRegistryKey(attributeInstance.getAttribute()));
@@ -583,9 +624,10 @@ public final class EntityDeathListener extends Queue implements Listener {
             data.add(entity.getCustomName());
             data.add(attributes);
             data.add(details);
-            if (EntitySpawnTracking.isTracked(entity)) {
-                data.add(entity.getUniqueId().toString());
-            }
+            data.add(EntitySpawnTracking.isTracked(entity) ? entity.getUniqueId().toString() : null);
+            data.add(null); // kill location, only stored for placed entities
+            data.add(EntityUtil.BASELINE_ATTRIBUTES);
+            data.add(baselineBits);
 
             if (!(entity instanceof Player)) {
                 Queue.queueEntityKill(e, entity.getLocation(), data, type);
@@ -672,6 +714,10 @@ public final class EntityDeathListener extends Queue implements Listener {
             EntityInteractionListener.flushPendingInteractions(entity);
             Queue.queueEntitySpawnRemoved(entity);
             EntitySpawnTracking.clearTracking(entity.getUniqueId());
+        }
+
+        if (entity instanceof ArmorStand && !(event instanceof Cancellable && ((Cancellable) event).isCancelled())) {
+            logArmorStandBreak((ArmorStand) entity);
         }
 
         logEntityDeath(entity, null);

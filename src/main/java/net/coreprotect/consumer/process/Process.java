@@ -76,6 +76,7 @@ public class Process {
     public static final int ENTITY_CONTAINER_ROLLBACK_UPDATE = 33;
     public static final int ENTITY_CONTAINER_TRANSITION_UPDATE = 34;
     public static final int ENTITY_INTERACTION = 35;
+    public static final int SIGN_ROLLBACK_UPDATE = 36;
 
     public static int lastLockUpdate = 0;
     private static volatile int currentConsumerSize = 0;
@@ -106,7 +107,7 @@ public class Process {
     }
 
     public static boolean isRollbackPublication(int action, Object object) {
-        if (action == ROLLBACK_UPDATE || action == CONTAINER_ROLLBACK_UPDATE || action == INVENTORY_ROLLBACK_UPDATE || action == INVENTORY_CONTAINER_ROLLBACK_UPDATE || action == BLOCK_INVENTORY_ROLLBACK_UPDATE || action == ENTITY_CONTAINER_ROLLBACK_UPDATE || action == ENTITY_CONTAINER_TRANSITION_UPDATE) {
+        if (action == ROLLBACK_UPDATE || action == SIGN_ROLLBACK_UPDATE || action == CONTAINER_ROLLBACK_UPDATE || action == INVENTORY_ROLLBACK_UPDATE || action == INVENTORY_CONTAINER_ROLLBACK_UPDATE || action == BLOCK_INVENTORY_ROLLBACK_UPDATE || action == ENTITY_CONTAINER_ROLLBACK_UPDATE || action == ENTITY_CONTAINER_TRANSITION_UPDATE) {
             return true;
         }
         if (action != ENTITY_SPAWN_UPDATE || !(object instanceof EntitySpawnData)) {
@@ -267,6 +268,7 @@ public class Process {
             entitySpawnUpdates = hasEntitySpawnUpdates ? writeBatch.entitySpawnUpdates() : null;
             if (entitySpawnUpdates != null) {
                 entitySpawnUpdates.prefetch(entitySpawnUpdateData);
+                entitySpawnUpdateData.clear();
             }
             processingStarted = true;
             for (int i = 0; i < consumerDataSize; i++) {
@@ -399,6 +401,9 @@ public class Process {
                                 case Process.ROLLBACK_UPDATE:
                                     RollbackUpdateProcess.process(writeBatch, processId, id, forceData, RollbackUpdateTargets.BLOCK);
                                     break;
+                                case Process.SIGN_ROLLBACK_UPDATE:
+                                    RollbackUpdateProcess.process(writeBatch, processId, id, forceData, RollbackUpdateTargets.SIGN);
+                                    break;
                                 case Process.CONTAINER_ROLLBACK_UPDATE:
                                     RollbackUpdateProcess.process(writeBatch, processId, id, forceData, RollbackUpdateTargets.CONTAINER);
                                     break;
@@ -529,6 +534,7 @@ public class Process {
                             boolean interrupted = Consumer.interrupt;
                             boolean batchLimitReached = writeBatch.shouldCommit();
                             if ((interrupted || batchLimitReached) && !isolatedTransaction) {
+                                int batchStart = processedThrough;
                                 TransactionOutcome outcome = commit(writeBatch);
                                 if (outcome == TransactionOutcome.COMMITTED) {
                                     processedThrough = i + 1;
@@ -537,6 +543,9 @@ public class Process {
                                 if (outcome != TransactionOutcome.COMMITTED) {
                                     completeFailedConsumerBatch(processId, consumerData, users, consumerObject, processedThrough, i + 1, outcome == TransactionOutcome.RETAINED);
                                     return;
+                                }
+                                if (ConfigHandler.databaseType.isClickHouse()) {
+                                    releaseProcessedConsumerData(processId, consumerData, users, consumerObject, batchStart, processedThrough);
                                 }
                                 boolean backlog = batchLimitReached && ConfigHandler.databaseType.isClickHouse() && i + 1 < consumerDataSize;
                                 if (interrupted || backlog) {
@@ -947,16 +956,21 @@ public class Process {
 
     private static void discardProcessedConsumerData(int processId, ArrayList<Object[]> consumerData, Map<Integer, String[]> users, Map<Integer, Object> consumerObject, int count) {
         int processed = Math.min(count, consumerData.size());
-        for (int index = 0; index < processed; index++) {
+        releaseProcessedConsumerData(processId, consumerData, users, consumerObject, 0, processed);
+        consumerData.subList(0, processed).clear();
+    }
+
+    private static void releaseProcessedConsumerData(int processId, ArrayList<Object[]> consumerData, Map<Integer, String[]> users, Map<Integer, Object> consumerObject, int fromIndex, int toIndex) {
+        for (int index = fromIndex; index < toIndex; index++) {
             Object[] data = consumerData.get(index);
-            preparationFailures.remove(data);
             if (data == null) {
                 continue;
             }
-            int id = (int) data[0];
+            preparationFailures.remove(data);
+            Integer id = (Integer) data[0];
             discardConsumerData(processId, users, consumerObject, id, (int) data[1]);
+            consumerData.set(index, null);
         }
-        consumerData.subList(0, processed).clear();
     }
 
     private static void discardFailedConsumerData(int processId, ArrayList<Object[]> consumerData, Map<Integer, String[]> users,
@@ -1052,7 +1066,7 @@ public class Process {
         return false;
     }
 
-    private static void discardConsumerData(int processId, Map<Integer, String[]> users, Map<Integer, Object> consumerObject, int id, int action) {
+    private static void discardConsumerData(int processId, Map<Integer, String[]> users, Map<Integer, Object> consumerObject, Integer id, int action) {
         Object object = consumerObject.get(id);
         if (action == -1) {
             if (object instanceof EntityContainerRollbackUpdate) {

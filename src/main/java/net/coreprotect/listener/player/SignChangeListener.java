@@ -1,5 +1,7 @@
 package net.coreprotect.listener.player;
 
+import java.util.Objects;
+
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -28,10 +30,10 @@ public final class SignChangeListener extends Queue implements Listener {
         Location location = block.getLocation();
         BlockState blockState = block.getState();
 
-        String edit1 = event.getLine(0);
-        String edit2 = event.getLine(1);
-        String edit3 = event.getLine(2);
-        String edit4 = event.getLine(3);
+        String edit1 = Objects.toString(event.getLine(0), "");
+        String edit2 = Objects.toString(event.getLine(1), "");
+        String edit3 = Objects.toString(event.getLine(2), "");
+        String edit4 = Objects.toString(event.getLine(3), "");
         String line1 = "";
         String line2 = "";
         String line3 = "";
@@ -46,7 +48,6 @@ public final class SignChangeListener extends Queue implements Listener {
         boolean backGlowing = false;
         boolean isWaxed = false;
         boolean isFront = BukkitAdapter.ADAPTER.isSignFront(event);
-        boolean existingText = false;
 
         if (blockState instanceof Sign) {
             Sign sign = (Sign) blockState;
@@ -70,10 +71,11 @@ public final class SignChangeListener extends Queue implements Listener {
             else if (!isFront && line5.equals(edit1) && line6.equals(edit2) && line7.equals(edit3) && line8.equals(edit4)) {
                 return;
             }
-            else if (line1.length() > 0 || line2.length() > 0 || line3.length() > 0 || line4.length() > 0 || line5.length() > 0 || line6.length() > 0 || line7.length() > 0 || line8.length() > 0) {
-                existingText = true;
-                Queue.queueSignText(player, location, SignActions.BREAK, color, colorSecondary, frontGlowing, backGlowing, isWaxed, isFront, line1, line2, line3, line4, line5, line6, line7, line8, 1);
-                Queue.queueBlockPlace(player, blockState, block.getType(), blockState, block.getType(), -1, 0, blockState.getBlockData().getAsString());
+            else {
+                Queue.queueSignText(player, location, SignActions.BEFORE, color, colorSecondary, frontGlowing, backGlowing, isWaxed, isFront, line1, line2, line3, line4, line5, line6, line7, line8, 1);
+                if (line1.length() > 0 || line2.length() > 0 || line3.length() > 0 || line4.length() > 0 || line5.length() > 0 || line6.length() > 0 || line7.length() > 0 || line8.length() > 0) {
+                    Queue.queueBlockPlace(player, blockState, block.getType(), blockState, block.getType(), -1, 0, blockState.getBlockData().getAsString());
+                }
             }
         }
 
@@ -90,8 +92,6 @@ public final class SignChangeListener extends Queue implements Listener {
             line8 = edit4;
         }
 
-        if (existingText || line1.length() > 0 || line2.length() > 0 || line3.length() > 0 || line4.length() > 0 || line5.length() > 0 || line6.length() > 0 || line7.length() > 0 || line8.length() > 0) {
-            Queue.queueSignText(player, location, SignActions.PLACE, color, colorSecondary, frontGlowing, backGlowing, isWaxed, isFront, line1, line2, line3, line4, line5, line6, line7, line8, 0);
-        }
+        Queue.queueSignText(player, location, SignActions.PLACE, color, colorSecondary, frontGlowing, backGlowing, isWaxed, isFront, line1, line2, line3, line4, line5, line6, line7, line8, 0);
     }
 }

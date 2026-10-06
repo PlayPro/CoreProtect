@@ -34,7 +34,8 @@ class HorseContainerReplayTest {
     @EnumSource(value = EntityType.class, names = {"DONKEY", "MULE", "LLAMA", "TRADER_LLAMA"})
     void fullChestDoesNotOverflowIntoEquipment(EntityType type) throws Exception {
         ItemStack[] contents = {null, null, new TestItemStack(Material.DIAMOND, 64)};
-        assertFalse(replay(contents, Material.DIAMOND, 1, 1, type));
+        // A full inventory is a best-effort replay, matching upstream behavior.
+        assertTrue(replay(contents, Material.DIAMOND, 1, 1, type));
         assertNull(contents[0]);
         assertNull(contents[1]);
         assertEquals(64, contents[2].getAmount());

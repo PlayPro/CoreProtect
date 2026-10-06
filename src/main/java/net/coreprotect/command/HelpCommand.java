@@ -70,8 +70,10 @@ public class HelpCommand {
                 else if (helpcommand.equals("purge") || helpcommand.equals("purges")) {
                     Chat.sendMessage(player, Color.DARK_AQUA + "/co purge " + Color.GREY + "<params> " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_PURGE_1));
                     Chat.sendMessage(player, Color.DARK_AQUA + "| " + Color.GREY + "t:<time> " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_PURGE_3));
-                    Chat.sendMessage(player, Color.DARK_AQUA + "| " + Color.GREY + "r:<world> " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_PURGE_4));
+                    Chat.sendMessage(player, Color.DARK_AQUA + "| " + Color.GREY + "r:<world/radius> " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_PURGE_4));
                     Chat.sendMessage(player, Color.DARK_AQUA + "| " + Color.GREY + "i:<include> " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_PURGE_5));
+                    Chat.sendMessage(player, Color.DARK_AQUA + "| " + Color.GREY + "e:<exclude> " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_PURGE_6));
+                    Chat.sendMessage(player, Color.DARK_AQUA + "| " + Color.GREY + "a:kill " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_PURGE_7));
                     Chat.sendMessage(player, Color.GREY + Color.ITALIC + Phrase.build(Phrase.HELP_PURGE_2, "/co purge t:30d"));
                 }
                 else if (helpcommand.equals("reload")) {

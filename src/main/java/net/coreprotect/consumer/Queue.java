@@ -1,9 +1,11 @@
 package net.coreprotect.consumer;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -42,6 +44,7 @@ import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.worldedit.WorldEditBlockState;
 
 public class Queue {
 
@@ -103,10 +106,17 @@ public class Queue {
         return chestId;
     }
 
-    protected static synchronized int getItemId(String id) {
-        int chestId = ConfigHandler.loggingItem.getOrDefault(id, -1) + 1;
-        ConfigHandler.loggingItem.put(id, chestId);
-        return chestId;
+    // The Queue lock keeps ItemTransactionProcess.discard from clearing an item before its generation is registered,
+    // and compute keeps the append atomic with the consumer's take in ItemLogger
+    protected static synchronized int addPendingItems(ConcurrentHashMap<String, List<ItemStack>> pendingItems, String id, ItemStack... items) {
+        pendingItems.compute(id, (key, list) -> {
+            List<ItemStack> result = list == null ? new ArrayList<>(items.length) : list;
+            Collections.addAll(result, items);
+            return result;
+        });
+        int itemId = ConfigHandler.loggingItem.getOrDefault(id, -1) + 1;
+        ConfigHandler.loggingItem.put(id, itemId);
+        return itemId;
     }
 
     private static boolean queueStandardData(Object[] data, String[] user, Object object, boolean first, long reservation) {
@@ -198,7 +208,7 @@ public class Queue {
             CreatureSpawner mobSpawner = (CreatureSpawner) block;
             extraData = EntityUtils.getSpawnerType(mobSpawner.getSpawnedType());
         }
-        else if (type != null && (type == Material.IRON_DOOR || BlockGroup.DOORS.contains(type) || type.equals(Material.SUNFLOWER) || type.equals(Material.LILAC) || type.equals(Material.TALL_GRASS) || type.equals(Material.LARGE_FERN) || type.equals(Material.ROSE_BUSH) || type.equals(Material.PEONY))) { // Double plant
+        else if (type != null && BlockGroup.LOGGED_BY_LOWER_HALF.contains(type)) { // Double plant
             if (block.getBlockData() instanceof Bisected) {
                 if (((Bisected) block.getBlockData()).getHalf().equals(Half.TOP)) {
                     if (blockNumber == 5) {
@@ -206,8 +216,8 @@ public class Queue {
                     }
 
                     if (block.getY() > BukkitAdapter.ADAPTER.getMinHeight(block.getWorld())) {
-                        block = block.getWorld().getBlockAt(block.getX(), block.getY() - 1, block.getZ()).getState();
-                        if (type != block.getType()) {
+                        block = block instanceof WorldEditBlockState ? ((WorldEditBlockState) block).getLowerHalf() : block.getWorld().getBlockAt(block.getX(), block.getY() - 1, block.getZ()).getState();
+                        if (block == null || type != block.getType()) {
                             return;
                         }
 

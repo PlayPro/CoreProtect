@@ -716,6 +716,9 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
     }
 
     private static ClickHouseFamily rollbackFamily(int target) {
+        if (target == RollbackUpdateTargets.SIGN) {
+            return ClickHouseFamily.SIGN;
+        }
         if (target == RollbackUpdateTargets.ENTITY_CONTAINER) {
             return ClickHouseFamily.ENTITY_CONTAINER;
         }

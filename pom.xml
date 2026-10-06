@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>net.coreprotect</groupId>
   <artifactId>CoreProtect</artifactId>
-  <version>24.0</version>
+  <version>24.1</version>
   <properties>
     <project.branch></project.branch>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -210,18 +210,6 @@
     </repository>
   </repositories>
   <dependencies>
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter</artifactId>
-      <version>5.13.4</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.mockito</groupId>
-      <artifactId>mockito-core</artifactId>
-      <version>5.20.0</version>
-      <scope>test</scope>
-    </dependency>
     <!--
     paper-api: io.papermc.paper
     paper-api (<= 1.16): com.destroystokyo.paper / 1.16.1-R0.1-SNAPSHOT
@@ -231,7 +219,7 @@
     <dependency>
       <groupId>io.papermc.paper</groupId>
       <artifactId>paper-api</artifactId>
-      <version>26.2.build.48-alpha</version> <!-- https://repo.papermc.io/repository/maven-public/ -->
+      <version>26.3.build.38-alpha</version> <!-- https://repo.papermc.io/repository/maven-public/io/papermc/paper/paper-api/ -->
       <scope>provided</scope>
     </dependency>
     <dependency>

@@ -5,8 +5,10 @@ import java.util.List;
 import java.util.UUID;
 import java.util.regex.Matcher;
 
+import org.bukkit.DyeColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Villager;
 
 import net.coreprotect.config.Config;
@@ -29,6 +31,33 @@ public class SpigotHandler extends SpigotAdapter implements SpigotInterface {
 
     public SpigotHandler() {
         Color.DARK_AQUA = SpigotHandler.DARK_AQUA.toString();
+    }
+
+    @Override
+    public DyeColor getCushionColor(Entity entity) {
+        try {
+            Object handle = entity.getClass().getMethod("getHandle").invoke(entity);
+            Object color = handle.getClass().getMethod("getColor").invoke(handle);
+            int id = ((Number) color.getClass().getMethod("getId").invoke(color)).intValue();
+            return DyeColor.getByWoolData((byte) id);
+        }
+        catch (ReflectiveOperationException e) {
+            ErrorReporter.report(e);
+            return null;
+        }
+    }
+
+    @Override
+    public void setCushionColor(Entity entity, DyeColor color) {
+        try {
+            Object handle = entity.getClass().getMethod("getHandle").invoke(entity);
+            Class<?> colorClass = handle.getClass().getMethod("getColor").getReturnType();
+            Object value = colorClass.getMethod("byId", int.class).invoke(null, (int) color.getWoolData());
+            handle.getClass().getMethod("setColor", colorClass).invoke(handle, value);
+        }
+        catch (ReflectiveOperationException e) {
+            ErrorReporter.report(e);
+        }
     }
 
     @Override

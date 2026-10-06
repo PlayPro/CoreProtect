@@ -161,8 +161,8 @@ public class StandardLookupThread implements Runnable {
             ConfigHandler.lookupRadius.put(player.getName(), radius);
             ConfigHandler.lookupOutputMode.put(player.getName(), outputMode == LookupOutputMode.COUNT ? LookupOutputMode.DETAIL : outputMode);
             ConfigHandler.lookupRollbackState.put(player.getName(), rollbackState);
-            if (typeLookup != 5 || outputMode != LookupOutputMode.DETAIL || !ConfigHandler.databaseType.isDuckDB()) {
-                ConfigHandler.lookupDuckDBCursor.remove(player.getName());
+            if (typeLookup != 5 || outputMode != LookupOutputMode.DETAIL || !ConfigHandler.databaseType.isColumnar()) {
+                ConfigHandler.lookupCursor.remove(player.getName());
             }
 
             if (connection != null) {
@@ -290,20 +290,17 @@ public class StandardLookupThread implements Runnable {
                         rowData[4] = rows;
                         ConfigHandler.lookupRows.put(player.getName(), rowData);
                     }
-                    if (lookupPage == null && outputMode == LookupOutputMode.DETAIL && ConfigHandler.databaseType.isDuckDB() && pageStart < rows) {
-                        LookupCursor cursor = ConfigHandler.lookupDuckDBCursor.get(player.getName());
-                        if (cursor == null || cursor.getNextPage() != page || cursor.getPageSize() != displayResults) {
-                            cursor = null;
-                        }
-                        lookupPage = Lookup.performDuckDBLookupPage(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, entityActionFilter, messageFilters, entityContext, finalLocation, radius, rowData, timeStart, timeEnd, (int) pageStart, displayResults, rows, cursor, restrict_world, true, entityContainerId, rollbackState);
+                    if (lookupPage == null && outputMode == LookupOutputMode.DETAIL && ConfigHandler.databaseType.isColumnar() && pageStart < rows) {
+                        LookupCursor cursor = ConfigHandler.lookupCursor.get(player.getName());
+                        lookupPage = Lookup.performLookupPage(statement, player, uuidList, userList, blockList, excludedBlocks, excludedUsers, actions, entityActionFilter, messageFilters, entityContext, finalLocation, radius, rowData, timeStart, timeEnd, (int) pageStart, displayResults, rows, cursor, restrict_world, true, entityContainerId, rollbackState);
                     }
                     if (lookupPage != null) {
                         LookupCursor nextCursor = lookupPage.getNextCursor();
                         if (nextCursor == null) {
-                            ConfigHandler.lookupDuckDBCursor.remove(player.getName());
+                            ConfigHandler.lookupCursor.remove(player.getName());
                         }
                         else {
-                            ConfigHandler.lookupDuckDBCursor.put(player.getName(), nextCursor);
+                            ConfigHandler.lookupCursor.put(player.getName(), nextCursor);
                         }
                     }
                     if (outputMode == LookupOutputMode.COUNT) {

@@ -210,6 +210,18 @@
     </repository>
   </repositories>
   <dependencies>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.13.4</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>5.20.0</version>
+      <scope>test</scope>
+    </dependency>
     <!--
     paper-api: io.papermc.paper
     paper-api (<= 1.16): com.destroystokyo.paper / 1.16.1-R0.1-SNAPSHOT

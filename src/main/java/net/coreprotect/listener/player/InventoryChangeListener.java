@@ -23,13 +23,13 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
-import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.inventory.InventoryPickupItemEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.BlockInventoryHolder;
@@ -57,7 +57,6 @@ public final class InventoryChangeListener extends Queue implements Listener {
 
     private static ConcurrentHashMap<String, Boolean> inventoryProcessing = new ConcurrentHashMap<>();
     private static final Map<UUID, PendingEntityContainerTransaction> pendingEntityTransactions = new HashMap<>();
-    private static final Map<UUID, OpenHorseContainer> openHorseContainers = new ConcurrentHashMap<>();
 
     public static boolean inventoryTransaction(String user, Location location, ItemStack[] inventoryData) {
         if (location != null) {
@@ -114,6 +113,13 @@ public final class InventoryChangeListener extends Queue implements Listener {
     }
 
     public static void flushPendingTransactionsForShutdown() {
+        List<PendingEntityContainerTransaction> pending;
+        synchronized (pendingEntityTransactions) {
+            pending = new ArrayList<>(pendingEntityTransactions.values());
+        }
+        for (PendingEntityContainerTransaction transaction : pending) {
+            flushEntityContainer(transaction.entity);
+        }
         HopperPullListener.flushPendingPullsForShutdown();
         ContainerTransactionDispatcher.drainForShutdown();
     }
@@ -388,22 +394,18 @@ public final class InventoryChangeListener extends Queue implements Listener {
         PendingEntityContainerTransaction previous = null;
         Object scheduleToken = null;
         synchronized (pendingEntityTransactions) {
-            PendingEntityContainerTransaction pending = pendingEntityTransactions.get(entity.getUniqueId());
-            if (pending == null) {
-                pending = new PendingEntityContainerTransaction(user, oldContents);
-                pendingEntityTransactions.put(entity.getUniqueId(), pending);
-                scheduleToken = pending.scheduleToken;
+            previous = pendingEntityTransactions.get(entity.getUniqueId());
+            if (previous != null && previous.user.equals(user) && !(entity instanceof ChestedHorse)) {
+                return;
             }
-            else if (!pending.user.equals(user)) {
-                previous = pending;
-                pendingEntityTransactions.put(entity.getUniqueId(), new PendingEntityContainerTransaction(user, oldContents, pending.scheduleToken));
-            }
+            scheduleToken = previous == null ? new Object() : previous.scheduleToken;
+            pendingEntityTransactions.put(entity.getUniqueId(), new PendingEntityContainerTransaction(user, entity, oldContents, scheduleToken));
         }
 
         if (previous != null) {
             previous.log(entity, oldContents);
         }
-        if (scheduleToken != null) {
+        if (previous == null) {
             scheduleEntityContainerFlush(entity, scheduleToken);
         }
     }
@@ -416,11 +418,10 @@ public final class InventoryChangeListener extends Queue implements Listener {
                 }
             }
             catch (Exception e) {
-                discardEntityContainerSchedule(entity.getUniqueId(), scheduleToken);
                 ErrorReporter.report(e);
             }
         };
-        Runnable retired = () -> discardEntityContainerSchedule(entity.getUniqueId(), scheduleToken);
+        Runnable retired = flush;
         try {
             if (!PaperAdapter.ADAPTER.executeEntityTask(CoreProtect.getInstance(), entity, flush, retired, 1L)) {
                 if (ConfigHandler.isFolia) {
@@ -434,15 +435,6 @@ public final class InventoryChangeListener extends Queue implements Listener {
         catch (Exception e) {
             retired.run();
             ErrorReporter.report(e);
-        }
-    }
-
-    private static void discardEntityContainerSchedule(UUID uuid, Object scheduleToken) {
-        synchronized (pendingEntityTransactions) {
-            PendingEntityContainerTransaction pending = pendingEntityTransactions.get(uuid);
-            if (pending != null && pending.scheduleToken == scheduleToken) {
-                pendingEntityTransactions.remove(uuid);
-            }
         }
     }
 
@@ -462,7 +454,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
     }
 
     private static void queueEntityContainerDelta(String user, Entity entity, ItemStack[] oldContents, ItemStack[] newContents) {
-        if (!isEntityContainer(entity)) {
+        if (!(entity instanceof ChestedHorse) && !isEntityContainer(entity)) {
             return;
         }
         if (oldContents == null || newContents == null || ItemUtils.compareContainers(oldContents, newContents)) {
@@ -496,64 +488,61 @@ public final class InventoryChangeListener extends Queue implements Listener {
         return holder instanceof BlockInventoryHolder || holder instanceof DoubleChest || getEntityContainer(holder) != null;
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    protected void onInventoryOpen(InventoryOpenEvent event) {
-        if (!(event.getPlayer() instanceof Player)) {
-            return;
-        }
-        Inventory inventory = event.getInventory();
-        InventoryHolder holder = PaperAdapter.ADAPTER.getHolder(inventory, false);
-        if (!(holder instanceof ChestedHorse)) {
-            return;
-        }
-        ChestedHorse horse = (ChestedHorse) holder;
-        if (!horse.isCarryingChest() || !Config.getConfig(horse.getWorld()).ITEM_TRANSACTIONS) {
-            return;
-        }
-        Player player = (Player) event.getPlayer();
-        openHorseContainers.put(player.getUniqueId(), new OpenHorseContainer(player.getName(), horse, inventory.getContents()));
-    }
-
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onInventoryClose(InventoryCloseEvent event) {
-        OpenHorseContainer opened = openHorseContainers.remove(event.getPlayer().getUniqueId());
-        if (opened != null) {
-            opened.log(event.getInventory().getContents());
+        Inventory inventory = event.getInventory();
+        InventoryHolder holder = PaperAdapter.ADAPTER.getHolder(inventory, false);
+        if (holder instanceof ChestedHorse) {
+            flushEntityContainer((Entity) holder, inventory.getContents());
         }
     }
 
-    private static final class OpenHorseContainer {
-
-        private final String user;
-        private final ChestedHorse horse;
-        private final ItemStack[] contents;
-
-        private OpenHorseContainer(String user, ChestedHorse horse, ItemStack[] contents) {
-            this.user = user;
-            this.horse = horse;
-            this.contents = ItemUtils.getContainerState(contents);
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    protected void onHorseDamage(EntityDamageEvent event) {
+        if (event.getEntity() instanceof ChestedHorse) {
+            // Flush before damage can kill the animal and empty its inventory into drops.
+            flushEntityContainer(event.getEntity());
         }
+    }
 
-        private void log(ItemStack[] currentContents) {
-            if (horse.isValid()) {
-                queueEntityContainerDelta(user, horse, contents, currentContents);
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    protected void onHorseInventoryClick(InventoryClickEvent event) {
+        if (!event.isCancelled() && event.getAction() != InventoryAction.NOTHING && event.getWhoClicked() instanceof Player) {
+            captureHorseTransaction((Player) event.getWhoClicked(), event.getInventory());
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    protected void onHorseInventoryDrag(InventoryDragEvent event) {
+        if (event.isCancelled() || !(event.getWhoClicked() instanceof Player)) {
+            return;
+        }
+        for (Integer slot : event.getRawSlots()) {
+            if (slot < event.getInventory().getSize()) {
+                captureHorseTransaction((Player) event.getWhoClicked(), event.getInventory());
+                return;
             }
+        }
+    }
+
+    private static void captureHorseTransaction(Player player, Inventory inventory) {
+        Entity entity = getEntityContainer(PaperAdapter.ADAPTER.getHolder(inventory, false));
+        if (entity instanceof ChestedHorse) {
+            captureEntityContainerTransaction(player.getName(), entity, inventory);
         }
     }
 
     private static final class PendingEntityContainerTransaction {
         private final String user;
+        private final Entity entity;
         private final ItemStack[] oldContents;
         private final Object scheduleToken;
         private final List<ItemStack> removedItems = new ArrayList<>();
         private final List<ItemStack> loggedRemovedItems = new ArrayList<>();
 
-        private PendingEntityContainerTransaction(String user, ItemStack[] oldContents) {
-            this(user, oldContents, new Object());
-        }
-
-        private PendingEntityContainerTransaction(String user, ItemStack[] oldContents, Object scheduleToken) {
+        private PendingEntityContainerTransaction(String user, Entity entity, ItemStack[] oldContents, Object scheduleToken) {
             this.user = user;
+            this.entity = entity;
             this.oldContents = ItemUtils.getContainerState(oldContents);
             this.scheduleToken = scheduleToken;
         }

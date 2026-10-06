@@ -16,6 +16,7 @@ public final class TrackedEntityRemoveListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEntityRemove(EntityRemoveEvent event) {
         Entity entity = event.getEntity();
+        InventoryChangeListener.flushEntityContainer(entity);
         switch (event.getCause()) {
             case UNLOAD:
             case DEATH:
@@ -31,7 +32,6 @@ public final class TrackedEntityRemoveListener implements Listener {
         }
 
         if (EntitySpawnTracking.isTrackedOrPendingIdentity(entity)) {
-            InventoryChangeListener.flushEntityContainer(entity);
             EntityInteractionListener.flushPendingInteractions(entity);
             Queue.queueEntitySpawnRemoved(entity);
             EntitySpawnTracking.clearTracking(entity.getUniqueId());

@@ -997,6 +997,9 @@ public class Process {
                 if (object instanceof EntityInteraction) {
                     cancelEntityInteractionPromotion((EntityInteraction) object);
                 }
+                if (object instanceof EntityContainerTransaction) {
+                    cancelEntityContainerPromotion((EntityContainerTransaction) object);
+                }
                 EntitySpawnData spawnData = getEntitySpawnUpdate(object);
                 if (spawnData != null) {
                     int trackingRowId = spawnData.getTrackingRowId();
@@ -1150,7 +1153,7 @@ public class Process {
     private static void verifyEntityContainerPromotions(List<PendingEntityContainerTransaction> transactions) {
         Set<UUID> verifiedIdentities = new HashSet<>();
         for (PendingEntityContainerTransaction pending : transactions) {
-            if (pending.retryRequired || !pending.transaction.hasIdentityPromotion() || !verifiedIdentities.add(pending.transaction.getEntityUuid())) {
+            if (!pending.transaction.hasIdentityPromotion() || !verifiedIdentities.add(pending.transaction.getEntityUuid())) {
                 continue;
             }
             try {
@@ -1162,8 +1165,11 @@ public class Process {
             }
         }
         for (PendingEntityContainerTransaction pending : transactions) {
-            if (!pending.retryRequired && verifiedIdentities.contains(pending.transaction.getEntityUuid())) {
+            try {
                 cancelEntityContainerPromotion(pending.transaction);
+            }
+            catch (Exception e) {
+                ErrorReporter.report(e);
             }
         }
     }

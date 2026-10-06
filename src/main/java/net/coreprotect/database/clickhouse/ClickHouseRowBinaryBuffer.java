@@ -7,6 +7,7 @@ import java.io.InputStream;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -109,6 +110,7 @@ final class ClickHouseRowBinaryBuffer implements AutoCloseable {
         if (rowStarted) {
             throw new IllegalStateException("ClickHouse RowBinary row is incomplete");
         }
+        Arrays.fill(values, null);
         sealed = true;
     }
 
@@ -161,6 +163,7 @@ final class ClickHouseRowBinaryBuffer implements AutoCloseable {
         sealed = true;
         rows.reset();
         rowSpans.clear();
+        Arrays.fill(values, null);
     }
 
     private void ensureWritable() {

@@ -55,7 +55,7 @@ public class CommandHandler implements CommandExecutor {
                     else if (user.hasPermission("coreprotect.purge") && corecommand.equals("purge")) {
                         permission = true;
                     }
-                    else if (user.hasPermission("coreprotect.lookup") && (corecommand.equals("l") || corecommand.equals("lookup") || corecommand.equals("page") || corecommand.equals("near"))) {
+                    else if (user.hasPermission("coreprotect.lookup") && (corecommand.equals("l") || corecommand.equals("lookup") || corecommand.equals("page"))) {
                         permission = true;
                     }
                     else if (user.hasPermission("coreprotect.lookup.near") && corecommand.equals("near")) {

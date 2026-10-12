@@ -1,6 +1,7 @@
 package net.coreprotect.database.lookup;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
 import net.coreprotect.database.DuckDBLookupQuery;
 import net.coreprotect.database.LocationQuery;
 import net.coreprotect.database.statement.EntitySpawnStatement;
@@ -10,7 +11,6 @@ import net.coreprotect.language.Selector;
 import net.coreprotect.listener.channel.PluginChannelListener;
 import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.utility.*;
-import net.coreprotect.utility.ErrorReporter;
 import org.bukkit.Material;
 import org.bukkit.block.BlockState;
 import org.bukkit.command.CommandSender;
@@ -227,7 +227,7 @@ public class BlockLookup {
             ConfigHandler.lookupCommand.put(commandSender.getName(), x + "." + y + "." + z + "." + worldId + ".0." + limit + (entitySpawnRowId == null ? "" : "." + entitySpawnRowId));
         }
         catch (Exception e) {
-            ErrorReporter.report(e);
+            Database.reportDatabaseFailure(e);
         }
         return resultText;
     }

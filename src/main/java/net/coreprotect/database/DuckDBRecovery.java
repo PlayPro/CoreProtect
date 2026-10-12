@@ -215,7 +215,8 @@ public final class DuckDBRecovery {
                 if (normalized.contains("database has been invalidated")
                         || normalized.contains("database must be restarted")
                         || normalized.contains("failed to rollback transaction")
-                        || normalized.contains("out of memory error")) {
+                        || normalized.contains("out of memory error")
+                        || normalized.contains("failed to pin block of size")) {
                     return true;
                 }
             }

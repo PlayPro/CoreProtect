@@ -114,8 +114,11 @@ public class __2_25_0 {
     private static boolean widenMySQLEntityData(Statement statement, String table) {
         try {
             try (ResultSet resultSet = statement.executeQuery("SHOW COLUMNS FROM " + table + " LIKE 'data'")) {
-                if (resultSet.next() && "mediumblob".equalsIgnoreCase(resultSet.getString("Type"))) {
-                    return true;
+                if (resultSet.next()) {
+                    String type = resultSet.getString("Type");
+                    if ("mediumblob".equalsIgnoreCase(type) || "longblob".equalsIgnoreCase(type)) {
+                        return true;
+                    }
                 }
             }
 

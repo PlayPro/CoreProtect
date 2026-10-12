@@ -447,7 +447,7 @@ public class TabHandler implements TabCompleter {
             return StringUtil.copyPartialMatches(argument1, completions, new ArrayList<>(completions.size()));
         }
         else if (argument0.equals("purge") && sender.hasPermission("coreprotect.purge")) {
-            List<String> completions = new ArrayList<>(Arrays.asList("t:", "r:", "i:"));
+            List<String> completions = new ArrayList<>(Arrays.asList("t:", "r:", "i:", "e:", "a:kill"));
             return StringUtil.copyPartialMatches(argument1, completions, new ArrayList<>(completions.size()));
         }
         else if (hasLookupCommand(argument0, sender)) {
@@ -464,10 +464,10 @@ public class TabHandler implements TabCompleter {
         String argument2 = arg2.toLowerCase(Locale.ROOT);
 
         if (argument1.startsWith("t:")) {
-            List<String> completions = new ArrayList<>(Arrays.asList("r:", "i:"));
+            List<String> completions = new ArrayList<>(Arrays.asList("r:", "i:", "e:", "a:kill"));
             return StringUtil.copyPartialMatches(argument2, completions, new ArrayList<>(completions.size()));
         }
-        else if (argument1.startsWith("r:") || argument1.startsWith("i:")) {
+        else if (argument1.startsWith("r:") || argument1.startsWith("i:") || argument1.startsWith("e:") || argument1.startsWith("a:")) {
             List<String> completions = new ArrayList<>(Arrays.asList("t:"));
             return StringUtil.copyPartialMatches(argument2, completions, new ArrayList<>(completions.size()));
         }

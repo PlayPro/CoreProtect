@@ -1,7 +1,5 @@
 package net.coreprotect.thread;
 
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -15,18 +13,18 @@ import net.coreprotect.utility.ErrorReporter;
 
 public class CacheHandler implements Runnable {
 
-    public static Map<String, Object[]> lookupCache = Collections.synchronizedMap(new HashMap<>());
-    public static Map<String, Object[]> breakCache = Collections.synchronizedMap(new HashMap<>());
-    public static Map<String, Object[]> interactCache = Collections.synchronizedMap(new HashMap<>());
-    public static Map<String, Object[]> entityCache = Collections.synchronizedMap(new HashMap<>());
-    public static ConcurrentHashMap<String, Object[]> pistonCache = new ConcurrentHashMap<>(16, 0.75f, 2);
-    public static ConcurrentHashMap<String, Object[]> spreadCache = new ConcurrentHashMap<>(16, 0.75f, 2);
-    public static ConcurrentHashMap<String, Object[]> containerDuplicateCache = new ConcurrentHashMap<>(16, 0.75f, 2);
-    public static ConcurrentHashMap<String, Object[]> flowDuplicateCache = new ConcurrentHashMap<>(16, 0.75f, 2);
-    public static ConcurrentHashMap<String, Object[]> bonemealDuplicateCache = new ConcurrentHashMap<>(16, 0.75f, 2);
-    public static ConcurrentHashMap<String, Object[]> entityKillDuplicateCache = new ConcurrentHashMap<>(16, 0.75f, 2);
-    public static ConcurrentHashMap<String, Object[]> redstoneCache = new ConcurrentHashMap<>(16, 0.75f, 2);
-    public static ConcurrentHashMap<String, Object[]> fallingBlockSpawnCache = new ConcurrentHashMap<>(16, 0.75f, 2);
+    public static Map<String, Object[]> lookupCache = new ConcurrentHashMap<>();
+    public static Map<String, Object[]> breakCache = new ConcurrentHashMap<>();
+    public static Map<String, Object[]> interactCache = new ConcurrentHashMap<>();
+    public static Map<String, Object[]> entityCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> pistonCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> spreadCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> containerDuplicateCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> flowDuplicateCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> bonemealDuplicateCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> entityKillDuplicateCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> redstoneCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> fallingBlockSpawnCache = new ConcurrentHashMap<>();
 
     private static volatile Thread thread;
 
@@ -156,25 +154,15 @@ public class CacheHandler implements Runnable {
                     }
 
                     int timestamp = (int) (System.currentTimeMillis() / 1000L) - scanTime;
-                    Iterator<Entry> iterator = cache.entrySet().iterator();
-                    while (iterator.hasNext()) {
+                    cache.values().removeIf(value -> {
                         try {
-                            Map.Entry entry = iterator.next();
-                            Object[] data = (Object[]) entry.getValue();
+                            Object[] data = (Object[]) value;
                             int time = (data[0] instanceof Long) ? (int) ((long) data[0] / 1000L) : (int) data[0];
-
-                            if (time < timestamp) {
-                                try {
-                                    iterator.remove();
-                                }
-                                catch (Exception e) {
-                                }
-                            }
+                            return time < timestamp;
+                        } catch (Exception e) {
+                            return true; // malformed entry
                         }
-                        catch (Exception e) {
-                            break;
-                        }
-                    }
+                    });
                 }
             }
             catch (InterruptedException e) {

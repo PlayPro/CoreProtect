@@ -17,14 +17,14 @@ public class CacheHandler implements Runnable {
     public static Map<String, Object[]> breakCache = new ConcurrentHashMap<>();
     public static Map<String, Object[]> interactCache = new ConcurrentHashMap<>();
     public static Map<String, Object[]> entityCache = new ConcurrentHashMap<>();
-    public static Map<String, Object[]> pistonCache = new ConcurrentHashMap<>();
-    public static Map<String, Object[]> spreadCache = new ConcurrentHashMap<>();
-    public static Map<String, Object[]> containerDuplicateCache = new ConcurrentHashMap<>();
-    public static Map<String, Object[]> flowDuplicateCache = new ConcurrentHashMap<>();
-    public static Map<String, Object[]> bonemealDuplicateCache = new ConcurrentHashMap<>();
-    public static Map<String, Object[]> entityKillDuplicateCache = new ConcurrentHashMap<>();
-    public static Map<String, Object[]> redstoneCache = new ConcurrentHashMap<>();
-    public static Map<String, Object[]> fallingBlockSpawnCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> pistonCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> spreadCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> containerDuplicateCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> flowDuplicateCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> bonemealDuplicateCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> entityKillDuplicateCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> redstoneCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> fallingBlockSpawnCache = new ConcurrentHashMap<>();
 
     private static volatile Thread thread;
 
@@ -62,7 +62,7 @@ public class CacheHandler implements Runnable {
         return world.getUID() + ":" + x + ":" + y + ":" + z;
     }
 
-    public static boolean shouldSuppressRepeat(Map<String, Object[]> cache, String cacheId, int threshold, int resetWindowSeconds) {
+    public static boolean shouldSuppressRepeat(ConcurrentHashMap<String, Object[]> cache, String cacheId, int threshold, int resetWindowSeconds) {
         if (cache == null || cacheId == null || cacheId.isEmpty() || threshold <= 0) {
             return false;
         }

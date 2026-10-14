@@ -130,11 +130,9 @@ public class Patch {
     }
 
     public static void processConsumer() {
-        boolean wasRunning = ConfigHandler.serverRunning;
         try {
             Chat.console(Phrase.build(Phrase.PATCH_PROCESSING));
-            ConfigHandler.serverRunning = true;
-            Consumer.isPaused = false;
+            Consumer.setMaintenancePaused(false);
             Thread.sleep(1000);
             while (Consumer.isPaused) {
                 Thread.sleep(500);
@@ -142,9 +140,6 @@ public class Patch {
         }
         catch (Exception e) {
             ErrorReporter.report(e);
-        }
-        finally {
-            ConfigHandler.serverRunning = wasRunning && ConfigHandler.serverRunning && !ConfigHandler.shutdownDrainRunning;
         }
     }
 
@@ -250,7 +245,7 @@ public class Patch {
                 }
 
                 ConfigHandler.converterRunning = true;
-                Consumer.isPaused = true;
+                Consumer.setMaintenancePaused(true);
                 final Integer[] oldVersion = lastVersion;
                 final Integer[] newVersionFinal = currentVersion;
                 class patchStatus implements Runnable {
@@ -290,7 +285,7 @@ public class Patch {
                                 Chat.console("-----");
                             }
                             else if (finished == 0) {
-                                Consumer.isPaused = false;
+                                Consumer.setMaintenancePaused(false);
                             }
                             else if (finished == -1) {
                                 processConsumer();

@@ -492,7 +492,7 @@ public class PurgeCommand extends Consumer {
                         Chat.sendGlobalMessage(player, Phrase.build(Phrase.DATABASE_BUSY));
                         return;
                     }
-                    Consumer.isPaused = true;
+                    Consumer.setMaintenancePaused(true);
                     consumerPaused = true;
                     requirePurgeNotCancelled();
 
@@ -948,7 +948,7 @@ public class PurgeCommand extends Consumer {
                         Consumer.unlockDatabaseMaintenance();
                     }
                     if (consumerPaused && resumePersistence && !Consumer.isPersistenceHalted()) {
-                        Consumer.isPaused = false;
+                        Consumer.setMaintenancePaused(false);
                     }
                     if (purgeClaimed) {
                         Consumer.releasePurge();

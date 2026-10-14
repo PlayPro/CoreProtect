@@ -147,6 +147,7 @@ public class Process {
         Map<Integer, Object> consumerObject = null;
         ConsumerWriteBatch writeBatch = null;
         Connection connection = null;
+        boolean pauseClaimed = false;
         boolean processingStarted = false;
         Object[] preparingEvent = null;
         boolean consumerDataCleared = false;
@@ -158,13 +159,16 @@ public class Process {
                 deferUnavailableColumnarDatabase(processId);
                 return;
             }
+            pauseClaimed = Consumer.tryClaimConsumerPause();
+            if (!pauseClaimed) {
+                return;
+            }
 
             Statement statement = connection.createStatement();
             ConsumerWriteBatch batch = Database.openConsumerWriteBatch(connection);
             writeBatch = batch;
             Database.performCheckpoint(statement, ConfigHandler.databaseType);
 
-            Consumer.isPaused = true;
             consumerData = Consumer.consumer.get(processId);
             users = Consumer.consumerUsers.get(processId);
             consumerObject = Consumer.consumerObjects.get(processId);
@@ -184,7 +188,6 @@ public class Process {
                 }
                 statement.close();
                 Consumer.consumer_id.put(processId, new Integer[] { 0, 0 });
-                Consumer.isPaused = false;
                 return;
             }
 
@@ -676,6 +679,9 @@ public class Process {
                     Database.reportDatabaseFailure(e);
                 }
             }
+            if (pauseClaimed) {
+                Consumer.releaseOperationPause();
+            }
         }
         TransactionOutcome cleanupOutcome = TransactionOutcome.RETRY;
         completeEntityInteractions(pendingEntityInteractions, pendingEntityIdentityConfirmations, invalidatedEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, cleanupOutcome);
@@ -684,7 +690,6 @@ public class Process {
         if (consumerDataCleared) {
             currentConsumerSize = 0;
             Consumer.consumer_id.put(processId, new Integer[] { 0, 0 });
-            Consumer.isPaused = false;
         }
         else if (!Consumer.isPersistenceHalted()) {
             deferConsumerRetry();
@@ -903,7 +908,6 @@ public class Process {
 
     private static void deferConsumerRetry() {
         currentConsumerSize = 0;
-        Consumer.isPaused = false;
     }
 
     static void retryConsumerBatch(int processId, ArrayList<Object[]> consumerData, Map<Integer, String[]> users, Map<Integer, Object> consumerObject, int processedThrough) {
@@ -919,7 +923,6 @@ public class Process {
         if (consumerData != null) {
             currentConsumerSize = consumerData.size();
         }
-        Consumer.isPaused = false;
     }
 
     static void failConsumerBatch(int processId, ArrayList<Object[]> consumerData, Map<Integer, String[]> users, Map<Integer, Object> consumerObject, int processedThrough, int discardThrough) {

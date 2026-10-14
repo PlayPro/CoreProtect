@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -37,6 +38,9 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
     }
 
     private static Thread consumerThread = null;
+    private static final Object pauseMonitor = new Object();
+    private static boolean operationPaused = false;
+    private static boolean maintenancePaused = false;
     private static final ReentrantReadWriteLock databaseLifecycle = new ReentrantReadWriteLock(true);
     private static final Object rollbackPurgeGate = new Object();
     private static long pendingRollbackPublications = 0;
@@ -117,6 +121,19 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         return 0;
     }
 
+    public static boolean hasPendingConsumerData() {
+        synchronized (consumer_id) {
+            for (int id = 0; id < 2; id++) {
+                Integer[] state = consumer_id.get(id);
+                ArrayList<Object[]> data = consumer.get(id);
+                if ((state != null && state[1] > 0) || (data != null && !data.isEmpty())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
     public static void initialize() {
         synchronized (rollbackPurgeGate) {
             persistenceHalted = false;
@@ -124,6 +141,12 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
             databaseReloadBlockedForShutdown = false;
             databaseReloadShutdownSignal.complete(null);
             databaseReloadShutdownSignal = new CompletableFuture<>();
+        }
+        synchronized (pauseMonitor) {
+            operationPaused = false;
+            maintenancePaused = false;
+            isPaused = false;
+            pauseMonitor.notifyAll();
         }
         databaseReloadPaused = false;
         databaseReloadRunning = false;
@@ -161,6 +184,47 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
 
     public static boolean isPersistenceHalted() {
         return persistenceHalted;
+    }
+
+    public static boolean claimLookupPause() throws InterruptedException {
+        synchronized (pauseMonitor) {
+            while (isPaused && !persistenceHalted) {
+                pauseMonitor.wait(1L);
+            }
+            if (persistenceHalted) {
+                return false;
+            }
+            operationPaused = true;
+            isPaused = true;
+            return true;
+        }
+    }
+
+    public static boolean tryClaimConsumerPause() {
+        synchronized (pauseMonitor) {
+            if (isPaused || persistenceHalted) {
+                return false;
+            }
+            operationPaused = true;
+            isPaused = true;
+            return true;
+        }
+    }
+
+    public static void releaseOperationPause() {
+        synchronized (pauseMonitor) {
+            operationPaused = false;
+            isPaused = maintenancePaused;
+            pauseMonitor.notifyAll();
+        }
+    }
+
+    public static void setMaintenancePaused(boolean paused) {
+        synchronized (pauseMonitor) {
+            maintenancePaused = paused;
+            isPaused = operationPaused || maintenancePaused;
+            pauseMonitor.notifyAll();
+        }
     }
 
     public static void lockDatabaseAccess() {
@@ -268,7 +332,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
                 if (resumePersistence) {
                     databaseReloadPaused = false;
                     if (!ConfigHandler.converterRunning) {
-                        isPaused = false;
+                        setMaintenancePaused(false);
                     }
                 }
                 databaseReloadRunning = false;
@@ -441,30 +505,53 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         }
     }
 
-    private static void pauseConsumer(int process_id) {
+    private static boolean isShutdownDrainStopped() {
+        return databaseReloadBlockedForShutdown && !ConfigHandler.shutdownDrainRunning;
+    }
+
+    private static boolean pauseConsumer(int process_id) throws InterruptedException {
         try {
-            while (Consumer.consumer_id.get(process_id)[1] > 0 || ((ConfigHandler.serverRunning || ConfigHandler.converterRunning || ConfigHandler.migrationRunning) && (Consumer.isPaused || ConfigHandler.pauseConsumer || ConfigHandler.purgeRunning))) {
+            while (Consumer.consumer_id.get(process_id)[1] > 0 || Consumer.isPaused
+                    || ((ConfigHandler.serverRunning || ConfigHandler.converterRunning || ConfigHandler.migrationRunning) && (ConfigHandler.pauseConsumer || ConfigHandler.purgeRunning))) {
+                if (persistenceHalted || isShutdownDrainStopped()) {
+                    return false;
+                }
                 pausedSuccess = true;
                 Thread.sleep(100);
             }
+            return !persistenceHalted && !isShutdownDrainStopped();
         }
-        catch (Exception e) {
-            ErrorReporter.report(e);
+        finally {
+            pausedSuccess = false;
         }
-        pausedSuccess = false;
+    }
+
+    private static boolean lockConsumerDatabase(Lock lock) throws InterruptedException {
+        while (!persistenceHalted && !isShutdownDrainStopped()) {
+            if (lock.tryLock(100L, TimeUnit.MILLISECONDS)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static void processConsumerBatch(int processId, boolean lastRun) throws InterruptedException {
         Lock databaseLock = databaseLifecycle.readLock();
-        databaseLock.lock();
+        if (!lockConsumerDatabase(databaseLock)) {
+            return;
+        }
         try {
             boolean exclusive = requiresEntityUuidMaintenance(processId);
             if (exclusive) {
                 databaseLock.unlock();
-                databaseLock = databaseLifecycle.writeLock();
-                databaseLock.lock();
+                databaseLock = null;
+                Lock writeLock = databaseLifecycle.writeLock();
+                if (!lockConsumerDatabase(writeLock)) {
+                    return;
+                }
+                databaseLock = writeLock;
             }
-            if (databaseReloadPaused || isPaused || persistenceHalted) {
+            if (databaseReloadPaused || isPaused || persistenceHalted || isShutdownDrainStopped()) {
                 return;
             }
             if (exclusive && !Database.awaitConnectionDrain(0L)) {
@@ -473,7 +560,9 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
             Process.processConsumer(processId, lastRun);
         }
         finally {
-            databaseLock.unlock();
+            if (databaseLock != null) {
+                databaseLock.unlock();
+            }
         }
     }
 
@@ -482,18 +571,20 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         boolean lastRun = false;
         boolean[] drained = { true, true };
 
-        while (ConfigHandler.serverRunning || ConfigHandler.converterRunning || !lastRun) {
+        while (!isShutdownDrainStopped()
+                && (ConfigHandler.serverRunning || ConfigHandler.converterRunning || !lastRun || hasPendingConsumerData())) {
             if (!ConfigHandler.serverRunning && !ConfigHandler.converterRunning) {
                 lastRun = true;
             }
             if (persistenceHalted) {
-                if (!lastRun) {
-                    if (databaseReloadBlockedForShutdown) {
-                        LockSupport.parkNanos(100_000_000L);
-                    }
-                    else {
-                        errorDelay();
-                    }
+                if (lastRun) {
+                    break;
+                }
+                if (databaseReloadBlockedForShutdown) {
+                    LockSupport.parkNanos(100_000_000L);
+                }
+                else {
+                    errorDelay();
                 }
                 continue;
             }
@@ -516,7 +607,9 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
                     }
                 }
                 Thread.sleep(consumerDelay(lastRun || !drained[0] || !drained[1]));
-                pauseConsumer(process_id);
+                if (!pauseConsumer(process_id)) {
+                    continue;
+                }
                 try {
                     processConsumerBatch(process_id, lastRun);
                 }
@@ -524,9 +617,15 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
                     drained[process_id] = getConsumerSize(process_id) == 0;
                 }
             }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
             catch (Exception e) {
                 ErrorReporter.report(e);
-                errorDelay();
+                if (ConfigHandler.serverRunning || ConfigHandler.converterRunning) {
+                    errorDelay();
+                }
             }
         }
     }

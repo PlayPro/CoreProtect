@@ -193,6 +193,7 @@ public class Process {
             boolean hasEntityContainerTransactions = false;
             boolean hasEntityInteractions = false;
             List<EntitySpawnData> entitySpawnUpdateData = new ArrayList<>();
+            List<Integer> entitySpawnUpdateIndexes = new ArrayList<>();
             Set<UUID> entityIdentityUuids = new HashSet<>();
             Set<Integer> entityIdentityRowIds = new HashSet<>();
             for (int index = 0; index < consumerDataSize; index++) {
@@ -236,6 +237,7 @@ public class Process {
                         continue;
                     }
                     entitySpawnUpdateData.add(spawnData);
+                    entitySpawnUpdateIndexes.add(index);
                     if (spawnData.getPreviousUuid() != null) {
                         entityIdentityUuids.add(spawnData.getPreviousUuid());
                     }
@@ -268,7 +270,6 @@ public class Process {
             entitySpawnUpdates = hasEntitySpawnUpdates ? writeBatch.entitySpawnUpdates() : null;
             if (entitySpawnUpdates != null) {
                 entitySpawnUpdates.prefetch(entitySpawnUpdateData);
-                entitySpawnUpdateData.clear();
             }
             processingStarted = true;
             for (int i = 0; i < consumerDataSize; i++) {
@@ -555,6 +556,19 @@ public class Process {
                                 if (!beginConsumerTransaction(writeBatch)) {
                                     retryConsumerBatch(processId, consumerData, users, consumerObject, processedThrough);
                                     return;
+                                }
+                                if (entitySpawnUpdates != null) {
+                                    int firstRemaining = 0;
+                                    while (firstRemaining < entitySpawnUpdateIndexes.size() && entitySpawnUpdateIndexes.get(firstRemaining) <= i) {
+                                        firstRemaining++;
+                                    }
+                                    if (firstRemaining > 0) {
+                                        entitySpawnUpdateIndexes.subList(0, firstRemaining).clear();
+                                        entitySpawnUpdateData.subList(0, firstRemaining).clear();
+                                    }
+                                    if (!entitySpawnUpdateData.isEmpty()) {
+                                        entitySpawnUpdates.prefetch(entitySpawnUpdateData);
+                                    }
                                 }
                             }
                         }

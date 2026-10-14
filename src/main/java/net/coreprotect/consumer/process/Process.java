@@ -562,8 +562,12 @@ public class Process {
                                     while (firstRemaining < entitySpawnUpdateIndexes.size() && entitySpawnUpdateIndexes.get(firstRemaining) <= i) {
                                         firstRemaining++;
                                     }
-                                    if (firstRemaining < entitySpawnUpdateData.size()) {
-                                        entitySpawnUpdates.prefetch(new ArrayList<>(entitySpawnUpdateData.subList(firstRemaining, entitySpawnUpdateData.size())));
+                                    if (firstRemaining > 0) {
+                                        entitySpawnUpdateIndexes.subList(0, firstRemaining).clear();
+                                        entitySpawnUpdateData.subList(0, firstRemaining).clear();
+                                    }
+                                    if (!entitySpawnUpdateData.isEmpty()) {
+                                        entitySpawnUpdates.prefetch(entitySpawnUpdateData);
                                     }
                                 }
                             }

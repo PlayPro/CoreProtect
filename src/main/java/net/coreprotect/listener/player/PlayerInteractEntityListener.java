@@ -16,7 +16,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.EquipmentSlot;
-import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.bukkit.BukkitAdapter;
@@ -47,7 +46,7 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
 
         Player player = event.getPlayer();
         final Entity entity = event.getRightClicked(); // change item in ItemFrame, etc
-        if (Boolean.TRUE.equals(ConfigHandler.inspecting.get(player.getName())) && EntitySpawnTracking.isPlacedEntity(entity) && entity instanceof InventoryHolder && Config.getConfig(player.getWorld()).ITEM_TRANSACTIONS) {
+        if (Boolean.TRUE.equals(ConfigHandler.inspecting.get(player.getName())) && InventoryChangeListener.isEntityContainer(entity) && Config.getConfig(player.getWorld()).ITEM_TRANSACTIONS) {
             String playerUuid = player.getUniqueId().toString();
             long now = System.currentTimeMillis();
             Object[] previousInspection = PlayerInteractListener.lastInspectorEvent.get(playerUuid);

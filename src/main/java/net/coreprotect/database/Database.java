@@ -812,7 +812,7 @@ public class Database extends Queue {
 
         // Art map
         index = ", INDEX(id)";
-        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "art_map(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,art varchar(255)" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
+        statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "art_map(rowid int NOT NULL AUTO_INCREMENT,PRIMARY KEY(rowid),id int,art TEXT" + index + ") ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4");
 
         // Block
         index = ", INDEX(wid,x,z,time), INDEX(user,time), INDEX(type,time)";

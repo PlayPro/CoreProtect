@@ -376,11 +376,31 @@ public class __2_25_1 {
         statement.executeUpdate(alterQuery);
     }
 
+    private static void widenMySQLArt(Statement statement) throws SQLException {
+        String table = ConfigHandler.prefix + "art_map";
+        String type;
+        try (ResultSet columns = statement.executeQuery("SHOW COLUMNS FROM " + table + " LIKE 'art'")) {
+            if (!columns.next()) {
+                throw new SQLException("Missing MySQL column " + table + ".art");
+            }
+            type = columns.getString("Type");
+        }
+        String normalizedType = type == null ? "" : type.toLowerCase(Locale.ROOT);
+        if (normalizedType.equals("text") || normalizedType.equals("mediumtext") || normalizedType.equals("longtext")) {
+            return;
+        }
+        if (!normalizedType.startsWith("varchar(") && !normalizedType.startsWith("char(") && !normalizedType.equals("tinytext")) {
+            throw new SQLException("Unsupported MySQL " + table + ".art type: " + type);
+        }
+        statement.executeUpdate("ALTER TABLE " + table + " MODIFY art TEXT");
+    }
+
     protected static boolean patch(Statement statement) {
         try {
             if (Config.getGlobal().MYSQL) {
                 statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign MODIFY line_1 TEXT, MODIFY line_2 TEXT, MODIFY line_3 TEXT, MODIFY line_4 TEXT, MODIFY line_5 TEXT, MODIFY line_6 TEXT, MODIFY line_7 TEXT, MODIFY line_8 TEXT");
                 widenMySQLBlockMetadata(statement);
+                widenMySQLArt(statement);
             }
             addSignRollbackColumn(statement, Config.getGlobal().MYSQL ? DatabaseType.MYSQL : DatabaseType.SQLITE);
             return true;

@@ -14,6 +14,14 @@ import net.coreprotect.utility.ErrorReporter;
 
 public class __2_24_0 {
 
+    protected static boolean patchClickHouse(Statement statement) {
+        return true;
+    }
+
+    protected static boolean patchDuckDB(Statement statement) {
+        return true;
+    }
+
     protected static boolean patch(Statement statement) {
         try {
             if (Config.getGlobal().MYSQL) {

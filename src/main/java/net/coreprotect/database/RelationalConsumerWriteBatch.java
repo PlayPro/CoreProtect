@@ -609,7 +609,8 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     }
 
     private PreparedStatement entitySpawnStatement() throws SQLException {
-        if (entitySpawnStatement == null) {
+        // DuckDB closes the prepared statement after a constraint violation.
+        if (entitySpawnStatement == null || (databaseType.isDuckDB() && entitySpawnStatement.isClosed())) {
             String sql = "INSERT INTO " + ConfigHandler.prefix + "entity_spawn (time,block_rowid,kill_rowid,uuid,wid,current_wid,origin_x,origin_y,origin_z,x,y,z,yaw,pitch,data,removed) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
             entitySpawnStatement = own(prepare(sql, true));
         }

@@ -1102,20 +1102,28 @@ public final class EntitySpawnTracking {
             return;
         }
 
-        if (state.size() > 0) {
-            entity.setCustomName((String) state.get(0));
-        }
+        entity.setCustomName((String) state.get(0));
         if (state.size() > 1 && state.get(1) instanceof Boolean) {
             entity.setCustomNameVisible((Boolean) state.get(1));
         }
-        if (entity instanceof Boat && state.size() > 2 && state.get(2) instanceof String) {
+        restoreVariantState(entity, state);
+        restoreInventoryState(entity, state);
+        restoreEquipmentState(entity, state);
+        restoreRotationState(entity, state);
+    }
+
+    private static void restoreVariantState(Entity entity, List<Object> state) {
+        if (state.size() <= 2 || !(state.get(2) instanceof String)) {
+            return;
+        }
+        if (entity instanceof Boat) {
             try {
                 ((Boat) entity).setWoodType(TreeSpecies.valueOf((String) state.get(2)));
             }
             catch (Exception ignored) {
             }
         }
-        else if (isCushion(entity) && state.size() > 2 && state.get(2) instanceof String) {
+        else if (isCushion(entity)) {
             DyeColor color = DyeColor.valueOf((String) state.get(2));
             if (entity instanceof Colorable) {
                 ((Colorable) entity).setColor(color);
@@ -1124,7 +1132,9 @@ public final class EntitySpawnTracking {
                 SpigotAdapter.ADAPTER.setCushionColor(entity, color);
             }
         }
-        restoreInventoryState(entity, state);
+    }
+
+    private static void restoreEquipmentState(Entity entity, List<Object> state) {
         if (entity instanceof LivingEntity && state.size() > 4 && state.get(4) instanceof List<?>) {
             EntityEquipment equipment = ((LivingEntity) entity).getEquipment();
             List<?> equipmentData = (List<?>) state.get(4);
@@ -1137,6 +1147,9 @@ public final class EntitySpawnTracking {
                 equipment.setHelmet(getItem(equipmentData, 5));
             }
         }
+    }
+
+    private static void restoreRotationState(Entity entity, List<Object> state) {
         if (isCushion(entity) && state.size() > 5 && state.get(5) instanceof List<?>) {
             List<?> rotation = (List<?>) state.get(5);
             if (rotation.size() == 2 && rotation.get(0) instanceof Number && rotation.get(1) instanceof Number) {

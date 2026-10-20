@@ -1124,15 +1124,7 @@ public final class EntitySpawnTracking {
                 SpigotAdapter.ADAPTER.setCushionColor(entity, color);
             }
         }
-        if (entity instanceof InventoryHolder && state.size() > 3 && state.get(3) instanceof List<?>) {
-            Inventory inventory = ((InventoryHolder) entity).getInventory();
-            List<?> inventoryData = (List<?>) state.get(3);
-            ItemStack[] contents = new ItemStack[HorseContainerUtils.isHorseContainer(entity.getType()) ? inventoryData.size() : inventory.getSize()];
-            for (int slot = 0; slot < contents.length && slot < inventoryData.size(); slot++) {
-                contents[slot] = deserializeItem(inventoryData.get(slot));
-            }
-            HorseContainerUtils.setContents(entity, HorseContainerUtils.normalizeContents(entity.getType(), contents));
-        }
+        restoreInventoryState(entity, state);
         if (entity instanceof LivingEntity && state.size() > 4 && state.get(4) instanceof List<?>) {
             EntityEquipment equipment = ((LivingEntity) entity).getEquipment();
             List<?> equipmentData = (List<?>) state.get(4);
@@ -1150,6 +1142,23 @@ public final class EntitySpawnTracking {
             if (rotation.size() == 2 && rotation.get(0) instanceof Number && rotation.get(1) instanceof Number) {
                 entity.setRotation(((Number) rotation.get(0)).floatValue(), ((Number) rotation.get(1)).floatValue());
             }
+        }
+    }
+
+    private static void restoreInventoryState(Entity entity, List<Object> state) {
+        if (!(entity instanceof InventoryHolder)) {
+            return;
+        }
+        ItemStack[] contents = deserializeInventoryState(state);
+        if (contents == null) {
+            return;
+        }
+        if (HorseContainerUtils.isHorseContainer(entity.getType())) {
+            HorseContainerUtils.setContents(entity, HorseContainerUtils.normalizeContents(entity.getType(), contents));
+        }
+        else {
+            Inventory inventory = ((InventoryHolder) entity).getInventory();
+            inventory.setContents(Arrays.copyOf(contents, inventory.getSize()));
         }
     }
 

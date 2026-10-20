@@ -43,6 +43,7 @@ import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.HorseContainerUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
@@ -899,7 +900,7 @@ public final class EntitySpawnRollbackHandler {
             }
 
             Inventory inventory = ((InventoryHolder) entity).getInventory();
-            work.initializeTransactionContents(inventory);
+            work.initializeTransactionContents(entity, inventory);
             applyTransactionStep(context, work, entity, inventory, completion);
         }
         catch (Exception e) {
@@ -937,12 +938,12 @@ public final class EntitySpawnRollbackHandler {
         }
 
         Inventory inventory = ((InventoryHolder) entity).getInventory();
-        ItemStack[] currentContents = inventory.getContents();
+        ItemStack[] currentContents = HorseContainerUtils.getContents(entity, inventory.getContents());
         if (currentContents.length != work.originalTransactionContents.length || inventory.getMaxStackSize() != work.inventoryMaxStackSize || !ItemUtils.compareContainers(work.originalTransactionContents, currentContents)) {
             context.reportFailure("Restored entity inventory does not match its recorded contents, size, or stack limit", work);
             return false;
         }
-        inventory.setContents(ItemUtils.getContainerState(work.transactionContents));
+        HorseContainerUtils.setContents(entity, work.transactionContents);
         work.transactionContentsApplied = true;
         return true;
     }
@@ -969,14 +970,14 @@ public final class EntitySpawnRollbackHandler {
                 scheduleTransactionContinuation(context, work, entity, inventory, completion);
                 return;
             }
-            if (context.isCancelled() || !entity.isValid() || !ItemUtils.compareContainers(work.originalTransactionContents, inventory.getContents())) {
+            if (context.isCancelled() || !entity.isValid() || !ItemUtils.compareContainers(work.originalTransactionContents, HorseContainerUtils.getContents(entity, inventory.getContents()))) {
                 if (!context.isCancelled()) {
                     context.reportFailure("Entity became invalid or its inventory changed during replay", work);
                 }
                 completion.complete(false);
                 return;
             }
-            inventory.setContents(ItemUtils.getContainerState(work.transactionContents));
+            HorseContainerUtils.setContents(entity, work.transactionContents);
             work.transactionContentsApplied = true;
             completion.complete(true);
         }
@@ -1147,12 +1148,8 @@ public final class EntitySpawnRollbackHandler {
         return true;
     }
 
-    private static boolean isHorseContainer(EntityType type) {
-        return type == EntityType.DONKEY || type == EntityType.MULE || type == EntityType.LLAMA || type == EntityType.TRADER_LLAMA;
-    }
-
     private static boolean acceptsTransactionItem(EntityType type, int slot, Material material) {
-        if (!isHorseContainer(type) || slot >= 2) {
+        if (!HorseContainerUtils.isHorseContainer(type) || slot >= 2) {
             return true;
         }
         if (slot == 0) {
@@ -1163,7 +1160,7 @@ public final class EntitySpawnRollbackHandler {
     }
 
     private static int transactionSlotLimit(EntityType type, int slot, int storageLimit) {
-        return isHorseContainer(type) && slot < 2 ? 1 : storageLimit;
+        return HorseContainerUtils.isHorseContainer(type) && slot < 2 ? 1 : storageLimit;
     }
 
     private static void scheduleTransactionStart(Context context, Work work, Entity entity, CompletableFuture<Boolean> completion) {
@@ -1893,15 +1890,14 @@ public final class EntitySpawnRollbackHandler {
             return result;
         }
 
-        private void initializeTransactionContents(Inventory inventory) {
+        private void initializeTransactionContents(Entity entity, Inventory inventory) {
             if (transactionContents != null) {
                 return;
             }
-            originalTransactionContents = ItemUtils.getContainerState(inventory.getContents());
+            originalTransactionContents = HorseContainerUtils.getContents(entity, inventory.getContents());
             transactionContents = ItemUtils.getContainerState(originalTransactionContents);
             inventoryMaxStackSize = inventory.getMaxStackSize();
-            InventoryHolder holder = inventory.getHolder();
-            transactionEntityType = holder instanceof Entity ? ((Entity) holder).getType() : null;
+            transactionEntityType = entity.getType();
         }
 
         private boolean initializeCreatedTransactionContents() {
@@ -1923,8 +1919,8 @@ public final class EntitySpawnRollbackHandler {
             if (contents == null) {
                 return false;
             }
-            originalTransactionContents = ItemUtils.getContainerState(contents);
-            transactionContents = ItemUtils.getContainerState(contents);
+            originalTransactionContents = HorseContainerUtils.normalizeContents(type, contents);
+            transactionContents = ItemUtils.getContainerState(originalTransactionContents);
             inventoryMaxStackSize = DEFAULT_INVENTORY_MAX_STACK_SIZE;
             transactionEntityType = type;
             return true;

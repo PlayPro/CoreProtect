@@ -1010,7 +1010,7 @@ public final class EntitySpawnTracking {
         if (entity instanceof InventoryHolder) {
             Inventory inventory = ((InventoryHolder) entity).getInventory();
             inventoryData = new ArrayList<>(inventory.getSize());
-            for (ItemStack item : inventory.getContents()) {
+            for (ItemStack item : HorseContainerUtils.getContents(entity, inventory.getContents())) {
                 inventoryData.add(serializeItem(item));
             }
         }
@@ -1127,11 +1127,11 @@ public final class EntitySpawnTracking {
         if (entity instanceof InventoryHolder && state.size() > 3 && state.get(3) instanceof List<?>) {
             Inventory inventory = ((InventoryHolder) entity).getInventory();
             List<?> inventoryData = (List<?>) state.get(3);
-            ItemStack[] contents = new ItemStack[inventory.getSize()];
+            ItemStack[] contents = new ItemStack[HorseContainerUtils.isHorseContainer(entity.getType()) ? inventoryData.size() : inventory.getSize()];
             for (int slot = 0; slot < contents.length && slot < inventoryData.size(); slot++) {
                 contents[slot] = deserializeItem(inventoryData.get(slot));
             }
-            inventory.setContents(contents);
+            HorseContainerUtils.setContents(entity, HorseContainerUtils.normalizeContents(entity.getType(), contents));
         }
         if (entity instanceof LivingEntity && state.size() > 4 && state.get(4) instanceof List<?>) {
             EntityEquipment equipment = ((LivingEntity) entity).getEquipment();

@@ -48,6 +48,7 @@ import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.HopperTransactionUtils;
+import net.coreprotect.utility.HorseContainerUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.Validate;
 import us.lynuxcraft.deadsilenceiv.advancedchests.AdvancedChestsAPI;
@@ -368,6 +369,8 @@ public final class InventoryChangeListener extends Queue implements Listener {
             return;
         }
 
+        currentContents = HorseContainerUtils.getContents(entity, currentContents);
+
         PendingEntityContainerTransaction pending;
         synchronized (pendingEntityTransactions) {
             pending = pendingEntityTransactions.get(entity.getUniqueId());
@@ -390,7 +393,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
             return;
         }
 
-        ItemStack[] oldContents = inventory.getContents();
+        ItemStack[] oldContents = HorseContainerUtils.getContents(entity, inventory.getContents());
         PendingEntityContainerTransaction previous = null;
         Object scheduleToken = null;
         synchronized (pendingEntityTransactions) {
@@ -517,9 +520,15 @@ public final class InventoryChangeListener extends Queue implements Listener {
         if (event.isCancelled() || !(event.getWhoClicked() instanceof Player)) {
             return;
         }
+        Inventory inventory = event.getInventory();
+        Entity entity = getEntityContainer(PaperAdapter.ADAPTER.getHolder(inventory, false));
+        if (!(entity instanceof ChestedHorse)) {
+            return;
+        }
+        int viewSize = HorseContainerUtils.getViewSize(inventory);
         for (Integer slot : event.getRawSlots()) {
-            if (slot < event.getInventory().getSize()) {
-                captureHorseTransaction((Player) event.getWhoClicked(), event.getInventory());
+            if (slot >= 0 && slot < viewSize) {
+                captureEntityContainerTransaction(event.getWhoClicked().getName(), entity, inventory);
                 return;
             }
         }

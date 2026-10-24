@@ -20,4 +20,4 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
       - name: Build
-        run: mvn -B verify
+        run: mvn -B -DskipTests=false verify

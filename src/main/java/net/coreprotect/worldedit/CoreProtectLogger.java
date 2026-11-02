@@ -56,8 +56,9 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
             return eventExtent.setBlock(position, block);
         }
 
-        Material oldType = BukkitAdapter.adapt(oldBlock.getBlockType());
-        BlockData oldBlockData = BukkitAdapter.adapt(oldBlock);
+        BlockStateConversion oldConversion = BlockStateConversion.of(oldBlock);
+        Material oldType = oldConversion.getMaterial();
+        BlockData oldBlockData = oldConversion.createBlockData();
         Location location = new Location(world, position.getBlockX(), position.getBlockY(), position.getBlockZ());
         BaseBlock baseBlock = WorldEditLogger.needsBaseBlock(oldType, config) ? eventExtent.getFullBlock(position) : null;
         // Reads below this stage reach the live world, so capture the other half before setBlock or its physics can change it
@@ -69,7 +70,8 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
         ItemStack[] containerData = !CoreProtectEditSessionEvent.isFAWE() && config.ITEM_TRANSACTIONS && BlockGroup.CONTAINERS.contains(oldType) ? ItemUtils.getContainerContents(oldType, null, location) : null;
 
         if (eventExtent.setBlock(position, block)) {
-            WorldEditLogger.postProcess(eventExtent, eventActor, position, location, block, baseBlock, oldType, oldBlockData, containerData, otherHalf);
+            BlockStateConversion newConversion = BlockStateConversion.of(block.toImmutableState());
+            WorldEditLogger.postProcess(eventActor, location, baseBlock, oldType, oldBlockData, oldConversion.getDataString(), newConversion.getMaterial(), newConversion.createBlockData(), newConversion.getDataString(), containerData, true, otherHalf);
             return true;
         }
 

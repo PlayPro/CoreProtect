@@ -21,13 +21,11 @@ import org.json.simple.parser.JSONParser;
 
 import com.sk89q.jnbt.CompoundTag;
 import com.sk89q.jnbt.NBTUtils;
-import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.bukkit.WorldEditPlugin;
 import com.sk89q.worldedit.extension.platform.Actor;
 import com.sk89q.worldedit.extent.Extent;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.world.block.BaseBlock;
-import com.sk89q.worldedit.world.block.BlockStateHolder;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
@@ -79,33 +77,22 @@ public class WorldEditLogger extends Queue {
             return null;
         }
 
-        BlockData otherData = BukkitAdapter.adapt(extent.getBlock(position.add(0, offset, 0)));
-        if (!isOtherHalf(blockData, otherData)) {
+        BlockStateConversion other = BlockStateConversion.of(extent.getBlock(position.add(0, offset, 0)));
+        if (!isOtherHalf(blockData, other.getTemplate())) {
             return null;
         }
 
         Location otherLocation = location.clone();
         otherLocation.setY(otherY);
-        return new WorldEditBlockState(otherLocation, otherData.getMaterial(), otherData);
-    }
-
-    protected static void postProcess(Extent extent, Actor actor, BlockVector3 position, Location location, BlockStateHolder<?> blockStateHolder, BaseBlock baseBlock, Material oldType, BlockData oldBlockData, ItemStack[] containerContents, BlockState otherHalf) {
-        postProcess(extent, actor, position, location, blockStateHolder, baseBlock, oldType, oldBlockData, containerContents, true, otherHalf);
+        return new WorldEditBlockState(otherLocation, other.getMaterial(), other.createBlockData());
     }
 
     /**
-     * @param otherHalf The matching other half of a double block as it was before this edit changed it, or null. Callers that do not log block physics only supply the lower half of a top half.
-     */
-    protected static void postProcess(Extent extent, Actor actor, BlockVector3 position, Location location, BlockStateHolder<?> blockStateHolder, BaseBlock baseBlock, Material oldType, BlockData oldBlockData, ItemStack[] containerContents, boolean logBlockPhysics, BlockState otherHalf) {
-        BlockData newBlockData = BukkitAdapter.adapt(blockStateHolder.toImmutableState());
-        postProcess(actor, location, baseBlock, oldType, oldBlockData, oldBlockData.getAsString(), newBlockData.getMaterial(), newBlockData, newBlockData.getAsString(), containerContents, logBlockPhysics, otherHalf);
-    }
-
-    /**
-     * Same as above, with the Bukkit data already converted through BlockStateConversion.
+     * The loggers pass Bukkit data already converted through BlockStateConversion.
      *
      * @param oldBlockData A fresh instance owned by this call, since it may be modified
      * @param newBlockData A fresh instance owned by this call, since it may be modified
+     * @param otherHalf The matching other half of a double block as it was before this edit changed it, or null. Callers that do not log block physics only supply the lower half of a top half.
      */
     protected static void postProcess(Actor actor, Location location, BaseBlock baseBlock, Material oldType, BlockData oldBlockData, String oldBlockDataString, Material newType, BlockData newBlockData, String newBlockDataString, ItemStack[] containerContents, boolean logBlockPhysics, BlockState otherHalf) {
         if (!oldType.equals(newType) || !oldBlockDataString.equals(newBlockDataString)) {

@@ -12,7 +12,6 @@ import com.fastasyncworldedit.core.queue.IChunkSet;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.extension.platform.Actor;
 import com.sk89q.worldedit.extent.Extent;
-import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.world.World;
 import com.sk89q.worldedit.world.block.BaseBlock;
 import com.sk89q.worldedit.world.block.BlockState;
@@ -25,13 +24,11 @@ final class FastAsyncWorldEditLogger implements IBatchProcessor {
     private static final ProcessorScope SCOPE = resolveScope();
     private final Actor actor;
     private final World eventWorld;
-    private final Extent extent;
     private final org.bukkit.World world;
 
     FastAsyncWorldEditLogger(Actor actor, World world, Extent extent) {
         this.actor = actor;
         this.eventWorld = world;
-        this.extent = extent;
         this.world = BukkitAdapter.adapt(world);
     }
 
@@ -72,15 +69,14 @@ final class FastAsyncWorldEditLogger implements IBatchProcessor {
                 int x = index & 15;
                 int y = (layer << 4) + (index >> 8);
                 int z = (index >> 4) & 15;
-                BlockState oldBlock = BlockState.getFromOrdinal(oldOrdinal);
-                BlockState newBlock = BlockState.getFromOrdinal(newOrdinal);
-                Material oldType = BukkitAdapter.adapt(oldBlock.getBlockType());
-                BlockData oldBlockData = BukkitAdapter.adapt(oldBlock);
-                BlockVector3 position = BlockVector3.at(chunkX + x, y, chunkZ + z);
+                BlockStateConversion oldConversion = conversion(oldOrdinal);
+                BlockStateConversion newConversion = conversion(newOrdinal);
+                Material oldType = oldConversion.getMaterial();
+                BlockData oldBlockData = oldConversion.createBlockData();
                 Location location = new Location(world, chunkX + x, y, chunkZ + z);
                 BaseBlock baseBlock = WorldEditLogger.needsBaseBlock(oldType, config) ? get.getFullBlock(x, y, z) : null;
                 org.bukkit.block.BlockState lowerHalf = WorldEditLogger.isLoggedTopHalf(oldType, oldBlockData) ? getLowerHalf(get, set, x, y, z, chunkX + x, chunkZ + z, oldBlockData) : null;
-                WorldEditLogger.postProcess(extent, actor, position, location, newBlock, baseBlock, oldType, oldBlockData, null, false, lowerHalf);
+                WorldEditLogger.postProcess(actor, location, baseBlock, oldType, oldBlockData, oldConversion.getDataString(), newConversion.getMaterial(), newConversion.createBlockData(), newConversion.getDataString(), null, false, lowerHalf);
             }
         }
         return set;
@@ -108,12 +104,28 @@ final class FastAsyncWorldEditLogger implements IBatchProcessor {
             return null;
         }
 
-        BlockData blockData = BukkitAdapter.adapt(BlockState.getFromOrdinal(ordinal));
-        if (!WorldEditLogger.isOtherHalf(topHalf, blockData)) {
+        BlockStateConversion conversion = conversion(ordinal);
+        if (!WorldEditLogger.isOtherHalf(topHalf, conversion.getTemplate())) {
             return null;
         }
 
-        return new WorldEditBlockState(new Location(world, worldX, lowerY, worldZ), blockData.getMaterial(), blockData);
+        return new WorldEditBlockState(new Location(world, worldX, lowerY, worldZ), conversion.getMaterial(), conversion.createBlockData());
+    }
+
+    /*
+     * BlockStateConversion indexed by FAWE block state ordinal, which avoids hashing the state for every changed block.
+     * FAWE runs this processor on several threads. A plain array is safe because every field of BlockStateConversion
+     * is final, and concurrent writers store equivalent conversions, so a lost race only repeats the work.
+     */
+    private static final BlockStateConversion[] CONVERSIONS = new BlockStateConversion[BlockTypesCache.states.length];
+
+    private static BlockStateConversion conversion(int ordinal) {
+        BlockStateConversion conversion = CONVERSIONS[ordinal];
+        if (conversion == null) {
+            conversion = BlockStateConversion.of(BlockState.getFromOrdinal(ordinal));
+            CONVERSIONS[ordinal] = conversion;
+        }
+        return conversion;
     }
 
     @Override

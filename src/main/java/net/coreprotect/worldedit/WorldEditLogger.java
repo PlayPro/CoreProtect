@@ -98,11 +98,16 @@ public class WorldEditLogger extends Queue {
      */
     protected static void postProcess(Extent extent, Actor actor, BlockVector3 position, Location location, BlockStateHolder<?> blockStateHolder, BaseBlock baseBlock, Material oldType, BlockData oldBlockData, ItemStack[] containerContents, boolean logBlockPhysics, BlockState otherHalf) {
         BlockData newBlockData = BukkitAdapter.adapt(blockStateHolder.toImmutableState());
-        Material newType = newBlockData.getMaterial();
+        postProcess(actor, location, baseBlock, oldType, oldBlockData, oldBlockData.getAsString(), newBlockData.getMaterial(), newBlockData, newBlockData.getAsString(), containerContents, logBlockPhysics, otherHalf);
+    }
 
-        String oldBlockDataString = oldBlockData.getAsString();
-        String newBlockDataString = newBlockData.getAsString();
-
+    /**
+     * Same as above, with the Bukkit data already converted through BlockStateConversion.
+     *
+     * @param oldBlockData A fresh instance owned by this call, since it may be modified
+     * @param newBlockData A fresh instance owned by this call, since it may be modified
+     */
+    protected static void postProcess(Actor actor, Location location, BaseBlock baseBlock, Material oldType, BlockData oldBlockData, String oldBlockDataString, Material newType, BlockData newBlockData, String newBlockDataString, ItemStack[] containerContents, boolean logBlockPhysics, BlockState otherHalf) {
         if (!oldType.equals(newType) || !oldBlockDataString.equals(newBlockDataString)) {
             BlockState oldBlock = new WorldEditBlockState(location, oldType, oldBlockData);
             BlockState newBlock = new WorldEditBlockState(location, newType, newBlockData);

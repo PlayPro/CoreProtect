@@ -77,6 +77,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
 
     @Override
     public void begin() throws Exception {
+        clearProcessedEntityRemovals();
         commitAttempted = false;
         if (databaseType.isDuckDB()) {
             duckDBSpatialIndex = DuckDBSpatialIndex.begin(connection, ConfigHandler.prefix);
@@ -86,6 +87,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
 
     @Override
     public boolean commit() throws Exception {
+        clearProcessedEntityRemovals();
         commitAttempted = false;
         try {
             finishDuckDBBlockAppender();
@@ -127,6 +129,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
 
     @Override
     public void rollback() {
+        clearProcessedEntityRemovals();
         try {
             finishDuckDBBlockAppender();
         }
@@ -561,6 +564,12 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
             entitySpawnUpdates = new EntitySpawnStatement.Updates(connection, this, databaseType);
         }
         return entitySpawnUpdates;
+    }
+
+    private void clearProcessedEntityRemovals() {
+        if (entitySpawnUpdates != null) {
+            entitySpawnUpdates.clearProcessedRemovals();
+        }
     }
 
     @Override

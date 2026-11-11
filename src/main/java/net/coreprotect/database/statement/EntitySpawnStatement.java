@@ -388,6 +388,7 @@ public final class EntitySpawnStatement {
         private final PreparedStatement blockStateMatches;
         private final Statement transitionStatement;
         private final EntitySpawnUpdateCoordinator coordinator = new EntitySpawnUpdateCoordinator();
+        private final Set<UUID> processedRemovals = new HashSet<>();
         private final DatabaseType databaseType;
 
         public Updates(Connection connection) throws Exception {
@@ -422,6 +423,9 @@ public final class EntitySpawnStatement {
         public EntitySpawnIdentity apply(EntitySpawnData data) {
             if (!coordinator.begin(data)) {
                 return null;
+            }
+            if (data.getOperation() != EntitySpawnData.Operation.REMOVED) {
+                clearProcessedRemovals();
             }
             EntitySpawnIdentity createdIdentity = null;
             try {
@@ -495,12 +499,14 @@ public final class EntitySpawnStatement {
             }
             catch (Exception e) {
                 coordinator.failed(data);
+                clearProcessedRemovals();
                 Database.handleWriteFailure(e);
             }
             return createdIdentity;
         }
 
         public void applyCombined(EntityContainerRollbackUpdate update, Database.SavepointOperation rowUpdate) {
+            clearProcessedRemovals();
             EntitySpawnData data = update.getTransition();
             int trackingRowId = data.getTrackingRowId();
             coordinator.beginCombined(update);
@@ -524,6 +530,7 @@ public final class EntitySpawnStatement {
         }
 
         public void identityFound(UUID uuid) {
+            clearProcessedRemovals();
             coordinator.entityFound(uuid);
         }
 
@@ -634,17 +641,25 @@ public final class EntitySpawnStatement {
         private EntitySpawnIdentity remove(EntitySpawnData data) throws Exception {
             setLocation(removed, data.getLocation(), 1);
             removed.setString(7, data.getUuid().toString());
+            boolean cacheRemoval = batch != null && databaseType.isDuckDB() && !identity.getConnection().getAutoCommit();
+            if (cacheRemoval && processedRemovals.contains(data.getUuid())) {
+                return null;
+            }
             int updated = removed.executeUpdate();
             if (updated > 1) {
                 throw new SQLException("Entity removal matched multiple active tracking rows: " + data.getUuid());
             }
-            if (updated == 1 || loadIdentity(data.getUuid()) != null) {
-                return null;
+            EntitySpawnIdentity createdIdentity = null;
+            if (updated != 1 && loadIdentity(data.getUuid()) == null) {
+                if (batch == null) {
+                    throw new SQLException("Entity removal cannot create a terminal tracking row without a consumer write batch");
+                }
+                createdIdentity = insertTerminalIdentity(batch, data);
             }
-            if (batch == null) {
-                throw new SQLException("Entity removal cannot create a terminal tracking row without a consumer write batch");
+            if (cacheRemoval) {
+                processedRemovals.add(data.getUuid());
             }
-            return insertTerminalIdentity(batch, data);
+            return createdIdentity;
         }
 
         private void updateBlockState(long blockRowId, int rolledBack, int action) throws Exception {
@@ -737,16 +752,23 @@ public final class EntitySpawnStatement {
         }
 
         public void afterCommit(boolean committed) {
+            clearProcessedRemovals();
             coordinator.afterCommit(committed);
         }
 
         @Override
         public void afterRetain() {
+            clearProcessedRemovals();
             coordinator.afterRetain();
         }
 
         public void afterDiscard() {
+            clearProcessedRemovals();
             coordinator.afterDiscard();
+        }
+
+        public void clearProcessedRemovals() {
+            processedRemovals.clear();
         }
 
         @Override

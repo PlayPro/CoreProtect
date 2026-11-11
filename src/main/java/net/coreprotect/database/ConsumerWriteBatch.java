@@ -22,6 +22,10 @@ public interface ConsumerWriteBatch extends AutoCloseable {
         return true;
     }
 
+    default Throwable getCommitFailure() {
+        return null;
+    }
+
     default boolean shouldCommit() {
         return false;
     }

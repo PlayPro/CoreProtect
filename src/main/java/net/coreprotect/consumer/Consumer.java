@@ -1,5 +1,6 @@
 package net.coreprotect.consumer;
 
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -10,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.LockSupport;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.bukkit.Bukkit;
@@ -42,6 +44,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
     private static boolean operationPaused = false;
     private static boolean maintenancePaused = false;
     private static final ReentrantReadWriteLock databaseLifecycle = new ReentrantReadWriteLock(true);
+    private static final ReentrantLock entityUuidAdmission = new ReentrantLock(true);
     private static final Object rollbackPurgeGate = new Object();
     private static long pendingRollbackPublications = 0;
     private static volatile boolean backgroundPurgeRunning = false;
@@ -229,10 +232,58 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
 
     public static void lockDatabaseAccess() {
         databaseLifecycle.readLock().lock();
+        if (ConfigHandler.databaseType.isDuckDB()) {
+            entityUuidAdmission.lock();
+        }
     }
 
     public static void unlockDatabaseAccess() {
+        if (ConfigHandler.databaseType.isDuckDB()) {
+            entityUuidAdmission.unlock();
+        }
         databaseLifecycle.readLock().unlock();
+    }
+
+    public static boolean beginEntityUuidMaintenance(Connection connection) throws InterruptedException {
+        if (!ConfigHandler.databaseType.isDuckDB()) {
+            return true;
+        }
+        if (databaseReloadPaused || persistenceHalted || isShutdownDrainStopped()) {
+            return false;
+        }
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(1L);
+        Lock readLock = databaseLifecycle.readLock();
+        if (!readLock.tryLock(1L, TimeUnit.SECONDS)) {
+            return false;
+        }
+        boolean admissionHeld = false;
+        boolean acquired = false;
+        try {
+            long remaining = Math.max(0L, deadline - System.nanoTime());
+            admissionHeld = entityUuidAdmission.tryLock(remaining, TimeUnit.NANOSECONDS);
+            if (!admissionHeld || databaseReloadPaused || persistenceHalted || isShutdownDrainStopped()) {
+                return false;
+            }
+            remaining = Math.max(0L, deadline - System.nanoTime());
+            acquired = Database.awaitConnectionDrain(connection, TimeUnit.NANOSECONDS.toMillis(remaining))
+                    && !databaseReloadPaused && !persistenceHalted && !isShutdownDrainStopped();
+            return acquired;
+        }
+        finally {
+            if (!acquired) {
+                if (admissionHeld) {
+                    entityUuidAdmission.unlock();
+                }
+                readLock.unlock();
+            }
+        }
+    }
+
+    public static void endEntityUuidMaintenance() {
+        if (ConfigHandler.databaseType.isDuckDB()) {
+            entityUuidAdmission.unlock();
+            databaseLifecycle.readLock().unlock();
+        }
     }
 
     public static void lockDatabaseMaintenance() {
@@ -505,7 +556,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         }
     }
 
-    private static boolean isShutdownDrainStopped() {
+    public static boolean isShutdownDrainStopped() {
         return databaseReloadBlockedForShutdown && !ConfigHandler.shutdownDrainRunning;
     }
 
@@ -541,20 +592,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
             return;
         }
         try {
-            boolean exclusive = requiresEntityUuidMaintenance(processId);
-            if (exclusive) {
-                databaseLock.unlock();
-                databaseLock = null;
-                Lock writeLock = databaseLifecycle.writeLock();
-                if (!lockConsumerDatabase(writeLock)) {
-                    return;
-                }
-                databaseLock = writeLock;
-            }
             if (databaseReloadPaused || isPaused || persistenceHalted || isShutdownDrainStopped()) {
-                return;
-            }
-            if (exclusive && !Database.awaitConnectionDrain(0L)) {
                 return;
             }
             Process.processConsumer(processId, lastRun);

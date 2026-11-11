@@ -83,6 +83,7 @@ public class Process {
     private static volatile int currentConsumerSize = 0;
     private static EntityUuidConflictReporter entityUuidConflicts = new EntityUuidConflictReporter();
     private static final int MAX_PREPARATION_FAILURES = 3;
+    private static final int DUCKDB_ENTITY_BATCH_SIZE = 1000;
     private static final int CLICKHOUSE_ACCESS_DENIED = 497;
     private static final Map<Object[], Integer> preparationFailures = new IdentityHashMap<>();
 
@@ -156,6 +157,7 @@ public class Process {
         Object[] preparingEvent = null;
         boolean consumerDataCleared = false;
         boolean preflightCommitted = false;
+        boolean batchedEntityRemoval = false;
         int processedThrough = 0;
         try {
             connection = Database.getConnection(false, 500);
@@ -199,6 +201,7 @@ public class Process {
             boolean hasEntitySpawnLogs = false;
             boolean hasEntityContainerTransactions = false;
             boolean hasEntityInteractions = false;
+            boolean hasDuckDBEntityRemovals = false;
             List<EntitySpawnData> entitySpawnUpdateData = new ArrayList<>();
             List<Integer> entitySpawnUpdateIndexes = new ArrayList<>();
             Set<UUID> entityIdentityUuids = new HashSet<>();
@@ -245,6 +248,10 @@ public class Process {
                     }
                     entitySpawnUpdateData.add(spawnData);
                     entitySpawnUpdateIndexes.add(index);
+                    if (ConfigHandler.databaseType.isDuckDB() && spawnData.getOperation() == EntitySpawnData.Operation.REMOVED && spawnData.getUuid() != null) {
+                        hasDuckDBEntityRemovals = true;
+                        entityIdentityUuids.add(spawnData.getUuid());
+                    }
                     if (spawnData.getPreviousUuid() != null) {
                         entityIdentityUuids.add(spawnData.getPreviousUuid());
                     }
@@ -263,7 +270,7 @@ public class Process {
             }
             preflightCommitted = true;
 
-            if (hasEntityContainerTransactions || hasEntityInteractions || hasEntitySpawnLogs) {
+            if (hasEntityContainerTransactions || hasEntityInteractions || hasEntitySpawnLogs || hasDuckDBEntityRemovals) {
                 entitySpawnIdentities.putAll(EntitySpawnStatement.loadIdentities(connection, entityIdentityUuids));
                 Map<Integer, EntitySpawnIdentity> identitiesByRowId = EntitySpawnStatement.loadIdentitiesByRowIds(connection, entityIdentityRowIds);
                 bindPendingEntitySpawnIdentities(consumerData, consumerObject, entitySpawnIdentities, identitiesByRowId);
@@ -290,7 +297,7 @@ public class Process {
                     Material replaceType = (Material) data[4];
                     int replaceData = (int) data[5];
                     int forceData = (int) data[6];
-                    boolean isolatedTransaction = requiresIsolatedDuckDBTransaction(action);
+                    boolean isolatedTransaction = requiresIsolatedDuckDBTransaction(action, action == ENTITY_SPAWN_UPDATE ? consumerObject.get(id) : null, entitySpawnIdentities);
                     Exception duplicateEntityUuidFailure = null;
                     preparingEvent = null;
 
@@ -298,6 +305,7 @@ public class Process {
                         TransactionOutcome outcome = commit(writeBatch);
                         if (outcome == TransactionOutcome.COMMITTED) {
                             processedThrough = i;
+                            batchedEntityRemoval = false;
                         }
                         completeTransactionState(entitySpawnUpdates, pendingEntityContainerTransactions, pendingEntityContainerRollbacks, pendingEntityInteractions, pendingEntityIdentityConfirmations, invalidatedEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, pendingEntitySpawnLogs, outcome);
                         if (outcome != TransactionOutcome.COMMITTED) {
@@ -519,7 +527,13 @@ public class Process {
                                         }
                                         EntitySpawnIdentity createdIdentity;
                                         try {
-                                            createdIdentity = applyEntitySpawnUpdate(connection, writeBatch, entitySpawnUpdates, update);
+                                            if (ConfigHandler.databaseType.isDuckDB() && !isolatedTransaction) {
+                                                batchedEntityRemoval = true;
+                                                createdIdentity = entitySpawnUpdates.apply(update);
+                                            }
+                                            else {
+                                                createdIdentity = applyEntitySpawnUpdate(connection, writeBatch, entitySpawnUpdates, update);
+                                            }
                                         }
                                         catch (UnresolvedEntityRemovalException e) {
                                             // The event owns this isolated transaction. Only retire it
@@ -540,12 +554,14 @@ public class Process {
                             preparingEvent = null;
                             // Commit full or interrupted batches before continuing.
                             boolean interrupted = Consumer.interrupt;
-                            boolean batchLimitReached = writeBatch.shouldCommit();
+                            boolean batchLimitReached = writeBatch.shouldCommit()
+                                    || (batchedEntityRemoval && i + 1 - processedThrough >= DUCKDB_ENTITY_BATCH_SIZE);
                             if ((interrupted || batchLimitReached) && !isolatedTransaction) {
                                 int batchStart = processedThrough;
                                 TransactionOutcome outcome = commit(writeBatch);
                                 if (outcome == TransactionOutcome.COMMITTED) {
                                     processedThrough = i + 1;
+                                    batchedEntityRemoval = false;
                                 }
                                 completeTransactionState(entitySpawnUpdates, pendingEntityContainerTransactions, pendingEntityContainerRollbacks, pendingEntityInteractions, pendingEntityIdentityConfirmations, invalidatedEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, pendingEntitySpawnLogs, outcome);
                                 if (outcome != TransactionOutcome.COMMITTED) {
@@ -603,6 +619,7 @@ public class Process {
                         TransactionOutcome outcome = commit(writeBatch);
                         if (outcome == TransactionOutcome.COMMITTED) {
                             processedThrough = i + 1;
+                            batchedEntityRemoval = false;
                         }
                         completeTransactionState(entitySpawnUpdates, pendingEntityContainerTransactions, pendingEntityContainerRollbacks, pendingEntityInteractions, pendingEntityIdentityConfirmations, invalidatedEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, pendingEntitySpawnLogs, outcome);
                         if (outcome != TransactionOutcome.COMMITTED) {
@@ -1314,9 +1331,16 @@ public class Process {
         }
     }
 
-    private static boolean requiresIsolatedDuckDBTransaction(int action) {
+    private static boolean requiresIsolatedDuckDBTransaction(int action, Object object, Map<UUID, EntitySpawnIdentity> identities) {
         if (!ConfigHandler.databaseType.isDuckDB()) {
             return false;
+        }
+        if (action == ENTITY_SPAWN_UPDATE && object instanceof EntitySpawnData) {
+            EntitySpawnData update = (EntitySpawnData) object;
+            EntitySpawnIdentity identity = identities.get(update.getUuid());
+            if (update.getOperation() == EntitySpawnData.Operation.REMOVED && identity != null && identity.getUuid().equals(update.getUuid())) {
+                return false;
+            }
         }
         return action == ENTITY_CONTAINER_TRANSACTION || action == ENTITY_INTERACTION || action == ENTITY_CONTAINER_ROLLBACK_UPDATE || action == ENTITY_CONTAINER_TRANSITION_UPDATE || action == ENTITY_SPAWN_LOG || action == ENTITY_SPAWN_UPDATE;
     }

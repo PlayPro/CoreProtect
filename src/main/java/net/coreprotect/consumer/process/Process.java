@@ -1060,6 +1060,9 @@ public class Process {
                     if (spawnData.getOperation() == null) {
                         EntitySpawnTracking.reverifyDatabaseRow(spawnData.getUuid(), spawnData.getLocation());
                     }
+                    else if (spawnData.getOperation() == EntitySpawnData.Operation.VERIFY) {
+                        EntitySpawnTracking.abandonDatabaseIdentityVerification(spawnData.getUuid(), spawnData.getVerificationEpoch());
+                    }
                 }
             }
             catch (Exception cleanupException) {

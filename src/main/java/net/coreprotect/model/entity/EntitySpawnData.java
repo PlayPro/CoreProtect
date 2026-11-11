@@ -182,4 +182,12 @@ public final class EntitySpawnData {
         }
         return new EntitySpawnData(null, uuid, null, entityType, location, 0, 0, null, 0, -1L, 0, 0, persistenceAttempts + 1);
     }
+
+    public EntitySpawnData retryVerification(long epoch) {
+        if (operation != Operation.VERIFY || persistenceAttempts >= MAX_PERSISTENCE_ATTEMPTS) {
+            return null;
+        }
+        return new EntitySpawnData(operation, uuid, previousUuid, entityType, location, blockRowId, trackingRowId, state,
+                rolledBack, epoch, killRowId, pairedBlockRowId, persistenceAttempts + 1, removalOrigin, removalTime);
+    }
 }

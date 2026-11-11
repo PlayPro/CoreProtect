@@ -11,6 +11,7 @@ import java.util.UUID;
 
 import org.bukkit.Location;
 
+import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.rollback.EntitySpawnRollbackHandler;
 import net.coreprotect.model.entity.EntityContainerRollbackUpdate;
@@ -225,8 +226,16 @@ public final class EntitySpawnUpdateCoordinator {
             deferredLifecycleUuids.clear();
             for (Map.Entry<UUID, EntitySpawnData> verification : identityVerifications.entrySet()) {
                 runTrackingConfirmation(() -> {
-                    if (!EntitySpawnTracking.retryPendingDatabaseIdentityVerification(verification.getKey())) {
-                        Queue.queueEntitySpawnUpdateFirst(verification.getValue());
+                    EntitySpawnData data = verification.getValue();
+                    boolean bounded = ConfigHandler.databaseType.isDuckDB();
+                    EntitySpawnData retry = bounded ? data.retryVerification(data.getVerificationEpoch()) : data;
+                    if (retry == null) {
+                        EntitySpawnTracking.abandonDatabaseIdentityVerification(verification.getKey(), data.getVerificationEpoch());
+                        ErrorReporter.report(new IllegalStateException("Dropped entity identity verification after three retries: " + verification.getKey()));
+                    }
+                    else if (!(bounded ? EntitySpawnTracking.retryPendingDatabaseIdentityVerification(verification.getKey(), data)
+                            : EntitySpawnTracking.retryPendingDatabaseIdentityVerification(verification.getKey()))) {
+                        Queue.queueEntitySpawnUpdateFirst(retry);
                     }
                 });
             }

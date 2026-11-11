@@ -40,6 +40,7 @@ import org.bukkit.persistence.PersistentDataType;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.listener.entity.VehicleDestroyListener;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.entity.EntityInteractionOrigin;
 import net.coreprotect.model.entity.EntitySpawnData;
@@ -704,6 +705,7 @@ public final class EntitySpawnTracking {
 
     public static void removeWithoutRemovalLog(Entity entity) {
         UUID uuid = entity.getUniqueId();
+        VehicleDestroyListener.cancelTntRemoval(entity);
         coreProtectRemovals.add(uuid);
         try {
             entity.remove();

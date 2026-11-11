@@ -22,6 +22,7 @@ public final class EntityChunkListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEntitiesUnload(EntitiesUnloadEvent event) {
         for (Entity entity : event.getEntities()) {
+            VehicleDestroyListener.cancelTntRemoval(entity);
             InventoryChangeListener.flushEntityContainer(entity);
             EntitySpawnTracking.handleUnload(entity);
         }

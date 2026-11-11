@@ -74,6 +74,7 @@ import net.coreprotect.paper.listener.CushionListener;
 import net.coreprotect.paper.listener.FlowerPotManipulateListener;
 import net.coreprotect.paper.listener.LegacyTNTPrimeListener;
 import net.coreprotect.paper.listener.PaperChatListener;
+import net.coreprotect.paper.listener.LegacyVehicleRemoveListener;
 import net.coreprotect.spigot.listener.CushionPlaceListener;
 
 public final class ListenerHandler {
@@ -180,7 +181,13 @@ public final class ListenerHandler {
             pluginManager.registerEvents(new TrackedEntityRemoveListener(), plugin);
         }
         catch (Exception e) {
-            // Entity removal causes are unavailable on older Bukkit versions.
+            try {
+                Class.forName("com.destroystokyo.paper.event.entity.EntityRemoveFromWorldEvent");
+                pluginManager.registerEvents(new LegacyVehicleRemoveListener(), plugin);
+            }
+            catch (Exception ignored) {
+                // Entity removal events are unavailable on older Bukkit versions.
+            }
         }
         // Paper Listeners / Fallbacks (Player Listeners)
         try {

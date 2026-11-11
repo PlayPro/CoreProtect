@@ -1,6 +1,7 @@
 package net.coreprotect.listener.entity;
 
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.minecart.ExplosiveMinecart;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -16,6 +17,23 @@ public final class TrackedEntityRemoveListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEntityRemove(EntityRemoveEvent event) {
         Entity entity = event.getEntity();
+        if (entity instanceof ExplosiveMinecart) {
+            ExplosiveMinecart minecart = (ExplosiveMinecart) entity;
+            switch (event.getCause()) {
+                case DEATH:
+                case HIT:
+                    if (VehicleDestroyListener.completeTntRemoval(minecart)) {
+                        return;
+                    }
+                    break;
+                case EXPLODE:
+                    VehicleDestroyListener.logTntExplosion(minecart);
+                    return;
+                default:
+                    VehicleDestroyListener.cancelTntRemoval(minecart);
+                    break;
+            }
+        }
         switch (event.getCause()) {
             case UNLOAD:
                 return;

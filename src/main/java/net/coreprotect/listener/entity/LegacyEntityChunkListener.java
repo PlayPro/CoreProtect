@@ -24,6 +24,7 @@ public final class LegacyEntityChunkListener implements Listener {
     public void onChunkUnload(ChunkUnloadEvent event) {
         Chunk chunk = event.getChunk();
         for (Entity entity : chunk.getEntities()) {
+            VehicleDestroyListener.cancelTntRemoval(entity);
             InventoryChangeListener.flushEntityContainer(entity);
             EntitySpawnTracking.handleUnload(entity);
         }

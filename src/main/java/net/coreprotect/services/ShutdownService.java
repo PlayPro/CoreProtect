@@ -13,6 +13,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.process.Process;
 import net.coreprotect.language.Phrase;
+import net.coreprotect.listener.entity.VehicleDestroyListener;
 import net.coreprotect.listener.player.EntityInteractionListener;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.listener.player.PlayerQuitListener;
@@ -73,6 +74,7 @@ public class ShutdownService {
                     EntitySpawnTracking.queueLoadedLocationsForShutdown();
                 }
 
+                VehicleDestroyListener.flushPendingRemovalsForShutdown();
                 EntityInteractionListener.flushPendingInteractions();
                 InventoryChangeListener.flushPendingTransactionsForShutdown();
 

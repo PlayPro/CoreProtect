@@ -16,6 +16,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.TNTPrimed;
 import org.bukkit.entity.Wither;
 import org.bukkit.entity.WitherSkull;
+import org.bukkit.entity.minecart.ExplosiveMinecart;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -32,6 +33,10 @@ public final class EntityExplodeListener extends Queue implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onEntityExplode(EntityExplodeEvent event) {
         Entity entity = event.getEntity();
+
+        if (entity instanceof ExplosiveMinecart) {
+            VehicleDestroyListener.logTntExplosion((ExplosiveMinecart) entity);
+        }
 
         if (!BukkitAdapter.ADAPTER.shouldLogExplosion(event)){
             return;

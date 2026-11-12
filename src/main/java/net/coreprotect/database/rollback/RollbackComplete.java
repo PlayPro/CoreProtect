@@ -16,6 +16,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.model.item.ItemTransactionActions;
+import net.coreprotect.model.lookup.VirtualContainerTarget;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.ErrorReporter;
@@ -143,6 +144,10 @@ public class RollbackComplete {
                     else if (restrictTarget instanceof EntityType) {
                         targetName = ((EntityType) restrictTarget).name().toLowerCase(Locale.ROOT);
                         entity = true;
+                    }
+                    else if (restrictTarget instanceof VirtualContainerTarget) {
+                        VirtualContainerTarget target = (VirtualContainerTarget) restrictTarget;
+                        targetName = "container:" + target.getType() + (target.getId() == null ? "" : "/" + target.getId());
                     }
 
                     if (targetCount == 0) {

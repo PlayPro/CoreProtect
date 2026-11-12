@@ -238,6 +238,7 @@ public class Language {
         phrases.put(Phrase.ROLLBACK_MODIFIED, "{Modified|Modifying} {0}.");
         phrases.put(Phrase.ROLLBACK_RADIUS, "Radius: {0} {block|blocks}.");
         phrases.put(Phrase.ROLLBACK_SELECTION, "Radius set to \"{0}\".");
+        phrases.put(Phrase.ROLLBACK_SKIPPED, "Skipped {0} virtual container {change|changes}. See the console for details.");
         phrases.put(Phrase.ROLLBACK_STARTED, "{Rollback|Restore|Preview} started on \"{0}\".");
         phrases.put(Phrase.ROLLBACK_TIME, "Time range: {0}.");
         phrases.put(Phrase.ROLLBACK_WORLD_ACTION, "Restricted to {world|action} \"{0}\".");

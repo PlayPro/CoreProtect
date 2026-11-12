@@ -97,6 +97,8 @@ final class DuckDBDatabase {
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "user (" + rowId(prefix, "user") + ", time INTEGER, \"user\" VARCHAR, uuid VARCHAR)");
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "username_log (" + rowId(prefix, "username_log") + ", time INTEGER, uuid VARCHAR, \"user\" VARCHAR)");
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "version (" + rowId(prefix, "version") + ", time INTEGER, version VARCHAR)");
+                statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "virtual_container (" + rowId(prefix, "virtual_container") + ", time INTEGER, \"user\" INTEGER, container_id INTEGER NOT NULL, type INTEGER, data INTEGER, amount INTEGER, metadata BLOB, action TINYINT, rolled_back TINYINT)");
+                statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "virtual_container_map (" + rowId(prefix, "virtual_container_map") + ", id INTEGER, container VARCHAR)");
                 statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "world (" + rowId(prefix, "world") + ", id INTEGER, world VARCHAR)");
                 DuckDBSpatialIndex.createTable(prefix, statement);
                 validateEntityDataColumns(connection, prefix);

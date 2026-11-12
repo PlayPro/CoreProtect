@@ -28,6 +28,7 @@ import net.coreprotect.database.Database;
 import net.coreprotect.database.Lookup;
 import net.coreprotect.database.lookup.EntityInteractionLookup;
 import net.coreprotect.database.lookup.PlayerLookup;
+import net.coreprotect.database.statement.ContainerStatement;
 import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
@@ -325,6 +326,7 @@ public class StandardLookupThread implements Runnable {
                         Map<Integer, EntitySpawnRecord> entitySpawnRecords = Collections.emptyMap();
                         Map<UUID, Location> loadedEntityLocations = Collections.emptyMap();
                         Set<Integer> entitySpawnRowIds = new HashSet<>();
+                        Set<Integer> virtualContainerIds = new HashSet<>();
                         for (String[] data : lookupList) {
                             if (data.length > 7 && data[6] != null && data[7] != null && Integer.parseInt(data[7]) == LookupActions.ENTITY_SPAWN) {
                                 entitySpawnRowIds.add(Integer.parseInt(data[6]));
@@ -335,7 +337,11 @@ public class StandardLookupThread implements Runnable {
                             if (data.length > 14 && data[13] != null && data[14] != null && Integer.parseInt(data[13]) == InventorySources.ENTITY_INTERACTION) {
                                 entitySpawnRowIds.add(Integer.parseInt(data[14]));
                             }
+                            if (data.length > 14 && data[13] != null && data[14] != null && Integer.parseInt(data[13]) == InventorySources.VIRTUAL_CONTAINER) {
+                                virtualContainerIds.add(Integer.parseInt(data[14]));
+                            }
                         }
+                        Map<Integer, String> virtualContainerKeys = ContainerStatement.loadVirtualKeys(connection, virtualContainerIds);
                         if (!entitySpawnRowIds.isEmpty()) {
                             entitySpawnRecords = EntitySpawnStatement.loadLocationRecords(connection, entitySpawnRowIds);
                             Set<UUID> entitySpawnUuids = new HashSet<>();
@@ -509,6 +515,7 @@ public class StandardLookupThread implements Runnable {
                                 int ddata = Integer.parseInt(data[6]);
                                 int daction = Integer.parseInt(data[7]);
                                 boolean entityInteraction = data[13] != null && Integer.parseInt(data[13]) == InventorySources.ENTITY_INTERACTION;
+                                boolean virtualContainer = data[13] != null && Integer.parseInt(data[13]) == InventorySources.VIRTUAL_CONTAINER;
                                 boolean placedEntitySpawn = daction == LookupActions.ENTITY_SPAWN && EntitySpawnTracking.isPlacedEntityType(EntityUtils.getEntityType(dtype));
                                 boolean placedEntityKill = daction == LookupActions.ENTITY_KILL && EntitySpawnTracking.isPlacedEntityType(EntityUtils.getEntityType(dtype));
                                 int wid = Integer.parseInt(data[9]);
@@ -635,6 +642,9 @@ public class StandardLookupThread implements Runnable {
 
                                 action = (actions.size() == 0 ? " (" + action + ")" : "");
                                 String coordinates = ChatUtils.getCoordinates(command.getName(), wid, dataX, dataY, dataZ, true, true);
+                                if (virtualContainer) {
+                                    coordinates = Color.GREY + Color.ITALIC + "(" + virtualContainerKeys.getOrDefault(Integer.parseInt(data[14]), "#" + data[14]) + ")";
+                                }
                                 String coordinateInfo = entityLocation == null ? "" : entityLocation.getOriginTooltip();
                                 Chat.sendComponent(player, Color.WHITE + leftPadding + Color.GREY + "^ " + coordinates + Color.GREY + Color.ITALIC + action + coordinateInfo);
                             }

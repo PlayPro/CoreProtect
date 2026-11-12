@@ -34,6 +34,8 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     private static final int ENTITY_MAP_BATCH = 13;
     private static final int BLOCK_DATA_BATCH = 14;
     private static final int ENTITY_KILL_LINK_BATCH = 15;
+    private static final int VIRTUAL_CONTAINER_MAP_BATCH = 16;
+    private static final int VIRTUAL_CONTAINER_BATCH = 17;
     private static final int INITIAL_DUCKDB_BLOCK_ID_RESERVATION = 256;
     private static final int MAXIMUM_DUCKDB_BLOCK_ID_RESERVATION = 65536;
     private static final long[] EMPTY_ROW_IDS = new long[0];
@@ -41,7 +43,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     private final Connection connection;
     private final DatabaseType databaseType;
     private final Statement transactionStatement;
-    private final PreparedStatement[] batchStatements = new PreparedStatement[16];
+    private final PreparedStatement[] batchStatements = new PreparedStatement[18];
     private final List<PreparedStatement> statements = new ArrayList<>();
 
     private PreparedStatement blockReturningStatement;
@@ -60,6 +62,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     private PreparedStatement usernameHistoryStatement;
     private PreparedStatement usernameHistoryInsertStatement;
     private PreparedStatement databaseLockStatement;
+    private PreparedStatement virtualContainerIdStatement;
     private PreparedStatement duckDBBlockRowIdStatement;
     private DuckDBAppender duckDBBlockAppender;
     private long[] duckDBBlockRowIds = EMPTY_ROW_IDS;
@@ -189,6 +192,26 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     }
 
     @Override
+    public int resolveVirtualContainerId(String key) throws Exception {
+        Integer cachedId = ConfigHandler.virtualContainers.get(key);
+        if (cachedId != null) {
+            return cachedId;
+        }
+
+        // keys are not preloaded, so an existing key is read on this connection before a new id is allocated
+        PreparedStatement statement = virtualContainerIdStatement();
+        statement.setString(1, key);
+        try (ResultSet resultSet = statement.executeQuery()) {
+            int id = resultSet.next() ? resultSet.getInt(1) : 0;
+            if (id > 0) {
+                ConfigHandler.cacheIdentifier(ConfigHandler.CacheType.VIRTUAL_CONTAINERS, id, key);
+                return id;
+            }
+        }
+        return ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.VIRTUAL_CONTAINERS, key, true);
+    }
+
+    @Override
     public void recordUsername(String user, String uuid, int retainHistory, int time) throws Exception {
         if (ConfigHandler.isBlacklisted(user)) {
             return;
@@ -265,6 +288,9 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
                 break;
             case MATERIAL:
                 statement = batchStatement(Database.MATERIAL, MATERIAL_BATCH);
+                break;
+            case VIRTUAL_CONTAINER:
+                statement = batchStatement(Database.VIRTUAL_CONTAINER_MAP, VIRTUAL_CONTAINER_MAP_BATCH);
                 break;
             case WORLD:
                 statement = batchStatement(Database.WORLD, WORLD_BATCH);
@@ -351,6 +377,21 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         statement.setInt(13, rolledBack);
         addBatch(statement, batchCount);
         trackDuckDBGenerated("entity_container", worldId, x, z, entitySpawnRowId);
+    }
+
+    @Override
+    public void addVirtualContainer(int batchCount, int time, int userId, int containerId, int type, int data, int amount, byte[] metadata, int action, int rolledBack) throws Exception {
+        PreparedStatement statement = batchStatement(Database.VIRTUAL_CONTAINER, VIRTUAL_CONTAINER_BATCH);
+        statement.setInt(1, time);
+        statement.setInt(2, userId);
+        statement.setInt(3, containerId);
+        statement.setInt(4, type);
+        statement.setInt(5, data);
+        statement.setInt(6, amount);
+        statement.setObject(7, metadata);
+        statement.setInt(8, action);
+        statement.setInt(9, rolledBack);
+        addBatch(statement, batchCount);
     }
 
     @Override
@@ -692,6 +733,13 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
             databaseLockStatement = own(connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "database_lock SET status=?,time=? WHERE rowid=1"));
         }
         return databaseLockStatement;
+    }
+
+    private PreparedStatement virtualContainerIdStatement() throws SQLException {
+        if (virtualContainerIdStatement == null) {
+            virtualContainerIdStatement = own(connection.prepareStatement("SELECT MIN(id) FROM " + ConfigHandler.prefix + "virtual_container_map WHERE container=?"));
+        }
+        return virtualContainerIdStatement;
     }
 
     private void appendDuckDBBlock(int time, int userId, int worldId, int x, int y, int z, int type, int data, byte[] meta, byte[] blockData, int action, int rolledBack) throws SQLException {

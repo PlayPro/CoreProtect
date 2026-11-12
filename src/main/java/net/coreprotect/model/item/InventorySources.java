@@ -6,6 +6,7 @@ public final class InventorySources {
     public static final int ITEM = 2;
     public static final int ENTITY_CONTAINER = 3;
     public static final int ENTITY_INTERACTION = 4;
+    public static final int VIRTUAL_CONTAINER = 5;
 
     private InventorySources() {
         throw new IllegalStateException("Model class");

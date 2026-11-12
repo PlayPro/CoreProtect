@@ -200,7 +200,8 @@ final class ClickHouseStateBatch implements AutoCloseable {
                 || family == ClickHouseFamily.CONTAINER
                 || family == ClickHouseFamily.ENTITY_CONTAINER
                 || family == ClickHouseFamily.ITEM
-                || family == ClickHouseFamily.SIGN;
+                || family == ClickHouseFamily.SIGN
+                || family == ClickHouseFamily.VIRTUAL_CONTAINER;
     }
 
     static final class Checkpoint {

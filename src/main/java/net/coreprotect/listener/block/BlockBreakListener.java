@@ -126,6 +126,15 @@ public final class BlockBreakListener extends Queue implements Listener {
                 Location scanLocation = locationMap[scanMin - 1];
                 Block scanBlock = world.getBlockAt(scanLocation);
                 Material scanType = scanBlock.getType();
+                if (scanType == Material.SCAFFOLDING) {
+                    // Scaffolding can retain support from the side. Attribute the
+                    // pending collapse, but let BlockFadeEvent confirm each break.
+                    if (scanMin == BlockUtil.TOP || (type == Material.SCAFFOLDING && scanMin < BlockUtil.TOP)) {
+                        BlockFadeListener.trackScaffoldingBreak(user, scanBlock.getLocation());
+                    }
+                    scanMin++;
+                    continue;
+                }
                 if (scanMin == 5 && (scanType.hasGravity() || BukkitAdapter.ADAPTER.isSuspiciousBlock(scanType)) && Config.getConfig(world).BLOCK_MOVEMENT) {
                     // FallingBlock listeners read lookupCache to attribute the chain reaction; overwrite the cache up the gravity stack so falls record under whoever broke this block instead of #gravity or the original placer.
                     seedGravityFallAttribution(user, world, x, z, y + 1, scanType);

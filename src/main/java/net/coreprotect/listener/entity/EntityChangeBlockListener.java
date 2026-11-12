@@ -100,6 +100,11 @@ public final class EntityChangeBlockListener extends Queue implements Listener {
         int worldId = WorldUtils.getWorldId(world.getName());
 
         if (newtype.equals(Material.AIR) || newtype.equals(Material.CAVE_AIR)) {
+            if (type == Material.SCAFFOLDING) {
+                // BlockFadeListener records scaffolding losing support, including
+                // the variant that turns into a falling entity. Avoid duplicates.
+                return;
+            }
             if (!Config.getConfig(world).BLOCK_BREAK) {
                 return;
             }

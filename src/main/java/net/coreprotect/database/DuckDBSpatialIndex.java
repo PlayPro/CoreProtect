@@ -82,11 +82,8 @@ public final class DuckDBSpatialIndex {
                     observedGeneration = runtimeGeneration;
                 }
 
-                List<PendingSegment> written = new ArrayList<>();
-                WriterState loaded = loadWriterState(connection, prefix, written);
+                WriterState loaded = loadWriterState(connection, prefix, key);
                 synchronized (STATE_LOCK) {
-                    // segments the catch-up scan committed belong in the loaded index whether or not its state is kept
-                    addCommittedSegments(key, written);
                     if (observedGeneration != runtimeGeneration) {
                         continue;
                     }
@@ -321,7 +318,7 @@ public final class DuckDBSpatialIndex {
         }
     }
 
-    private static WriterState loadWriterState(Connection connection, String prefix, List<PendingSegment> written) throws SQLException {
+    private static WriterState loadWriterState(Connection connection, String prefix, String key) throws SQLException {
         WriterState state = new WriterState();
         DuckDBConnection duckDBConnection = connection.unwrap(DuckDBConnection.class);
         try (Connection scanConnection = duckDBConnection.duplicate(); Connection metadataConnection = duckDBConnection.duplicate()) {
@@ -334,7 +331,7 @@ public final class DuckDBSpatialIndex {
                 long indexedThrough = indexedThrough(scanConnection, prefix, source);
                 long highWater = sourceHighWater(scanConnection, prefix, source);
                 if (highWater > indexedThrough) {
-                    scanSource(scanConnection, metadataConnection, prefix, source, indexedThrough, highWater, state, written);
+                    scanSource(scanConnection, metadataConnection, prefix, source, indexedThrough, highWater, state, key);
                 }
             }
         }
@@ -356,7 +353,7 @@ public final class DuckDBSpatialIndex {
     }
 
     private static void scanSource(Connection connection, Connection metadataConnection, String prefix, Source source,
-            long indexedThrough, long highWater, WriterState state, List<PendingSegment> written) throws SQLException {
+            long indexedThrough, long highWater, WriterState state, String key) throws SQLException {
         String sql = "SELECT rowid,wid,x,z" + (source.entityRows ? ",entity_spawn_rowid" : "") + " FROM " + prefix + source.table
                 + " WHERE rowid>? AND rowid<=? ORDER BY rowid";
         String nextSql = "SELECT min(rowid) FROM " + prefix + source.table + " WHERE rowid>? AND rowid<=?";
@@ -381,7 +378,7 @@ public final class DuckDBSpatialIndex {
                         Integer entitySpawnRowId = source.entityRows ? resultSet.getInt("entity_spawn_rowid") : null;
                         accumulator.add(rowId, resultSet.getInt("wid"), resultSet.getInt("x"), resultSet.getInt("z"), entitySpawnRowId);
                         if (accumulator.completed.size() != completedCount && state.completedCount() >= INDEX_CHECKPOINT_SEGMENTS) {
-                            writeCompleted(metadataConnection, prefix, state, written);
+                            writeCompleted(metadataConnection, prefix, state, key);
                         }
                     }
                 }
@@ -406,15 +403,22 @@ public final class DuckDBSpatialIndex {
             throw new SQLException("DuckDB spatial index scan ended before its high water mark for " + source.table);
         }
         accumulator.finish();
-        writeCompleted(metadataConnection, prefix, state, written);
+        writeCompleted(metadataConnection, prefix, state, key);
     }
 
-    private static void writeCompleted(Connection connection, String prefix, WriterState state, List<PendingSegment> written) throws SQLException {
+    /**
+     * Writes and commits the catch-up scan's completed segments, then hands them to the loaded index (and a load in
+     * progress) straight away: they belong there even when the scan fails later or its state isn't kept, and nothing
+     * else holds them, so a long catch-up keeps no more than one checkpoint of filters in memory.
+     */
+    private static void writeCompleted(Connection connection, String prefix, WriterState state, String key) throws SQLException {
         try {
             List<PendingSegment> batch = new ArrayList<>();
             if (state.writeCompleted(connection, prefix, batch)) {
                 connection.commit();
-                written.addAll(batch);
+                synchronized (STATE_LOCK) {
+                    addCommittedSegments(key, batch);
+                }
             }
         }
         catch (SQLException | RuntimeException | Error exception) {

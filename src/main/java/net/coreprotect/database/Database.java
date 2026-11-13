@@ -453,12 +453,8 @@ public class Database extends Queue {
     }
 
     public static boolean awaitConnectionDrain(long timeoutMillis) throws InterruptedException {
-        return awaitConnectionDrain(null, timeoutMillis);
-    }
-
-    public static boolean awaitConnectionDrain(Connection excludedConnection, long timeoutMillis) throws InterruptedException {
         long deadline = System.nanoTime() + timeoutMillis * 1_000_000L;
-        while (hasActiveConnections(excludedConnection)) {
+        while (hasActiveConnections()) {
             if (System.nanoTime() >= deadline) {
                 return false;
             }
@@ -474,15 +470,10 @@ public class Database extends Queue {
         }
     }
 
-    private static boolean hasActiveConnections(Connection excludedConnection) {
+    private static boolean hasActiveConnections() {
         synchronized (ACTIVE_CONNECTIONS) {
             removeClosedConnections(true);
-            for (Connection connection : ACTIVE_CONNECTIONS) {
-                if (connection != excludedConnection) {
-                    return true;
-                }
-            }
-            return false;
+            return !ACTIVE_CONNECTIONS.isEmpty();
         }
     }
 

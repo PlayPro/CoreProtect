@@ -10,14 +10,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.duckdb.DuckDBConnection;
-
-import net.coreprotect.utility.DatabaseUtils;
 
 public final class DuckDBSpatialIndex {
 
@@ -33,14 +32,18 @@ public final class DuckDBSpatialIndex {
     private static final long MAXIMUM_FILTER_PROBES = 2_000_000L;
     private static final int INDEX_CHECKPOINT_SEGMENTS = 64;
     private static final int BOOTSTRAP_PAGE_ROWS = 10_000;
+    private static final int MAX_SNAPSHOT_LOAD_ATTEMPTS = 3;
     private static final String DEFAULT_ALIAS = "duckdb_spatial_rows";
     private static final Object STATE_LOCK = new Object();
     private static final ReentrantLock INITIALIZATION_LOCK = new ReentrantLock();
+    private static final ReentrantLock SNAPSHOT_LOAD_LOCK = new ReentrantLock();
 
     private static String runtimeKey;
     private static WriterState runtimeState;
     private static IndexCache indexCache;
+    private static SnapshotLoad activeLoad;
     private static long runtimeGeneration;
+    private static long cacheGeneration;
 
     private DuckDBSpatialIndex() {
         throw new IllegalStateException("Database class");
@@ -77,14 +80,13 @@ public final class DuckDBSpatialIndex {
                     observedGeneration = runtimeGeneration;
                 }
 
-                WriterState loaded = loadWriterState(connection, prefix);
+                WriterState loaded = loadWriterState(connection, prefix, key, observedGeneration);
                 synchronized (STATE_LOCK) {
                     if (observedGeneration != runtimeGeneration) {
                         continue;
                     }
                     runtimeState = loaded;
                     runtimeKey = key;
-                    indexCache = null;
                     runtimeGeneration++;
                     return new Transaction(key, prefix, runtimeGeneration, runtimeState.copy());
                 }
@@ -281,12 +283,40 @@ public final class DuckDBSpatialIndex {
         synchronized (STATE_LOCK) {
             runtimeKey = null;
             runtimeState = null;
-            indexCache = null;
+            invalidateCache(null);
             runtimeGeneration++;
         }
     }
 
-    private static WriterState loadWriterState(Connection connection, String prefix) throws SQLException {
+    private static void invalidateCache(String key) {
+        if (indexCache != null && (key == null || key.equals(indexCache.key))) {
+            indexCache = null;
+        }
+        if (activeLoad != null && (key == null || key.equals(activeLoad.key))) {
+            activeLoad = null;
+        }
+        cacheGeneration++;
+    }
+
+    private static void publishCommittedSegments(String key, List<PendingSegment> committedSegments) {
+        if (committedSegments.isEmpty()) {
+            return;
+        }
+        if (activeLoad != null && key.equals(activeLoad.key)) {
+            activeLoad.committedSegments.addAll(committedSegments);
+        }
+        if (indexCache != null && key.equals(indexCache.key)) {
+            Map<Source, IndexSnapshot> updated = appendSegments(indexCache.snapshots, committedSegments);
+            if (updated == null) {
+                invalidateCache(key);
+            }
+            else if (updated != indexCache.snapshots) {
+                indexCache = new IndexCache(key, updated);
+            }
+        }
+    }
+
+    private static WriterState loadWriterState(Connection connection, String prefix, String key, long observedGeneration) throws SQLException {
         WriterState state = new WriterState();
         DuckDBConnection duckDBConnection = connection.unwrap(DuckDBConnection.class);
         try (Connection scanConnection = duckDBConnection.duplicate(); Connection metadataConnection = duckDBConnection.duplicate()) {
@@ -299,7 +329,7 @@ public final class DuckDBSpatialIndex {
                 long indexedThrough = indexedThrough(scanConnection, prefix, source);
                 long highWater = sourceHighWater(scanConnection, prefix, source);
                 if (highWater > indexedThrough) {
-                    scanSource(scanConnection, metadataConnection, prefix, source, indexedThrough, highWater, state);
+                    scanSource(scanConnection, metadataConnection, prefix, source, indexedThrough, highWater, state, key, observedGeneration);
                 }
             }
         }
@@ -321,7 +351,7 @@ public final class DuckDBSpatialIndex {
     }
 
     private static void scanSource(Connection connection, Connection metadataConnection, String prefix, Source source,
-            long indexedThrough, long highWater, WriterState state) throws SQLException {
+            long indexedThrough, long highWater, WriterState state, String key, long observedGeneration) throws SQLException {
         String sql = "SELECT rowid,wid,x,z" + (source.entityRows ? ",entity_spawn_rowid" : "") + " FROM " + prefix + source.table
                 + " WHERE rowid>? AND rowid<=? ORDER BY rowid";
         String nextSql = "SELECT min(rowid) FROM " + prefix + source.table + " WHERE rowid>? AND rowid<=?";
@@ -346,7 +376,7 @@ public final class DuckDBSpatialIndex {
                         Integer entitySpawnRowId = source.entityRows ? resultSet.getInt("entity_spawn_rowid") : null;
                         accumulator.add(rowId, resultSet.getInt("wid"), resultSet.getInt("x"), resultSet.getInt("z"), entitySpawnRowId);
                         if (accumulator.completed.size() != completedCount && state.completedCount() >= INDEX_CHECKPOINT_SEGMENTS) {
-                            writeCompleted(metadataConnection, prefix, state);
+                            writeCompleted(metadataConnection, prefix, state, key, observedGeneration);
                         }
                     }
                 }
@@ -371,13 +401,22 @@ public final class DuckDBSpatialIndex {
             throw new SQLException("DuckDB spatial index scan ended before its high water mark for " + source.table);
         }
         accumulator.finish();
-        writeCompleted(metadataConnection, prefix, state);
+        writeCompleted(metadataConnection, prefix, state, key, observedGeneration);
     }
 
-    private static void writeCompleted(Connection connection, String prefix, WriterState state) throws SQLException {
+    private static void writeCompleted(Connection connection, String prefix, WriterState state, String key, long observedGeneration) throws SQLException {
         try {
-            if (state.writeCompleted(connection, prefix)) {
+            List<PendingSegment> committedSegments = new ArrayList<>();
+            if (state.writeCompleted(connection, prefix, committedSegments)) {
                 connection.commit();
+                synchronized (STATE_LOCK) {
+                    if (observedGeneration == runtimeGeneration) {
+                        publishCommittedSegments(key, committedSegments);
+                    }
+                    else {
+                        invalidateCache(key);
+                    }
+                }
             }
         }
         catch (SQLException | RuntimeException | Error exception) {
@@ -393,50 +432,162 @@ public final class DuckDBSpatialIndex {
 
     private static Map<Source, IndexSnapshot> snapshots(Connection connection, String prefix) throws SQLException {
         String key = databaseKey(connection, prefix);
-        while (true) {
-            long observedGeneration;
-            synchronized (STATE_LOCK) {
-                if (indexCache != null && key.equals(indexCache.key)) {
-                    return indexCache.snapshots;
-                }
-                observedGeneration = runtimeGeneration;
+        synchronized (STATE_LOCK) {
+            if (indexCache != null && key.equals(indexCache.key)) {
+                return indexCache.snapshots;
             }
+        }
 
-            Map<Source, IndexSnapshot> loaded = new EnumMap<>(Source.class);
-            for (Source source : Source.values()) {
-                loaded.put(source, new IndexSnapshot());
-            }
-            String sql = "SELECT table_id,start_rowid,end_rowid,row_count,chunks,entities FROM " + prefix + "duckdb_spatial_index ORDER BY table_id,start_rowid";
-            try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery(sql)) {
-                while (resultSet.next()) {
-                    Source source = Source.fromId(resultSet.getInt("table_id"));
-                    if (source == null) {
+        SNAPSHOT_LOAD_LOCK.lock();
+        try {
+            for (int attempt = 0; attempt < MAX_SNAPSHOT_LOAD_ATTEMPTS; attempt++) {
+                long observedCacheGeneration;
+                SnapshotLoad load = new SnapshotLoad(key);
+                synchronized (STATE_LOCK) {
+                    if (indexCache != null && key.equals(indexCache.key)) {
+                        return indexCache.snapshots;
+                    }
+                    observedCacheGeneration = cacheGeneration;
+                    activeLoad = load;
+                }
+
+                Map<Source, IndexSnapshot> loaded;
+                try {
+                    loaded = loadSnapshots(connection, prefix);
+                }
+                catch (SQLException | RuntimeException | Error exception) {
+                    synchronized (STATE_LOCK) {
+                        if (activeLoad == load) {
+                            activeLoad = null;
+                        }
+                    }
+                    throw exception;
+                }
+
+                synchronized (STATE_LOCK) {
+                    if (activeLoad == load) {
+                        activeLoad = null;
+                    }
+                    if (observedCacheGeneration != cacheGeneration) {
                         continue;
                     }
-                    IndexSnapshot snapshot = loaded.get(source);
-                    long startRowId = resultSet.getLong("start_rowid");
-                    long endRowId = resultSet.getLong("end_rowid");
-                    int rowCount = resultSet.getInt("row_count");
-                    byte[] chunks = DatabaseUtils.getBytes(resultSet, "chunks");
-                    byte[] entities = DatabaseUtils.getBytes(resultSet, "entities");
+                    Map<Source, IndexSnapshot> merged = appendSegments(loaded, load.committedSegments);
+                    if (merged == null) {
+                        continue;
+                    }
+                    indexCache = new IndexCache(key, merged);
+                    return merged;
+                }
+            }
+            return Collections.emptyMap();
+        }
+        finally {
+            SNAPSHOT_LOAD_LOCK.unlock();
+        }
+    }
+
+    private static Map<Source, IndexSnapshot> loadSnapshots(Connection connection, String prefix) throws SQLException {
+        DuckDBConnection duckDBConnection = connection.unwrap(DuckDBConnection.class);
+        if (duckDBConnection == null) {
+            throw new SQLException("DuckDB connection required");
+        }
+
+        Map<Source, List<Segment>> segmentsBySource = new EnumMap<>(Source.class);
+        Map<Source, Boolean> usableBySource = new EnumMap<>(Source.class);
+        for (Source source : Source.values()) {
+            segmentsBySource.put(source, new ArrayList<>());
+            usableBySource.put(source, Boolean.TRUE);
+        }
+
+        String sql = "SELECT table_id,start_rowid,end_rowid,row_count,chunks,entities FROM " + prefix + "duckdb_spatial_index";
+        try (Connection loadConnection = duckDBConnection.duplicate(); Statement statement = loadConnection.createStatement()) {
+            statement.execute("SET jdbc_stream_results=true");
+            try (ResultSet resultSet = statement.executeQuery(sql)) {
+                while (resultSet.next()) {
+                    Source source = Source.fromId(resultSet.getInt(1));
+                    if (source == null || !usableBySource.get(source)) {
+                        continue;
+                    }
+                    long startRowId = resultSet.getLong(2);
+                    long endRowId = resultSet.getLong(3);
+                    int rowCount = resultSet.getInt(4);
+                    byte[] chunks = resultSet.getBytes(5);
+                    byte[] entities = resultSet.getBytes(6);
                     if (startRowId <= 0L || endRowId < startRowId || rowCount <= 0 || chunks == null || chunks.length != FILTER_BYTES
                             || (source.entityRows && (entities == null || entities.length != FILTER_BYTES))
                             || (!source.entityRows && entities != null && entities.length != FILTER_BYTES)) {
-                        snapshot.usable = false;
+                        usableBySource.put(source, Boolean.FALSE);
+                        segmentsBySource.get(source).clear();
                         continue;
                     }
-                    snapshot.segments.add(new Segment(startRowId, endRowId, rowCount, new BloomFilter(chunks), entities == null ? null : new BloomFilter(entities)));
-                    snapshot.lastIndexedRowId = Math.max(snapshot.lastIndexedRowId, endRowId);
-                }
-            }
-
-            synchronized (STATE_LOCK) {
-                if (observedGeneration == runtimeGeneration) {
-                    indexCache = new IndexCache(key, loaded);
-                    return indexCache.snapshots;
+                    segmentsBySource.get(source).add(new Segment(startRowId, endRowId, rowCount, new BloomFilter(chunks), entities == null ? null : new BloomFilter(entities)));
                 }
             }
         }
+
+        Map<Source, IndexSnapshot> loaded = new EnumMap<>(Source.class);
+        for (Source source : Source.values()) {
+            if (!usableBySource.get(source)) {
+                loaded.put(source, new IndexSnapshot(Collections.emptyList(), 0L, false));
+                continue;
+            }
+            List<Segment> segments = segmentsBySource.get(source);
+            segments.sort(Comparator.comparingLong(segment -> segment.startRowId));
+            long lastIndexedRowId = 0L;
+            for (Segment segment : segments) {
+                lastIndexedRowId = Math.max(lastIndexedRowId, segment.endRowId);
+            }
+            loaded.put(source, new IndexSnapshot(segments, lastIndexedRowId, true));
+        }
+        return loaded;
+    }
+
+    private static Map<Source, IndexSnapshot> appendSegments(Map<Source, IndexSnapshot> snapshots, List<PendingSegment> committedSegments) {
+        if (committedSegments.isEmpty()) {
+            return snapshots;
+        }
+        Map<Source, List<Segment>> updatedSegments = null;
+        Map<Source, Long> updatedLastRowIds = null;
+        for (PendingSegment pending : committedSegments) {
+            IndexSnapshot existing = snapshots.get(pending.source);
+            if (existing == null) {
+                return null;
+            }
+            if (!existing.usable) {
+                continue;
+            }
+            long currentLastRowId = updatedLastRowIds != null && updatedLastRowIds.containsKey(pending.source)
+                    ? updatedLastRowIds.get(pending.source)
+                    : existing.lastIndexedRowId;
+            Segment segment = pending.segment;
+            if (segment.endRowId <= currentLastRowId) {
+                continue;
+            }
+            if (segment.startRowId <= currentLastRowId) {
+                return null;
+            }
+            if (updatedSegments == null) {
+                updatedSegments = new EnumMap<>(Source.class);
+                updatedLastRowIds = new EnumMap<>(Source.class);
+            }
+            List<Segment> copy = updatedSegments.get(pending.source);
+            if (copy == null) {
+                copy = new ArrayList<>(existing.segments.size() + committedSegments.size());
+                copy.addAll(existing.segments);
+                updatedSegments.put(pending.source, copy);
+            }
+            copy.add(segment);
+            updatedLastRowIds.put(pending.source, segment.endRowId);
+        }
+        if (updatedSegments == null) {
+            return snapshots;
+        }
+        Map<Source, IndexSnapshot> updated = new EnumMap<>(snapshots);
+        for (Map.Entry<Source, List<Segment>> entry : updatedSegments.entrySet()) {
+            Source source = entry.getKey();
+            updated.put(source, new IndexSnapshot(entry.getValue(), updatedLastRowIds.get(source), true));
+        }
+        return updated;
     }
 
     private static void addRange(List<RowRange> ranges, long start, long end) {
@@ -475,6 +626,7 @@ public final class DuckDBSpatialIndex {
         private final long generation;
         private final WriterState state;
         private final Map<Source, List<PendingLocation>> generatedRows = new EnumMap<>(Source.class);
+        private final List<PendingSegment> writtenSegments = new ArrayList<>();
         private boolean flushed;
         private boolean metadataChanged;
 
@@ -509,7 +661,8 @@ public final class DuckDBSpatialIndex {
                     state.accumulator(source).add(rowId++, location.worldId, location.x, location.z, location.entitySpawnRowId);
                 }
             }
-            metadataChanged = state.writeCompleted(connection, prefix);
+            writtenSegments.clear();
+            metadataChanged = state.writeCompleted(connection, prefix, writtenSegments);
             flushed = true;
         }
 
@@ -518,14 +671,14 @@ public final class DuckDBSpatialIndex {
                 if (!flushed || !key.equals(runtimeKey) || generation != runtimeGeneration) {
                     runtimeKey = null;
                     runtimeState = null;
-                    indexCache = null;
+                    invalidateCache(key);
                     runtimeGeneration++;
                     return;
                 }
                 runtimeState = state;
                 runtimeGeneration++;
                 if (metadataChanged) {
-                    indexCache = null;
+                    publishCommittedSegments(key, writtenSegments);
                 }
             }
         }
@@ -552,7 +705,7 @@ public final class DuckDBSpatialIndex {
         }
 
         public void writeCompleted(Connection connection) throws SQLException {
-            if (state.writeCompleted(connection, prefix)) {
+            if (state.writeCompleted(connection, prefix, null)) {
                 invalidateExternalWrite(connection, prefix);
             }
         }
@@ -564,7 +717,7 @@ public final class DuckDBSpatialIndex {
             }
             Accumulator accumulator = state.accumulator(source);
             accumulator.finish();
-            boolean changed = state.writeCompleted(connection, prefix);
+            boolean changed = state.writeCompleted(connection, prefix, null);
             if (changed) {
                 invalidateExternalWrite(connection, prefix);
             }
@@ -579,9 +732,7 @@ public final class DuckDBSpatialIndex {
                 runtimeKey = null;
                 runtimeState = null;
             }
-            if (indexCache != null && key.equals(indexCache.key)) {
-                indexCache = null;
-            }
+            invalidateCache(key);
             runtimeGeneration++;
         }
     }
@@ -620,7 +771,7 @@ public final class DuckDBSpatialIndex {
             return copy;
         }
 
-        private boolean writeCompleted(Connection connection, String prefix) throws SQLException {
+        private boolean writeCompleted(Connection connection, String prefix, List<PendingSegment> writtenSegments) throws SQLException {
             List<PendingSegment> pending = new ArrayList<>();
             for (Map.Entry<Source, Accumulator> entry : accumulators.entrySet()) {
                 for (Segment segment : entry.getValue().completed) {
@@ -651,6 +802,9 @@ public final class DuckDBSpatialIndex {
             }
             for (Accumulator accumulator : accumulators.values()) {
                 accumulator.completed.clear();
+            }
+            if (writtenSegments != null) {
+                writtenSegments.addAll(pending);
             }
             return true;
         }
@@ -808,6 +962,16 @@ public final class DuckDBSpatialIndex {
         }
     }
 
+    private static final class SnapshotLoad {
+
+        private final String key;
+        private final List<PendingSegment> committedSegments = new ArrayList<>();
+
+        private SnapshotLoad(String key) {
+            this.key = key;
+        }
+    }
+
     private static final class IndexCache {
 
         private final String key;
@@ -821,9 +985,15 @@ public final class DuckDBSpatialIndex {
 
     private static final class IndexSnapshot {
 
-        private final List<Segment> segments = new ArrayList<>();
-        private long lastIndexedRowId;
-        private boolean usable = true;
+        private final List<Segment> segments;
+        private final long lastIndexedRowId;
+        private final boolean usable;
+
+        private IndexSnapshot(List<Segment> segments, long lastIndexedRowId, boolean usable) {
+            this.segments = segments;
+            this.lastIndexedRowId = lastIndexedRowId;
+            this.usable = usable;
+        }
     }
 
     static final class RowRange {

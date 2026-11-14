@@ -56,7 +56,7 @@ public final class HopperPullListener {
             return;
         }
 
-        if (Validate.isContainer(destinationHolder)) {
+        if (Validate.isContainer(destinationHolder) && Validate.isHopper(destinationHolder)) {
             Location destinationLocation = destinationInventory.getLocation();
             if (destinationLocation == null) {
                 return;

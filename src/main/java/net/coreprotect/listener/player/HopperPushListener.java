@@ -45,7 +45,7 @@ public final class HopperPushListener {
             return;
         }
 
-        if (Validate.isContainer(sourceHolder)) {
+        if (Validate.isContainer(sourceHolder) && Validate.isHopper(sourceHolder)) {
             HopperTransactionUtils.recordItemRemoved(HopperTransactionUtils.getTransactionId(location), movedItem);
         }
         HopperPullListener.flushPendingPull(destinationLocation, destinationInventory, destinationContainer);

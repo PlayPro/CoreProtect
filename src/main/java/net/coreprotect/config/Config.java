@@ -112,6 +112,7 @@ public class Config extends Language {
     public int MAXIMUM_POOL_SIZE;
     public int CLICKHOUSE_PORT;
     public int CLICKHOUSE_CONSUMER_DELAY;
+    public int DUCKDB_CONSUMER_DELAY = 2500;
     public int MYSQL_PORT;
     public int DEFAULT_RADIUS;
     public int DUCKDB_THREADS;
@@ -265,6 +266,8 @@ public class Config extends Language {
         this.DUCKDB_MEMORY_LIMIT = this.getString("duckdb-memory-limit");
         this.DUCKDB_THREADS = this.getInt("duckdb-threads", 3);
         this.DUCKDB_MAX_TEMP_DIRECTORY_SIZE = this.getString("duckdb-max-temp-directory-size");
+        this.DUCKDB_CONSUMER_DELAY = Math.max(500,
+                this.getInt("duckdb-consumer-delay", 2500));
         this.SQLITE_DATABASE = this.getString("sqlite-database");
         this.LANGUAGE = this.getString("language");
         this.AUTO_PURGE = this.getString("auto-purge");

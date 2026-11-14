@@ -65,6 +65,7 @@ public class Database extends Queue {
     public static final int DATABASE_LOCK_ACTIVE = 1;
     public static final int DATABASE_LOCK_MIGRATION_INCOMPLETE = 2;
     public static final int DUCKDB_BLOCK_SIZE = 128 * 1024;
+    public static final String DUCKDB_WAL_AUTOCHECKPOINT = "64MiB";
 
     private static final int ROLLED_BACK_UPDATE_BATCH_SIZE = 1000;
     private static final int DUCKDB_ROLLED_BACK_UPDATE_BATCH_SIZE = 5000;

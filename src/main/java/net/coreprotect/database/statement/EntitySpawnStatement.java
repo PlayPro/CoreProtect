@@ -370,8 +370,15 @@ public final class EntitySpawnStatement {
 
     public static final class Updates implements ConsumerEntitySpawnUpdates {
 
+        private enum LocationMatch {
+            MISSING,
+            UNCHANGED,
+            CHANGED
+        }
+
         private final ConsumerWriteBatch batch;
         private final PreparedStatement location;
+        private final PreparedStatement currentLocation;
         private final PreparedStatement removed;
         private final PreparedStatement revived;
         private final PreparedStatement rollback;
@@ -403,6 +410,7 @@ public final class EntitySpawnStatement {
             this.batch = batch;
             this.databaseType = databaseType;
             location = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=? WHERE uuid=? AND removed=0");
+            currentLocation = connection.prepareStatement("SELECT current_wid,x,y,z FROM " + ConfigHandler.prefix + "entity_spawn WHERE uuid=? AND removed=0 LIMIT 2");
             removed = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,removed=1 WHERE uuid=? AND removed=0");
             revived = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET uuid=?,current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,removed=0 WHERE uuid=? AND removed=1");
             rollback = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=?,kill_rowid=NULL,removed=1 WHERE rowid=?");
@@ -439,13 +447,19 @@ public final class EntitySpawnStatement {
                         }
                         break;
                     case LOCATION:
-                        setLocation(location, data.getLocation(), 1);
-                        location.setString(7, data.getUuid().toString());
-                        if (location.executeUpdate() > 0 || exists(data.getUuid())) {
-                            coordinator.locationFound(data);
+                        Location targetLocation = data.getLocation();
+                        int worldId = WorldUtils.getWorldId(targetLocation.getWorld().getName());
+                        LocationMatch match = matchActiveLocation(data.getUuid(), worldId, targetLocation);
+                        if (match == LocationMatch.MISSING) {
+                            coordinator.locationMissing(data);
                         }
                         else {
-                            coordinator.locationMissing(data);
+                            if (match == LocationMatch.CHANGED) {
+                                setLocation(location, worldId, targetLocation, 1);
+                                location.setString(7, data.getUuid().toString());
+                                location.executeUpdate();
+                            }
+                            coordinator.locationFound(data);
                         }
                         break;
                     case REMOVED:
@@ -686,12 +700,41 @@ public final class EntitySpawnStatement {
         }
 
         private void setLocation(PreparedStatement statement, Location value, int offset) throws Exception {
-            statement.setInt(offset, WorldUtils.getWorldId(value.getWorld().getName()));
+            setLocation(statement, WorldUtils.getWorldId(value.getWorld().getName()), value, offset);
+        }
+
+        private void setLocation(PreparedStatement statement, int worldId, Location value, int offset) throws Exception {
+            statement.setInt(offset, worldId);
             statement.setDouble(offset + 1, value.getX());
             statement.setDouble(offset + 2, value.getY());
             statement.setDouble(offset + 3, value.getZ());
             statement.setFloat(offset + 4, value.getYaw());
             statement.setFloat(offset + 5, value.getPitch());
+        }
+
+        private LocationMatch matchActiveLocation(UUID uuid, int worldId, Location value) throws Exception {
+            currentLocation.setString(1, uuid.toString());
+            try (ResultSet resultSet = currentLocation.executeQuery()) {
+                if (!resultSet.next()) {
+                    return LocationMatch.MISSING;
+                }
+                int storedWorldId = resultSet.getInt(1);
+                boolean hasWorld = !resultSet.wasNull();
+                double storedX = resultSet.getDouble(2);
+                boolean hasX = !resultSet.wasNull();
+                double storedY = resultSet.getDouble(3);
+                boolean hasY = !resultSet.wasNull();
+                double storedZ = resultSet.getDouble(4);
+                boolean hasZ = !resultSet.wasNull();
+                if (!resultSet.next() && hasWorld && hasX && hasY && hasZ
+                        && storedWorldId == worldId
+                        && Location.locToBlock(storedX) == value.getBlockX()
+                        && Location.locToBlock(storedY) == value.getBlockY()
+                        && Location.locToBlock(storedZ) == value.getBlockZ()) {
+                    return LocationMatch.UNCHANGED;
+                }
+                return LocationMatch.CHANGED;
+            }
         }
 
         private void setNullableData(PreparedStatement statement, int index, byte[] value) throws Exception {
@@ -776,6 +819,7 @@ public final class EntitySpawnStatement {
             afterCommit(false);
             coordinator.clearDeferred();
             location.close();
+            currentLocation.close();
             removed.close();
             revived.close();
             rollback.close();

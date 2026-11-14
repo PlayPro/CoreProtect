@@ -56,7 +56,7 @@ public final class EntitySpawnTracking {
     private static final int ORIGIN_SEED_SIZE = Integer.BYTES + Double.BYTES * 3;
     private static final int KILL_LOCATION_INDEX = 8;
     private static final long PENDING_CLEAR_TTL_MILLIS = 300_000L;
-    private static final long UNLOADED_CACHE_RETENTION_MILLIS = 300_000L;
+    private static final long UNLOADED_CACHE_RETENTION_MILLIS = 3_600_000L;
     private static final long CLEANUP_INTERVAL_MILLIS = 60_000L;
     private static final int CHUNK_SCAN_BATCH_SIZE = 64;
     private static final int ENTITY_SCAN_BATCH_SIZE = 256;
@@ -1700,7 +1700,10 @@ public final class EntitySpawnTracking {
         }
 
         private boolean matches(Location location) {
-            return location != null && location.getWorld() != null && worldId.equals(location.getWorld().getUID()) && chunkX == (location.getBlockX() >> 4) && chunkZ == (location.getBlockZ() >> 4) && Double.compare(x, location.getX()) == 0 && Double.compare(y, location.getY()) == 0 && Double.compare(z, location.getZ()) == 0 && Float.compare(yaw, location.getYaw()) == 0 && Float.compare(pitch, location.getPitch()) == 0;
+            return location != null && location.getWorld() != null && worldId.equals(location.getWorld().getUID())
+                    && Location.locToBlock(x) == location.getBlockX()
+                    && Location.locToBlock(y) == location.getBlockY()
+                    && Location.locToBlock(z) == location.getBlockZ();
         }
 
         private boolean isWithinRadius(World world, Integer[] radius) {

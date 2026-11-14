@@ -46,7 +46,20 @@ final class DuckDBDatabase {
         properties.setProperty("allow_community_extensions", "false");
         properties.setProperty("autoload_known_extensions", "false");
         properties.setProperty("autoinstall_known_extensions", "false");
-        rootConnection = DuckDBNativeSupport.openDatabase(() -> (DuckDBConnection) java.sql.DriverManager.getConnection("jdbc:duckdb:" + databaseFile.getAbsolutePath(), properties));
+        DuckDBConnection connection = DuckDBNativeSupport.openDatabase(() -> (DuckDBConnection) java.sql.DriverManager.getConnection("jdbc:duckdb:" + databaseFile.getAbsolutePath(), properties));
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("SET wal_autocheckpoint = '" + Database.DUCKDB_WAL_AUTOCHECKPOINT + "'");
+        }
+        catch (Exception exception) {
+            try {
+                connection.close();
+            }
+            catch (Exception closeException) {
+                exception.addSuppressed(closeException);
+            }
+            throw exception;
+        }
+        rootConnection = connection;
     }
 
     static synchronized Connection getConnection() throws Exception {

@@ -105,11 +105,17 @@ public class Process {
         transactionFailures.clear();
     }
 
-    protected static int consumerDelay(boolean backlog) {
-        if (backlog || !ConfigHandler.databaseType.isClickHouse()) {
+    public static int consumerDelay(boolean backlog) {
+        if (backlog) {
             return 500;
         }
-        return Math.max(500, Config.getGlobal().CLICKHOUSE_CONSUMER_DELAY);
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            return Math.max(500, Config.getGlobal().CLICKHOUSE_CONSUMER_DELAY);
+        }
+        if (ConfigHandler.databaseType.isDuckDB()) {
+            return Math.max(500, Config.getGlobal().DUCKDB_CONSUMER_DELAY);
+        }
+        return 500;
     }
 
     public static boolean isRollbackPublication(int action, Object object) {
@@ -122,6 +128,14 @@ public class Process {
 
         EntitySpawnData.Operation operation = ((EntitySpawnData) object).getOperation();
         return operation == EntitySpawnData.Operation.ROLLBACK || operation == EntitySpawnData.Operation.RESTORE || operation == EntitySpawnData.Operation.KILL_ROLLBACK || operation == EntitySpawnData.Operation.KILL_RESTORE || operation == EntitySpawnData.Operation.COMPOSITE_ROLLBACK || operation == EntitySpawnData.Operation.COMPOSITE_RESTORE || operation == EntitySpawnData.Operation.CLAIM_RELEASE;
+    }
+
+    private static boolean isLockUpdateDue(boolean lastRun) {
+        if (lastRun) {
+            return true;
+        }
+        int unixTimestamp = (int) (System.currentTimeMillis() / 1000L);
+        return unixTimestamp - lastLockUpdate >= 15;
     }
 
     protected static void updateLockTable(ConsumerWriteBatch batch, int locked) {
@@ -138,7 +152,7 @@ public class Process {
         }
     }
 
-    protected static void processConsumer(int processId, boolean lastRun) {
+    public static void processConsumer(int processId, boolean lastRun) {
         List<PendingEntitySpawnLog> pendingEntitySpawnLogs = new ArrayList<>();
         Map<UUID, EntitySpawnIdentity> entitySpawnIdentities = new LinkedHashMap<>();
         Map<UUID, Location> pendingEntityIdentityConfirmations = new LinkedHashMap<>();
@@ -159,7 +173,19 @@ public class Process {
         boolean consumerDataCleared = false;
         boolean preflightCommitted = false;
         boolean batchedDuckDBEntityEvent = false;
+        int previousLockUpdate = lastLockUpdate;
+        boolean lockUpdatePending = false;
         int processedThrough = 0;
+        consumerData = Consumer.consumer.get(processId);
+        if (consumerData != null && consumerData.isEmpty() && ConfigHandler.databaseType.isDuckDB()
+                && ConfigHandler.databaseReachable && !isLockUpdateDue(lastRun)) {
+            currentConsumerSize = 0;
+            Consumer.consumer_id.put(processId, new Integer[] { 0, 0 });
+            if (!Consumer.hasPendingConsumerData()) {
+                DuckDBRecovery.markHealthy();
+            }
+            return;
+        }
         try {
             connection = Database.getConnection(false, 500);
             if (connection == null) {
@@ -172,26 +198,30 @@ public class Process {
             }
 
             Statement statement = connection.createStatement();
-            ConsumerWriteBatch batch = Database.openConsumerWriteBatch(connection);
-            writeBatch = batch;
             Database.performCheckpoint(statement, ConfigHandler.databaseType);
 
-            consumerData = Consumer.consumer.get(processId);
             users = Consumer.consumerUsers.get(processId);
             consumerObject = Consumer.consumerObjects.get(processId);
             int consumerDataSize = consumerData.size();
             currentConsumerSize = consumerDataSize;
 
-            if (!beginConsumerTransaction(writeBatch)) {
-                deferConsumerRetry();
-                return;
-            }
-
             if (currentConsumerSize == 0) { // No data, skip processing
-                updateLockTable(writeBatch, (lastRun ? 0 : 1));
-                if (commit(writeBatch) != TransactionOutcome.COMMITTED) {
-                    deferConsumerRetry();
-                    return;
+                if (!ConfigHandler.databaseType.isDuckDB() || isLockUpdateDue(lastRun)) {
+                    writeBatch = Database.openConsumerWriteBatch(connection);
+                    if (!beginConsumerTransaction(writeBatch)) {
+                        statement.close();
+                        deferConsumerRetry();
+                        return;
+                    }
+                    previousLockUpdate = lastLockUpdate;
+                    updateLockTable(writeBatch, (lastRun ? 0 : 1));
+                    lockUpdatePending = lastLockUpdate != previousLockUpdate;
+                    if (commit(writeBatch) != TransactionOutcome.COMMITTED) {
+                        statement.close();
+                        deferConsumerRetry();
+                        return;
+                    }
+                    lockUpdatePending = false;
                 }
                 statement.close();
                 Consumer.consumer_id.put(processId, new Integer[] { 0, 0 });
@@ -201,6 +231,16 @@ public class Process {
                 return;
             }
 
+            ConsumerWriteBatch batch = Database.openConsumerWriteBatch(connection);
+            writeBatch = batch;
+
+            boolean coalesceDuckDBPreflight = ConfigHandler.databaseType.isDuckDB();
+            if (!coalesceDuckDBPreflight && !beginConsumerTransaction(writeBatch)) {
+                deferConsumerRetry();
+                return;
+            }
+
+            boolean hasUserPreflight = false;
             boolean hasEntitySpawnUpdates = false;
             boolean hasEntitySpawnLogs = false;
             boolean hasEntityContainerTransactions = false;
@@ -215,7 +255,12 @@ public class Process {
                     continue;
                 }
                 preparingEvent = data;
-                preflightUser(writeBatch, data, users);
+                if (coalesceDuckDBPreflight) {
+                    hasUserPreflight |= needsUserPreflight(data, users);
+                }
+                else {
+                    preflightUser(writeBatch, data, users);
+                }
                 int action = (int) data[1];
                 hasEntitySpawnUpdates |= action == Process.ENTITY_SPAWN_UPDATE || action == Process.ENTITY_CONTAINER_TRANSITION_UPDATE;
                 hasEntitySpawnLogs |= action == Process.ENTITY_SPAWN_LOG;
@@ -259,13 +304,33 @@ public class Process {
                     }
                 }
             }
-
             preparingEvent = null;
-            updateLockTable(writeBatch, (lastRun ? 0 : 1));
-            if (commit(writeBatch) != TransactionOutcome.COMMITTED) {
-                invalidateUserCaches(users);
-                failConsumerBatch(processId, consumerData, users, consumerObject, 0, 0);
-                return;
+
+            if (!coalesceDuckDBPreflight || hasUserPreflight) {
+                if (coalesceDuckDBPreflight) {
+                    if (!beginConsumerTransaction(writeBatch)) {
+                        deferConsumerRetry();
+                        return;
+                    }
+                    for (int index = 0; index < consumerDataSize; index++) {
+                        Object[] data = consumerData.get(index);
+                        if (data == null) {
+                            continue;
+                        }
+                        preparingEvent = data;
+                        preflightUser(writeBatch, data, users);
+                    }
+                    preparingEvent = null;
+                }
+                previousLockUpdate = lastLockUpdate;
+                updateLockTable(writeBatch, (lastRun ? 0 : 1));
+                lockUpdatePending = lastLockUpdate != previousLockUpdate;
+                if (commit(writeBatch) != TransactionOutcome.COMMITTED) {
+                    invalidateUserCaches(users);
+                    failConsumerBatch(processId, consumerData, users, consumerObject, 0, 0);
+                    return;
+                }
+                lockUpdatePending = false;
             }
             preflightCommitted = true;
 
@@ -279,6 +344,11 @@ public class Process {
             if (!beginConsumerTransaction(writeBatch)) {
                 deferConsumerRetry();
                 return;
+            }
+            if (coalesceDuckDBPreflight && !hasUserPreflight) {
+                previousLockUpdate = lastLockUpdate;
+                updateLockTable(writeBatch, (lastRun ? 0 : 1));
+                lockUpdatePending = lastLockUpdate != previousLockUpdate;
             }
             entitySpawnUpdates = hasEntitySpawnUpdates ? writeBatch.entitySpawnUpdates() : null;
             if (entitySpawnUpdates != null) {
@@ -302,6 +372,7 @@ public class Process {
                     if (isolatedTransaction && i > processedThrough) {
                         TransactionOutcome outcome = commit(writeBatch, consumerData, processedThrough, i);
                         if (outcome == TransactionOutcome.COMMITTED) {
+                            lockUpdatePending = false;
                             processedThrough = i;
                             batchedDuckDBEntityEvent = false;
                         }
@@ -539,6 +610,7 @@ public class Process {
                                 int batchStart = processedThrough;
                                 TransactionOutcome outcome = commit(writeBatch, consumerData, processedThrough, i + 1);
                                 if (outcome == TransactionOutcome.COMMITTED) {
+                                    lockUpdatePending = false;
                                     processedThrough = i + 1;
                                     batchedDuckDBEntityEvent = false;
                                 }
@@ -597,6 +669,7 @@ public class Process {
                     if (isolatedTransaction) {
                         TransactionOutcome outcome = commit(writeBatch, consumerData, processedThrough, i + 1);
                         if (outcome == TransactionOutcome.COMMITTED) {
+                            lockUpdatePending = false;
                             processedThrough = i + 1;
                             batchedDuckDBEntityEvent = false;
                         }
@@ -617,6 +690,7 @@ public class Process {
             // commit data to database
             TransactionOutcome outcome = commit(writeBatch, consumerData, processedThrough, consumerData.size());
             if (outcome == TransactionOutcome.COMMITTED) {
+                lockUpdatePending = false;
                 processedThrough = consumerData.size();
             }
             completeTransactionState(entitySpawnUpdates, pendingEntityContainerTransactions, pendingEntityContainerRollbacks, pendingEntityInteractions, pendingEntityIdentityConfirmations, invalidatedEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, pendingEntitySpawnLogs, outcome);
@@ -664,6 +738,9 @@ public class Process {
             }
         }
         finally {
+            if (lockUpdatePending) {
+                lastLockUpdate = previousLockUpdate;
+            }
             if (writeBatch != null) {
                 try {
                     writeBatch.close();
@@ -879,17 +956,23 @@ public class Process {
         }
     }
 
-    static void preflightUser(ConsumerWriteBatch batch, Object[] data,
-            Map<Integer, String[]> users) throws Exception {
+    private static boolean needsUserPreflight(Object[] data,
+            Map<Integer, String[]> users) {
         String[] userData = users.get((int) data[0]);
         if (userData == null) {
-            return;
+            return false;
         }
         String user = userData[0];
         String uuid = userData[1];
-        if (user != null && ((ConfigHandler.databaseType.isClickHouse() && uuid != null && !uuid.isEmpty())
-                || ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT)) == null)) {
-            batch.resolveUserId(user, uuid);
+        return user != null && ((ConfigHandler.databaseType.isClickHouse() && uuid != null && !uuid.isEmpty())
+                || ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT)) == null);
+    }
+
+    static void preflightUser(ConsumerWriteBatch batch, Object[] data,
+            Map<Integer, String[]> users) throws Exception {
+        if (needsUserPreflight(data, users)) {
+            String[] userData = users.get((int) data[0]);
+            batch.resolveUserId(userData[0], userData[1]);
         }
     }
 

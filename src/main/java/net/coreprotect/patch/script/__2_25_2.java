@@ -7,6 +7,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.DuckDBSpatialIndex;
 import net.coreprotect.utility.ErrorReporter;
 
 public class __2_25_2 {
@@ -27,27 +28,31 @@ public class __2_25_2 {
             connection = statement.getConnection();
             String prefix = ConfigHandler.prefix;
             String table = prefix + "entity_spawn";
-            if (!hasUniqueConstraint(connection, table)) {
-                return true;
+            if (hasUniqueConstraint(connection, table)) {
+                long nextRowId = nextSequenceStart(statement, table);
+                String sequence = table + "_rowid_seq";
+                String stagingTable = table + "_new";
+                if (connection.getAutoCommit()) {
+                    connection.setAutoCommit(false);
+                    restoreAutoCommit = true;
+                }
+                transactionStarted = true;
+
+                statement.executeUpdate("CREATE SEQUENCE IF NOT EXISTS " + sequence + " START " + nextRowId);
+                statement.executeUpdate("DROP TABLE IF EXISTS " + stagingTable);
+                statement.executeUpdate("CREATE TABLE " + stagingTable + " (rowid INTEGER NOT NULL DEFAULT nextval('" + sequence + "'), time INTEGER, block_rowid BIGINT, kill_rowid INTEGER, uuid VARCHAR, wid INTEGER, current_wid INTEGER, origin_x DOUBLE, origin_y DOUBLE, origin_z DOUBLE, x DOUBLE, y DOUBLE, z DOUBLE, yaw FLOAT, pitch FLOAT, data BLOB, removed TINYINT)");
+                statement.executeUpdate("INSERT INTO " + stagingTable + " SELECT rowid,time,block_rowid,kill_rowid,uuid,wid,current_wid,origin_x,origin_y,origin_z,x,y,z,yaw,pitch,data,removed FROM " + table);
+                statement.executeUpdate("DROP TABLE " + table);
+                statement.executeUpdate("ALTER TABLE " + stagingTable + " RENAME TO " + table);
+                connection.commit();
+                transactionStarted = false;
+                if (restoreAutoCommit) {
+                    connection.setAutoCommit(true);
+                    restoreAutoCommit = false;
+                }
             }
 
-            long nextRowId = nextSequenceStart(statement, table);
-            String sequence = table + "_rowid_seq";
-            String stagingTable = table + "_new";
-            if (connection.getAutoCommit()) {
-                connection.setAutoCommit(false);
-                restoreAutoCommit = true;
-            }
-            transactionStarted = true;
-
-            statement.executeUpdate("CREATE SEQUENCE IF NOT EXISTS " + sequence + " START " + nextRowId);
-            statement.executeUpdate("DROP TABLE IF EXISTS " + stagingTable);
-            statement.executeUpdate("CREATE TABLE " + stagingTable + " (rowid INTEGER NOT NULL DEFAULT nextval('" + sequence + "'), time INTEGER, block_rowid BIGINT, kill_rowid INTEGER, uuid VARCHAR, wid INTEGER, current_wid INTEGER, origin_x DOUBLE, origin_y DOUBLE, origin_z DOUBLE, x DOUBLE, y DOUBLE, z DOUBLE, yaw FLOAT, pitch FLOAT, data BLOB, removed TINYINT)");
-            statement.executeUpdate("INSERT INTO " + stagingTable + " SELECT rowid,time,block_rowid,kill_rowid,uuid,wid,current_wid,origin_x,origin_y,origin_z,x,y,z,yaw,pitch,data,removed FROM " + table);
-            statement.executeUpdate("DROP TABLE " + table);
-            statement.executeUpdate("ALTER TABLE " + stagingTable + " RENAME TO " + table);
-            connection.commit();
-            transactionStarted = false;
+            DuckDBSpatialIndex.repairEmptyGaps(connection, prefix);
             return true;
         }
         catch (Exception e) {

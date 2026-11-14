@@ -107,8 +107,17 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
             boolean committed = Database.commitTransactionChecked(transactionStatement, databaseType, () -> commitAttempted = true);
             if (!committed) {
                 boolean rolledBack = Database.rollbackTransaction(transactionStatement, databaseType);
-                duckDBSpatialIndex = null;
+                if (commitAttempted || !rolledBack) {
+                    abandonDuckDBSpatialIndex();
+                }
+                else {
+                    duckDBSpatialIndex = null;
+                }
                 return acknowledgedRollback && rolledBack;
+            }
+            if (acknowledgedRollback) {
+                duckDBSpatialIndex = null;
+                return true;
             }
             if (duckDBSpatialIndex != null) {
                 duckDBSpatialIndex.publish();
@@ -119,8 +128,13 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         catch (Exception exception) {
             commitFailure = exception;
             Database.reportDatabaseFailure(exception);
-            Database.rollbackTransaction(transactionStatement, databaseType);
-            duckDBSpatialIndex = null;
+            boolean rolledBack = Database.rollbackTransaction(transactionStatement, databaseType);
+            if (commitAttempted || !rolledBack) {
+                abandonDuckDBSpatialIndex();
+            }
+            else {
+                duckDBSpatialIndex = null;
+            }
             return false;
         }
     }
@@ -144,8 +158,20 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         catch (Exception exception) {
             Database.reportDatabaseFailure(exception);
         }
-        Database.rollbackTransaction(transactionStatement, databaseType);
-        duckDBSpatialIndex = null;
+        boolean rolledBack = Database.rollbackTransaction(transactionStatement, databaseType);
+        if (!rolledBack) {
+            abandonDuckDBSpatialIndex();
+        }
+        else {
+            duckDBSpatialIndex = null;
+        }
+    }
+
+    private void abandonDuckDBSpatialIndex() {
+        if (duckDBSpatialIndex != null) {
+            duckDBSpatialIndex.abandon();
+            duckDBSpatialIndex = null;
+        }
     }
 
     @Override

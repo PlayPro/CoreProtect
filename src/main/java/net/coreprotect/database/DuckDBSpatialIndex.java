@@ -240,10 +240,14 @@ public final class DuckDBSpatialIndex {
 
         List<RowRange> ranges = new ArrayList<>();
         int matchedSegments = 0;
+        long totalIndexedRows = 0L;
+        long includedRows = 0L;
+        long pendingGapRows = 0L;
         long previousEnd = 0L;
         for (Segment segment : snapshot.segments) {
+            totalIndexedRows += segment.rowCount;
             if (previousEnd < Long.MAX_VALUE && segment.startRowId > previousEnd + 1L) {
-                addRange(ranges, previousEnd + 1L, segment.startRowId - 1L);
+                pendingGapRows = addRange(ranges, previousEnd + 1L, segment.startRowId - 1L, pendingGapRows);
             }
             previousEnd = Math.max(previousEnd, segment.endRowId);
             boolean spatialMatch = chunks.length > 0 && segment.chunks.mightContainAny(chunks);
@@ -251,10 +255,11 @@ public final class DuckDBSpatialIndex {
             boolean requiredRowMatch = containsAny(segment, requiredRowIds);
             if (spatialMatch || entityMatch || requiredRowMatch) {
                 matchedSegments++;
-                addRange(ranges, segment.startRowId, segment.endRowId);
+                includedRows += segment.rowCount;
+                pendingGapRows = addRange(ranges, segment.startRowId, segment.endRowId, pendingGapRows);
             }
-            if (ranges.size() > MAXIMUM_PREDICATE_RANGES) {
-                return null;
+            else if (!ranges.isEmpty() && segment.endRowId > ranges.get(ranges.size() - 1).end) {
+                pendingGapRows += segment.rowCount;
             }
         }
         if (matchedSegments == snapshot.segments.size()) {
@@ -262,9 +267,51 @@ public final class DuckDBSpatialIndex {
         }
 
         if (snapshot.lastIndexedRowId < Long.MAX_VALUE) {
-            addRange(ranges, snapshot.lastIndexedRowId + 1L, Long.MAX_VALUE);
+            addRange(ranges, snapshot.lastIndexedRowId + 1L, Long.MAX_VALUE, pendingGapRows);
         }
-        return ranges.isEmpty() || ranges.size() > MAXIMUM_PREDICATE_RANGES ? null : ranges;
+        if (ranges.isEmpty()) {
+            return null;
+        }
+        return ranges.size() <= MAXIMUM_PREDICATE_RANGES
+                ? ranges
+                : coalesceRanges(ranges, includedRows, totalIndexedRows);
+    }
+
+    private static List<RowRange> coalesceRanges(List<RowRange> ranges, long includedRows, long totalIndexedRows) {
+        int gapCount = ranges.size() - 1;
+        int merges = ranges.size() - MAXIMUM_PREDICATE_RANGES;
+        long[] sortedGaps = new long[gapCount];
+        for (int i = 0; i < gapCount; i++) {
+            sortedGaps[i] = ranges.get(i + 1).gapBefore;
+        }
+        Arrays.sort(sortedGaps);
+        long threshold = sortedGaps[merges - 1];
+        int equalBudget = 0;
+        for (int i = merges - 1; i >= 0 && sortedGaps[i] == threshold; i--) {
+            equalBudget++;
+        }
+
+        List<RowRange> merged = new ArrayList<>(MAXIMUM_PREDICATE_RANGES);
+        RowRange current = ranges.get(0);
+        for (int i = 1; i < ranges.size(); i++) {
+            RowRange next = ranges.get(i);
+            long gap = next.gapBefore;
+            if (gap < threshold || (gap == threshold && equalBudget > 0)) {
+                if (gap == threshold) {
+                    equalBudget--;
+                }
+                current.end = next.end;
+                includedRows += gap;
+            }
+            else {
+                merged.add(current);
+                current = next;
+            }
+        }
+        merged.add(current);
+        return includedRows >= totalIndexedRows || (merged.size() == 1 && merged.get(0).start <= 1L && merged.get(0).end == Long.MAX_VALUE)
+                ? null
+                : merged;
     }
 
     private static String alias(String alias) {
@@ -590,15 +637,16 @@ public final class DuckDBSpatialIndex {
         return updated;
     }
 
-    private static void addRange(List<RowRange> ranges, long start, long end) {
+    private static long addRange(List<RowRange> ranges, long start, long end, long pendingGapRows) {
         if (!ranges.isEmpty()) {
             RowRange previous = ranges.get(ranges.size() - 1);
             if (previous.end == Long.MAX_VALUE || start <= previous.end + 1L) {
                 previous.end = Math.max(previous.end, end);
-                return;
+                return 0L;
             }
         }
-        ranges.add(new RowRange(start, end));
+        ranges.add(new RowRange(start, end, ranges.isEmpty() ? 0L : pendingGapRows));
+        return 0L;
     }
 
     private static String databaseKey(Connection connection, String prefix) throws SQLException {
@@ -1000,10 +1048,12 @@ public final class DuckDBSpatialIndex {
 
         private final long start;
         private long end;
+        private final long gapBefore;
 
-        private RowRange(long start, long end) {
+        private RowRange(long start, long end, long gapBefore) {
             this.start = start;
             this.end = end;
+            this.gapBefore = gapBefore;
         }
     }
 

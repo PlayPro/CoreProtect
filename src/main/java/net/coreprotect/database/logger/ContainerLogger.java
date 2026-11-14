@@ -1,6 +1,8 @@
 package net.coreprotect.database.logger;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -25,6 +27,7 @@ import net.coreprotect.event.CoreProtectPreLogEvent;
 import net.coreprotect.model.entity.EntityContainerTransaction;
 import net.coreprotect.model.entity.EntitySpawnIdentity;
 import net.coreprotect.model.item.ItemTransactionActions;
+import net.coreprotect.model.item.VirtualContainerTransaction;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.HopperTransactionUtils;
@@ -249,6 +252,24 @@ public class ContainerLogger extends Queue {
         logEntityTransaction(preparedStmtContainer, batchCount, player, identity, currentLocation, newInventory, ItemTransactionActions.ADD);
     }
 
+    public static void logVirtual(ConsumerWriteBatch preparedStmtContainer, int batchCount, String player, VirtualContainerTransaction transaction) throws Exception {
+        if (transaction == null || ConfigHandler.isBlacklisted(player)) {
+            return;
+        }
+
+        ItemStack[] oldInventory = transaction.getOldContents();
+        ItemStack[] newInventory = transaction.getNewContents();
+        if (ItemUtils.compareContainers(oldInventory, newInventory)) {
+            return;
+        }
+
+        subtractSharedItems(oldInventory, newInventory);
+        ItemUtils.mergeItems(Material.CHEST, oldInventory);
+        ItemUtils.mergeItems(Material.CHEST, newInventory);
+        logVirtualTransaction(preparedStmtContainer, batchCount, player, transaction, oldInventory, ItemTransactionActions.REMOVE);
+        logVirtualTransaction(preparedStmtContainer, batchCount, player, transaction, newInventory, ItemTransactionActions.ADD);
+    }
+
     protected static void logTransaction(ConsumerWriteBatch preparedStmt, int batchCount, String user, Material type, String faceData, ItemStack[] items, int action, Location location) {
         logTransaction(preparedStmt, batchCount, user, type, faceData, items, action, location, null, true);
     }
@@ -355,6 +376,73 @@ public class ContainerLogger extends Queue {
             ContainerStatement.insertEntity(preparedStmt, batchCount, time, userId, identity.getRowId(), wid, x, y, z, typeId, 0, item.getAmount(), metadata, action, 0);
             slot++;
         }
+    }
+
+    private static void logVirtualTransaction(ConsumerWriteBatch preparedStmt, int batchCount, String user, VirtualContainerTransaction transaction, ItemStack[] items, int action) throws Exception {
+        ItemStack[] before = transaction.getOldContents();
+        ItemStack[] after = transaction.getNewContents();
+        for (ItemStack item : items) {
+            if (item == null || item.getAmount() <= 0 || BlockUtils.isAir(item.getType())) {
+                continue;
+            }
+            if (ConfigHandler.isFilterBlacklisted(user, item.getType().getKey().toString())) {
+                continue;
+            }
+
+            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, null, CoreProtectPreLogEvent.Action.VIRTUAL_CONTAINER_TRANSACTION, action, item.getType(), null, transaction.getKey());
+            if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
+                CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+            }
+            if (event.isCancelled()) {
+                return;
+            }
+
+            int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
+            int containerId = preparedStmt.resolveVirtualContainerId(transaction.getKey());
+            int typeId = MaterialUtils.getBlockId(item.getType().name(), true);
+            for (Map.Entry<Integer, Integer> slot : getVirtualSlots(item, action == ItemTransactionActions.ADD, before, after).entrySet()) {
+                List<List<Map<String, Object>>> metadata = ItemMetaHandler.serialize(item, Material.CHEST, null, slot.getKey());
+                if (slot.getKey() >= 0) {
+                    // stored like the slot of an armor stand item, which populateItemStack reads back
+                    Map<String, Object> slotData = new HashMap<>();
+                    slotData.put("slot", slot.getKey());
+                    List<Map<String, Object>> slotList = new ArrayList<>();
+                    slotList.add(slotData);
+                    metadata.add(slotList);
+                }
+                ContainerStatement.insertVirtual(preparedStmt, batchCount, transaction.getTime(), userId, containerId, typeId, 0, slot.getValue(), metadata.isEmpty() ? null : metadata, action, 0);
+            }
+        }
+    }
+
+    /**
+     * Splits the logged change of an item over the slots where that item increased (addition) or decreased (removal),
+     * in slot order. Slots are only known when the two snapshots are index-aligned: the same length, or one of them
+     * empty. The amount no slot accounts for is returned under slot -1.
+     */
+    private static Map<Integer, Integer> getVirtualSlots(ItemStack item, boolean addition, ItemStack[] before, ItemStack[] after) {
+        Map<Integer, Integer> slots = new LinkedHashMap<>();
+        int remaining = item.getAmount();
+        if (before.length == after.length || before.length == 0 || after.length == 0) {
+            int length = Math.max(before.length, after.length);
+            for (int slot = 0; slot < length && remaining > 0; slot++) {
+                int change = getSlotAmount(after, slot, item) - getSlotAmount(before, slot, item);
+                int amount = Math.min(remaining, addition ? change : -change);
+                if (amount > 0) {
+                    slots.put(slot, amount);
+                    remaining -= amount;
+                }
+            }
+        }
+        if (remaining > 0) {
+            slots.put(-1, remaining);
+        }
+        return slots;
+    }
+
+    private static int getSlotAmount(ItemStack[] items, int slot, ItemStack item) {
+        ItemStack slotItem = slot < items.length ? items[slot] : null;
+        return slotItem != null && slotItem.isSimilar(item) ? slotItem.getAmount() : 0;
     }
 
     private static boolean samePosition(Location first, Location second) {

@@ -39,6 +39,7 @@ import net.coreprotect.model.item.ItemTransactionActions;
 import net.coreprotect.model.lookup.EntityLookupContext;
 import net.coreprotect.model.lookup.LookupCursor;
 import net.coreprotect.model.lookup.LookupRollbackState;
+import net.coreprotect.model.lookup.VirtualContainerTarget;
 import net.coreprotect.model.rollback.SignRollbackChange;
 import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.EntityUtils;
@@ -566,6 +567,7 @@ public class LookupRaw extends Queue {
             String entityInteractionLocationQuery = "";
             String standardLocationQuery = "";
             String entityLocationCte = "";
+            VirtualContainerTarget virtualContainer = null;
             List<String> messageFilterBindings = new ArrayList<>();
 
             if (checkUuids.size() > 0) {
@@ -639,6 +641,9 @@ public class LookupRaw extends Queue {
                         else {
                             includeListMaterial.append(",").append(blockId);
                         }
+                    }
+                    else if (restrictTarget instanceof VirtualContainerTarget) {
+                        virtualContainer = (VirtualContainerTarget) restrictTarget;
                     }
                 }
 
@@ -1180,7 +1185,19 @@ public class LookupRaw extends Queue {
                 query = query + unionSelect + "SELECT 2 as tbl," + rows + " FROM " + itemTable + " WHERE" + itemSourceQuery + unionLimit + ")";
             }
 
-            if (!itemLookup && (actionList.contains(LookupActions.CONTAINER) || actionList.contains(5))) {
+            if (virtualContainer != null) {
+                if (!lookup) {
+                    // a rollback would update these rows by rowid in the block container table
+                    throw new IllegalArgumentException("Virtual containers cannot be rolled back or restored");
+                }
+                if (!count && !selectPageRows) {
+                    rows = "rowid as id,time," + userColumn + ",0 as wid,0 as x,0 as y,0 as z,type,metadata,data,amount,action,rolled_back,container_id as entity_spawn_rowid";
+                }
+                String sourceQuery = restrictSource(queryNonBlock + " AND " + virtualContainerQuery(virtualContainer), pageRows, InventorySources.VIRTUAL_CONTAINER);
+                String sourceTable = sourceTable(statement, "virtual_container", locationWorldId, sourceBounds, entityContext, false, pageRows, clickHouseLookup, pageRows == null ? timeQuery : sourceQuery.trim());
+                query = "SELECT " + InventorySources.VIRTUAL_CONTAINER + " as tbl," + rows + " FROM " + sourceTable + " WHERE" + sourceQuery;
+            }
+            else if (!itemLookup && (actionList.contains(LookupActions.CONTAINER) || actionList.contains(5))) {
                 if (!count && !selectPageRows) {
                     rows = "rowid as id,time," + userColumn + ",wid,x,y,z,type,metadata,data,amount,action,rolled_back,0 as entity_spawn_rowid";
                 }
@@ -1295,6 +1312,19 @@ public class LookupRaw extends Queue {
         String currentQuery = select + currentIndex + "WHERE" + predicate.replace(entityLocation, currentLocation);
         return (count ? "SELECT 0 as tbl,SUM(count) as count" : "SELECT *")
                 + " FROM (" + originalQuery + " UNION ALL " + currentQuery + ") AS coreprotect_block";
+    }
+
+    private static String virtualContainerQuery(VirtualContainerTarget target) {
+        // the parser only accepts a-z, 0-9, ".", "_", "-" and the type's ":", so the key is safe to inline
+        String keys = "SELECT id FROM " + ConfigHandler.prefix + "virtual_container_map WHERE ";
+        if (target.getId() != null) {
+            keys += "container='" + target.getType() + "/" + target.getId() + "'";
+        }
+        else {
+            String typePrefix = target.getType() + "/";
+            keys += "substr(container,1," + typePrefix.length() + ")='" + typePrefix + "'";
+        }
+        return "container_id IN(" + keys + ")";
     }
 
     private static final class PageRow {

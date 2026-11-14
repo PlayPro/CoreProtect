@@ -11,12 +11,14 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.Server;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.api.BlockAPI;
 import net.coreprotect.api.EntityAPI;
@@ -47,9 +49,11 @@ import net.coreprotect.database.rollback.Rollback;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.action.LookupActions;
+import net.coreprotect.model.item.VirtualContainerTransaction;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.VirtualContainerUtils;
 
 /**
  * The main API class for CoreProtect.
@@ -554,6 +558,35 @@ public class CoreProtectAPI extends Queue {
         }
 
         return InventoryChangeListener.inventoryTransaction(user, location, null);
+    }
+
+    /**
+     * Logs a transaction in a virtual container: an inventory owned by a plugin that has no block or entity.
+     * CoreProtect records the difference between the two snapshots.
+     * 
+     * @param user
+     *            The username or plugin actor credited with the change
+     * @param type
+     *            The container type, a namespaced key whose key part contains no "/"
+     * @param id
+     *            The container within its type: 1 to 64 characters of a-z, 0-9, ".", "_" or "-"
+     * @param before
+     *            The contents before the change, or null when empty
+     * @param after
+     *            The contents after the change, or null when empty
+     * @return True if the transaction was queued
+     */
+    public boolean logVirtualContainerTransaction(String user, NamespacedKey type, String id, ItemStack[] before, ItemStack[] after) {
+        if (!isEnabled() || !Config.getGlobal().ITEM_TRANSACTIONS || user == null || user.isEmpty() || type == null) {
+            return false;
+        }
+
+        String key = VirtualContainerUtils.getKey(type.getNamespace() + ":" + type.getKey(), id);
+        if (key == null) {
+            return false;
+        }
+
+        return Queue.queueVirtualContainerTransaction(user, new VirtualContainerTransaction(key, before, after));
     }
 
     /**

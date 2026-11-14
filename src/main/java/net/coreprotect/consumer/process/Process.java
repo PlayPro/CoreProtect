@@ -79,6 +79,8 @@ public class Process {
     public static final int ENTITY_CONTAINER_TRANSITION_UPDATE = 34;
     public static final int ENTITY_INTERACTION = 35;
     public static final int SIGN_ROLLBACK_UPDATE = 36;
+    public static final int VIRTUAL_CONTAINER_TRANSACTION = 37;
+    public static final int VIRTUAL_CONTAINER_INSERT = 38;
 
     public static int lastLockUpdate = 0;
     private static volatile int currentConsumerSize = 0;
@@ -341,6 +343,9 @@ public class Process {
                                 case Process.CONTAINER_TRANSACTION:
                                     ContainerTransactionProcess.process(writeBatch, writeBatch, i, processId, id, blockType, forceData, user, object);
                                     break;
+                                case Process.VIRTUAL_CONTAINER_TRANSACTION:
+                                    ContainerTransactionProcess.processVirtual(writeBatch, i, user, object);
+                                    break;
                                 case Process.ENTITY_CONTAINER_TRANSACTION:
                                     EntityContainerTransaction transaction = (EntityContainerTransaction) object;
                                     EntitySpawnIdentity identity = entitySpawnIdentities.get(transaction.getEntityUuid());
@@ -475,6 +480,9 @@ public class Process {
                                     break;
                                 case Process.BLOCKDATA_INSERT:
                                     BlockDataInsertProcess.process(writeBatch, statement, i, object, forceData);
+                                    break;
+                                case Process.VIRTUAL_CONTAINER_INSERT:
+                                    VirtualContainerInsertProcess.process(writeBatch, statement, i, object, forceData);
                                     break;
                                 case Process.ENTITY_SPAWN_LOG:
                                     if (!(object instanceof EntitySpawnData)) {

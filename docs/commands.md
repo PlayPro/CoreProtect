@@ -57,6 +57,7 @@ Perform a lookup. Nearly all of the parameters are optional.
 | [`i:<include>`](#iinclude) | Include specific blocks/entities in the lookup. |
 | [`e:<exclude>`](#eexclude) | Exclude blocks/entities from the lookup. |
 | [`f:<filter>`](#ffilter) | Include or exclude chat, command, or sign text by prefix. |
+| [`container:<type>`](#containertype) | Look up a plugin's virtual containers. |
 | [`#<hashtag>`](#hashtag) | Add a hashtag to perform additional actions. |
 
 #### Pagination
@@ -267,6 +268,18 @@ ___
 * Example: `a:sign f:Diamond Shop,-Diamond Shop Closed` *(filter prefixes on the recorded sign face)*
 
 > Separate filters with commas. Included prefixes are alternatives; any matching excluded prefix removes the result. Exclusions can be used on their own. Each prefix requires at least three characters, excluding the leading `-` marker. Spaces are allowed, and `*`, `%`, `_`, and `~` are matched literally.
+
+---
+
+### `container:<type>`
+
+*Look up items added to or removed from virtual containers: inventories that a plugin keeps without a block or entity, such as backpacks or team storage, and logs through the API.*
+
+* Example: `container:myplugin:backpack t:1d` *(every backpack of that plugin)*
+* Example: `container:myplugin:backpack/1f0c t:1d` *(a single backpack)*
+* Example: `container:myplugin:backpack/1f0c u:Notch t:7d a:-container` *(items Notch removed from it)*
+
+> Virtual containers have no location, so these lookups are always global and can't be combined with `r:` or `#container`. They accept `u:`, `t:`, `i:`, `e:`, `a:container`, `a:+container`, `a:-container`, `#count`, and `#summary`. Other lookups don't include virtual containers, and they can't be rolled back or restored yet.
 
 ---
 

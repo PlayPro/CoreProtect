@@ -1,5 +1,7 @@
 package net.coreprotect.command.parser;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 import net.coreprotect.config.ConfigHandler;
@@ -9,6 +11,11 @@ import net.coreprotect.utility.WorldUtils;
  * Parser for world-related command arguments
  */
 public class WorldParser {
+
+    private static final String[] RADIUS_PREFIXES = {
+            "radius:",
+            "r:"
+    };
 
     /**
      * Parse world from command arguments
@@ -22,42 +29,21 @@ public class WorldParser {
      * @return The world ID
      */
     public static int parseWorld(String[] inputArguments, boolean processWorldEdit, boolean requireLoaded) {
-        String[] argumentArray = inputArguments.clone();
-        int world_id = 0;
-        int count = 0;
-        int next = 0;
-        for (String argument : argumentArray) {
-            if (count > 0) {
-                argument = argument.trim();
-                argument = argument.replaceAll("\\\\", "");
-                argument = argument.replaceAll("'", "");
-
-                String inputProcessed = argument.toLowerCase(Locale.ROOT);
-                if (inputProcessed.equals("r:") || inputProcessed.equals("radius:")) {
-                    next = 2;
-                }
-                else if (next == 2 || inputProcessed.startsWith("r:") || inputProcessed.startsWith("radius:")) {
-                    argument = argument.replaceAll("radius:", "").replaceAll("r:", "");
-                    inputProcessed = argument.toLowerCase(Locale.ROOT);
-                    if ((processWorldEdit && (inputProcessed.equals("#worldedit") || inputProcessed.equals("#we"))) || inputProcessed.equals("#global") || inputProcessed.equals("global") || inputProcessed.equals("off") || inputProcessed.equals("-1") || inputProcessed.equals("none") || inputProcessed.equals("false")) {
-                        world_id = 0;
-                    }
-                    else if (inputProcessed.startsWith("#")) {
-                        world_id = WorldUtils.matchWorld(inputProcessed);
-                        if (world_id == -1 && !requireLoaded) {
-                            String worldName = argument.replaceFirst("#", "");
-                            world_id = ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.WORLDS, worldName, false);
-                        }
-                    }
-                    next = 0;
-                }
-                else {
-                    next = 0;
+        int worldId = 0;
+        for (String value : extractRadiusValues(inputArguments, true)) {
+            String lower = value.toLowerCase(Locale.ROOT);
+            if (isGlobalReset(lower, processWorldEdit)) {
+                worldId = 0;
+            }
+            else if (lower.startsWith("#")) {
+                worldId = WorldUtils.matchWorld(lower);
+                if (worldId == -1 && !requireLoaded) {
+                    String worldName = value.substring(1);
+                    worldId = ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.WORLDS, worldName, false);
                 }
             }
-            count++;
         }
-        return world_id;
+        return worldId;
     }
 
     /**
@@ -70,35 +56,14 @@ public class WorldParser {
      * @return The world name
      */
     public static String parseWorldName(String[] inputArguments, boolean processWorldEdit) {
-        String[] argumentArray = inputArguments.clone();
         String worldName = "";
-        int count = 0;
-        int next = 0;
-        for (String argument : argumentArray) {
-            if (count > 0) {
-                argument = argument.trim().toLowerCase(Locale.ROOT);
-                argument = argument.replaceAll("\\\\", "");
-                argument = argument.replaceAll("'", "");
-
-                if (argument.equals("r:") || argument.equals("radius:")) {
-                    next = 2;
-                }
-                else if (next == 2 || argument.startsWith("r:") || argument.startsWith("radius:")) {
-                    argument = argument.replaceAll("radius:", "");
-                    argument = argument.replaceAll("r:", "");
-                    if ((processWorldEdit && (argument.equals("#worldedit") || argument.equals("#we"))) || argument.equals("#global") || argument.equals("global") || argument.equals("off") || argument.equals("-1") || argument.equals("none") || argument.equals("false")) {
-                        worldName = "";
-                    }
-                    else if (argument.startsWith("#")) {
-                        worldName = argument.replaceFirst("#", "");
-                    }
-                    next = 0;
-                }
-                else {
-                    next = 0;
-                }
+        for (String value : extractRadiusValues(inputArguments, false)) {
+            if (isGlobalReset(value, processWorldEdit)) {
+                worldName = "";
             }
-            count++;
+            else if (value.startsWith("#")) {
+                worldName = value.substring(1);
+            }
         }
         return worldName;
     }
@@ -111,34 +76,12 @@ public class WorldParser {
      * @return true if WorldEdit should be used
      */
     public static boolean parseWorldEdit(String[] inputArguments) {
-        String[] argumentArray = inputArguments.clone();
-        boolean result = false;
-        int count = 0;
-        int next = 0;
-        for (String argument : argumentArray) {
-            if (count > 0) {
-                argument = argument.trim().toLowerCase(Locale.ROOT);
-                argument = argument.replaceAll("\\\\", "");
-                argument = argument.replaceAll("'", "");
-
-                if (argument.equals("r:") || argument.equals("radius:")) {
-                    next = 2;
-                }
-                else if (next == 2 || argument.startsWith("r:") || argument.startsWith("radius:")) {
-                    argument = argument.replaceAll("radius:", "");
-                    argument = argument.replaceAll("r:", "");
-                    if (argument.equals("#worldedit") || argument.equals("#we")) {
-                        result = true;
-                    }
-                    next = 0;
-                }
-                else {
-                    next = 0;
-                }
+        for (String value : extractRadiusValues(inputArguments, false)) {
+            if (isWorldEditToken(value)) {
+                return true;
             }
-            count++;
         }
-        return result;
+        return false;
     }
 
     /**
@@ -149,39 +92,52 @@ public class WorldParser {
      * @return true if global search should be forced
      */
     public static boolean parseForceGlobal(String[] inputArguments) {
-        String[] argumentArray = inputArguments.clone();
         boolean result = false;
-        int count = 0;
-        int next = 0;
-        for (String argument : argumentArray) {
-            if (count > 0) {
-                argument = argument.trim().toLowerCase(Locale.ROOT);
-                argument = argument.replaceAll("\\\\", "");
-                argument = argument.replaceAll("'", "");
-
-                if (argument.equals("r:") || argument.equals("radius:")) {
-                    next = 2;
-                }
-                else if (next == 2 || argument.startsWith("r:") || argument.startsWith("radius:")) {
-                    argument = argument.replaceAll("radius:", "");
-                    argument = argument.replaceAll("r:", "");
-                    if (argument.equals("#global") || argument.equals("global") || argument.equals("off") || argument.equals("-1") || argument.equals("none") || argument.equals("false")) {
-                        result = true;
-                    }
-                    else if (argument.startsWith("#")) {
-                        int worldId = WorldUtils.matchWorld(argument);
-                        if (worldId > 0) {
-                            result = true;
-                        }
-                    }
-                    next = 0;
-                }
-                else {
-                    next = 0;
-                }
+        for (String value : extractRadiusValues(inputArguments, false)) {
+            if (isGlobalKeyword(value)) {
+                result = true;
             }
-            count++;
+            else if (value.startsWith("#") && WorldUtils.matchWorld(value) > 0) {
+                result = true;
+            }
         }
         return result;
+    }
+
+    private static List<String> extractRadiusValues(String[] inputArguments, boolean preserveCase) {
+        List<String> values = new ArrayList<>();
+        int next = 0;
+        for (int index = 1; index < inputArguments.length; index++) {
+            String cleaned = ParserUtils.stripQuotesAndBackslashes(inputArguments[index]);
+            String normalized = cleaned.toLowerCase(Locale.ROOT);
+            if (ParserUtils.equalsAny(normalized, RADIUS_PREFIXES)) {
+                next = 2;
+                continue;
+            }
+
+            String stripped = preserveCase
+                    ? ParserUtils.stripPrefixPreservingCase(cleaned, normalized, RADIUS_PREFIXES)
+                    : ParserUtils.stripPrefix(normalized, RADIUS_PREFIXES);
+            if (next == 2 || stripped != null) {
+                values.add(stripped != null ? stripped : (preserveCase ? cleaned : normalized));
+                next = 0;
+            }
+            else {
+                next = 0;
+            }
+        }
+        return values;
+    }
+
+    private static boolean isWorldEditToken(String lower) {
+        return lower.equals("#worldedit") || lower.equals("#we");
+    }
+
+    private static boolean isGlobalKeyword(String lower) {
+        return lower.equals("#global") || lower.equals("global") || lower.equals("off") || lower.equals("-1") || lower.equals("none") || lower.equals("false");
+    }
+
+    private static boolean isGlobalReset(String lower, boolean processWorldEdit) {
+        return (processWorldEdit && isWorldEditToken(lower)) || isGlobalKeyword(lower);
     }
 }

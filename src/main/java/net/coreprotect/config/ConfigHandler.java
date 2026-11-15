@@ -79,6 +79,9 @@ public class ConfigHandler extends Queue {
         ),
         WORLDS(
                 ReferenceKind.WORLD
+        ),
+        VIRTUAL_CONTAINERS(
+                ReferenceKind.VIRTUAL_CONTAINER
         );
 
         private final ReferenceKind kind;
@@ -144,6 +147,7 @@ public class ConfigHandler extends Queue {
     public static volatile int blockdataId = 0;
     public static volatile int entityId = 0;
     public static volatile int artId = 0;
+    public static volatile int virtualContainerId = 0;
     public static final AtomicLong autoPurgeRowsPurged = new AtomicLong(0);
     private static boolean duckDBFallbackAllowed = false;
 
@@ -237,6 +241,8 @@ public class ConfigHandler extends Queue {
     public static volatile Map<Integer, String> entitiesReversed = syncMap();
     public static volatile Map<String, Integer> art = syncMap();
     public static volatile Map<Integer, String> artReversed = syncMap();
+    public static volatile Map<String, Integer> virtualContainers = syncMap();
+    public static volatile Map<Integer, String> virtualContainersReversed = syncMap();
     private static final Map<ReferenceKind, IdentifierStore> IDENTIFIER_STORES = identifierStores();
     public static Map<String, int[]> rollbackHash = syncMap();
     public static Map<String, Boolean> inspecting = syncMap();
@@ -637,11 +643,36 @@ public class ConfigHandler extends Queue {
         }
     }
 
+    public static boolean loadVirtualContainers(Statement statement) {
+        // there is a key per container, too many to preload, so keys are cached as they are resolved
+        ConfigHandler.virtualContainers = syncMap();
+        ConfigHandler.virtualContainersReversed = syncMap();
+        // ClickHouse reserves virtual container ids itself
+        return databaseType.isClickHouse() || loadVirtualContainerId(statement);
+    }
+
+    /**
+     * Continues virtual container ids from the highest stored id, and never below an id already handed out.
+     */
+    public static boolean loadVirtualContainerId(Statement statement) {
+        try (ResultSet resultSet = statement.executeQuery("SELECT MAX(id) FROM " + ConfigHandler.prefix + "virtual_container_map")) {
+            if (resultSet.next()) {
+                virtualContainerId = Math.max(virtualContainerId, resultSet.getInt(1));
+            }
+            return true;
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+            return false;
+        }
+    }
+
     public static boolean loadTypes(Statement statement) {
         boolean loaded = loadMaterials(statement);
         loaded &= loadBlockdata(statement);
         loaded &= loadArt(statement);
         loaded &= loadEntities(statement);
+        loaded &= loadVirtualContainers(statement);
         if (loaded && databaseType.isClickHouse() && !Config.getGlobal().DATABASE_LOCK) {
             for (EntityType type : EntityType.values()) {
                 if (EntitySpawnTracking.isPlacedEntityType(type)) {
@@ -733,11 +764,17 @@ public class ConfigHandler extends Queue {
                 return tryQueueIdentifierInsert(Process.ENTITY_INSERT, id, value);
             case MATERIAL:
                 return tryQueueIdentifierInsert(Process.MATERIAL_INSERT, id, value);
+            case VIRTUAL_CONTAINER:
+                return tryQueueIdentifierInsert(Process.VIRTUAL_CONTAINER_INSERT, id, value);
             case WORLD:
                 return tryQueueIdentifierInsert(Process.WORLD_INSERT, id, value);
             default:
                 throw new IllegalArgumentException("Unsupported identifier cache: " + kind);
         }
+    }
+
+    public static synchronized void cacheIdentifier(CacheType type, int id, String value) {
+        identifierStore(type.kind).store(id, value);
     }
 
     public static synchronized void uncacheIdentifier(ReferenceKind kind, int id, String value) {
@@ -801,6 +838,7 @@ public class ConfigHandler extends Queue {
         stores.put(ReferenceKind.ART, new IdentifierStore(ReferenceKind.ART, () -> art, () -> artReversed, () -> artId, id -> artId = id));
         stores.put(ReferenceKind.ENTITY, new IdentifierStore(ReferenceKind.ENTITY, () -> entities, () -> entitiesReversed, () -> entityId, id -> entityId = id));
         stores.put(ReferenceKind.WORLD, new IdentifierStore(ReferenceKind.WORLD, () -> worlds, () -> worldsReversed, () -> worldId, id -> worldId = id));
+        stores.put(ReferenceKind.VIRTUAL_CONTAINER, new IdentifierStore(ReferenceKind.VIRTUAL_CONTAINER, () -> virtualContainers, () -> virtualContainersReversed, () -> virtualContainerId, id -> virtualContainerId = id));
         return stores;
     }
 
@@ -821,6 +859,8 @@ public class ConfigHandler extends Queue {
                         return loadEntities(statement);
                     case WORLD:
                         return loadWorlds(statement);
+                    case VIRTUAL_CONTAINER:
+                        return loadVirtualContainerId(statement);
                     default:
                         return false;
                 }

@@ -8,6 +8,7 @@ public final class RollbackUpdateTargets {
     public static final int BLOCK_INVENTORY = 4;
     public static final int ENTITY_CONTAINER = 5;
     public static final int SIGN = 6;
+    public static final int VIRTUAL_CONTAINER = 7;
 
     private RollbackUpdateTargets() {
         throw new IllegalStateException("Model class");

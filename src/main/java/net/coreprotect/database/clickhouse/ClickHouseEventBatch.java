@@ -71,6 +71,21 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         return addContainer(ClickHouseFamily.ENTITY_CONTAINER, time, userId, entitySpawnRowId, worldId, x, y, z, type, data, amount, metadata, action, rolledBack);
     }
 
+    public long addVirtualContainer(int time, int userId, int containerId, int type, int data, int amount, byte[] metadata, int action, int rolledBack) throws SQLException {
+        long rowId = beginRow(ClickHouseFamily.VIRTUAL_CONTAINER, time);
+        set("user_id", userId);
+        // the container id shares entity_spawn_rowid and its bloom filter index
+        set("entity_spawn_rowid", (long) containerId);
+        set("type", type);
+        set("data", (long) data);
+        set("amount", amount);
+        setBinary("metadata", metadata);
+        set("action", action);
+        set("rolled_back", rolledBack);
+        commitRow(ClickHouseFamily.VIRTUAL_CONTAINER, rowId);
+        return rowId;
+    }
+
     public long addEntityInteraction(int time, int userId, int entitySpawnRowId, int worldId, int x, int y, int z, int type, int action, byte[] metadata, int rolledBack) throws SQLException {
         long rowId = beginRow(ClickHouseFamily.ENTITY_INTERACTION, time);
         setLocation(userId, worldId, x, y, z);
@@ -219,6 +234,10 @@ public final class ClickHouseEventBatch implements AutoCloseable {
 
     public long addWorld(int id, String world) throws SQLException {
         return addNamedMap(ClickHouseFamily.WORLD, id, world);
+    }
+
+    public long addVirtualContainerMap(int id, String container) throws SQLException {
+        return addNamedMap(ClickHouseFamily.VIRTUAL_CONTAINER_MAP, id, container);
     }
 
     public void addCompatibilityRow(ClickHouseFamily family, long rowId, Map<String, ?> values) throws SQLException {
@@ -561,10 +580,14 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         if (family == ClickHouseFamily.ENTITY_SPAWN && (column.equals("x") || column.equals("y") || column.equals("z"))) {
             return "current_" + column;
         }
+        if (family == ClickHouseFamily.VIRTUAL_CONTAINER && column.equals("container_id")) {
+            return "entity_spawn_rowid";
+        }
         if ((family == ClickHouseFamily.ART_MAP && column.equals("art"))
                 || (family == ClickHouseFamily.ENTITY_MAP && column.equals("entity"))
                 || (family == ClickHouseFamily.MATERIAL_MAP && column.equals("material"))
                 || (family == ClickHouseFamily.WORLD && column.equals("world"))
+                || (family == ClickHouseFamily.VIRTUAL_CONTAINER_MAP && column.equals("container"))
                 || (family == ClickHouseFamily.SKULL && column.equals("owner"))) {
             return "name";
         }

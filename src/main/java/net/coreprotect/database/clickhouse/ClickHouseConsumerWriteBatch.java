@@ -142,6 +142,11 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
     }
 
     @Override
+    public int resolveVirtualContainerId(String key) throws Exception {
+        return ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.VIRTUAL_CONTAINERS, key, true);
+    }
+
+    @Override
     public int resolveUserId(String user, String uuid) throws Exception {
         requireBatch();
         String requiredUser = requireText(user, "user");
@@ -255,6 +260,9 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
                 case MATERIAL:
                     events().addMaterialMap(id, requiredValue);
                     break;
+                case VIRTUAL_CONTAINER:
+                    events().addVirtualContainerMap(id, requiredValue);
+                    break;
                 case WORLD:
                     events().addWorld(id, requiredValue);
                     break;
@@ -294,6 +302,11 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
     @Override
     public void addEntityContainer(int batchCount, int time, int userId, int entitySpawnRowId, int worldId, int x, int y, int z, int type, int data, int amount, byte[] metadata, int action, int rolledBack) throws Exception {
         events().addEntityContainer(time, userId, entitySpawnRowId, worldId, x, y, z, type, data, amount, metadata, action, rolledBack);
+    }
+
+    @Override
+    public void addVirtualContainer(int batchCount, int time, int userId, int containerId, int type, int data, int amount, byte[] metadata, int action, int rolledBack) throws Exception {
+        events().addVirtualContainer(time, userId, containerId, type, data, amount, metadata, action, rolledBack);
     }
 
     @Override
@@ -581,6 +594,8 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
                 return ClickHouseFamily.ENTITY_MAP;
             case MATERIAL:
                 return ClickHouseFamily.MATERIAL_MAP;
+            case VIRTUAL_CONTAINER:
+                return ClickHouseFamily.VIRTUAL_CONTAINER_MAP;
             case WORLD:
                 return ClickHouseFamily.WORLD;
             default:
@@ -598,6 +613,8 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
                 return "entity";
             case MATERIAL:
                 return "material";
+            case VIRTUAL_CONTAINER:
+                return "container";
             case WORLD:
                 return "world";
             default:
@@ -721,6 +738,9 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
         }
         if (target == RollbackUpdateTargets.ENTITY_CONTAINER) {
             return ClickHouseFamily.ENTITY_CONTAINER;
+        }
+        if (target == RollbackUpdateTargets.VIRTUAL_CONTAINER) {
+            return ClickHouseFamily.VIRTUAL_CONTAINER;
         }
         if (RollbackUpdateTargets.updatesContainerTable(target)) {
             return ClickHouseFamily.CONTAINER;

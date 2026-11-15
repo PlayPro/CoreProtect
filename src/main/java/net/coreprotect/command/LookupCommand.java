@@ -23,6 +23,7 @@ import net.coreprotect.command.lookup.StandardLookupThread;
 import net.coreprotect.command.parser.ActionParser;
 import net.coreprotect.command.parser.MessageFilterParser;
 import net.coreprotect.command.parser.RollbackStateParser;
+import net.coreprotect.command.parser.VirtualContainerParser;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
@@ -66,6 +67,7 @@ public class LookupCommand {
                 : CommandParser.parseCount(args) ? LookupOutputMode.COUNT : LookupOutputMode.DETAIL;
         RollbackStateParser.ParseResult rollbackStateResult = CommandParser.parseRollbackState(args);
         LookupRollbackState rollbackState = rollbackStateResult.getState();
+        VirtualContainerParser.ParseResult virtualContainerResult = CommandParser.parseVirtualContainer(args);
         boolean worldedit = CommandParser.parseWorldEdit(args);
         boolean forceglobal = CommandParser.parseForceGlobal(args);
         boolean pageLookup = false;
@@ -76,6 +78,11 @@ public class LookupCommand {
 
         if (rollbackStateResult.isConflicting()) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, "#rolledback + #restored"));
+            return;
+        }
+
+        // virtual containers have no location, so the lookup is always global
+        if (virtualContainerResult.isSpecified() && !VirtualContainerParser.addTarget(player, virtualContainerResult, "/co l container:<namespace:type>[/<id>]", argRadius != null || argWid > 0 || worldedit, argUsers, argAction, argBlocks)) {
             return;
         }
 

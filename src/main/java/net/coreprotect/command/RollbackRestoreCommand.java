@@ -20,6 +20,7 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 
 import net.coreprotect.command.parser.ActionParser;
+import net.coreprotect.command.parser.VirtualContainerParser;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
@@ -64,10 +65,22 @@ public class RollbackRestoreCommand {
         boolean worldedit = CommandParser.parseWorldEdit(args);
         boolean forceglobal = CommandParser.parseForceGlobal(args);
         int preview = CommandParser.parsePreview(args);
+        VirtualContainerParser.ParseResult virtualContainerResult = CommandParser.parseVirtualContainer(args);
         String corecommand = args[0].toLowerCase(Locale.ROOT);
 
         if (argBlocks == null || argExclude == null || argExcludeUsers == null) {
             return;
+        }
+
+        boolean singleContainer = false;
+        if (virtualContainerResult.isSpecified()) {
+            if (!VirtualContainerParser.addTarget(player, virtualContainerResult, "/co " + corecommand + " container:<namespace:type>[/<id>]", argRadius != null || argWid > 0 || worldedit, argUsers, argAction, argBlocks)) {
+                return;
+            }
+            // virtual containers have no location, so the rollback is always global
+            forceglobal = true;
+            // a single container can be rolled back without a user, every container of a type can't
+            singleContainer = argUsers.isEmpty() && virtualContainerResult.getTarget().getId() != null;
         }
 
         /* check for invalid block/entity combinations (include) */
@@ -187,7 +200,7 @@ public class RollbackRestoreCommand {
                 }
             }
 
-            if (argUsers.size() == 0 && (argWid > 0 || forceglobal) && argRadius == null) {
+            if (argUsers.size() == 0 && (argWid > 0 || forceglobal) && argRadius == null && !singleContainer) {
                 if (finalAction == 0) {
                     Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_ROLLBACK_USER, Selector.FIRST));
                 }
@@ -212,7 +225,7 @@ public class RollbackRestoreCommand {
                 argExclude.put(Material.TNT, true);
             }
 
-            if (g == 1 && (argUsers.size() > 0 || (argUsers.size() == 0 && argRadius != null))) {
+            if (g == 1 && (argUsers.size() > 0 || (argUsers.size() == 0 && argRadius != null) || singleContainer)) {
                 Integer MAX_RADIUS = Config.getGlobal().MAX_RADIUS;
                 if (argRadius != null) {
                     int radiusValue = argRadius[0];
@@ -224,7 +237,7 @@ public class RollbackRestoreCommand {
                 }
                 if (argAction.size() > 0) {
                     if (argAction.contains(LookupActions.CONTAINER)) {
-                        if (argUsers.contains("#global") || (argUsers.size() == 0 && argRadius == null)) {
+                        if (argUsers.contains("#global") || (argUsers.size() == 0 && argRadius == null && !singleContainer)) {
                             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_ACTION_USER));
                             return;
                         }

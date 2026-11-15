@@ -69,6 +69,7 @@ public class Rollback extends RollbackUtil {
     public static List<String[]> performRollbackRestore(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, String timeString, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, Location location, Integer[] radius, long startTime, long endTime, boolean restrictWorld, boolean lookup, boolean verbose, final int rollbackType, final int preview) {
         List<String[]> list = new ArrayList<>();
         EntitySpawnRollbackHandler.Context entitySpawnContext = null;
+        VirtualContainerRollbackHandler.Work virtualContainerWork = null;
 
         try {
             long timeStart = System.currentTimeMillis();
@@ -173,6 +174,7 @@ public class Rollback extends RollbackUtil {
             }
 
             List<Object[]> itemList = new ArrayList<>();
+            List<Object[]> virtualContainerList = new ArrayList<>();
             if (includeItemLookup) {
                 List<Integer> itemActionList = new ArrayList<>(actionList);
 
@@ -193,6 +195,11 @@ public class Rollback extends RollbackUtil {
                 }
 
                 itemList.removeIf(row -> {
+                    // virtual container rows are marked through their handlers, never by the update queues below
+                    if (row.length > 15 && row[14] instanceof Integer && (Integer) row[14] == InventorySources.VIRTUAL_CONTAINER) {
+                        virtualContainerList.add(row);
+                        return true;
+                    }
                     if (row.length > 15 && row[14] instanceof Integer && (Integer) row[14] == InventorySources.ENTITY_CONTAINER) {
                         if (inventoryRollback) {
                             entityContainerInventoryTrackingRowIds.add((Integer) row[15]);
@@ -307,6 +314,7 @@ public class Rollback extends RollbackUtil {
                 entitySpawnContext.reverseWork();
             }
             addEntitySpawnChunks(entitySpawnContext, worldList, chunkList, location);
+            virtualContainerWork = VirtualContainerRollbackHandler.prepare(statement.getConnection(), virtualContainerList, rollbackType, entitySpawnContext);
 
             if (user != null && verbose && preview == 0 && !actionList.contains(LookupActions.ITEM)) {
                 Integer chunks = chunkList.size();
@@ -380,6 +388,14 @@ public class Rollback extends RollbackUtil {
             if (!entitySpawnContext.completeDirectTransitions()) {
                 entitySpawnContext.cancel();
             }
+            else {
+                VirtualContainerRollbackHandler.process(entitySpawnContext, virtualContainerWork, finalUserString);
+                if (!awaitChunkTasks(entitySpawnContext.drainPending(), preview, entitySpawnContext)) {
+                    Chat.console(Phrase.build(Phrase.ROLLBACK_ABORTED));
+                    entitySpawnContext.cancel();
+                }
+            }
+            int skippedVirtualChanges = VirtualContainerRollbackHandler.reportSkipped(virtualContainerWork, finalUserString);
 
             chunkList.clear();
             dataList.clear();
@@ -401,6 +417,9 @@ public class Rollback extends RollbackUtil {
 
             if (user != null) {
                 RollbackComplete.output(user, location, checkUsers, restrictList, excludeList, excludeUserList, actionList, timeString, chunkCount, totalSeconds, itemCount, blockCount, entityCount, rollbackType, radius, verbose, restrictWorld, preview);
+                if (skippedVirtualChanges > 0) {
+                    Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_SKIPPED, Integer.toString(skippedVirtualChanges), (skippedVirtualChanges == 1 ? Selector.FIRST : Selector.SECOND)));
+                }
             }
 
             list = LookupConverter.convertRawLookup(statement, lookupList);
@@ -412,6 +431,9 @@ public class Rollback extends RollbackUtil {
         finally {
             if (entitySpawnContext != null) {
                 entitySpawnContext.close();
+            }
+            if (virtualContainerWork != null) {
+                VirtualContainerRollbackHandler.release(virtualContainerWork);
             }
         }
 

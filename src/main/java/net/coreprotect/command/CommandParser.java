@@ -54,6 +54,10 @@ public class CommandParser {
         return RollbackStateParser.parse(inputArguments);
     }
 
+    protected static VirtualContainerParser.ParseResult parseVirtualContainer(String[] inputArguments) {
+        return VirtualContainerParser.parse(inputArguments);
+    }
+
     /**
      * Parse coordinates from command arguments
      * 

@@ -57,6 +57,7 @@ Perform a lookup. Nearly all of the parameters are optional.
 | [`i:<include>`](#iinclude) | Include specific blocks/entities in the lookup. |
 | [`e:<exclude>`](#eexclude) | Exclude blocks/entities from the lookup. |
 | [`f:<filter>`](#ffilter) | Include or exclude chat, command, or sign text by prefix. |
+| [`container:<type>`](#containertype) | Restrict the command to a plugin's virtual containers. |
 | [`#<hashtag>`](#hashtag) | Add a hashtag to perform additional actions. |
 
 #### Pagination
@@ -270,6 +271,20 @@ ___
 
 ---
 
+### `container:<type>`
+
+*Look up, roll back, or restore items added to or removed from virtual containers: inventories that a plugin keeps without a block or entity, such as backpacks or team storage, and logs through the API.*
+
+* Example: `container:myplugin:backpack t:1d` *(every backpack of that plugin)*
+* Example: `container:myplugin:backpack/1f0c t:1d` *(a single backpack)*
+* Example: `container:myplugin:backpack/1f0c u:Notch t:7d a:-container` *(items Notch removed from it)*
+
+> Virtual containers have no location, so these commands are always global and can't be combined with `r:` or `#container`. They accept `u:`, `t:`, `i:`, `e:`, `a:container`, `a:+container`, and `a:-container`, and lookups also accept `#count` and `#summary`. Other lookups, rollbacks, and restores don't include virtual containers.
+
+> A rollback or restore of a single container, `container:<type>/<id>`, works without `u:`, but one of every container of a type needs `u:`. Neither can be previewed. The plugin that owns the containers applies the changes, newest first for a rollback and oldest first for a restore. Changes that it can't apply, or that belong to a type no enabled plugin handles, are skipped and reported, and running the command again retries them.
+
+---
+
 ### `#<hashtag>`
 
 Add a hashtag to the end of your command to perform additional actions.
@@ -311,6 +326,10 @@ By default, if no radius is specified, a radius of 10 will be applied, restricti
   *(rollback griefing Notch did in the last hour ONLY in the Nether)*
 * `/co rollback u:Notch t:5m a:inventory`  
   *(rollback inventory transactions by Notch in the last 5 minutes)*
+* `/co rollback u:Notch t:1h container:myplugin:backpack/1f0c`  
+  *(rollback the items Notch added to or removed from a plugin's backpack in the last hour)*
+* `/co rollback t:1h container:myplugin:backpack/1f0c`  
+  *(rollback everything anyone added to or removed from that backpack in the last hour)*
 * `/co rollback t:15m r:30`  
   *(rollback everything done in the last 15 minutes by anyone within 30 blocks of you)*
 * `/co rollback t:15m r:#worldedit`  

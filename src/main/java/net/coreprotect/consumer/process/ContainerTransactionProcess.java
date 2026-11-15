@@ -17,6 +17,7 @@ import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.logger.ContainerLogger;
 import net.coreprotect.model.entity.EntityContainerTransaction;
 import net.coreprotect.model.entity.EntitySpawnIdentity;
+import net.coreprotect.model.item.VirtualContainerTransaction;
 import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.HopperTransactionUtils;
 
@@ -39,6 +40,20 @@ class ContainerTransactionProcess {
             }
         }
         return true;
+    }
+
+    static void processVirtual(ConsumerWriteBatch preparedStmtContainer, int batchCount, String user, Object object) throws Exception {
+        if (!(object instanceof VirtualContainerTransaction)) {
+            return;
+        }
+
+        VirtualContainerTransaction transaction = (VirtualContainerTransaction) object;
+        if (ConfigHandler.databaseType.isColumnar()) {
+            preparedStmtContainer.executeAtomically("virtual_container_transaction", () -> ContainerLogger.logVirtual(preparedStmtContainer, batchCount, user, transaction));
+        }
+        else {
+            ContainerLogger.logVirtual(preparedStmtContainer, batchCount, user, transaction);
+        }
     }
 
     static void process(ConsumerWriteBatch preparedStmtContainer, ConsumerWriteBatch preparedStmtItems, int batchCount, int processId, int id, Material type, int forceData, String user, Object object) {

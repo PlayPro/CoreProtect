@@ -6,6 +6,7 @@ import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 
+import net.coreprotect.command.parser.ActionParser;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
@@ -20,13 +21,13 @@ public class CancelCommand {
                 List<Object> list = ConfigHandler.lastRollback.get(user.getName());
                 long startTime = (Long) list.get(0);
                 long endTime = (Long) list.get(1);
-                args = (String[]) list.get(2);
+                String[] cancelArgs = ((String[]) list.get(2)).clone();
                 Location location = (Location) list.get(3);
                 boolean valid = false;
-                for (int i = 0; i < args.length; i++) {
-                    if (args[i].equals("#preview")) {
+                for (int i = 1; i < cancelArgs.length; i++) {
+                    if (ActionParser.isPreviewArgument(cancelArgs[i])) {
                         valid = true;
-                        args[i] = args[i].replaceAll("#preview", "#preview_cancel");
+                        cancelArgs[i] = "#preview_cancel";
                     }
                 }
                 if (!valid) {
@@ -34,7 +35,7 @@ public class CancelCommand {
                 }
                 else {
                     ConfigHandler.lastRollback.remove(user.getName());
-                    RollbackRestoreCommand.runCommand(user, command, permission, args, location, startTime, endTime);
+                    RollbackRestoreCommand.runCommand(user, command, permission, cancelArgs, location, startTime, endTime);
                 }
             }
             else {

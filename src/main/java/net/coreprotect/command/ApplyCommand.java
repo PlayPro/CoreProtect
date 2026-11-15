@@ -1,11 +1,13 @@
 package net.coreprotect.command;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 
+import net.coreprotect.command.parser.ActionParser;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
@@ -20,13 +22,19 @@ public class ApplyCommand {
                 List<Object> list = ConfigHandler.lastRollback.get(user.getName());
                 long startTime = (Long) list.get(0);
                 long endTime = (Long) list.get(1);
-                args = (String[]) list.get(2);
+                String[] savedArgs = (String[]) list.get(2);
                 Location location = (Location) list.get(3);
+                List<String> appliedArgs = new ArrayList<>(savedArgs.length);
+                if (savedArgs.length > 0) {
+                    appliedArgs.add(savedArgs[0]);
+                }
                 boolean valid = false;
-                for (int i = 0; i < args.length; i++) {
-                    if (args[i].equals("#preview")) {
+                for (int i = 1; i < savedArgs.length; i++) {
+                    if (ActionParser.isPreviewArgument(savedArgs[i])) {
                         valid = true;
-                        args[i] = args[i].replaceAll("#preview", "");
+                    }
+                    else {
+                        appliedArgs.add(savedArgs[i]);
                     }
                 }
                 if (!valid) {
@@ -34,7 +42,7 @@ public class ApplyCommand {
                 }
                 else {
                     ConfigHandler.lastRollback.remove(user.getName());
-                    RollbackRestoreCommand.runCommand(user, command, permission, args, location, startTime, endTime);
+                    RollbackRestoreCommand.runCommand(user, command, permission, appliedArgs.toArray(new String[0]), location, startTime, endTime);
                 }
             }
             else {

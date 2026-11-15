@@ -1,11 +1,13 @@
 package net.coreprotect.command;
 
 import java.util.List;
+import java.util.Locale;
 
 import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 
+import net.coreprotect.command.parser.ActionParser;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
@@ -20,27 +22,28 @@ public class UndoCommand {
                 List<Object> list = ConfigHandler.lastRollback.get(user.getName());
                 long startTime = (Long) list.get(0);
                 long endTime = (Long) list.get(1);
-                args = (String[]) list.get(2);
+                String[] undoArgs = ((String[]) list.get(2)).clone();
                 Location location = (Location) list.get(3);
-                for (String arg : args) {
-                    if (arg.equals("#preview")) {
-                        CancelCommand.runCommand(user, command, permission, args);
+                for (int i = 1; i < undoArgs.length; i++) {
+                    if (ActionParser.isPreviewArgument(undoArgs[i])) {
+                        CancelCommand.runCommand(user, command, permission, undoArgs);
                         return;
                     }
                 }
                 boolean valid = true;
-                if (args[0].equals("rollback") || args[0].equals("rb") || args[0].equals("ro")) {
-                    args[0] = "restore";
+                String subcommand = (undoArgs.length > 0) ? undoArgs[0].toLowerCase(Locale.ROOT) : "";
+                if (subcommand.equals("rollback") || subcommand.equals("rb") || subcommand.equals("ro")) {
+                    undoArgs[0] = "restore";
                 }
-                else if (args[0].equals("restore") || args[0].equals("rs") || args[0].equals("re")) {
-                    args[0] = "rollback";
+                else if (subcommand.equals("restore") || subcommand.equals("rs") || subcommand.equals("re")) {
+                    undoArgs[0] = "rollback";
                 }
                 else {
                     valid = false;
                 }
                 if (valid) {
                     ConfigHandler.lastRollback.remove(user.getName());
-                    RollbackRestoreCommand.runCommand(user, command, permission, args, location, startTime, endTime);
+                    RollbackRestoreCommand.runCommand(user, command, permission, undoArgs, location, startTime, endTime);
                 }
             }
             else {

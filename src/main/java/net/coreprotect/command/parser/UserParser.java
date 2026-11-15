@@ -1,9 +1,7 @@
 package net.coreprotect.command.parser;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 
 import org.bukkit.command.CommandSender;
 
@@ -11,6 +9,18 @@ import org.bukkit.command.CommandSender;
  * Parser for user-related command arguments
  */
 public class UserParser {
+
+    private static final String[] USER_PREFIXES = {
+            "users:",
+            "user:",
+            "p:",
+            "u:"
+    };
+
+    private static final String[] EXCLUDE_PREFIXES = {
+            "exclude:",
+            "e:"
+    };
 
     /**
      * Parse users from command arguments
@@ -20,61 +30,45 @@ public class UserParser {
      * @return A list of parsed users
      */
     public static List<String> parseUsers(String[] inputArguments) {
-        String[] argumentArray = inputArguments.clone();
         List<String> users = new ArrayList<>();
-        int count = 0;
         int next = 0;
-        for (String argument : argumentArray) {
-            if (count > 0) {
-                argument = argument.trim().toLowerCase(Locale.ROOT);
-                argument = argument.replaceAll("\\\\", "");
-                argument = argument.replaceAll("'", "");
 
-                if (next == 2) {
-                    if (argument.endsWith(",")) {
-                        next = 2;
+        for (int index = 1; index < inputArguments.length; index++) {
+            String argument = ParserUtils.normalize(inputArguments[index]);
+
+            if (next == 2) {
+                next = argument.endsWith(",") ? 2 : 0;
+                continue;
+            }
+            if (ParserUtils.equalsAny(argument, USER_PREFIXES)) {
+                next = 1;
+                continue;
+            }
+
+            String stripped = ParserUtils.stripPrefix(argument, USER_PREFIXES);
+            if (next == 1 || stripped != null) {
+                String userSpec = (stripped != null) ? stripped : argument;
+                if (userSpec.contains(",")) {
+                    for (String part : userSpec.split(",")) {
+                        parseUser(users, part, true);
                     }
-                    else {
-                        next = 0;
-                    }
-                }
-                else if (argument.equals("p:") || argument.equals("user:") || argument.equals("users:") || argument.equals("u:")) {
-                    next = 1;
-                }
-                else if (next == 1 || argument.startsWith("p:") || argument.startsWith("user:") || argument.startsWith("users:") || argument.startsWith("u:")) {
-                    argument = argument.replaceAll("user:", "");
-                    argument = argument.replaceAll("users:", "");
-                    argument = argument.replaceAll("p:", "");
-                    argument = argument.replaceAll("u:", "");
-                    if (argument.contains(",")) {
-                        String[] i2 = argument.split(",");
-                        for (String i3 : i2) {
-                            parseUser(users, i3);
-                        }
-                        if (argument.endsWith(",")) {
-                            next = 1;
-                        }
-                        else {
-                            next = 0;
-                        }
-                    }
-                    else {
-                        parseUser(users, argument);
-                        next = 0;
-                    }
-                }
-                else if (argument.endsWith(",") || argument.endsWith(":")) {
-                    next = 2;
-                }
-                else if (argument.contains(":")) {
-                    next = 0;
+                    next = userSpec.endsWith(",") ? 1 : 0;
                 }
                 else {
-                    parseUser(users, argument);
+                    parseUser(users, userSpec, true);
                     next = 0;
                 }
             }
-            count++;
+            else if (argument.endsWith(",") || argument.endsWith(":")) {
+                next = 2;
+            }
+            else if (argument.contains(":")) {
+                next = 0;
+            }
+            else {
+                parseUser(users, argument, false);
+                next = 0;
+            }
         }
         return users;
     }
@@ -89,72 +83,58 @@ public class UserParser {
      * @return A list of excluded users
      */
     public static List<String> parseExcludedUsers(CommandSender player, String[] inputArguments) {
-        String[] argumentArray = inputArguments.clone();
         List<String> excluded = new ArrayList<>();
-        int count = 0;
         int next = 0;
-        for (String argument : argumentArray) {
-            if (count > 0) {
-                argument = argument.trim().toLowerCase(Locale.ROOT);
-                argument = argument.replaceAll("\\\\", "");
-                argument = argument.replaceAll("'", "");
 
-                if (argument.equals("e:") || argument.equals("exclude:")) {
-                    next = 5;
-                }
-                else if (next == 5 || argument.startsWith("e:") || argument.startsWith("exclude:")) {
-                    argument = argument.replaceAll("exclude:", "");
-                    argument = argument.replaceAll("e:", "");
-                    if (argument.contains(",")) {
-                        String[] i2 = argument.split(",");
-                        for (String i3 : i2) {
-                            boolean isBlock = MaterialParser.isBlockOrEntity(i3);
-                            if (!isBlock) {
-                                excluded.add(i3);
-                            }
-                        }
-                        if (argument.endsWith(",")) {
-                            next = 5;
-                        }
-                        else {
-                            next = 0;
-                        }
+        for (int index = 1; index < inputArguments.length; index++) {
+            String argument = ParserUtils.normalize(inputArguments[index]);
+
+            if (ParserUtils.equalsAny(argument, EXCLUDE_PREFIXES)) {
+                next = 5;
+                continue;
+            }
+
+            String stripped = ParserUtils.stripPrefix(argument, EXCLUDE_PREFIXES);
+            if (next == 5 || stripped != null) {
+                String excludeSpec = (stripped != null) ? stripped : argument;
+                if (excludeSpec.contains(",")) {
+                    for (String token : excludeSpec.split(",")) {
+                        addExcludedUserIfNotMaterial(excluded, token);
                     }
-                    else {
-                        boolean isBlock = MaterialParser.isBlockOrEntity(argument);
-                        if (!isBlock) {
-                            excluded.add(argument);
-                        }
-                        next = 0;
-                    }
+                    next = excludeSpec.endsWith(",") ? 5 : 0;
                 }
                 else {
+                    addExcludedUserIfNotMaterial(excluded, excludeSpec);
                     next = 0;
                 }
             }
-            count++;
+            else {
+                next = 0;
+            }
         }
         return excluded;
     }
 
-    /**
-     * Process a user string and add it to the users list if valid
-     * 
-     * @param users
-     *            The list to add the user to
-     * @param user
-     *            The user string to process
-     */
-    private static void parseUser(List<String> users, String user) {
-        List<String> badUsers = Arrays.asList("n", "noisy", "v", "verbose", "#v", "#verbose", "#silent", "#preview", "#preview_cancel", "#count", "#sum", "#summary", "#rolledback", "#rollbacked", "#restored");
-        String check = user.replaceAll("[\\s'\"]", "");
-        if (check.equals(user) && check.length() > 0) {
-            if (user.equalsIgnoreCase("#global")) {
-                user = "#global";
-            }
-            if (!badUsers.contains(user.toLowerCase(Locale.ROOT))) {
-                users.add(user);
-            }
+    private static void addExcludedUserIfNotMaterial(List<String> excluded, String token) {
+        String candidate = token.trim();
+        if (!candidate.isEmpty() && !MaterialParser.isBlockOrEntity(candidate)) {
+            excluded.add(candidate);
         }
+    }
+
+    private static void parseUser(List<String> users, String user, boolean explicitPrefix) {
+        String check = user.replaceAll("[\\s'\"]", "");
+        if (!check.equals(user) || check.isEmpty()) {
+            return;
+        }
+        if (user.equalsIgnoreCase("#global")) {
+            users.add("#global");
+            return;
+        }
+        boolean isModifier = ActionParser.isModifier(user) || RollbackStateParser.isModifier(user);
+        if (isModifier && (!explicitPrefix || user.startsWith("#"))) {
+            return;
+        }
+        users.add(user);
     }
 }

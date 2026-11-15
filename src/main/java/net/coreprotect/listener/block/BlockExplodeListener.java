@@ -62,6 +62,12 @@ public final class BlockExplodeListener extends Queue implements Listener {
                     if (blockMap.get(key) == null) {
                         Block scanBlock = world.getBlockAt(scanX, scanY, scanZ);
                         Material scanType = scanBlock.getType();
+                        if (scanType == Material.SCAFFOLDING) {
+                            if (scan == 4 || block.getType() == Material.SCAFFOLDING) {
+                                BlockFadeListener.trackScaffoldingBreak(user, world, scanX, scanY, scanZ);
+                            }
+                            continue;
+                        }
                         if (BlockGroup.TRACK_ANY.contains(scanType) || BlockGroup.TRACK_TOP.contains(scanType) || BlockGroup.TRACK_TOP_BOTTOM.contains(scanType) || BlockGroup.TRACK_BOTTOM.contains(scanType) || BlockGroup.TRACK_SIDE.contains(scanType)) {
                             blockMap.put(key, scanBlock);
 

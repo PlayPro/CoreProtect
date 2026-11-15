@@ -15,6 +15,7 @@ public class Bukkit_v26_2 extends Bukkit_v1_21_11 {
 
     private void initializeBlockGroups() {
         BlockGroup.TRACK_TOP_BOTTOM.add(Material.SULFUR_SPIKE);
+        BlockGroup.VERTICAL_TOP_BOTTOM.add(Material.SULFUR_SPIKE);
     }
 
 }

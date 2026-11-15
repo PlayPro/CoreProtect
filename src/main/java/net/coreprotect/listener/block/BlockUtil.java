@@ -33,6 +33,9 @@ public class BlockUtil {
         boolean top = BlockGroup.VERTICAL_TOP_BOTTOM.contains(scanType) || BlockGroup.VERTICAL_TOP.contains(scanType);
         boolean bottom = BlockGroup.VERTICAL_TOP_BOTTOM.contains(scanType) || BlockGroup.VERTICAL_BOTTOM.contains(scanType);
         if ((top && scanMin == TOP) || (bottom && scanMin == BOTTOM)) {
+            if (!BlockBreakListener.isAttached(block, scanBlock, scanMin)) {
+                return false;
+            }
             BlockBreakListener.processBlockBreak(player, user, scanBlock, true, (scanMin == BOTTOM ? TOP : BOTTOM));
             return true;
         }

@@ -44,7 +44,7 @@ import net.coreprotect.utility.ErrorReporter;
 
 public final class BlockBreakListener extends Queue implements Listener {
 
-    private static boolean isAttached(Block block, Block scanBlock, int scanMin) {
+    static boolean isAttached(Block block, Block scanBlock, int scanMin) {
         BlockData blockData = scanBlock.getBlockData();
         if (blockData instanceof Directional && !(blockData instanceof Bisected) && scanMin != BlockUtil.BOTTOM && scanMin != BlockUtil.TOP) {
             Directional directional = (Directional) blockData;
@@ -126,6 +126,13 @@ public final class BlockBreakListener extends Queue implements Listener {
                 Location scanLocation = locationMap[scanMin - 1];
                 Block scanBlock = world.getBlockAt(scanLocation);
                 Material scanType = scanBlock.getType();
+                if (scanType == Material.SCAFFOLDING) {
+                    if (scanMin == BlockUtil.TOP || (type == Material.SCAFFOLDING && scanMin < BlockUtil.TOP)) {
+                        BlockFadeListener.trackScaffoldingBreak(user, world, scanLocation.getBlockX(), scanLocation.getBlockY(), scanLocation.getBlockZ());
+                    }
+                    scanMin++;
+                    continue;
+                }
                 if (scanMin == 5 && (scanType.hasGravity() || BukkitAdapter.ADAPTER.isSuspiciousBlock(scanType)) && Config.getConfig(world).BLOCK_MOVEMENT) {
                     // FallingBlock listeners read lookupCache to attribute the chain reaction; overwrite the cache up the gravity stack so falls record under whoever broke this block instead of #gravity or the original placer.
                     seedGravityFallAttribution(user, world, x, z, y + 1, scanType);

@@ -533,7 +533,7 @@ public class RollbackBlockHandler extends Queue {
         if (BlockUtils.isAir(type) || !type.isSolid()) {
             return true;
         }
-        if (type == Material.WATER || type == Material.LAVA || type == Material.FIRE || type == Material.TNT || type == Material.NETHER_PORTAL || type == Material.MOVING_PISTON) {
+        if (type == Material.WATER || type == Material.LAVA || type == Material.FIRE || type == Material.TNT || type == Material.NETHER_PORTAL || type == Material.MOVING_PISTON || type == Material.SCAFFOLDING) {
             return true;
         }
         if (BukkitAdapter.ADAPTER.isItemFrame(type) || type == Material.PAINTING || type == Material.ARMOR_STAND || type == Material.END_CRYSTAL) {

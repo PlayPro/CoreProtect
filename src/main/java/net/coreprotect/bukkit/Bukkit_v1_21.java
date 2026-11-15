@@ -68,6 +68,13 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
         addToBlockGroupIfMissing(Material.CRAFTER, BlockGroup.CONTAINERS);
         addToBlockGroupIfMissing(Material.CRAFTER, BlockGroup.INTERACT_BLOCKS);
         addToBlockGroupIfMissing(Material.CRAFTER, BlockGroup.UPDATE_STATE);
+
+        Material paleHangingMoss = Material.getMaterial("PALE_HANGING_MOSS");
+        if (paleHangingMoss != null) {
+            addToBlockGroupIfMissing(paleHangingMoss, BlockGroup.TRACK_BOTTOM);
+            addToBlockGroupIfMissing(paleHangingMoss, BlockGroup.VERTICAL_BOTTOM);
+            addToBlockGroupIfMissing(paleHangingMoss, BlockGroup.NON_ATTACHABLE);
+        }
     }
 
     /**

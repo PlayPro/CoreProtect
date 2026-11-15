@@ -13,6 +13,7 @@ import org.bukkit.block.data.Bisected.Half;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Lightable;
 import org.bukkit.block.data.Waterlogged;
+import org.bukkit.block.data.type.Scaffolding;
 import org.bukkit.block.data.type.Stairs;
 import org.bukkit.block.data.type.TrapDoor;
 import org.bukkit.entity.Player;
@@ -96,7 +97,7 @@ public final class BlockPlaceListener extends Queue implements Listener {
                     }
                 }
 
-                if (blockType.hasGravity()) {
+                if (blockType.hasGravity() || isFloatingScaffolding(blockState)) {
                     // FallingBlock listeners read lookupCache before the async consumer can populate it; record the placer synchronously so the fall and landing get attributed to the player instead of #gravity.
                     int worldId = WorldUtils.getWorldId(world.getName());
                     int timestamp = (int) (System.currentTimeMillis() / 1000L);
@@ -138,6 +139,16 @@ public final class BlockPlaceListener extends Queue implements Listener {
                 }
             }
         }
+    }
+
+    private static boolean isFloatingScaffolding(BlockState blockState) {
+        BlockData blockData = blockState.getBlockData();
+        if (blockData instanceof Scaffolding) {
+            Scaffolding scaffolding = (Scaffolding) blockData;
+            int maxDistance = scaffolding.getMaximumDistance();
+            return maxDistance > 0 && scaffolding.getDistance() >= maxDistance;
+        }
+        return false;
     }
 
 }

@@ -20,6 +20,7 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 
 import net.coreprotect.command.parser.ActionParser;
+import net.coreprotect.command.parser.VirtualContainerParser;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
@@ -530,6 +531,10 @@ public class RollbackRestoreCommand {
             String raw = args[index];
             String argument = raw.trim().toLowerCase(Locale.ROOT).replace("\\", "").replace("'", "");
             if (argument.equals("#count") || argument.equals("#sum") || argument.equals("#summary") || argument.equals("count") || argument.equals("sum")) {
+                return raw.trim();
+            }
+            // virtual containers can be looked up, but not rolled back or restored yet
+            if (VirtualContainerParser.isParameter(argument)) {
                 return raw.trim();
             }
         }

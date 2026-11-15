@@ -22,8 +22,8 @@ public final class ClickHouseSchema {
     private static final String INTEGER_CODEC = " CODEC(Delta, ZSTD(3))";
     private static final String VALUE_CODEC = " CODEC(ZSTD(3))";
     private static final String SPARSE_SERIALIZATION_SETTING = "ratio_of_defaults_for_sparse_serialization=0.9";
-    private static final String PURGEABLE_FAMILIES = purgeableFamilies();
-    private static final String EVENT_PARTITION_KEY = "if(family='" + BATCH_RECEIPT_FAMILY + "',wid,if(family IN (" + PURGEABLE_FAMILIES
+    private static final String TIME_PARTITIONED_FAMILIES = timePartitionedFamilies();
+    private static final String EVENT_PARTITION_KEY = "if(family='" + BATCH_RECEIPT_FAMILY + "',wid,if(family IN (" + TIME_PARTITIONED_FAMILIES
             + "),toYYYYMM(toDateTime(time,'UTC')),0))";
     private static final String EVENT_SORTING_KEY = "(family,wid,x,z,if(family IN ('database_lock','user','version'),0,time),rowid,if(family='"
             + BATCH_RECEIPT_FAMILY + "',toString(batch_id),''))";
@@ -132,7 +132,7 @@ public final class ClickHouseSchema {
     }
 
     static int eventPartitionId(ClickHouseFamily family, int time) {
-        if (!family.isPurgeable()) {
+        if (!family.isTimePartitioned()) {
             return 0;
         }
         LocalDateTime timestamp = LocalDateTime.ofEpochSecond(Integer.toUnsignedLong(time), 0, ZoneOffset.UTC);
@@ -369,6 +369,8 @@ public final class ClickHouseSchema {
         statements.add(view(names, ClickHouseFamily.USERNAME_LOG, "e.rowid AS rowid,e.time AS time,e.uuid AS uuid,e.user_name AS `user`"));
         statements.add(currentView(names, ClickHouseFamily.VERSION, "e.rowid AS rowid,e.time AS time,e.version AS version"));
         statements.add(currentView(names, ClickHouseFamily.WORLD, "e.rowid AS rowid,e.id AS id,e.name AS world"));
+        statements.add(rollbackView(names, ClickHouseFamily.VIRTUAL_CONTAINER));
+        statements.add(currentView(names, ClickHouseFamily.VIRTUAL_CONTAINER_MAP, "e.rowid AS rowid,e.id AS id,e.name AS container"));
     }
 
     private static String view(Names names, ClickHouseFamily family, String projection) {
@@ -423,6 +425,8 @@ public final class ClickHouseSchema {
                 return "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.action AS action,e.color AS color,e.color_secondary AS color_secondary,e.sign_data AS data,e.waxed AS waxed,e.face AS face,e.line_1 AS line_1,e.line_2 AS line_2,e.line_3 AS line_3,e.line_4 AS line_4,e.line_5 AS line_5,e.line_6 AS line_6,e.line_7 AS line_7,e.line_8 AS line_8";
             case "item":
                 return "e.rowid AS rowid,e.time AS time,e.user_id AS `user`," + location("wid") + "," + location("x") + ",e.y AS y," + location("z") + ",e.type AS type," + binary("e.payload", "data") + ",e.amount AS amount,e.action AS action";
+            case "virtual_container":
+                return "e.rowid AS rowid,e.time AS time,e.user_id AS `user`,e.entity_spawn_rowid AS container_id,e.type AS type,e.data AS data,e.amount AS amount," + binary("e.metadata", "metadata") + ",e.action AS action";
             default:
                 return null;
         }
@@ -518,10 +522,10 @@ public final class ClickHouseSchema {
         return definitions;
     }
 
-    private static String purgeableFamilies() {
+    private static String timePartitionedFamilies() {
         StringJoiner families = new StringJoiner(",");
         for (ClickHouseFamily family : ClickHouseFamily.values()) {
-            if (family.isPurgeable()) {
+            if (family.isTimePartitioned()) {
                 families.add("'" + family.getTableName() + "'");
             }
         }

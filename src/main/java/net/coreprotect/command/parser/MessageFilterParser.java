@@ -18,6 +18,7 @@ public final class MessageFilterParser {
             "block:",
             "blocks:",
             "c:",
+            "container:",
             "coord:",
             "coords:",
             "cord:",

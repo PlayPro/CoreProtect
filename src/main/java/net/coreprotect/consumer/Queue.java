@@ -37,6 +37,7 @@ import net.coreprotect.model.entity.EntityInteraction;
 import net.coreprotect.model.entity.EntityInteractionAction;
 import net.coreprotect.model.entity.EntityInteractionOrigin;
 import net.coreprotect.model.entity.EntitySpawnData;
+import net.coreprotect.model.item.VirtualContainerTransaction;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.BlockUtils;
@@ -358,6 +359,10 @@ public class Queue {
             return;
         }
         queueStandardData(new Object[] { null, Process.ENTITY_CONTAINER_TRANSACTION, null, 0, null, 0, 0, null }, new String[] { user, null }, transaction, false, Consumer.reserveConsumer());
+    }
+
+    protected static boolean queueVirtualContainerTransaction(String user, VirtualContainerTransaction transaction) {
+        return queueStandardData(new Object[] { null, Process.VIRTUAL_CONTAINER_TRANSACTION, null, 0, null, 0, 0, null }, new String[] { user, null }, transaction, false, Consumer.reserveConsumer());
     }
 
     public static void queueEntityInteraction(String user, Entity entity, EntityInteractionAction action) {

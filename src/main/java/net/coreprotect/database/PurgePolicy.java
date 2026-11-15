@@ -6,7 +6,7 @@ import java.util.List;
 
 public final class PurgePolicy {
 
-    private static final List<String> PURGEABLE_TABLES = Collections.unmodifiableList(Arrays.asList("sign", "container", "entity_container", "entity_interaction", "item", "skull", "session", "chat", "command", "entity", "block"));
+    private static final List<String> PURGEABLE_TABLES = Collections.unmodifiableList(Arrays.asList("sign", "container", "entity_container", "entity_interaction", "item", "skull", "session", "chat", "command", "entity", "block", "virtual_container"));
     private static final List<String> WORLD_SCOPED_TABLES = Collections.unmodifiableList(Arrays.asList("sign", "container", "entity_container", "entity_interaction", "item", "session", "chat", "command", "block"));
 
     private PurgePolicy() {

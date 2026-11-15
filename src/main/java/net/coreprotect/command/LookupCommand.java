@@ -23,12 +23,14 @@ import net.coreprotect.command.lookup.StandardLookupThread;
 import net.coreprotect.command.parser.ActionParser;
 import net.coreprotect.command.parser.MessageFilterParser;
 import net.coreprotect.command.parser.RollbackStateParser;
+import net.coreprotect.command.parser.VirtualContainerParser;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.model.action.EntityActionFilter;
 import net.coreprotect.model.action.LookupActions;
+import net.coreprotect.model.item.ItemTransactionActions;
 import net.coreprotect.model.lookup.LookupOutputMode;
 import net.coreprotect.model.lookup.LookupRollbackState;
 import net.coreprotect.utility.Chat;
@@ -66,6 +68,7 @@ public class LookupCommand {
                 : CommandParser.parseCount(args) ? LookupOutputMode.COUNT : LookupOutputMode.DETAIL;
         RollbackStateParser.ParseResult rollbackStateResult = CommandParser.parseRollbackState(args);
         LookupRollbackState rollbackState = rollbackStateResult.getState();
+        VirtualContainerParser.ParseResult virtualContainerResult = CommandParser.parseVirtualContainer(args);
         boolean worldedit = CommandParser.parseWorldEdit(args);
         boolean forceglobal = CommandParser.parseForceGlobal(args);
         boolean pageLookup = false;
@@ -77,6 +80,31 @@ public class LookupCommand {
         if (rollbackStateResult.isConflicting()) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, "#rolledback + #restored"));
             return;
+        }
+
+        if (virtualContainerResult.isSpecified()) {
+            if (virtualContainerResult.getTarget() == null) {
+                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co l container:<namespace:type>[/<id>]"));
+                return;
+            }
+            // virtual containers have no location, so the lookup is always global
+            if (argRadius != null || argWid > 0 || worldedit) {
+                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, "r:"));
+                return;
+            }
+            if (argUsers.contains("#container")) {
+                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, "#container"));
+                return;
+            }
+            boolean containerActions = argAction.stream().allMatch(action -> action == LookupActions.CONTAINER || action == ItemTransactionActions.REMOVE || action == ItemTransactionActions.ADD);
+            if (!argAction.isEmpty() && (!argAction.contains(LookupActions.CONTAINER) || !containerActions)) {
+                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INCOMPATIBLE_ACTION, "container:"));
+                return;
+            }
+            if (argAction.isEmpty()) {
+                argAction.add(LookupActions.CONTAINER);
+            }
+            argBlocks.add(virtualContainerResult.getTarget());
         }
 
         if (args[0].toLowerCase(Locale.ROOT).equals("page") && (args.length != 2 || !args[1].equals(args[1].replaceAll("[^0-9]", "")))) {

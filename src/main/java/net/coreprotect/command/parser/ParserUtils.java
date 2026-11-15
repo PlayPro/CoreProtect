@@ -28,7 +28,7 @@ public final class ParserUtils {
         return false;
     }
 
-    public static String stripPrefix(String argument, String normalizedArgument, String... prefixes) {
+    public static String stripPrefixPreservingCase(String argument, String normalizedArgument, String... prefixes) {
         for (String prefix : prefixes) {
             if (normalizedArgument.startsWith(prefix)) {
                 return argument.substring(prefix.length());
@@ -38,7 +38,7 @@ public final class ParserUtils {
     }
 
     public static String stripPrefix(String normalizedArgument, String... prefixes) {
-        return stripPrefix(normalizedArgument, normalizedArgument, prefixes);
+        return stripPrefixPreservingCase(normalizedArgument, normalizedArgument, prefixes);
     }
 
     public static boolean isSignedDecimal(String value) {

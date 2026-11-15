@@ -22,7 +22,7 @@ public class UndoCommand {
                 List<Object> list = ConfigHandler.lastRollback.get(user.getName());
                 long startTime = (Long) list.get(0);
                 long endTime = (Long) list.get(1);
-                String[] undoArgs = ((String[]) list.get(2)).clone();
+                String[] undoArgs = (String[]) list.get(2);
                 Location location = (Location) list.get(3);
                 for (int i = 1; i < undoArgs.length; i++) {
                     if (ActionParser.isPreviewArgument(undoArgs[i])) {

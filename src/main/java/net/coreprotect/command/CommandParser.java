@@ -5,9 +5,15 @@ import java.util.Map;
 import java.util.Set;
 
 import net.coreprotect.command.parser.*;
+import net.coreprotect.language.Phrase;
+import net.coreprotect.model.action.EntityActionFilter;
+import net.coreprotect.model.action.LookupActions;
+import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.EntityType;
 
 /**
  * Main parser class for CoreProtect commands.
@@ -330,5 +336,38 @@ public class CommandParser {
 
     protected static Integer parseGivableItemId(String[] inputArguments) {
         return GivableItemIdParser.parseGivableItemId(inputArguments);
+    }
+
+    protected static boolean validateTargetCombination(CommandSender player, Iterable<Object> restricted, Iterable<Object> excluded, List<Integer> argAction, EntityActionFilter entityActionFilter, boolean allowInteraction) {
+        boolean[] flags = new boolean[2];
+        if (!scanTargets(player, restricted, argAction, entityActionFilter, allowInteraction, flags)
+                || !scanTargets(player, excluded, argAction, entityActionFilter, allowInteraction, flags)) {
+            return false;
+        }
+        if (flags[0] && flags[1]) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE_COMBO));
+            return false;
+        }
+        return true;
+    }
+
+    private static boolean scanTargets(CommandSender player, Iterable<Object> targets, List<Integer> argAction, EntityActionFilter entityActionFilter, boolean allowInteraction, boolean[] flags) {
+        for (Object arg : targets) {
+            if (arg instanceof Material || arg instanceof String) {
+                flags[0] = true;
+            }
+            else if (arg instanceof EntityType) {
+                flags[1] = true;
+                if (argAction.isEmpty()) {
+                    argAction.add(LookupActions.ENTITY_KILL);
+                    argAction.add(LookupActions.ENTITY_SPAWN);
+                }
+                else if (!entityActionFilter.includesAnyEntity(argAction, true) && (!allowInteraction || !argAction.contains(LookupActions.INTERACTION))) {
+                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE_COMBO));
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 }

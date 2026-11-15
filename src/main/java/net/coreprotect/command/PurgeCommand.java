@@ -26,6 +26,8 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 
 import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.command.parser.MaterialParser;
+import net.coreprotect.command.parser.ParserUtils;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
@@ -140,20 +142,15 @@ public class PurgeCommand extends Consumer {
                 continue;
             }
 
-            String argument = token.toLowerCase(Locale.ROOT);
-            argument = argument.replaceAll("\\\\", "");
-            argument = argument.replaceAll("'", "");
+            String argument = ParserUtils.normalize(token);
 
             if (argument.equals("#optimize")) {
                 continue;
             }
 
-            String listValues = null;
-            if (argument.startsWith("i:") || argument.startsWith("include:") || argument.startsWith("item:") || argument.startsWith("items:") || argument.startsWith("b:") || argument.startsWith("block:") || argument.startsWith("blocks:")) {
-                listValues = argument.replaceAll("include:", "").replaceAll("i:", "").replaceAll("items:", "").replaceAll("item:", "").replaceAll("blocks:", "").replaceAll("block:", "").replaceAll("b:", "");
-            }
-            else if (argument.startsWith("e:") || argument.startsWith("exclude:")) {
-                listValues = argument.replaceAll("exclude:", "").replaceAll("e:", "");
+            String listValues = MaterialParser.stripIncludePrefix(argument);
+            if (listValues == null) {
+                listValues = MaterialParser.stripExcludePrefix(argument);
             }
 
             if (listValues != null) {

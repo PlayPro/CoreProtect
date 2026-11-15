@@ -1,6 +1,5 @@
 package net.coreprotect.command;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -327,17 +326,6 @@ public class CommandParser {
      */
     protected static List<String> parseUsers(String[] inputArguments) {
         return UserParser.parseUsers(inputArguments);
-    }
-
-    /**
-     * Helper method for formatting BigDecimal values
-     * 
-     * @param input
-     *            The BigDecimal value to format
-     * @return The formatted string
-     */
-    private static String timeString(BigDecimal input) {
-        return input.stripTrailingZeros().toPlainString();
     }
 
     protected static Integer parseGivableItemId(String[] inputArguments) {

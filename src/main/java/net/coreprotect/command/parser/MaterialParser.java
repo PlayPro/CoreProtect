@@ -3,9 +3,7 @@ package net.coreprotect.command.parser;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import org.bukkit.Material;
@@ -26,6 +24,29 @@ import net.coreprotect.utility.MaterialUtils;
  */
 public class MaterialParser {
 
+    private static final String[] INCLUDE_PREFIXES = {
+            "include:",
+            "blocks:",
+            "block:",
+            "items:",
+            "item:",
+            "i:",
+            "b:"
+    };
+
+    private static final String[] EXCLUDE_PREFIXES = {
+            "exclude:",
+            "e:"
+    };
+
+    public static String stripIncludePrefix(String normalizedArgument) {
+        return ParserUtils.stripPrefix(normalizedArgument, INCLUDE_PREFIXES);
+    }
+
+    public static String stripExcludePrefix(String normalizedArgument) {
+        return ParserUtils.stripPrefix(normalizedArgument, EXCLUDE_PREFIXES);
+    }
+
     /**
      * Parse restricted materials and entities from command arguments
      * 
@@ -38,93 +59,39 @@ public class MaterialParser {
      * @return A list of restricted materials and entities
      */
     public static List<Object> parseRestricted(CommandSender player, String[] inputArguments, List<Integer> argAction) {
-        String[] argumentArray = inputArguments.clone();
         List<Object> restricted = new ArrayList<>();
-        int count = 0;
         int next = 0;
-        for (String argument : argumentArray) {
-            if (count > 0) {
-                argument = argument.trim().toLowerCase(Locale.ROOT);
-                argument = argument.replaceAll("\\\\", "");
-                argument = argument.replaceAll("'", "");
 
-                if (argument.equals("i:") || argument.equals("include:") || argument.equals("item:") || argument.equals("items:") || argument.equals("b:") || argument.equals("block:") || argument.equals("blocks:")) {
-                    next = 4;
-                }
-                else if (next == 4 || argument.startsWith("i:") || argument.startsWith("include:") || argument.startsWith("item:") || argument.startsWith("items:") || argument.startsWith("b:") || argument.startsWith("block:") || argument.startsWith("blocks:")) {
-                    argument = argument.replaceAll("include:", "");
-                    argument = argument.replaceAll("i:", "");
-                    argument = argument.replaceAll("items:", "");
-                    argument = argument.replaceAll("item:", "");
-                    argument = argument.replaceAll("blocks:", "");
-                    argument = argument.replaceAll("block:", "");
-                    argument = argument.replaceAll("b:", "");
-                    if (argument.contains(",")) {
-                        String[] i2 = argument.split(",");
-                        for (String i3 : i2) {
-                            if (!checkTags(i3, restricted)) {
-                                Material i3_material = MaterialUtils.getType(i3);
-                                if (i3_material != null && (i3_material.isBlock() || argAction.contains(LookupActions.CONTAINER))) {
-                                    restricted.add(i3_material);
-                                }
-                                else if (!argAction.contains(LookupActions.CONTAINER) && BlockTypeUtils.hasBlockType(i3)) {
-                                    restricted.add(BlockTypeUtils.normalizeKey(i3));
-                                }
-                                else {
-                                    EntityType i3_entity = EntityUtils.getEntityType(i3);
-                                    if (i3_entity != null) {
-                                        restricted.add(i3_entity);
-                                    }
-                                    else if (i3_material != null) {
-                                        restricted.add(i3_material);
-                                    }
-                                    else {
-                                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE, i3));
-                                        // Functions.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co help include"));
-                                        return null;
-                                    }
-                                }
-                            }
-                        }
-                        if (argument.endsWith(",")) {
-                            next = 4;
-                        }
-                        else {
-                            next = 0;
+        for (int index = 1; index < inputArguments.length; index++) {
+            String argument = ParserUtils.normalize(inputArguments[index]);
+
+            if (ParserUtils.equalsAny(argument, INCLUDE_PREFIXES)) {
+                next = 4;
+                continue;
+            }
+
+            String stripped = stripIncludePrefix(argument);
+            if (next == 4 || stripped != null) {
+                String spec = (stripped != null) ? stripped : argument;
+                if (spec.contains(",")) {
+                    for (String part : spec.split(",")) {
+                        String candidate = part.trim();
+                        if (!candidate.isEmpty() && !addRestrictedTarget(player, candidate, argAction, restricted)) {
+                            return null;
                         }
                     }
-                    else {
-                        if (!checkTags(argument, restricted)) {
-                            Material material = MaterialUtils.getType(argument);
-                            if (material != null && (material.isBlock() || argAction.contains(LookupActions.CONTAINER))) {
-                                restricted.add(material);
-                            }
-                            else if (!argAction.contains(LookupActions.CONTAINER) && BlockTypeUtils.hasBlockType(argument)) {
-                                restricted.add(BlockTypeUtils.normalizeKey(argument));
-                            }
-                            else {
-                                EntityType entityType = EntityUtils.getEntityType(argument);
-                                if (entityType != null) {
-                                    restricted.add(entityType);
-                                }
-                                else if (material != null) {
-                                    restricted.add(material);
-                                }
-                                else {
-                                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE, argument));
-                                    // Functions.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co help include"));
-                                    return null;
-                                }
-                            }
-                        }
-                        next = 0;
-                    }
+                    next = spec.endsWith(",") ? 4 : 0;
                 }
                 else {
+                    if (!addRestrictedTarget(player, spec, argAction, restricted)) {
+                        return null;
+                    }
                     next = 0;
                 }
             }
-            count++;
+            else {
+                next = 0;
+            }
         }
         return restricted;
     }
@@ -141,80 +108,78 @@ public class MaterialParser {
      * @return A map of excluded materials and entities
      */
     public static Map<Object, Boolean> parseExcluded(CommandSender player, String[] inputArguments, List<Integer> argAction) {
-        String[] argumentArray = inputArguments.clone();
         Map<Object, Boolean> excluded = new HashMap<>();
-        int count = 0;
         int next = 0;
-        for (String argument : argumentArray) {
-            if (count > 0) {
-                argument = argument.trim().toLowerCase(Locale.ROOT);
-                argument = argument.replaceAll("\\\\", "");
-                argument = argument.replaceAll("'", "");
 
-                if (argument.equals("e:") || argument.equals("exclude:")) {
-                    next = 5;
-                }
-                else if (next == 5 || argument.startsWith("e:") || argument.startsWith("exclude:")) {
-                    argument = argument.replaceAll("exclude:", "");
-                    argument = argument.replaceAll("e:", "");
-                    if (argument.contains(",")) {
-                        String[] i2 = argument.split(",");
-                        for (String i3 : i2) {
-                            if (!checkTags(i3, excluded)) {
-                                Material i3_material = MaterialUtils.getType(i3);
-                                if (i3_material != null && (i3_material.isBlock() || argAction.contains(LookupActions.CONTAINER))) {
-                                    excluded.put(i3_material, false);
-                                }
-                                else if (!argAction.contains(LookupActions.CONTAINER) && BlockTypeUtils.hasBlockType(i3)) {
-                                    excluded.put(BlockTypeUtils.normalizeKey(i3), false);
-                                }
-                                else {
-                                    EntityType i3_entity = EntityUtils.getEntityType(i3);
-                                    if (i3_entity != null) {
-                                        excluded.put(i3_entity, false);
-                                    }
-                                    else if (i3_material != null) {
-                                        excluded.put(i3_material, false);
-                                    }
-                                }
-                            }
-                        }
-                        if (argument.endsWith(",")) {
-                            next = 5;
-                        }
-                        else {
-                            next = 0;
+        for (int index = 1; index < inputArguments.length; index++) {
+            String argument = ParserUtils.normalize(inputArguments[index]);
+
+            if (ParserUtils.equalsAny(argument, EXCLUDE_PREFIXES)) {
+                next = 5;
+                continue;
+            }
+
+            String stripped = stripExcludePrefix(argument);
+            if (next == 5 || stripped != null) {
+                String spec = (stripped != null) ? stripped : argument;
+                if (spec.contains(",")) {
+                    for (String part : spec.split(",")) {
+                        String candidate = part.trim();
+                        if (!candidate.isEmpty()) {
+                            addExcludedTarget(candidate, argAction, excluded);
                         }
                     }
-                    else {
-                        if (!checkTags(argument, excluded)) {
-                            Material iMaterial = MaterialUtils.getType(argument);
-                            if (iMaterial != null && (iMaterial.isBlock() || argAction.contains(LookupActions.CONTAINER))) {
-                                excluded.put(iMaterial, false);
-                            }
-                            else if (!argAction.contains(LookupActions.CONTAINER) && BlockTypeUtils.hasBlockType(argument)) {
-                                excluded.put(BlockTypeUtils.normalizeKey(argument), false);
-                            }
-                            else {
-                                EntityType iEntity = EntityUtils.getEntityType(argument);
-                                if (iEntity != null) {
-                                    excluded.put(iEntity, false);
-                                }
-                                else if (iMaterial != null) {
-                                    excluded.put(iMaterial, false);
-                                }
-                            }
-                        }
-                        next = 0;
-                    }
+                    next = spec.endsWith(",") ? 5 : 0;
                 }
                 else {
+                    addExcludedTarget(spec, argAction, excluded);
                     next = 0;
                 }
             }
-            count++;
+            else {
+                next = 0;
+            }
         }
         return excluded;
+    }
+
+    private static boolean addRestrictedTarget(CommandSender player, String token, List<Integer> argAction, List<Object> restricted) {
+        if (checkTags(token, restricted)) {
+            return true;
+        }
+        Object target = resolveTarget(token, argAction);
+        if (target != null) {
+            restricted.add(target);
+            return true;
+        }
+        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE, token));
+        return false;
+    }
+
+    private static void addExcludedTarget(String token, List<Integer> argAction, Map<Object, Boolean> excluded) {
+        if (checkTags(token, excluded)) {
+            return;
+        }
+        Object target = resolveTarget(token, argAction);
+        if (target != null) {
+            excluded.put(target, false);
+        }
+    }
+
+    private static Object resolveTarget(String token, List<Integer> argAction) {
+        boolean containerAction = argAction != null && argAction.contains(LookupActions.CONTAINER);
+        Material material = MaterialUtils.getType(token);
+        if (material != null && (material.isBlock() || containerAction)) {
+            return material;
+        }
+        if (!containerAction && BlockTypeUtils.hasBlockType(token)) {
+            return BlockTypeUtils.normalizeKey(token);
+        }
+        EntityType entityType = EntityUtils.getEntityType(token);
+        if (entityType != null) {
+            return entityType;
+        }
+        return material;
     }
 
     /**
@@ -237,6 +202,32 @@ public class MaterialParser {
         return tagMap;
     }
 
+    private static Set<Material> resolveTagMaterials(String argument) {
+        if (argument == null || !argument.startsWith("#")) {
+            return null;
+        }
+        switch (argument) {
+            case "#button":
+                return BlockGroup.BUTTONS;
+            case "#sign":
+                return BlockGroup.SIGNS;
+            case "#container":
+                return BlockGroup.CONTAINERS;
+            case "#door":
+                return BlockGroup.DOORS;
+            case "#natural":
+                return BlockGroup.NATURAL_BLOCKS;
+            case "#pressure_plate":
+                return BlockGroup.PRESSURE_PLATES;
+            case "#shulker_box":
+                return BlockGroup.SHULKER_BOXES;
+            case "#bundle":
+                return BlockGroup.BUNDLES.isEmpty() ? null : BlockGroup.BUNDLES;
+            default:
+                return null;
+        }
+    }
+
     /**
      * Check if an argument matches a block tag
      * 
@@ -245,7 +236,7 @@ public class MaterialParser {
      * @return true if the argument matches a block tag
      */
     public static boolean checkTags(String argument) {
-        return getTags().containsKey(argument);
+        return resolveTagMaterials(argument) != null;
     }
 
     /**
@@ -258,20 +249,14 @@ public class MaterialParser {
      * @return true if the argument matches a block tag
      */
     public static boolean checkTags(String argument, Map<Object, Boolean> list) {
-        for (Entry<String, Set<Material>> entry : getTags().entrySet()) {
-            String tag = entry.getKey();
-            Set<Material> materials = entry.getValue();
-
-            if (argument.equals(tag)) {
-                for (Material block : materials) {
-                    list.put(block, false);
-                }
-
-                return true;
-            }
+        Set<Material> materials = resolveTagMaterials(argument);
+        if (materials == null) {
+            return false;
         }
-
-        return false;
+        for (Material block : materials) {
+            list.put(block, false);
+        }
+        return true;
     }
 
     /**
@@ -284,17 +269,12 @@ public class MaterialParser {
      * @return true if the argument matches a block tag
      */
     public static boolean checkTags(String argument, List<Object> list) {
-        for (Entry<String, Set<Material>> entry : getTags().entrySet()) {
-            String tag = entry.getKey();
-            Set<Material> materials = entry.getValue();
-
-            if (argument.equals(tag)) {
-                list.addAll(materials);
-                return true;
-            }
+        Set<Material> materials = resolveTagMaterials(argument);
+        if (materials == null) {
+            return false;
         }
-
-        return false;
+        list.addAll(materials);
+        return true;
     }
 
     /**
@@ -305,25 +285,9 @@ public class MaterialParser {
      * @return true if the string represents a block or entity
      */
     public static boolean isBlockOrEntity(String argument) {
-        boolean isBlock = false;
-        if (checkTags(argument)) {
-            isBlock = true;
-        }
-        else {
-            Material material = MaterialUtils.getType(argument);
-            if (material != null) {
-                isBlock = true;
-            }
-            else if (BlockTypeUtils.hasBlockType(argument)) {
-                isBlock = true;
-            }
-            else {
-                EntityType entityType = EntityUtils.getEntityType(argument);
-                if (entityType != null) {
-                    isBlock = true;
-                }
-            }
-        }
-        return isBlock;
+        return checkTags(argument)
+                || MaterialUtils.getType(argument) != null
+                || BlockTypeUtils.hasBlockType(argument)
+                || EntityUtils.getEntityType(argument) != null;
     }
 }

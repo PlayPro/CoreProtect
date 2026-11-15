@@ -17,6 +17,9 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.bukkit.util.StringUtil;
 
+import net.coreprotect.command.parser.ActionParser;
+import net.coreprotect.command.parser.MaterialParser;
+import net.coreprotect.command.parser.ParserUtils;
 import net.coreprotect.command.parser.RollbackStateParser;
 import net.coreprotect.config.ConfigHandler;
 
@@ -28,7 +31,7 @@ public class TabHandler implements TabCompleter {
     private static final String[] ACTIONS = new String[] { "block", "+block", "-block", "click", "kill", "spawn", "+container", "-container", "container", "chat", "command", "+inventory", "-inventory", "inventory", "item", "+item", "-item", "sign", "session", "+session", "-session", "username" };
     private static final String[] NUMBERS = new String[] { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9" };
     private static final String[] TIMES = new String[] { "w", "d", "h", "m", "s" };
-    private static ArrayList<String> materials = null;
+    private static volatile List<String> materials = null;
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command cmd, String label, String[] args) {
@@ -173,11 +176,11 @@ public class TabHandler implements TabCompleter {
         }
 
         for (int i = 1; i < args.length; i++) {
-            String arg = args[i].toLowerCase(Locale.ROOT);
+            String arg = ParserUtils.normalize(args[i]);
             if (arg.equals("#container")) {
                 state.hasContainer = true;
             }
-            else if (arg.equals("#count") || arg.equals("#sum")) {
+            else if (arg.equals("#count") || arg.equals("#sum") || arg.equals("count") || arg.equals("sum")) {
                 state.hasCount = true;
             }
             else if (arg.equals("#summary")) {
@@ -186,31 +189,31 @@ public class TabHandler implements TabCompleter {
             else if (RollbackStateParser.isModifier(arg)) {
                 state.hasRollbackState = true;
             }
-            else if (arg.equals("#preview")) {
+            else if (ActionParser.isPreviewArgument(arg)) {
                 state.hasPreview = true;
             }
             else if (arg.startsWith("f:") || arg.startsWith("filter:")) {
                 state.hasFilter = true;
             }
-            else if ((!arg.contains(":") && !args[i - 1].contains(":") && args.length > (i + 1)) || arg.contains("u:") || arg.contains("user:") || arg.contains("users:") || arg.contains("p:")) {
+            else if ((!arg.contains(":") && !args[i - 1].contains(":") && args.length > (i + 1) && !ActionParser.isModifier(arg)) || arg.startsWith("u:") || arg.startsWith("user:") || arg.startsWith("users:") || arg.startsWith("p:")) {
                 state.hasUser = true;
             }
-            else if (arg.contains("page:")) {
+            else if (arg.startsWith("page:")) {
                 state.hasPage = true;
             }
-            else if (arg.contains("a:") || arg.contains("action:")) {
+            else if (arg.startsWith("a:") || arg.startsWith("action:")) {
                 state.hasAction = true;
             }
-            else if (arg.contains("i:") || arg.contains("include:") || arg.contains("item:") || arg.contains("items:") || arg.contains("b:") || arg.contains("block:") || arg.contains("blocks:")) {
+            else if (MaterialParser.stripIncludePrefix(arg) != null) {
                 state.hasInclude = true;
             }
-            else if (arg.contains("t:") || arg.contains("time:")) {
+            else if (arg.startsWith("t:") || arg.startsWith("time:")) {
                 state.hasTime = true;
             }
-            else if (arg.contains("e:") || arg.contains("exclude:")) {
+            else if (MaterialParser.stripExcludePrefix(arg) != null) {
                 state.hasExclude = true;
             }
-            else if (arg.contains("r:") || arg.contains("radius:")) {
+            else if (arg.startsWith("r:") || arg.startsWith("radius:")) {
                 state.hasRadius = true;
             }
         }
@@ -412,27 +415,15 @@ public class TabHandler implements TabCompleter {
 
     private void initializeMaterialsIfNeeded() {
         if (materials == null) {
-            List<Material> addList = Arrays.asList(Material.ARMOR_STAND);
-            List<Material> excludeList = Arrays.asList();
             Set<String> materialList = new HashSet<>();
 
-            Material[] materialValues = Material.values();
-            for (Material material : materialValues) {
+            for (Material material : Material.values()) {
                 if (material.isBlock() || material.isItem()) {
                     materialList.add(material.name().toLowerCase(Locale.ROOT));
                 }
             }
-            for (Material exclude : excludeList) {
-                materialList.remove(exclude.name().toLowerCase(Locale.ROOT));
-            }
-            for (Material add : addList) {
-                materialList.add(add.name().toLowerCase(Locale.ROOT));
-            }
-
-            // add custom tags
-            for (String tag : CommandParser.getTags().keySet()) {
-                materialList.add(tag);
-            }
+            materialList.add(Material.ARMOR_STAND.name().toLowerCase(Locale.ROOT));
+            materialList.addAll(CommandParser.getTags().keySet());
 
             materials = new ArrayList<>(materialList);
         }

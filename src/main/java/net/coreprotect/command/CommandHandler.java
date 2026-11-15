@@ -32,114 +32,107 @@ public class CommandHandler implements CommandExecutor {
         String commandName = command.getName().toLowerCase(Locale.ROOT);
 
         if (commandName.equals("core") || commandName.equals("coreprotect") || commandName.equals("co")) {
-            int resultc = argumentArray.length;
-            if (resultc > -1) {
-                String corecommand = "help";
-                if (resultc > 0) {
-                    corecommand = argumentArray[0].toLowerCase(Locale.ROOT);
-                }
-                boolean permission = false;
-                if (!permission) {
-                    if (user.hasPermission("coreprotect.rollback") && (corecommand.equals("rollback") || corecommand.equals("rb") || corecommand.equals("ro") || corecommand.equals("apply") || corecommand.equals("cancel"))) {
-                        permission = true;
-                    }
-                    else if (user.hasPermission("coreprotect.restore") && (corecommand.equals("restore") || corecommand.equals("rs") || corecommand.equals("re") || corecommand.equals("undo") || corecommand.equals("apply") || corecommand.equals("cancel"))) {
-                        permission = true;
-                    }
-                    else if (user.hasPermission("coreprotect.inspect") && (corecommand.equals("i") || corecommand.equals("inspect") || corecommand.equals("inspector"))) {
-                        permission = true;
-                    }
-                    else if (user.hasPermission("coreprotect.help") && corecommand.equals("help")) {
-                        permission = true;
-                    }
-                    else if (user.hasPermission("coreprotect.purge") && corecommand.equals("purge")) {
-                        permission = true;
-                    }
-                    else if (user.hasPermission("coreprotect.lookup") && (corecommand.equals("l") || corecommand.equals("lookup") || corecommand.equals("page"))) {
-                        permission = true;
-                    }
-                    else if (user.hasPermission("coreprotect.lookup.near") && corecommand.equals("near")) {
-                        permission = true;
-                    }
-                    else if (user.hasPermission("coreprotect.teleport") && (corecommand.equals("tp") || corecommand.equals("teleport"))) {
-                        permission = true;
-                    }
-                    else if (user.hasPermission("coreprotect.reload") && corecommand.equals("reload")) {
-                        permission = true;
-                    }
-                    else if (user.hasPermission("coreprotect.status") && (corecommand.equals("status") || corecommand.equals("stats") || corecommand.equals("version"))) {
-                        permission = true;
-                    }
-                    else if (user.hasPermission("coreprotect.consumer") && corecommand.equals("consumer")) {
-                        permission = true;
-                    }
-                    else if (user.hasPermission("coreprotect.networking") && corecommand.equals("network-debug")) {
-                        permission = true;
-                    }
-                    else if (user.hasPermission("coreprotect.give") && corecommand.equals("give")) {
-                        permission = true;
-                    }
-                }
+            String corecommand = "help";
+            if (argumentArray.length > 0) {
+                corecommand = argumentArray[0].toLowerCase(Locale.ROOT);
+            }
 
-                if (corecommand.equals("rollback") || corecommand.equals("restore") || corecommand.equals("rb") || corecommand.equals("rs") || corecommand.equals("ro") || corecommand.equals("re")) {
-                    RollbackRestoreCommand.runCommand(user, command, permission, argumentArray, null, 0, 0);
-                }
-                else if (corecommand.equals("apply")) {
-                    ApplyCommand.runCommand(user, command, permission, argumentArray);
-                }
-                else if (corecommand.equals("cancel")) {
-                    CancelCommand.runCommand(user, command, permission, argumentArray);
-                }
-                else if (corecommand.equals("undo")) {
-                    UndoCommand.runCommand(user, command, permission, argumentArray);
-                }
-                else if (corecommand.equals("help")) {
-                    HelpCommand.runCommand(user, permission, argumentArray);
-                }
-                else if (corecommand.equals("purge")) {
-                    PurgeCommand.runCommand(user, permission, argumentArray);
-                }
-                else if (corecommand.equals("inspect") || corecommand.equals("i")) {
-                    InspectCommand.runCommand(user, permission, argumentArray);
-                }
-                else if (corecommand.equals("lookup") || corecommand.equals("l") || corecommand.equals("page")) {
-                    LookupCommand.runCommand(user, command, permission, argumentArray);
-                }
-                else if (corecommand.equals("near")) {
-                    LookupCommand.runCommand(user, command, permission, new String[] { "near", "r:5x5" });
-                }
-                else if (corecommand.equals("teleport") || corecommand.equals("tp")) {
-                    TeleportCommand.runCommand(user, permission, argumentArray);
-                }
-                else if (corecommand.equals("status") || corecommand.equals("stats") || corecommand.equals("version")) {
-                    StatusCommand.runCommand(user, permission, argumentArray);
-                }
-                else if (corecommand.equals("reload")) {
-                    ReloadCommand.runCommand(user, permission, argumentArray);
-                }
-                else if (corecommand.equals("consumer")) {
-                    ConsumerCommand.runCommand(user, permission, argumentArray);
-                }
-                else if (corecommand.equals("network-debug")) {
-                    NetworkDebugCommand.runCommand(user, permission, argumentArray);
-                }
-                else if (corecommand.equals("give")) {
-                    GiveCommand.runCommand(user, command, permission, argumentArray);
-                }
-                else if (corecommand.equals("migrate-db")) {
-                    if (!VersionUtils.validDonationKey()) {
-                        Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DONATION_KEY_REQUIRED));
-                    }
-                    else {
-                        Extensions.runDatabaseMigration(corecommand, user, argumentArray);
-                    }
+            boolean permission = false;
+            if (user.hasPermission("coreprotect.rollback") && (corecommand.equals("rollback") || corecommand.equals("rb") || corecommand.equals("ro") || corecommand.equals("apply") || corecommand.equals("cancel"))) {
+                permission = true;
+            }
+            else if (user.hasPermission("coreprotect.restore") && (corecommand.equals("restore") || corecommand.equals("rs") || corecommand.equals("re") || corecommand.equals("undo") || corecommand.equals("apply") || corecommand.equals("cancel"))) {
+                permission = true;
+            }
+            else if (user.hasPermission("coreprotect.inspect") && (corecommand.equals("i") || corecommand.equals("inspect") || corecommand.equals("inspector"))) {
+                permission = true;
+            }
+            else if (user.hasPermission("coreprotect.help") && corecommand.equals("help")) {
+                permission = true;
+            }
+            else if (user.hasPermission("coreprotect.purge") && corecommand.equals("purge")) {
+                permission = true;
+            }
+            else if (user.hasPermission("coreprotect.lookup") && (corecommand.equals("l") || corecommand.equals("lookup") || corecommand.equals("page"))) {
+                permission = true;
+            }
+            else if (user.hasPermission("coreprotect.lookup.near") && corecommand.equals("near")) {
+                permission = true;
+            }
+            else if (user.hasPermission("coreprotect.teleport") && (corecommand.equals("tp") || corecommand.equals("teleport"))) {
+                permission = true;
+            }
+            else if (user.hasPermission("coreprotect.reload") && corecommand.equals("reload")) {
+                permission = true;
+            }
+            else if (user.hasPermission("coreprotect.status") && (corecommand.equals("status") || corecommand.equals("stats") || corecommand.equals("version"))) {
+                permission = true;
+            }
+            else if (user.hasPermission("coreprotect.consumer") && corecommand.equals("consumer")) {
+                permission = true;
+            }
+            else if (user.hasPermission("coreprotect.networking") && corecommand.equals("network-debug")) {
+                permission = true;
+            }
+            else if (user.hasPermission("coreprotect.give") && corecommand.equals("give")) {
+                permission = true;
+            }
+
+            if (corecommand.equals("rollback") || corecommand.equals("restore") || corecommand.equals("rb") || corecommand.equals("rs") || corecommand.equals("ro") || corecommand.equals("re")) {
+                RollbackRestoreCommand.runCommand(user, command, permission, argumentArray, null, 0, 0);
+            }
+            else if (corecommand.equals("apply")) {
+                ApplyCommand.runCommand(user, command, permission, argumentArray);
+            }
+            else if (corecommand.equals("cancel")) {
+                CancelCommand.runCommand(user, command, permission, argumentArray);
+            }
+            else if (corecommand.equals("undo")) {
+                UndoCommand.runCommand(user, command, permission, argumentArray);
+            }
+            else if (corecommand.equals("help")) {
+                HelpCommand.runCommand(user, permission, argumentArray);
+            }
+            else if (corecommand.equals("purge")) {
+                PurgeCommand.runCommand(user, permission, argumentArray);
+            }
+            else if (corecommand.equals("inspect") || corecommand.equals("i") || corecommand.equals("inspector")) {
+                InspectCommand.runCommand(user, permission, argumentArray);
+            }
+            else if (corecommand.equals("lookup") || corecommand.equals("l") || corecommand.equals("page")) {
+                LookupCommand.runCommand(user, command, permission, argumentArray);
+            }
+            else if (corecommand.equals("near")) {
+                LookupCommand.runCommand(user, command, permission, new String[] { "near", "r:5x5" });
+            }
+            else if (corecommand.equals("teleport") || corecommand.equals("tp")) {
+                TeleportCommand.runCommand(user, permission, argumentArray);
+            }
+            else if (corecommand.equals("status") || corecommand.equals("stats") || corecommand.equals("version")) {
+                StatusCommand.runCommand(user, permission, argumentArray);
+            }
+            else if (corecommand.equals("reload")) {
+                ReloadCommand.runCommand(user, permission, argumentArray);
+            }
+            else if (corecommand.equals("consumer")) {
+                ConsumerCommand.runCommand(user, permission, argumentArray);
+            }
+            else if (corecommand.equals("network-debug")) {
+                NetworkDebugCommand.runCommand(user, permission, argumentArray);
+            }
+            else if (corecommand.equals("give")) {
+                GiveCommand.runCommand(user, command, permission, argumentArray);
+            }
+            else if (corecommand.equals("migrate-db")) {
+                if (!VersionUtils.validDonationKey()) {
+                    Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DONATION_KEY_REQUIRED));
                 }
                 else {
-                    Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.COMMAND_NOT_FOUND, Color.WHITE, "/co " + corecommand));
+                    Extensions.runDatabaseMigration(corecommand, user, argumentArray);
                 }
             }
             else {
-                Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, Color.WHITE, "/co <parameters>"));
+                Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.COMMAND_NOT_FOUND, Color.WHITE, "/co " + corecommand));
             }
 
             if (user.isOp() && versionAlert.get(user.getName()) == null) {

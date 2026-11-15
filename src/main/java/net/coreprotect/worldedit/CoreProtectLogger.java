@@ -58,7 +58,7 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
 
         BlockStateConversion oldConversion = BlockStateConversion.of(oldBlock);
         Material oldType = oldConversion.getMaterial();
-        BlockData oldBlockData = oldConversion.createBlockData();
+        BlockData oldBlockData = oldConversion.getBlockData();
         Location location = new Location(world, position.getBlockX(), position.getBlockY(), position.getBlockZ());
         BaseBlock baseBlock = WorldEditLogger.needsBaseBlock(oldType, config) ? eventExtent.getFullBlock(position) : null;
         // Reads below this stage reach the live world, so capture the other half before setBlock or its physics can change it
@@ -71,7 +71,7 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
 
         if (eventExtent.setBlock(position, block)) {
             BlockStateConversion newConversion = BlockStateConversion.of(block.toImmutableState());
-            WorldEditLogger.postProcess(eventActor, location, baseBlock, oldType, oldBlockData, oldConversion.getDataString(), newConversion.getMaterial(), newConversion.createBlockData(), newConversion.getDataString(), containerData, true, otherHalf);
+            WorldEditLogger.postProcess(eventActor, location, baseBlock, oldType, oldBlockData, oldConversion.getDataString(), newConversion.getMaterial(), newConversion.getBlockData(), newConversion.getDataString(), containerData, true, otherHalf);
             return true;
         }
 

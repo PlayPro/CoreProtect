@@ -21,7 +21,9 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 
 final class FastAsyncWorldEditLogger implements IBatchProcessor {
+    private static final int ORDINAL_CACHE_SIZE = Character.MAX_VALUE + 1;
     private static final ProcessorScope SCOPE = resolveScope();
+    private static volatile BlockStateConversion[] conversions;
     private final Actor actor;
     private final World eventWorld;
     private final org.bukkit.World world;
@@ -43,6 +45,7 @@ final class FastAsyncWorldEditLogger implements IBatchProcessor {
             return set;
         }
 
+        BlockStateConversion[] cached = conversions();
         int chunkX = chunk.getX() << 4;
         int chunkZ = chunk.getZ() << 4;
         for (int layer = get.getMinSectionPosition(); layer <= get.getMaxSectionPosition(); layer++) {
@@ -69,14 +72,14 @@ final class FastAsyncWorldEditLogger implements IBatchProcessor {
                 int x = index & 15;
                 int y = (layer << 4) + (index >> 8);
                 int z = (index >> 4) & 15;
-                BlockStateConversion oldConversion = conversion(oldOrdinal);
-                BlockStateConversion newConversion = conversion(newOrdinal);
+                BlockStateConversion oldConversion = conversion(cached, oldOrdinal);
+                BlockStateConversion newConversion = conversion(cached, newOrdinal);
                 Material oldType = oldConversion.getMaterial();
-                BlockData oldBlockData = oldConversion.createBlockData();
+                BlockData oldBlockData = oldConversion.getBlockData();
                 Location location = new Location(world, chunkX + x, y, chunkZ + z);
                 BaseBlock baseBlock = WorldEditLogger.needsBaseBlock(oldType, config) ? get.getFullBlock(x, y, z) : null;
-                org.bukkit.block.BlockState lowerHalf = WorldEditLogger.isLoggedTopHalf(oldType, oldBlockData) ? getLowerHalf(get, set, x, y, z, chunkX + x, chunkZ + z, oldBlockData) : null;
-                WorldEditLogger.postProcess(actor, location, baseBlock, oldType, oldBlockData, oldConversion.getDataString(), newConversion.getMaterial(), newConversion.createBlockData(), newConversion.getDataString(), null, false, lowerHalf);
+                org.bukkit.block.BlockState lowerHalf = WorldEditLogger.isLoggedTopHalf(oldType, oldBlockData) ? getLowerHalf(get, set, cached, x, y, z, chunkX + x, chunkZ + z, oldBlockData) : null;
+                WorldEditLogger.postProcess(actor, location, baseBlock, oldType, oldBlockData, oldConversion.getDataString(), newConversion.getMaterial(), newConversion.getBlockData(), newConversion.getDataString(), null, false, lowerHalf);
             }
         }
         return set;
@@ -86,7 +89,7 @@ final class FastAsyncWorldEditLogger implements IBatchProcessor {
      * The matching lower half of a top half as this edit leaves it, read from the chunk data the processor already holds instead of the world.
      * Null when the block below is not that lower half, or when the edit changes it too, since its own row then covers the double block.
      */
-    private org.bukkit.block.BlockState getLowerHalf(IChunkGet get, IChunkSet set, int x, int y, int z, int worldX, int worldZ, BlockData topHalf) {
+    private org.bukkit.block.BlockState getLowerHalf(IChunkGet get, IChunkSet set, BlockStateConversion[] cached, int x, int y, int z, int worldX, int worldZ, BlockData topHalf) {
         int lowerY = y - 1;
         int layer = lowerY >> 4;
         if (layer < get.getMinSectionPosition()) {
@@ -104,26 +107,29 @@ final class FastAsyncWorldEditLogger implements IBatchProcessor {
             return null;
         }
 
-        BlockStateConversion conversion = conversion(ordinal);
-        if (!WorldEditLogger.isOtherHalf(topHalf, conversion.getTemplate())) {
+        BlockStateConversion conversion = conversion(cached, ordinal);
+        if (!WorldEditLogger.isOtherHalf(topHalf, conversion.getBlockData())) {
             return null;
         }
 
-        return new WorldEditBlockState(new Location(world, worldX, lowerY, worldZ), conversion.getMaterial(), conversion.createBlockData());
+        return new WorldEditBlockState(new Location(world, worldX, lowerY, worldZ), conversion.getMaterial(), conversion.getBlockData());
     }
 
-    /*
-     * BlockStateConversion indexed by FAWE block state ordinal, which avoids hashing the state for every changed block.
-     * FAWE runs this processor on several threads. A plain array is safe because every field of BlockStateConversion
-     * is final, and concurrent writers store equivalent conversions, so a lost race only repeats the work.
-     */
-    private static final BlockStateConversion[] CONVERSIONS = new BlockStateConversion[BlockTypesCache.states.length];
+    private static BlockStateConversion[] conversions() {
+        BlockStateConversion[] cached = conversions;
+        if (cached == null) {
+            cached = new BlockStateConversion[ORDINAL_CACHE_SIZE];
+            conversions = cached;
+        }
+        return cached;
+    }
 
-    private static BlockStateConversion conversion(int ordinal) {
-        BlockStateConversion conversion = CONVERSIONS[ordinal];
-        if (conversion == null) {
-            conversion = BlockStateConversion.of(BlockState.getFromOrdinal(ordinal));
-            CONVERSIONS[ordinal] = conversion;
+    private static BlockStateConversion conversion(BlockStateConversion[] cached, int ordinal) {
+        BlockState state = BlockState.getFromOrdinal(ordinal);
+        BlockStateConversion conversion = cached[ordinal];
+        if (conversion == null || conversion.getState() != state) {
+            conversion = BlockStateConversion.of(state);
+            cached[ordinal] = conversion;
         }
         return conversion;
     }

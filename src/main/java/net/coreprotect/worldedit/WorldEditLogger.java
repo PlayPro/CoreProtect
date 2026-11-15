@@ -78,20 +78,16 @@ public class WorldEditLogger extends Queue {
         }
 
         BlockStateConversion other = BlockStateConversion.of(extent.getBlock(position.add(0, offset, 0)));
-        if (!isOtherHalf(blockData, other.getTemplate())) {
+        if (!isOtherHalf(blockData, other.getBlockData())) {
             return null;
         }
 
         Location otherLocation = location.clone();
         otherLocation.setY(otherY);
-        return new WorldEditBlockState(otherLocation, other.getMaterial(), other.createBlockData());
+        return new WorldEditBlockState(otherLocation, other.getMaterial(), other.getBlockData());
     }
 
     /**
-     * The loggers pass Bukkit data already converted through BlockStateConversion.
-     *
-     * @param oldBlockData A fresh instance owned by this call, since it may be modified
-     * @param newBlockData A fresh instance owned by this call, since it may be modified
      * @param otherHalf The matching other half of a double block as it was before this edit changed it, or null. Callers that do not log block physics only supply the lower half of a top half.
      */
     protected static void postProcess(Actor actor, Location location, BaseBlock baseBlock, Material oldType, BlockData oldBlockData, String oldBlockDataString, Material newType, BlockData newBlockData, String newBlockDataString, ItemStack[] containerContents, boolean logBlockPhysics, BlockState otherHalf) {
@@ -155,8 +151,9 @@ public class WorldEditLogger extends Queue {
             }
             else if ((!oldType.equals(Material.AIR) && !oldType.equals(Material.CAVE_AIR)) && (!newType.equals(Material.AIR) && !newType.equals(Material.CAVE_AIR))) {
                 // replaced a block
-                Waterlogged waterlogged = logBlockPhysics ? BlockUtils.checkWaterlogged(newBlockData, oldBlock) : null;
+                Waterlogged waterlogged = logBlockPhysics && oldType == Material.WATER && newBlockData instanceof Waterlogged ? BlockUtils.checkWaterlogged(newBlockData.clone(), oldBlock) : null;
                 if (waterlogged != null) {
+                    newBlock = new WorldEditBlockState(location, newType, waterlogged);
                     newBlockDataString = waterlogged.getAsString();
                     oldBlock = null;
                 }

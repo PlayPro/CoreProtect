@@ -2,9 +2,16 @@ package net.coreprotect.utility.entity;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Mob;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.EntityEquipment;
+import org.bukkit.inventory.ItemStack;
+
+import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.utility.BlockUtils;
 
 public final class LivingEntityDetails {
 
@@ -19,6 +26,13 @@ public final class LivingEntityDetails {
         if (entity instanceof Mob) {
             details.add(((Mob) entity).isAware());
         }
+        Object body = serializeBody(entity.getEquipment());
+        if (body != null) {
+            if (!(entity instanceof Mob)) {
+                details.add(null);
+            }
+            details.add(body);
+        }
         return details;
     }
 
@@ -32,6 +46,36 @@ public final class LivingEntityDetails {
         if (details.size() > 2 && entity instanceof Mob) {
             ((Mob) entity).setAware((Boolean) details.get(2));
         }
+        if (details.size() > 3) {
+            restoreBody(entity.getEquipment(), details.get(3));
+        }
+    }
+
+    public static Object serializeBody(EntityEquipment equipment) {
+        if (equipment == null || !BukkitAdapter.ADAPTER.hasBodyItemSlot() || equipment.getHolder() instanceof Player) {
+            return null;
+        }
+        ItemStack item = BukkitAdapter.ADAPTER.getBodyItem(equipment);
+        return item == null || BlockUtils.isAir(item.getType()) ? Boolean.FALSE : item.serialize();
+    }
+
+    public static void restoreBody(EntityEquipment equipment, Object body) {
+        if (equipment == null || !BukkitAdapter.ADAPTER.hasBodyItemSlot() || equipment.getHolder() instanceof Player) {
+            return;
+        }
+        ItemStack item;
+        if (body instanceof Map<?, ?>) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> data = (Map<String, Object>) body;
+            item = ItemStack.deserialize(data);
+        }
+        else if (Boolean.FALSE.equals(body)) {
+            item = null;
+        }
+        else {
+            return;
+        }
+        BukkitAdapter.ADAPTER.setBodyItem(equipment, item);
     }
 
 }

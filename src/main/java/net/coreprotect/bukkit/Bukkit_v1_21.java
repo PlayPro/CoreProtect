@@ -27,6 +27,9 @@ import org.bukkit.event.Event;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.inventory.EntityEquipment;
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
 
 
 import net.coreprotect.model.BlockGroup;
@@ -45,6 +48,21 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
     public static Set<Material> COPPER_CHESTS = new HashSet<>(Arrays.asList());
     public static Set<Material> SHELVES = new HashSet<>(Arrays.asList());
     public static Set<Material> BUNDLES = new HashSet<>(Arrays.asList());
+
+    @Override
+    public boolean hasBodyItemSlot() {
+        return true;
+    }
+
+    @Override
+    public ItemStack getBodyItem(EntityEquipment equipment) {
+        return equipment.getItem(EquipmentSlot.BODY);
+    }
+
+    @Override
+    public void setBodyItem(EntityEquipment equipment, ItemStack item) {
+        equipment.setItem(EquipmentSlot.BODY, item);
+    }
 
     /**
      * Initializes the Bukkit_v1_21 adapter with 1.21-specific block groups and mappings.

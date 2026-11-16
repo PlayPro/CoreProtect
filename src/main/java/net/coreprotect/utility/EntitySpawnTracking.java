@@ -47,6 +47,7 @@ import net.coreprotect.model.entity.EntitySpawnData;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.spigot.SpigotAdapter;
 import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.entity.LivingEntityDetails;
 
 public final class EntitySpawnTracking {
 
@@ -1035,6 +1036,7 @@ public final class EntitySpawnTracking {
         state.add(inventoryData);
 
         List<Object> equipmentData = null;
+        Object bodyEquipment = null;
         if (entity instanceof LivingEntity) {
             EntityEquipment equipment = ((LivingEntity) entity).getEquipment();
             if (equipment != null) {
@@ -1046,12 +1048,16 @@ public final class EntitySpawnTracking {
                 equipmentData.add(serializeItem(equipment.getChestplate()));
                 equipmentData.add(serializeItem(equipment.getHelmet()));
                 trimTrailingNulls(equipmentData);
+                bodyEquipment = LivingEntityDetails.serializeBody(equipment);
             }
         }
         state.add(equipmentData);
         if (isCushion(entity)) {
             Location location = entity.getLocation();
             state.add(Arrays.asList(location.getYaw(), location.getPitch()));
+        }
+        else if (bodyEquipment != null) {
+            state.add(bodyEquipment);
         }
         trimTrailingNulls(state);
         return state;
@@ -1168,6 +1174,9 @@ public final class EntitySpawnTracking {
             if (rotation.size() == 2 && rotation.get(0) instanceof Number && rotation.get(1) instanceof Number) {
                 entity.setRotation(((Number) rotation.get(0)).floatValue(), ((Number) rotation.get(1)).floatValue());
             }
+        }
+        else if (entity instanceof LivingEntity && state.size() > 5) {
+            LivingEntityDetails.restoreBody(((LivingEntity) entity).getEquipment(), state.get(5));
         }
     }
 

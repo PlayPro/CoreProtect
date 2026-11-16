@@ -40,6 +40,7 @@ import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -151,6 +152,20 @@ public class BukkitAdapter implements BukkitInterface {
     @Override
     public boolean getEntityMeta(LivingEntity entity, List<Object> info) {
         return false;
+    }
+
+    @Override
+    public boolean hasBodyItemSlot() {
+        return false;
+    }
+
+    @Override
+    public ItemStack getBodyItem(EntityEquipment equipment) {
+        return null;
+    }
+
+    @Override
+    public void setBodyItem(EntityEquipment equipment, ItemStack item) {
     }
 
     @Override

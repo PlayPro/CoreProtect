@@ -27,6 +27,7 @@ import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -301,6 +302,12 @@ public interface BukkitInterface {
      * @return true if metadata was extracted, false otherwise
      */
     boolean getEntityMeta(LivingEntity entity, List<Object> info);
+
+    boolean hasBodyItemSlot();
+
+    ItemStack getBodyItem(EntityEquipment equipment);
+
+    void setBodyItem(EntityEquipment equipment, ItemStack item);
 
     /**
      * Sets metadata on an entity.

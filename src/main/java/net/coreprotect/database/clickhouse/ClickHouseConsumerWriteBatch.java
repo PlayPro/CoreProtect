@@ -25,6 +25,7 @@ import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.Database;
 import net.coreprotect.model.rollback.RollbackUpdateTargets;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.StringUtils;
 
 public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
 
@@ -144,7 +145,7 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
     @Override
     public int resolveUserId(String user, String uuid) throws Exception {
         requireBatch();
-        String requiredUser = requireText(user, "user");
+        String requiredUser = StringUtils.normalizeUsername(requireText(user, "user"));
         String normalizedUuid = normalizeUuid(uuid);
         String cacheKey = normalizeName(requiredUser);
         Integer cachedId = cachedUserId(cacheKey, normalizedUuid);
@@ -201,7 +202,7 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
     @Override
     public void recordUsername(String user, String uuid, int retainHistory, int time) throws Exception {
         requireBatch();
-        String requiredUser = requireText(user, "user");
+        String requiredUser = StringUtils.normalizeUsername(requireText(user, "user"));
         String requiredUuid = requireText(uuid, "uuid");
         if (ConfigHandler.isBlacklisted(requiredUser)) {
             return;

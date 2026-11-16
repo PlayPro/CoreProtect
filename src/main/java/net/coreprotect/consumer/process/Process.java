@@ -1,6 +1,7 @@
 package net.coreprotect.consumer.process;
 
 import java.sql.Connection;
+import java.sql.DataTruncation;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientConnectionException;
 import java.sql.SQLNonTransientException;
@@ -41,6 +42,7 @@ import net.coreprotect.model.rollback.RollbackUpdateTargets;
 import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.HopperTransactionUtils;
+import net.coreprotect.utility.StringUtils;
 
 public class Process {
 
@@ -962,7 +964,7 @@ public class Process {
         if (userData == null) {
             return false;
         }
-        String user = userData[0];
+        String user = StringUtils.normalizeUsername(userData[0]);
         String uuid = userData[1];
         return user != null && ((ConfigHandler.databaseType.isClickHouse() && uuid != null && !uuid.isEmpty())
                 || ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT)) == null);
@@ -972,7 +974,7 @@ public class Process {
             Map<Integer, String[]> users) throws Exception {
         if (needsUserPreflight(data, users)) {
             String[] userData = users.get((int) data[0]);
-            batch.resolveUserId(userData[0], userData[1]);
+            batch.resolveUserId(StringUtils.normalizeUsername(userData[0]), userData[1]);
         }
     }
 
@@ -1016,7 +1018,7 @@ public class Process {
             if (data == null || data.length == 0 || data[0] == null) {
                 continue;
             }
-            String user = data[0].toLowerCase(Locale.ROOT);
+            String user = StringUtils.normalizeUsername(data[0]).toLowerCase(Locale.ROOT);
             Integer userId = ConfigHandler.playerIdCache.remove(user);
             if (userId != null) {
                 ConfigHandler.playerIdCacheReversed.remove(userId);
@@ -1205,18 +1207,35 @@ public class Process {
 
     private static boolean isPermanentPreparationFailure(Throwable failure) {
         Set<Throwable> visited = new HashSet<>();
+        ArrayDeque<Throwable> pending = new ArrayDeque<>();
+        if (failure != null) {
+            pending.add(failure);
+        }
         boolean sqlFailure = false;
-        while (failure != null && visited.add(failure)) {
+        while (!pending.isEmpty()) {
+            failure = pending.removeLast();
+            if (!visited.add(failure)) {
+                continue;
+            }
             if (failure instanceof IllegalArgumentException || failure instanceof ClassCastException
                     || failure instanceof NullPointerException || failure instanceof IndexOutOfBoundsException
                     || failure instanceof ArithmeticException
+                    || failure instanceof DataTruncation
                     || (failure instanceof SQLNonTransientException && !(failure instanceof SQLNonTransientConnectionException))
                     || (ConfigHandler.databaseType.isClickHouse() && failure instanceof SQLException
                             && ((SQLException) failure).getErrorCode() == CLICKHOUSE_ACCESS_DENIED)) {
                 return true;
             }
-            sqlFailure |= failure instanceof SQLException;
-            failure = failure.getCause();
+            if (failure instanceof SQLException) {
+                sqlFailure = true;
+                SQLException next = ((SQLException) failure).getNextException();
+                if (next != null) {
+                    pending.add(next);
+                }
+            }
+            if (failure.getCause() != null) {
+                pending.add(failure.getCause());
+            }
         }
         return !sqlFailure;
     }

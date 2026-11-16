@@ -7,6 +7,8 @@ import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
+import net.coreprotect.utility.StringUtils;
+
 public class CoreProtectPreLogEvent extends Event implements Cancellable {
 
     public enum Action {
@@ -40,7 +42,7 @@ public class CoreProtectPreLogEvent extends Event implements Cancellable {
 
     public CoreProtectPreLogEvent(String user, Location location, Action action, int actionId, Material material, EntityType entityType, String message) {
         super(true);
-        this.user = user;
+        this.user = StringUtils.normalizeUsername(user);
         this.location = location;
         this.action = action == null ? Action.UNKNOWN : action;
         this.actionId = actionId;
@@ -101,7 +103,7 @@ public class CoreProtectPreLogEvent extends Event implements Cancellable {
             throw new IllegalArgumentException("Invalid user");
         }
 
-        this.user = newUser;
+        this.user = StringUtils.normalizeUsername(newUser);
     }
 
     public void setLocation(Location newLocation) {

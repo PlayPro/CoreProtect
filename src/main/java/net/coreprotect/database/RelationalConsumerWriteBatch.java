@@ -17,6 +17,7 @@ import org.duckdb.DuckDBConnection;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.statement.EntitySpawnStatement;
+import net.coreprotect.utility.StringUtils;
 
 public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
 
@@ -181,6 +182,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
 
     @Override
     public int resolveUserId(String user, String uuid) throws Exception {
+        user = StringUtils.normalizeUsername(user);
         String cacheKey = user.toLowerCase(Locale.ROOT);
         Integer cachedId = ConfigHandler.playerIdCache.get(cacheKey);
         if (cachedId != null) {
@@ -216,6 +218,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
 
     @Override
     public void recordUsername(String user, String uuid, int retainHistory, int time) throws Exception {
+        user = StringUtils.normalizeUsername(user);
         if (ConfigHandler.isBlacklisted(user)) {
             return;
         }
@@ -847,6 +850,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     }
 
     private int insertUser(String user) throws Exception {
+        user = StringUtils.normalizeUsername(user);
         if (userInsertStatement == null) {
             String sql = "INSERT INTO " + ConfigHandler.prefix + "user (time," + databaseType.getUserColumn() + ") VALUES (?,?)";
             userInsertStatement = own(prepare(sql, true));

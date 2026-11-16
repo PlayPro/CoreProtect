@@ -42,14 +42,14 @@ public final class HopperTransactionUtils {
 
     public static String getTransactionId(String user, Material type, Location location) {
         if (type == Material.ENDER_CHEST) {
-            return ENDER_CHEST_PREFIX + user.toLowerCase(Locale.ROOT);
+            return ENDER_CHEST_PREFIX + StringUtils.normalizeUsername(user).toLowerCase(Locale.ROOT);
         }
         return getTransactionId(location);
     }
 
     public static String getViewerGroupId(String user, Material type, Location location) {
         if (type == Material.ENDER_CHEST) {
-            return ENDER_CHEST_PREFIX + user.toLowerCase(Locale.ROOT);
+            return ENDER_CHEST_PREFIX + StringUtils.normalizeUsername(user).toLowerCase(Locale.ROOT);
         }
         return getLoggingIdSuffix(location);
     }
@@ -60,13 +60,13 @@ public final class HopperTransactionUtils {
 
     public static String getLoggingId(String user, Material type, Location location) {
         if (type == Material.ENDER_CHEST) {
-            return ENDER_CHEST_PREFIX + user.toLowerCase(Locale.ROOT) + getLoggingIdSuffix(location);
+            return ENDER_CHEST_PREFIX + StringUtils.normalizeUsername(user).toLowerCase(Locale.ROOT) + getLoggingIdSuffix(location);
         }
         return getLoggingId(user, location);
     }
 
     public static String getLoggingId(String user, String locationSuffix) {
-        return user.toLowerCase(Locale.ROOT) + locationSuffix;
+        return StringUtils.normalizeUsername(user).toLowerCase(Locale.ROOT) + locationSuffix;
     }
 
     public static String getLoggingIdSuffix(Location location) {

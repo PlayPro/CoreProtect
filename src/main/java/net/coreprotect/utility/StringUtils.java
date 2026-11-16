@@ -4,8 +4,20 @@ import java.util.Locale;
 
 public class StringUtils {
 
+    public static final int MAX_USERNAME_LENGTH = 100;
+
     private StringUtils() {
         throw new IllegalStateException("Utility class");
+    }
+
+    public static String normalizeUsername(String user) {
+        if (user == null || user.length() <= MAX_USERNAME_LENGTH) {
+            return user;
+        }
+        if (user.codePointCount(0, user.length()) <= MAX_USERNAME_LENGTH) {
+            return user;
+        }
+        return user.substring(0, user.offsetByCodePoints(0, MAX_USERNAME_LENGTH));
     }
 
     public static String capitalize(String string, boolean allWords) {

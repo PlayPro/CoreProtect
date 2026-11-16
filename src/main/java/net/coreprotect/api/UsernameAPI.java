@@ -15,6 +15,7 @@ import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.utility.DatabaseUtils;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.StringUtils;
 
 /**
  * Provides API methods for username history lookups.
@@ -127,9 +128,10 @@ public class UsernameAPI {
             return result;
         }
 
+        String normalizedUser = StringUtils.normalizeUsername(user);
         String userMatch = DatabaseUtils.caseInsensitiveEquals(ConfigHandler.databaseType.getUserColumn());
         try (PreparedStatement statement = connection.prepareStatement("SELECT uuid FROM " + ConfigHandler.prefix + "user WHERE " + userMatch)) {
-            statement.setString(1, user);
+            statement.setString(1, normalizedUser);
             try (ResultSet results = statement.executeQuery()) {
                 while (results.next()) {
                     result.add(results.getString("uuid"));
@@ -138,7 +140,7 @@ public class UsernameAPI {
         }
 
         try (PreparedStatement statement = connection.prepareStatement("SELECT uuid FROM " + ConfigHandler.prefix + "username_log WHERE " + userMatch)) {
-            statement.setString(1, user);
+            statement.setString(1, normalizedUser);
             try (ResultSet results = statement.executeQuery()) {
                 while (results.next()) {
                     result.add(results.getString("uuid"));

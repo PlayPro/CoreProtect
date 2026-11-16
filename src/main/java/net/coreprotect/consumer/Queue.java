@@ -43,6 +43,7 @@ import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.StringUtils;
 import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.worldedit.WorldEditBlockState;
 
@@ -139,6 +140,9 @@ public class Queue {
             Consumer.registerRollbackPublications(1);
         }
         try {
+            if (user != null && user.length > 0 && user[0] != null) {
+                user[0] = StringUtils.normalizeUsername(user[0]);
+            }
             data[0] = consumerId;
             if (additionalMaps != null) {
                 additionalMaps.get(currentConsumer).put(consumerId, additionalData);
@@ -329,7 +333,7 @@ public class Queue {
                         Location cacheLocation = blockStateLocation.getLocation();
                         int worldId = WorldUtils.getWorldId(cacheLocation.getWorld().getName());
                         int unixTimestamp = (int) (System.currentTimeMillis() / 1000L);
-                        CacheHandler.lookupCache.put(cacheLocation.getBlockX() + "." + cacheLocation.getBlockY() + "." + cacheLocation.getBlockZ() + "." + worldId, new Object[] { unixTimestamp, user, forceT });
+                        CacheHandler.lookupCache.put(cacheLocation.getBlockX() + "." + cacheLocation.getBlockY() + "." + cacheLocation.getBlockZ() + "." + worldId, new Object[] { unixTimestamp, StringUtils.normalizeUsername(user), forceT });
                     }
 
                     queueBlockPlace(user, blockStateLocation, blockType, replacedBlock, forceT, forceD, forceData, blockData);
@@ -575,7 +579,7 @@ public class Queue {
             for (EntityContainerRollbackUpdate update : containerRetries) {
                 int consumerId = firstConsumerId + updateIndex++;
                 records.add(new Object[] { consumerId, Process.ENTITY_CONTAINER_TRANSITION_UPDATE, null, 0, null, 0, 0, null });
-                Consumer.consumerUsers.get(currentConsumer).put(consumerId, new String[] { update.getUser(), null });
+                Consumer.consumerUsers.get(currentConsumer).put(consumerId, new String[] { StringUtils.normalizeUsername(update.getUser()), null });
                 Consumer.consumerObjects.get(currentConsumer).put(consumerId, update);
             }
             for (EntitySpawnData update : spawnRetries) {
@@ -625,12 +629,13 @@ public class Queue {
             }
             Consumer.registerRollbackPublications(recordCount);
             registered = true;
+            String normalizedUser = StringUtils.normalizeUsername(user);
             for (int recordIndex = 0; recordIndex < recordCount; recordIndex++) {
                 int fromIndex = recordIndex * MAX_ROLLBACK_ROWS_PER_RECORD;
                 int toIndex = Math.min(fromIndex + MAX_ROLLBACK_ROWS_PER_RECORD, rows.size());
                 int consumerId = firstConsumerId + recordIndex;
                 records.add(new Object[] { consumerId, table, null, inventoryRollback ? 1 : 0, null, 0, action, null });
-                Consumer.consumerUsers.get(currentConsumer).put(consumerId, new String[] { user, null });
+                Consumer.consumerUsers.get(currentConsumer).put(consumerId, new String[] { normalizedUser, null });
                 Consumer.consumerObjects.get(currentConsumer).put(consumerId, location);
                 Consumer.consumerObjectArrayList.get(currentConsumer).put(consumerId, new ArrayList<>(rows.subList(fromIndex, toIndex)));
             }

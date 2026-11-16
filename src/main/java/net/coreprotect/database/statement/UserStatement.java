@@ -13,6 +13,7 @@ import net.coreprotect.database.Database;
 import net.coreprotect.database.clickhouse.ClickHouseDatabase;
 import net.coreprotect.utility.DatabaseUtils;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.StringUtils;
 
 public class UserStatement {
 
@@ -21,6 +22,7 @@ public class UserStatement {
     }
 
     public static int insert(Connection connection, String user) {
+        user = StringUtils.normalizeUsername(user);
         int id = -1;
 
         try {
@@ -60,6 +62,7 @@ public class UserStatement {
     }
 
     public static int getId(ConsumerWriteBatch batch, String user, boolean load) throws Exception {
+        user = StringUtils.normalizeUsername(user);
         if (load && ConfigHandler.databaseType.isClickHouse()) {
             return batch.resolveUserId(user, null);
         }
@@ -76,6 +79,7 @@ public class UserStatement {
     }
 
     public static int findId(Connection connection, String user) throws SQLException {
+        user = StringUtils.normalizeUsername(user);
         String lowerUser = user.toLowerCase(Locale.ROOT);
         Integer cachedId = ConfigHandler.playerIdCache.get(lowerUser);
         if (cachedId != null) {
@@ -108,6 +112,7 @@ public class UserStatement {
 
     public static int loadId(Connection connection, String user, String uuid) {
         // generate if doesn't exist
+        user = StringUtils.normalizeUsername(user);
         int id = -1;
 
         try {
@@ -243,6 +248,7 @@ public class UserStatement {
     }
 
     public static String getUuid(Connection connection, String user) throws SQLException {
+        user = StringUtils.normalizeUsername(user);
         String lowerUser = user.toLowerCase(Locale.ROOT);
         String uuid = ConfigHandler.uuidCache.get(lowerUser);
         if (uuid != null && (!ConfigHandler.databaseType.isClickHouse() || !uuid.isEmpty())) {

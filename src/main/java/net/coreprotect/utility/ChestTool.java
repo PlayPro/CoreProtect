@@ -1,5 +1,6 @@
 package net.coreprotect.utility;
 
+import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.BlockData;
@@ -8,6 +9,7 @@ import org.bukkit.block.data.type.Chest;
 import org.bukkit.block.data.type.Chest.Type;
 
 import net.coreprotect.CoreProtect;
+import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.Scheduler;
 
 public class ChestTool {
@@ -17,7 +19,7 @@ public class ChestTool {
     }
 
     public static void updateDoubleChest(Block block, BlockData blockData, boolean forceValidation) {
-        if (!(blockData instanceof Chest) || ((Chest) blockData).getType() == Type.SINGLE) {
+        if (block == null || !(blockData instanceof Chest) || ((Chest) blockData).getType() == Type.SINGLE) {
             return;
         }
 
@@ -65,31 +67,95 @@ public class ChestTool {
 
         if (newFace != null) {
             Type newType = (chestType == Type.LEFT) ? Type.RIGHT : Type.LEFT;
+            Material sourceMaterial = blockData.getMaterial();
+            String expectedSourceString = blockData.getAsString();
             Block relativeBlock = block.getRelative(newFace);
-            if (!forceValidation && (relativeBlock.getBlockData() instanceof Chest) && ((Chest) relativeBlock.getBlockData()).getType() == newType) {
-                return;
+            boolean relativeOwned = PaperAdapter.ADAPTER == null
+                    || PaperAdapter.ADAPTER.isOwnedByCurrentRegion(relativeBlock.getWorld(), relativeBlock.getX() >> 4, relativeBlock.getZ() >> 4);
+
+            if (relativeOwned && !forceValidation) {
+                BlockData relativeBlockData = relativeBlock.getBlockData();
+                if (isCompatibleChest(relativeBlockData, sourceMaterial, blockFace) && ((Chest) relativeBlockData).getType() == newType) {
+                    return;
+                }
             }
 
-            validateContainer(blockData, newType, block, relativeBlock);
+            validateContainer(expectedSourceString, sourceMaterial, blockFace, newType, block, relativeBlock, relativeOwned);
         }
     }
 
-    private static void validateContainer(BlockData blockData, Type newType, Block block, Block relativeBlock) {
-        Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
-            try {
-                BlockData relativeBlockData = relativeBlock.getBlockData();
-                if (!blockData.getAsString().equals(block.getBlockData().getAsString()) || !(relativeBlockData instanceof Chest) || ((Chest) relativeBlockData).getType() == newType) {
-                    return;
+    private static void validateContainer(String expectedSourceString, Material sourceMaterial, BlockFace expectedFacing, Type newType, Block block, Block relativeBlock, boolean relativeOwned) {
+        if (relativeOwned) {
+            Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
+                try {
+                    if (PaperAdapter.ADAPTER != null && !PaperAdapter.ADAPTER.isOwnedByCurrentRegion(block.getWorld(), block.getX() >> 4, block.getZ() >> 4)) {
+                        scheduleCrossRegionValidation(expectedSourceString, sourceMaterial, expectedFacing, newType, block, relativeBlock);
+                        return;
+                    }
+                    if (!expectedSourceString.equals(block.getBlockData().getAsString())) {
+                        return;
+                    }
+                    applyRelativeChestUpdate(relativeBlock, sourceMaterial, expectedFacing, newType);
                 }
+                catch (Exception e) {
+                    ErrorReporter.report(e);
+                }
+            }, relativeBlock.getLocation(), 2);
+            return;
+        }
 
-                Chest chestData = (Chest) blockData;
-                chestData.setType(newType);
-                relativeBlock.setBlockData(chestData, true);
+        Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(),
+                () -> verifySourceAndDispatch(expectedSourceString, sourceMaterial, expectedFacing, newType, block, relativeBlock),
+                block.getLocation(), 2);
+    }
+
+    private static void scheduleCrossRegionValidation(String expectedSourceString, Material sourceMaterial, BlockFace expectedFacing, Type newType, Block block, Block relativeBlock) {
+        Scheduler.runTask(CoreProtect.getInstance(),
+                () -> verifySourceAndDispatch(expectedSourceString, sourceMaterial, expectedFacing, newType, block, relativeBlock),
+                block.getLocation());
+    }
+
+    private static void verifySourceAndDispatch(String expectedSourceString, Material sourceMaterial, BlockFace expectedFacing, Type newType, Block block, Block relativeBlock) {
+        try {
+            if (!expectedSourceString.equals(block.getBlockData().getAsString())) {
+                return;
             }
-            catch (Exception e) {
-                ErrorReporter.report(e);
+            Scheduler.runTask(CoreProtect.getInstance(),
+                    () -> applyRelativeChestUpdate(relativeBlock, sourceMaterial, expectedFacing, newType),
+                    relativeBlock.getLocation());
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+        }
+    }
+
+    private static void applyRelativeChestUpdate(Block relativeBlock, Material expectedMaterial, BlockFace expectedFacing, Type newType) {
+        try {
+            BlockData relativeBlockData = relativeBlock.getBlockData();
+            if (!isCompatibleChest(relativeBlockData, expectedMaterial, expectedFacing)) {
+                return;
             }
-        }, relativeBlock.getLocation(), 2);
+            Chest chestData = (Chest) relativeBlockData;
+            if (chestData.getType() == newType) {
+                return;
+            }
+            Chest updated = (Chest) relativeBlockData.clone();
+            updated.setType(newType);
+            relativeBlock.setBlockData(updated, true);
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+        }
+    }
+
+    private static boolean isCompatibleChest(BlockData relativeBlockData, Material expectedMaterial, BlockFace expectedFacing) {
+        if (!(relativeBlockData instanceof Chest) || !(relativeBlockData instanceof Directional)) {
+            return false;
+        }
+        if (relativeBlockData.getMaterial() != expectedMaterial) {
+            return false;
+        }
+        return ((Directional) relativeBlockData).getFacing() == expectedFacing;
     }
 
 }

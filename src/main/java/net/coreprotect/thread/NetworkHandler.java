@@ -306,53 +306,64 @@ public class NetworkHandler extends Language implements Runnable {
 
                     if (!languageCode.startsWith("en") && languageCode.length() > 1) {
                         boolean validCache = false;
-                        Path languagePath = Paths.get(ConfigHandler.path + ConfigFile.LANGUAGE);
-                        Path languageCachePath = Paths.get(ConfigHandler.path + ConfigFile.LANGUAGE_CACHE);
+                        boolean shouldTranslate = false;
+                        long epoch = 0L;
+                        Set<String> phraseSet = null;
+                        Map<String, String> phrases = null;
 
-                        // validate that a valid cache file exists
-                        if (Files.isReadable(languagePath) && Files.isReadable(languageCachePath)) {
-                            try (Stream<String> stream = Files.lines(languageCachePath)) {
-                                Optional<String> languageHeader = stream.findFirst();
-                                if (languageHeader.isPresent()) {
-                                    String headerString = languageHeader.get();
-                                    if (headerString.startsWith("# CoreProtect")) { // verify that valid cache file
-                                        String[] split = headerString.split(" ");
-                                        if (split.length == 6 && split[2].length() > 2 && split[5].length() > 2) {
-                                            String cacheVersion = split[2].substring(1);
-                                            String cacheLanguage = split[5].substring(1, split[5].length() - 1);
-                                            if (cacheVersion.equals(pluginVersion) && cacheLanguage.equals(languageCode)) {
-                                                validCache = true;
-                                            }
-                                            else if (!isAborted() && ConfigHandler.serverRunning) {
-                                                ConfigFile.resetCache(ConfigFile.LANGUAGE_CACHE, ConfigFile.LANGUAGE);
-                                            }
-                                            if (validCache && Files.getLastModifiedTime(languagePath).toMillis() >= Files.getLastModifiedTime(languageCachePath).toMillis()) {
-                                                validCache = false;
+                        synchronized (ConfigFile.LANGUAGE_LOCK) {
+                            Path languagePath = Paths.get(ConfigHandler.path + ConfigFile.LANGUAGE);
+                            Path languageCachePath = Paths.get(ConfigHandler.path + ConfigFile.LANGUAGE_CACHE);
+
+                            // validate that a valid cache file exists
+                            if (Files.isReadable(languagePath) && Files.isReadable(languageCachePath)) {
+                                try (Stream<String> stream = Files.lines(languageCachePath)) {
+                                    Optional<String> languageHeader = stream.findFirst();
+                                    if (languageHeader.isPresent()) {
+                                        String headerString = languageHeader.get();
+                                        if (headerString.startsWith("# CoreProtect")) { // verify that valid cache file
+                                            String[] split = headerString.split(" ");
+                                            if (split.length == 6 && split[2].length() > 2 && split[5].length() > 2) {
+                                                String cacheVersion = split[2].substring(1);
+                                                String cacheLanguage = split[5].substring(1, split[5].length() - 1);
+                                                if (cacheVersion.equals(pluginVersion) && cacheLanguage.equals(languageCode)) {
+                                                    validCache = true;
+                                                }
+                                                else if (!isAborted() && ConfigHandler.serverRunning) {
+                                                    ConfigFile.resetCache(ConfigFile.LANGUAGE_CACHE, ConfigFile.LANGUAGE);
+                                                }
+                                                if (validCache && Files.getLastModifiedTime(languagePath).toMillis() >= Files.getLastModifiedTime(languageCachePath).toMillis()) {
+                                                    validCache = false;
+                                                }
                                             }
                                         }
                                     }
                                 }
-                            }
-                            catch (Exception e) {
-                                if (isAborted()) {
-                                    return;
+                                catch (Exception e) {
+                                    if (isAborted()) {
+                                        return;
+                                    }
+                                    ErrorReporter.report(e);
                                 }
-                                ErrorReporter.report(e);
+                            }
+
+                            if (!validCache && !isAborted() && ConfigHandler.serverRunning) {
+                                epoch = ConfigFile.getLanguageEpoch();
+                                phraseSet = new HashSet<>();
+                                phrases = new HashMap<>();
+
+                                for (Phrase phrase : Phrase.values()) {
+                                    phraseSet.add(phrase.name());
+                                    phrases.put(phrase.name(), phrase.getUserPhrase());
+                                }
+
+                                phrases.put("DATA_VERSION", pluginVersion);
+                                phrases.put("DATA_LANGUAGE", languageCode);
+                                shouldTranslate = true;
                             }
                         }
 
-                        if (!validCache && !isAborted() && ConfigHandler.serverRunning) {
-                            Set<String> phraseSet = new HashSet<>();
-                            Map<String, String> phrases = new HashMap<>();
-
-                            for (Phrase phrase : Phrase.values()) {
-                                phraseSet.add(phrase.name());
-                                phrases.put(phrase.name(), phrase.getUserPhrase());
-                            }
-
-                            phrases.put("DATA_VERSION", pluginVersion);
-                            phrases.put("DATA_LANGUAGE", languageCode);
-
+                        if (shouldTranslate && !isAborted() && ConfigHandler.serverRunning) {
                             String mapString = "data=" + JSONObject.toJSONString(phrases);
                             mapString = mapString.replaceAll("\\+", "{PLUS_SIGN}");
                             byte[] postData = mapString.getBytes(StandardCharsets.UTF_8);
@@ -389,34 +400,49 @@ public class NetworkHandler extends Language implements Runnable {
                                     if (!isAborted() && ConfigHandler.serverRunning && response.length() > 0 && response.startsWith("{") && response.endsWith("}")) {
                                         TreeMap<Phrase, String> translatedPhrases = new TreeMap<>();
                                         JSONParser parser = new JSONParser();
-                                        JSONObject json = (JSONObject) parser.parse(response);
-                                        for (Object jsonKey : json.keySet()) {
-                                            String key = (String) jsonKey;
-                                            String value = ((String) json.get(jsonKey)).trim();
-                                            if (phraseSet.contains(key) && value.length() > 0) {
-                                                Phrase phrase = Phrase.valueOf(key);
-                                                translatedPhrases.put(phrase, value);
-                                                Language.setTranslatedPhrase(phrase, value);
+                                        Object parsedObject = parser.parse(response);
+                                        if (parsedObject instanceof JSONObject) {
+                                            JSONObject json = (JSONObject) parsedObject;
+                                            for (Object jsonKey : json.keySet()) {
+                                                if (!(jsonKey instanceof String)) {
+                                                    continue;
+                                                }
+                                                String key = (String) jsonKey;
+                                                Object rawVal = json.get(jsonKey);
+                                                if (!(rawVal instanceof String)) {
+                                                    continue;
+                                                }
+                                                String value = ((String) rawVal).trim();
+                                                if (phraseSet.contains(key) && value.length() > 0) {
+                                                    Phrase phrase = Phrase.valueOf(key);
+                                                    translatedPhrases.put(phrase, value);
+                                                }
                                             }
                                         }
 
-                                        Path cachePath = CoreProtect.getInstance().getDataFolder().toPath().resolve(ConfigFile.LANGUAGE_CACHE);
-                                        StringBuilder cacheContent = new StringBuilder();
-                                        cacheContent.append("# CoreProtect v").append(pluginVersion).append(" Language Cache (").append(languageCode).append(")");
-                                        cacheContent.append(Config.LINE_SEPARATOR);
+                                        synchronized (ConfigFile.LANGUAGE_LOCK) {
+                                            if (!isAborted() && ConfigHandler.serverRunning && ConfigFile.getLanguageEpoch() == epoch) {
+                                                for (final Entry<Phrase, String> entry : translatedPhrases.entrySet()) {
+                                                    Language.setTranslatedPhrase(entry.getKey(), entry.getValue());
+                                                }
 
-                                        for (final Entry<Phrase, String> entry : translatedPhrases.entrySet()) {
-                                            String key = entry.getKey().name();
-                                            String value = entry.getValue().replace("\\", "\\\\").replace("\"", "\\\"");
+                                                Path cachePath = CoreProtect.getInstance().getDataFolder().toPath().resolve(ConfigFile.LANGUAGE_CACHE);
+                                                StringBuilder cacheContent = new StringBuilder();
+                                                cacheContent.append("# CoreProtect v").append(pluginVersion).append(" Language Cache (").append(languageCode).append(")");
+                                                cacheContent.append(Config.LINE_SEPARATOR);
 
-                                            cacheContent.append(Config.LINE_SEPARATOR);
-                                            cacheContent.append(key);
-                                            cacheContent.append(": ");
-                                            cacheContent.append('"').append(value).append('"');
-                                        }
+                                                for (final Entry<Phrase, String> entry : translatedPhrases.entrySet()) {
+                                                    String key = entry.getKey().name();
+                                                    String value = entry.getValue().replace("\\", "\\\\").replace("\"", "\\\"").replace("\r", "\\r").replace("\n", "\\n");
 
-                                        if (!isAborted() && ConfigHandler.serverRunning) {
-                                            DatabaseConfigWriter.writeAtomically(cachePath, cacheContent.toString().getBytes(StandardCharsets.UTF_8));
+                                                    cacheContent.append(Config.LINE_SEPARATOR);
+                                                    cacheContent.append(key);
+                                                    cacheContent.append(": ");
+                                                    cacheContent.append('"').append(value).append('"');
+                                                }
+
+                                                DatabaseConfigWriter.writeAtomically(cachePath, cacheContent.toString().getBytes(StandardCharsets.UTF_8));
+                                            }
                                         }
                                     }
                                 }

@@ -22,6 +22,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.language.Language;
@@ -34,19 +35,30 @@ public class ConfigFile extends Config {
     public static final String LANGUAGE = "language.yml";
     public static final String LANGUAGE_CACHE = ".language";
 
+    public static final Object LANGUAGE_LOCK = new Object();
+    private static final AtomicLong LANGUAGE_EPOCH = new AtomicLong();
     private static final TreeMap<String, String> DEFAULT_VALUES = new TreeMap<>();
     private static final TreeMap<String, String> USER_VALUES = new TreeMap<>();
     private static final String DEFAULT_FILE_HEADER = "# CoreProtect Language File (en)";
     private final HashMap<String, String> lang;
 
-    public static void init(String fileName) throws IOException {
-        for (Phrase phrase : Phrase.values()) {
-            DEFAULT_VALUES.put(phrase.name(), phrase.getPhrase());
-            USER_VALUES.put(phrase.name(), phrase.getUserPhrase());
-        }
+    public static long getLanguageEpoch() {
+        return LANGUAGE_EPOCH.get();
+    }
 
-        boolean isCache = fileName.startsWith(".");
-        loadFiles(fileName, isCache);
+    public static void init(String fileName) throws IOException {
+        synchronized (LANGUAGE_LOCK) {
+            boolean isCache = fileName.startsWith(".");
+            if (!isCache) {
+                LANGUAGE_EPOCH.incrementAndGet();
+            }
+            for (Phrase phrase : Phrase.values()) {
+                DEFAULT_VALUES.put(phrase.name(), phrase.getPhrase());
+                USER_VALUES.put(phrase.name(), phrase.getUserPhrase());
+            }
+
+            loadFiles(fileName, isCache);
+        }
     }
 
     public ConfigFile() {
@@ -61,16 +73,18 @@ public class ConfigFile extends Config {
         this.lang.clear();
         this.lang.putAll(newConfig);
 
-        for (final Entry<String, String> entry : this.lang.entrySet()) {
-            String key = entry.getKey();
-            String value = entry.getValue();
-            if (DEFAULT_VALUES.containsKey(key) && value.length() > 0 && (!isCache || DEFAULT_VALUES.get(key).equals(USER_VALUES.get(key)))) {
-                Phrase phrase = Phrase.valueOf(key);
-                if (!isCache) {
-                    Language.setUserPhrase(phrase, value);
-                }
+        synchronized (LANGUAGE_LOCK) {
+            for (final Entry<String, String> entry : this.lang.entrySet()) {
+                String key = entry.getKey();
+                String value = entry.getValue();
+                if (DEFAULT_VALUES.containsKey(key) && value.length() > 0 && (!isCache || DEFAULT_VALUES.get(key).equals(USER_VALUES.get(key)))) {
+                    Phrase phrase = Phrase.valueOf(key);
+                    if (!isCache) {
+                        Language.setUserPhrase(phrase, value);
+                    }
 
-                Language.setTranslatedPhrase(phrase, value);
+                    Language.setTranslatedPhrase(phrase, value);
+                }
             }
         }
     }
@@ -149,6 +163,14 @@ public class ConfigFile extends Config {
                         sb.append(next);
                         i++;
                     }
+                    else if (next == 'n') {
+                        sb.append('\n');
+                        i++;
+                    }
+                    else if (next == 'r') {
+                        sb.append('\r');
+                        i++;
+                    }
                     else {
                         sb.append(c);
                     }
@@ -205,7 +227,7 @@ public class ConfigFile extends Config {
 
             for (final Entry<String, String> entry : DEFAULT_VALUES.entrySet()) {
                 final String key = entry.getKey();
-                final String defaultValue = entry.getValue().replace("\\", "\\\\").replace("\"", "\\\"");
+                final String defaultValue = entry.getValue().replace("\\", "\\\\").replace("\"", "\\\"").replace("\r", "\\r").replace("\n", "\\n");
 
                 final String configuredValue = this.lang.get(key);
                 if (configuredValue != null) {
@@ -274,10 +296,13 @@ public class ConfigFile extends Config {
     }
 
     public static void resetCache(String cacheName, String fileName) throws IOException {
-        File file = new File(CoreProtect.getInstance().getDataFolder(), cacheName);
-        if (file.length() > 0) {
-            DatabaseConfigWriter.writeAtomically(file.toPath(), new byte[0]);
-            init(fileName);
+        synchronized (LANGUAGE_LOCK) {
+            LANGUAGE_EPOCH.incrementAndGet();
+            File file = new File(CoreProtect.getInstance().getDataFolder(), cacheName);
+            if (file.length() > 0) {
+                DatabaseConfigWriter.writeAtomically(file.toPath(), new byte[0]);
+                init(fileName);
+            }
         }
     }
 }

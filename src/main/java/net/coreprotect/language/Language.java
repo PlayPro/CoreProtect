@@ -23,17 +23,17 @@ public class Language {
     }
 
     protected static void setUserPhrase(Phrase phrase, String value) {
-        if (value != null) {
-            value = ChatColor.translateAlternateColorCodes('&', value);
+        if (phrase == null || value == null) {
+            return;
         }
-        userPhrases.put(phrase, value);
+        userPhrases.put(phrase, ChatColor.translateAlternateColorCodes('&', value));
     }
 
     protected static void setTranslatedPhrase(Phrase phrase, String value) {
-        if (value != null) {
-            value = ChatColor.translateAlternateColorCodes('&', value);
+        if (phrase == null || value == null) {
+            return;
         }
-        translatedPhrases.put(phrase, value);
+        translatedPhrases.put(phrase, ChatColor.translateAlternateColorCodes('&', value));
     }
 
     public static void loadPhrases() {
@@ -187,7 +187,7 @@ public class Language {
         phrases.put(Phrase.MISSING_ROLLBACK_USER, "You did not specify a {rollback|restore} user.");
         phrases.put(Phrase.MYSQL_UNAVAILABLE, "Unable to connect to MySQL server.");
         phrases.put(Phrase.NETWORK_CONNECTION, "Connection by {0} {successful|failed}. Using {1} {2}.");
-        phrases.put(Phrase.NETWORK_TEST, "Network test data has been successful sent.");
+        phrases.put(Phrase.NETWORK_TEST, "Network test data has been successfully sent.");
         phrases.put(Phrase.NO_DATA, "No data found at {0}.");
         phrases.put(Phrase.NO_DATA_LOCATION, "No {data|transactions|interactions|messages} found at this location.");
         phrases.put(Phrase.NO_PERMISSION, "You do not have permission to do that.");

@@ -214,10 +214,37 @@ public class StringUtils {
     }
 
     public static Integer[] convertArray(String[] array) {
-        java.util.List<Integer> list = new java.util.ArrayList<>();
+        if (array == null || array.length == 0) {
+            return new Integer[0];
+        }
+        java.util.List<Integer> list = new java.util.ArrayList<>(array.length);
         for (String item : array) {
-            list.add(Integer.parseInt(item));
+            list.add(parseVersionSegment(item));
         }
         return list.toArray(new Integer[list.size()]);
+    }
+
+    private static int parseVersionSegment(String item) {
+        if (item == null) {
+            return 0;
+        }
+        String trimmed = item.trim();
+        int digitEnd = 0;
+        while (digitEnd < trimmed.length()) {
+            char c = trimmed.charAt(digitEnd);
+            if (c < '0' || c > '9') {
+                break;
+            }
+            digitEnd++;
+        }
+        if (digitEnd == 0) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(trimmed.substring(0, digitEnd));
+        }
+        catch (NumberFormatException e) {
+            return Integer.MAX_VALUE;
+        }
     }
 } 

@@ -35,12 +35,19 @@ public class Patch {
 
     public static String getFirstVersion() {
         String result = "";
-        if (firstVersion != null) {
-            if ((firstVersion[0] + "." + firstVersion[1] + "." + firstVersion[2]).equals("0.0.0")) {
+        if (firstVersion != null && firstVersion.length >= 3) {
+            if (firstVersion[0] == 0 && firstVersion[1] == 0 && firstVersion[2] == 0) {
                 result = VersionUtils.getPluginVersion();
             }
             else {
-                result = firstVersion[1] + "." + firstVersion[2];
+                StringBuilder builder = new StringBuilder();
+                for (int i = 1; i < firstVersion.length; i++) {
+                    if (i > 1) {
+                        builder.append('.');
+                    }
+                    builder.append(firstVersion[i] != null ? firstVersion[i] : 0);
+                }
+                result = builder.toString();
             }
         }
         return result;
@@ -64,10 +71,11 @@ public class Patch {
                 }
                 version = version.replaceAll(",", ".");
                 String[] old_version_split = version.split("\\.");
-                if (old_version_split.length > 2) { // #.#.#
-                    last_version[0] = Integer.parseInt(old_version_split[0]);
-                    last_version[1] = Integer.parseInt(old_version_split[1]);
-                    last_version[2] = Integer.parseInt(old_version_split[2]);
+                if (old_version_split.length > 2) { // #.#.#...
+                    last_version = new Integer[old_version_split.length];
+                    for (int i = 0; i < old_version_split.length; i++) {
+                        last_version[i] = Integer.parseInt(old_version_split[i]);
+                    }
                 }
                 else { // #.#
                     int revision = 0;
@@ -208,10 +216,10 @@ public class Patch {
 
             // mark as being up to date
             if (result >= 0) {
-                Database.recordDatabaseVersion(statement, version[0] + "." + version[1] + "." + version[2]);
+                Database.recordDatabaseVersion(statement, VersionUtils.formatInternalVersion(version));
             }
             else if (patched) {
-                Database.recordDatabaseVersion(statement, newVersion[0] + "." + newVersion[1] + "." + newVersion[2]);
+                Database.recordDatabaseVersion(statement, VersionUtils.formatInternalVersion(newVersion));
             }
 
             statement.close();
@@ -301,12 +309,16 @@ public class Patch {
                 (new Thread(new patchStatus())).start();
             }
             else if (lastVersion[0] == 0) {
-                Database.recordDatabaseVersion(statement, currentVersion[0] + "." + (ConfigHandler.EDITION_BRANCH.contains("-dev") ? (currentVersion[1] - 1) : currentVersion[1]) + "." + currentVersion[2]);
+                Integer[] initialVersion = currentVersion.clone();
+                if (ConfigHandler.EDITION_BRANCH.contains("-dev") && initialVersion.length > 1) {
+                    initialVersion[1] = initialVersion[1] - 1;
+                }
+                Database.recordDatabaseVersion(statement, VersionUtils.formatInternalVersion(initialVersion));
             }
             else {
-                currentVersion[2] = 0;
-                lastVersion[2] = 0;
-                if (VersionUtils.newVersion(currentVersion, lastVersion)) {
+                Integer[] comparableCurrent = new Integer[] { currentVersion[0], currentVersion[1], 0 };
+                Integer[] comparableLast = new Integer[] { lastVersion[0], lastVersion[1], 0 };
+                if (VersionUtils.newVersion(comparableCurrent, comparableLast)) {
                     Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.VERSION_REQUIRED, "CoreProtect", "v" + lastVersion[1] + "." + lastVersion[2]));
                     return false;
                 }

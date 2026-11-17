@@ -537,7 +537,7 @@ public class Database extends Queue {
         ClickHouseDatabase initialized = ClickHouseDatabase.initialize(config, prefix);
         try {
             Integer[] version = VersionUtils.getInternalPluginVersion();
-            initialized.ensureCoreData(version[0] + "." + version[1] + "." + version[2]);
+            initialized.ensureCoreData(VersionUtils.formatInternalVersion(version));
         }
         catch (SQLException | RuntimeException exception) {
             try {

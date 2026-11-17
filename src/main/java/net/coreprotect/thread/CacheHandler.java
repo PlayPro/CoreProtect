@@ -121,8 +121,10 @@ public class CacheHandler implements Runnable {
         }
 
         final int timestamp = (int) (System.currentTimeMillis() / 1000L);
-        int[] result = cache.compute(cacheId, (key, value) -> {
+        final boolean[] suppress = new boolean[1];
+        cache.compute(cacheId, (key, value) -> {
             if (value == null) {
+                suppress[0] = false;
                 return new int[] { timestamp, 1 };
             }
 
@@ -135,10 +137,11 @@ public class CacheHandler implements Runnable {
 
             value[0] = timestamp;
             value[1] = count;
+            suppress[0] = count > threshold;
             return value;
         });
 
-        return result[1] > threshold;
+        return suppress[0];
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })

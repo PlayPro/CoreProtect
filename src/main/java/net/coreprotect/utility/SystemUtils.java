@@ -199,6 +199,12 @@ public class SystemUtils {
         return null;
     }
 
+    public static boolean requiresWin32ExceptionCheck() {
+        String osName = System.getProperty("os.name", "");
+        String archDataModel = System.getProperty("sun.arch.data.model", "");
+        return osName.startsWith("Windows") && !archDataModel.equals("64");
+    }
+
     public static ProcessorInfo getProcessorInfo() {
         // In test mode, don't actually try to initialize hardware components
         if (testMode || isLog4jDisabled()) {
@@ -208,9 +214,8 @@ public class SystemUtils {
         try {
             Class.forName("com.sun.jna.Platform");
             String osName = System.getProperty("os.name", "");
-            String archDataModel = System.getProperty("sun.arch.data.model", "");
             String javaRuntimeName = System.getProperty("java.runtime.name", "");
-            if (osName.startsWith("Windows") && !archDataModel.equals("64")) {
+            if (requiresWin32ExceptionCheck()) {
                 Class.forName("com.sun.jna.platform.win32.Win32Exception");
             }
             else if (osName.toLowerCase(Locale.ROOT).contains("android") || javaRuntimeName.toLowerCase(Locale.ROOT).contains("android")) {

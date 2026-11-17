@@ -108,7 +108,7 @@ public class ConfigHandler extends Queue {
     public static final String PATCH_VERSION = "25.0";
     public static final String LATEST_VERSION = "26.3";
     private static final String DEFAULT_SQLITE_DATABASE = "database.db";
-    private static final Pattern TABLE_PREFIX_PATTERN = Pattern.compile("[A-Za-z0-9_]+");
+    private static final Pattern TABLE_PREFIX_PATTERN = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
     public static String path = "plugins/CoreProtect/";
     public static String sqlite = DEFAULT_SQLITE_DATABASE;
     public static String duckdb = "database.duckdb";
@@ -496,6 +496,9 @@ public class ConfigHandler extends Queue {
     }
 
     public static boolean isCommandBlacklisted(String user, String message) {
+        if (isBlacklisted(user)) {
+            return true;
+        }
         if (message == null || message.isEmpty()) {
             return false;
         }
@@ -531,7 +534,10 @@ public class ConfigHandler extends Queue {
         int colon = bareWithNamespace.indexOf(':');
         if (colon >= 0 && colon + 1 < bareWithNamespace.length()) {
             String bareCommand = bareWithNamespace.substring(colon + 1);
-            if (isExactOrFilteredBlacklisted(user, "/" + bareCommand) || isExactOrFilteredBlacklisted(user, bareCommand)) {
+            if (isExactOrFilteredBlacklisted(user, "/" + bareCommand)
+                    || isExactOrFilteredBlacklisted(user, bareCommand)
+                    || (slashEnd >= 2 && (isExactOrFilteredBlacklisted(user, "//" + bareCommand)
+                            || (slashEnd > 2 && isExactOrFilteredBlacklisted(user, token.substring(0, slashEnd) + bareCommand))))) {
                 return true;
             }
         }
@@ -619,7 +625,7 @@ public class ConfigHandler extends Queue {
             global.PREFIX = "co_";
         }
         else if (global.PREFIX == null || !TABLE_PREFIX_PATTERN.matcher(global.PREFIX).matches()) {
-            throw new IllegalArgumentException("Invalid table-prefix \"" + global.PREFIX + "\"; must match [A-Za-z0-9_]+");
+            throw new IllegalArgumentException("Invalid table-prefix \"" + global.PREFIX + "\"; must match [A-Za-z_][A-Za-z0-9_]*");
         }
 
         ConfigHandler.host = global.MYSQL_HOST;

@@ -184,8 +184,8 @@ public class ChatUtils {
 
     public static String createTooltip(String phrase, String tooltip) {
         String safePhrase = phrase == null ? "" : phrase;
-        if (tooltip == null || tooltip.isEmpty()) {
-            return safePhrase;
+        if (tooltip == null || tooltip.isBlank()) {
+            return Chat.escapeComponentTags(safePhrase);
         }
 
         StringBuilder message = new StringBuilder(Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_POPUP);

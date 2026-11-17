@@ -122,18 +122,19 @@ public class StringUtils {
                 }
             }
 
-            if (data[1].equals("teleport") && data.length > 5) {
-                Integer x = tryParseFloorCoordinate(data[3], -0.50);
-                Integer y = tryParseInt(data[4]);
-                Integer z = tryParseFloorCoordinate(data[5], -0.50);
+            if (data[1].equals("teleport") && data.length >= 6) {
+                int coordStart = data.length - 3;
+                Integer x = tryParseFloorCoordinate(data[coordStart], -0.50);
+                Integer y = tryParseInt(data[coordStart + 1]);
+                Integer z = tryParseFloorCoordinate(data[coordStart + 2], -0.50);
                 if (x != null) {
-                    data[3] = Integer.toString(x);
+                    data[coordStart] = Integer.toString(x);
                 }
                 if (y != null) {
-                    data[4] = Integer.toString(y);
+                    data[coordStart + 1] = Integer.toString(y);
                 }
                 if (z != null) {
-                    data[5] = Integer.toString(z);
+                    data[coordStart + 2] = Integer.toString(z);
                 }
             }
         }

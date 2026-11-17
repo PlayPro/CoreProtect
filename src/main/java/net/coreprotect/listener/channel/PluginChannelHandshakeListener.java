@@ -52,8 +52,8 @@ public class PluginChannelHandshakeListener implements PluginMessageListener, Li
         if (!(commandSender instanceof Player)) {
             return false;
         }
-
-        return getPluginChannelPlayers().contains(((Player) commandSender).getUniqueId());
+        UUID uuid = ((Player) commandSender).getUniqueId();
+        return uuid != null && getPluginChannelPlayers().contains(uuid);
     }
 
     public boolean verifyNetworkingPermission(CommandSender commandSender) {
@@ -62,7 +62,7 @@ public class PluginChannelHandshakeListener implements PluginMessageListener, Li
         }
         Player player = (Player) commandSender;
         UUID uuid = player.getUniqueId();
-        if (!pluginChannelPlayers.contains(uuid)) {
+        if (uuid == null || !pluginChannelPlayers.contains(uuid)) {
             return false;
         }
         if (!player.hasPermission("coreprotect.networking")) {

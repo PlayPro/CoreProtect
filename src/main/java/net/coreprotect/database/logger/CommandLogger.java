@@ -1,7 +1,5 @@
 package net.coreprotect.database.logger;
 
-import java.util.Locale;
-
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 
@@ -26,7 +24,7 @@ public class CommandLogger {
             if (ConfigHandler.isBlacklisted(user)) {
                 return;
             }
-            if (ConfigHandler.isBlacklisted(((message + " ").split(" "))[0])) {
+            if (ConfigHandler.isCommandBlacklisted(user, message)) {
                 return;
             }
 

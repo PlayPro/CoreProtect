@@ -33,12 +33,12 @@ public class Config extends Language {
     private static final String DEFAULT_FILE_HEADER = "# CoreProtect Config";
     public static final String LINE_SEPARATOR = "\n";
 
-    private static final Config GLOBAL = new Config();
+    private static volatile Config global = new Config();
     private final HashMap<String, String> config;
     private Config defaults;
 
     public String DONATION_KEY;
-    public String DATABASE_TYPE;
+    public volatile String DATABASE_TYPE;
     public String CLICKHOUSE_HOST;
     public String CLICKHOUSE_DATABASE;
     public String CLICKHOUSE_USERNAME;
@@ -46,7 +46,7 @@ public class Config extends Language {
     public String DUCKDB_MEMORY_LIMIT;
     public String DUCKDB_MAX_TEMP_DIRECTORY_SIZE;
     public String SQLITE_DATABASE;
-    public String PREFIX;
+    public volatile String PREFIX;
     public String MYSQL_HOST;
     public String MYSQL_DATABASE;
     public String MYSQL_USERNAME;
@@ -64,7 +64,7 @@ public class Config extends Language {
     public boolean DUPLICATE_SUPPRESSION;
     public boolean EXCLUDE_TNT;
     public boolean NETWORK_DEBUG;
-    public boolean MYSQL;
+    public volatile boolean MYSQL;
     public boolean CHECK_UPDATES;
     public boolean ERROR_REPORTING;
     public boolean API_ENABLED;
@@ -323,7 +323,7 @@ public class Config extends Language {
     }
 
     public static Config getGlobal() {
-        return GLOBAL;
+        return global;
     }
 
     // returns a world specific config if it exists, otherwise the global config
@@ -332,7 +332,7 @@ public class Config extends Language {
     }
 
     public static Config getConfig(final String worldName) {
-        return CONFIG_BY_WORLD_NAME.getOrDefault(worldName, GLOBAL);
+        return CONFIG_BY_WORLD_NAME.getOrDefault(worldName, global);
     }
 
     public Config() {
@@ -478,7 +478,7 @@ public class Config extends Language {
                     return;
                 }
                 try {
-                    parseConfig(data);
+                    applyParsedConfig(data);
                 }
                 catch (final Throwable thr) {
                     if (thr instanceof ThreadDeath) {
@@ -499,18 +499,23 @@ public class Config extends Language {
             return;
         }
 
+        applyParsedConfig(data);
+    }
+
+    private static void applyParsedConfig(final Map<String, byte[]> data) {
+        final Config newGlobal = new Config();
         // we need to load global first since it is used for config defaults
         final byte[] defaultData = data.get("config");
         if (defaultData != null) {
             try {
-                GLOBAL.load(new ByteArrayInputStream(defaultData));
+                newGlobal.load(new ByteArrayInputStream(defaultData));
             }
             catch (final IOException ex) {
                 throw new RuntimeException(ex); // shouldn't happen
             }
         }
         else {
-            GLOBAL.loadDefaults();
+            newGlobal.loadDefaults();
         }
 
         final Map<String, Config> worldConfigs = new HashMap<>();
@@ -522,7 +527,7 @@ public class Config extends Language {
 
             final byte[] fileData = entry.getValue();
             final Config config = new Config();
-            config.setDefaults(GLOBAL);
+            config.setDefaults(newGlobal);
 
             try {
                 config.load(new ByteArrayInputStream(fileData));
@@ -534,6 +539,7 @@ public class Config extends Language {
             worldConfigs.put(worldName, config);
         }
 
+        global = newGlobal;
         // Replace entries instead of clearing first, so a configured world never reads the global config mid reload
         CONFIG_BY_WORLD_NAME.putAll(worldConfigs);
         CONFIG_BY_WORLD_NAME.keySet().retainAll(worldConfigs.keySet());

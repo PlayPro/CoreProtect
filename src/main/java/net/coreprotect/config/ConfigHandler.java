@@ -1,7 +1,12 @@
 package net.coreprotect.config;
 
+import java.io.BufferedReader;
 import java.io.File;
-import java.io.RandomAccessFile;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -17,11 +22,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -34,7 +41,9 @@ import org.bukkit.plugin.PluginManager;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
+import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.consumer.process.Process;
 import net.coreprotect.database.ConsumerWriteBatch;
@@ -55,6 +64,7 @@ import net.coreprotect.model.lookup.LookupRollbackState;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.patch.Patch;
 import net.coreprotect.spigot.SpigotAdapter;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.EntitySpawnTracking;
@@ -98,6 +108,7 @@ public class ConfigHandler extends Queue {
     public static final String PATCH_VERSION = "25.0";
     public static final String LATEST_VERSION = "26.3";
     private static final String DEFAULT_SQLITE_DATABASE = "database.db";
+    private static final Pattern TABLE_PREFIX_PATTERN = Pattern.compile("[A-Za-z0-9_]+");
     public static String path = "plugins/CoreProtect/";
     public static String sqlite = DEFAULT_SQLITE_DATABASE;
     public static String duckdb = "database.duckdb";
@@ -240,8 +251,8 @@ public class ConfigHandler extends Queue {
     private static final Map<ReferenceKind, IdentifierStore> IDENTIFIER_STORES = identifierStores();
     public static Map<String, int[]> rollbackHash = syncMap();
     public static Map<String, Boolean> inspecting = syncMap();
-    public static Map<String, Boolean> blacklist = syncMap();
-    public static Map<String, HashSet<String>> FilteredBlacklist = syncMap();
+    public static volatile Map<String, Boolean> blacklist = new ConcurrentHashMap<>();
+    public static volatile Map<String, HashSet<String>> FilteredBlacklist = new ConcurrentHashMap<>();
     public static Map<String, Integer> loggingChest = syncMap();
     public static Map<String, Integer> loggingItem = syncMap();
     public static ConcurrentHashMap<String, List<ItemStack[]>> oldContainer = new ConcurrentHashMap<>();
@@ -291,18 +302,42 @@ public class ConfigHandler extends Queue {
     public static ConcurrentHashMap<String, String> language = new ConcurrentHashMap<>();
     public static List<String> databaseTables = new ArrayList<>();
 
+    private static final class PlayerSnapshot {
+        private final String name;
+        private final String uuid;
+
+        private PlayerSnapshot(String name, String uuid) {
+            this.name = name;
+            this.uuid = uuid;
+        }
+    }
+
+    private static final class ServerStateSnapshot {
+        private final List<PlayerSnapshot> onlinePlayers;
+        private final List<String> worldNames;
+
+        private ServerStateSnapshot(List<PlayerSnapshot> onlinePlayers, List<String> worldNames) {
+            this.onlinePlayers = onlinePlayers;
+            this.worldNames = worldNames;
+        }
+    }
+
     public static void checkPlayers(Connection connection) {
+        checkPlayers(connection, supplyOnPrimaryThread(ConfigHandler::captureOnlinePlayers));
+    }
+
+    private static void checkPlayers(Connection connection, List<PlayerSnapshot> onlinePlayers) {
         ConfigHandler.playerIdCache.clear();
         ConfigHandler.playerIdCacheReversed.clear();
         if (ConfigHandler.databaseType.isClickHouse()) {
-            if (Bukkit.getServer().getOnlinePlayers().isEmpty()) {
+            if (onlinePlayers.isEmpty()) {
                 return;
             }
             try (ConsumerWriteBatch batch = Database.openConsumerWriteBatch(connection)) {
                 batch.begin();
                 int time = (int) (System.currentTimeMillis() / 1_000L);
-                for (Player player : Bukkit.getServer().getOnlinePlayers()) {
-                    batch.recordUsername(player.getName(), player.getUniqueId().toString(), 0, time);
+                for (PlayerSnapshot player : onlinePlayers) {
+                    batch.recordUsername(player.name, player.uuid, 0, time);
                 }
                 if (!batch.commit()) {
                     throw new IllegalStateException("Unable to initialize ClickHouse player records");
@@ -313,11 +348,66 @@ public class ConfigHandler extends Queue {
             }
             return;
         }
-        for (Player player : Bukkit.getServer().getOnlinePlayers()) {
-            if (ConfigHandler.playerIdCache.get(player.getName().toLowerCase(Locale.ROOT)) == null) {
-                UserStatement.loadId(connection, player.getName(), player.getUniqueId().toString());
+        for (PlayerSnapshot player : onlinePlayers) {
+            if (ConfigHandler.playerIdCache.get(player.name.toLowerCase(Locale.ROOT)) == null) {
+                UserStatement.loadId(connection, player.name, player.uuid);
             }
         }
+    }
+
+    private static List<PlayerSnapshot> captureOnlinePlayers() {
+        List<PlayerSnapshot> players = new ArrayList<>();
+        for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+            players.add(new PlayerSnapshot(player.getName(), player.getUniqueId().toString()));
+        }
+        return players;
+    }
+
+    private static List<String> captureWorldNames() {
+        List<String> worldNames = new ArrayList<>();
+        for (World world : Bukkit.getServer().getWorlds()) {
+            worldNames.add(world.getName());
+        }
+        return worldNames;
+    }
+
+    private static ServerStateSnapshot captureServerStateSnapshot() {
+        return new ServerStateSnapshot(captureOnlinePlayers(), captureWorldNames());
+    }
+
+    private static <T> T supplyOnPrimaryThread(Supplier<T> supplier) {
+        if (Bukkit.isPrimaryThread()) {
+            return supplier.get();
+        }
+        final CompletableFuture<T> complete = new CompletableFuture<>();
+        final CompletableFuture<Void> shutdown = Consumer.databaseReloadShutdownSignal();
+        Scheduler.runTask(CoreProtect.getInstance(), () -> {
+            if (shutdown.isDone()) {
+                return;
+            }
+            try {
+                complete.complete(supplier.get());
+            }
+            catch (Throwable throwable) {
+                if (throwable instanceof ThreadDeath) {
+                    throw (ThreadDeath) throwable;
+                }
+                complete.completeExceptionally(throwable);
+            }
+        });
+        CompletableFuture.anyOf(complete, shutdown).join();
+        if (!complete.isDone()) {
+            complete.cancel(false);
+            throw new CancellationException("Configuration reload cancelled for shutdown");
+        }
+        return complete.join();
+    }
+
+    private static void runOnPrimaryThread(Runnable task) {
+        supplyOnPrimaryThread(() -> {
+            task.run();
+            return null;
+        });
     }
 
     public static void addOldContainerViewer(String locationSuffix, String loggingId) {
@@ -337,57 +427,168 @@ public class ConfigHandler extends Queue {
         });
     }
 
+    private static String stripWhitespace(String value) {
+        StringBuilder sb = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (!Character.isWhitespace(c)) {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
+    }
+
     public static boolean isBlacklisted(String user) {
+        if (user == null || user.isEmpty()) {
+            return false;
+        }
         return ConfigHandler.blacklist.containsKey(user.toLowerCase(Locale.ROOT));
     }
 
     public static boolean isBlacklisted(String user, String object) {
-        if (ConfigHandler.blacklist.containsKey(object) || ConfigHandler.blacklist.containsKey(user.toLowerCase(Locale.ROOT))) {
+        if (isBlacklisted(user) || isObjectBlacklisted(object)) {
             return true;
         }
         return isFilterBlacklisted(user, object);
     }
 
-    public static boolean isFilterBlacklisted(String user, String object) {
-        HashSet<String> blUserSet = FilteredBlacklist.get(object);
-        if (blUserSet == null) {
+    private static boolean isObjectBlacklisted(String object) {
+        if (object == null || object.isEmpty()) {
             return false;
         }
-        return blUserSet.contains(user.toLowerCase(Locale.ROOT));
+        String normalized = object.toLowerCase(Locale.ROOT);
+        if (ConfigHandler.blacklist.containsKey(normalized)) {
+            return true;
+        }
+        String alias = objectAlias(normalized);
+        return alias != null && ConfigHandler.blacklist.containsKey(alias);
+    }
+
+    public static boolean isFilterBlacklisted(String user, String object) {
+        if (user == null || user.isEmpty() || object == null || object.isEmpty()) {
+            return false;
+        }
+        String normalizedUser = user.toLowerCase(Locale.ROOT);
+        String normalizedObject = object.toLowerCase(Locale.ROOT);
+        if (containsFilteredUser(normalizedObject, normalizedUser)) {
+            return true;
+        }
+        String alias = objectAlias(normalizedObject);
+        return alias != null && containsFilteredUser(alias, normalizedUser);
+    }
+
+    private static boolean containsFilteredUser(String objectKey, String normalizedUser) {
+        HashSet<String> blUserSet = FilteredBlacklist.get(objectKey);
+        return blUserSet != null && blUserSet.contains(normalizedUser);
+    }
+
+    private static String objectAlias(String normalizedObject) {
+        if (normalizedObject.startsWith("/")) {
+            return null;
+        }
+        if (normalizedObject.startsWith("minecraft:")) {
+            return normalizedObject.substring("minecraft:".length());
+        }
+        if (!normalizedObject.contains(":")) {
+            return "minecraft:" + normalizedObject;
+        }
+        return null;
+    }
+
+    public static boolean isCommandBlacklisted(String user, String message) {
+        if (message == null || message.isEmpty()) {
+            return false;
+        }
+        String trimmed = message.trim();
+        if (trimmed.isEmpty()) {
+            return false;
+        }
+        int end = 0;
+        while (end < trimmed.length() && !Character.isWhitespace(trimmed.charAt(end))) {
+            end++;
+        }
+        String token = trimmed.substring(0, end).toLowerCase(Locale.ROOT);
+        if (isExactOrFilteredBlacklisted(user, token)) {
+            return true;
+        }
+        int slashEnd = 0;
+        while (slashEnd < token.length() && token.charAt(slashEnd) == '/') {
+            slashEnd++;
+        }
+        if (slashEnd == token.length()) {
+            return false;
+        }
+        String bareWithNamespace = token.substring(slashEnd);
+        if (slashEnd != 1 && isExactOrFilteredBlacklisted(user, "/" + bareWithNamespace)) {
+            return true;
+        }
+        if (slashEnd > 0 && isExactOrFilteredBlacklisted(user, bareWithNamespace)) {
+            return true;
+        }
+        if (slashEnd == 0 && isExactOrFilteredBlacklisted(user, "/" + bareWithNamespace)) {
+            return true;
+        }
+        int colon = bareWithNamespace.indexOf(':');
+        if (colon >= 0 && colon + 1 < bareWithNamespace.length()) {
+            String bareCommand = bareWithNamespace.substring(colon + 1);
+            if (isExactOrFilteredBlacklisted(user, "/" + bareCommand) || isExactOrFilteredBlacklisted(user, bareCommand)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isExactOrFilteredBlacklisted(String user, String key) {
+        if (ConfigHandler.blacklist.containsKey(key)) {
+            return true;
+        }
+        if (user == null || user.isEmpty()) {
+            return false;
+        }
+        return containsFilteredUser(key, user.toLowerCase(Locale.ROOT));
     }
 
     private static void loadBlacklist() {
+        Map<String, Boolean> loadedBlacklist = new ConcurrentHashMap<>();
+        Map<String, HashSet<String>> loadedFiltered = new ConcurrentHashMap<>();
         try {
-            ConfigHandler.blacklist.clear();
-            ConfigHandler.FilteredBlacklist.clear();
-
             File file = new File(ConfigHandler.path, BLACKLIST_FILENAME);
-            if (!file.exists()) {
-                return;
-            }
-            try (RandomAccessFile blfile = new RandomAccessFile(file, "r")) {
-                if (blfile.length() == 0) {
-                    return;
-                }
-                String blLine;
-                while ((blLine = blfile.readLine()) != null) {
-                    blLine = blLine.replace(" ", "").toLowerCase(Locale.ROOT).split(BLACKLIST_COMMENT_SEPARATOR)[0];
-                    if (blLine.isEmpty()) {
-                        continue;
-                    }
-                    String[] blSplit = blLine.split(BLACKLIST_FILTER_SEPARATOR);
-                    if (blSplit.length == 1) {
-                        ConfigHandler.blacklist.put(blLine, true);
-                    }
-                    else {
-                        ConfigHandler.FilteredBlacklist.computeIfAbsent(blSplit[0], k -> new HashSet<>()).add(blSplit[1]);
+            if (file.exists() && file.length() > 0) {
+                try (BufferedReader blfile = Files.newBufferedReader(file.toPath(), StandardCharsets.UTF_8)) {
+                    boolean firstLine = true;
+                    String blLine;
+                    while ((blLine = blfile.readLine()) != null) {
+                        if (firstLine) {
+                            firstLine = false;
+                            if (!blLine.isEmpty() && blLine.charAt(0) == '\uFEFF') {
+                                blLine = blLine.substring(1);
+                            }
+                        }
+                        int commentIndex = blLine.indexOf(BLACKLIST_COMMENT_SEPARATOR);
+                        if (commentIndex >= 0) {
+                            blLine = blLine.substring(0, commentIndex);
+                        }
+                        blLine = stripWhitespace(blLine).toLowerCase(Locale.ROOT);
+                        if (blLine.isEmpty()) {
+                            continue;
+                        }
+                        String[] blSplit = blLine.split(BLACKLIST_FILTER_SEPARATOR, 2);
+                        if (blSplit.length == 1) {
+                            loadedBlacklist.put(blLine, true);
+                        }
+                        else if (blSplit.length == 2 && !blSplit[0].isEmpty() && !blSplit[1].isEmpty()) {
+                            loadedFiltered.computeIfAbsent(blSplit[0], k -> new HashSet<>()).add(blSplit[1]);
+                        }
                     }
                 }
             }
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            return;
         }
+        ConfigHandler.blacklist = loadedBlacklist;
+        ConfigHandler.FilteredBlacklist = loadedFiltered;
     }
 
     private static void loadConfig() throws Exception {
@@ -417,6 +618,9 @@ public class ConfigHandler extends Queue {
         if (ConfigHandler.databaseType.isEmbedded()) {
             global.PREFIX = "co_";
         }
+        else if (global.PREFIX == null || !TABLE_PREFIX_PATTERN.matcher(global.PREFIX).matches()) {
+            throw new IllegalArgumentException("Invalid table-prefix \"" + global.PREFIX + "\"; must match [A-Za-z0-9_]+");
+        }
 
         ConfigHandler.host = global.MYSQL_HOST;
         ConfigHandler.port = global.MYSQL_PORT;
@@ -431,9 +635,31 @@ public class ConfigHandler extends Queue {
 
         // Optional custom SQLite database filename (hidden option) inside the CoreProtect data folder.
         String sqliteDatabase = global.SQLITE_DATABASE.trim();
-        ConfigHandler.sqlite = sqliteDatabase.isEmpty() ? DEFAULT_SQLITE_DATABASE : sqliteDatabase;
+        ConfigHandler.sqlite = sqliteDatabase.isEmpty() ? DEFAULT_SQLITE_DATABASE : validateSqliteDatabaseFilename(sqliteDatabase);
 
         ConfigHandler.loadBlacklist(); // Load the blacklist file if it exists.
+    }
+
+    private static String validateSqliteDatabaseFilename(String sqliteDatabase) {
+        if (sqliteDatabase.indexOf('/') >= 0 || sqliteDatabase.indexOf('\\') >= 0 || sqliteDatabase.indexOf('\0') >= 0
+                || ".".equals(sqliteDatabase) || "..".equals(sqliteDatabase)) {
+            throw new IllegalArgumentException("Invalid sqlite-database filename \"" + sqliteDatabase + "\"");
+        }
+        try {
+            Path baseDir = Paths.get(ConfigHandler.path).toAbsolutePath().normalize();
+            Path candidate = Paths.get(sqliteDatabase);
+            if (candidate.isAbsolute() || candidate.getRoot() != null || candidate.getNameCount() != 1) {
+                throw new IllegalArgumentException("Invalid sqlite-database filename \"" + sqliteDatabase + "\"");
+            }
+            Path resolved = baseDir.resolve(candidate).normalize();
+            if (!baseDir.equals(resolved.getParent())) {
+                throw new IllegalArgumentException("Invalid sqlite-database filename \"" + sqliteDatabase + "\"");
+            }
+            return sqliteDatabase;
+        }
+        catch (InvalidPathException exception) {
+            throw new IllegalArgumentException("Invalid sqlite-database filename \"" + sqliteDatabase + "\"", exception);
+        }
     }
 
     public static void loadDatabase() {
@@ -490,28 +716,6 @@ public class ConfigHandler extends Queue {
 
         if (ConfigHandler.databaseType.isEmbedded()) {
             try {
-                File tempFile = File.createTempFile("CoreProtect_" + System.currentTimeMillis(), ".tmp");
-                tempFile.setExecutable(true);
-
-                boolean canExecute = false;
-                try {
-                    canExecute = tempFile.canExecute();
-                }
-                catch (Exception exception) {
-                    // execute access denied by security manager
-                }
-
-                if (!canExecute) {
-                    File tempFolder = new File("cache");
-                    boolean exists = tempFolder.exists();
-                    if (!exists) {
-                        tempFolder.mkdir();
-                    }
-                    System.setProperty("java.io.tmpdir", "cache");
-                }
-
-                tempFile.delete();
-
                 if (ConfigHandler.databaseType.isDuckDB() && duckDBFallbackAllowed) {
                     try {
                         DuckDBNativeSupport.verifyAvailable();
@@ -674,49 +878,53 @@ public class ConfigHandler extends Queue {
         return cached != null ? cached : resolveMissingIdentifierId(store, value, create);
     }
 
-    private static synchronized int resolveMissingIdentifierId(IdentifierStore store, String value, boolean create) {
-        Integer cached = store.values.get().get(value);
-        if (cached != null) {
-            return cached;
-        }
-
-        if (databaseType.isClickHouse()) {
-            int id;
-            try {
-                id = Database.findClickHouseIdentifierId(store.kind, value);
-            }
-            catch (Exception exception) {
-                throw new IllegalStateException("Unable to resolve ClickHouse " + store.kind.name().toLowerCase(Locale.ROOT) + " identifier for " + value, exception);
-            }
-            if (id > 0) {
-                store.store(id, value);
-                return id;
-            }
-        }
-        else if (create && !Config.getGlobal().DATABASE_LOCK && reloadIdentifierCache(store.kind)) {
-            cached = store.values.get().get(value);
+    private static int resolveMissingIdentifierId(IdentifierStore store, String value, boolean create) {
+        final int id;
+        final boolean clickHouse;
+        synchronized (ConfigHandler.class) {
+            Integer cached = store.values.get().get(value);
             if (cached != null) {
                 return cached;
             }
-        }
-        if (!create) {
-            return -1;
-        }
 
-        int id = allocateIdentifierId(store, value, store.maximum.getAsInt());
-        boolean clickHouse = databaseType.isClickHouse();
-        if (id == -1 || !store.canStore(id, value)) {
+            clickHouse = databaseType.isClickHouse();
             if (clickHouse) {
-                throw new IllegalStateException("Unable to resolve ClickHouse " + store.kind.name().toLowerCase(Locale.ROOT) + " identifier for " + value);
+                int foundId;
+                try {
+                    foundId = Database.findClickHouseIdentifierId(store.kind, value);
+                }
+                catch (Exception exception) {
+                    throw new IllegalStateException("Unable to resolve ClickHouse " + store.kind.name().toLowerCase(Locale.ROOT) + " identifier for " + value, exception);
+                }
+                if (foundId > 0) {
+                    store.store(foundId, value);
+                    return foundId;
+                }
             }
-            return -1;
-        }
-        if (clickHouse) {
-            if (!queueIdentifier(store.kind, id, value)) {
-                throw new IllegalStateException("Database persistence halted before the ClickHouse identifier could be queued");
+            else if (create && !Config.getGlobal().DATABASE_LOCK && reloadIdentifierCache(store.kind)) {
+                cached = store.values.get().get(value);
+                if (cached != null) {
+                    return cached;
+                }
             }
+            if (!create) {
+                return -1;
+            }
+
+            id = allocateIdentifierId(store, value, store.maximum.getAsInt());
+            if (id == -1 || !store.canStore(id, value)) {
+                if (clickHouse) {
+                    throw new IllegalStateException("Unable to resolve ClickHouse " + store.kind.name().toLowerCase(Locale.ROOT) + " identifier for " + value);
+                }
+                return -1;
+            }
+            if (clickHouse) {
+                if (!queueIdentifier(store.kind, id, value)) {
+                    throw new IllegalStateException("Database persistence halted before the ClickHouse identifier could be queued");
+                }
+            }
+            store.store(id, value);
         }
-        store.store(id, value);
         if (!clickHouse) {
             queueIdentifier(store.kind, id, value);
         }
@@ -820,7 +1028,7 @@ public class ConfigHandler extends Queue {
                     case ENTITY:
                         return loadEntities(statement);
                     case WORLD:
-                        return loadWorlds(statement);
+                        return loadWorldsFromDatabase(statement);
                     default:
                         return false;
                 }
@@ -832,13 +1040,32 @@ public class ConfigHandler extends Queue {
         }
     }
 
-    public static boolean loadWorlds(Statement statement) {
+    private static boolean loadWorldsFromDatabase(Statement statement) {
         try {
             IdentifierCache cache = loadIdentifierCache(statement, "world", "world");
-            List<World> worlds = Bukkit.getServer().getWorlds();
+            ConfigHandler.worlds = syncMap(cache.values);
+            ConfigHandler.worldsReversed = syncMap(cache.reversed);
+            worldId = cache.maximumId;
+            return true;
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+            return false;
+        }
+    }
+
+    public static boolean loadWorlds(Statement statement) {
+        if (Bukkit.isPrimaryThread()) {
+            return loadWorlds(statement, captureWorldNames());
+        }
+        return loadWorldsFromDatabase(statement);
+    }
+
+    private static boolean loadWorlds(Statement statement, List<String> worldNames) {
+        try {
+            IdentifierCache cache = loadIdentifierCache(statement, "world", "world");
             Map<Integer, String> queuedWorlds = new HashMap<>();
-            for (World world : worlds) {
-                String worldname = world.getName();
+            for (String worldname : worldNames) {
                 if (!cache.values.containsKey(worldname)) {
                     int id = allocateIdentifierId(identifierStore(ReferenceKind.WORLD), worldname, cache.maximumId);
                     if (id == -1) {
@@ -894,30 +1121,35 @@ public class ConfigHandler extends Queue {
                     unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
                     int checkTime = unixtimestamp - 15;
                     String query = "SELECT * FROM " + ConfigHandler.prefix + "database_lock WHERE rowid='1' AND (status='" + Database.DATABASE_LOCK_MIGRATION_INCOMPLETE + "' OR (status='" + Database.DATABASE_LOCK_ACTIVE + "' AND time >= '" + checkTime + "')) LIMIT 1";
-                    ResultSet rs = statement.executeQuery(query);
-                    while (rs.next()) {
-                        if (unixtimestamp < waitTime) {
-                            if (!lockMessage) {
-                                Chat.sendConsoleMessage("[CoreProtect] " + Phrase.build(Phrase.DATABASE_LOCKED_1));
-                                lockMessage = true;
+                    try (ResultSet rs = statement.executeQuery(query)) {
+                        while (rs.next()) {
+                            if (unixtimestamp < waitTime) {
+                                if (!lockMessage) {
+                                    Chat.sendConsoleMessage("[CoreProtect] " + Phrase.build(Phrase.DATABASE_LOCKED_1));
+                                    lockMessage = true;
+                                }
+                                Thread.sleep(1000);
                             }
-                            Thread.sleep(1000);
-                        }
-                        else {
-                            Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.DATABASE_LOCKED_2));
-                            Chat.sendConsoleMessage(Color.GREY + "[CoreProtect] " + Phrase.build(Phrase.DATABASE_LOCKED_3));
-                            Chat.sendConsoleMessage(Color.GREY + "[CoreProtect] " + Phrase.build(Phrase.DATABASE_LOCKED_4));
-                            return false;
-                        }
+                            else {
+                                Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.DATABASE_LOCKED_2));
+                                Chat.sendConsoleMessage(Color.GREY + "[CoreProtect] " + Phrase.build(Phrase.DATABASE_LOCKED_3));
+                                Chat.sendConsoleMessage(Color.GREY + "[CoreProtect] " + Phrase.build(Phrase.DATABASE_LOCKED_4));
+                                return false;
+                            }
 
-                        locked = true;
+                            locked = true;
+                        }
                     }
-                    rs.close();
                 }
             }
         }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
         catch (Exception e) {
             ErrorReporter.report(e);
+            return false;
         }
 
         return true;
@@ -947,25 +1179,28 @@ public class ConfigHandler extends Queue {
 
         try (Connection connection = Database.getConnection(true, 0)) {
             Statement statement = connection.createStatement();
+            ServerStateSnapshot snapshot = supplyOnPrimaryThread(ConfigHandler::captureServerStateSnapshot);
 
-            ConfigHandler.checkPlayers(connection);
-            boolean worldsLoaded = ConfigHandler.loadWorlds(statement); // Load world ID's into memory.
+            ConfigHandler.checkPlayers(connection, snapshot.onlinePlayers);
+            boolean worldsLoaded = ConfigHandler.loadWorlds(statement, snapshot.worldNames); // Load world ID's into memory.
             boolean typesLoaded = ConfigHandler.loadTypes(statement); // Load material ID's into memory.
             if (ConfigHandler.databaseType.isColumnar() && (!worldsLoaded || !typesLoaded)) {
                 throw new IllegalStateException("Unable to initialize columnar database identifier caches");
             }
 
             // Initialize WorldEdit logging
-            if (VersionUtils.checkWorldEdit()) {
-                PluginManager pluginManager = Bukkit.getServer().getPluginManager();
-                Plugin worldEditPlugin = pluginManager.getPlugin("WorldEdit");
-                if (worldEditPlugin != null && worldEditPlugin.isEnabled()) {
-                    VersionUtils.loadWorldEdit();
+            runOnPrimaryThread(() -> {
+                if (VersionUtils.checkWorldEdit()) {
+                    PluginManager pluginManager = Bukkit.getServer().getPluginManager();
+                    Plugin worldEditPlugin = pluginManager.getPlugin("WorldEdit");
+                    if (worldEditPlugin != null && worldEditPlugin.isEnabled()) {
+                        VersionUtils.loadWorldEdit();
+                    }
                 }
-            }
-            else if (ConfigHandler.worldeditEnabled) {
-                VersionUtils.unloadWorldEdit();
-            }
+                else if (ConfigHandler.worldeditEnabled) {
+                    VersionUtils.unloadWorldEdit();
+                }
+            });
 
             if (startup) {
                 ConfigHandler.serverRunning = true; // Set as running before patching
@@ -980,6 +1215,9 @@ public class ConfigHandler extends Queue {
             statement.close();
 
             return validVersion && databaseLock;
+        }
+        catch (CancellationException e) {
+            throw e;
         }
         catch (Exception e) {
             ErrorReporter.report(e);

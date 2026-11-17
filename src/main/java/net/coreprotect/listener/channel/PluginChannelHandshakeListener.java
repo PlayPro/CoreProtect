@@ -78,7 +78,11 @@ public class PluginChannelHandshakeListener implements PluginMessageListener, Li
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        getPluginChannelPlayers().remove(event.getPlayer().getUniqueId());
+        Player player = event != null ? event.getPlayer() : null;
+        UUID uuid = player != null ? player.getUniqueId() : null;
+        if (uuid != null) {
+            getPluginChannelPlayers().remove(uuid);
+        }
     }
 
     @Override
@@ -87,7 +91,8 @@ public class PluginChannelHandshakeListener implements PluginMessageListener, Li
     }
 
     private void handleHandshake(String channel, Player player, byte[] bytes) {
-        if (player == null || !player.hasPermission("coreprotect.networking")) {
+        UUID uuid = player != null ? player.getUniqueId() : null;
+        if (uuid == null || !player.hasPermission("coreprotect.networking")) {
             return;
         }
 
@@ -127,7 +132,7 @@ public class PluginChannelHandshakeListener implements PluginMessageListener, Li
                 return;
             }
 
-            getPluginChannelPlayers().add(player.getUniqueId());
+            getPluginChannelPlayers().add(uuid);
             Chat.console(Phrase.build(Phrase.NETWORK_CONNECTION, player.getName(), modId, modVersion, Selector.FIRST));
 
             CoreProtect plugin = CoreProtect.getInstance();

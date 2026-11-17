@@ -246,7 +246,7 @@ public class NetworkHandler extends Language implements Runnable {
 
                                             for (final Entry<Phrase, String> entry : translatedPhrases.entrySet()) {
                                                 String key = entry.getKey().name();
-                                                String value = entry.getValue().replaceAll("\"", "\\\\\"");
+                                                String value = entry.getValue().replace("\\", "\\\\").replace("\"", "\\\"");
 
                                                 out.append(Config.LINE_SEPARATOR);
                                                 out.append(key);

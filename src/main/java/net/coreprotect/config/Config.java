@@ -15,7 +15,6 @@ import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -32,7 +31,6 @@ public class Config extends Language {
     private static final Map<String, String> DEFAULT_VALUES = new LinkedHashMap<>();
     private static final Map<String, Config> CONFIG_BY_WORLD_NAME = new ConcurrentHashMap<>();
     private static final String DEFAULT_FILE_HEADER = "# CoreProtect Config";
-    private static final Pattern NON_DIGIT_PATTERN = Pattern.compile("[^0-9]");
     public static final String LINE_SEPARATOR = "\n";
 
     private static final Config GLOBAL = new Config();
@@ -249,7 +247,8 @@ public class Config extends Language {
         this.DONATION_KEY = this.getString("donation-key");
         this.DATABASE_TYPE = this.getString("database-type");
         this.CLICKHOUSE_HOST = this.getString("clickhouse-host");
-        this.CLICKHOUSE_PORT = this.getInt("clickhouse-port");
+        int clickHousePort = this.getInt("clickhouse-port", 8123);
+        this.CLICKHOUSE_PORT = (clickHousePort < 1 || clickHousePort > 65535) ? 8123 : clickHousePort;
         this.CLICKHOUSE_CONSUMER_DELAY = Math.max(500,
                 this.getInt("clickhouse-consumer-delay", 2500));
         this.CLICKHOUSE_DATABASE = this.getString("clickhouse-database");
@@ -259,7 +258,8 @@ public class Config extends Language {
         this.MYSQL = this.getBoolean("use-mysql");
         this.PREFIX = this.getString("table-prefix");
         this.MYSQL_HOST = this.getString("mysql-host");
-        this.MYSQL_PORT = this.getInt("mysql-port");
+        int mysqlPort = this.getInt("mysql-port", 3306);
+        this.MYSQL_PORT = (mysqlPort < 1 || mysqlPort > 65535) ? 3306 : mysqlPort;
         this.MYSQL_DATABASE = this.getString("mysql-database");
         this.MYSQL_USERNAME = this.getString("mysql-username");
         this.MYSQL_PASSWORD = this.getString("mysql-password");
@@ -361,12 +361,12 @@ public class Config extends Language {
 
     private boolean getBoolean(final String key) {
         final String configured = this.get(key, null);
-        return configured != null && configured.startsWith("t");
+        return configured != null && configured.trim().equalsIgnoreCase("true");
     }
 
     private boolean getBoolean(final String key, final boolean dfl) {
         final String configured = this.get(key, null);
-        return configured == null ? dfl : configured.startsWith("t");
+        return configured == null ? dfl : configured.trim().equalsIgnoreCase("true");
     }
 
     private int getInt(final String key) {
@@ -380,9 +380,17 @@ public class Config extends Language {
             return dfl;
         }
 
-        configured = NON_DIGIT_PATTERN.matcher(configured).replaceAll("");
+        String trimmed = configured.trim();
+        if (trimmed.isEmpty()) {
+            return dfl;
+        }
 
-        return configured.isEmpty() ? dfl : Integer.parseInt(configured);
+        try {
+            return Integer.parseInt(trimmed);
+        }
+        catch (NumberFormatException e) {
+            return dfl;
+        }
     }
 
     private String getString(final String key) {
@@ -441,13 +449,17 @@ public class Config extends Language {
             map.put("config", Files.readAllBytes(globalFile.toPath()));
         }
 
-        for (final File worldConfigFile : configFolder.listFiles((File file) -> file.getName().endsWith(".yml"))) {
-            final String name = worldConfigFile.getName();
-            if (name.equals(ConfigFile.CONFIG) || name.equals(ConfigFile.LANGUAGE)) {
-                continue;
-            }
+        final File[] worldConfigFiles = configFolder.listFiles(
+                (File file) -> file.isFile() && file.getName().endsWith(".yml") && !file.getName().startsWith("."));
+        if (worldConfigFiles != null) {
+            for (final File worldConfigFile : worldConfigFiles) {
+                final String name = worldConfigFile.getName();
+                if (name.equals(ConfigFile.CONFIG) || name.equals(ConfigFile.LANGUAGE)) {
+                    continue;
+                }
 
-            map.put(name.substring(0, name.length() - ".yml".length()), Files.readAllBytes(worldConfigFile.toPath()));
+                map.put(name.substring(0, name.length() - ".yml".length()), Files.readAllBytes(worldConfigFile.toPath()));
+            }
         }
 
         return map;

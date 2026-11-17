@@ -79,8 +79,16 @@ public class ConfigFile extends Config {
     public static void load(final InputStream in, final Map<String, String> config, boolean forceCase) throws IOException {
         try (final InputStream in0 = in) {
             BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+            boolean firstLine = true;
             for (String line = reader.readLine(); line != null; line = reader.readLine()) {
-                if (line.startsWith("#")) {
+                if (firstLine) {
+                    firstLine = false;
+                    if (!line.isEmpty() && line.charAt(0) == '\uFEFF') {
+                        line = line.substring(1);
+                    }
+                }
+                String trimmedLine = line.trim();
+                if (trimmedLine.isEmpty() || trimmedLine.startsWith("#")) {
                     continue;
                 }
 
@@ -91,20 +99,18 @@ public class ConfigFile extends Config {
                 }
 
                 String key = line.substring(0, split).trim();
-                String value = line.substring(split + 1).trim();
-
-                // Strip out single and double quotes from the start/end of the value
-                if (value.length() >= 2 && value.startsWith("'") && value.endsWith("'")) {
-                    value = value.replaceAll("^'|'$", "");
-                    value = value.replace("''", "'");
-                    value = value.replace("\\'", "'");
-                    value = value.replace("\\\\", "\\");
+                String rawValue = line.substring(split + 1);
+                if (!forceCase) {
+                    int valueStart = 0;
+                    while (valueStart < rawValue.length() && Character.isWhitespace(rawValue.charAt(valueStart))) {
+                        valueStart++;
+                    }
+                    int commentIndex = DatabaseConfigWriter.findComment(rawValue, valueStart);
+                    if (commentIndex >= 0) {
+                        rawValue = rawValue.substring(0, commentIndex);
+                    }
                 }
-                else if (value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")) {
-                    value = value.replaceAll("^\"|\"$", "");
-                    value = value.replace("\\\"", "\"");
-                    value = value.replace("\\\\", "\\");
-                }
+                String value = unescapeValue(rawValue.trim());
 
                 if (forceCase) {
                     key = key.toUpperCase(Locale.ROOT);
@@ -114,6 +120,56 @@ public class ConfigFile extends Config {
 
             reader.close();
         }
+    }
+
+    private static String unescapeValue(String value) {
+        if (value.length() >= 2 && value.startsWith("'") && value.endsWith("'")) {
+            String inner = value.substring(1, value.length() - 1);
+            StringBuilder sb = new StringBuilder(inner.length());
+            for (int i = 0; i < inner.length(); i++) {
+                char c = inner.charAt(i);
+                if (c == '\'' && i + 1 < inner.length() && inner.charAt(i + 1) == '\'') {
+                    sb.append('\'');
+                    i++;
+                }
+                else if (c == '\\' && i + 1 < inner.length()) {
+                    char next = inner.charAt(i + 1);
+                    if (next == '\'' || next == '\\') {
+                        sb.append(next);
+                        i++;
+                    }
+                    else {
+                        sb.append(c);
+                    }
+                }
+                else {
+                    sb.append(c);
+                }
+            }
+            return sb.toString();
+        }
+        if (value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")) {
+            String inner = value.substring(1, value.length() - 1);
+            StringBuilder sb = new StringBuilder(inner.length());
+            for (int i = 0; i < inner.length(); i++) {
+                char c = inner.charAt(i);
+                if (c == '\\' && i + 1 < inner.length()) {
+                    char next = inner.charAt(i + 1);
+                    if (next == '"' || next == '\\') {
+                        sb.append(next);
+                        i++;
+                    }
+                    else {
+                        sb.append(c);
+                    }
+                }
+                else {
+                    sb.append(c);
+                }
+            }
+            return sb.toString();
+        }
+        return value;
     }
 
     private static Map<String, byte[]> loadFiles(String fileName, boolean isCache) throws IOException {
@@ -159,7 +215,7 @@ public class ConfigFile extends Config {
 
             for (final Entry<String, String> entry : DEFAULT_VALUES.entrySet()) {
                 final String key = entry.getKey();
-                final String defaultValue = entry.getValue().replaceAll("\"", "\\\\\"");
+                final String defaultValue = entry.getValue().replace("\\", "\\\\").replace("\"", "\\\"");
 
                 final String configuredValue = this.lang.get(key);
                 if (configuredValue != null) {

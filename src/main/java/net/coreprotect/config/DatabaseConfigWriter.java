@@ -156,7 +156,7 @@ public final class DatabaseConfigWriter {
         return line.substring(0, colon + 1) + whitespace + replacement + suffix;
     }
 
-    private static int findComment(String line, int start) {
+    static int findComment(String line, int start) {
         boolean singleQuoted = false;
         boolean doubleQuoted = false;
         boolean escaped = false;
@@ -170,6 +170,10 @@ public final class DatabaseConfigWriter {
                 doubleQuoted = !doubleQuoted;
             }
             else if (character == '\'' && !doubleQuoted) {
+                if (singleQuoted && index + 1 < line.length() && line.charAt(index + 1) == '\'') {
+                    index++;
+                    continue;
+                }
                 singleQuoted = !singleQuoted;
             }
             else if (character == '#' && !singleQuoted && !doubleQuoted && (index == start || Character.isWhitespace(line.charAt(index - 1)))) {

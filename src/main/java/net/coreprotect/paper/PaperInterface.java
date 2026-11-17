@@ -49,6 +49,14 @@ public interface PaperInterface {
 
     public boolean executeEntityTask(Plugin plugin, Entity entity, Runnable task, Runnable retiredTask, long delayTicks);
 
+    public void scheduleSyncDelayedTask(Plugin plugin, Runnable task, Runnable retiredTask, Object regionData, long delayTicks);
+
+    public Object scheduleSyncRepeatingTask(Plugin plugin, Runnable task, Object regionData, long delayTicks, long periodTicks);
+
+    public void scheduleAsyncDelayedTask(Plugin plugin, Runnable task, long delayTicks);
+
+    public boolean cancelScheduledTask(Object task);
+
     public boolean getEntityMeta(LivingEntity entity, List<Object> info);
 
     public boolean setEntityMeta(Entity entity, Object value, int count);

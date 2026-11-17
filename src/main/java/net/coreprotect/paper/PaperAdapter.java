@@ -144,6 +144,24 @@ public class PaperAdapter implements PaperInterface {
     }
 
     @Override
+    public void scheduleSyncDelayedTask(Plugin plugin, Runnable task, Runnable retiredTask, Object regionData, long delayTicks) {
+    }
+
+    @Override
+    public Object scheduleSyncRepeatingTask(Plugin plugin, Runnable task, Object regionData, long delayTicks, long periodTicks) {
+        return null;
+    }
+
+    @Override
+    public void scheduleAsyncDelayedTask(Plugin plugin, Runnable task, long delayTicks) {
+    }
+
+    @Override
+    public boolean cancelScheduledTask(Object task) {
+        return false;
+    }
+
+    @Override
     public boolean getEntityMeta(LivingEntity entity, List<Object> info) {
         return false;
     }

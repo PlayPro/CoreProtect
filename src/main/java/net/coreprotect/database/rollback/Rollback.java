@@ -315,7 +315,7 @@ public class Rollback extends RollbackUtil {
 
             final String finalUserString = userString;
             RollbackBlockDataCache blockDataCache = new RollbackBlockDataCache();
-            List<Entry<Long, Integer>> sortedChunks = new ArrayList<>(DatabaseUtils.entriesSortedByValues(chunkList));
+            List<Entry<Long, Integer>> sortedChunks = DatabaseUtils.entriesSortedByValues(chunkList);
             if (entitySpawnContext.isCancelled()) {
                 sendAborted(user);
                 return null;

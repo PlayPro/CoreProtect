@@ -121,7 +121,7 @@ public class ChatMessage {
         while (open != -1 && close != -1) {
             result.append(string, cursor, open + 1);
             String quoteText = string.substring(open + 1, close);
-            result.append(Color.DARK_AQUA).append(ChatColor.stripColor(quoteText));
+            result.append(Color.DARK_AQUA).append(stripColor(quoteText));
             if (textColor != null) {
                 result.append(textColor);
             }
@@ -132,6 +132,20 @@ public class ChatMessage {
         }
         result.append(string, cursor, string.length());
         return result.toString();
+    }
+
+    private static String stripColor(String value) {
+        if (value == null || value.isEmpty()) {
+            return "";
+        }
+        String current = value;
+        while (true) {
+            String stripped = ChatColor.stripColor(current);
+            if (stripped == null || stripped.equals(current)) {
+                return current;
+            }
+            current = stripped;
+        }
     }
 
     private static String createSpaces(String string, boolean seperatorOffset, boolean createSpaces) {

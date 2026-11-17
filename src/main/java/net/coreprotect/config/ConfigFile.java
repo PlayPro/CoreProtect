@@ -132,16 +132,6 @@ public class ConfigFile extends Config {
                     sb.append('\'');
                     i++;
                 }
-                else if (c == '\\' && i + 1 < inner.length()) {
-                    char next = inner.charAt(i + 1);
-                    if (next == '\'' || next == '\\') {
-                        sb.append(next);
-                        i++;
-                    }
-                    else {
-                        sb.append(c);
-                    }
-                }
                 else {
                     sb.append(c);
                 }

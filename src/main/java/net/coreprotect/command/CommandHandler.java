@@ -9,6 +9,7 @@ import org.bukkit.command.CommandSender;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
+import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
 import net.coreprotect.thread.NetworkHandler;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
@@ -32,6 +33,11 @@ public class CommandHandler implements CommandExecutor {
         String commandName = command.getName().toLowerCase(Locale.ROOT);
 
         if (commandName.equals("core") || commandName.equals("coreprotect") || commandName.equals("co")) {
+            PluginChannelHandshakeListener handshakeListener = PluginChannelHandshakeListener.getInstance();
+            if (handshakeListener != null) {
+                handshakeListener.verifyNetworkingPermission(user);
+            }
+
             String corecommand = "help";
             if (argumentArray.length > 0) {
                 corecommand = argumentArray[0].toLowerCase(Locale.ROOT);

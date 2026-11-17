@@ -1,5 +1,6 @@
 package net.coreprotect.listener;
 
+import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.PluginManager;
 
 import net.coreprotect.CoreProtect;
@@ -228,9 +229,6 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new LeavesDecayListener(), plugin);
         pluginManager.registerEvents(new PortalCreateListener(), plugin);
         pluginManager.registerEvents(new StructureGrowListener(), plugin);
-
-        // Plugin channel events
-        pluginManager.registerEvents(new PluginChannelListener(), plugin);
     }
 
     static void registerChatListener(PluginManager pluginManager, CoreProtect plugin, boolean isPaper) {
@@ -260,13 +258,20 @@ public final class ListenerHandler {
 
     public static void registerNetworking() {
         PluginChannelHandshakeListener handshakeListener = new PluginChannelHandshakeListener();
-        CoreProtect.getInstance().getServer().getMessenger().registerIncomingPluginChannel(CoreProtect.getInstance(), PluginChannelHandshakeListener.pluginChannel, handshakeListener);
-        CoreProtect.getInstance().getServer().getPluginManager().registerEvents(handshakeListener, CoreProtect.getInstance());
-        CoreProtect.getInstance().getServer().getMessenger().registerOutgoingPluginChannel(CoreProtect.getInstance(), PluginChannelHandshakeListener.pluginChannel);
-        CoreProtect.getInstance().getServer().getMessenger().registerOutgoingPluginChannel(CoreProtect.getInstance(), PluginChannelListener.pluginChannel);
+        new PluginChannelListener();
+        CoreProtect plugin = CoreProtect.getInstance();
+        plugin.getServer().getMessenger().registerIncomingPluginChannel(plugin, PluginChannelHandshakeListener.pluginChannel, handshakeListener);
+        plugin.getServer().getPluginManager().registerEvents(handshakeListener, plugin);
+        plugin.getServer().getMessenger().registerOutgoingPluginChannel(plugin, PluginChannelHandshakeListener.pluginChannel);
+        plugin.getServer().getMessenger().registerOutgoingPluginChannel(plugin, PluginChannelListener.pluginChannel);
     }
 
     public static void unregisterNetworking() {
+        PluginChannelHandshakeListener handshakeListener = PluginChannelHandshakeListener.getInstance();
+        if (handshakeListener != null) {
+            handshakeListener.clearPlayers();
+            HandlerList.unregisterAll(handshakeListener);
+        }
         CoreProtect plugin = CoreProtect.getInstance();
         if (plugin == null || plugin.getServer() == null) {
             return;

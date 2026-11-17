@@ -15,6 +15,7 @@ import org.bukkit.entity.Player;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.language.Phrase;
+import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.LookupThrottle;
@@ -51,6 +52,11 @@ public abstract class BaseInspector {
         catch (InspectionException e) {
             Chat.sendMessage(player, e.getMessage());
             return;
+        }
+
+        PluginChannelHandshakeListener handshakeListener = PluginChannelHandshakeListener.getInstance();
+        if (handshakeListener != null) {
+            handshakeListener.verifyNetworkingPermission(player);
         }
 
         runLookup(player, () -> {

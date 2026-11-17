@@ -197,18 +197,12 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
     @Override
     public Material getPlantSeeds(Material material) {
         switch (material) {
-            case WHEAT:
-                return Material.WHEAT_SEEDS;
-            case PUMPKIN_STEM:
-                return Material.PUMPKIN_SEEDS;
-            case MELON_STEM:
-                return Material.MELON_SEEDS;
-            case BEETROOTS:
-                return Material.BEETROOT_SEEDS;
             case TORCHFLOWER_CROP:
                 return Material.TORCHFLOWER_SEEDS;
+            case PITCHER_CROP:
+                return Material.PITCHER_POD;
             default:
-                return material;
+                return super.getPlantSeeds(material);
         }
     }
 

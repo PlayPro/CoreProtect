@@ -386,7 +386,10 @@ public class ItemUtils {
 
         material = BukkitAdapter.ADAPTER.getPlantSeeds(material);
         if (material.name().contains("WALL_")) {
-            material = Material.valueOf(material.name().replace("WALL_", ""));
+            Material baseMaterial = Material.getMaterial(material.name().replace("WALL_", ""));
+            if (baseMaterial != null) {
+                material = baseMaterial;
+            }
         }
 
         return material;

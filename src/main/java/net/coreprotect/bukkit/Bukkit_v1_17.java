@@ -257,6 +257,17 @@ public class Bukkit_v1_17 extends BukkitAdapter {
     }
 
     @Override
+    public Material getPlantSeeds(Material material) {
+        switch (material) {
+            case CAVE_VINES:
+            case CAVE_VINES_PLANT:
+                return Material.GLOW_BERRIES;
+            default:
+                return super.getPlantSeeds(material);
+        }
+    }
+
+    @Override
     public boolean isChunkEntitiesLoaded(Chunk chunk) {
         return chunk.isEntitiesLoaded();
     }

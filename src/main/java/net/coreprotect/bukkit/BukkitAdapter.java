@@ -288,11 +288,27 @@ public class BukkitAdapter implements BukkitInterface {
             case WHEAT:
                 return Material.WHEAT_SEEDS;
             case PUMPKIN_STEM:
+            case ATTACHED_PUMPKIN_STEM:
                 return Material.PUMPKIN_SEEDS;
             case MELON_STEM:
+            case ATTACHED_MELON_STEM:
                 return Material.MELON_SEEDS;
             case BEETROOTS:
                 return Material.BEETROOT_SEEDS;
+            case CARROTS:
+                return Material.CARROT;
+            case POTATOES:
+                return Material.POTATO;
+            case SWEET_BERRY_BUSH:
+                return Material.SWEET_BERRIES;
+            case COCOA:
+                return Material.COCOA_BEANS;
+            case REDSTONE_WIRE:
+                return Material.REDSTONE;
+            case TRIPWIRE:
+                return Material.STRING;
+            case BAMBOO_SAPLING:
+                return Material.BAMBOO;
             default:
                 return material;
         }

@@ -395,13 +395,27 @@ public class RollbackProcessor {
             // Teleport players out of danger if they're within this chunk
             if (preview == 0) {
                 for (Player player : Bukkit.getOnlinePlayers()) {
+                    if (PaperAdapter.ADAPTER != null && !PaperAdapter.ADAPTER.isOwnedByCurrentRegion(player)) {
+                        continue;
+                    }
                     Location playerLocation = player.getLocation();
-                    String playerWorld = playerLocation.getWorld().getName();
+                    World playerWorld = playerLocation.getWorld();
+                    if (playerWorld == null) {
+                        continue;
+                    }
                     int chunkX = playerLocation.getBlockX() >> 4;
                     int chunkZ = playerLocation.getBlockZ() >> 4;
 
-                    if (bukkitRollbackWorld.getName().equals(playerWorld) && chunkX == finalChunkX && chunkZ == finalChunkZ) {
-                        Scheduler.runTask(CoreProtect.getInstance(), () -> Teleport.performSafeTeleport(player, playerLocation, false), player);
+                    if (bukkitRollbackWorld.getName().equals(playerWorld.getName()) && chunkX == finalChunkX && chunkZ == finalChunkZ) {
+                        Scheduler.runTask(CoreProtect.getInstance(), () -> {
+                            Location currentLocation = player.getLocation();
+                            World currentWorld = currentLocation.getWorld();
+                            if (currentWorld != null && bukkitRollbackWorld.getName().equals(currentWorld.getName())
+                                    && (currentLocation.getBlockX() >> 4) == finalChunkX
+                                    && (currentLocation.getBlockZ() >> 4) == finalChunkZ) {
+                                Teleport.performSafeTeleport(player, currentLocation, false);
+                            }
+                        }, player);
                     }
                 }
             }

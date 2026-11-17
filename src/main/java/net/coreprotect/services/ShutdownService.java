@@ -1,10 +1,5 @@
 package net.coreprotect.services;
 
-import java.util.Iterator;
-import java.util.Map.Entry;
-
-import org.bukkit.Location;
-import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
@@ -68,10 +63,8 @@ public class ShutdownService {
                     }
                 }
 
-                // Revert any teleport blocks if not using Folia
-                if (!ConfigHandler.isFolia) {
-                    revertTeleportBlocks();
-                }
+                // Revert any temporary teleport blocks
+                revertTeleportBlocks();
 
                 if (ConfigHandler.serverRunning) {
                     EntitySpawnTracking.queueLoadedLocationsForShutdown();
@@ -194,11 +187,6 @@ public class ShutdownService {
      * Reverts any blocks that were temporarily changed during player teleports
      */
     private static void revertTeleportBlocks() {
-        Iterator<Entry<Location, BlockData>> iterator = Teleport.revertBlocks.entrySet().iterator();
-        while (iterator.hasNext()) {
-            Entry<Location, BlockData> entry = iterator.next();
-            entry.getKey().getBlock().setBlockData(entry.getValue());
-            iterator.remove();
-        }
+        Teleport.revertAllBlocks();
     }
 }

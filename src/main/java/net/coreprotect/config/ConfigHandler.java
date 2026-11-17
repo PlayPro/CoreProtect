@@ -1161,6 +1161,14 @@ public class ConfigHandler extends Queue {
         return true;
     }
 
+    private static void cleanupFailedInitialization(boolean startup) {
+        if (startup) {
+            ConfigHandler.serverRunning = false;
+            ListenerHandler.unregisterNetworking();
+        }
+        Database.closeConnection();
+    }
+
     public static boolean performInitialization(boolean startup) {
         try {
             BukkitAdapter.loadAdapter();
@@ -1176,60 +1184,67 @@ public class ConfigHandler extends Queue {
             }
         }
         catch (CancellationException e) {
+            cleanupFailedInitialization(startup);
             throw e;
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            cleanupFailedInitialization(startup);
             return false;
         }
 
+        boolean initialized = false;
         try (Connection connection = Database.getConnection(true, 0)) {
-            Statement statement = connection.createStatement();
-            ServerStateSnapshot snapshot = supplyOnPrimaryThread(ConfigHandler::captureServerStateSnapshot);
-
-            ConfigHandler.checkPlayers(connection, snapshot.onlinePlayers);
-            boolean worldsLoaded = ConfigHandler.loadWorlds(statement, snapshot.worldNames); // Load world ID's into memory.
-            boolean typesLoaded = ConfigHandler.loadTypes(statement); // Load material ID's into memory.
-            if (ConfigHandler.databaseType.isColumnar() && (!worldsLoaded || !typesLoaded)) {
-                throw new IllegalStateException("Unable to initialize columnar database identifier caches");
+            if (connection == null) {
+                return false;
             }
+            try (Statement statement = connection.createStatement()) {
+                ServerStateSnapshot snapshot = supplyOnPrimaryThread(ConfigHandler::captureServerStateSnapshot);
 
-            // Initialize WorldEdit logging
-            runOnPrimaryThread(() -> {
-                if (VersionUtils.checkWorldEdit()) {
-                    PluginManager pluginManager = Bukkit.getServer().getPluginManager();
-                    Plugin worldEditPlugin = pluginManager.getPlugin("WorldEdit");
-                    if (worldEditPlugin != null && worldEditPlugin.isEnabled()) {
-                        VersionUtils.loadWorldEdit();
+                ConfigHandler.checkPlayers(connection, snapshot.onlinePlayers);
+                boolean worldsLoaded = ConfigHandler.loadWorlds(statement, snapshot.worldNames); // Load world ID's into memory.
+                boolean typesLoaded = ConfigHandler.loadTypes(statement); // Load material ID's into memory.
+                if (ConfigHandler.databaseType.isColumnar() && (!worldsLoaded || !typesLoaded)) {
+                    throw new IllegalStateException("Unable to initialize columnar database identifier caches");
+                }
+
+                // Initialize WorldEdit logging
+                runOnPrimaryThread(() -> {
+                    if (VersionUtils.checkWorldEdit()) {
+                        PluginManager pluginManager = Bukkit.getServer().getPluginManager();
+                        Plugin worldEditPlugin = pluginManager.getPlugin("WorldEdit");
+                        if (worldEditPlugin != null && worldEditPlugin.isEnabled()) {
+                            VersionUtils.loadWorldEdit();
+                        }
                     }
+                    else if (ConfigHandler.worldeditEnabled) {
+                        VersionUtils.unloadWorldEdit();
+                    }
+                });
+
+                if (startup && !ConfigHandler.checkDatabaseLock(statement)) {
+                    return false;
                 }
-                else if (ConfigHandler.worldeditEnabled) {
-                    VersionUtils.unloadWorldEdit();
+
+                if (startup) {
+                    ConfigHandler.serverRunning = true; // Set as running before patching
                 }
-            });
-
-            if (startup) {
-                ConfigHandler.serverRunning = true; // Set as running before patching
+                initialized = Patch.versionCheck(statement); // Minor upgrades & version check
+                return initialized;
             }
-            boolean validVersion = Patch.versionCheck(statement); // Minor upgrades & version check
-            boolean databaseLock = true;
-            if (startup) {
-                // Check that database isn't already in use
-                databaseLock = ConfigHandler.checkDatabaseLock(statement);
-            }
-
-            statement.close();
-
-            return validVersion && databaseLock;
         }
         catch (CancellationException e) {
             throw e;
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            return false;
         }
-
-        return false;
+        finally {
+            if (!initialized) {
+                cleanupFailedInitialization(startup);
+            }
+        }
     }
 
     public static void performDisable() {

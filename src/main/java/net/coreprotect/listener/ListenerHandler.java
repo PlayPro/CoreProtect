@@ -267,9 +267,13 @@ public final class ListenerHandler {
     }
 
     public static void unregisterNetworking() {
-        CoreProtect.getInstance().getServer().getMessenger().unregisterIncomingPluginChannel(CoreProtect.getInstance(), PluginChannelHandshakeListener.pluginChannel);
-        CoreProtect.getInstance().getServer().getMessenger().unregisterOutgoingPluginChannel(CoreProtect.getInstance(), PluginChannelHandshakeListener.pluginChannel);
-        CoreProtect.getInstance().getServer().getMessenger().unregisterOutgoingPluginChannel(CoreProtect.getInstance(), PluginChannelListener.pluginChannel);
+        CoreProtect plugin = CoreProtect.getInstance();
+        if (plugin == null || plugin.getServer() == null) {
+            return;
+        }
+        plugin.getServer().getMessenger().unregisterIncomingPluginChannel(plugin, PluginChannelHandshakeListener.pluginChannel);
+        plugin.getServer().getMessenger().unregisterOutgoingPluginChannel(plugin, PluginChannelHandshakeListener.pluginChannel);
+        plugin.getServer().getMessenger().unregisterOutgoingPluginChannel(plugin, PluginChannelListener.pluginChannel);
     }
 
 }

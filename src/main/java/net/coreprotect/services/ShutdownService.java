@@ -20,6 +20,7 @@ import net.coreprotect.listener.player.PlayerQuitListener;
 import net.coreprotect.listener.player.inspector.BaseInspector;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.thread.TickTimeMonitor;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Extensions;
 import net.coreprotect.utility.EntitySpawnTracking;
@@ -47,8 +48,9 @@ public class ShutdownService {
      *            The CoreProtect plugin instance
      */
     public static void safeShutdown(Plugin plugin) {
+        boolean wasActive = ConfigHandler.serverRunning || ConfigHandler.converterRunning || Consumer.isRunning();
+        boolean loggingComplete = false;
         try {
-            boolean loggingComplete;
             ConfigHandler.shutdownDrainRunning = true;
             try {
                 Consumer.blockDatabaseReloadForShutdown();
@@ -59,7 +61,7 @@ public class ShutdownService {
                 PluginInitializationService.disableMetrics();
 
                 // Log disconnections of online players if server is stopping
-                if (ConfigHandler.serverRunning && PaperAdapter.ADAPTER.isStopping(plugin.getServer())) {
+                if (ConfigHandler.serverRunning && plugin.getServer() != null && PaperAdapter.ADAPTER != null && PaperAdapter.ADAPTER.isStopping(plugin.getServer())) {
                     for (Player player : plugin.getServer().getOnlinePlayers()) {
                         PlayerQuitListener.queuePlayerQuit(player);
                     }
@@ -84,23 +86,35 @@ public class ShutdownService {
                 ConfigHandler.serverRunning = false;
                 long nextAlertTime = System.currentTimeMillis() + ALERT_INTERVAL_MS;
 
-                if (ConfigHandler.converterRunning) {
-                    Chat.console(Phrase.build(Phrase.FINISHING_CONVERSION));
-                }
-                else {
-                    Chat.console(Phrase.build(Phrase.FINISHING_LOGGING));
+                if (wasActive) {
+                    if (ConfigHandler.converterRunning) {
+                        Chat.console(Phrase.build(Phrase.FINISHING_CONVERSION));
+                    }
+                    else {
+                        Chat.console(Phrase.build(Phrase.FINISHING_LOGGING));
+                    }
                 }
 
                 loggingComplete = waitForPendingOperations(shutdownTime, nextAlertTime);
             }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                loggingComplete = false;
+            }
+            catch (Exception e) {
+                loggingComplete = false;
+                ErrorReporter.report(e);
+            }
             finally {
                 ConfigHandler.shutdownDrainRunning = false;
+                ConfigHandler.serverRunning = false;
+                TickTimeMonitor.shutdown();
+                CacheHandler.stopThread(2000L);
+                BaseInspector.shutdown();
+                ConfigHandler.performDisable();
             }
 
-            CacheHandler.stopThread(2000L);
-            BaseInspector.shutdown();
-            ConfigHandler.performDisable();
-            if (loggingComplete) {
+            if (wasActive && loggingComplete) {
                 Chat.console(Phrase.build(Phrase.DISABLE_SUCCESS, "CoreProtect v" + plugin.getDescription().getVersion()));
             }
         }
@@ -151,10 +165,24 @@ public class ShutdownService {
     }
 
     static void waitForMaintenanceCompletion(long shutdownTime) throws InterruptedException {
-        while (ConfigHandler.purgeRunning || Consumer.isBackgroundPurgeRunning() || PurgeCommand.isPurgeWorkerRunning()
+        long nextAlertTime = shutdownTime + ALERT_INTERVAL_MS;
+        while (ConfigHandler.purgeRunning || ConfigHandler.migrationRunning
+                || Consumer.isBackgroundPurgeRunning() || PurgeCommand.isPurgeWorkerRunning()
                 || Consumer.isDatabaseReloadRunning()) {
-            if ((System.currentTimeMillis() - shutdownTime) >= MAX_SHUTDOWN_WAIT_MS) {
+            long currentTime = System.currentTimeMillis();
+            if (!ConfigHandler.databaseReachable && (currentTime - shutdownTime) >= DB_UNREACHABLE_TIMEOUT_MS) {
+                Chat.console(Phrase.build(Phrase.DATABASE_UNREACHABLE));
                 return;
+            }
+            if ((currentTime - shutdownTime) >= MAX_SHUTDOWN_WAIT_MS) {
+                Chat.console(Phrase.build(Phrase.LOGGING_TIME_LIMIT));
+                return;
+            }
+            if (currentTime >= nextAlertTime) {
+                int consumerId = (Consumer.currentConsumer == 1) ? 1 : 0;
+                int consumerCount = Consumer.getConsumerSize(consumerId) + Process.getCurrentConsumerSize();
+                Chat.console(Phrase.build(Phrase.LOGGING_ITEMS, String.format("%,d", consumerCount)));
+                nextAlertTime = currentTime + ALERT_INTERVAL_MS;
             }
             Thread.sleep(100);
         }

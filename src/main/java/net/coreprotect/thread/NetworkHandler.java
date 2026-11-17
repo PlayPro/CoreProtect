@@ -74,9 +74,12 @@ public class NetworkHandler extends Language implements Runnable {
         }, "CoreProtect-Network");
         thread.setDaemon(true);
         synchronized (LOCK) {
+            if (handler.cancelled) {
+                return null;
+            }
             ACTIVE_HANDLERS.put(thread, handler);
+            thread.start();
         }
-        thread.start();
         return thread;
     }
 
@@ -102,17 +105,35 @@ public class NetworkHandler extends Language implements Runnable {
             return;
         }
 
-        long startNanos = System.nanoTime();
-        long totalDeadlineNanos = startNanos + TimeUnit.MILLISECONDS.toNanos(boundedTimeout);
-        long graceDeadlineNanos = startNanos + TimeUnit.MILLISECONDS.toNanos(Math.min(LOCAL_IO_GRACE_MILLIS, boundedTimeout));
+        boolean callerInterrupted = Thread.interrupted();
         try {
-            joinUntil(snapshot, graceDeadlineNanos);
+            long startNanos = System.nanoTime();
+            long totalDeadlineNanos = startNanos + TimeUnit.MILLISECONDS.toNanos(boundedTimeout);
+            if (!callerInterrupted) {
+                long graceDeadlineNanos = startNanos + TimeUnit.MILLISECONDS.toNanos(Math.min(LOCAL_IO_GRACE_MILLIS, boundedTimeout));
+                try {
+                    joinUntil(snapshot, graceDeadlineNanos);
+                }
+                catch (InterruptedException e) {
+                    callerInterrupted = true;
+                }
+            }
             interruptAlive(snapshot);
-            joinUntil(snapshot, totalDeadlineNanos);
+            while (System.nanoTime() < totalDeadlineNanos) {
+                try {
+                    joinUntil(snapshot, totalDeadlineNanos);
+                    break;
+                }
+                catch (InterruptedException e) {
+                    callerInterrupted = true;
+                    interruptAlive(snapshot);
+                }
+            }
         }
-        catch (InterruptedException e) {
-            interruptAlive(snapshot);
-            Thread.currentThread().interrupt();
+        finally {
+            if (callerInterrupted) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 

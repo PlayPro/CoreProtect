@@ -82,16 +82,16 @@ public class HangingUtil {
                     block = c4;
                 }
 
-                if (!BlockUtils.solidBlock(BlockUtils.getType(block.getRelative(BlockFace.EAST)))) {
+                if (!BlockUtils.solidBlock(block.getRelative(BlockFace.EAST).getType())) {
                     face = BlockFace.EAST;
                 }
-                else if (!BlockUtils.solidBlock(BlockUtils.getType(block.getRelative(BlockFace.NORTH)))) {
+                else if (!BlockUtils.solidBlock(block.getRelative(BlockFace.NORTH).getType())) {
                     face = BlockFace.NORTH;
                 }
-                else if (!BlockUtils.solidBlock(BlockUtils.getType(block.getRelative(BlockFace.WEST)))) {
+                else if (!BlockUtils.solidBlock(block.getRelative(BlockFace.WEST).getType())) {
                     face = BlockFace.WEST;
                 }
-                else if (!BlockUtils.solidBlock(BlockUtils.getType(block.getRelative(BlockFace.SOUTH)))) {
+                else if (!BlockUtils.solidBlock(block.getRelative(BlockFace.SOUTH).getType())) {
                     face = BlockFace.SOUTH;
                 }
             }

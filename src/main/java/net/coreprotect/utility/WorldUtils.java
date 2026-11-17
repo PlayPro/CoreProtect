@@ -4,9 +4,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.World;
 
 import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.Queue;
 
-public class WorldUtils extends Queue {
+public class WorldUtils {
 
     private WorldUtils() {
         throw new IllegalStateException("Utility class");
@@ -16,36 +15,13 @@ public class WorldUtils extends Queue {
         if (ConfigHandler.databaseType.isClickHouse()) {
             return ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.WORLDS, name, true);
         }
-        int id = -1;
         try {
-            if (ConfigHandler.worlds.get(name) == null) {
-                int wid = -1;
-                // Same monitor as reloadAndGetId, so two threads cannot allocate the same id
-                synchronized (ConfigHandler.class) {
-                    if (ConfigHandler.worlds.get(name) == null) {
-                        // Check if another server has already added this world (multi-server setup)
-                        id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.WORLDS, name);
-                        if (id != -1) {
-                            return id;
-                        }
-
-                        wid = ConfigHandler.worldId + 1;
-                        ConfigHandler.worlds.put(name, wid);
-                        ConfigHandler.worldsReversed.put(wid, name);
-                        ConfigHandler.worldId = wid;
-                    }
-                }
-                // Queued outside the monitor so it is never held while the queue lock is taken
-                if (wid != -1) {
-                    Queue.queueWorldInsert(wid, name);
-                }
-            }
-            id = ConfigHandler.worlds.get(name);
+            return ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.WORLDS, name, true);
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            return -1;
         }
-        return id;
     }
 
     public static String getWorldName(int id) {
@@ -53,17 +29,14 @@ public class WorldUtils extends Queue {
             String name = ConfigHandler.getIdentifierValue(ConfigHandler.CacheType.WORLDS, id);
             return name == null ? "" : name;
         }
-        String name = "";
         try {
-            String cachedName = ConfigHandler.worldsReversed.get(id);
-            if (cachedName != null) {
-                name = cachedName;
-            }
+            String name = ConfigHandler.getIdentifierValue(ConfigHandler.CacheType.WORLDS, id);
+            return name == null ? "" : name;
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            return "";
         }
-        return name;
     }
 
     public static int matchWorld(String name) {

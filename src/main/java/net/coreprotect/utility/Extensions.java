@@ -11,6 +11,10 @@ public class Extensions {
 
     private static final String DATABASE_MIGRATION_CLASS = "net.coreprotect.utility.extensions.DatabaseMigration";
 
+    private Extensions() {
+        throw new IllegalStateException("Utility class");
+    }
+
     public static void startBackgroundService() {
         invokeBackgroundService("start");
     }

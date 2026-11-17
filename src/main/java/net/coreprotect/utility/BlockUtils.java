@@ -196,11 +196,6 @@ public class BlockUtils {
         return block.isPassable();
     }
 
-    public static Material getType(Block block) {
-        // Temp code
-        return block.getType();
-    }
-
     public static boolean iceBreakCheck(BlockState block, String user, Material type) {
         if (type.equals(Material.ICE)) { // Ice block
             int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
@@ -305,13 +300,8 @@ public class BlockUtils {
         Inventory inventory = null;
         try {
             if (blockState instanceof BlockInventoryHolder) {
-                if (singleBlock) {
-                    List<Material> chests = new java.util.ArrayList<>(java.util.Arrays.asList(Material.CHEST, Material.TRAPPED_CHEST));
-                    chests.addAll(BukkitAdapter.ADAPTER.copperChestMaterials());
-                    Material type = blockState.getType();
-                    if (chests.contains(type)) {
-                        inventory = ((org.bukkit.block.Chest) blockState).getBlockInventory();
-                    }
+                if (singleBlock && blockState instanceof org.bukkit.block.Chest) {
+                    inventory = ((org.bukkit.block.Chest) blockState).getBlockInventory();
                 }
                 if (inventory == null) {
                     inventory = ((BlockInventoryHolder) blockState).getInventory();

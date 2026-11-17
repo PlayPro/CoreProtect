@@ -124,7 +124,7 @@ public class ConfigFile extends Config {
                         rawValue = rawValue.substring(0, commentIndex);
                     }
                 }
-                String value = unescapeValue(rawValue.trim());
+                String value = unescapeValue(rawValue.trim(), forceCase);
 
                 if (forceCase) {
                     key = key.toUpperCase(Locale.ROOT);
@@ -136,7 +136,7 @@ public class ConfigFile extends Config {
         }
     }
 
-    private static String unescapeValue(String value) {
+    private static String unescapeValue(String value, boolean unescapeLineBreaks) {
         if (value.length() >= 2 && value.startsWith("'") && value.endsWith("'")) {
             String inner = value.substring(1, value.length() - 1);
             StringBuilder sb = new StringBuilder(inner.length());
@@ -163,11 +163,11 @@ public class ConfigFile extends Config {
                         sb.append(next);
                         i++;
                     }
-                    else if (next == 'n') {
+                    else if (unescapeLineBreaks && next == 'n') {
                         sb.append('\n');
                         i++;
                     }
-                    else if (next == 'r') {
+                    else if (unescapeLineBreaks && next == 'r') {
                         sb.append('\r');
                         i++;
                     }

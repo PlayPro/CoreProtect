@@ -10,11 +10,14 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
 import org.json.simple.JSONObject;
@@ -28,12 +31,32 @@ public final class ErrorReporter {
     private static final int CONNECTION_TIMEOUT = 5000;
     private static final int READ_TIMEOUT = 5000;
     private static final int MAX_QUEUE_SIZE = 100;
+    private static final int MAX_FINGERPRINTS = 1024;
     private static final int MAX_FRAMES = 32;
     private static final int MAX_CAUSE_DEPTH = 4;
     private static final int MAX_MESSAGE_LENGTH = 500;
-    private static final Set<String> SENT_FINGERPRINTS = Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
+    private static final long DEFAULT_POLL_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(60);
+
+    private static final Pattern URI_PATTERN = Pattern.compile("(?:[a-zA-Z][a-zA-Z0-9+.-]*:)*[a-zA-Z][a-zA-Z0-9+.-]*://[^\\s\"'()<>]+");
+    private static final Pattern SECRET_PATTERN = Pattern.compile("(?i)\\b(password|passwd|pwd|token|secret|(?:api[-_]?|auth[-_]?|access[-_]?|private[-_]?|donation[-_]?)?key)\\s*([=:])\\s*(?:\"[^\"]*\"|'[^']*'|[^\\s,&;]+)");
+    private static final Pattern IDENTITY_HASH_PATTERN = Pattern.compile("@[0-9a-fA-F]{4,16}");
+    private static final Pattern UUID_PATTERN = Pattern.compile("\\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\b");
+    private static final Pattern IP_PATTERN = Pattern.compile("\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b");
+    private static final Pattern PATH_PATTERN = Pattern.compile("([A-Za-z]:)?[/\\\\][^\\s:;]+");
+    private static final Pattern LONG_NUMBER_PATTERN = Pattern.compile("\\b\\d{10,}\\b");
+
+    private static final Map<String, Boolean> SENT_FINGERPRINTS = new LinkedHashMap<String, Boolean>(16, 0.75f, true) {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, Boolean> eldest) {
+            return size() > MAX_FINGERPRINTS;
+        }
+    };
     private static final LinkedBlockingQueue<JSONObject> QUEUE = new LinkedBlockingQueue<>(MAX_QUEUE_SIZE);
     private static final AtomicBoolean WORKER_RUNNING = new AtomicBoolean(false);
+    private static volatile Thread workerThread;
+    private static volatile long pollTimeoutMillis = DEFAULT_POLL_TIMEOUT_MILLIS;
     private static volatile ReportSender sender = ErrorReporter::sendHttp;
 
     private ErrorReporter() {
@@ -52,10 +75,32 @@ public final class ErrorReporter {
         sender = reportSender == null ? ErrorReporter::sendHttp : reportSender;
     }
 
+    static void setPollTimeoutMillis(long timeoutMillis) {
+        pollTimeoutMillis = Math.max(1L, timeoutMillis);
+    }
+
+    static int fingerprintCount() {
+        synchronized (SENT_FINGERPRINTS) {
+            return SENT_FINGERPRINTS.size();
+        }
+    }
+
+    static Thread currentWorkerThread() {
+        return workerThread;
+    }
+
     static void reset() {
-        SENT_FINGERPRINTS.clear();
+        Thread activeWorker = workerThread;
+        workerThread = null;
+        if (activeWorker != null) {
+            activeWorker.interrupt();
+        }
+        synchronized (SENT_FINGERPRINTS) {
+            SENT_FINGERPRINTS.clear();
+        }
         QUEUE.clear();
         WORKER_RUNNING.set(false);
+        pollTimeoutMillis = DEFAULT_POLL_TIMEOUT_MILLIS;
         sender = ErrorReporter::sendHttp;
     }
 
@@ -73,19 +118,36 @@ public final class ErrorReporter {
         }
 
         String fingerprint = fingerprint(throwable);
-        if (!SENT_FINGERPRINTS.add(fingerprint)) {
+        if (!addFingerprint(fingerprint)) {
             return false;
         }
 
         JSONObject report = buildReport(throwable, fingerprint);
         boolean queued = QUEUE.offer(report);
         if (!queued) {
-            SENT_FINGERPRINTS.remove(fingerprint);
+            removeFingerprint(fingerprint);
             return false;
         }
 
         startWorker();
         return true;
+    }
+
+    private static boolean addFingerprint(String fingerprint) {
+        synchronized (SENT_FINGERPRINTS) {
+            if (SENT_FINGERPRINTS.containsKey(fingerprint)) {
+                SENT_FINGERPRINTS.get(fingerprint);
+                return false;
+            }
+            SENT_FINGERPRINTS.put(fingerprint, Boolean.TRUE);
+            return true;
+        }
+    }
+
+    private static void removeFingerprint(String fingerprint) {
+        synchronized (SENT_FINGERPRINTS) {
+            SENT_FINGERPRINTS.remove(fingerprint);
+        }
     }
 
     private static boolean isEnabled() {
@@ -217,11 +279,13 @@ public final class ErrorReporter {
             return "";
         }
 
-        String normalized = message.replaceAll("@[0-9a-fA-F]{4,16}", "@");
-        normalized = normalized.replaceAll("\\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\b", "<uuid>");
-        normalized = normalized.replaceAll("\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b", "<ip>");
-        normalized = normalized.replaceAll("([A-Za-z]:)?[/\\\\][^\\s:;]+", "<path>");
-        normalized = normalized.replaceAll("\\b\\d{10,}\\b", "<number>");
+        String normalized = URI_PATTERN.matcher(message).replaceAll("<uri>");
+        normalized = SECRET_PATTERN.matcher(normalized).replaceAll("$1$2<redacted>");
+        normalized = IDENTITY_HASH_PATTERN.matcher(normalized).replaceAll("@");
+        normalized = UUID_PATTERN.matcher(normalized).replaceAll("<uuid>");
+        normalized = IP_PATTERN.matcher(normalized).replaceAll("<ip>");
+        normalized = PATH_PATTERN.matcher(normalized).replaceAll("<path>");
+        normalized = LONG_NUMBER_PATTERN.matcher(normalized).replaceAll("<number>");
         if (normalized.length() > MAX_MESSAGE_LENGTH) {
             normalized = normalized.substring(0, MAX_MESSAGE_LENGTH);
         }
@@ -246,31 +310,41 @@ public final class ErrorReporter {
         }
 
         Thread worker = new Thread(() -> {
+            boolean interrupted = false;
             try {
-                while (ConfigHandler.serverRunning || !QUEUE.isEmpty()) {
-                    JSONObject report = QUEUE.poll(60, TimeUnit.SECONDS);
-                    if (report != null) {
-                        send(report);
+                while (!Thread.currentThread().isInterrupted() && (ConfigHandler.serverRunning || !QUEUE.isEmpty())) {
+                    JSONObject report = QUEUE.poll(pollTimeoutMillis, TimeUnit.MILLISECONDS);
+                    if (report == null) {
+                        break;
                     }
+                    send(report);
                 }
             }
             catch (InterruptedException e) {
+                interrupted = true;
                 Thread.currentThread().interrupt();
             }
             finally {
+                if (workerThread == Thread.currentThread()) {
+                    workerThread = null;
+                }
                 WORKER_RUNNING.set(false);
-                if (!QUEUE.isEmpty()) {
+                if (!interrupted && !Thread.currentThread().isInterrupted() && ConfigHandler.serverRunning && !QUEUE.isEmpty()) {
                     startWorker();
                 }
             }
         }, "CoreProtect Error Reporter");
         worker.setDaemon(true);
+        workerThread = worker;
         worker.start();
     }
 
     private static void send(JSONObject report) {
         try {
             sender.send(report);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
         catch (Exception e) {
             // Error reporting must never create secondary console noise.

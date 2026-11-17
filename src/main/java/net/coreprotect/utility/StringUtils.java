@@ -100,28 +100,41 @@ public class StringUtils {
     }
 
     public static String hoverCommandFilter(String string) {
+        if (string == null) {
+            return null;
+        }
         StringBuilder command = new StringBuilder();
 
-        String[] data = string.toLowerCase().split(" ");
+        String[] data = string.trim().toLowerCase(Locale.ROOT).split("\\s+");
         if (data.length > 2) {
             if (data[1].equals("l")) {
                 data[1] = "page";
             }
 
             if (data[2].startsWith("wid:")) {
-                String nameWid = data[2].replaceFirst("wid:", "");
-                if (nameWid.length() > 0 && nameWid.equals(nameWid.replaceAll("[^0-9]", ""))) {
-                    nameWid = WorldUtils.getWorldName(Integer.parseInt(nameWid));
-                    if (nameWid.length() > 0) {
-                        data[2] = nameWid;
+                String nameWid = data[2].substring("wid:".length());
+                Integer worldId = tryParseNonNegativeInt(nameWid);
+                if (worldId != null) {
+                    String worldName = WorldUtils.getWorldName(worldId);
+                    if (worldName != null && !worldName.isEmpty() && !containsWhitespace(worldName)) {
+                        data[2] = worldName;
                     }
                 }
             }
 
             if (data[1].equals("teleport") && data.length > 5) {
-                data[3] = Integer.toString((int) (Double.parseDouble(data[3]) - 0.50));
-                data[4] = Integer.toString(Integer.parseInt(data[4]));
-                data[5] = Integer.toString((int) (Double.parseDouble(data[5]) - 0.50));
+                Integer x = tryParseFloorCoordinate(data[3], -0.50);
+                Integer y = tryParseInt(data[4]);
+                Integer z = tryParseFloorCoordinate(data[5], -0.50);
+                if (x != null) {
+                    data[3] = Integer.toString(x);
+                }
+                if (y != null) {
+                    data[4] = Integer.toString(y);
+                }
+                if (z != null) {
+                    data[5] = Integer.toString(z);
+                }
             }
         }
 
@@ -138,6 +151,65 @@ public class StringUtils {
         }
 
         return command.toString();
+    }
+
+    private static Integer tryParseNonNegativeInt(String value) {
+        if (value == null || value.isEmpty()) {
+            return null;
+        }
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c < '0' || c > '9') {
+                return null;
+            }
+        }
+        try {
+            return Integer.valueOf(Integer.parseInt(value));
+        }
+        catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static Integer tryParseInt(String value) {
+        if (value == null || value.isEmpty()) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(Integer.parseInt(value));
+        }
+        catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static Integer tryParseFloorCoordinate(String value, double offset) {
+        if (value == null || value.isEmpty()) {
+            return null;
+        }
+        try {
+            double parsed = Double.parseDouble(value);
+            if (!Double.isFinite(parsed)) {
+                return null;
+            }
+            double shifted = Math.floor(parsed + offset);
+            if (shifted < Integer.MIN_VALUE || shifted > Integer.MAX_VALUE) {
+                return null;
+            }
+            return Integer.valueOf((int) shifted);
+        }
+        catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static boolean containsWhitespace(String value) {
+        for (int i = 0; i < value.length(); i++) {
+            if (Character.isWhitespace(value.charAt(i))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static Integer[] convertArray(String[] array) {

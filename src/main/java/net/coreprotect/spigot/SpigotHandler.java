@@ -62,10 +62,13 @@ public class SpigotHandler extends SpigotAdapter implements SpigotInterface {
 
     @Override
     public void addHoverComponent(Object message, String[] data) {
+        if (data == null || data.length < 3) {
+            return;
+        }
         try {
             if (Config.getGlobal().HOVER_EVENTS) {
-                String tooltipText = data[1]; // text displayed inside tooltip
-                TextComponent component = new TextComponent(TextComponent.fromLegacyText(data[2]));
+                String tooltipText = processComponent(data[1]); // text displayed inside tooltip
+                TextComponent component = new TextComponent(TextComponent.fromLegacyText(processComponent(data[2])));
                 // BaseComponent[] displayComponent = TextComponent.fromLegacyText(processComponent(tooltipText));
 
                 if (tooltipText.contains(Color.MAGIC)) {
@@ -102,7 +105,7 @@ public class SpigotHandler extends SpigotAdapter implements SpigotInterface {
                     */
                 }
 
-                BaseComponent[] displayComponent = TextComponent.fromLegacyText(processComponent(tooltipText));
+                BaseComponent[] displayComponent = TextComponent.fromLegacyText(tooltipText);
                 component.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new Text(displayComponent)));
                 ((TextComponent) message).addExtra(component);
             }
@@ -140,14 +143,21 @@ public class SpigotHandler extends SpigotAdapter implements SpigotInterface {
                 }
 
                 String[] data = value.split("\\|", 3);
-                if (data[0].equals(Chat.COMPONENT_COMMAND)) {
-                    TextComponent component = new TextComponent(TextComponent.fromLegacyText(data[2]));
-                    component.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, data[1]));
-                    SpigotAdapter.ADAPTER.setHoverEvent(component, StringUtils.hoverCommandFilter(data[1]));
+                if (data.length < 3) {
+                    builder.append(Chat.COMPONENT_TAG_OPEN).append(value).append(Chat.COMPONENT_TAG_CLOSE);
+                }
+                else if (data[0].equals(Chat.COMPONENT_COMMAND)) {
+                    String command = processComponent(data[1]);
+                    TextComponent component = new TextComponent(TextComponent.fromLegacyText(processComponent(data[2])));
+                    component.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, command));
+                    SpigotAdapter.ADAPTER.setHoverEvent(component, StringUtils.hoverCommandFilter(command));
                     message.addExtra(component);
                 }
                 else if (data[0].equals(Chat.COMPONENT_POPUP)) {
                     SpigotAdapter.ADAPTER.addHoverComponent(message, data);
+                }
+                else {
+                    builder.append(Chat.COMPONENT_TAG_OPEN).append(value).append(Chat.COMPONENT_TAG_CLOSE);
                 }
             }
             else {
@@ -210,7 +220,8 @@ public class SpigotHandler extends SpigotAdapter implements SpigotInterface {
     }
 
     private static void addBuilder(TextComponent message, StringBuilder builder) {
-        String[] splitBuilder = builder.toString().split(SpigotHandler.DARK_AQUA.toString());
+        String text = Chat.unescapeComponentTags(builder.toString());
+        String[] splitBuilder = text.split(SpigotHandler.DARK_AQUA.toString());
         for (int i = 0; i < splitBuilder.length; i++) {
             if (i > 0) {
                 TextComponent textComponent = new TextComponent(splitBuilder[i]);

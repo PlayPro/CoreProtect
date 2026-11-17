@@ -234,7 +234,7 @@ public final class HopperTransactionUtils {
             movedItems.add(movedItem.clone());
         }
 
-        return new Object[] { movedItems, ItemUtils.getContainerState(destinationContents) };
+        return new Object[] { movedItems, ItemUtils.getContainerState(destinationContents), System.currentTimeMillis() };
     }
 
     public static ItemStack[] applyPendingChanges(ItemStack[] containerState, String transactionId, long sinceMark) {

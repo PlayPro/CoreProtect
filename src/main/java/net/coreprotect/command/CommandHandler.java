@@ -28,6 +28,16 @@ public class CommandHandler implements CommandExecutor {
         return instance;
     }
 
+    public static void clearVersionAlert(String playerName) {
+        if (playerName != null) {
+            versionAlert.remove(playerName);
+        }
+    }
+
+    public static void clearVersionAlerts() {
+        versionAlert.clear();
+    }
+
     @Override
     public boolean onCommand(CommandSender user, Command command, String commandLabel, String[] argumentArray) {
         String commandName = command.getName().toLowerCase(Locale.ROOT);

@@ -58,7 +58,7 @@ public final class HopperPushListener {
         }
 
         ContainerTransactionDispatcher.submit(destinationLocation, () -> {
-            ConfigHandler.hopperSuccess.put(loggingChestId, new Object[] { destinationContainer, movedItem });
+            ConfigHandler.hopperSuccess.put(loggingChestId, new Object[] { destinationContainer, movedItem, System.currentTimeMillis() });
             InventoryChangeListener.onHopperInventoryInteract(user, destinationInventory, destinationContainer, destinationLocation, movedItem);
         });
     }

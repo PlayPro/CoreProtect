@@ -16,6 +16,7 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -43,6 +44,7 @@ import com.zaxxer.hikari.HikariDataSource;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.command.CommandHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.consumer.process.Process;
@@ -158,12 +160,25 @@ public class ConfigHandler extends Queue {
     public static final AtomicLong autoPurgeRowsPurged = new AtomicLong(0);
     private static boolean duckDBFallbackAllowed = false;
 
+    public static final int MAX_USER_CACHE_ENTRIES = 16_384;
+
     private static <K, V> Map<K, V> syncMap() {
         return Collections.synchronizedMap(new HashMap<>());
     }
 
     private static <K, V> Map<K, V> syncMap(Map<K, V> values) {
         return Collections.synchronizedMap(new HashMap<>(values));
+    }
+
+    private static <K, V> Map<K, V> syncLruMap(int maxEntries) {
+        return Collections.synchronizedMap(new LinkedHashMap<K, V>(16, 0.75f, true) {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
+                return size() > maxEntries;
+            }
+        });
     }
 
     private static IdentifierCache loadIdentifierCache(Statement statement, String table, String valueColumn) throws SQLException {
@@ -291,10 +306,10 @@ public class ConfigHandler extends Queue {
     public static Map<String, String> lookupTime = syncMap();
     public static Map<String, Long[]> lookupRows = syncMap();
     public static Map<String, LookupCursor> lookupCursor = syncMap();
-    public static Map<String, String> uuidCache = syncMap();
-    public static Map<String, String> uuidCacheReversed = syncMap();
-    public static Map<String, Integer> playerIdCache = syncMap();
-    public static Map<Integer, String> playerIdCacheReversed = syncMap();
+    public static Map<String, String> uuidCache = syncLruMap(MAX_USER_CACHE_ENTRIES);
+    public static Map<String, String> uuidCacheReversed = syncLruMap(MAX_USER_CACHE_ENTRIES);
+    public static Map<String, Integer> playerIdCache = syncLruMap(MAX_USER_CACHE_ENTRIES);
+    public static Map<Integer, String> playerIdCacheReversed = syncLruMap(MAX_USER_CACHE_ENTRIES);
     public static Map<String, List<Object>> lastRollback = syncMap();
     public static Map<String, Boolean> activeRollbacks = syncMap();
     public static Map<String, Object[]> entityBlockMapper = new ConcurrentHashMap<>();
@@ -1247,8 +1262,66 @@ public class ConfigHandler extends Queue {
         }
     }
 
+    public static void clearPlayerState(String playerName) {
+        if (playerName == null || playerName.isEmpty()) {
+            return;
+        }
+        inspecting.remove(playerName);
+        lookupThrottle.remove(playerName);
+        teleportThrottle.remove(playerName);
+        lookupType.remove(playerName);
+        lookupPage.remove(playerName);
+        lookupOutputMode.remove(playerName);
+        lookupRollbackState.remove(playerName);
+        lookupCommand.remove(playerName);
+        lookupEntityContainer.remove(playerName);
+        lookupEntityInteraction.remove(playerName);
+        lookupBlist.remove(playerName);
+        lookupElist.remove(playerName);
+        lookupEUserlist.remove(playerName);
+        lookupUlist.remove(playerName);
+        lookupAlist.remove(playerName);
+        lookupEntityActionFilter.remove(playerName);
+        lookupFlist.remove(playerName);
+        lookupRadius.remove(playerName);
+        lookupTime.remove(playerName);
+        lookupRows.remove(playerName);
+        lookupCursor.remove(playerName);
+    }
+
+    public static void clearTransientPlayerState() {
+        inspecting.clear();
+        lookupThrottle.clear();
+        teleportThrottle.clear();
+        lookupType.clear();
+        lookupPage.clear();
+        lookupOutputMode.clear();
+        lookupRollbackState.clear();
+        lookupCommand.clear();
+        lookupEntityContainer.clear();
+        lookupEntityInteraction.clear();
+        lookupBlist.clear();
+        lookupElist.clear();
+        lookupEUserlist.clear();
+        lookupUlist.clear();
+        lookupAlist.clear();
+        lookupEntityActionFilter.clear();
+        lookupFlist.clear();
+        lookupRadius.clear();
+        lookupTime.clear();
+        lookupRows.clear();
+        lookupCursor.clear();
+        hopperAbort.clear();
+        hopperSuccess.clear();
+        dispenserNoChange.clear();
+        dispenserPending.clear();
+        populatedChunks.clear();
+        CommandHandler.clearVersionAlerts();
+    }
+
     public static void performDisable() {
         try {
+            clearTransientPlayerState();
             Database.closeConnection();
             ListenerHandler.unregisterNetworking(); // Unregister channels for networking API
         }

@@ -115,7 +115,7 @@ public class InteractionLookup {
 
                 // Hide "minecraft:" for now.
                 if (target.startsWith("minecraft:")) {
-                    target = target.split(":")[1];
+                    target = target.substring("minecraft:".length());
                 }
 
                 resultBuilder.append(timeAgo + " " + Color.WHITE + "- ").append(Phrase.build(Phrase.LOOKUP_INTERACTION, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, Color.DARK_AQUA + rbFormat + target + Color.WHITE, Selector.FIRST)).append("\n");

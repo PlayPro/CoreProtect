@@ -67,11 +67,8 @@ public class MaterialUtils {
 
     public static String getBlockNameShort(int id) {
         String name = getBlockName(id);
-        if (name.contains(":")) {
-            name = name.split(":")[1];
-        }
-
-        return name;
+        int colon = name.indexOf(':');
+        return colon >= 0 ? name.substring(colon + 1) : name;
     }
 
     public static Material getType(int id) {
@@ -81,10 +78,17 @@ public class MaterialUtils {
 
     public static Material getTypeFromStoredName(String blockName) {
         Material material = null;
-        if (!blockName.isEmpty()) {
+        if (blockName != null && !blockName.isEmpty()) {
             String name = blockName.toUpperCase(Locale.ROOT);
-            if (name.contains(NAMESPACE.toUpperCase(Locale.ROOT))) {
-                name = name.split(":")[1];
+            if (name.startsWith("MINECRAFT:")) {
+                name = name.substring("MINECRAFT:".length());
+            }
+            else if (name.indexOf(':') >= 0) {
+                return null;
+            }
+
+            if (name.isEmpty()) {
+                return null;
             }
 
             name = net.coreprotect.bukkit.BukkitAdapter.ADAPTER.parseLegacyName(name);
@@ -101,10 +105,21 @@ public class MaterialUtils {
     public static Material getType(String name) {
         // Name entered by user
         Material material = null;
+        if (name == null) {
+            return null;
+        }
+
         name = name.toUpperCase(Locale.ROOT).trim();
-        if (!name.startsWith("#")) {
-            if (name.contains(NAMESPACE.toUpperCase(Locale.ROOT))) {
-                name = name.split(":")[1];
+        if (!name.isEmpty() && !name.startsWith("#")) {
+            if (name.startsWith("MINECRAFT:")) {
+                name = name.substring("MINECRAFT:".length());
+            }
+            else if (name.indexOf(':') >= 0) {
+                return null;
+            }
+
+            if (name.isEmpty()) {
+                return null;
             }
 
             name = net.coreprotect.bukkit.BukkitAdapter.ADAPTER.parseLegacyName(name);

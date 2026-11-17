@@ -3,10 +3,8 @@ package net.coreprotect.database.rollback;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.bukkit.Bukkit;
 import org.bukkit.block.data.BlockData;
 
-import net.coreprotect.utility.BlockTypeUtils;
 import net.coreprotect.utility.BlockUtils;
 
 public final class RollbackBlockDataCache {
@@ -22,10 +20,7 @@ public final class RollbackBlockDataCache {
         if (!parsedBlockData.containsKey(blockDataString)) {
             BlockData blockData = null;
             try {
-                blockData = BlockTypeUtils.createBlockDataFromString(blockDataString);
-                if (blockData == null) {
-                    blockData = Bukkit.getServer().createBlockData(blockDataString);
-                }
+                blockData = BlockUtils.parseBlockDataFromString(blockDataString);
             }
             catch (Exception e) {
                 // corrupt BlockData, let the server automatically set the BlockData instead

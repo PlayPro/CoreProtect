@@ -185,7 +185,7 @@ public class BlockLookup {
 
                 // Hide "minecraft:" for now.
                 if (target.startsWith("minecraft:")) {
-                    target = target.split(":")[1];
+                    target = target.substring("minecraft:".length());
                 }
 
                 String coordinateInfo = "";

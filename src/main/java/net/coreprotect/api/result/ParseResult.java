@@ -12,7 +12,6 @@ import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.model.action.SessionActions;
 import net.coreprotect.model.item.InventorySources;
 import net.coreprotect.utility.BlockUtils;
-import net.coreprotect.utility.BlockTypeUtils;
 import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.StringUtils;
@@ -96,7 +95,7 @@ public class ParseResult implements CoreProtectResult {
             return BlockUtils.createBlockData(Integer.parseInt(parse[5]));
         }
 
-        BlockData result = BlockTypeUtils.createBlockDataFromString(blockData);
+        BlockData result = BlockUtils.parseBlockDataFromString(blockData);
         return result != null ? result : Bukkit.getServer().createBlockData(blockData);
     }
 

@@ -6,7 +6,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.Server;
 import org.bukkit.block.Banner;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -41,10 +43,11 @@ public class BlockUtils {
         }
 
         // ClickHouse uncaches identifiers when a batch is discarded, so a cached encoding could point at an unpublished id
-        Map<String, CachedBlockData> cache = ConfigHandler.databaseType.isClickHouse() ? null : blockDataCache();
+        Map<BlockDataCacheKey, CachedBlockData> cache = ConfigHandler.databaseType.isClickHouse() ? null : blockDataCache();
+        BlockDataCacheKey cacheKey = cache != null ? new BlockDataCacheKey(type, string) : null;
         if (cache != null) {
-            CachedBlockData cached = cache.get(string);
-            if (cached != null && cached.type == type) {
+            CachedBlockData cached = cache.get(cacheKey);
+            if (cached != null) {
                 return cached.data;
             }
         }
@@ -63,18 +66,22 @@ public class BlockUtils {
         BlockData defaultBlockData = createBlockData(type);
         if (defaultBlockData != null && !defaultBlockData.getAsString().equals(string) && string.startsWith(blockKey + "[") && string.endsWith("]")) {
             String substring = string.substring(blockKey.length() + 1, string.length() - 1);
-            String[] blockDataSplit = substring.split(",");
-            ArrayList<String> blockDataArray = new ArrayList<>();
-            for (String data : blockDataSplit) {
-                int id = MaterialUtils.getBlockdataId(data, true);
-                if (id > -1) {
-                    blockDataArray.add(Integer.toString(id));
+            if (!substring.isEmpty()) {
+                String[] blockDataSplit = substring.split(",");
+                ArrayList<String> blockDataArray = new ArrayList<>();
+                for (String data : blockDataSplit) {
+                    int id = MaterialUtils.getBlockdataId(data, true);
+                    if (id > -1) {
+                        blockDataArray.add(Integer.toString(id));
+                    }
+                    else {
+                        resolved = false;
+                    }
                 }
-                else {
-                    resolved = false;
+                if (!blockDataArray.isEmpty()) {
+                    result = String.join(",", blockDataArray).getBytes(StandardCharsets.UTF_8);
                 }
             }
-            result = String.join(",", blockDataArray).getBytes(StandardCharsets.UTF_8);
         }
         else if (material != null && !string.contains(":") && (material == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(material))) {
             int id = MaterialUtils.getBlockdataId(string, true);
@@ -87,16 +94,18 @@ public class BlockUtils {
         }
 
         if (cache != null && resolved) {
-            if (cache.size() >= BLOCK_DATA_CACHE_LIMIT) {
-                cache.clear();
+            synchronized (cache) {
+                if (cache.size() >= BLOCK_DATA_CACHE_LIMIT) {
+                    cache.clear();
+                }
+                cache.put(cacheKey, new CachedBlockData(result));
             }
-            cache.put(string, new CachedBlockData(type, result));
         }
         return result;
     }
 
     // Loading the material or blockdata maps assigns new map instances, which starts a new cache
-    private static Map<String, CachedBlockData> blockDataCache() {
+    private static Map<BlockDataCacheKey, CachedBlockData> blockDataCache() {
         BlockDataCache cache = blockDataCache;
         Map<Integer, String> materials = ConfigHandler.materialsReversed;
         Map<String, Integer> blockdata = ConfigHandler.blockdata;
@@ -111,7 +120,7 @@ public class BlockUtils {
 
         private final Map<Integer, String> materials;
         private final Map<String, Integer> blockdata;
-        private final Map<String, CachedBlockData> entries = new ConcurrentHashMap<>();
+        private final Map<BlockDataCacheKey, CachedBlockData> entries = new ConcurrentHashMap<>();
 
         private BlockDataCache(Map<Integer, String> materials, Map<String, Integer> blockdata) {
             this.materials = materials;
@@ -119,13 +128,39 @@ public class BlockUtils {
         }
     }
 
-    private static final class CachedBlockData {
+    private static final class BlockDataCacheKey {
 
         private final int type;
+        private final String data;
+
+        private BlockDataCacheKey(int type, String data) {
+            this.type = type;
+            this.data = data;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof BlockDataCacheKey)) {
+                return false;
+            }
+            BlockDataCacheKey that = (BlockDataCacheKey) other;
+            return this.type == that.type && this.data.equals(that.data);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * this.type + this.data.hashCode();
+        }
+    }
+
+    private static final class CachedBlockData {
+
         private final byte[] data;
 
-        private CachedBlockData(int type, byte[] data) {
-            this.type = type;
+        private CachedBlockData(byte[] data) {
             this.data = data;
         }
     }
@@ -144,20 +179,33 @@ public class BlockUtils {
 
             result = new String(data, StandardCharsets.UTF_8);
             if (result.length() > 0) {
-                if (result.matches("\\d+")) {
+                if (isAsciiDigits(result)) {
                     result = result + ",";
                 }
                 if (result.contains(",")) {
                     String[] blockDataSplit = result.split(",");
                     ArrayList<String> blockDataArray = new ArrayList<>();
                     for (String blockData : blockDataSplit) {
-                        String block = MaterialUtils.getBlockDataString(Integer.parseInt(blockData));
+                        if (!isAsciiDigits(blockData)) {
+                            continue;
+                        }
+                        int blockDataId;
+                        try {
+                            blockDataId = Integer.parseInt(blockData);
+                        }
+                        catch (NumberFormatException e) {
+                            continue;
+                        }
+                        String block = MaterialUtils.getBlockDataString(blockDataId);
                         if (block.length() > 0) {
                             blockDataArray.add(block);
                         }
                     }
 
-                    if (material != null && (material == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(material))) {
+                    if (blockDataArray.isEmpty()) {
+                        result = "";
+                    }
+                    else if (material != null && (material == Material.PAINTING || BukkitAdapter.ADAPTER.isItemFrame(material))) {
                         result = String.join(",", blockDataArray);
                     }
                     else {
@@ -171,6 +219,95 @@ public class BlockUtils {
         }
 
         return result;
+    }
+
+    private static boolean isAsciiDigits(String value) {
+        if (value == null || value.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c < '0' || c > '9') {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static BlockData parseBlockDataFromString(String blockDataString) {
+        if (blockDataString == null || blockDataString.isEmpty()) {
+            return null;
+        }
+
+        BlockData blockData = BlockTypeUtils.createBlockDataFromString(blockDataString);
+        if (blockData != null) {
+            return blockData;
+        }
+
+        Server server = Bukkit.getServer();
+        if (server != null) {
+            try {
+                return server.createBlockData(blockDataString);
+            }
+            catch (IllegalArgumentException ignored) {
+            }
+        }
+
+        String states = BlockTypeUtils.getBlockDataStates(blockDataString);
+        if (states == null || states.length() <= 2) {
+            return null;
+        }
+
+        String key = BlockTypeUtils.getBlockDataKey(blockDataString);
+        if (key.isEmpty()) {
+            return null;
+        }
+
+        BlockData baseData = BlockTypeUtils.createBlockData(key);
+        if (baseData == null && server != null) {
+            try {
+                baseData = server.createBlockData(key);
+            }
+            catch (IllegalArgumentException ignored) {
+            }
+        }
+        if (baseData == null) {
+            return null;
+        }
+
+        String properties = states.substring(1, states.length() - 1);
+        for (String property : properties.split(",")) {
+            String trimmedProperty = property.trim();
+            if (trimmedProperty.isEmpty()) {
+                continue;
+            }
+            BlockData propertyData = createPropertyBlockData(server, key + "[" + trimmedProperty + "]");
+            if (propertyData != null) {
+                try {
+                    baseData = baseData.merge(propertyData);
+                }
+                catch (IllegalArgumentException ignored) {
+                }
+            }
+        }
+        return baseData;
+    }
+
+    private static BlockData createPropertyBlockData(Server server, String propertyBlockData) {
+        if (BukkitAdapter.ADAPTER != null) {
+            BlockData adapterData = BukkitAdapter.ADAPTER.createBlockDataFromString(propertyBlockData);
+            if (adapterData != null) {
+                return adapterData;
+            }
+        }
+        if (server != null) {
+            try {
+                return server.createBlockData(propertyBlockData);
+            }
+            catch (IllegalArgumentException ignored) {
+            }
+        }
+        return null;
     }
 
     public static Waterlogged checkWaterlogged(BlockData blockData, BlockState blockReplacedState) {

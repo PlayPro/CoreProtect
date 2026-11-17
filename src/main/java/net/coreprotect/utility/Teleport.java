@@ -149,28 +149,30 @@ public class Teleport {
                     }
                 }
 
-                if (safeBlock && (checkY > playerY || enforceTeleport)) {
+                if (safeBlock && (checkY > playerY || enforceTeleport || alert)) {
                     if (checkY > worldHeight) {
                         checkY = worldHeight;
                     }
 
-                    double oldY = targetLocation.getY();
-                    targetLocation.setY(checkY);
-                    if (ConfigHandler.isFolia) {
-                        PaperAdapter.ADAPTER.teleportAsync(player, targetLocation);
-                    }
-                    else {
-                        player.teleport(targetLocation);
-                    }
-
-                    if (!enforceTeleport) {
-                        // Only send a message if the player was moved by at least 1 block
-                        if (targetLocation.getY() >= (oldY + 1.00)) {
-                            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.TELEPORTED_SAFETY));
+                    if (checkY != playerY || enforceTeleport) {
+                        double oldY = targetLocation.getY();
+                        targetLocation.setY(checkY);
+                        if (ConfigHandler.isFolia) {
+                            PaperAdapter.ADAPTER.teleportAsync(player, targetLocation);
                         }
-                    }
-                    else {
-                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.TELEPORTED, "x" + playerX + "/y" + checkY + "/z" + playerZ + "/" + world.getName()));
+                        else {
+                            player.teleport(targetLocation);
+                        }
+
+                        if (!enforceTeleport) {
+                            // Only send a message if the player was moved by at least 1 block
+                            if (targetLocation.getY() >= (oldY + 1.00)) {
+                                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.TELEPORTED_SAFETY));
+                            }
+                        }
+                        else {
+                            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.TELEPORTED, "x" + playerX + "/y" + checkY + "/z" + playerZ + "/" + world.getName()));
+                        }
                     }
                     if (alert) {
                         Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + Color.ITALIC + "- " + Phrase.build(Phrase.DIRT_BLOCK));

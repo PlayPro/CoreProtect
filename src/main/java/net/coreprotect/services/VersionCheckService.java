@@ -48,8 +48,9 @@ public class VersionCheckService {
             }
 
             // Check Java version compatibility
-            String[] javaVersion = (System.getProperty("java.version").replaceAll("[^0-9.]", "") + ".0").split("\\.");
-            if (VersionUtils.newVersion(javaVersion[0] + "." + javaVersion[1], ConfigHandler.JAVA_VERSION)) {
+            Runtime.Version runtimeVersion = Runtime.version();
+            String currentJavaVersion = runtimeVersion.feature() + "." + runtimeVersion.interim();
+            if (VersionUtils.newVersion(currentJavaVersion, ConfigHandler.JAVA_VERSION)) {
                 Chat.console(Phrase.build(Phrase.VERSION_REQUIRED, "Java", ConfigHandler.JAVA_VERSION));
                 return false;
             }

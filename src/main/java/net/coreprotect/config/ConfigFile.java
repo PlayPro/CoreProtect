@@ -286,7 +286,7 @@ public class ConfigFile extends Config {
     public static void resetCache(String cacheName, String fileName) throws IOException {
         File file = new File(CoreProtect.getInstance().getDataFolder(), cacheName);
         if (file.length() > 0) {
-            new FileOutputStream(file).close();
+            DatabaseConfigWriter.writeAtomically(file.toPath(), new byte[0]);
             init(fileName);
         }
     }

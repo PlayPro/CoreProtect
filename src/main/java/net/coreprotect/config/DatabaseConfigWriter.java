@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -29,6 +30,10 @@ public final class DatabaseConfigWriter {
 
     public static synchronized void persistDatabaseType(DatabaseType type) throws IOException {
         Path configFile = Paths.get(ConfigHandler.path).resolve(ConfigFile.CONFIG);
+        persistDatabaseType(configFile, type);
+    }
+
+    static synchronized void persistDatabaseType(Path configFile, DatabaseType type) throws IOException {
         if (!Files.isRegularFile(configFile, LinkOption.NOFOLLOW_LINKS)) {
             throw new IOException("CoreProtect config is not a regular file: " + configFile);
         }
@@ -39,25 +44,30 @@ public final class DatabaseConfigWriter {
             return;
         }
 
-        Path directory = configFile.toAbsolutePath().getParent();
-        if (directory == null) {
-            throw new IOException("CoreProtect config has no parent directory: " + configFile);
-        }
+        writeAtomically(configFile, updated);
+    }
 
-        Path temporary = Files.createTempFile(directory, ".config.yml.", ".tmp");
+    public static void writeAtomically(Path target, byte[] content) throws IOException {
+        Path normalized = target.toAbsolutePath();
+        Path directory = normalized.getParent();
+        if (directory == null) {
+            throw new IOException("Target file has no parent directory: " + target);
+        }
+        Files.createDirectories(directory);
+
+        Path fileName = normalized.getFileName();
+        String prefix = "." + (fileName != null ? fileName.toString() : "coreprotect") + ".";
+        Path temporary = Files.createTempFile(directory, prefix, ".tmp");
         boolean moved = false;
         try {
-            Files.write(temporary, updated, StandardOpenOption.TRUNCATE_EXISTING);
+            Files.write(temporary, content, StandardOpenOption.TRUNCATE_EXISTING);
             try (FileChannel channel = FileChannel.open(temporary, StandardOpenOption.WRITE)) {
                 channel.force(true);
             }
-            copyAttributes(configFile, temporary);
-            try {
-                Files.move(temporary, configFile, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            if (Files.exists(normalized, LinkOption.NOFOLLOW_LINKS)) {
+                copyAttributes(normalized, temporary);
             }
-            catch (AtomicMoveNotSupportedException exception) {
-                throw new IOException("The CoreProtect config filesystem does not support atomic replacement", exception);
-            }
+            moveWithFallback(temporary, normalized);
             moved = true;
             forceDirectory(directory);
         }
@@ -65,6 +75,15 @@ public final class DatabaseConfigWriter {
             if (!moved) {
                 Files.deleteIfExists(temporary);
             }
+        }
+    }
+
+    private static void moveWithFallback(Path source, Path target) throws IOException {
+        try {
+            Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        }
+        catch (AtomicMoveNotSupportedException ignored) {
+            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 
@@ -198,25 +217,45 @@ public final class DatabaseConfigWriter {
         PosixFileAttributeView targetPosix = Files.getFileAttributeView(target, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
         if (sourcePosix != null && targetPosix != null) {
             PosixFileAttributes attributes = sourcePosix.readAttributes();
-            targetPosix.setOwner(attributes.owner());
-            targetPosix.setGroup(attributes.group());
+            try {
+                targetPosix.setOwner(attributes.owner());
+                ownerCopied = true;
+            }
+            catch (FileSystemException | UnsupportedOperationException ignored) {
+            }
+            try {
+                targetPosix.setGroup(attributes.group());
+            }
+            catch (FileSystemException | UnsupportedOperationException ignored) {
+            }
             targetPosix.setPermissions(attributes.permissions());
-            ownerCopied = true;
         }
 
         AclFileAttributeView sourceAcl = Files.getFileAttributeView(source, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
         AclFileAttributeView targetAcl = Files.getFileAttributeView(target, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
         if (sourceAcl != null && targetAcl != null) {
-            targetAcl.setOwner(sourceAcl.getOwner());
-            targetAcl.setAcl(sourceAcl.getAcl());
-            ownerCopied = true;
+            try {
+                targetAcl.setOwner(sourceAcl.getOwner());
+                ownerCopied = true;
+            }
+            catch (FileSystemException | UnsupportedOperationException ignored) {
+            }
+            try {
+                targetAcl.setAcl(sourceAcl.getAcl());
+            }
+            catch (FileSystemException | UnsupportedOperationException ignored) {
+            }
         }
 
         if (!ownerCopied) {
             FileOwnerAttributeView sourceOwner = Files.getFileAttributeView(source, FileOwnerAttributeView.class, LinkOption.NOFOLLOW_LINKS);
             FileOwnerAttributeView targetOwner = Files.getFileAttributeView(target, FileOwnerAttributeView.class, LinkOption.NOFOLLOW_LINKS);
             if (sourceOwner != null && targetOwner != null) {
-                targetOwner.setOwner(sourceOwner.getOwner());
+                try {
+                    targetOwner.setOwner(sourceOwner.getOwner());
+                }
+                catch (FileSystemException | UnsupportedOperationException ignored) {
+                }
             }
         }
 

@@ -1,12 +1,8 @@
 package net.coreprotect.thread;
 
-import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -31,6 +27,7 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigFile;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.config.DatabaseConfigWriter;
 import net.coreprotect.language.Language;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.utility.Chat;
@@ -112,10 +109,10 @@ public class NetworkHandler extends Language implements Runnable {
                         if (keyConfig.length() > 0) {
                             Chat.console(Phrase.build(Phrase.INVALID_DONATION_KEY) + " " + Phrase.build(Phrase.CHECK_CONFIG) + ".");
                         }
-                        Files.write(licensePath, "".getBytes());
+                        DatabaseConfigWriter.writeAtomically(licensePath, new byte[0]);
                     }
                     else if (keyValidated) {
-                        Files.write(licensePath, donationKey.getBytes());
+                        DatabaseConfigWriter.writeAtomically(licensePath, donationKey.getBytes(StandardCharsets.UTF_8));
                     }
                     else if (Files.isReadable(licensePath)) {
                         List<String> licenseFile = Files.readAllLines(licensePath);
@@ -238,24 +235,22 @@ public class NetworkHandler extends Language implements Runnable {
                                             }
                                         }
 
-                                        File file = new File(CoreProtect.getInstance().getDataFolder(), ConfigFile.LANGUAGE_CACHE);
-                                        try (final FileOutputStream fout = new FileOutputStream(file, false)) {
-                                            OutputStreamWriter out = new OutputStreamWriter(new BufferedOutputStream(fout), StandardCharsets.UTF_8);
-                                            out.append("# CoreProtect v" + pluginVersion + " Language Cache (" + languageCode + ")");
-                                            out.append(Config.LINE_SEPARATOR);
+                                        Path cachePath = CoreProtect.getInstance().getDataFolder().toPath().resolve(ConfigFile.LANGUAGE_CACHE);
+                                        StringBuilder cacheContent = new StringBuilder();
+                                        cacheContent.append("# CoreProtect v").append(pluginVersion).append(" Language Cache (").append(languageCode).append(")");
+                                        cacheContent.append(Config.LINE_SEPARATOR);
 
-                                            for (final Entry<Phrase, String> entry : translatedPhrases.entrySet()) {
-                                                String key = entry.getKey().name();
-                                                String value = entry.getValue().replace("\\", "\\\\").replace("\"", "\\\"");
+                                        for (final Entry<Phrase, String> entry : translatedPhrases.entrySet()) {
+                                            String key = entry.getKey().name();
+                                            String value = entry.getValue().replace("\\", "\\\\").replace("\"", "\\\"");
 
-                                                out.append(Config.LINE_SEPARATOR);
-                                                out.append(key);
-                                                out.append(": ");
-                                                out.append("\"" + value + "\"");
-                                            }
-
-                                            out.close();
+                                            cacheContent.append(Config.LINE_SEPARATOR);
+                                            cacheContent.append(key);
+                                            cacheContent.append(": ");
+                                            cacheContent.append('"').append(value).append('"');
                                         }
+
+                                        DatabaseConfigWriter.writeAtomically(cachePath, cacheContent.toString().getBytes(StandardCharsets.UTF_8));
                                     }
                                 }
 

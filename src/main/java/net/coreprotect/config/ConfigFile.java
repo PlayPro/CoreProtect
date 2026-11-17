@@ -13,7 +13,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -29,7 +28,7 @@ import net.coreprotect.language.Language;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.utility.ErrorReporter;
 
-public class ConfigFile extends Config {
+public class ConfigFile {
 
     public static final String CONFIG = "config.yml";
     public static final String LANGUAGE = "language.yml";
@@ -211,7 +210,13 @@ public class ConfigFile extends Config {
         return map;
     }
 
-    @Override
+    public static String escapeQuotedValue(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\r", "\\r").replace("\n", "\\n");
+    }
+
     public void addMissingOptions(final File file) throws IOException {
         if (file.getName().startsWith(".")) {
             return;
@@ -227,7 +232,7 @@ public class ConfigFile extends Config {
 
             for (final Entry<String, String> entry : DEFAULT_VALUES.entrySet()) {
                 final String key = entry.getKey();
-                final String defaultValue = entry.getValue().replace("\\", "\\\\").replace("\"", "\\\"").replace("\r", "\\r").replace("\n", "\\n");
+                final String defaultValue = escapeQuotedValue(entry.getValue());
 
                 final String configuredValue = this.lang.get(key);
                 if (configuredValue != null) {
@@ -246,8 +251,11 @@ public class ConfigFile extends Config {
 
     public static void modifyLine(String fileName, String oldLine, String newLine) {
         try {
-            Path path = Paths.get(ConfigHandler.path + fileName);
-            List<String> lines = Files.readAllLines(path);
+            Path path = Paths.get(ConfigHandler.path).resolve(fileName);
+            if (!Files.isRegularFile(path)) {
+                return;
+            }
+            List<String> lines = Files.readAllLines(path, StandardCharsets.UTF_8);
 
             for (int i = 0; i < lines.size(); i++) {
                 if (lines.get(i).equalsIgnoreCase(oldLine)) {
@@ -262,12 +270,8 @@ public class ConfigFile extends Config {
                 }
             }
 
-            if (lines.size() > 0) {
-                String lastLine = lines.get(lines.size() - 1); // append the final line to prevent a line separator from being added
-                Files.write(path, (lines.remove(lines.size() - 1).isEmpty() ? lines : lines), StandardCharsets.UTF_8);
-                Files.write(path, lastLine.getBytes(StandardCharsets.UTF_8), StandardOpenOption.APPEND);
-                lines.clear();
-            }
+            String content = String.join(Config.LINE_SEPARATOR, lines);
+            DatabaseConfigWriter.writeAtomically(path, content.getBytes(StandardCharsets.UTF_8));
         }
         catch (Exception e) {
             ErrorReporter.report(e);
@@ -276,19 +280,17 @@ public class ConfigFile extends Config {
 
     public static void sortFile(String fileName) {
         try {
-            Path path = Paths.get(ConfigHandler.path + fileName);
-            List<String> lines = Files.readAllLines(path);
-            List<String> sort = lines.subList(2, lines.size());
-            Collections.sort(sort);
-            lines = lines.subList(0, 2);
-            lines.addAll(sort);
-
-            if (lines.size() > 0) {
-                String lastLine = lines.get(lines.size() - 1); // append the final line to prevent a line separator from being added
-                Files.write(path, (lines.remove(lines.size() - 1).isEmpty() ? lines : lines), StandardCharsets.UTF_8);
-                Files.write(path, lastLine.getBytes(StandardCharsets.UTF_8), StandardOpenOption.APPEND);
-                lines.clear();
+            Path path = Paths.get(ConfigHandler.path).resolve(fileName);
+            if (!Files.isRegularFile(path)) {
+                return;
             }
+            List<String> lines = Files.readAllLines(path, StandardCharsets.UTF_8);
+            if (lines.size() > 2) {
+                Collections.sort(lines.subList(2, lines.size()));
+            }
+
+            String content = String.join(Config.LINE_SEPARATOR, lines);
+            DatabaseConfigWriter.writeAtomically(path, content.getBytes(StandardCharsets.UTF_8));
         }
         catch (Exception e) {
             ErrorReporter.report(e);

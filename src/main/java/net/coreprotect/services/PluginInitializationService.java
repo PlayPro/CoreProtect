@@ -102,21 +102,22 @@ public class PluginInitializationService {
      *            The CoreProtect plugin instance
      */
     private static void registerCommands(JavaPlugin plugin) {
+        TabHandler tabHandler = new TabHandler();
         plugin.getCommand("coreprotect").setExecutor(CommandHandler.getInstance());
-        plugin.getCommand("coreprotect").setTabCompleter(new TabHandler());
+        plugin.getCommand("coreprotect").setTabCompleter(tabHandler);
         plugin.getCommand("core").setExecutor(CommandHandler.getInstance());
-        plugin.getCommand("core").setTabCompleter(new TabHandler());
+        plugin.getCommand("core").setTabCompleter(tabHandler);
         plugin.getCommand("co").setExecutor(CommandHandler.getInstance());
-        plugin.getCommand("co").setTabCompleter(new TabHandler());
+        plugin.getCommand("co").setTabCompleter(tabHandler);
     }
 
     /**
      * Creates the plugin data directory if it doesn't exist
      */
     private static void createDataDirectory() {
-        boolean exists = (new File(ConfigHandler.path)).exists();
-        if (!exists) {
-            new File(ConfigHandler.path).mkdir();
+        File dataDirectory = new File(ConfigHandler.path);
+        if (!dataDirectory.exists()) {
+            dataDirectory.mkdirs();
         }
     }
 

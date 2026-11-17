@@ -74,7 +74,7 @@ import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.SystemUtils;
 import net.coreprotect.utility.VersionUtils;
 
-public class ConfigHandler extends Queue {
+public class ConfigHandler {
 
     public enum CacheType {
         MATERIALS(
@@ -212,15 +212,23 @@ public class ConfigHandler extends Queue {
 
     private static final class IdentifierStore {
         private final ReferenceKind kind;
+        private final String table;
+        private final String valueColumn;
         private final Supplier<Map<String, Integer>> values;
+        private final java.util.function.Consumer<Map<String, Integer>> valuesSetter;
         private final Supplier<Map<Integer, String>> reversed;
+        private final java.util.function.Consumer<Map<Integer, String>> reversedSetter;
         private final IntSupplier maximum;
         private final IntConsumer maximumSetter;
 
-        private IdentifierStore(ReferenceKind kind, Supplier<Map<String, Integer>> values, Supplier<Map<Integer, String>> reversed, IntSupplier maximum, IntConsumer maximumSetter) {
+        private IdentifierStore(ReferenceKind kind, String table, String valueColumn, Supplier<Map<String, Integer>> values, java.util.function.Consumer<Map<String, Integer>> valuesSetter, Supplier<Map<Integer, String>> reversed, java.util.function.Consumer<Map<Integer, String>> reversedSetter, IntSupplier maximum, IntConsumer maximumSetter) {
             this.kind = kind;
+            this.table = table;
+            this.valueColumn = valueColumn;
             this.values = values;
+            this.valuesSetter = valuesSetter;
             this.reversed = reversed;
+            this.reversedSetter = reversedSetter;
             this.maximum = maximum;
             this.maximumSetter = maximumSetter;
         }
@@ -807,59 +815,19 @@ public class ConfigHandler extends Queue {
     }
 
     public static boolean loadMaterials(Statement statement) {
-        try {
-            IdentifierCache cache = loadIdentifierCache(statement, "material_map", "material");
-            ConfigHandler.materials = syncMap(cache.values);
-            ConfigHandler.materialsReversed = syncMap(cache.reversed);
-            materialId = cache.maximumId;
-            return true;
-        }
-        catch (Exception e) {
-            ErrorReporter.report(e);
-            return false;
-        }
+        return loadIdentifierCache(statement, ReferenceKind.MATERIAL);
     }
 
     public static boolean loadBlockdata(Statement statement) {
-        try {
-            IdentifierCache cache = loadIdentifierCache(statement, "blockdata_map", "data");
-            ConfigHandler.blockdata = syncMap(cache.values);
-            ConfigHandler.blockdataReversed = syncMap(cache.reversed);
-            blockdataId = cache.maximumId;
-            return true;
-        }
-        catch (Exception e) {
-            ErrorReporter.report(e);
-            return false;
-        }
+        return loadIdentifierCache(statement, ReferenceKind.BLOCK_DATA);
     }
 
     public static boolean loadArt(Statement statement) {
-        try {
-            IdentifierCache cache = loadIdentifierCache(statement, "art_map", "art");
-            ConfigHandler.art = syncMap(cache.values);
-            ConfigHandler.artReversed = syncMap(cache.reversed);
-            artId = cache.maximumId;
-            return true;
-        }
-        catch (Exception e) {
-            ErrorReporter.report(e);
-            return false;
-        }
+        return loadIdentifierCache(statement, ReferenceKind.ART);
     }
 
     public static boolean loadEntities(Statement statement) {
-        try {
-            IdentifierCache cache = loadIdentifierCache(statement, "entity_map", "entity");
-            ConfigHandler.entities = syncMap(cache.values);
-            ConfigHandler.entitiesReversed = syncMap(cache.reversed);
-            entityId = cache.maximumId;
-            return true;
-        }
-        catch (Exception e) {
-            ErrorReporter.report(e);
-            return false;
-        }
+        return loadIdentifierCache(statement, ReferenceKind.ENTITY);
     }
 
     public static boolean loadTypes(Statement statement) {
@@ -955,15 +923,15 @@ public class ConfigHandler extends Queue {
     private static boolean queueIdentifier(ReferenceKind kind, int id, String value) {
         switch (kind) {
             case ART:
-                return tryQueueIdentifierInsert(Process.ART_INSERT, id, value);
+                return Queue.tryQueueIdentifierInsert(Process.ART_INSERT, id, value);
             case BLOCK_DATA:
-                return tryQueueIdentifierInsert(Process.BLOCKDATA_INSERT, id, value);
+                return Queue.tryQueueIdentifierInsert(Process.BLOCKDATA_INSERT, id, value);
             case ENTITY:
-                return tryQueueIdentifierInsert(Process.ENTITY_INSERT, id, value);
+                return Queue.tryQueueIdentifierInsert(Process.ENTITY_INSERT, id, value);
             case MATERIAL:
-                return tryQueueIdentifierInsert(Process.MATERIAL_INSERT, id, value);
+                return Queue.tryQueueIdentifierInsert(Process.MATERIAL_INSERT, id, value);
             case WORLD:
-                return tryQueueIdentifierInsert(Process.WORLD_INSERT, id, value);
+                return Queue.tryQueueIdentifierInsert(Process.WORLD_INSERT, id, value);
             default:
                 throw new IllegalArgumentException("Unsupported identifier cache: " + kind);
         }
@@ -1025,12 +993,27 @@ public class ConfigHandler extends Queue {
 
     private static Map<ReferenceKind, IdentifierStore> identifierStores() {
         Map<ReferenceKind, IdentifierStore> stores = new EnumMap<>(ReferenceKind.class);
-        stores.put(ReferenceKind.MATERIAL, new IdentifierStore(ReferenceKind.MATERIAL, () -> materials, () -> materialsReversed, () -> materialId, id -> materialId = id));
-        stores.put(ReferenceKind.BLOCK_DATA, new IdentifierStore(ReferenceKind.BLOCK_DATA, () -> blockdata, () -> blockdataReversed, () -> blockdataId, id -> blockdataId = id));
-        stores.put(ReferenceKind.ART, new IdentifierStore(ReferenceKind.ART, () -> art, () -> artReversed, () -> artId, id -> artId = id));
-        stores.put(ReferenceKind.ENTITY, new IdentifierStore(ReferenceKind.ENTITY, () -> entities, () -> entitiesReversed, () -> entityId, id -> entityId = id));
-        stores.put(ReferenceKind.WORLD, new IdentifierStore(ReferenceKind.WORLD, () -> worlds, () -> worldsReversed, () -> worldId, id -> worldId = id));
+        stores.put(ReferenceKind.MATERIAL, new IdentifierStore(ReferenceKind.MATERIAL, "material_map", "material", () -> materials, map -> materials = map, () -> materialsReversed, map -> materialsReversed = map, () -> materialId, id -> materialId = id));
+        stores.put(ReferenceKind.BLOCK_DATA, new IdentifierStore(ReferenceKind.BLOCK_DATA, "blockdata_map", "data", () -> blockdata, map -> blockdata = map, () -> blockdataReversed, map -> blockdataReversed = map, () -> blockdataId, id -> blockdataId = id));
+        stores.put(ReferenceKind.ART, new IdentifierStore(ReferenceKind.ART, "art_map", "art", () -> art, map -> art = map, () -> artReversed, map -> artReversed = map, () -> artId, id -> artId = id));
+        stores.put(ReferenceKind.ENTITY, new IdentifierStore(ReferenceKind.ENTITY, "entity_map", "entity", () -> entities, map -> entities = map, () -> entitiesReversed, map -> entitiesReversed = map, () -> entityId, id -> entityId = id));
+        stores.put(ReferenceKind.WORLD, new IdentifierStore(ReferenceKind.WORLD, "world", "world", () -> worlds, map -> worlds = map, () -> worldsReversed, map -> worldsReversed = map, () -> worldId, id -> worldId = id));
         return stores;
+    }
+
+    private static boolean loadIdentifierCache(Statement statement, ReferenceKind kind) {
+        IdentifierStore store = identifierStore(kind);
+        try {
+            IdentifierCache cache = loadIdentifierCache(statement, store.table, store.valueColumn);
+            store.valuesSetter.accept(syncMap(cache.values));
+            store.reversedSetter.accept(syncMap(cache.reversed));
+            store.maximumSetter.accept(cache.maximumId);
+            return true;
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+            return false;
+        }
     }
 
     private static boolean reloadIdentifierCache(ReferenceKind kind) {
@@ -1039,20 +1022,7 @@ public class ConfigHandler extends Queue {
                 return false;
             }
             try (Statement statement = connection.createStatement()) {
-                switch (kind) {
-                    case MATERIAL:
-                        return loadMaterials(statement);
-                    case BLOCK_DATA:
-                        return loadBlockdata(statement);
-                    case ART:
-                        return loadArt(statement);
-                    case ENTITY:
-                        return loadEntities(statement);
-                    case WORLD:
-                        return loadWorldsFromDatabase(statement);
-                    default:
-                        return false;
-                }
+                return loadIdentifierCache(statement, kind);
             }
         }
         catch (Exception e) {
@@ -1062,17 +1032,7 @@ public class ConfigHandler extends Queue {
     }
 
     private static boolean loadWorldsFromDatabase(Statement statement) {
-        try {
-            IdentifierCache cache = loadIdentifierCache(statement, "world", "world");
-            ConfigHandler.worlds = syncMap(cache.values);
-            ConfigHandler.worldsReversed = syncMap(cache.reversed);
-            worldId = cache.maximumId;
-            return true;
-        }
-        catch (Exception e) {
-            ErrorReporter.report(e);
-            return false;
-        }
+        return loadIdentifierCache(statement, ReferenceKind.WORLD);
     }
 
     public static boolean loadWorlds(Statement statement) {

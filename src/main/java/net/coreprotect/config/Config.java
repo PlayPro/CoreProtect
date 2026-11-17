@@ -21,11 +21,10 @@ import org.bukkit.World;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.consumer.Consumer;
-import net.coreprotect.language.Language;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.VersionUtils;
 
-public class Config extends Language {
+public class Config {
 
     private static final Map<String, String[]> HEADERS = new HashMap<>();
     private static final Map<String, String> DEFAULT_VALUES = new LinkedHashMap<>();
@@ -343,12 +342,9 @@ public class Config extends Language {
         this.defaults = defaults;
     }
 
-    private String get(final String key, final String dfl) {
+    private String get(final String key) {
         String configured = this.config.get(key);
         if (configured == null) {
-            if (dfl != null) {
-                return dfl;
-            }
             if (this.defaults == null) {
                 configured = DEFAULT_VALUES.get(key);
             }
@@ -360,12 +356,12 @@ public class Config extends Language {
     }
 
     private boolean getBoolean(final String key) {
-        final String configured = this.get(key, null);
+        final String configured = this.get(key);
         return configured != null && configured.trim().equalsIgnoreCase("true");
     }
 
     private boolean getBoolean(final String key, final boolean dfl) {
-        final String configured = this.get(key, null);
+        final String configured = this.get(key);
         return configured == null ? dfl : configured.trim().equalsIgnoreCase("true");
     }
 
@@ -374,7 +370,7 @@ public class Config extends Language {
     }
 
     private int getInt(final String key, final int dfl) {
-        String configured = this.get(key, null);
+        String configured = this.get(key);
 
         if (configured == null) {
             return dfl;
@@ -394,7 +390,7 @@ public class Config extends Language {
     }
 
     private String getString(final String key) {
-        final String configured = this.get(key, null);
+        final String configured = this.get(key);
         return configured == null ? "" : configured;
     }
 

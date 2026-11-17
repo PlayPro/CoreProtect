@@ -43,7 +43,7 @@ import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.VersionUtils;
 import net.coreprotect.utility.ErrorReporter;
 
-public class NetworkHandler extends Language implements Runnable {
+public class NetworkHandler implements Runnable {
 
     private static final long LOCAL_IO_GRACE_MILLIS = 250L;
     private static final int HTTP_TIMEOUT_MILLIS = 5000;
@@ -617,7 +617,7 @@ public class NetworkHandler extends Language implements Runnable {
 
                                                 for (final Entry<Phrase, String> entry : translatedPhrases.entrySet()) {
                                                     String key = entry.getKey().name();
-                                                    String value = entry.getValue().replace("\\", "\\\\").replace("\"", "\\\"").replace("\r", "\\r").replace("\n", "\\n");
+                                                    String value = ConfigFile.escapeQuotedValue(entry.getValue());
 
                                                     cacheContent.append(Config.LINE_SEPARATOR);
                                                     cacheContent.append(key);

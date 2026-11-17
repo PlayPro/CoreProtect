@@ -10,26 +10,26 @@ public class Language {
     private static ConcurrentHashMap<Phrase, String> userPhrases = new ConcurrentHashMap<>();
     private static ConcurrentHashMap<Phrase, String> translatedPhrases = new ConcurrentHashMap<>();
 
-    protected static String getPhrase(Phrase phrase) {
+    public static String getPhrase(Phrase phrase) {
         return phrases.get(phrase);
     }
 
-    protected static String getUserPhrase(Phrase phrase) {
+    public static String getUserPhrase(Phrase phrase) {
         return userPhrases.get(phrase);
     }
 
-    protected static String getTranslatedPhrase(Phrase phrase) {
+    public static String getTranslatedPhrase(Phrase phrase) {
         return translatedPhrases.get(phrase);
     }
 
-    protected static void setUserPhrase(Phrase phrase, String value) {
+    public static void setUserPhrase(Phrase phrase, String value) {
         if (phrase == null || value == null) {
             return;
         }
         userPhrases.put(phrase, ChatColor.translateAlternateColorCodes('&', value));
     }
 
-    protected static void setTranslatedPhrase(Phrase phrase, String value) {
+    public static void setTranslatedPhrase(Phrase phrase, String value) {
         if (phrase == null || value == null) {
             return;
         }

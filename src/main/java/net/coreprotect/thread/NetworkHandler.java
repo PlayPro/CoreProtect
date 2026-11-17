@@ -5,18 +5,22 @@ import java.io.DataOutputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.channels.ClosedByInterruptException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import org.bukkit.Bukkit;
@@ -36,9 +40,15 @@ import net.coreprotect.utility.ErrorReporter;
 
 public class NetworkHandler extends Language implements Runnable {
 
+    private static final long LOCAL_IO_GRACE_MILLIS = 250L;
+    private static final Object LOCK = new Object();
+    private static final Map<Thread, NetworkHandler> ACTIVE_HANDLERS = new IdentityHashMap<>();
+
     private boolean startup = true;
     private boolean background = false;
     private boolean translate = true;
+    private volatile boolean cancelled = false;
+    private volatile boolean sleeping = false;
     private static String latestVersion = null;
     private static String latestEdgeVersion = null;
     private static String donationKey = null;
@@ -46,6 +56,116 @@ public class NetworkHandler extends Language implements Runnable {
     public NetworkHandler(boolean startup, boolean background) {
         this.startup = startup;
         this.background = background;
+    }
+
+    public static Thread startThread(NetworkHandler handler) {
+        if (handler == null) {
+            return null;
+        }
+        Thread thread = new Thread(() -> {
+            try {
+                handler.run();
+            }
+            finally {
+                synchronized (LOCK) {
+                    ACTIVE_HANDLERS.remove(Thread.currentThread());
+                }
+            }
+        }, "CoreProtect-Network");
+        thread.setDaemon(true);
+        synchronized (LOCK) {
+            ACTIVE_HANDLERS.put(thread, handler);
+        }
+        thread.start();
+        return thread;
+    }
+
+    public static void stopThreads(long timeoutMillis) {
+        List<Map.Entry<Thread, NetworkHandler>> snapshot;
+        synchronized (LOCK) {
+            if (ACTIVE_HANDLERS.isEmpty()) {
+                return;
+            }
+            snapshot = new ArrayList<>(ACTIVE_HANDLERS.entrySet());
+        }
+
+        for (Map.Entry<Thread, NetworkHandler> entry : snapshot) {
+            entry.getValue().cancelled = true;
+            if (entry.getValue().sleeping) {
+                entry.getKey().interrupt();
+            }
+        }
+
+        long boundedTimeout = Math.max(0L, timeoutMillis);
+        if (boundedTimeout == 0L) {
+            interruptAlive(snapshot);
+            return;
+        }
+
+        long startNanos = System.nanoTime();
+        long totalDeadlineNanos = startNanos + TimeUnit.MILLISECONDS.toNanos(boundedTimeout);
+        long graceDeadlineNanos = startNanos + TimeUnit.MILLISECONDS.toNanos(Math.min(LOCAL_IO_GRACE_MILLIS, boundedTimeout));
+        try {
+            joinUntil(snapshot, graceDeadlineNanos);
+            interruptAlive(snapshot);
+            joinUntil(snapshot, totalDeadlineNanos);
+        }
+        catch (InterruptedException e) {
+            interruptAlive(snapshot);
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private boolean isAborted() {
+        return cancelled || Thread.currentThread().isInterrupted();
+    }
+
+    private boolean sleepInterruptibly(long millis) {
+        if (isAborted()) {
+            return false;
+        }
+        sleeping = true;
+        try {
+            if (isAborted()) {
+                return false;
+            }
+            Thread.sleep(millis);
+            return !isAborted();
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+        finally {
+            sleeping = false;
+        }
+    }
+
+    private static void interruptAlive(List<Map.Entry<Thread, NetworkHandler>> snapshot) {
+        for (Map.Entry<Thread, NetworkHandler> entry : snapshot) {
+            Thread thread = entry.getKey();
+            if (thread.isAlive()) {
+                thread.interrupt();
+            }
+        }
+    }
+
+    private static void joinUntil(List<Map.Entry<Thread, NetworkHandler>> snapshot, long deadlineNanos) throws InterruptedException {
+        for (Map.Entry<Thread, NetworkHandler> entry : snapshot) {
+            Thread thread = entry.getKey();
+            if (!thread.isAlive()) {
+                continue;
+            }
+            long remainingNanos = deadlineNanos - System.nanoTime();
+            if (remainingNanos <= 0L) {
+                break;
+            }
+            long millis = TimeUnit.NANOSECONDS.toMillis(remainingNanos);
+            int nanos = (int) (remainingNanos - TimeUnit.MILLISECONDS.toNanos(millis));
+            if (millis > 0L || nanos > 0) {
+                thread.join(millis, nanos);
+            }
+        }
     }
 
     public static String latestVersion() {
@@ -63,6 +183,9 @@ public class NetworkHandler extends Language implements Runnable {
     @Override
     public void run() {
         try {
+            if (isAborted() || !ConfigHandler.serverRunning) {
+                return;
+            }
             try {
                 boolean keyValidated = true;
                 String keyConfig = Config.getGlobal().DONATION_KEY.trim();
@@ -103,16 +226,24 @@ public class NetworkHandler extends Language implements Runnable {
                     donationKey = null;
                 }
 
+                if (isAborted() || !ConfigHandler.serverRunning) {
+                    return;
+                }
+
                 try {
                     Path licensePath = Paths.get(ConfigHandler.path + ".license");
                     if (keyValidated && donationKey == null) {
                         if (keyConfig.length() > 0) {
                             Chat.console(Phrase.build(Phrase.INVALID_DONATION_KEY) + " " + Phrase.build(Phrase.CHECK_CONFIG) + ".");
                         }
-                        DatabaseConfigWriter.writeAtomically(licensePath, new byte[0]);
+                        if (!isAborted() && ConfigHandler.serverRunning) {
+                            DatabaseConfigWriter.writeAtomically(licensePath, new byte[0]);
+                        }
                     }
                     else if (keyValidated) {
-                        DatabaseConfigWriter.writeAtomically(licensePath, donationKey.getBytes(StandardCharsets.UTF_8));
+                        if (!isAborted() && ConfigHandler.serverRunning) {
+                            DatabaseConfigWriter.writeAtomically(licensePath, donationKey.getBytes(StandardCharsets.UTF_8));
+                        }
                     }
                     else if (Files.isReadable(licensePath)) {
                         List<String> licenseFile = Files.readAllLines(licensePath);
@@ -124,12 +255,22 @@ public class NetworkHandler extends Language implements Runnable {
                         }
                     }
                 }
+                catch (ClosedByInterruptException e) {
+                    return;
+                }
                 catch (Exception e) {
+                    if (isAborted()) {
+                        return;
+                    }
                     ErrorReporter.report(e);
                 }
             }
             catch (Exception e) {
                 // Unable to connect to coreprotect.net
+            }
+
+            if (isAborted() || !ConfigHandler.serverRunning) {
+                return;
             }
 
             if (donationKey != null) {
@@ -161,7 +302,7 @@ public class NetworkHandler extends Language implements Runnable {
                                             if (cacheVersion.equals(pluginVersion) && cacheLanguage.equals(languageCode)) {
                                                 validCache = true;
                                             }
-                                            else {
+                                            else if (!isAborted() && ConfigHandler.serverRunning) {
                                                 ConfigFile.resetCache(ConfigFile.LANGUAGE_CACHE, ConfigFile.LANGUAGE);
                                             }
                                             if (validCache && Files.getLastModifiedTime(languagePath).toMillis() >= Files.getLastModifiedTime(languageCachePath).toMillis()) {
@@ -172,11 +313,14 @@ public class NetworkHandler extends Language implements Runnable {
                                 }
                             }
                             catch (Exception e) {
+                                if (isAborted()) {
+                                    return;
+                                }
                                 ErrorReporter.report(e);
                             }
                         }
 
-                        if (!validCache) {
+                        if (!validCache && !isAborted() && ConfigHandler.serverRunning) {
                             Set<String> phraseSet = new HashSet<>();
                             Map<String, String> phrases = new HashMap<>();
 
@@ -211,7 +355,7 @@ public class NetworkHandler extends Language implements Runnable {
                                 outputStream.close();
 
                                 int status = connection.getResponseCode();
-                                if (status == 200) {
+                                if (status == 200 && !isAborted() && ConfigHandler.serverRunning) {
                                     BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), "utf-8"));
                                     StringBuilder responseBuilder = new StringBuilder();
                                     String responseLine = null;
@@ -221,7 +365,7 @@ public class NetworkHandler extends Language implements Runnable {
                                     reader.close();
 
                                     String response = responseBuilder.toString();
-                                    if (response.length() > 0 && response.startsWith("{") && response.endsWith("}")) {
+                                    if (!isAborted() && ConfigHandler.serverRunning && response.length() > 0 && response.startsWith("{") && response.endsWith("}")) {
                                         TreeMap<Phrase, String> translatedPhrases = new TreeMap<>();
                                         JSONParser parser = new JSONParser();
                                         JSONObject json = (JSONObject) parser.parse(response);
@@ -250,18 +394,23 @@ public class NetworkHandler extends Language implements Runnable {
                                             cacheContent.append('"').append(value).append('"');
                                         }
 
-                                        DatabaseConfigWriter.writeAtomically(cachePath, cacheContent.toString().getBytes(StandardCharsets.UTF_8));
+                                        if (!isAborted() && ConfigHandler.serverRunning) {
+                                            DatabaseConfigWriter.writeAtomically(cachePath, cacheContent.toString().getBytes(StandardCharsets.UTF_8));
+                                        }
                                     }
                                 }
 
                                 connection.disconnect();
+                            }
+                            catch (ClosedByInterruptException e) {
+                                return;
                             }
                             catch (Exception e) {
                                 // Unable to connect to coreprotect.net
                             }
                         }
                     }
-                    else {
+                    else if (!isAborted() && ConfigHandler.serverRunning) {
                         ConfigFile.resetCache(ConfigFile.LANGUAGE_CACHE, ConfigFile.LANGUAGE);
                     }
 
@@ -269,19 +418,22 @@ public class NetworkHandler extends Language implements Runnable {
                     translate = false;
                 }
                 catch (Exception e) {
+                    if (isAborted()) {
+                        return;
+                    }
                     ErrorReporter.report(e);
                 }
             }
 
-            if (!Config.getGlobal().CHECK_UPDATES) {
+            if (isAborted() || !ConfigHandler.serverRunning || !Config.getGlobal().CHECK_UPDATES) {
                 return;
             }
 
-            if (startup) {
-                Thread.sleep(1000);
+            if (startup && !sleepInterruptibly(1000L)) {
+                return;
             }
 
-            while (ConfigHandler.serverRunning) {
+            while (!isAborted() && ConfigHandler.serverRunning) {
                 int status = 0;
                 int statusEdge = 0;
                 HttpURLConnection connection = null;
@@ -317,6 +469,10 @@ public class NetworkHandler extends Language implements Runnable {
                     // Unable to connect to update.coreprotect.net
                 }
 
+                if (isAborted() || !ConfigHandler.serverRunning) {
+                    return;
+                }
+
                 if (status == 200) {
                     try {
                         BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
@@ -345,6 +501,9 @@ public class NetworkHandler extends Language implements Runnable {
                         reader.close();
                     }
                     catch (Exception e) {
+                        if (isAborted()) {
+                            return;
+                        }
                         ErrorReporter.report(e);
                     }
                 }
@@ -370,8 +529,15 @@ public class NetworkHandler extends Language implements Runnable {
                         reader.close();
                     }
                     catch (Exception e) {
+                        if (isAborted()) {
+                            return;
+                        }
                         ErrorReporter.report(e);
                     }
+                }
+
+                if (isAborted() || !ConfigHandler.serverRunning) {
+                    return;
                 }
 
                 try {
@@ -392,13 +558,15 @@ public class NetworkHandler extends Language implements Runnable {
                     // Unable to connect to stats.coreprotect.net
                 }
 
-                if (background) {
+                if (background && !isAborted() && ConfigHandler.serverRunning) {
                     long time = System.currentTimeMillis();
                     long sleepTime = time + 3600000; // 1 hour
 
-                    while (ConfigHandler.serverRunning && (time < sleepTime)) {
+                    while (!isAborted() && ConfigHandler.serverRunning && (time < sleepTime)) {
                         time = System.currentTimeMillis();
-                        Thread.sleep(1000);
+                        if (!sleepInterruptibly(1000L)) {
+                            return;
+                        }
                     }
                 }
                 else {
@@ -407,6 +575,12 @@ public class NetworkHandler extends Language implements Runnable {
             }
         }
         catch (Exception e) {
+            if (e instanceof ClosedByInterruptException || e instanceof InterruptedException || isAborted()) {
+                if (e instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                }
+                return;
+            }
             Chat.console(Phrase.build(Phrase.UPDATE_ERROR));
             ErrorReporter.report(e);
         }

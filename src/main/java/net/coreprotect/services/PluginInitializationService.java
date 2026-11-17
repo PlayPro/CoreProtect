@@ -152,8 +152,7 @@ public class PluginInitializationService {
         // Start network handler
         Scheduler.scheduleSyncDelayedTask(plugin, () -> {
             try {
-                Thread networkHandler = new Thread(new NetworkHandler(true, true));
-                networkHandler.start();
+                NetworkHandler.startThread(new NetworkHandler(true, true));
             }
             catch (Exception e) {
                 ErrorReporter.report(e);

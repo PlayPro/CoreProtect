@@ -105,8 +105,7 @@ public class ReloadCommand {
             resumePersistence = true;
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.RELOAD_SUCCESS));
 
-            Thread networkHandler = new Thread(new NetworkHandler(false, false));
-            networkHandler.start();
+            NetworkHandler.startThread(new NetworkHandler(false, false));
             return true;
         }
         finally {

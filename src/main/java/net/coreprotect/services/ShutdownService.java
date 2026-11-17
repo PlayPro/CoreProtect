@@ -20,6 +20,7 @@ import net.coreprotect.listener.player.PlayerQuitListener;
 import net.coreprotect.listener.player.inspector.BaseInspector;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.thread.NetworkHandler;
 import net.coreprotect.thread.TickTimeMonitor;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Extensions;
@@ -90,7 +91,7 @@ public class ShutdownService {
                     if (ConfigHandler.converterRunning) {
                         Chat.console(Phrase.build(Phrase.FINISHING_CONVERSION));
                     }
-                    else {
+                    else if (!Consumer.isPersistenceHalted()) {
                         Chat.console(Phrase.build(Phrase.FINISHING_LOGGING));
                     }
                 }
@@ -110,6 +111,7 @@ public class ShutdownService {
                 ConfigHandler.serverRunning = false;
                 TickTimeMonitor.shutdown();
                 CacheHandler.stopThread(2000L);
+                NetworkHandler.stopThreads(2000L);
                 BaseInspector.shutdown();
                 ConfigHandler.performDisable();
             }

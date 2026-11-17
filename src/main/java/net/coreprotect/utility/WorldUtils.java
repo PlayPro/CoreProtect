@@ -40,22 +40,39 @@ public class WorldUtils {
     }
 
     public static int matchWorld(String name) {
+        if (name == null) {
+            return -1;
+        }
+
         int id = -1;
         try {
             // Parse wid:# parameter used internally for /co tp click events
             if (name.startsWith("wid:")) {
-                String nameWid = name.replaceFirst("wid:", "");
-                if (nameWid.length() > 0 && nameWid.equals(nameWid.replaceAll("[^0-9]", ""))) {
-                    nameWid = getWorldName(Integer.parseInt(nameWid));
-                    if (nameWid.length() > 0) {
-                        name = nameWid;
-                    }
+                String nameWid = name.substring("wid:".length());
+                if (!isAsciiDigits(nameWid)) {
+                    return -1;
                 }
+                int wid;
+                try {
+                    wid = Integer.parseInt(nameWid);
+                }
+                catch (NumberFormatException e) {
+                    return -1;
+                }
+                String resolved = getWorldName(wid);
+                if (resolved.isEmpty()) {
+                    return -1;
+                }
+                name = resolved;
             }
 
             // Determine closest match on world name
             String result = "";
             name = name.replaceFirst("#", "").toLowerCase(java.util.Locale.ROOT).trim();
+            if (name.isEmpty()) {
+                return -1;
+            }
+
             for (World world : Bukkit.getServer().getWorlds()) {
                 String worldName = world.getName();
                 if (worldName.toLowerCase(java.util.Locale.ROOT).equals(name)) {
@@ -79,6 +96,19 @@ public class WorldUtils {
         }
 
         return id;
+    }
+
+    private static boolean isAsciiDigits(String value) {
+        if (value == null || value.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c < '0' || c > '9') {
+                return false;
+            }
+        }
+        return true;
     }
 
     public static String getWidIndex(String queryTable) {

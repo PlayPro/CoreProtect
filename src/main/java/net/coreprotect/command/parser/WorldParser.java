@@ -38,8 +38,10 @@ public class WorldParser {
             else if (lower.startsWith("#")) {
                 worldId = WorldUtils.matchWorld(lower);
                 if (worldId == -1 && !requireLoaded) {
-                    String worldName = value.substring(1);
-                    worldId = ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.WORLDS, worldName, false);
+                    String worldName = value.substring(1).trim();
+                    if (!worldName.isEmpty()) {
+                        worldId = ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.WORLDS, worldName, false);
+                    }
                 }
             }
         }
@@ -93,12 +95,21 @@ public class WorldParser {
      */
     public static boolean parseForceGlobal(String[] inputArguments) {
         boolean result = false;
-        for (String value : extractRadiusValues(inputArguments, false)) {
-            if (isGlobalKeyword(value)) {
+        for (String value : extractRadiusValues(inputArguments, true)) {
+            String lower = value.toLowerCase(Locale.ROOT);
+            if (isGlobalKeyword(lower)) {
                 result = true;
             }
-            else if (value.startsWith("#") && WorldUtils.matchWorld(value) > 0) {
-                result = true;
+            else if (lower.startsWith("#") && !isWorldEditToken(lower)) {
+                if (WorldUtils.matchWorld(lower) > 0) {
+                    result = true;
+                }
+                else {
+                    String worldName = value.substring(1).trim();
+                    if (!worldName.isEmpty() && ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.WORLDS, worldName, false) > 0) {
+                        result = true;
+                    }
+                }
             }
         }
         return result;

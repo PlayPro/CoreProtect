@@ -33,7 +33,7 @@ public class Paper_v1_19 extends Paper_v1_17 {
         if (!ConfigHandler.isFolia) {
             return false;
         }
-        return entity.getScheduler().execute(plugin, task, retiredTask, delayTicks);
+        return entity.getScheduler().execute(plugin, task, retiredTask, Math.max(0L, delayTicks));
     }
 
     @Override

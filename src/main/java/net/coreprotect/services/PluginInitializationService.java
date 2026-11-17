@@ -49,6 +49,10 @@ public class PluginInitializationService {
         // Load language phrases
         Language.loadPhrases();
 
+        // Capture primary-thread server port and cached license before startup checks
+        NetworkHandler.setServerPort(plugin.getServer().getPort());
+        NetworkHandler.loadCachedLicense();
+
         // Perform version checks
         boolean start = VersionCheckService.performVersionChecks();
         if (!start) {

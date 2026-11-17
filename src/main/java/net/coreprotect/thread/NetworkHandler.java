@@ -2,9 +2,12 @@ package net.coreprotect.thread;
 
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.channels.ClosedByInterruptException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -15,15 +18,17 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-import org.bukkit.Bukkit;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 
@@ -41,17 +46,29 @@ import net.coreprotect.utility.ErrorReporter;
 public class NetworkHandler extends Language implements Runnable {
 
     private static final long LOCAL_IO_GRACE_MILLIS = 250L;
+    private static final int HTTP_TIMEOUT_MILLIS = 5000;
+    private static final int MAX_HTTP_REDIRECTS = 5;
+    private static final Pattern VERSION_BASE_PATTERN = Pattern.compile("^\\d+(?:\\.\\d+)+$");
     private static final Object LOCK = new Object();
+    private static final Object LICENSE_LOCK = new Object();
+    private static final AtomicLong LICENSE_EPOCH = new AtomicLong();
     private static final Map<Thread, NetworkHandler> ACTIVE_HANDLERS = new IdentityHashMap<>();
+
+    private static volatile String licenseBaseUrl = "https://coreprotect.net/license/";
+    private static volatile String translateUrl = "https://coreprotect.net/translate/";
+    private static volatile String updateVersionUrl = "https://update.coreprotect.net/version/";
+    private static volatile String updateEdgeVersionUrl = "https://update.coreprotect.net/version-edge/";
+    private static volatile String statsBaseUrl = "https://stats.coreprotect.net/u/?data=";
 
     private boolean startup = true;
     private boolean background = false;
     private boolean translate = true;
     private volatile boolean cancelled = false;
     private volatile boolean sleeping = false;
-    private static String latestVersion = null;
-    private static String latestEdgeVersion = null;
-    private static String donationKey = null;
+    private static volatile String latestVersion = null;
+    private static volatile String latestEdgeVersion = null;
+    private static volatile String donationKey = null;
+    private static volatile int serverPort = 0;
 
     public NetworkHandler(boolean startup, boolean background) {
         this.startup = startup;
@@ -201,6 +218,198 @@ public class NetworkHandler extends Language implements Runnable {
         return donationKey;
     }
 
+    public static void setServerPort(int port) {
+        serverPort = port;
+    }
+
+    public static void loadCachedLicense() {
+        synchronized (LICENSE_LOCK) {
+            if (donationKey != null) {
+                return;
+            }
+            Path licensePath = Paths.get(ConfigHandler.path + ".license");
+            if (Files.isReadable(licensePath)) {
+                try {
+                    String cached = readLicenseFile(licensePath);
+                    if (cached != null) {
+                        donationKey = cached;
+                    }
+                }
+                catch (Exception e) {
+                    // Ignore unreadable cached license during early startup
+                }
+            }
+        }
+    }
+
+    static void setEndpointsForTesting(String licenseBase, String translate, String updateVersion, String updateEdgeVersion, String statsBase) {
+        licenseBaseUrl = licenseBase;
+        translateUrl = translate;
+        updateVersionUrl = updateVersion;
+        updateEdgeVersionUrl = updateEdgeVersion;
+        statsBaseUrl = statsBase;
+    }
+
+    static void resetEndpoints() {
+        licenseBaseUrl = "https://coreprotect.net/license/";
+        translateUrl = "https://coreprotect.net/translate/";
+        updateVersionUrl = "https://update.coreprotect.net/version/";
+        updateEdgeVersionUrl = "https://update.coreprotect.net/version-edge/";
+        statsBaseUrl = "https://stats.coreprotect.net/u/?data=";
+    }
+
+    static void resetStateForTesting() {
+        LICENSE_EPOCH.incrementAndGet();
+        latestVersion = null;
+        latestEdgeVersion = null;
+        donationKey = null;
+        serverPort = 0;
+        resetEndpoints();
+    }
+
+    private static String readLicenseFile(Path licensePath) throws IOException {
+        List<String> licenseFile = Files.readAllLines(licensePath, StandardCharsets.UTF_8);
+        if (licenseFile.size() == 1) {
+            String value = licenseFile.get(0);
+            if (value != null && value.length() == 8 && value.matches("^[A-Z0-9]+$")) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private static final class HttpResult {
+        private final int status;
+        private final String body;
+
+        private HttpResult(int status, String body) {
+            this.status = status;
+            this.body = body;
+        }
+    }
+
+    private static HttpResult executeHttpRequest(String initialUrl, String method, String userAgent, String contentType, byte[] postBody, boolean readFullBody) throws IOException {
+        String currentUrl = initialUrl;
+        for (int redirectCount = 0; redirectCount <= MAX_HTTP_REDIRECTS; redirectCount++) {
+            URL url = URI.create(currentUrl).toURL();
+            String currentScheme = url.getProtocol() == null ? "" : url.getProtocol().toLowerCase(Locale.ROOT);
+            if (!"http".equals(currentScheme) && !"https".equals(currentScheme)) {
+                throw new IOException("Unsupported HTTP scheme: " + currentScheme);
+            }
+
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            try {
+                connection.setRequestMethod(method);
+                connection.setRequestProperty("Accept-Charset", "UTF-8");
+                connection.setRequestProperty("User-Agent", userAgent);
+                connection.setInstanceFollowRedirects(false);
+                connection.setUseCaches(false);
+                connection.setConnectTimeout(HTTP_TIMEOUT_MILLIS);
+                connection.setReadTimeout(HTTP_TIMEOUT_MILLIS);
+                if (postBody != null && "POST".equals(method)) {
+                    connection.setRequestProperty("Content-Type", contentType);
+                    connection.setRequestProperty("Content-Length", Integer.toString(postBody.length));
+                    connection.setDoOutput(true);
+                    try (DataOutputStream outputStream = new DataOutputStream(connection.getOutputStream())) {
+                        outputStream.write(postBody);
+                    }
+                }
+                else {
+                    connection.connect();
+                }
+
+                int status = connection.getResponseCode();
+                if (status == HttpURLConnection.HTTP_MOVED_PERM
+                        || status == HttpURLConnection.HTTP_MOVED_TEMP
+                        || status == HttpURLConnection.HTTP_SEE_OTHER
+                        || status == 307
+                        || status == 308) {
+                    String location = connection.getHeaderField("Location");
+                    if (location == null || location.trim().isEmpty() || redirectCount == MAX_HTTP_REDIRECTS) {
+                        return new HttpResult(status, null);
+                    }
+                    URI nextUri;
+                    try {
+                        nextUri = url.toURI().resolve(location.trim());
+                    }
+                    catch (Exception e) {
+                        throw new IOException("Invalid redirect URI", e);
+                    }
+                    String nextScheme = nextUri.getScheme() == null ? "" : nextUri.getScheme().toLowerCase(Locale.ROOT);
+                    if (!"http".equals(nextScheme) && !"https".equals(nextScheme)) {
+                        throw new IOException("Unsupported redirect scheme: " + nextScheme);
+                    }
+                    if ("https".equals(currentScheme) && "http".equals(nextScheme)) {
+                        throw new IOException("Refusing HTTPS to HTTP downgrade redirect");
+                    }
+                    currentUrl = nextUri.toString();
+                    continue;
+                }
+
+                String body = null;
+                if (status == HttpURLConnection.HTTP_OK) {
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+                        if (readFullBody) {
+                            StringBuilder responseBuilder = new StringBuilder();
+                            String line;
+                            while ((line = reader.readLine()) != null) {
+                                responseBuilder.append(line.trim());
+                            }
+                            body = responseBuilder.toString();
+                        }
+                        else {
+                            body = reader.readLine();
+                        }
+                    }
+                }
+                return new HttpResult(status, body);
+            }
+            finally {
+                connection.disconnect();
+            }
+        }
+        throw new IOException("Too many redirects");
+    }
+
+    static String parseRemoteVersion(String response) {
+        if (response == null) {
+            return null;
+        }
+        String trimmed = response.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        if (trimmed.startsWith("v") || trimmed.startsWith("V")) {
+            trimmed = trimmed.substring(1).trim();
+        }
+        int dashIndex = trimmed.indexOf('-');
+        int plusIndex = trimmed.indexOf('+');
+        int cutIndex = -1;
+        if (dashIndex >= 0 && plusIndex >= 0) {
+            cutIndex = Math.min(dashIndex, plusIndex);
+        }
+        else if (dashIndex >= 0) {
+            cutIndex = dashIndex;
+        }
+        else if (plusIndex >= 0) {
+            cutIndex = plusIndex;
+        }
+        if (cutIndex >= 0) {
+            String suffix = trimmed.substring(cutIndex + 1);
+            for (int i = 0; i < suffix.length(); i++) {
+                char c = suffix.charAt(i);
+                if (Character.isWhitespace(c) || c == '<' || c == '>') {
+                    return null;
+                }
+            }
+            trimmed = trimmed.substring(0, cutIndex).trim();
+        }
+        if (!VERSION_BASE_PATTERN.matcher(trimmed).matches()) {
+            return null;
+        }
+        return trimmed;
+    }
+
     @Override
     public void run() {
         try {
@@ -208,43 +417,37 @@ public class NetworkHandler extends Language implements Runnable {
                 return;
             }
             try {
-                boolean keyValidated = true;
-                String keyConfig = Config.getGlobal().DONATION_KEY.trim();
-                if (keyConfig.length() > 0) {
-                    URL url = new URL("http://coreprotect.net/license/" + keyConfig);
-                    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-                    connection.setRequestMethod("GET");
-                    connection.setRequestProperty("Accept-Charset", "UTF-8");
-                    connection.setRequestProperty("User-Agent", "CoreProtect");
-                    connection.setDoOutput(true);
-                    connection.setInstanceFollowRedirects(true);
-                    connection.setConnectTimeout(5000);
-                    connection.connect();
-                    int status = connection.getResponseCode();
+                final long licenseEpoch;
+                final String keyConfig;
+                synchronized (LICENSE_LOCK) {
+                    licenseEpoch = LICENSE_EPOCH.incrementAndGet();
+                    String rawKey = Config.getGlobal().DONATION_KEY;
+                    keyConfig = rawKey == null ? "" : rawKey.trim();
+                }
 
-                    if (status == 200) {
-                        BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-                        String response = reader.readLine();
+                boolean keyValidated = true;
+                String resolvedKey = null;
+                if (keyConfig.length() > 0) {
+                    String encodedKey = URLEncoder.encode(keyConfig, StandardCharsets.UTF_8).replace("+", "%20");
+                    HttpResult result = executeHttpRequest(licenseBaseUrl + encodedKey, "GET", "CoreProtect", null, null, false);
+                    if (result.status == HttpURLConnection.HTTP_OK) {
+                        String response = result.body;
                         if (response != null && response.length() > 0) {
                             String[] remoteKey = response.replaceAll("[^a-zA-Z0-9;]", "").split(";");
                             if (remoteKey.length > 1 && remoteKey[1].equals("1") && remoteKey[0].length() == 8) {
-                                donationKey = remoteKey[0];
+                                resolvedKey = remoteKey[0];
                             }
                             else if (remoteKey.length > 1) {
-                                donationKey = null;
+                                resolvedKey = null;
                             }
                             else {
                                 keyValidated = false;
                             }
                         }
-                        reader.close();
                     }
                     else {
                         keyValidated = false;
                     }
-                }
-                else {
-                    donationKey = null;
                 }
 
                 if (isAborted() || !ConfigHandler.serverRunning) {
@@ -252,27 +455,31 @@ public class NetworkHandler extends Language implements Runnable {
                 }
 
                 try {
-                    Path licensePath = Paths.get(ConfigHandler.path + ".license");
-                    if (keyValidated && donationKey == null) {
-                        if (keyConfig.length() > 0) {
-                            Chat.console(Phrase.build(Phrase.INVALID_DONATION_KEY) + " " + Phrase.build(Phrase.CHECK_CONFIG) + ".");
+                    synchronized (LICENSE_LOCK) {
+                        if (LICENSE_EPOCH.get() != licenseEpoch || isAborted() || !ConfigHandler.serverRunning) {
+                            return;
                         }
-                        if (!isAborted() && ConfigHandler.serverRunning) {
-                            DatabaseConfigWriter.writeAtomically(licensePath, new byte[0]);
-                        }
-                    }
-                    else if (keyValidated) {
-                        if (!isAborted() && ConfigHandler.serverRunning) {
-                            DatabaseConfigWriter.writeAtomically(licensePath, donationKey.getBytes(StandardCharsets.UTF_8));
-                        }
-                    }
-                    else if (Files.isReadable(licensePath)) {
-                        List<String> licenseFile = Files.readAllLines(licensePath);
-                        if (licenseFile.size() == 1) {
-                            donationKey = licenseFile.get(0);
-                            if (donationKey == null || donationKey.length() != 8 || !donationKey.matches("^[A-Z0-9]+$")) {
-                                donationKey = null;
+                        Path licensePath = Paths.get(ConfigHandler.path + ".license");
+                        if (keyValidated && resolvedKey == null) {
+                            donationKey = null;
+                            if (keyConfig.length() > 0) {
+                                Chat.console(Phrase.build(Phrase.INVALID_DONATION_KEY) + " " + Phrase.build(Phrase.CHECK_CONFIG) + ".");
                             }
+                            if (!isAborted() && ConfigHandler.serverRunning) {
+                                DatabaseConfigWriter.writeAtomically(licensePath, new byte[0]);
+                            }
+                        }
+                        else if (keyValidated) {
+                            donationKey = resolvedKey;
+                            if (!isAborted() && ConfigHandler.serverRunning) {
+                                DatabaseConfigWriter.writeAtomically(licensePath, resolvedKey.getBytes(StandardCharsets.UTF_8));
+                            }
+                        }
+                        else if (Files.isReadable(licensePath)) {
+                            donationKey = readLicenseFile(licensePath);
+                        }
+                        else {
+                            donationKey = null;
                         }
                     }
                 }
@@ -301,7 +508,7 @@ public class NetworkHandler extends Language implements Runnable {
             if (translate) {
                 try {
                     String lang = Config.getGlobal().LANGUAGE;
-                    String languageCode = lang.trim().toLowerCase();
+                    String languageCode = lang == null ? "en" : lang.trim().toLowerCase(Locale.ROOT);
                     String pluginVersion = VersionUtils.getPluginVersion();
 
                     if (!languageCode.startsWith("en") && languageCode.length() > 1) {
@@ -364,40 +571,14 @@ public class NetworkHandler extends Language implements Runnable {
                         }
 
                         if (shouldTranslate && !isAborted() && ConfigHandler.serverRunning) {
-                            String mapString = "data=" + JSONObject.toJSONString(phrases);
-                            mapString = mapString.replaceAll("\\+", "{PLUS_SIGN}");
+                            String mapString = "data=" + URLEncoder.encode(JSONObject.toJSONString(phrases), StandardCharsets.UTF_8);
                             byte[] postData = mapString.getBytes(StandardCharsets.UTF_8);
-                            int postDataLength = postData.length;
 
                             try {
-                                URL url = new URL("http://coreprotect.net/translate/");
-                                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-                                connection.setRequestMethod("POST");
-                                connection.setRequestProperty("Accept-Charset", "UTF-8");
-                                connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=utf-8");
-                                connection.setRequestProperty("User-Agent", "CoreProtect");
-                                connection.setRequestProperty("Content-Length", Integer.toString(postDataLength));
-                                connection.setDoOutput(true);
-                                connection.setInstanceFollowRedirects(true);
-                                connection.setUseCaches(false);
-                                connection.setConnectTimeout(5000);
-
-                                DataOutputStream outputStream = new DataOutputStream(connection.getOutputStream());
-                                outputStream.write(postData);
-                                outputStream.close();
-
-                                int status = connection.getResponseCode();
-                                if (status == 200 && !isAborted() && ConfigHandler.serverRunning) {
-                                    BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), "utf-8"));
-                                    StringBuilder responseBuilder = new StringBuilder();
-                                    String responseLine = null;
-                                    while ((responseLine = reader.readLine()) != null) {
-                                        responseBuilder.append(responseLine.trim());
-                                    }
-                                    reader.close();
-
-                                    String response = responseBuilder.toString();
-                                    if (!isAborted() && ConfigHandler.serverRunning && response.length() > 0 && response.startsWith("{") && response.endsWith("}")) {
+                                HttpResult result = executeHttpRequest(translateUrl, "POST", "CoreProtect", "application/x-www-form-urlencoded; charset=utf-8", postData, true);
+                                if (result.status == HttpURLConnection.HTTP_OK && result.body != null && !isAborted() && ConfigHandler.serverRunning) {
+                                    String response = result.body;
+                                    if (response.length() > 0 && response.startsWith("{") && response.endsWith("}")) {
                                         TreeMap<Phrase, String> translatedPhrases = new TreeMap<>();
                                         JSONParser parser = new JSONParser();
                                         Object parsedObject = parser.parse(response);
@@ -446,8 +627,6 @@ public class NetworkHandler extends Language implements Runnable {
                                         }
                                     }
                                 }
-
-                                connection.disconnect();
                             }
                             catch (ClosedByInterruptException e) {
                                 return;
@@ -472,7 +651,12 @@ public class NetworkHandler extends Language implements Runnable {
                 }
             }
 
-            if (isAborted() || !ConfigHandler.serverRunning || !Config.getGlobal().CHECK_UPDATES) {
+            if (isAborted() || !ConfigHandler.serverRunning) {
+                return;
+            }
+            if (!Config.getGlobal().CHECK_UPDATES) {
+                latestVersion = null;
+                latestEdgeVersion = null;
                 return;
             }
 
@@ -481,71 +665,57 @@ public class NetworkHandler extends Language implements Runnable {
             }
 
             while (!isAborted() && ConfigHandler.serverRunning) {
-                int status = 0;
-                int statusEdge = 0;
-                HttpURLConnection connection = null;
-                HttpURLConnection connectionEdge = null;
+                if (!Config.getGlobal().CHECK_UPDATES) {
+                    latestVersion = null;
+                    latestEdgeVersion = null;
+                    return;
+                }
+
                 String version = VersionUtils.getPluginVersion();
+                String userAgent = "CoreProtect/v" + version + " (by Intelli)";
 
+                HttpResult releaseResult = null;
+                HttpResult edgeResult = null;
                 try {
-                    // CoreProtect Community Edition
-                    URL url = new URL("http://update.coreprotect.net/version/");
-                    connection = (HttpURLConnection) url.openConnection();
-                    connection.setRequestMethod("GET");
-                    connection.setRequestProperty("Accept-Charset", "UTF-8");
-                    connection.setRequestProperty("User-Agent", "CoreProtect/v" + version + " (by Intelli)");
-                    connection.setDoOutput(true);
-                    connection.setInstanceFollowRedirects(true);
-                    connection.setConnectTimeout(5000);
-                    connection.connect();
-                    status = connection.getResponseCode();
-
-                    // CoreProtect Edge
-                    url = new URL("http://update.coreprotect.net/version-edge/");
-                    connectionEdge = (HttpURLConnection) url.openConnection();
-                    connectionEdge.setRequestMethod("GET");
-                    connectionEdge.setRequestProperty("Accept-Charset", "UTF-8");
-                    connectionEdge.setRequestProperty("User-Agent", "CoreProtect/v" + version + " (by Intelli)");
-                    connectionEdge.setDoOutput(true);
-                    connectionEdge.setInstanceFollowRedirects(true);
-                    connectionEdge.setConnectTimeout(5000);
-                    connectionEdge.connect();
-                    statusEdge = connectionEdge.getResponseCode();
+                    releaseResult = executeHttpRequest(updateVersionUrl, "GET", userAgent, null, null, false);
+                }
+                catch (Exception e) {
+                    // Unable to connect to update.coreprotect.net
+                }
+                try {
+                    edgeResult = executeHttpRequest(updateEdgeVersionUrl, "GET", userAgent, null, null, false);
                 }
                 catch (Exception e) {
                     // Unable to connect to update.coreprotect.net
                 }
 
-                if (isAborted() || !ConfigHandler.serverRunning) {
+                if (isAborted() || !ConfigHandler.serverRunning || !Config.getGlobal().CHECK_UPDATES) {
+                    if (!Config.getGlobal().CHECK_UPDATES) {
+                        latestVersion = null;
+                        latestEdgeVersion = null;
+                    }
                     return;
                 }
 
-                if (status == 200) {
+                if (releaseResult != null && releaseResult.status == HttpURLConnection.HTTP_OK) {
                     try {
-                        BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-                        String response = reader.readLine();
-
-                        if (response.length() > 0 && response.length() < 10) {
-                            String remoteVersion = response.replaceAll("[^0-9.]", "");
-                            if (remoteVersion.contains(".")) {
-                                boolean newVersion = VersionUtils.newVersion(version, remoteVersion);
-                                if (newVersion) {
-                                    latestVersion = remoteVersion;
-                                    if (startup) {
-                                        Chat.console("--------------------");
-                                        Chat.console(Phrase.build(Phrase.VERSION_NOTICE, remoteVersion));
-                                        Chat.console(Phrase.build(Phrase.LINK_DOWNLOAD, "www.coreprotect.net/download/"));
-                                        Chat.console("--------------------");
-                                        startup = false;
-                                    }
-                                }
-                                else {
-                                    latestVersion = null;
+                        String remoteVersion = parseRemoteVersion(releaseResult.body);
+                        if (remoteVersion != null) {
+                            boolean newVersion = VersionUtils.newVersion(version, remoteVersion);
+                            if (newVersion) {
+                                latestVersion = remoteVersion;
+                                if (startup) {
+                                    Chat.console("--------------------");
+                                    Chat.console(Phrase.build(Phrase.VERSION_NOTICE, remoteVersion));
+                                    Chat.console(Phrase.build(Phrase.LINK_DOWNLOAD, "www.coreprotect.net/download/"));
+                                    Chat.console("--------------------");
+                                    startup = false;
                                 }
                             }
+                            else {
+                                latestVersion = null;
+                            }
                         }
-
-                        reader.close();
                     }
                     catch (Exception e) {
                         if (isAborted()) {
@@ -555,25 +725,18 @@ public class NetworkHandler extends Language implements Runnable {
                     }
                 }
 
-                if (statusEdge == 200) {
+                if (edgeResult != null && edgeResult.status == HttpURLConnection.HTTP_OK) {
                     try {
-                        BufferedReader reader = new BufferedReader(new InputStreamReader(connectionEdge.getInputStream()));
-                        String response = reader.readLine();
-
-                        if (response.length() > 0 && response.length() < 10) {
-                            String remoteVersion = response.replaceAll("[^0-9.]", "");
-                            if (remoteVersion.contains(".")) {
-                                boolean newVersion = VersionUtils.newVersion(version, remoteVersion);
-                                if (newVersion) {
-                                    latestEdgeVersion = remoteVersion;
-                                }
-                                else {
-                                    latestEdgeVersion = null;
-                                }
+                        String remoteVersion = parseRemoteVersion(edgeResult.body);
+                        if (remoteVersion != null) {
+                            boolean newVersion = VersionUtils.newVersion(version, remoteVersion);
+                            if (newVersion) {
+                                latestEdgeVersion = remoteVersion;
+                            }
+                            else {
+                                latestEdgeVersion = null;
                             }
                         }
-
-                        reader.close();
                     }
                     catch (Exception e) {
                         if (isAborted()) {
@@ -589,17 +752,11 @@ public class NetworkHandler extends Language implements Runnable {
 
                 try {
                     /* Stat gathering */
-                    int port = Bukkit.getServer().getPort();
-                    String stats = port + ":" + (donationKey != null ? donationKey : "") + ":" + version + ConfigHandler.EDITION_BRANCH;
-                    URL url = new URL("http://stats.coreprotect.net/u/?data=" + stats);
-                    connection = (HttpURLConnection) url.openConnection();
-                    connection.setRequestMethod("GET");
-                    connection.setRequestProperty("Accept-Charset", "UTF-8");
-                    connection.setRequestProperty("User-Agent", "CoreProtect");
-                    connection.setConnectTimeout(5000);
-                    connection.connect();
-                    connection.getResponseCode();
-                    connection.disconnect();
+                    int port = serverPort;
+                    String currentKey = donationKey;
+                    String stats = port + ":" + (currentKey != null ? currentKey : "") + ":" + version + ConfigHandler.EDITION_BRANCH;
+                    String encodedStats = URLEncoder.encode(stats, StandardCharsets.UTF_8);
+                    executeHttpRequest(statsBaseUrl + encodedStats, "GET", "CoreProtect", null, null, false);
                 }
                 catch (Exception e) {
                     // Unable to connect to stats.coreprotect.net

@@ -444,6 +444,9 @@ public class NetworkHandler extends Language implements Runnable {
                                 keyValidated = false;
                             }
                         }
+                        else {
+                            keyValidated = false;
+                        }
                     }
                     else {
                         keyValidated = false;

@@ -107,6 +107,12 @@ public class TimeParser {
         private final DurationSide first = new DurationSide();
         private final DurationSide second = new DurationSide();
         private boolean range;
+
+        private long[] sortedSeconds() {
+            long firstSeconds = first.toSeconds();
+            long secondSeconds = range ? second.toSeconds() : 0L;
+            return new long[] { Math.max(firstSeconds, secondSeconds), Math.min(firstSeconds, secondSeconds) };
+        }
     }
 
     /**
@@ -117,14 +123,17 @@ public class TimeParser {
      * @return An array of two longs - [time1, time2]
      */
     public static long[] parseTime(String[] inputArguments) {
-        ParsedTime parsed = parseDurationArguments(inputArguments);
-        long timeStart = parsed.first.toSeconds();
-        long timeEnd = parsed.range ? parsed.second.toSeconds() : 0L;
+        return parseDurationArguments(inputArguments).sortedSeconds();
+    }
 
-        if (timeEnd >= timeStart) {
-            return new long[] { timeEnd, timeStart };
+    public static long[] parsePurgeTime(String[] inputArguments) {
+        ParsedTime parsed = parseDurationArguments(inputArguments);
+        long[] bounds = parsed.sortedSeconds();
+        if (!parsed.range) {
+            bounds[1] = bounds[0];
+            bounds[0] = 0L;
         }
-        return new long[] { timeStart, timeEnd };
+        return bounds;
     }
 
     public static boolean isValidDuration(String spec) {

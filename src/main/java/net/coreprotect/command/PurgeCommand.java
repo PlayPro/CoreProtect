@@ -268,16 +268,16 @@ public class PurgeCommand extends Consumer {
         final List<Object> argBlocks = CommandParser.parseRestricted(player, args, argAction);
         final Map<Object, Boolean> argExclude = CommandParser.parseExcluded(player, args, argAction);
         final List<String> argExcludeUsers = CommandParser.parseExcludedUsers(player, args);
-        final long[] argTime = CommandParser.parseTime(args);
+        final long[] argTime = TimeParser.parsePurgeTime(args);
         final int argWid = CommandParser.parseWorld(args, false, false);
         final List<Integer> supportedActions = Arrays.asList(LookupActions.ENTITY_KILL);
-        long startTime = argTime[1] > 0 ? argTime[0] : 0;
-        long endTime = argTime[1] > 0 ? argTime[1] : argTime[0];
+        long startTime = argTime[0];
+        long endTime = argTime[1];
 
         if (argBlocks == null || argExclude == null || argExcludeUsers == null) {
             return;
         }
-        if (endTime <= 0) {
+        if (startTime == 0L && endTime == 0L) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co purge t:<time>"));
             return;
         }

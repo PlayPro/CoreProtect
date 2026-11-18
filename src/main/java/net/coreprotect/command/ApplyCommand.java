@@ -17,6 +17,11 @@ import net.coreprotect.utility.ErrorReporter;
 
 public class ApplyCommand {
     protected static void runCommand(CommandSender user, Command command, boolean permission, String[] args) {
+        if (!permission) {
+            Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
+            return;
+        }
+
         try {
             if (ConfigHandler.lastRollback.get(user.getName()) != null) {
                 List<Object> list = ConfigHandler.lastRollback.get(user.getName());

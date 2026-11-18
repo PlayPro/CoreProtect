@@ -17,12 +17,17 @@ import net.coreprotect.utility.ErrorReporter;
 
 public class UndoCommand {
     protected static void runCommand(CommandSender user, Command command, boolean permission, String[] args) {
+        if (!permission) {
+            Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
+            return;
+        }
+
         try {
             if (ConfigHandler.lastRollback.get(user.getName()) != null) {
                 List<Object> list = ConfigHandler.lastRollback.get(user.getName());
                 long startTime = (Long) list.get(0);
                 long endTime = (Long) list.get(1);
-                String[] undoArgs = (String[]) list.get(2);
+                String[] undoArgs = ((String[]) list.get(2)).clone();
                 Location location = (Location) list.get(3);
                 for (int i = 1; i < undoArgs.length; i++) {
                     if (ActionParser.isPreviewArgument(undoArgs[i])) {

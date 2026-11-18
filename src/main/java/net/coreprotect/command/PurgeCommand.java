@@ -193,9 +193,11 @@ public class PurgeCommand extends Consumer {
                 continue;
             }
 
-            if (argument.contains(":")) {
-                return token;
+            if (argument.startsWith("c:") || argument.startsWith("coord:") || argument.startsWith("location:")) {
+                continue;
             }
+
+            return token;
         }
 
         // An empty list would silently purge without that include or exclude restriction

@@ -114,17 +114,18 @@ public class EntityUtils {
 
     public static EntityType getEntityType(String name) {
         // Name entered by user
-        EntityType type = null;
+        if (name == null) {
+            return null;
+        }
         name = name.toLowerCase(Locale.ROOT).trim();
-        if (name.contains(NAMESPACE)) {
-            name = (name.split(":"))[1];
+        if (name.startsWith(NAMESPACE)) {
+            name = name.substring(NAMESPACE.length());
+        }
+        if (name.isEmpty() || name.indexOf(':') >= 0 || getEntityId(name, false) == -1) {
+            return null;
         }
 
-        if (getEntityId(name, false) != -1) {
-            type = EntityType.valueOf(name.toUpperCase(Locale.ROOT));
-        }
-
-        return type;
+        return EntityType.valueOf(name.toUpperCase(Locale.ROOT));
     }
 
     public static int getSpawnerType(EntityType type) {

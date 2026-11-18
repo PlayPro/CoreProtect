@@ -125,14 +125,16 @@ public class MaterialParser {
                 if (spec.contains(",")) {
                     for (String part : spec.split(",")) {
                         String candidate = part.trim();
-                        if (!candidate.isEmpty()) {
-                            addExcludedTarget(candidate, argAction, excluded);
+                        if (!candidate.isEmpty() && !addExcludedTarget(player, candidate, argAction, excluded)) {
+                            return null;
                         }
                     }
                     next = spec.endsWith(",") ? 5 : 0;
                 }
                 else {
-                    addExcludedTarget(spec, argAction, excluded);
+                    if (!addExcludedTarget(player, spec, argAction, excluded)) {
+                        return null;
+                    }
                     next = 0;
                 }
             }
@@ -147,26 +149,43 @@ public class MaterialParser {
         if (checkTags(token, restricted)) {
             return true;
         }
-        Object target = resolveTarget(token, argAction);
+        Object target = hasInvalidNamespace(token) ? null : resolveTarget(token, argAction);
         if (target != null) {
             restricted.add(target);
             return true;
         }
+        return rejectTarget(player, token);
+    }
+
+    private static boolean addExcludedTarget(CommandSender player, String token, List<Integer> argAction, Map<Object, Boolean> excluded) {
+        if (hasInvalidNamespace(token)) {
+            return rejectTarget(player, token);
+        }
+        if (!checkTags(token, excluded)) {
+            Object target = resolveTarget(token, argAction);
+            if (target != null) {
+                excluded.put(target, false);
+            }
+        }
+        return true;
+    }
+
+    private static boolean rejectTarget(CommandSender player, String token) {
         Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE, token));
         return false;
     }
 
-    private static void addExcludedTarget(String token, List<Integer> argAction, Map<Object, Boolean> excluded) {
-        if (checkTags(token, excluded)) {
-            return;
-        }
-        Object target = resolveTarget(token, argAction);
-        if (target != null) {
-            excluded.put(target, false);
-        }
+    private static boolean hasInvalidNamespace(String token) {
+        int separator = token.indexOf(':');
+        return separator >= 0 && (separator == token.length() - 1 || token.indexOf(':', separator + 1) >= 0);
+    }
+
+    private static String normalizeDefaultNamespace(String token) {
+        return token.startsWith(":") ? token.substring(1) : token;
     }
 
     private static Object resolveTarget(String token, List<Integer> argAction) {
+        token = normalizeDefaultNamespace(token);
         boolean containerAction = argAction != null && argAction.contains(LookupActions.CONTAINER);
         Material material = MaterialUtils.getType(token);
         if (material != null && (material.isBlock() || containerAction)) {
@@ -285,9 +304,13 @@ public class MaterialParser {
      * @return true if the string represents a block or entity
      */
     public static boolean isBlockOrEntity(String argument) {
+        if (argument == null || hasInvalidNamespace(argument)) {
+            return false;
+        }
+        String target = normalizeDefaultNamespace(argument);
         return checkTags(argument)
-                || MaterialUtils.getType(argument) != null
-                || BlockTypeUtils.hasBlockType(argument)
-                || EntityUtils.getEntityType(argument) != null;
+                || MaterialUtils.getType(target) != null
+                || BlockTypeUtils.hasBlockType(target)
+                || EntityUtils.getEntityType(target) != null;
     }
 }

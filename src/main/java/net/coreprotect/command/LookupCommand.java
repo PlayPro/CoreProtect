@@ -21,8 +21,10 @@ import net.coreprotect.command.lookup.ChestTransactionLookupThread;
 import net.coreprotect.command.lookup.EntityInteractionLookupThread;
 import net.coreprotect.command.lookup.StandardLookupThread;
 import net.coreprotect.command.parser.ActionParser;
+import net.coreprotect.command.parser.LocationParser;
 import net.coreprotect.command.parser.MessageFilterParser;
 import net.coreprotect.command.parser.RollbackStateParser;
+import net.coreprotect.command.parser.WorldParser;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
@@ -44,7 +46,19 @@ public class LookupCommand {
         args = messageFilterResult.getArguments();
         List<String> argFilters = messageFilterResult.getFilters();
         args = CommandParser.parsePage(args);
-        Location lo = CommandParser.parseLocation(player, args);
+        String worldFilterName = WorldParser.parseWorldFilterName(args, true);
+        int argWid = 0;
+        String pendingWorldName = null;
+        if (worldFilterName != null && !worldFilterName.isEmpty()) {
+            argWid = ConfigHandler.worlds.getOrDefault(worldFilterName, -1);
+            if (argWid <= 0) {
+                argWid = WorldUtils.matchWorld("#" + worldFilterName);
+                if (argWid <= 0 || (ConfigHandler.databaseType.isClickHouse() && !ConfigHandler.worlds.containsKey(worldFilterName))) {
+                    pendingWorldName = worldFilterName;
+                }
+            }
+        }
+        Location lo = LocationParser.parseLocation(player, args, argWid);
         // List<String> arg_uuids = new ArrayList<String>();
         List<String> argUsers = CommandParser.parseUsers(args);
         Integer[] argRadius = CommandParser.parseRadius(args, player, lo);
@@ -59,7 +73,6 @@ public class LookupCommand {
         long[] argTime = CommandParser.parseTime(args);
         long startTime = argTime[0];
         long endTime = argTime[1];
-        int argWid = CommandParser.parseWorld(args, true, true);
         int parseRows = CommandParser.parseRows(args);
         boolean summary = CommandParser.parseSummary(args);
         LookupOutputMode outputMode = summary ? LookupOutputMode.SUMMARY
@@ -67,7 +80,7 @@ public class LookupCommand {
         RollbackStateParser.ParseResult rollbackStateResult = CommandParser.parseRollbackState(args);
         LookupRollbackState rollbackState = rollbackStateResult.getState();
         boolean worldedit = CommandParser.parseWorldEdit(args);
-        boolean forceglobal = CommandParser.parseForceGlobal(args);
+        boolean forceglobal = worldFilterName != null || CommandParser.parseForceGlobal(args);
         boolean pageLookup = false;
 
         if (argBlocks == null || argExclude == null || argExcludeUsers == null) {
@@ -91,9 +104,8 @@ public class LookupCommand {
             return;
         }
 
-        if (argWid == -1) {
-            String worldName = CommandParser.parseWorldName(args, true);
-            Chat.sendMessage(player, new ChatMessage(Phrase.build(Phrase.WORLD_NOT_FOUND, worldName)).build());
+        if ("".equals(worldFilterName)) {
+            Chat.sendMessage(player, new ChatMessage(Phrase.build(Phrase.WORLD_NOT_FOUND, worldFilterName)).build());
             return;
         }
 
@@ -242,7 +254,7 @@ public class LookupCommand {
             }
         }
         if (argAction.contains(LookupActions.CHAT) || argAction.contains(LookupActions.COMMAND) || argAction.contains(LookupActions.SESSION) || argAction.contains(LookupActions.USERNAME) || argAction.contains(LookupActions.SIGN)) {
-            if (argAction.contains(LookupActions.USERNAME) && (argRadius != null || argWid > 0 || worldedit)) {
+            if (argAction.contains(LookupActions.USERNAME) && (argRadius != null || worldFilterName != null || worldedit)) {
                 Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INCOMPATIBLE_ACTION, "r:"));
                 return;
             }
@@ -426,6 +438,7 @@ public class LookupCommand {
                     argExcluded = Integer.parseInt(data[7]);
                     argRestricted = Integer.parseInt(data[8]);
                     argWid = Integer.parseInt(data[9]);
+                    pendingWorldName = null;
                     if (defaultRe) {
                         re = Integer.parseInt(data[10]);
                     }
@@ -448,7 +461,7 @@ public class LookupCommand {
                     if (lo != null) {
                         x = lo.getBlockX();
                         z = lo.getBlockZ();
-                        if (lo.getWorld() != null) {
+                        if (lo.getWorld() != null && pendingWorldName == null) {
                             wid = WorldUtils.getWorldId(lo.getWorld().getName());
                         }
                     }
@@ -492,6 +505,7 @@ public class LookupCommand {
                             argAction.add(5);
                             argRadius = null;
                             argWid = 0;
+                            pendingWorldName = null;
                         }
                         else {
                             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_CONTAINER));
@@ -518,7 +532,7 @@ public class LookupCommand {
 
                     Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Color.ITALIC + Phrase.build(Phrase.LOOKUP_SEARCHING));
 
-                    Runnable runnable = new StandardLookupThread(player, command, rollbackusers, argBlocks, argExclude, argExcludeUsers, argAction, argEntityActionFilter, argFilters, argRadius, lo, x, y, z, wid, argWid, timeStart, timeEnd, argNoisy, argExcluded, argRestricted, pa, re, type, ts, outputMode, rollbackState);
+                    Runnable runnable = new StandardLookupThread(player, command, rollbackusers, argBlocks, argExclude, argExcludeUsers, argAction, argEntityActionFilter, argFilters, argRadius, lo, x, y, z, wid, argWid, timeStart, timeEnd, argNoisy, argExcluded, argRestricted, pa, re, type, ts, outputMode, rollbackState, pendingWorldName);
                     Thread thread = new Thread(runnable);
                     thread.start();
                 }

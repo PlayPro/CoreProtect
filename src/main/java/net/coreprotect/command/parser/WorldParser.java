@@ -58,13 +58,18 @@ public class WorldParser {
      * @return The world name
      */
     public static String parseWorldName(String[] inputArguments, boolean processWorldEdit) {
-        String worldName = "";
-        for (String value : extractRadiusValues(inputArguments, false)) {
-            if (isGlobalReset(value, processWorldEdit)) {
-                worldName = "";
+        String worldName = parseWorldFilterName(inputArguments, processWorldEdit);
+        return worldName == null ? "" : worldName.toLowerCase(Locale.ROOT);
+    }
+
+    public static String parseWorldFilterName(String[] inputArguments, boolean processWorldEdit) {
+        String worldName = null;
+        for (String value : extractRadiusValues(inputArguments, true)) {
+            if (isGlobalReset(value.toLowerCase(Locale.ROOT), processWorldEdit)) {
+                worldName = null;
             }
             else if (value.startsWith("#")) {
-                worldName = value.substring(1);
+                worldName = value.substring(1).trim();
             }
         }
         return worldName;
@@ -106,7 +111,7 @@ public class WorldParser {
                 }
                 else {
                     String worldName = value.substring(1).trim();
-                    if (!worldName.isEmpty() && ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.WORLDS, worldName, false) > 0) {
+                    if (!worldName.isEmpty() && ConfigHandler.worlds.getOrDefault(worldName, -1) > 0) {
                         result = true;
                     }
                 }

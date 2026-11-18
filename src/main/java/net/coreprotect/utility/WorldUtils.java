@@ -1,9 +1,13 @@
 package net.coreprotect.utility;
 
+import java.sql.SQLException;
+
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.ConsumerWriteBatch.ReferenceKind;
+import net.coreprotect.database.Database;
 
 public class WorldUtils {
 
@@ -22,6 +26,14 @@ public class WorldUtils {
             ErrorReporter.report(e);
             return -1;
         }
+    }
+
+    public static int findHistoricalWorldId(String name) throws SQLException {
+        Integer cached = ConfigHandler.worlds.get(name);
+        if (cached != null) {
+            return cached;
+        }
+        return ConfigHandler.databaseType.isClickHouse() ? Database.findClickHouseIdentifierId(ReferenceKind.WORLD, name) : -1;
     }
 
     public static String getWorldName(int id) {

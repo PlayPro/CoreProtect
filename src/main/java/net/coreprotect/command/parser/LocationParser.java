@@ -57,6 +57,10 @@ public class LocationParser {
      * @return The parsed location
      */
     public static Location parseLocation(CommandSender user, String[] argumentArray) {
+        return parseLocation(user, argumentArray, WorldParser.parseWorld(argumentArray, true, true));
+    }
+
+    public static Location parseLocation(CommandSender user, String[] argumentArray, int worldId) {
         Location location = null;
         if (user instanceof Player) {
             location = ((Player) user).getLocation();
@@ -65,7 +69,7 @@ public class LocationParser {
             location = ((BlockCommandSender) user).getBlock().getLocation();
         }
 
-        return parseCoordinates(location, argumentArray, WorldParser.parseWorld(argumentArray, true, true));
+        return parseCoordinates(location, argumentArray, worldId);
     }
 
     /**

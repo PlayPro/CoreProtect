@@ -26,8 +26,10 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 
 import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.command.parser.LocationParser;
 import net.coreprotect.command.parser.MaterialParser;
 import net.coreprotect.command.parser.ParserUtils;
+import net.coreprotect.command.parser.TimeParser;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
@@ -136,6 +138,7 @@ public class PurgeCommand extends Consumer {
         boolean listContinuation = false;
         String emptyList = null; // an include or exclude argument that has no value yet
         boolean hasRadius = false;
+        String coordinateArgument = null;
         for (int i = 1; i < args.length; i++) {
             String token = args[i].trim();
             if (token.length() == 0) {
@@ -172,32 +175,54 @@ public class PurgeCommand extends Consumer {
             // The radius, world and action parsers read a key such as r: or a: even inside a list
             listContinuation = false;
 
-            if (argument.startsWith("a:") || argument.startsWith("action:")) {
-                // Only kills can be purged by action; any other value must not fall through to an unrestricted purge.
-                if (!CommandParser.parseAction(new String[] { "purge", argument }).equals(Collections.singletonList(LookupActions.ENTITY_KILL))) {
+            int valueStart = argument.indexOf(':') + 1;
+            if (valueStart == 0) {
+                return token;
+            }
+
+            String prefix = argument.substring(0, valueStart);
+            String value = argument.substring(valueStart);
+            if (value.isEmpty() && i + 1 < args.length) {
+                value = ParserUtils.normalize(args[++i]);
+                if (!value.startsWith("#") && value.indexOf(':') >= 0) {
                     return token;
                 }
-                continue;
+            }
+            if (value.isEmpty()) {
+                return token;
             }
 
-            if (argument.startsWith("t:") || argument.startsWith("time:")) {
-                continue;
+            switch (prefix) {
+                case "a:":
+                case "action:":
+                    if (!CommandParser.parseAction(new String[] { "purge", prefix + value }).equals(Collections.singletonList(LookupActions.ENTITY_KILL))) {
+                        return token;
+                    }
+                    break;
+                case "t:":
+                case "time:":
+                    if (!TimeParser.isValidDuration(value)) {
+                        return token;
+                    }
+                    break;
+                case "r:":
+                case "radius:":
+                    if (hasRadius) {
+                        return token;
+                    }
+                    hasRadius = true;
+                    break;
+                default:
+                    if (LocationParser.stripCoordinatePrefix(prefix) == null || !LocationParser.isValidBlockCoordinates(value)) {
+                        return token;
+                    }
+                    coordinateArgument = token;
+                    break;
             }
+        }
 
-            if (argument.startsWith("r:") || argument.startsWith("radius:")) {
-                if (hasRadius) {
-                    // A second radius conflicts with the first, such as r:50 with r:#world_nether
-                    return token;
-                }
-                hasRadius = true;
-                continue;
-            }
-
-            if (argument.startsWith("c:") || argument.startsWith("coord:") || argument.startsWith("location:")) {
-                continue;
-            }
-
-            return token;
+        if (coordinateArgument != null && (!hasRadius || LocationParser.parseRadius(args, null, new Location(null, 0, 0, 0)) == null)) {
+            return coordinateArgument;
         }
 
         // An empty list would silently purge without that include or exclude restriction
@@ -214,23 +239,6 @@ public class PurgeCommand extends Consumer {
     }
 
     protected static void runCommand(final CommandSender player, boolean permission, String[] args) {
-        int resultc = args.length;
-        Location location = CommandParser.parseLocation(player, args);
-        final Integer[] argRadius = CommandParser.parseRadius(args, player, location);
-        final List<Integer> argAction = CommandParser.parseAction(args);
-        final List<Object> argBlocks = CommandParser.parseRestricted(player, args, argAction);
-        final Map<Object, Boolean> argExclude = CommandParser.parseExcluded(player, args, argAction);
-        final List<String> argExcludeUsers = CommandParser.parseExcludedUsers(player, args);
-        final long[] argTime = CommandParser.parseTime(args);
-        final int argWid = CommandParser.parseWorld(args, false, false);
-        final List<Integer> supportedActions = Arrays.asList(LookupActions.ENTITY_KILL);
-        long startTime = argTime[1] > 0 ? argTime[0] : 0;
-        long endTime = argTime[1] > 0 ? argTime[1] : argTime[0];
-
-        if (argBlocks == null || argExclude == null || argExcludeUsers == null) {
-            return;
-        }
-
         if (ConfigHandler.converterRunning || ConfigHandler.migrationRunning) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
             return;
@@ -243,7 +251,7 @@ public class PurgeCommand extends Consumer {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
             return;
         }
-        if (resultc <= 1) {
+        if (args.length <= 1) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co purge t:<time>"));
             return;
         }
@@ -251,6 +259,22 @@ public class PurgeCommand extends Consumer {
         if (unsupportedArgument != null) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, unsupportedArgument));
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co help purge"));
+            return;
+        }
+
+        Location location = CommandParser.parseLocation(player, args);
+        final Integer[] argRadius = LocationParser.parseRadius(args, player, location != null ? location : new Location(null, 0, 0, 0));
+        final List<Integer> argAction = CommandParser.parseAction(args);
+        final List<Object> argBlocks = CommandParser.parseRestricted(player, args, argAction);
+        final Map<Object, Boolean> argExclude = CommandParser.parseExcluded(player, args, argAction);
+        final List<String> argExcludeUsers = CommandParser.parseExcludedUsers(player, args);
+        final long[] argTime = CommandParser.parseTime(args);
+        final int argWid = CommandParser.parseWorld(args, false, false);
+        final List<Integer> supportedActions = Arrays.asList(LookupActions.ENTITY_KILL);
+        long startTime = argTime[1] > 0 ? argTime[0] : 0;
+        long endTime = argTime[1] > 0 ? argTime[1] : argTime[0];
+
+        if (argBlocks == null || argExclude == null || argExcludeUsers == null) {
             return;
         }
         if (endTime <= 0) {
@@ -270,8 +294,7 @@ public class PurgeCommand extends Consumer {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MAXIMUM_PURGE_RADIUS, Integer.toString(maxRadius)));
             return;
         }
-        if (argRadius == null && CommandParser.parseRadius(args, player, new Location(null, 0, 0, 0)) != null) {
-            // A numeric radius without a location (console) must not fall through to a world-wide purge
+        if (argRadius != null && (location == null || location.getWorld() == null)) {
             Chat.sendMessage(player, new ChatMessage(Phrase.build(Phrase.INVALID_WORLD)).build());
             return;
         }
@@ -393,6 +416,10 @@ public class PurgeCommand extends Consumer {
         final boolean optimize = optimizeCheck;
         final int restrictCountFinal = restrictCount;
         final int purgeWorldId = argRadius != null ? WorldUtils.getWorldId(location.getWorld().getName()) : argWid;
+        if (argRadius != null && purgeWorldId <= 0) {
+            Chat.sendMessage(player, new ChatMessage(Phrase.build(Phrase.INVALID_WORLD)).build());
+            return;
+        }
         String restrictSelector = Selector.FIRST; // block
         if (hasBlock && entity) {
             restrictSelector = Selector.THIRD; // target

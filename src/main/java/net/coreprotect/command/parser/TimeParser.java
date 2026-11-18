@@ -127,6 +127,10 @@ public class TimeParser {
         return new long[] { timeStart, timeEnd };
     }
 
+    public static boolean isValidDuration(String spec) {
+        return parseDurationSpec(spec, new ParsedTime());
+    }
+
     /**
      * Parse time string from command arguments for display
      * 
@@ -164,35 +168,7 @@ public class TimeParser {
             if (next == 1 || stripped != null) {
                 String spec = (stripped != null) ? stripped : argument;
                 next = 0;
-
-                if (spec.isEmpty() || spec.startsWith("-") || spec.endsWith("-")) {
-                    continue;
-                }
-
-                int dashIndex = spec.indexOf('-');
-                if (dashIndex >= 0) {
-                    if (spec.indexOf('-', dashIndex + 1) >= 0) {
-                        continue;
-                    }
-                    List<UnitEntry> startEntries = parseSide(spec.substring(0, dashIndex));
-                    List<UnitEntry> endEntries = parseSide(spec.substring(dashIndex + 1));
-                    if (startEntries != null && endEntries != null) {
-                        parsed.first.merge(startEntries);
-                        parsed.second.merge(endEntries);
-                        parsed.range = true;
-                    }
-                }
-                else {
-                    List<UnitEntry> entries = parseSide(spec);
-                    if (entries != null) {
-                        if (parsed.range) {
-                            parsed.second.merge(entries);
-                        }
-                        else {
-                            parsed.first.merge(entries);
-                        }
-                    }
-                }
+                parseDurationSpec(spec, parsed);
             }
             else {
                 next = 0;
@@ -200,6 +176,28 @@ public class TimeParser {
         }
 
         return parsed;
+    }
+
+    private static boolean parseDurationSpec(String spec, ParsedTime parsed) {
+        int dashIndex = spec.indexOf('-');
+        if (dashIndex < 0) {
+            List<UnitEntry> entries = parseSide(spec);
+            if (entries == null) {
+                return false;
+            }
+            (parsed.range ? parsed.second : parsed.first).merge(entries);
+        }
+        else {
+            List<UnitEntry> startEntries = parseSide(spec.substring(0, dashIndex));
+            List<UnitEntry> endEntries = parseSide(spec.substring(dashIndex + 1));
+            if (startEntries == null || endEntries == null) {
+                return false;
+            }
+            parsed.first.merge(startEntries);
+            parsed.second.merge(endEntries);
+            parsed.range = true;
+        }
+        return true;
     }
 
     private static List<UnitEntry> parseSide(String spec) {

@@ -34,6 +34,19 @@ public class LocationParser {
             "r:"
     };
 
+    public static String stripCoordinatePrefix(String argument) {
+        return ParserUtils.stripPrefix(argument, COORDINATE_PREFIXES);
+    }
+
+    public static boolean isValidBlockCoordinates(String spec) {
+        double[] coordinates = parseCoordinateValues(spec);
+        return coordinates != null && isBlockCoordinate(coordinates[0]) && isBlockCoordinate(coordinates[coordinates.length - 1]);
+    }
+
+    private static boolean isBlockCoordinate(double coordinate) {
+        return coordinate >= Integer.MIN_VALUE && coordinate < Integer.MAX_VALUE + 1.0;
+    }
+
     /**
      * Parse location from command sender and command arguments
      * 
@@ -70,51 +83,30 @@ public class LocationParser {
         int next = 0;
         for (int index = 1; index < inputArguments.length; index++) {
             String argument = ParserUtils.normalize(inputArguments[index]);
-            if (ParserUtils.equalsAny(argument, COORDINATE_PREFIXES)) {
+            String stripped = stripCoordinatePrefix(argument);
+            if ("".equals(stripped)) {
                 next = 2;
                 continue;
             }
 
-            String stripped = ParserUtils.stripPrefix(argument, COORDINATE_PREFIXES);
             if (next == 2 || stripped != null) {
-                String coordSpec = (stripped != null) ? stripped : argument;
                 next = 0;
+                double[] parsed = parseCoordinateValues(stripped != null ? stripped : argument);
+                if (parsed == null) {
+                    continue;
+                }
 
-                String[] parts = coordSpec.split(",", -1);
-                if (parts.length == 2 || parts.length == 3) {
-                    double[] parsed = new double[parts.length];
-                    boolean valid = true;
-                    for (int i = 0; i < parts.length; i++) {
-                        String part = parts[i].trim();
-                        if (!ParserUtils.isSignedDecimal(part)) {
-                            valid = false;
-                            break;
-                        }
-                        double value = Double.parseDouble(part);
-                        if (!Double.isFinite(value)) {
-                            valid = false;
-                            break;
-                        }
-                        parsed[i] = value;
-                    }
+                double x = parsed[0];
+                double y = (parsed.length == 3) ? parsed[1] : (location != null ? location.getY() : 0.0);
+                double z = parsed[parsed.length - 1];
 
-                    if (valid) {
-                        double x = parsed[0];
-                        double y = (parts.length == 3) ? parsed[1] : (location != null ? location.getY() : 0.0);
-                        double z = (parts.length == 3) ? parsed[2] : parsed[1];
-
-                        World targetWorld = null;
-                        if (worldId > 0) {
-                            targetWorld = Bukkit.getWorld(WorldUtils.getWorldName(worldId));
-                        }
-                        if (targetWorld != null) {
-                            location = new Location(targetWorld, x, clampY(targetWorld, y), z);
-                        }
-                        else if (location != null) {
-                            World world = location.getWorld();
-                            location = new Location(world, x, clampY(world, y), z, location.getYaw(), location.getPitch());
-                        }
-                    }
+                World targetWorld = worldId > 0 ? Bukkit.getWorld(WorldUtils.getWorldName(worldId)) : null;
+                if (targetWorld != null) {
+                    location = new Location(targetWorld, x, clampY(targetWorld, y), z);
+                }
+                else if (location != null) {
+                    World world = location.getWorld();
+                    location = new Location(world, x, clampY(world, y), z, location.getYaw(), location.getPitch());
                 }
             }
             else {
@@ -122,6 +114,27 @@ public class LocationParser {
             }
         }
         return location;
+    }
+
+    private static double[] parseCoordinateValues(String spec) {
+        String[] parts = spec.split(",", -1);
+        if (parts.length != 2 && parts.length != 3) {
+            return null;
+        }
+
+        double[] coordinates = new double[parts.length];
+        for (int index = 0; index < parts.length; index++) {
+            String part = parts[index].trim();
+            if (!ParserUtils.isSignedDecimal(part)) {
+                return null;
+            }
+            double coordinate = Double.parseDouble(part);
+            if (!Double.isFinite(coordinate)) {
+                return null;
+            }
+            coordinates[index] = coordinate;
+        }
+        return coordinates;
     }
 
     private static double clampY(World world, double y) {

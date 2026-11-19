@@ -10,7 +10,6 @@ import org.bukkit.block.Skull;
 import net.coreprotect.database.logger.BlockBreakLogger;
 import net.coreprotect.database.logger.SkullBreakLogger;
 import net.coreprotect.utility.BlockUtils;
-import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.worldedit.WorldEditBlockState;
 
 class BlockBreakProcess {
@@ -21,10 +20,10 @@ class BlockBreakProcess {
             List<Object> meta = BlockUtils.processMeta(block);
             if (blockType != null && blockType.equals(block.getType())
                     && (block instanceof Skull || (block instanceof WorldEditBlockState && BlockUtils.isSkull(blockType)))) {
-                SkullBreakLogger.log(preparedStmt, preparedStmtSkulls, batchCount, user, block);
+                SkullBreakLogger.log(preparedStmt, preparedStmtSkulls, batchCount, user, block, meta, blockData);
             }
             else {
-                BlockBreakLogger.log(preparedStmt, batchCount, user, block.getLocation(), MaterialUtils.getBlockId(blockType), blockDataId, meta, blockData, blockData);
+                BlockBreakLogger.log(preparedStmt, batchCount, user, block.getLocation(), blockType, blockDataId, meta, blockData, blockData);
             }
         }
     }

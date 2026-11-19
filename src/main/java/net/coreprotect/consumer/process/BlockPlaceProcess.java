@@ -9,7 +9,6 @@ import org.bukkit.block.BlockState;
 import net.coreprotect.database.logger.BlockPlaceLogger;
 import net.coreprotect.database.logger.SkullPlaceLogger;
 import net.coreprotect.utility.BlockUtils;
-import net.coreprotect.utility.MaterialUtils;
 
 class BlockPlaceProcess {
 
@@ -18,13 +17,10 @@ class BlockPlaceProcess {
             BlockState block = (BlockState) object;
             List<Object> meta = BlockUtils.processMeta(block);
             if (BlockUtils.isSkull(blockType)) {
-                SkullPlaceLogger.log(preparedStmt, preparedStmtSkulls, batchCount, user, block, MaterialUtils.getBlockId(replaceType), replaceData);
-            }
-            else if (forceData == 1) {
-                BlockPlaceLogger.log(preparedStmt, batchCount, user, block, MaterialUtils.getBlockId(replaceType), replaceData, blockType, blockData, true, meta, newBlockData, replacedBlockData);
+                SkullPlaceLogger.log(preparedStmt, preparedStmtSkulls, batchCount, user, block, blockType, replaceType, replaceData, meta, newBlockData, replacedBlockData);
             }
             else {
-                BlockPlaceLogger.log(preparedStmt, batchCount, user, block, MaterialUtils.getBlockId(replaceType), replaceData, blockType, blockData, false, meta, newBlockData, replacedBlockData);
+                BlockPlaceLogger.log(preparedStmt, batchCount, user, block, replaceType, replaceData, blockType, blockData, forceData == 1, meta, newBlockData, replacedBlockData);
             }
         }
     }

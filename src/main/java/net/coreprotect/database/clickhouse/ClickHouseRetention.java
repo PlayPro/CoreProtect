@@ -28,8 +28,7 @@ final class ClickHouseRetention {
     private final String database;
     private final String databaseName;
     private final String eventTableName;
-    private volatile Connection activePurgeConnection;
-    private volatile boolean purgeCancellationRequested;
+    private volatile PurgeAttempt activePurge;
 
     ClickHouseRetention(ClickHouseJdbc jdbc, String database, String prefix, UUID owner) {
         this.jdbc = Objects.requireNonNull(jdbc, "jdbc");
@@ -43,8 +42,12 @@ final class ClickHouseRetention {
     }
 
     void cancelPurge() {
-        purgeCancellationRequested = true;
-        Connection connection = activePurgeConnection;
+        PurgeAttempt attempt = activePurge;
+        if (attempt == null) {
+            return;
+        }
+        attempt.cancelled = true;
+        Connection connection = attempt.connection;
         if (connection == null) {
             return;
         }
@@ -73,18 +76,23 @@ final class ClickHouseRetention {
         String targetTableName = prefix + targetSuffix;
         String targetTable = table(targetSuffix);
 
-        requirePurgeNotCancelled();
+        PurgeAttempt attempt = new PurgeAttempt();
+        activePurge = attempt;
+        boolean recoverLookupGate = false;
+        Throwable failure = null;
         try (Connection connection = jdbc.openConnection()) {
-            activePurgeConnection = connection;
+            attempt.connection = connection;
             requirePurgeNotCancelled();
             cleanupAbandonedTargets(connection);
             if (hasPendingMutation(connection, "")) {
                 throw new SQLException("ClickHouse purge requires earlier mutations to finish first");
             }
             snapshotHighWaterMarks(connection);
+            requirePurgeNotCancelled();
+            recoverLookupGate = true;
             ClickHouseLookupIndex.setReady(connection, eventTable, owner, false);
             boolean completed = false;
-            Throwable failure = null;
+            Throwable targetFailure = null;
             try {
                 createTargets(connection, targetTable);
                 long removed;
@@ -105,12 +113,14 @@ final class ClickHouseRetention {
                         statement.execute("OPTIMIZE TABLE " + eventTable + " FINAL");
                     }
                 }
+                requirePurgeNotCancelled();
                 ClickHouseLookupIndex.setReady(connection, eventTable, owner, true);
+                recoverLookupGate = false;
                 completed = true;
                 return removed;
             }
             catch (SQLException | RuntimeException | Error exception) {
-                failure = exception;
+                targetFailure = exception;
                 throw exception;
             }
             finally {
@@ -120,22 +130,43 @@ final class ClickHouseRetention {
                     }
                 }
                 catch (SQLException cleanupFailure) {
-                    if (failure == null) {
+                    if (targetFailure == null) {
                         throw cleanupFailure;
                     }
-                    failure.addSuppressed(cleanupFailure);
+                    targetFailure.addSuppressed(cleanupFailure);
                 }
             }
         }
+        catch (SQLException | RuntimeException | Error exception) {
+            failure = exception;
+            throw exception;
+        }
         finally {
-            activePurgeConnection = null;
+            activePurge = null;
+            if (recoverLookupGate) {
+                try (Connection connection = jdbc.openAuxiliaryConnection()) {
+                    ClickHouseLookupIndex.recover(connection, databaseName, prefix, owner);
+                }
+                catch (SQLException | RuntimeException recoveryFailure) {
+                    if (failure == null) {
+                        throw recoveryFailure;
+                    }
+                    failure.addSuppressed(recoveryFailure);
+                }
+            }
         }
     }
 
     private void requirePurgeNotCancelled() throws SQLException {
-        if (purgeCancellationRequested) {
+        PurgeAttempt attempt = activePurge;
+        if (attempt != null && attempt.cancelled) {
             throw new SQLException("ClickHouse purge cancelled during shutdown");
         }
+    }
+
+    private static final class PurgeAttempt {
+        private volatile boolean cancelled;
+        private volatile Connection connection;
     }
 
     private void cleanupAbandonedTargets(Connection connection) throws SQLException {
@@ -200,6 +231,7 @@ final class ClickHouseRetention {
 
     private void selectPrimaryTargets(Connection connection, String targetTable, long startTime, long endTime, int worldId, List<Integer> blockTypes) throws SQLException {
         for (ClickHouseFamily family : ClickHouseFamily.values()) {
+            requirePurgeNotCancelled();
             if (!family.isPurgeable()) {
                 continue;
             }
@@ -332,6 +364,7 @@ final class ClickHouseRetention {
     }
 
     private void execute(Connection connection, String sql) throws SQLException {
+        requirePurgeNotCancelled();
         try (Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }

@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.Server;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
@@ -407,13 +408,16 @@ public class CoreProtectAPI extends Queue {
      * @return True if the user has placed the block within the specified time frame
      */
     public boolean hasPlaced(String user, Block block, int time, int offset) {
-        if (!isEnabled()) {
+        if (!isEnabled() || user == null || user.isBlank() || block == null) {
             return false;
         }
 
         long timestamp = getCurrentTimeMillis();
         long offsetTime = timestamp - offset * 1000L;
         List<String[]> check = blockLookup(block, time);
+        if (check == null) {
+            return false;
+        }
 
         for (String[] value : check) {
             ParseResult result = parseResult(value);
@@ -439,13 +443,16 @@ public class CoreProtectAPI extends Queue {
      * @return True if the user has removed the block within the specified time frame
      */
     public boolean hasRemoved(String user, Block block, int time, int offset) {
-        if (!isEnabled()) {
+        if (!isEnabled() || user == null || user.isBlank() || block == null) {
             return false;
         }
 
         long timestamp = getCurrentTimeMillis();
         long offsetTime = timestamp - offset * 1000L;
         List<String[]> check = blockLookup(block, time);
+        if (check == null) {
+            return false;
+        }
 
         for (String[] value : check) {
             ParseResult result = parseResult(value);
@@ -498,17 +505,14 @@ public class CoreProtectAPI extends Queue {
      * @return True if the command was logged
      */
     public boolean logCommand(Player player, String command) {
-        if (!isEnabledForPlayer(player) || !Config.getConfig(player.getWorld()).PLAYER_COMMANDS) {
+        if (!isEnabledForPlayer(player) || command == null || !command.startsWith("/")) {
             return false;
         }
 
-        if (command == null || command.isEmpty() || !command.startsWith("/")) {
-            return false;
-        }
-
-        long timestamp = System.currentTimeMillis() / 1000L;
-        Queue.queuePlayerCommand(player, command, timestamp);
-        return true;
+        Location location = player.getLocation();
+        World world = location == null ? null : location.getWorld();
+        return world != null && Config.getConfig(world).PLAYER_COMMANDS
+                && queuePlayerCommand(player, command, System.currentTimeMillis() / 1000L, location);
     }
 
     /**

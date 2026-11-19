@@ -2,7 +2,6 @@ package net.coreprotect.api.result;
 
 import java.util.Locale;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.EntityType;
@@ -95,17 +94,13 @@ public class BlockResult implements CoreProtectResult {
             return null;
         }
 
-        if (blockData == null || blockData.isEmpty()) {
-            Material material = getType();
-            if (material != null) {
-                return material.createBlockData();
-            }
-
-            return BlockUtils.createBlockData(type);
+        BlockData resolved = BlockUtils.parseBlockDataFromString(blockData);
+        if (resolved != null) {
+            return resolved;
         }
 
-        BlockData result = BlockUtils.parseBlockDataFromString(blockData);
-        return result != null ? result : Bukkit.getServer().createBlockData(blockData);
+        Material material = getType();
+        return material != null ? BlockUtils.createBlockData(material) : BlockUtils.createBlockData(type);
     }
 
     public int getX() {

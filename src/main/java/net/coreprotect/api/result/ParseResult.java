@@ -1,8 +1,8 @@
 package net.coreprotect.api.result;
 
 import java.util.Locale;
+import java.util.UUID;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.EntityType;
@@ -21,16 +21,16 @@ public class ParseResult implements CoreProtectResult {
     private final String[] parse;
 
     public ParseResult(String[] data) {
-        parse = data;
+        parse = data == null ? new String[0] : data.clone();
     }
 
     public int getActionId() {
-        return Integer.parseInt(parse[7]);
+        return isUsernameRow() ? LookupActions.USERNAME : getInt(7, -1);
     }
 
     public String getActionString() {
-        int actionID = Integer.parseInt(parse[7]);
-        if (parse.length < 13 && Integer.parseInt(parse[6]) == SessionLookup.ID) {
+        int actionID = getActionId();
+        if (parse.length < 13 && actionID >= 0 && getInt(6, -1) == SessionLookup.ID) {
             return SessionActions.getActionString(actionID);
         }
 
@@ -39,20 +39,26 @@ public class ParseResult implements CoreProtectResult {
 
     @Deprecated
     public int getData() {
-        return Integer.parseInt(parse[6]);
+        return getInt(6, 0);
     }
 
     public String getPlayer() {
-        return parse[1];
+        String player = getValue(isUsernameRow() ? 2 : 1);
+        return player == null ? "" : player;
     }
 
     @Deprecated
     public int getTime() {
-        return Integer.parseInt(parse[0]);
+        return getInt(0, 0);
     }
 
     public long getTimestamp() {
-        return Long.parseLong(parse[0]) * 1000L;
+        try {
+            return Math.multiplyExact(Long.parseLong(getValue(0)), 1000L);
+        }
+        catch (NumberFormatException | ArithmeticException ignored) {
+            return 0L;
+        }
     }
 
     public Material getType() {
@@ -65,7 +71,7 @@ public class ParseResult implements CoreProtectResult {
             return null;
         }
 
-        int type = Integer.parseInt(parse[5]);
+        int type = getInt(5, -1);
         Material material = MaterialUtils.getType(type);
         if (material == null) {
             return null;
@@ -86,17 +92,13 @@ public class ParseResult implements CoreProtectResult {
         }
 
         String blockData = parse[12];
-        if (blockData == null || blockData.length() == 0) {
-            Material type = getType();
-            if (type != null) {
-                return type.createBlockData();
-            }
-
-            return BlockUtils.createBlockData(Integer.parseInt(parse[5]));
+        BlockData resolved = BlockUtils.parseBlockDataFromString(blockData);
+        if (resolved != null) {
+            return resolved;
         }
 
-        BlockData result = BlockUtils.parseBlockDataFromString(blockData);
-        return result != null ? result : Bukkit.getServer().createBlockData(blockData);
+        Material type = getType();
+        return type != null ? BlockUtils.createBlockData(type) : BlockUtils.createBlockData(getInt(5, -1));
     }
 
     public EntityType getEntityType() {
@@ -104,7 +106,7 @@ public class ParseResult implements CoreProtectResult {
             return null;
         }
 
-        int type = Integer.parseInt(parse[5]);
+        int type = getInt(5, -1);
         if (this.getActionId() == LookupActions.ENTITY_KILL && type == 0) {
             return EntityType.PLAYER;
         }
@@ -113,15 +115,15 @@ public class ParseResult implements CoreProtectResult {
     }
 
     public int getX() {
-        return Integer.parseInt(parse[2]);
+        return parse.length >= 8 ? getInt(2, 0) : 0;
     }
 
     public int getY() {
-        return Integer.parseInt(parse[3]);
+        return parse.length >= 8 ? getInt(3, 0) : 0;
     }
 
     public int getZ() {
-        return Integer.parseInt(parse[4]);
+        return parse.length >= 8 ? getInt(4, 0) : 0;
     }
 
     public boolean isRolledBack() {
@@ -129,17 +131,48 @@ public class ParseResult implements CoreProtectResult {
             return false;
         }
 
-        return (Integer.parseInt(parse[8]) == 1 || Integer.parseInt(parse[8]) == 3);
+        int rolledBack = getInt(8, 0);
+        return rolledBack == 1 || rolledBack == 3;
     }
 
     public String worldName() {
-        return WorldUtils.getWorldName(Integer.parseInt(parse.length < 13 ? parse[5] : parse[9]));
+        int world = parse.length >= 8 ? getInt(parse.length < 13 ? 5 : 9, -1) : -1;
+        return world < 0 ? "" : WorldUtils.getWorldName(world);
     }
 
     private boolean isEntityAction(int actionId) {
         if (actionId == LookupActions.ENTITY_KILL || actionId == LookupActions.ENTITY_SPAWN) {
             return true;
         }
-        return actionId == LookupActions.INTERACTION && parse.length > 14 && parse[13] != null && Integer.parseInt(parse[13]) == InventorySources.ENTITY_INTERACTION;
+        return actionId == LookupActions.INTERACTION && parse.length > 14 && getInt(13, -1) == InventorySources.ENTITY_INTERACTION;
+    }
+
+    private boolean isUsernameRow() {
+        if (parse.length != 3 || parse[1] == null || parse[1].length() != 36) {
+            return false;
+        }
+        try {
+            UUID.fromString(parse[1]);
+            return true;
+        }
+        catch (IllegalArgumentException ignored) {
+            return false;
+        }
+    }
+
+    private String getValue(int index) {
+        return index < parse.length ? parse[index] : null;
+    }
+
+    private int getInt(int index, int fallback) {
+        String value = getValue(index);
+        if (value != null) {
+            try {
+                return Integer.parseInt(value);
+            }
+            catch (NumberFormatException ignored) {
+            }
+        }
+        return fallback;
     }
 }

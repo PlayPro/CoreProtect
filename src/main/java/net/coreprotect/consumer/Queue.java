@@ -559,7 +559,7 @@ public class Queue {
 
     private static boolean capturePlayerChat(Player player, String message, long timestamp, boolean cancelled) {
         Location location = player.getLocation();
-        if (location.getWorld() == null) {
+        if (location == null || location.getWorld() == null) {
             return false;
         }
         Config config = Config.getConfig(location.getWorld());
@@ -570,7 +570,14 @@ public class Queue {
     }
 
     public static void queuePlayerCommand(Player player, String message, long timestamp) {
-        queueStandardData(new Object[] { null, Process.PLAYER_COMMAND, null, 0, null, 0, 0, null }, new String[] { player.getName(), null }, new Object[] { timestamp, player.getLocation().clone() }, false, message, Consumer.reserveConsumer());
+        queuePlayerCommand(player, message, timestamp, player.getLocation());
+    }
+
+    protected static boolean queuePlayerCommand(Player player, String message, long timestamp, Location location) {
+        if (location == null || location.getWorld() == null) {
+            return false;
+        }
+        return queueStandardData(new Object[] { null, Process.PLAYER_COMMAND, null, 0, null, 0, 0, null }, new String[] { player.getName(), null }, new Object[] { timestamp, location.clone() }, false, message, Consumer.reserveConsumer());
     }
 
     public static void queuePlayerInteraction(String user, BlockState block, Material type) {

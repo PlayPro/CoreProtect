@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 
 import net.coreprotect.api.result.BlockResult;
@@ -53,7 +54,8 @@ public class BlockAPI {
             return result;
         }
 
-        if (block == null) {
+        World world = block == null ? null : block.getWorld();
+        if (world == null) {
             return result;
         }
 
@@ -65,7 +67,7 @@ public class BlockAPI {
             int x = block.getX();
             int y = block.getY();
             int z = block.getZ();
-            int worldId = WorldUtils.findWorldId(connection, block.getWorld().getName());
+            int worldId = WorldUtils.findWorldId(connection, world.getName());
             if (worldId < 0) {
                 return result;
             }

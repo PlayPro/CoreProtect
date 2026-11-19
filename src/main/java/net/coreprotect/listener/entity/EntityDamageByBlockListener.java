@@ -53,7 +53,7 @@ public final class EntityDamageByBlockListener implements Listener {
             double finalDamage = event.getFinalDamage();
             if (finalDamage > 0.0D && finalDamage >= armorStand.getHealth()) {
                 ItemStack[] contents = ItemUtils.getContainerContents(Material.ARMOR_STAND, armorStand, block.getLocation());
-                EntityDeathListener.trackArmorStandBreak(armorStand, user, contents);
+                EntityDeathListener.trackArmorStandBreak(armorStand, event, user, contents);
             }
         }
         else if (entity instanceof EnderCrystal && Config.getConfig(entity.getWorld()).BLOCK_BREAK) {

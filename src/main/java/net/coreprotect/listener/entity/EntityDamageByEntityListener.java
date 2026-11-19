@@ -64,7 +64,7 @@ public final class EntityDamageByEntityListener implements Listener {
         }
         else if (entity instanceof ArmorStand && config.ITEM_TRANSACTIONS) {
             ItemStack[] contents = ItemUtils.getContainerContents(Material.ARMOR_STAND, entity, entity.getLocation().getBlock().getLocation());
-            EntityDeathListener.trackArmorStandBreak(entity, user, contents);
+            EntityDeathListener.trackArmorStandBreak(entity, event, user, contents);
         }
     }
 

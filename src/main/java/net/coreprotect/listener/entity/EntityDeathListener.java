@@ -85,6 +85,7 @@ import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.AttributeUtils;
 import net.coreprotect.utility.EntitySpawnTracking;
+import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.entity.EntityUtil;
 import net.coreprotect.utility.entity.LivingEntityDetails;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
@@ -100,12 +101,24 @@ public final class EntityDeathListener extends Queue implements Listener {
         MemoryKey.MEETING_POINT,
         MemoryKey.LAST_WORKED_AT_POI
     };
-    private static final Map<UUID, Object[]> pendingArmorStandBreaks = new ConcurrentHashMap<>();
+    private static final Map<UUID, ArmorStandBreak> pendingArmorStandBreaks = new ConcurrentHashMap<>();
+
+    private static final class ArmorStandBreak {
+        private final EntityDamageEvent damage;
+        private final String user;
+        private final ItemStack[] contents;
+
+        private ArmorStandBreak(EntityDamageEvent damage, String user, ItemStack[] contents) {
+            this.damage = damage;
+            this.user = user;
+            this.contents = contents;
+        }
+    }
 
     // Armor stand contents can't be read on EntityDeathEvent (in survival mode), so the damage listeners capture them here
-    protected static void trackArmorStandBreak(Entity armorStand, String user, ItemStack[] contents) {
+    protected static void trackArmorStandBreak(Entity armorStand, EntityDamageEvent damage, String user, ItemStack[] contents) {
         UUID uuid = armorStand.getUniqueId();
-        Object[] pendingBreak = new Object[] { user, contents };
+        ArmorStandBreak pendingBreak = new ArmorStandBreak(damage, user, contents);
         pendingArmorStandBreaks.put(uuid, pendingBreak);
 
         // onEntityDeath logs the break if the hit was lethal. Otherwise, discard the capture on the next tick, or when Folia retires
@@ -114,17 +127,26 @@ public final class EntityDeathListener extends Queue implements Listener {
         Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), discard, discard, armorStand, 0);
     }
 
-    private static void logArmorStandBreak(ArmorStand armorStand) {
-        Object[] pendingBreak = pendingArmorStandBreaks.remove(armorStand.getUniqueId());
-        if (pendingBreak == null) {
+    private static void logArmorStandBreak(ArmorStand armorStand, String user, Config config) {
+        ArmorStandBreak pendingBreak = pendingArmorStandBreaks.remove(armorStand.getUniqueId());
+        if (!config.BLOCK_BREAK) {
             return;
         }
 
-        String user = (String) pendingBreak[0];
-        ItemStack[] contents = (ItemStack[]) pendingBreak[1];
+        EntityDamageEvent damage = user == null ? armorStand.getLastDamageCause() : null;
+        boolean captured = pendingBreak != null && pendingBreak.damage == damage;
+        if (user == null) {
+            user = captured ? pendingBreak.user : getDamageUser(armorStand, damage, config);
+            if (user == null) {
+                user = "#entity";
+            }
+        }
+
         Location entityLocation = armorStand.getLocation();
         Block block = entityLocation.getBlock();
-        Database.containerBreakCheck(user, Material.ARMOR_STAND, armorStand, contents, block.getLocation());
+        if (config.ITEM_TRANSACTIONS) {
+            Database.containerBreakCheck(user, Material.ARMOR_STAND, armorStand, captured ? pendingBreak.contents : null, block.getLocation());
+        }
         Queue.queueBlockBreak(user, block.getState(), Material.ARMOR_STAND, null, (int) entityLocation.getYaw());
     }
 
@@ -163,6 +185,10 @@ public final class EntityDeathListener extends Queue implements Listener {
     }
 
     protected static void logEntityDeath(LivingEntity entity, String e) {
+        if (entity instanceof ArmorStand) {
+            logArmorStandBreak((ArmorStand) entity, e, Config.getConfig(entity.getWorld()));
+            return;
+        }
         if (!Config.getConfig(entity.getWorld()).ENTITY_KILLS) {
             return;
         }
@@ -259,23 +285,6 @@ public final class EntityDeathListener extends Queue implements Listener {
             }
         }
 
-        if (entity instanceof ArmorStand) {
-            Location entityLocation = entity.getLocation();
-            if (!Config.getConfig(entityLocation.getWorld()).ITEM_TRANSACTIONS) {
-                entityLocation.setY(entityLocation.getY() + 0.99);
-                Block block = entityLocation.getBlock();
-                Queue.queueBlockBreak(e, block.getState(), Material.ARMOR_STAND, null, (int) entityLocation.getYaw());
-            }
-            /*
-            else if (isCommand) {
-                entityLocation.setY(entityLocation.getY() + 0.99);
-                Block block = entityLocation.getBlock();
-                Database.containerBreakCheck(e, Material.ARMOR_STAND, entity, null, block.getLocation());
-                Queue.queueBlockBreak(e, block.getState(), Material.ARMOR_STAND, null, (int) entityLocation.getYaw());
-            }
-            */
-            return;
-        }
 
         EntityType entity_type = entity.getType();
         if (e.length() == 0) {
@@ -643,6 +652,37 @@ public final class EntityDeathListener extends Queue implements Listener {
         }
     }
 
+    private static String getDamageUser(LivingEntity entity, EntityDamageEvent damage, Config config) {
+        if (damage instanceof EntityDamageByEntityEvent) {
+            String user = EntityUtils.getBreakUser(((EntityDamageByEntityEvent) damage).getDamager(), null);
+            if (user != null) {
+                return "#lightning_bolt".equals(user) ? "#lightning" : user;
+            }
+        }
+
+        DamageCause cause = damage == null ? null : damage.getCause();
+        if (cause == null) {
+            return null;
+        }
+
+        boolean skipGeneric = config.SKIP_GENERIC_DATA && (entity instanceof Zombie || entity instanceof Skeleton);
+        switch (cause) {
+            case FIRE:
+                return "#fire";
+            case FIRE_TICK:
+                return skipGeneric ? null : "#fire";
+            case BLOCK_EXPLOSION:
+                return "#explosion";
+            case WITHER:
+                return "#wither_effect";
+            case VOID:
+                return entity.getLocation().getBlockY() >= BukkitAdapter.ADAPTER.getMinHeight(entity.getWorld()) ? "#command" : "#void";
+            default:
+                String causeName = cause.name();
+                return skipGeneric && causeName.contains("_") ? null : "#" + causeName.toLowerCase(Locale.ROOT);
+        }
+    }
+
     private static List<Object> serializeVillagerMemories(Villager villager) {
         List<Object> memories = new ArrayList<>();
         for (MemoryKey<?> key : VILLAGER_MEMORY_KEYS) {
@@ -714,10 +754,8 @@ public final class EntityDeathListener extends Queue implements Listener {
             EntitySpawnTracking.clearTracking(entity.getUniqueId());
         }
 
-        if (entity instanceof ArmorStand && !(event instanceof Cancellable && ((Cancellable) event).isCancelled())) {
-            logArmorStandBreak((ArmorStand) entity);
+        if (!(entity instanceof ArmorStand) || !(event instanceof Cancellable && ((Cancellable) event).isCancelled())) {
+            logEntityDeath(entity, null);
         }
-
-        logEntityDeath(entity, null);
     }
 }

@@ -55,6 +55,8 @@ Players must log in with a UUID before UUID-less activity under a changed or rea
 
 Purges require `database-lock`. Stop all installations sharing the database and prefix, enable the lock on the installation performing the purge, then restart or reload it before purging. Also stop all installations before migration. Migration updates only the initiating installation's configuration; update the others before restarting them.
 
+If an interrupted schema upgrade cannot resume from the original installation, follow the [ClickHouse upgrade handoff procedure](/clickhouse-upgrade-recovery/).
+
 ## Per-World Configuration
 
 If you'd like to modify the logging settings for a specific world, simply do the following:

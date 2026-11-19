@@ -25,6 +25,7 @@ public class __2_25_1 {
 
     private static final String COPY_READ_SETTINGS = "max_threads=1,read_overflow_mode='throw',group_by_overflow_mode='throw',"
             + "sort_overflow_mode='throw',result_overflow_mode='throw',timeout_overflow_mode='throw'";
+    private static final String MIGRATION_CLAIM = "coreprotect-25.1";
 
     protected static boolean patchClickHouse(Statement statement) {
         try {
@@ -55,33 +56,39 @@ public class __2_25_1 {
         String source = ClickHouseIdentifiers.qualified(database, sourceName);
         String lockName = prefix + "patch_25_1_lock";
         String lock = ClickHouseIdentifiers.qualified(database, lockName);
-        String ownerPrefix = "coreprotect-25.1:" + owner + ":";
+        String ownerPrefix = MIGRATION_CLAIM + ":" + owner + ":";
         String existingClaim = tableProperty(connection, database, lockName, "comment");
         if (version == ClickHouseSchema.VERSION && (existingClaim == null || !existingClaim.startsWith(ownerPrefix))) {
             return;
         }
-        String claim = existingClaim == null ? ownerPrefix + tableProperty(connection, database, sourceName, "uuid") : existingClaim;
-        if (!claim.startsWith(ownerPrefix)) {
-            throw new SQLException("ClickHouse 25.1 migration is owned by another CoreProtect installation; resume the upgrade on that installation");
+        UUID sourceId = canonicalUuid(tableProperty(connection, database, sourceName, "uuid"));
+        if (sourceId == null) {
+            throw new SQLException("Invalid ClickHouse 25.1 source table UUID for " + source);
         }
-        String originalUuid;
-        try {
-            originalUuid = UUID.fromString(claim.substring(ownerPrefix.length())).toString();
+        String comment = existingClaim == null ? ownerPrefix + sourceId : existingClaim;
+        MigrationClaim claim = MigrationClaim.parse(comment);
+        if (claim == null) {
+            throw claimFailure("migration ownership record is invalid", lock, owner, sourceId, null);
         }
-        catch (IllegalArgumentException exception) {
-            throw new SQLException("Invalid ClickHouse 25.1 migration ownership record", exception);
+        if (!owner.equals(claim.owner)) {
+            throw claimFailure("migration is owned by another CoreProtect installation", lock, owner, sourceId, comment);
         }
-        execute(connection, "CREATE TABLE IF NOT EXISTS " + lock + " (marker UInt8) ENGINE=TinyLog COMMENT '" + claim + "'");
+        if (!sourceId.equals(claim.source)) {
+            throw claimFailure("original table identity changed", lock, owner, sourceId, comment);
+        }
+        if (existingClaim == null) {
+            execute(connection, "CREATE TABLE IF NOT EXISTS " + lock + " (marker UInt8) ENGINE=TinyLog COMMENT '" + comment + "'");
+        }
         String actualClaim = tableProperty(connection, database, lockName, "comment");
-        if (!claim.equals(actualClaim) || !actualClaim.startsWith(ownerPrefix)) {
-            throw new SQLException("ClickHouse 25.1 migration is owned by another CoreProtect installation; resume the upgrade on that installation");
+        if (!comment.equals(actualClaim)) {
+            throw claimFailure("migration ownership changed", lock, owner, sourceId, MigrationClaim.parse(actualClaim) == null ? null : actualClaim);
         }
         version = schemaVersion(connection, metadata);
         if (version != 4 && version != ClickHouseSchema.VERSION) {
             throw new SQLException("ClickHouse schema changed while acquiring the 25.1 migration lock");
         }
-        if (!originalUuid.equals(tableProperty(connection, database, sourceName, "uuid"))) {
-            throw new SQLException("ClickHouse 25.1 original table identity changed");
+        if (!sourceId.toString().equals(tableProperty(connection, database, sourceName, "uuid"))) {
+            throw new SQLException("ClickHouse 25.1 original table identity changed for " + source);
         }
         if (version == 4) {
             if (!hasLookupColumns(connection, database, sourceName)) {
@@ -111,7 +118,7 @@ public class __2_25_1 {
             execute(connection, "ALTER TABLE " + source + " ADD CONSTRAINT IF NOT EXISTS coreprotect_write_version CHECK write_version=" + ClickHouseSchema.VERSION);
             ClickHouseSchema.validatePhysicalSchema(connection, database, prefix);
             execute(connection, "ALTER TABLE " + source + " DROP CONSTRAINT coreprotect_25_1_fence");
-            ClickHouseLookupIndex.setReady(connection, source, owner, false);
+            ClickHouseLookupIndex.setReady(connection, source, claim.gateOwner, false);
             requireUniqueEvents(connection, source);
             try (Statement statement = connection.createStatement(); ResultSet rows = statement.executeQuery(
                     "SELECT 1 FROM " + source + " WHERE family='_batch_receipt' AND lookup_kind IN(1,2) LIMIT 1")) {
@@ -120,7 +127,7 @@ public class __2_25_1 {
                 }
             }
             copyMetadata(connection, source, "tuple(" + tableProperty(connection, database, sourceName, "sorting_key") + ")");
-            ClickHouseLookupIndex.setReady(connection, source, owner, true);
+            ClickHouseLookupIndex.setReady(connection, source, claim.gateOwner, true);
         }
         ClickHouseSchema.validatePhysicalSchema(connection, database, prefix);
         for (String ddl : ClickHouseSchema.createStatements(database, prefix)) {
@@ -134,6 +141,51 @@ public class __2_25_1 {
             throw new SQLException("ClickHouse 25.1 schema version was not published");
         }
         execute(connection, "DROP TABLE " + lock);
+    }
+
+    private static SQLException claimFailure(String reason, String lock, UUID owner, UUID source, String observedClaim) {
+        String observed = observedClaim == null ? "" : " The current marker is " + observedClaim + ".";
+        return new SQLException("ClickHouse 25.1 " + reason + " for " + lock + ". Expected local owner " + owner
+                + " and source table UUID " + source + "." + observed + " Resume on the original installation or follow the DBA handoff procedure.");
+    }
+
+    private static UUID canonicalUuid(String value) {
+        if (value == null || value.length() != 36) {
+            return null;
+        }
+        try {
+            UUID id = UUID.fromString(value);
+            return value.equals(id.toString()) ? id : null;
+        }
+        catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private static final class MigrationClaim {
+        private final UUID owner;
+        private final UUID source;
+        private final UUID gateOwner;
+
+        private MigrationClaim(UUID owner, UUID source, UUID gateOwner) {
+            this.owner = owner;
+            this.source = source;
+            this.gateOwner = gateOwner;
+        }
+
+        private static MigrationClaim parse(String comment) {
+            if (comment == null) {
+                return null;
+            }
+            String[] fields = comment.split(":", 5);
+            if ((fields.length != 3 && fields.length != 4) || !MIGRATION_CLAIM.equals(fields[0])) {
+                return null;
+            }
+            UUID owner = canonicalUuid(fields[1]);
+            UUID source = canonicalUuid(fields[2]);
+            UUID gateOwner = fields.length == 4 ? canonicalUuid(fields[3]) : owner;
+            return owner == null || source == null || gateOwner == null ? null : new MigrationClaim(owner, source, gateOwner);
+        }
     }
 
     private static int schemaVersion(Connection connection, String metadata) throws SQLException {

@@ -1,17 +1,27 @@
 package net.coreprotect.bukkit;
 
 import java.util.List;
+import java.util.Set;
 
+import org.bukkit.Material;
 import org.bukkit.entity.Chicken;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Pig;
 
+import net.coreprotect.model.BlockGroup;
+
 /**
  * Bukkit adapter implementation for Minecraft 1.21.5.
  */
 public class Bukkit_v1_21_5 extends Bukkit_v1_21 {
+
+    public Bukkit_v1_21_5() {
+        Set<Material> groundPlants = Set.of(Material.BUSH, Material.FIREFLY_BUSH, Material.SHORT_DRY_GRASS, Material.TALL_DRY_GRASS, Material.LEAF_LITTER);
+        BlockGroup.TRACK_TOP.addAll(groundPlants);
+        BlockGroup.NON_ATTACHABLE.addAll(groundPlants);
+    }
 
     @Override
     public boolean getEntityMeta(LivingEntity entity, List<Object> info) {

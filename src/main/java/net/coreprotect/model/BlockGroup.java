@@ -85,6 +85,12 @@ public final class BlockGroup {
         LOGGED_BY_LOWER_HALF.addAll(DOORS);
         TRACK_TOP.addAll(PRESSURE_PLATES);
         TRACK_TOP.addAll(Tag.CARPETS.getValues());
+        for (String name : new String[] { "MOSS_CARPET", "PALE_MOSS_CARPET" }) {
+            Material carpet = Material.getMaterial(name);
+            if (carpet != null) {
+                TRACK_TOP.add(carpet);
+            }
+        }
         TRACK_TOP_BOTTOM.addAll(LANTERNS);
         LIGHTABLES.addAll(CANDLES);
         INTERACT_BLOCKS.addAll(DOORS);

@@ -3,9 +3,7 @@ package net.coreprotect.bukkit;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -130,7 +128,7 @@ public class BukkitAdapter implements BukkitInterface {
     }
 
     // -------------------- Basic data conversion methods --------------------
-    public static Set<Material> EMPTY_SET = new HashSet<>(Arrays.asList());
+    public static final Set<Material> EMPTY_SET = Collections.emptySet();
 
     @Override
     public String parseLegacyName(String name) {

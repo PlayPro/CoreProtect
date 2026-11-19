@@ -3,6 +3,7 @@ package net.coreprotect.bukkit;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -45,8 +46,8 @@ import net.coreprotect.utility.BlockTypeUtils;
  */
 public class Bukkit_v1_21 extends Bukkit_v1_20 {
 
-    public static Set<Material> COPPER_CHESTS = new HashSet<>(Arrays.asList());
-    public static Set<Material> SHELVES = new HashSet<>(Arrays.asList());
+    private final Set<Material> copperChests = blockMaterials("copper_chests", "COPPER_CHEST");
+    private final Set<Material> shelves = blockMaterials("wooden_shelves", "_SHELF");
     public static Set<Material> BUNDLES = new HashSet<>(Arrays.asList());
 
     @Override
@@ -93,6 +94,26 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
             addToBlockGroupIfMissing(paleHangingMoss, BlockGroup.VERTICAL_BOTTOM);
             addToBlockGroupIfMissing(paleHangingMoss, BlockGroup.NON_ATTACHABLE);
         }
+
+        Material resinClump = Material.getMaterial("RESIN_CLUMP");
+        if (resinClump != null) {
+            BlockGroup.TRACK_ANY.add(resinClump);
+            BlockGroup.NON_ATTACHABLE.add(resinClump);
+        }
+
+        Material copperTorch = Material.getMaterial("COPPER_TORCH");
+        if (copperTorch != null) {
+            BlockGroup.TRACK_TOP.add(copperTorch);
+            BlockGroup.NON_ATTACHABLE.add(copperTorch);
+            BlockGroup.UPDATE_STATE.add(copperTorch);
+        }
+        Material copperWallTorch = Material.getMaterial("COPPER_WALL_TORCH");
+        if (copperWallTorch != null) {
+            BlockGroup.TRACK_SIDE.add(copperWallTorch);
+            BlockGroup.NON_ATTACHABLE.add(copperWallTorch);
+            BlockGroup.UPDATE_STATE.add(copperWallTorch);
+        }
+        BlockGroup.LANTERNS.addAll(blockMaterials("lanterns", "COPPER_LANTERN"));
     }
 
     /**
@@ -332,16 +353,12 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
 
     @Override
     public boolean isCopperChest(Material material) {
-        if (COPPER_CHESTS.contains(material) && material != Material.CHEST) {
-            return true;
-        }
-
-        return false;
+        return material != Material.CHEST && copperChests.contains(material);
     }
 
     @Override
     public boolean isShelf(Material material) {
-        return SHELVES.contains(material);
+        return shelves.contains(material);
     }
 
     @Override
@@ -352,40 +369,25 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
 
     @Override
     public Set<Material> copperChestMaterials() {
-        if (COPPER_CHESTS.isEmpty()) {
-            Material copperChest = Material.getMaterial("COPPER_CHEST");
-            if (copperChest == null) {
-                COPPER_CHESTS.add(Material.CHEST);
-            }
-            else {
-                COPPER_CHESTS.add(Material.getMaterial("COPPER_CHEST"));
-                COPPER_CHESTS.add(Material.getMaterial("EXPOSED_COPPER_CHEST"));
-                COPPER_CHESTS.add(Material.getMaterial("WEATHERED_COPPER_CHEST"));
-                COPPER_CHESTS.add(Material.getMaterial("OXIDIZED_COPPER_CHEST"));
-                COPPER_CHESTS.add(Material.getMaterial("WAXED_COPPER_CHEST"));
-                COPPER_CHESTS.add(Material.getMaterial("WAXED_EXPOSED_COPPER_CHEST"));
-                COPPER_CHESTS.add(Material.getMaterial("WAXED_WEATHERED_COPPER_CHEST"));
-                COPPER_CHESTS.add(Material.getMaterial("WAXED_OXIDIZED_COPPER_CHEST"));
-            }
-        }
-
-        return COPPER_CHESTS;
+        return copperChests;
     }
 
     @Override
     public Set<Material> shelfMaterials() {
-        if (SHELVES.isEmpty()) {
-            Tag<Material> shelfTag = getMaterialTag(Tag.REGISTRY_BLOCKS, "wooden_shelves");
-            if (shelfTag != null) {
-                SHELVES.addAll(shelfTag.getValues());
-            }
+        return shelves;
+    }
 
-            if (SHELVES.isEmpty()) {
-                addMaterialsEndingWith(SHELVES, "_SHELF");
-            }
+    static Set<Material> blockMaterials(String tagName, String fallbackSuffix) {
+        Set<Material> materials = new HashSet<>();
+        Tag<Material> tag = getMaterialTag(Tag.REGISTRY_BLOCKS, tagName);
+        if (tag != null) {
+            materials.addAll(tag.getValues());
+            materials.remove(null);
         }
-
-        return SHELVES;
+        if (materials.isEmpty()) {
+            addMaterialsEndingWith(materials, fallbackSuffix);
+        }
+        return Collections.unmodifiableSet(materials);
     }
 
     @Override

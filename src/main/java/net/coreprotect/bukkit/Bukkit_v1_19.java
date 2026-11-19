@@ -126,7 +126,9 @@ public class Bukkit_v1_19 extends Bukkit_v1_18 {
      * Initializes sculk blocks (new in 1.19).
      */
     private void initializeSculkBlocks() {
-        BlockGroup.SCULK = new HashSet<>(Arrays.asList(Material.SCULK, Material.SCULK_VEIN, Material.SCULK_SENSOR, Material.SCULK_SHRIEKER));
+        BlockGroup.SCULK = new HashSet<>(Arrays.asList(Material.SCULK, Material.SCULK_VEIN, Material.SCULK_SENSOR, Material.SCULK_SHRIEKER, Material.SCULK_CATALYST));
+        BlockGroup.TRACK_ANY.add(Material.SCULK_VEIN);
+        BlockGroup.NON_ATTACHABLE.add(Material.SCULK_VEIN);
     }
 
     /**

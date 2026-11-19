@@ -64,6 +64,10 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
     public Bukkit_v1_20() {
         initializeBlockGroups();
         initializeTaggedBlocks();
+        BlockGroup.TRACK_TOP.addAll(Set.of(Material.TORCHFLOWER_CROP, Material.PITCHER_CROP));
+        BlockGroup.LOGGED_BY_LOWER_HALF.add(Material.PITCHER_CROP);
+        BlockGroup.DIRECTIONAL_BLOCKS.addAll(Set.of(Material.PIGLIN_HEAD, Material.PIGLIN_WALL_HEAD));
+        BlockGroup.SCULK.add(Material.CALIBRATED_SCULK_SENSOR);
     }
 
     /**

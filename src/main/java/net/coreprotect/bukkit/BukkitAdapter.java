@@ -508,7 +508,7 @@ public class BukkitAdapter implements BukkitInterface {
     }
 
     @Override
-    public Class<?> getFrameClass(Material material) {
+    public Class<? extends ItemFrame> getFrameClass(Material material) {
         return ItemFrame.class;
     }
 

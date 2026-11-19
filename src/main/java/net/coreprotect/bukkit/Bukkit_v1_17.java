@@ -237,7 +237,7 @@ public class Bukkit_v1_17 extends BukkitAdapter {
     }
 
     @Override
-    public Class<?> getFrameClass(Material material) {
+    public Class<? extends ItemFrame> getFrameClass(Material material) {
         return (material == Material.GLOW_ITEM_FRAME) ? GlowItemFrame.class : ItemFrame.class;
     }
 

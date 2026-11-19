@@ -63,8 +63,14 @@ public final class ArmorStandManipulateListener implements Listener {
         }
 
         ItemStack previous = event.getArmorStandItem();
-        ItemStack placed = event.getPlayerItem().clone();
-        if (placed.getAmount() > 1) {
+        ItemStack held = event.getPlayerItem();
+        int heldAmount = held.getAmount();
+        if (heldAmount > 1 && !ItemUtils.isEmptyContainerSlot(previous)) {
+            return;
+        }
+
+        ItemStack placed = held.clone();
+        if (heldAmount > 1) {
             placed.setAmount(1);
         }
         if (previous.equals(placed)) {

@@ -72,6 +72,22 @@ public final class InventoryChangeListener extends Queue implements Listener {
         return false;
     }
 
+    public static void queueContainerSnapshots(String user, Location location, Material type, ItemStack[] before, ItemStack[] after) {
+        if (user == null || user.isEmpty() || location == null || location.getWorld() == null || type == null || before == null || after == null
+                || !Config.getConfig(location.getWorld()).ITEM_TRANSACTIONS || ItemUtils.compareContainers(before, after)) {
+            return;
+        }
+
+        Location capturedLocation = location.clone();
+        ItemStack[] capturedBefore = ItemUtils.getContainerState(before);
+        ItemStack[] capturedAfter = ItemUtils.getContainerState(after);
+        if (type != Material.ENDER_CHEST) {
+            HopperPullListener.flushPendingPull(capturedLocation, null, capturedBefore);
+        }
+        ContainerTransactionDispatcher.submit(user, type, capturedLocation,
+                () -> queueContainerTransaction(user, capturedLocation, type, capturedAfter, capturedBefore, capturedAfter, null));
+    }
+
     public static void queueContainerBreak(String user, Location location, Material type, ItemStack[] contents) {
         if (user == null || user.isEmpty() || location == null || location.getWorld() == null || type == null || contents == null) {
             return;

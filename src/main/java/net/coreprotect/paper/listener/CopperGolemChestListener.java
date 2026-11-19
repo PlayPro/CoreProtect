@@ -1,15 +1,18 @@
 package net.coreprotect.paper.listener;
 
-import java.util.List;
+import java.lang.ref.WeakReference;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.bukkit.GameEvent;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.DoubleChest;
 import org.bukkit.entity.CopperGolem;
@@ -27,12 +30,10 @@ import io.papermc.paper.event.entity.ItemTransportingEntityValidateTargetEvent;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.Scheduler;
-import net.coreprotect.utility.HopperTransactionUtils;
+import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.ItemUtils;
 
 public final class CopperGolemChestListener implements Listener {
@@ -47,11 +48,11 @@ public final class CopperGolemChestListener implements Listener {
 
     private final CoreProtect plugin;
     private final Map<UUID, OpenInteraction> openInteractions = new ConcurrentHashMap<>();
-    private final Map<UUID, TransactionKey> transportTargets = new ConcurrentHashMap<>();
+    private final Map<UUID, TransportTarget> transportTargets = new ConcurrentHashMap<>();
     private final Map<UUID, RecentEmptyCopperChestSkip> recentEmptyCopperChestSkips = new ConcurrentHashMap<>();
-    private final Map<TransactionKey, OpenInteractionIndex> openInteractionIndexByContainerKey = new ConcurrentHashMap<>();
+    private final Map<TransactionKey, Map<UUID, OpenInteraction>> openInteractionIndexByContainerKey = new ConcurrentHashMap<>();
     private final Map<TransactionKey, Set<UUID>> emptySkipGolemsByContainerKey = new ConcurrentHashMap<>();
-    private volatile long lastCleanupMillis;
+    private final AtomicLong nextCleanupMillis = new AtomicLong();
 
     public CopperGolemChestListener(CoreProtect plugin) {
         this.plugin = plugin;
@@ -64,8 +65,10 @@ public final class CopperGolemChestListener implements Listener {
             return;
         }
 
-        cleanupOpenInteractions(System.currentTimeMillis());
-        transportTargets.put(event.getEntity().getUniqueId(), TransactionKey.of(event.getBlock().getLocation()));
+        long now = System.currentTimeMillis();
+        cleanupOpenInteractions(now);
+        CopperGolem golem = (CopperGolem) event.getEntity();
+        transportTargets.put(golem.getUniqueId(), new TransportTarget(TransactionKey.of(event.getBlock().getLocation()), new WeakReference<>(golem), now));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -93,7 +96,11 @@ public final class CopperGolemChestListener implements Listener {
             return;
         }
 
-        BlockState blockState = eventLocation.getBlock().getState();
+        Block eventBlock = eventLocation.getBlock();
+        if (!isChest(eventBlock.getType())) {
+            return;
+        }
+        BlockState blockState = PaperAdapter.ADAPTER.getBlockState(eventBlock, false);
         if (!(blockState instanceof InventoryHolder)) {
             return;
         }
@@ -104,11 +111,6 @@ public final class CopperGolemChestListener implements Listener {
         }
 
         Material containerType = blockState.getType();
-        boolean isCopperChest = isCopperChest(containerType);
-        boolean isStandardChest = containerType == Material.CHEST || containerType == Material.TRAPPED_CHEST;
-        if (!isCopperChest && !isStandardChest) {
-            return;
-        }
 
         long now = System.currentTimeMillis();
         cleanupOpenInteractions(now);
@@ -129,7 +131,7 @@ public final class CopperGolemChestListener implements Listener {
         }
         else {
             if (entity instanceof CopperGolem) {
-                handleContainerClose((CopperGolem) entity, canonicalLocation, containerKey, containerType, inventoryHolder, now);
+                handleContainerClose((CopperGolem) entity, canonicalLocation, containerKey, containerType, now);
             }
             else if (entity == null) {
                 handleContainerCloseWithoutEntity(containerKey, containerType, now);
@@ -144,7 +146,7 @@ public final class CopperGolemChestListener implements Listener {
 
         TransactionKey containerKey = TransactionKey.of(location);
         TransactionKey otherHalfKey = containerKey;
-        InventoryHolder holder = inventory.getHolder();
+        InventoryHolder holder = PaperAdapter.ADAPTER.getHolder(inventory, false);
         if (holder instanceof DoubleChest) {
             DoubleChest chest = (DoubleChest) holder;
             if (chest.getLeftSide() instanceof BlockState && chest.getRightSide() instanceof BlockState) {
@@ -154,16 +156,27 @@ public final class CopperGolemChestListener implements Listener {
         }
 
         CopperGolem openingGolem = null;
-        for (Entity nearby : location.getWorld().getNearbyEntities(location, 3, 2, 3)) {
-            TransactionKey target = transportTargets.get(nearby.getUniqueId());
-            if (target == null || (!target.equals(containerKey) && !target.equals(otherHalfKey))
-                    || !PaperAdapter.ADAPTER.isOwnedByCurrentRegion(nearby) || !PaperAdapter.ADAPTER.isCopperGolemInteracting(nearby)) {
+        long now = System.currentTimeMillis();
+        for (TransportTarget target : transportTargets.values()) {
+            if (now - target.selectedAtMillis > OPEN_INTERACTION_TIMEOUT_MILLIS
+                    || (!target.containerKey.equals(containerKey) && !target.containerKey.equals(otherHalfKey))) {
+                continue;
+            }
+            CopperGolem nearby = getOwnedGolem(target.golem);
+            if (nearby == null || !PaperAdapter.ADAPTER.isCopperGolemInteracting(nearby)) {
+                continue;
+            }
+            Location golemLocation = nearby.getLocation();
+            if (!Objects.equals(location.getWorld(), golemLocation.getWorld())
+                    || Math.abs(golemLocation.getX() - location.getX()) > 3
+                    || Math.abs(golemLocation.getY() - location.getY()) > 2
+                    || Math.abs(golemLocation.getZ() - location.getZ()) > 3) {
                 continue;
             }
             if (openingGolem != null) {
                 return null;
             }
-            openingGolem = (CopperGolem) nearby;
+            openingGolem = nearby;
         }
         return openingGolem;
     }
@@ -173,7 +186,7 @@ public final class CopperGolemChestListener implements Listener {
             return containerLocation;
         }
 
-        InventoryHolder holder = inventory.getHolder();
+        InventoryHolder holder = PaperAdapter.ADAPTER.getHolder(inventory, false);
         if (!(holder instanceof DoubleChest)) {
             return containerLocation;
         }
@@ -189,6 +202,15 @@ public final class CopperGolemChestListener implements Listener {
         }
 
         return canonical;
+    }
+
+    private static boolean isChest(Material material) {
+        return isCopperChest(material) || material == Material.CHEST || material == Material.TRAPPED_CHEST;
+    }
+
+    private static CopperGolem getOwnedGolem(WeakReference<CopperGolem> reference) {
+        CopperGolem golem = reference.get();
+        return golem != null && PaperAdapter.ADAPTER.isOwnedByCurrentRegion(golem) && golem.isValid() ? golem : null;
     }
 
     private static boolean isCopperChest(Material material) {
@@ -231,7 +253,7 @@ public final class CopperGolemChestListener implements Listener {
             }
         }
         else {
-            if (!isInventoryEmpty(contents) && !containsOnlyMaterial(contents, held.material)) {
+            if (!isInventoryEmpty(contents) && !containsMaterial(contents, held.material)) {
                 return;
             }
 
@@ -247,7 +269,7 @@ public final class CopperGolemChestListener implements Listener {
 
         Material heldMaterial = isCopperChest ? null : held.material;
         int heldAmount = isCopperChest ? 0 : held.amount;
-        OpenInteraction interaction = new OpenInteraction(containerKey, containerLocation.clone(), containerType, baseline, heldMaterial, heldAmount, nowMillis);
+        OpenInteraction interaction = new OpenInteraction(containerKey, containerLocation.clone(), containerType, baseline, heldMaterial, heldAmount, nowMillis, golem);
         UUID golemId = golem.getUniqueId();
         RecentEmptyCopperChestSkip removedSkip = recentEmptyCopperChestSkips.remove(golemId);
         if (removedSkip != null) {
@@ -256,82 +278,62 @@ public final class CopperGolemChestListener implements Listener {
 
         OpenInteraction previous = openInteractions.put(golemId, interaction);
         if (previous != null) {
-            openInteractionIndexByContainerKey.remove(previous.containerKey, new OpenInteractionIndex(golemId, previous.openedAtMillis));
+            unindexInteraction(golemId, previous);
         }
-        openInteractionIndexByContainerKey.put(containerKey, new OpenInteractionIndex(golemId, nowMillis));
+        openInteractionIndexByContainerKey.compute(containerKey, (key, entries) -> {
+            Map<UUID, OpenInteraction> open = entries == null ? new ConcurrentHashMap<>() : entries;
+            open.put(golemId, interaction);
+            return open;
+        });
     }
 
-    private void handleContainerClose(CopperGolem golem, Location containerLocation, TransactionKey containerKey, Material containerType, InventoryHolder inventoryHolder, long nowMillis) {
+    private void unindexInteraction(UUID golemId, OpenInteraction interaction) {
+        openInteractionIndexByContainerKey.computeIfPresent(interaction.containerKey, (key, entries) -> {
+            entries.remove(golemId, interaction);
+            return entries.isEmpty() ? null : entries;
+        });
+    }
+
+    private void handleContainerClose(CopperGolem golem, Location containerLocation, TransactionKey containerKey, Material containerType, long nowMillis) {
         UUID golemId = golem.getUniqueId();
         OpenInteraction interaction = openInteractions.get(golemId);
         if (interaction == null) {
             if (isCopperChest(containerType)) {
                 RecentEmptyCopperChestSkip emptySkip = recentEmptyCopperChestSkips.get(golemId);
-                if (emptySkip != null && emptySkip.containerKey.equals(containerKey) && (nowMillis - emptySkip.skippedAtMillis) <= EMPTY_COPPER_CHEST_SKIP_TTL_MILLIS) {
+                if (emptySkip != null && emptySkip.containerKey.equals(containerKey) && nowMillis - emptySkip.skippedAtMillis <= EMPTY_COPPER_CHEST_SKIP_TTL_MILLIS) {
                     if (recentEmptyCopperChestSkips.remove(golemId, emptySkip)) {
                         unindexEmptySkip(emptySkip.containerKey, golemId);
                     }
                     return;
                 }
 
-                scheduleUntrackedCopperChestCloseFinalize(golemId, containerLocation.clone(), containerType, 1);
-                return;
-            }
-
-            return;
-        }
-
-        if (nowMillis - interaction.openedAtMillis > OPEN_INTERACTION_TIMEOUT_MILLIS) {
-            if (openInteractions.remove(golemId, interaction)) {
-                openInteractionIndexByContainerKey.remove(interaction.containerKey, new OpenInteractionIndex(golemId, interaction.openedAtMillis));
+                scheduleUntrackedCopperChestCloseFinalize(new WeakReference<>(golem), containerLocation.clone(), containerType, 1);
             }
             return;
         }
 
-        if (!interaction.containerKey.equals(containerKey)) {
-            return;
+        if (interaction.containerKey.equals(containerKey) && openInteractions.remove(golemId, interaction)) {
+            unindexInteraction(golemId, interaction);
+            if (nowMillis - interaction.openedAtMillis <= OPEN_INTERACTION_TIMEOUT_MILLIS) {
+                scheduleCloseFinalize(golemId, interaction, false, 1);
+            }
         }
-
-        openInteractions.remove(golemId, interaction);
-        openInteractionIndexByContainerKey.remove(interaction.containerKey, new OpenInteractionIndex(golemId, interaction.openedAtMillis));
-        scheduleCloseFinalize(golemId, interaction, containerKey, 1);
     }
 
     private void handleContainerCloseWithoutEntity(TransactionKey containerKey, Material containerType, long nowMillis) {
-        if (containerKey == null) {
-            return;
-        }
-
         if (isCopperChest(containerType)) {
             clearRecentEmptyCopperChestSkipsByKey(containerKey);
         }
 
-        OpenInteractionIndex index = openInteractionIndexByContainerKey.get(containerKey);
-        if (index == null) {
+        Map<UUID, OpenInteraction> candidates = openInteractionIndexByContainerKey.get(containerKey);
+        if (candidates == null) {
             return;
         }
-
-        UUID golemId = index.golemId;
-        OpenInteraction interaction = openInteractions.get(golemId);
-        if (interaction == null) {
-            openInteractionIndexByContainerKey.remove(containerKey, index);
-            return;
-        }
-        if (interaction.openedAtMillis != index.openedAtMillis || !interaction.containerKey.equals(containerKey)) {
-            openInteractionIndexByContainerKey.remove(containerKey, index);
-            return;
-        }
-        if (nowMillis - interaction.openedAtMillis > OPEN_INTERACTION_TIMEOUT_MILLIS) {
-            if (openInteractions.remove(golemId, interaction)) {
-                openInteractionIndexByContainerKey.remove(containerKey, index);
+        candidates.forEach((golemId, interaction) -> {
+            if (nowMillis - interaction.openedAtMillis <= OPEN_INTERACTION_TIMEOUT_MILLIS && interaction.probing.compareAndSet(false, true)) {
+                scheduleCloseFinalize(golemId, interaction, true, 1);
             }
-            return;
-        }
-
-        if (openInteractions.remove(golemId, interaction)) {
-            openInteractionIndexByContainerKey.remove(containerKey, index);
-            scheduleCloseFinalize(golemId, interaction, containerKey, 1);
-        }
+        });
     }
 
     private void clearRecentEmptyCopperChestSkipsByKey(TransactionKey containerKey) {
@@ -366,67 +368,94 @@ public final class CopperGolemChestListener implements Listener {
         }
     }
 
-    private void scheduleCloseFinalize(UUID golemId, OpenInteraction interaction, TransactionKey containerKey, int attempt) {
-        Scheduler.scheduleSyncDelayedTask(plugin, () -> finalizeContainerClose(golemId, interaction, containerKey, attempt), interaction.location, (int) CLOSE_FINALIZE_DELAY_TICKS);
+    private void scheduleCloseFinalize(UUID golemId, OpenInteraction interaction, boolean probe, int attempt) {
+        Scheduler.scheduleSyncDelayedTask(plugin, () -> finalizeContainerClose(golemId, interaction, probe, attempt), interaction.location, (int) CLOSE_FINALIZE_DELAY_TICKS);
     }
 
-    private void scheduleUntrackedCopperChestCloseFinalize(UUID golemId, Location containerLocation, Material containerType, int attempt) {
-        Scheduler.scheduleSyncDelayedTask(plugin, () -> finalizeUntrackedCopperChestClose(golemId, containerLocation, containerType, attempt), containerLocation, (int) CLOSE_FINALIZE_DELAY_TICKS);
+    private void scheduleUntrackedCopperChestCloseFinalize(WeakReference<CopperGolem> golem, Location containerLocation, Material containerType, int attempt) {
+        Scheduler.scheduleSyncDelayedTask(plugin, () -> finalizeUntrackedCopperChestClose(golem, containerLocation, containerType, attempt), containerLocation, (int) CLOSE_FINALIZE_DELAY_TICKS);
     }
 
-    private void finalizeContainerClose(UUID golemId, OpenInteraction interaction, TransactionKey containerKey, int attempt) {
-        Entity entity = plugin.getServer().getEntity(golemId);
-        if (!(entity instanceof CopperGolem)) {
+    private void finalizeContainerClose(UUID golemId, OpenInteraction interaction, boolean probe, int attempt) {
+        if (probe && openInteractions.get(golemId) != interaction) {
             return;
         }
 
-        BlockState blockState = interaction.location.getBlock().getState();
-        if (!(blockState instanceof InventoryHolder)) {
+        CopperGolem golem = getOwnedGolem(interaction.golem);
+        if (golem == null) {
+            interaction.probing.set(false);
+            return;
+        }
+
+        Block block = interaction.location.getBlock();
+        BlockState blockState = PaperAdapter.ADAPTER.getBlockState(block, false);
+        if (blockState.getType() != interaction.containerType || !(blockState instanceof InventoryHolder)) {
+            interaction.probing.set(false);
             return;
         }
 
         Inventory inventory = ((InventoryHolder) blockState).getInventory();
         if (inventory == null) {
+            interaction.probing.set(false);
             return;
         }
 
         ItemStack[] currentContents = inventory.getContents();
         if (currentContents == null) {
+            interaction.probing.set(false);
             return;
         }
 
         boolean changed = hasInventoryChanged(interaction.baselineState, currentContents);
-        if (!changed) {
+        if (!changed || !isAttributableToGolem(golem, interaction, currentContents)) {
             if (attempt < CLOSE_FINALIZE_MAX_ATTEMPTS) {
-                scheduleCloseFinalize(golemId, interaction, containerKey, attempt + 1);
+                scheduleCloseFinalize(golemId, interaction, probe, attempt + 1);
+            }
+            else {
+                interaction.probing.set(false);
             }
             return;
         }
 
-        CopperGolem golem = (CopperGolem) entity;
-        if (!isAttributableToGolem(golem, interaction, currentContents)) {
-            return;
+        if (!probe || openInteractions.remove(golemId, interaction)) {
+            if (probe) {
+                unindexInteraction(golemId, interaction);
+            }
+            InventoryChangeListener.queueContainerSnapshots(USERNAME, interaction.location, interaction.containerType, interaction.baselineState, currentContents);
+            updateOtherBaselines(interaction, currentContents);
         }
-
-        recordForcedContainerState(interaction.location, currentContents);
-        InventoryChangeListener.inventoryTransaction(USERNAME, interaction.location, interaction.baselineState);
     }
 
-    private void finalizeUntrackedCopperChestClose(UUID golemId, Location containerLocation, Material containerType, int attempt) {
-        Entity entity = plugin.getServer().getEntity(golemId);
-        if (!(entity instanceof CopperGolem)) {
+    private void updateOtherBaselines(OpenInteraction completed, ItemStack[] contents) {
+        Map<UUID, OpenInteraction> others = openInteractionIndexByContainerKey.get(completed.containerKey);
+        if (others == null) {
+            return;
+        }
+        ItemStack[] snapshot = ItemUtils.getContainerState(contents);
+        for (OpenInteraction other : others.values()) {
+            if (other == completed || hasInventoryChanged(completed.baselineState, other.baselineState)) {
+                continue;
+            }
+            CopperGolem golem = getOwnedGolem(other.golem);
+            if (golem != null) {
+                HeldItemSnapshot held = getHeldItemSnapshot(golem);
+                if (held.material == other.heldMaterial && held.amount == other.heldAmount) {
+                    other.baselineState = snapshot;
+                }
+            }
+        }
+    }
+
+    private void finalizeUntrackedCopperChestClose(WeakReference<CopperGolem> reference, Location containerLocation, Material containerType, int attempt) {
+        CopperGolem golem = getOwnedGolem(reference);
+        if (golem == null || !isCopperChest(containerType)) {
             return;
         }
 
-        if (!isCopperChest(containerType)) {
-            return;
-        }
-
-        CopperGolem golem = (CopperGolem) entity;
         ItemStack heldNowStack = getHeldItemStack(golem);
         if (isEmptyItem(heldNowStack) || heldNowStack == null || heldNowStack.getAmount() <= 0) {
             if (attempt < CLOSE_FALLBACK_MAX_ATTEMPTS) {
-                scheduleUntrackedCopperChestCloseFinalize(golemId, containerLocation, containerType, attempt + 1);
+                scheduleUntrackedCopperChestCloseFinalize(reference, containerLocation, containerType, attempt + 1);
             }
             return;
         }
@@ -436,7 +465,7 @@ public final class CopperGolemChestListener implements Listener {
             return;
         }
 
-        BlockState blockState = containerLocation.getBlock().getState();
+        BlockState blockState = PaperAdapter.ADAPTER.getBlockState(containerLocation.getBlock(), false);
         if (!(blockState instanceof InventoryHolder) || !isCopperChest(blockState.getType())) {
             return;
         }
@@ -456,8 +485,7 @@ public final class CopperGolemChestListener implements Listener {
             return;
         }
 
-        recordForcedContainerState(containerLocation, currentContents);
-        InventoryChangeListener.inventoryTransaction(USERNAME, containerLocation, baselineCandidate);
+        InventoryChangeListener.queueContainerSnapshots(USERNAME, containerLocation, containerType, baselineCandidate, currentContents);
     }
 
     private boolean isAttributableToGolem(CopperGolem golem, OpenInteraction interaction, ItemStack[] currentContents) {
@@ -465,7 +493,7 @@ public final class CopperGolemChestListener implements Listener {
         HeldItemSnapshot heldNow = getHeldItemSnapshot(golem);
 
         if (isCopperChest) {
-            if (heldNow.material == null || heldNow.amount <= 0) {
+            if (heldNow.material == null || heldNow.amount <= 0 || !otherSlotsUnchanged(interaction.baselineState, currentContents, heldNow.material)) {
                 return false;
             }
 
@@ -485,7 +513,7 @@ public final class CopperGolemChestListener implements Listener {
             return false;
         }
 
-        if (!containsOnlyMaterial(currentContents, heldMaterial)) {
+        if (!otherSlotsUnchanged(interaction.baselineState, currentContents, heldMaterial)) {
             return false;
         }
 
@@ -556,61 +584,23 @@ public final class CopperGolemChestListener implements Listener {
         return null;
     }
 
-    private void recordForcedContainerState(Location location, ItemStack[] contents) {
-        if (location == null) {
-            return;
-        }
-
-        ItemStack[] snapshot = ItemUtils.getContainerState(contents);
-        if (snapshot == null) {
-            return;
-        }
-
-        String loggingContainerId = HopperTransactionUtils.getLoggingId(USERNAME, location);
-        String transactionId = HopperTransactionUtils.getTransactionId(location);
-        HopperTransactionUtils.synchronizeTransaction(transactionId, () -> {
-            List<ItemStack[]> oldList = ConfigHandler.oldContainer.get(loggingContainerId);
-            boolean hasPendingBaseline = oldList != null && !oldList.isEmpty();
-
-            ItemStack[] oldestSnapshot = Queue.peekForceContainer(loggingContainerId);
-            boolean hasStaleForceSnapshots = oldestSnapshot != null && oldestSnapshot.length != snapshot.length;
-
-            if (!hasPendingBaseline || hasStaleForceSnapshots) {
-                Queue.removeForceContainer(loggingContainerId);
-            }
-
-            Queue.addForceContainer(loggingContainerId, snapshot);
-        });
-    }
-
     private void cleanupOpenInteractions(long nowMillis) {
-        long last = lastCleanupMillis;
-        if (nowMillis - last < CLEANUP_INTERVAL_MILLIS) {
+        long next = nextCleanupMillis.get();
+        if (nowMillis < next || !nextCleanupMillis.compareAndSet(next, nowMillis + CLEANUP_INTERVAL_MILLIS)) {
             return;
         }
-        lastCleanupMillis = nowMillis;
-
-        transportTargets.keySet().removeIf(golemId -> plugin.getServer().getEntity(golemId) == null);
-
-        for (Map.Entry<UUID, OpenInteraction> entry : openInteractions.entrySet()) {
-            UUID golemId = entry.getKey();
-            OpenInteraction interaction = entry.getValue();
-            if (interaction == null || nowMillis - interaction.openedAtMillis > OPEN_INTERACTION_TIMEOUT_MILLIS || plugin.getServer().getEntity(golemId) == null) {
-                if (openInteractions.remove(golemId, interaction) && interaction != null) {
-                    openInteractionIndexByContainerKey.remove(interaction.containerKey, new OpenInteractionIndex(golemId, interaction.openedAtMillis));
-                }
+        transportTargets.values().removeIf(target -> nowMillis - target.selectedAtMillis > OPEN_INTERACTION_TIMEOUT_MILLIS || target.golem.get() == null);
+        openInteractions.forEach((golemId, interaction) -> {
+            if ((nowMillis - interaction.openedAtMillis > OPEN_INTERACTION_TIMEOUT_MILLIS || interaction.golem.get() == null)
+                    && openInteractions.remove(golemId, interaction)) {
+                unindexInteraction(golemId, interaction);
             }
-        }
-
-        for (Map.Entry<UUID, RecentEmptyCopperChestSkip> entry : recentEmptyCopperChestSkips.entrySet()) {
-            UUID golemId = entry.getKey();
-            RecentEmptyCopperChestSkip skip = entry.getValue();
-            if (skip == null || nowMillis - skip.skippedAtMillis > EMPTY_COPPER_CHEST_SKIP_TTL_MILLIS || plugin.getServer().getEntity(golemId) == null) {
-                if (recentEmptyCopperChestSkips.remove(golemId, skip) && skip != null) {
-                    unindexEmptySkip(skip.containerKey, golemId);
-                }
+        });
+        recentEmptyCopperChestSkips.forEach((golemId, skip) -> {
+            if (nowMillis - skip.skippedAtMillis > EMPTY_COPPER_CHEST_SKIP_TTL_MILLIS && recentEmptyCopperChestSkips.remove(golemId, skip)) {
+                unindexEmptySkip(skip.containerKey, golemId);
             }
-        }
+        });
     }
 
     private boolean hasInventoryChanged(ItemStack[] previousState, ItemStack[] currentState) {
@@ -656,18 +646,29 @@ public final class CopperGolemChestListener implements Listener {
     }
 
     private boolean isEmptyItem(ItemStack item) {
-        return item == null || item.getType().isAir() || item.getAmount() <= 0;
+        return item == null || BlockUtils.isAir(item.getType()) || item.getAmount() <= 0;
     }
 
-    private boolean containsOnlyMaterial(ItemStack[] state, Material material) {
-        if (state == null || material == null) {
+    private boolean containsMaterial(ItemStack[] state, Material material) {
+        for (ItemStack item : state) {
+            if (!isEmptyItem(item) && item.getType() == material) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean otherSlotsUnchanged(ItemStack[] before, ItemStack[] after, Material material) {
+        if (before.length != after.length) {
             return false;
         }
-        for (ItemStack item : state) {
-            if (isEmptyItem(item)) {
+        for (int slot = 0; slot < before.length; slot++) {
+            ItemStack oldItem = before[slot];
+            ItemStack newItem = after[slot];
+            if (Objects.equals(oldItem, newItem)) {
                 continue;
             }
-            if (item.getType() != material) {
+            if ((!isEmptyItem(oldItem) && oldItem.getType() != material) || (!isEmptyItem(newItem) && newItem.getType() != material)) {
                 return false;
             }
         }
@@ -679,12 +680,11 @@ public final class CopperGolemChestListener implements Listener {
             return false;
         }
 
-        int maxStackSize = material.getMaxStackSize();
         for (ItemStack item : state) {
             if (isEmptyItem(item)) {
                 return true;
             }
-            if (item.getType() == material && item.getAmount() < maxStackSize) {
+            if (item.getType() == material && item.getAmount() < item.getMaxStackSize()) {
                 return true;
             }
         }
@@ -738,12 +738,14 @@ public final class CopperGolemChestListener implements Listener {
         private final TransactionKey containerKey;
         private final Location location;
         private final Material containerType;
-        private final ItemStack[] baselineState;
+        private ItemStack[] baselineState;
         private final Material heldMaterial;
         private final int heldAmount;
         private final long openedAtMillis;
+        private final WeakReference<CopperGolem> golem;
+        private final AtomicBoolean probing = new AtomicBoolean();
 
-        private OpenInteraction(TransactionKey containerKey, Location location, Material containerType, ItemStack[] baselineState, Material heldMaterial, int heldAmount, long openedAtMillis) {
+        private OpenInteraction(TransactionKey containerKey, Location location, Material containerType, ItemStack[] baselineState, Material heldMaterial, int heldAmount, long openedAtMillis, CopperGolem golem) {
             this.containerKey = containerKey;
             this.location = location;
             this.containerType = containerType;
@@ -751,6 +753,7 @@ public final class CopperGolemChestListener implements Listener {
             this.heldMaterial = heldMaterial;
             this.heldAmount = heldAmount;
             this.openedAtMillis = openedAtMillis;
+            this.golem = new WeakReference<>(golem);
         }
     }
 
@@ -818,31 +821,15 @@ public final class CopperGolemChestListener implements Listener {
 
     }
 
-    private static final class OpenInteractionIndex {
+    private static final class TransportTarget {
+        private final TransactionKey containerKey;
+        private final WeakReference<CopperGolem> golem;
+        private final long selectedAtMillis;
 
-        private final UUID golemId;
-        private final long openedAtMillis;
-
-        private OpenInteractionIndex(UUID golemId, long openedAtMillis) {
-            this.golemId = golemId;
-            this.openedAtMillis = openedAtMillis;
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) {
-                return true;
-            }
-            if (!(obj instanceof OpenInteractionIndex)) {
-                return false;
-            }
-            OpenInteractionIndex other = (OpenInteractionIndex) obj;
-            return openedAtMillis == other.openedAtMillis && golemId.equals(other.golemId);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(golemId, openedAtMillis);
+        private TransportTarget(TransactionKey containerKey, WeakReference<CopperGolem> golem, long selectedAtMillis) {
+            this.containerKey = containerKey;
+            this.golem = golem;
+            this.selectedAtMillis = selectedAtMillis;
         }
     }
 }

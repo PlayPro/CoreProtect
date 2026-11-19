@@ -257,7 +257,7 @@ public class Lookup extends Queue {
     }
 
     private static boolean hasSummaryActions(List<Integer> actionList) {
-        if (actionList.contains(LookupActions.CONTAINER) || actionList.contains(5)) {
+        if (actionList.contains(LookupActions.CONTAINER) || actionList.contains(LookupActions.INSPECT_CONTAINER)) {
             return true;
         }
         if (actionList.contains(LookupActions.CHAT) || actionList.contains(LookupActions.COMMAND) || actionList.contains(LookupActions.SESSION) || actionList.contains(LookupActions.USERNAME) || actionList.contains(LookupActions.SIGN)) {
@@ -420,8 +420,4 @@ public class Lookup extends Queue {
         return LookupRaw.performLookupRaw(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, Collections.emptyList(), entityContext, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, entityContainerId, LookupRollbackState.ANY);
     }
 
-    // Maintain backward compatibility
-    private static ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean count) {
-        return LookupRaw.rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, count);
-    }
 }

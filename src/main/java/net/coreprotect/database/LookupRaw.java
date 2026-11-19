@@ -120,7 +120,8 @@ public class LookupRaw extends Queue {
             int cursorSource = 0;
             boolean orderByTime = false;
             boolean foundPageRow = false;
-            try (ResultSet results = rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime, 0, limitCount, restrictWorld, lookup, false, entityContainerId, false, false, false, rollbackState, null, true, limitOffset, knownTotalRows, cursor, explicitWorldId)) {
+            try (ResultSet results = queryResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime,
+                    QueryOptions.page(limitOffset, limitCount, knownTotalRows, cursor, restrictWorld, lookup, entityContainerId, rollbackState, explicitWorldId))) {
                 if (!Lookup.hasQueryResult(results, failOnError)) {
                     return new RawLookupPage(totalRows, Collections.emptyList(), null);
                 }
@@ -212,7 +213,8 @@ public class LookupRaw extends Queue {
 
             if (ConfigHandler.databaseType.isClickHouse() && pageRows == null && limitOffset >= 0 && limitCount > 0) {
                 pageRows = new HashMap<>();
-                try (ResultSet pageResults = rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, false, entityContainerId, false, false, false, rollbackState, null, true, explicitWorldId)) {
+                try (ResultSet pageResults = queryResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime,
+                        QueryOptions.page(limitOffset, limitCount, -1L, null, restrictWorld, lookup, entityContainerId, rollbackState, explicitWorldId))) {
                     if (pageResults == null) {
                         return null;
                     }
@@ -229,7 +231,8 @@ public class LookupRaw extends Queue {
                 limitCount = -1;
             }
 
-            results = rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, false, entityContainerId, false, false, false, rollbackState, pageRows, false, explicitWorldId);
+            results = queryResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime,
+                    QueryOptions.rows(QueryMode.ROWS, limitOffset, limitCount, restrictWorld, lookup, entityContainerId, rollbackState, explicitWorldId, pageRows));
             if (results == null) {
                 return null;
             }
@@ -315,7 +318,7 @@ public class LookupRaw extends Queue {
                     int resultWorldId = results.getInt("wid");
 
                     boolean hasTbl = false;
-                    if ((lookup && actionList.size() == 0) || actionList.contains(LookupActions.INTERACTION) || actionList.contains(LookupActions.CONTAINER) || actionList.contains(5) || actionList.contains(LookupActions.ITEM)) {
+                    if ((lookup && actionList.size() == 0) || actionList.contains(LookupActions.INTERACTION) || actionList.contains(LookupActions.CONTAINER) || actionList.contains(LookupActions.INSPECT_CONTAINER) || actionList.contains(LookupActions.ITEM)) {
                         resultData = results.getInt("data");
                         resultAmount = results.getInt("amount");
                         resultMeta = DatabaseUtils.getBytes(results, "metadata");
@@ -394,27 +397,9 @@ public class LookupRaw extends Queue {
     }
 
     static ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean count) {
-        return rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, Collections.emptyList(), location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, count);
-    }
-
-    static ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, List<String> messageFilters, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean count) {
-        return rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, messageFilters, Collections.emptySet(), Collections.emptySet(), location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, count);
-    }
-
-    static ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, List<String> messageFilters, Set<UUID> loadedEntityUuids, Set<UUID> loadedEntityCandidates, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean count) {
-        return rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, EntityActionFilter.DEFAULT, messageFilters, loadedEntityUuids, loadedEntityCandidates, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, count);
-    }
-
-    static ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, List<String> messageFilters, Set<UUID> loadedEntityUuids, Set<UUID> loadedEntityCandidates, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean count) {
-        return rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, loadedEntityUuids, loadedEntityCandidates, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, count, null);
-    }
-
-    static ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, List<String> messageFilters, Set<UUID> loadedEntityUuids, Set<UUID> loadedEntityCandidates, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean count, Integer entityContainerId) {
-        return rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, loadedEntityUuids, loadedEntityCandidates, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, count, entityContainerId, LookupRollbackState.ANY);
-    }
-
-    static ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, List<String> messageFilters, Set<UUID> loadedEntityUuids, Set<UUID> loadedEntityCandidates, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean count, Integer entityContainerId, LookupRollbackState rollbackState) {
-        return rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, loadedEntityUuids, loadedEntityCandidates, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, count, entityContainerId, false, false, false, rollbackState, null, false);
+        return rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList,
+                EntityActionFilter.DEFAULT, Collections.emptyList(), EntityLookupContext.legacy(Collections.emptySet(), Collections.emptySet()), location, radius, rowData, startTime, endTime,
+                limitOffset, limitCount, restrictWorld, lookup, count, null, LookupRollbackState.ANY, 0);
     }
 
     static ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, List<String> messageFilters, EntityLookupContext entityContext, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean count, Integer entityContainerId, LookupRollbackState rollbackState) {
@@ -422,15 +407,8 @@ public class LookupRaw extends Queue {
     }
 
     static ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, List<String> messageFilters, EntityLookupContext entityContext, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean count, Integer entityContainerId, LookupRollbackState rollbackState, int explicitWorldId) {
-        return rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, count, entityContainerId, false, false, false, rollbackState, null, false, explicitWorldId);
-    }
-
-    static ResultSet rawSummaryResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, Set<UUID> loadedEntityUuids, Set<UUID> loadedEntityCandidates, Location location, Integer[] radius, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, Integer entityContainerId, boolean countGroups) {
-        return rawSummaryResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, loadedEntityUuids, loadedEntityCandidates, location, radius, startTime, endTime, limitOffset, limitCount, restrictWorld, entityContainerId, countGroups, LookupRollbackState.ANY);
-    }
-
-    static ResultSet rawSummaryResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, Set<UUID> loadedEntityUuids, Set<UUID> loadedEntityCandidates, Location location, Integer[] radius, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, Integer entityContainerId, boolean countGroups, LookupRollbackState rollbackState) {
-        return rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, Collections.emptyList(), loadedEntityUuids, loadedEntityCandidates, location, radius, null, startTime, endTime, limitOffset, limitCount, restrictWorld, true, false, entityContainerId, true, countGroups, false, rollbackState, null, false);
+        return queryResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime,
+                QueryOptions.rows(count ? QueryMode.COUNT : QueryMode.ROWS, limitOffset, limitCount, restrictWorld, lookup, entityContainerId, rollbackState, explicitWorldId, null));
     }
 
     static ResultSet rawSummaryResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, EntityLookupContext entityContext, Location location, Integer[] radius, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, Integer entityContainerId, boolean countGroups, LookupRollbackState rollbackState) {
@@ -438,42 +416,39 @@ public class LookupRaw extends Queue {
     }
 
     static ResultSet rawSummaryResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, EntityLookupContext entityContext, Location location, Integer[] radius, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, Integer entityContainerId, boolean countGroups, LookupRollbackState rollbackState, int explicitWorldId) {
-        return rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, Collections.emptyList(), entityContext, location, radius, null, startTime, endTime, limitOffset, limitCount, restrictWorld, true, false, entityContainerId, true, countGroups, false, rollbackState, null, false, explicitWorldId);
-    }
-
-    static ResultSet rawSummaryPageResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, Set<UUID> loadedEntityUuids, Set<UUID> loadedEntityCandidates, Location location, Integer[] radius, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, Integer entityContainerId) {
-        return rawSummaryPageResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, loadedEntityUuids, loadedEntityCandidates, location, radius, startTime, endTime, limitOffset, limitCount, restrictWorld, entityContainerId, LookupRollbackState.ANY);
-    }
-
-    static ResultSet rawSummaryPageResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, Set<UUID> loadedEntityUuids, Set<UUID> loadedEntityCandidates, Location location, Integer[] radius, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, Integer entityContainerId, LookupRollbackState rollbackState) {
-        return rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, Collections.emptyList(), loadedEntityUuids, loadedEntityCandidates, location, radius, null, startTime, endTime, limitOffset, limitCount, restrictWorld, true, false, entityContainerId, true, false, true, rollbackState, null, false);
-    }
-
-    static ResultSet rawSummaryPageResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, EntityLookupContext entityContext, Location location, Integer[] radius, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, Integer entityContainerId, LookupRollbackState rollbackState) {
-        return rawSummaryPageResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, entityContext, location, radius, startTime, endTime, limitOffset, limitCount, restrictWorld, entityContainerId, rollbackState, 0);
+        return queryResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, Collections.emptyList(), entityContext, location, radius, null, startTime, endTime,
+                QueryOptions.rows(countGroups ? QueryMode.SUMMARY_COUNT : QueryMode.SUMMARY, limitOffset, limitCount, restrictWorld, true, entityContainerId, rollbackState, explicitWorldId, null));
     }
 
     static ResultSet rawSummaryPageResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, EntityLookupContext entityContext, Location location, Integer[] radius, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, Integer entityContainerId, LookupRollbackState rollbackState, int explicitWorldId) {
-        return rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, Collections.emptyList(), entityContext, location, radius, null, startTime, endTime, limitOffset, limitCount, restrictWorld, true, false, entityContainerId, true, false, true, rollbackState, null, false, explicitWorldId);
+        return queryResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, Collections.emptyList(), entityContext, location, radius, null, startTime, endTime,
+                QueryOptions.rows(QueryMode.SUMMARY_PAGE, limitOffset, limitCount, restrictWorld, true, entityContainerId, rollbackState, explicitWorldId, null));
     }
 
-    private static ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, List<String> messageFilters, Set<UUID> loadedEntityUuids, Set<UUID> loadedEntityCandidates, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean count, Integer entityContainerId, boolean summary, boolean countGroups, boolean includeGroupCount, LookupRollbackState rollbackState, Map<Integer, List<PageRow>> pageRows, boolean selectPageRows) {
-        EntityLookupContext entityContext = EntityLookupContext.legacy(loadedEntityUuids, loadedEntityCandidates);
-        return rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, count, entityContainerId, summary, countGroups, includeGroupCount, rollbackState, pageRows, selectPageRows, 0);
-    }
-
-    private static ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, List<String> messageFilters, EntityLookupContext entityContext, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean count, Integer entityContainerId, boolean summary, boolean countGroups, boolean includeGroupCount, LookupRollbackState rollbackState, Map<Integer, List<PageRow>> pageRows, boolean selectPageRows, int explicitWorldId) {
-        return rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime, limitOffset, limitCount, restrictWorld, lookup, count, entityContainerId, summary, countGroups, includeGroupCount, rollbackState, pageRows, selectPageRows, limitOffset, -1L, null, explicitWorldId);
-    }
-
-    private static ResultSet rawLookupResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, List<String> messageFilters, EntityLookupContext entityContext, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup, boolean count, Integer entityContainerId, boolean summary, boolean countGroups, boolean includeGroupCount, LookupRollbackState rollbackState, Map<Integer, List<PageRow>> pageRows, boolean selectPageRows, int pageOffset, long knownTotalRows, LookupCursor cursor, int explicitWorldId) {
+    private static ResultSet queryResultSet(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, List<String> messageFilters, EntityLookupContext entityContext, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, QueryOptions options) {
+        boolean restrictWorld = options.restrictWorld;
+        boolean lookup = options.lookup;
+        boolean count = options.mode == QueryMode.COUNT;
+        boolean countGroups = options.mode == QueryMode.SUMMARY_COUNT;
+        boolean includeGroupCount = options.mode == QueryMode.SUMMARY_PAGE;
+        boolean summary = options.mode == QueryMode.SUMMARY || countGroups || includeGroupCount;
+        boolean selectPageRows = options.mode == QueryMode.PAGE_IDS;
+        Integer entityContainerId = options.entityContainerId;
+        LookupRollbackState rollbackState = options.rollbackState;
+        int explicitWorldId = options.explicitWorldId;
+        int limitOffset = options.limitOffset;
+        int limitCount = options.limitCount;
+        int pageOffset = limitOffset;
+        long knownTotalRows = selectPageRows ? options.page.knownTotalRows : -1L;
+        LookupCursor cursor = selectPageRows ? options.page.cursor : null;
+        Map<Integer, List<PageRow>> pageRows = options.selectedRows;
         ResultSet results = null;
 
         try {
             Set<UUID> loadedEntityUuids = entityContext.getLoadedEntityUuids();
             Set<UUID> loadedEntityCandidates = entityContext.getLoadedEntityCandidates();
             List<Integer> validActions = Arrays.asList(LookupActions.BLOCK_BREAK, LookupActions.BLOCK_PLACE, LookupActions.INTERACTION, LookupActions.ENTITY_KILL, LookupActions.ENTITY_SPAWN);
-            boolean containerLookup = actionList.contains(LookupActions.CONTAINER) || actionList.contains(5);
+            boolean containerLookup = actionList.contains(LookupActions.CONTAINER) || actionList.contains(LookupActions.INSPECT_CONTAINER);
             boolean messageLookup = !containerLookup && (actionList.contains(LookupActions.CHAT) || actionList.contains(LookupActions.COMMAND));
             boolean sessionLookup = !containerLookup && !messageLookup && actionList.contains(LookupActions.SESSION);
             boolean usernameLookup = !containerLookup && !messageLookup && !sessionLookup && actionList.contains(LookupActions.USERNAME);
@@ -486,7 +461,7 @@ public class LookupRaw extends Queue {
             if (radius != null || explicitWorldId > 0) {
                 restrictWorld = true;
             }
-            boolean requiresLocationWorld = restrictWorld || (radius == null && actionList.contains(5) && entityContainerId == null);
+            boolean requiresLocationWorld = restrictWorld || (radius == null && actionList.contains(LookupActions.INSPECT_CONTAINER) && entityContainerId == null);
             int locationWorldId = explicitWorldId > 0 ? explicitWorldId : -1;
             if (requiresLocationWorld && locationWorldId < 0) {
                 if (location == null || location.getWorld() == null) {
@@ -495,7 +470,7 @@ public class LookupRaw extends Queue {
                 locationWorldId = WorldUtils.getWorldId(location.getWorld().getName());
             }
             Integer[] sourceBounds = radius;
-            if (sourceBounds == null && actionList.contains(5) && entityContainerId == null) {
+            if (sourceBounds == null && actionList.contains(LookupActions.INSPECT_CONTAINER) && entityContainerId == null) {
                 sourceBounds = new Integer[] {
                         0,
                         (int) Math.floor(location.getX()),
@@ -508,7 +483,7 @@ public class LookupRaw extends Queue {
             }
 
             boolean inventoryQuery = LookupActions.isInventoryLookup(actionList);
-            boolean standardActionLookup = !actionList.contains(LookupActions.CONTAINER) && !actionList.contains(5) && !actionList.contains(LookupActions.ITEM) && !actionList.contains(LookupActions.CHAT) && !actionList.contains(LookupActions.COMMAND) && !actionList.contains(LookupActions.SESSION) && !actionList.contains(LookupActions.USERNAME) && !actionList.contains(LookupActions.SIGN);
+            boolean standardActionLookup = !actionList.contains(LookupActions.CONTAINER) && !actionList.contains(LookupActions.INSPECT_CONTAINER) && !actionList.contains(LookupActions.ITEM) && !actionList.contains(LookupActions.CHAT) && !actionList.contains(LookupActions.COMMAND) && !actionList.contains(LookupActions.SESSION) && !actionList.contains(LookupActions.USERNAME) && !actionList.contains(LookupActions.SIGN);
             boolean includeEntityInteractions = !summary && lookup && standardActionLookup && (actionList.isEmpty() || actionList.contains(LookupActions.INTERACTION));
             boolean includeEntityContainers = entityContainerId != null || actionList.contains(LookupActions.CONTAINER) || inventoryQuery || (lookup && actionList.isEmpty());
             boolean includeEntitySpawnLocations = entityActionFilter.includesAnySpawn(actionList, lookup || Config.getGlobal().ROLLBACK_ENTITIES);
@@ -799,7 +774,7 @@ public class LookupRaw extends Queue {
                 }
             }
 
-            if (radius == null && actionList.contains(5) && entityContainerId == null) {
+            if (radius == null && actionList.contains(LookupActions.INSPECT_CONTAINER) && entityContainerId == null) {
                 int worldId = locationWorldId;
                 int x = sourceBounds[1];
                 int z = sourceBounds[5];
@@ -907,7 +882,7 @@ public class LookupRaw extends Queue {
             String rows = summary ? "rowid as id,time," + userColumn + ",wid,x,y,z,type,meta as metadata,data,-1 as amount,action,rolled_back,0 as entity_spawn_rowid" : "rowid as id,time," + userColumn + ",wid,x,y,z,action,type,data,meta,blockdata,rolled_back";
             String queryOrder = " ORDER BY " + ConfigHandler.getDescendingEventOrder();
 
-            if (actionList.contains(LookupActions.CONTAINER) || actionList.contains(5)) {
+            if (actionList.contains(LookupActions.CONTAINER) || actionList.contains(LookupActions.INSPECT_CONTAINER)) {
                 queryTable = "container";
                 rows = "rowid as id,time," + userColumn + ",wid,x,y,z,action,type,data,rolled_back,amount,metadata,0 as entity_spawn_rowid";
             }
@@ -1106,7 +1081,7 @@ public class LookupRaw extends Queue {
                 query = query + unionSelect + "SELECT 2 as tbl," + rows + " FROM " + itemTable + " WHERE" + itemSourceQuery + unionLimit + ")";
             }
 
-            if (!itemLookup && (actionList.contains(LookupActions.CONTAINER) || actionList.contains(5))) {
+            if (!itemLookup && (actionList.contains(LookupActions.CONTAINER) || actionList.contains(LookupActions.INSPECT_CONTAINER))) {
                 if (!count && !selectPageRows) {
                     rows = "rowid as id,time," + userColumn + ",wid,x,y,z,type,metadata,data,amount,action,rolled_back,0 as entity_spawn_rowid";
                 }
@@ -1245,6 +1220,58 @@ public class LookupRaw extends Queue {
             sql.append(exclude ? " uuid NOT IN(" : " uuid IN(")
                     .append(String.join(",", Collections.nCopies(values.size(), "?"))).append(") AND");
             bindings.addAll(values);
+        }
+    }
+
+    private enum QueryMode {
+        ROWS, COUNT, SUMMARY, SUMMARY_COUNT, SUMMARY_PAGE, PAGE_IDS
+    }
+
+    private static final class QueryOptions {
+        private final QueryMode mode;
+        private final int limitOffset;
+        private final int limitCount;
+        private final boolean restrictWorld;
+        private final boolean lookup;
+        private final Integer entityContainerId;
+        private final LookupRollbackState rollbackState;
+        private final int explicitWorldId;
+        private final Map<Integer, List<PageRow>> selectedRows;
+        private final PageSelection page;
+
+        private QueryOptions(QueryMode mode, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup,
+                Integer entityContainerId, LookupRollbackState rollbackState, int explicitWorldId, Map<Integer, List<PageRow>> selectedRows, PageSelection page) {
+            this.mode = mode;
+            this.limitOffset = limitOffset;
+            this.limitCount = limitCount;
+            this.restrictWorld = restrictWorld;
+            this.lookup = lookup;
+            this.entityContainerId = entityContainerId;
+            this.rollbackState = rollbackState;
+            this.explicitWorldId = explicitWorldId;
+            this.selectedRows = selectedRows;
+            this.page = page;
+        }
+
+        private static QueryOptions rows(QueryMode mode, int limitOffset, int limitCount, boolean restrictWorld, boolean lookup,
+                Integer entityContainerId, LookupRollbackState rollbackState, int explicitWorldId, Map<Integer, List<PageRow>> selectedRows) {
+            return new QueryOptions(mode, limitOffset, limitCount, restrictWorld, lookup, entityContainerId, rollbackState, explicitWorldId, selectedRows, null);
+        }
+
+        private static QueryOptions page(int offset, int limit, long knownTotalRows, LookupCursor cursor, boolean restrictWorld, boolean lookup,
+                Integer entityContainerId, LookupRollbackState rollbackState, int explicitWorldId) {
+            return new QueryOptions(QueryMode.PAGE_IDS, offset, limit, restrictWorld, lookup, entityContainerId, rollbackState, explicitWorldId, null,
+                    new PageSelection(knownTotalRows, cursor));
+        }
+    }
+
+    private static final class PageSelection {
+        private final long knownTotalRows;
+        private final LookupCursor cursor;
+
+        private PageSelection(long knownTotalRows, LookupCursor cursor) {
+            this.knownTotalRows = knownTotalRows;
+            this.cursor = cursor;
         }
     }
 

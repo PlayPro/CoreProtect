@@ -271,6 +271,7 @@ public class ConfigHandler {
     private static final Map<ReferenceKind, IdentifierStore> IDENTIFIER_STORES = identifierStores();
     public static Map<String, int[]> rollbackHash = syncMap();
     public static Map<String, Boolean> inspecting = syncMap();
+    private static final Object BLACKLIST_LOCK = new Object();
     public static volatile Map<String, Boolean> blacklist = new ConcurrentHashMap<>();
     public static volatile Map<String, HashSet<String>> FilteredBlacklist = new ConcurrentHashMap<>();
     public static Map<String, Integer> loggingChest = syncMap();
@@ -447,46 +448,57 @@ public class ConfigHandler {
     }
 
     public static boolean isBlacklisted(String user) {
+        return isBlacklisted(blacklist, user);
+    }
+
+    private static boolean isBlacklisted(Map<String, Boolean> entries, String user) {
         if (user == null || user.isEmpty()) {
             return false;
         }
-        return ConfigHandler.blacklist.containsKey(user.toLowerCase(Locale.ROOT));
+        return entries.containsKey(user.toLowerCase(Locale.ROOT));
     }
 
     public static boolean isBlacklisted(String user, String object) {
-        if (isBlacklisted(user) || isObjectBlacklisted(object)) {
-            return true;
+        Map<String, Boolean> direct;
+        Map<String, HashSet<String>> filtered;
+        synchronized (BLACKLIST_LOCK) {
+            direct = blacklist;
+            filtered = FilteredBlacklist;
         }
-        return isFilterBlacklisted(user, object);
+        return isBlacklisted(direct, user) || isObjectBlacklisted(direct, object) || isFilterBlacklisted(filtered, user, object);
     }
 
-    private static boolean isObjectBlacklisted(String object) {
+    private static boolean isObjectBlacklisted(Map<String, Boolean> entries, String object) {
         if (object == null || object.isEmpty()) {
             return false;
         }
         String normalized = object.toLowerCase(Locale.ROOT);
-        if (ConfigHandler.blacklist.containsKey(normalized)) {
+        if (entries.containsKey(normalized)) {
             return true;
         }
         String alias = objectAlias(normalized);
-        return alias != null && ConfigHandler.blacklist.containsKey(alias);
+        return alias != null && entries.containsKey(alias);
     }
 
     public static boolean isFilterBlacklisted(String user, String object) {
+        return isFilterBlacklisted(FilteredBlacklist, user, object);
+    }
+
+    private static boolean isFilterBlacklisted(Map<String, HashSet<String>> entries, String user, String object) {
         if (user == null || user.isEmpty() || object == null || object.isEmpty()) {
             return false;
         }
         String normalizedUser = user.toLowerCase(Locale.ROOT);
         String normalizedObject = object.toLowerCase(Locale.ROOT);
-        if (containsFilteredUser(normalizedObject, normalizedUser)) {
+        if (containsFilteredUser(entries, normalizedObject, normalizedUser)) {
             return true;
         }
         String alias = objectAlias(normalizedObject);
-        return alias != null && containsFilteredUser(alias, normalizedUser);
+        return alias != null && containsFilteredUser(entries, alias, normalizedUser);
     }
 
-    private static boolean containsFilteredUser(String objectKey, String normalizedUser) {
-        HashSet<String> blUserSet = FilteredBlacklist.get(objectKey);
+    private static boolean containsFilteredUser(Map<String, HashSet<String>> entries, String objectKey, String normalizedUser) {
+        HashSet<String> blUserSet = entries.get(objectKey);
         return blUserSet != null && blUserSet.contains(normalizedUser);
     }
 
@@ -504,7 +516,13 @@ public class ConfigHandler {
     }
 
     public static boolean isCommandBlacklisted(String user, String message) {
-        if (isBlacklisted(user)) {
+        Map<String, Boolean> direct;
+        Map<String, HashSet<String>> filtered;
+        synchronized (BLACKLIST_LOCK) {
+            direct = blacklist;
+            filtered = FilteredBlacklist;
+        }
+        if (isBlacklisted(direct, user)) {
             return true;
         }
         if (message == null || message.isEmpty()) {
@@ -519,7 +537,7 @@ public class ConfigHandler {
             end++;
         }
         String token = trimmed.substring(0, end).toLowerCase(Locale.ROOT);
-        if (isExactOrFilteredBlacklisted(user, token)) {
+        if (isExactOrFilteredBlacklisted(direct, filtered, user, token)) {
             return true;
         }
         int slashEnd = 0;
@@ -530,36 +548,36 @@ public class ConfigHandler {
             return false;
         }
         String bareWithNamespace = token.substring(slashEnd);
-        if (slashEnd != 1 && isExactOrFilteredBlacklisted(user, "/" + bareWithNamespace)) {
+        if (slashEnd != 1 && isExactOrFilteredBlacklisted(direct, filtered, user, "/" + bareWithNamespace)) {
             return true;
         }
-        if (slashEnd > 0 && isExactOrFilteredBlacklisted(user, bareWithNamespace)) {
+        if (slashEnd > 0 && isExactOrFilteredBlacklisted(direct, filtered, user, bareWithNamespace)) {
             return true;
         }
-        if (slashEnd == 0 && isExactOrFilteredBlacklisted(user, "/" + bareWithNamespace)) {
+        if (slashEnd == 0 && isExactOrFilteredBlacklisted(direct, filtered, user, "/" + bareWithNamespace)) {
             return true;
         }
         int colon = bareWithNamespace.indexOf(':');
         if (colon >= 0 && colon + 1 < bareWithNamespace.length()) {
             String bareCommand = bareWithNamespace.substring(colon + 1);
-            if (isExactOrFilteredBlacklisted(user, "/" + bareCommand)
-                    || isExactOrFilteredBlacklisted(user, bareCommand)
-                    || (slashEnd >= 2 && (isExactOrFilteredBlacklisted(user, "//" + bareCommand)
-                            || (slashEnd > 2 && isExactOrFilteredBlacklisted(user, token.substring(0, slashEnd) + bareCommand))))) {
+            if (isExactOrFilteredBlacklisted(direct, filtered, user, "/" + bareCommand)
+                    || isExactOrFilteredBlacklisted(direct, filtered, user, bareCommand)
+                    || (slashEnd >= 2 && (isExactOrFilteredBlacklisted(direct, filtered, user, "//" + bareCommand)
+                            || (slashEnd > 2 && isExactOrFilteredBlacklisted(direct, filtered, user, token.substring(0, slashEnd) + bareCommand))))) {
                 return true;
             }
         }
         return false;
     }
 
-    private static boolean isExactOrFilteredBlacklisted(String user, String key) {
-        if (ConfigHandler.blacklist.containsKey(key)) {
+    private static boolean isExactOrFilteredBlacklisted(Map<String, Boolean> direct, Map<String, HashSet<String>> filtered, String user, String key) {
+        if (direct.containsKey(key)) {
             return true;
         }
         if (user == null || user.isEmpty()) {
             return false;
         }
-        return containsFilteredUser(key, user.toLowerCase(Locale.ROOT));
+        return containsFilteredUser(filtered, key, user.toLowerCase(Locale.ROOT));
     }
 
     private static void loadBlacklist() {
@@ -601,8 +619,10 @@ public class ConfigHandler {
             ErrorReporter.report(e);
             return;
         }
-        ConfigHandler.blacklist = loadedBlacklist;
-        ConfigHandler.FilteredBlacklist = loadedFiltered;
+        synchronized (BLACKLIST_LOCK) {
+            blacklist = loadedBlacklist;
+            FilteredBlacklist = loadedFiltered;
+        }
     }
 
     private static void loadConfig() throws Exception {

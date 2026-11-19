@@ -2,6 +2,7 @@ package net.coreprotect.command;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -45,9 +46,10 @@ public class TeleportCommand {
             return;
         }
 
+        Server server = Bukkit.getServer();
         String firstArgument = args[1].trim();
         boolean coordinateFirst = resultc == 4 && isCoordinateCharactersOnly(firstArgument);
-        World exactWorld = coordinateFirst ? Bukkit.getServer().getWorld(firstArgument) : null;
+        World exactWorld = coordinateFirst ? server.getWorld(firstArgument) : null;
         boolean hasWorldArg = resultc == 5 || (resultc == 4 && (!coordinateFirst || exactWorld != null));
         int coordStart = hasWorldArg ? 2 : 1;
         boolean hasY = resultc - coordStart == 3;
@@ -59,35 +61,39 @@ public class TeleportCommand {
             return;
         }
 
-        Location location = ((Player) player).getLocation().clone();
+        Player executor = (Player) player;
+        Location location = executor.getLocation().clone();
         World world = location.getWorld();
         if (exactWorld != null) {
             world = exactWorld;
         }
         else if (hasWorldArg) {
             int wid = WorldUtils.matchWorld(firstArgument);
-            world = wid == -1 ? null : Bukkit.getServer().getWorld(WorldUtils.getWorldName(wid));
+            world = wid == -1 ? null : server.getWorld(WorldUtils.getWorldName(wid));
         }
         if (world == null) {
             Chat.sendMessage(player, new ChatMessage(Phrase.build(Phrase.WORLD_NOT_FOUND, firstArgument)).build());
             return;
         }
 
-        double targetY = hasY ? y : (location.getBlockY() > 63 ? 63.0 : location.getY());
-
         location.setWorld(world);
         location.setX(x);
-        location.setY(targetY);
+        if (hasY) {
+            location.setY(y);
+        }
         location.setZ(z);
 
         int chunkX = location.getBlockX() >> 4;
         int chunkZ = location.getBlockZ() >> 4;
         Scheduler.runTask(CoreProtect.getInstance(), () -> {
+            if (Bukkit.getServer() != server || !executor.isOnline() || server.getPlayer(executor.getUniqueId()) != executor) {
+                return;
+            }
             if (!location.getWorld().isChunkLoaded(chunkX, chunkZ)) {
                 location.getWorld().getChunkAt(location);
             }
 
-            Teleport.performSafeTeleport(((Player) player), location, true);
+            Teleport.performSafeTeleport(executor, location, true);
         }, location);
 
         ConfigHandler.teleportThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });

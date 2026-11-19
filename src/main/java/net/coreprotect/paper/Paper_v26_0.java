@@ -12,7 +12,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.SkullProfileUtils;
 
-public class Paper_26_0 extends Paper_v1_20 {
+public class Paper_v26_0 extends Paper_v1_20 {
 
     @Override
     public String getSkullOwner(Skull skull) {

@@ -60,7 +60,7 @@ public class PaperAdapter implements PaperInterface {
             PaperAdapter.ADAPTER = new Paper_v26_1();
         }
         else if (paperVersion >= PAPER_V26_0) {
-            PaperAdapter.ADAPTER = new Paper_26_0();
+            PaperAdapter.ADAPTER = new Paper_v26_0();
         }
         else if (paperVersion >= PAPER_V1_20) {
             PaperAdapter.ADAPTER = new Paper_v1_20();

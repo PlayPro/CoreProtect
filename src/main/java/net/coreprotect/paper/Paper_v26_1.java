@@ -11,7 +11,7 @@ import org.bukkit.entity.Pig;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 
-public class Paper_v26_1 extends Paper_26_0 {
+public class Paper_v26_1 extends Paper_v26_0 {
 
     @Override
     public boolean isCopperGolemInteracting(Entity entity) {

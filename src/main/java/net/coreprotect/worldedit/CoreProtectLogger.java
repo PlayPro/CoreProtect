@@ -34,18 +34,17 @@ import net.coreprotect.utility.ItemUtils;
 
 public class CoreProtectLogger extends AbstractDelegateExtent {
     private final Actor eventActor;
-    private final World eventWorld;
+    private final org.bukkit.World world;
 
     protected CoreProtectLogger(Actor actor, World world, Extent extent) {
         super(extent);
         this.eventActor = actor;
-        this.eventWorld = world;
+        this.world = BukkitAdapter.adapt(world);
     }
 
     @Override
     public <T extends BlockStateHolder<T>> boolean setBlock(BlockVector3 position, T block) throws WorldEditException {
         Extent eventExtent = getExtent();
-        org.bukkit.World world = BukkitAdapter.adapt(eventWorld);
         Config config = Config.getConfig(world);
         if (!ConfigHandler.serverRunning || !config.WORLDEDIT) {
             return eventExtent.setBlock(position, block);
@@ -86,7 +85,6 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
     @Override
     public int replaceBlocks(final Region region, final Mask mask, final Pattern pattern) throws MaxChangedBlocksException {
         Extent eventExtent = getExtent();
-        org.bukkit.World world = BukkitAdapter.adapt(eventWorld);
         if (!ConfigHandler.serverRunning || !Config.getConfig(world).WORLDEDIT) {
             return eventExtent.replaceBlocks(region, mask, pattern);
         }
@@ -104,7 +102,6 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
     @Override
     public int setBlocks(Region region, Pattern pattern) throws MaxChangedBlocksException {
         Extent eventExtent = getExtent();
-        org.bukkit.World world = BukkitAdapter.adapt(eventWorld);
         if (!ConfigHandler.serverRunning || !Config.getConfig(world).WORLDEDIT) {
             return eventExtent.setBlocks(region, pattern);
         }
@@ -115,7 +112,6 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
     @Override
     public int setBlocks(Set<BlockVector3> vset, Pattern pattern) {
         Extent eventExtent = getExtent();
-        org.bukkit.World world = BukkitAdapter.adapt(eventWorld);
         if (!ConfigHandler.serverRunning || !Config.getConfig(world).WORLDEDIT) {
             return eventExtent.setBlocks(vset, pattern);
         }

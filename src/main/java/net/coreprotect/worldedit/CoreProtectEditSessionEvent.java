@@ -16,8 +16,8 @@ import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.ErrorReporter;
 
 public class CoreProtectEditSessionEvent {
-    private static boolean initialized = false;
-    private static boolean isFAWE = false;
+    private static volatile boolean initialized = false;
+    private static volatile boolean isFAWE = false;
     private static final CoreProtectEditSessionEvent event = new CoreProtectEditSessionEvent();
 
     public static boolean isInitialized() {
@@ -40,7 +40,7 @@ public class CoreProtectEditSessionEvent {
         }
     }
 
-    public static void register() {
+    public static synchronized void register() {
         if (isInitialized()) {
             return;
         }
@@ -51,7 +51,7 @@ public class CoreProtectEditSessionEvent {
             initialized = true;
             ConfigHandler.worldeditEnabled = true;
         }
-        catch (Exception e) {
+        catch (Exception | LinkageError e) {
             // Failed to initialize WorldEdit logging
         }
 
@@ -70,7 +70,7 @@ public class CoreProtectEditSessionEvent {
         });
     }
 
-    public static void unregister() {
+    public static synchronized void unregister() {
         if (!isInitialized()) {
             return;
         }
@@ -81,7 +81,7 @@ public class CoreProtectEditSessionEvent {
             ConfigHandler.worldeditEnabled = false;
             Chat.console(Phrase.build(Phrase.INTEGRATION_SUCCESS, isFAWE() ? "FastAsyncWorldEdit" : "WorldEdit", Selector.SECOND));
         }
-        catch (Exception e) {
+        catch (Exception | LinkageError e) {
             Chat.console(Phrase.build(Phrase.INTEGRATION_ERROR, isFAWE() ? "FastAsyncWorldEdit" : "WorldEdit", Selector.SECOND));
         }
     }

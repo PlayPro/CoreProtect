@@ -6,8 +6,10 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -524,6 +526,16 @@ public class LookupRaw extends Queue {
             Set<UUID> loadedEntityUuids = entityContext.getLoadedEntityUuids();
             Set<UUID> loadedEntityCandidates = entityContext.getLoadedEntityCandidates();
             List<Integer> validActions = Arrays.asList(LookupActions.BLOCK_BREAK, LookupActions.BLOCK_PLACE, LookupActions.INTERACTION, LookupActions.ENTITY_KILL, LookupActions.ENTITY_SPAWN);
+            boolean containerLookup = actionList.contains(LookupActions.CONTAINER) || actionList.contains(5);
+            boolean messageLookup = !containerLookup && (actionList.contains(LookupActions.CHAT) || actionList.contains(LookupActions.COMMAND));
+            boolean sessionLookup = !containerLookup && !messageLookup && actionList.contains(LookupActions.SESSION);
+            boolean usernameLookup = !containerLookup && !messageLookup && !sessionLookup && actionList.contains(LookupActions.USERNAME);
+            boolean unsupportedLocation = usernameLookup && (restrictWorld || radius != null || explicitWorldId > 0);
+            if (usernameLookup) {
+                restrictWorld = false;
+                radius = null;
+                explicitWorldId = 0;
+            }
             if (radius != null || explicitWorldId > 0) {
                 restrictWorld = true;
             }
@@ -586,7 +598,6 @@ public class LookupRaw extends Queue {
             String excludeBlock = "";
             String excludeEntity = "";
             String users = "";
-            String uuids = "";
             String excludeUsers = "";
             String userColumn = ConfigHandler.databaseType.getUserColumn();
             String unionLimit = "";
@@ -600,22 +611,7 @@ public class LookupRaw extends Queue {
             String entityLocationCte = "";
             List<String> messageFilterBindings = new ArrayList<>();
 
-            if (checkUuids.size() > 0) {
-                String list = "";
-
-                for (String value : checkUuids) {
-                    if (list.length() == 0) {
-                        list = "'" + value + "'";
-                    }
-                    else {
-                        list = list + ",'" + value + "'";
-                    }
-                }
-
-                uuids = list;
-            }
-
-            if (!checkUsers.contains("#global")) {
+            if (!usernameLookup && !checkUsers.contains("#global")) {
                 StringBuilder checkUserText = new StringBuilder();
 
                 for (String checkUser : checkUsers) {
@@ -714,7 +710,7 @@ public class LookupRaw extends Queue {
                 excludeEntity = excludeListEntity.toString();
             }
 
-            if (excludeUserList.size() > 0) {
+            if (!usernameLookup && !excludeUserList.isEmpty()) {
                 StringBuilder excludeUserText = new StringBuilder();
 
                 for (String excludeTarget : excludeUserList) {
@@ -924,8 +920,14 @@ public class LookupRaw extends Queue {
                 queryBlock = queryBlock + " type NOT IN(" + (excludeBlock.length() > 0 ? excludeBlock : "0") + ") AND";
             }
 
-            if (uuids.length() > 0) {
-                queryBlock = queryBlock + " uuid IN(" + uuids + ") AND";
+            if (usernameLookup) {
+                queryBlock += usernamePredicates(statement, checkUuids, checkUsers, excludeUserList, messageFilterBindings);
+                if (unsupportedLocation) {
+                    queryBlock += " 1=0 AND";
+                }
+            }
+            else if (!checkUuids.isEmpty()) {
+                queryBlock += " 1=0 AND";
             }
 
             if (users.length() > 0) {
@@ -950,7 +952,8 @@ public class LookupRaw extends Queue {
 
             String rollbackPredicate = buildRollbackPredicate(rollbackState, actionList.contains(LookupActions.ITEM));
             if (!rollbackPredicate.isEmpty()) {
-                queryBlock = queryBlock + " " + rollbackPredicate + " AND";
+                boolean hasRollbackColumn = !usernameLookup && !messageLookup && !sessionLookup;
+                queryBlock += " " + (hasRollbackColumn ? rollbackPredicate : "1=0") + " AND";
             }
 
             if (actionList.contains(LookupActions.SIGN)) {
@@ -1302,6 +1305,44 @@ public class LookupRaw extends Queue {
         }
 
         return results;
+    }
+
+    private static String usernamePredicates(Statement statement, List<String> checkUuids, List<String> checkUsers, List<String> excludeUsers, List<String> bindings) throws SQLException {
+        StringBuilder sql = new StringBuilder();
+        appendUuidPredicate(sql, checkUuids, false, bindings);
+        if (!checkUsers.contains("#global") && checkUsers.stream().anyMatch(name -> !"#container".equals(name))) {
+            Set<String> included = resolveUsernameUuids(statement, checkUsers);
+            if (included.isEmpty()) {
+                sql.append(" 1=0 AND");
+            }
+            else {
+                appendUuidPredicate(sql, included, false, bindings);
+            }
+        }
+        appendUuidPredicate(sql, resolveUsernameUuids(statement, excludeUsers), true, bindings);
+        return sql.toString();
+    }
+
+    private static Set<String> resolveUsernameUuids(Statement statement, List<String> users) throws SQLException {
+        Set<String> result = new LinkedHashSet<>();
+        for (String name : users) {
+            if ("#container".equals(name) || "#global".equals(name)) {
+                continue;
+            }
+            String uuid = UserStatement.getUuid(statement.getConnection(), name);
+            if (uuid != null && !uuid.isEmpty()) {
+                result.add(uuid);
+            }
+        }
+        return result;
+    }
+
+    private static void appendUuidPredicate(StringBuilder sql, Collection<String> values, boolean exclude, List<String> bindings) {
+        if (!values.isEmpty()) {
+            sql.append(exclude ? " uuid NOT IN(" : " uuid IN(")
+                    .append(String.join(",", Collections.nCopies(values.size(), "?"))).append(") AND");
+            bindings.addAll(values);
+        }
     }
 
     private static String blockQuery(String rows, String table, String index, String predicate, String entityLocation, String originalLocation, String currentLocation, boolean count) {

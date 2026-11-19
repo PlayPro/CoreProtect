@@ -28,7 +28,6 @@ import net.coreprotect.utility.Color;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
-import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.DatabaseUtils;
 import net.coreprotect.utility.EntitySpawnTracking;
 
@@ -223,7 +222,7 @@ public class ChestTransactionLookup {
             });
         }
         catch (Exception e) {
-            ErrorReporter.report(e);
+            Database.reportDatabaseFailure(e);
         }
 
         return result;

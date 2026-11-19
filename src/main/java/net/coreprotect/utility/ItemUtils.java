@@ -714,48 +714,50 @@ public class ItemUtils {
     }
 
     public static ItemStack getItemStack(byte[] metadata, int type, int amount) {
-        if (metadata == null) {
+        if (metadata == null || amount <= 0) {
             return null;
         }
 
-        ItemStack item = new ItemStack(MaterialUtils.getType(type), amount);
-        item = (ItemStack) net.coreprotect.database.rollback.Rollback.populateItemStack(item, metadata)[2];
-        return item;
+        Material material = MaterialUtils.getType(type);
+        if (material == null || BlockUtils.isAir(material) || !material.isItem()) {
+            return null;
+        }
+
+        ItemStack item = new ItemStack(material, amount);
+        return (ItemStack) net.coreprotect.database.rollback.Rollback.populateItemStack(item, metadata)[2];
     }
 
     public static String getEnchantments(byte[] metadata, int type, int amount) {
-        var item = getItemStack(metadata, type, amount);
-        if (item == null) return "";
+        ItemStack item = getItemStack(metadata, type, amount);
+        if (item == null || !item.hasItemMeta()) {
+            return "";
+        }
 
-        ItemMeta itemMeta = item.hasItemMeta() ? item.getItemMeta() : null;
-        String displayName = itemMeta == null ? "" : getItemDisplayName(itemMeta);
-        StringBuilder message = new StringBuilder(Color.ITALIC + displayName + Color.GREY);
+        ItemMeta itemMeta = item.getItemMeta();
+        if (itemMeta == null) {
+            return "";
+        }
 
+        boolean customName = itemMeta.hasDisplayName();
+        String displayName = customName ? itemMeta.getDisplayName() : BukkitAdapter.ADAPTER.getItemName(itemMeta);
         List<String> enchantments = ItemMetaHandler.getEnchantments(item, displayName);
+        if (displayName.isEmpty() && enchantments.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder message = new StringBuilder(enchantments.isEmpty() ? Color.WHITE : Color.AQUA);
+        if (displayName.isEmpty()) {
+            displayName = StringUtils.capitalize(item.getType().name().replace("_", " "), true);
+        }
+        else if (customName) {
+            message.append(Color.ITALIC);
+        }
+        message.append(displayName).append(Color.GREY);
+
         for (String enchantment : enchantments) {
-            if (message.length() > 0) {
-                message.append("\n");
-            }
-            message.append(enchantment);
+            message.append('\n').append(enchantment);
         }
-
-        if (!displayName.isEmpty()) {
-            message.insert(0, enchantments.isEmpty() ? Color.WHITE : Color.AQUA);
-        }
-        else if (!enchantments.isEmpty()) {
-            String name = StringUtils.capitalize(item.getType().name().replace("_", " "), true);
-            message.insert(0, Color.AQUA + Color.ITALIC + name);
-        }
-
         return message.toString();
-    }
-
-    private static String getItemDisplayName(ItemMeta itemMeta) {
-        if (itemMeta.hasDisplayName()) {
-            return itemMeta.getDisplayName();
-        }
-
-        return BukkitAdapter.ADAPTER.getItemName(itemMeta);
     }
 
     public static Map<Integer, Object> serializeItemStackLegacy(ItemStack itemStack, String faceData, int slot) {
@@ -797,19 +799,19 @@ public class ItemUtils {
     }
 
     public static ItemStack unserializeItemStack(Object value) {
-        ItemStack result = null;
-        if (value instanceof Map) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> itemMap = (Map<String, Object>) value;
-            @SuppressWarnings("unchecked")
-            ItemStack item = ItemStack.deserialize((Map<String, Object>) itemMap.get("0"));
-            @SuppressWarnings("unchecked")
-            List<List<Map<String, Object>>> metadata = (List<List<Map<String, Object>>>) itemMap.get("1");
-
-            Object[] populatedStack = net.coreprotect.database.rollback.Rollback.populateItemStack(item, metadata);
-            result = (ItemStack) populatedStack[2];
+        if (!(value instanceof Map)) {
+            return null;
         }
 
-        return result;
+        Map<?, ?> itemMap = (Map<?, ?>) value;
+        Object stackData = itemMap.get("0");
+        if (!(stackData instanceof Map) || ((Map<?, ?>) stackData).isEmpty()) {
+            return null;
+        }
+
+        @SuppressWarnings("unchecked")
+        ItemStack item = ItemStack.deserialize((Map<String, Object>) stackData);
+        Object metadata = itemMap.get("1");
+        return metadata instanceof List ? (ItemStack) net.coreprotect.database.rollback.Rollback.populateItemStack(item, metadata)[2] : item;
     }
 }

@@ -1,6 +1,7 @@
 package net.coreprotect.utility.serialize;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -83,10 +84,6 @@ public class ItemMetaHandler {
     }
 
     private static Map<Enchantment, Integer> getEnchantments(ItemMeta itemMeta) {
-        if (itemMeta == null) {
-            return null;
-        }
-
         if (itemMeta instanceof EnchantmentStorageMeta) {
             EnchantmentStorageMeta enchantmentStorageEngine = (EnchantmentStorageMeta) itemMeta;
             return enchantmentStorageEngine.getStoredEnchants();
@@ -96,8 +93,12 @@ public class ItemMetaHandler {
     }
 
     public static List<String> getEnchantments(ItemStack item, String displayName) {
-        List<String> result = new ArrayList<>();
         ItemMeta itemMeta = item.getItemMeta();
+        if (itemMeta == null) {
+            return Collections.emptyList();
+        }
+
+        List<String> result = new ArrayList<>();
         Map<Enchantment, Integer> enchantments = getEnchantments(itemMeta);
 
         for (Entry<Enchantment, Integer> entry : enchantments.entrySet()) {

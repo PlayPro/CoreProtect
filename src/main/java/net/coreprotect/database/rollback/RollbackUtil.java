@@ -376,32 +376,38 @@ public class RollbackUtil extends Lookup {
                     itemstack.setItemMeta(itemMeta);
                 }
                 else if (itemCount == 0) {
-                    ItemMeta meta = ItemUtils.deserializeItemMeta(itemstack.getItemMeta().getClass(), map.get(0));
-                    itemstack.setItemMeta(meta);
+                    ItemMeta itemMeta = itemstack.getItemMeta();
+                    if (itemMeta != null) {
+                        ItemMeta meta = ItemUtils.deserializeItemMeta(itemMeta.getClass(), mapData);
+                        itemstack.setItemMeta(meta);
+                    }
 
-                    if (map.size() > 1 && (rowType == Material.POTION)) {
-                        PotionMeta subMeta = (PotionMeta) itemstack.getItemMeta();
-                        org.bukkit.Color color = org.bukkit.Color.deserialize(map.get(1));
-                        subMeta.setColor(color);
-                        itemstack.setItemMeta(subMeta);
+                    if (map.size() > 1) {
+                        ItemMeta subMeta = itemstack.getItemMeta();
+                        if (subMeta instanceof PotionMeta) {
+                            org.bukkit.Color color = org.bukkit.Color.deserialize(map.get(1));
+                            ((PotionMeta) subMeta).setColor(color);
+                            itemstack.setItemMeta(subMeta);
+                        }
                     }
                 }
                 else {
-                    if ((rowType == Material.LEATHER_HORSE_ARMOR) || (rowType == Material.LEATHER_HELMET) || (rowType == Material.LEATHER_CHESTPLATE) || (rowType == Material.LEATHER_LEGGINGS) || (rowType == Material.LEATHER_BOOTS)) { // leather armor
+                    ItemMeta itemMeta = itemstack.getItemMeta();
+                    if (itemMeta instanceof LeatherArmorMeta) {
+                        LeatherArmorMeta meta = (LeatherArmorMeta) itemMeta;
                         for (Map<String, Object> colorData : map) {
-                            LeatherArmorMeta meta = (LeatherArmorMeta) itemstack.getItemMeta();
                             org.bukkit.Color color = org.bukkit.Color.deserialize(colorData);
                             meta.setColor(color);
-                            itemstack.setItemMeta(meta);
                         }
+                        itemstack.setItemMeta(meta);
                     }
-                    else if ((rowType == Material.POTION)) { // potion
+                    else if (itemMeta instanceof PotionMeta) {
+                        PotionMeta meta = (PotionMeta) itemMeta;
                         for (Map<String, Object> potionData : map) {
-                            PotionMeta meta = (PotionMeta) itemstack.getItemMeta();
                             PotionEffect effect = new PotionEffect(potionData);
                             meta.addCustomEffect(effect, true);
-                            itemstack.setItemMeta(meta);
                         }
+                        itemstack.setItemMeta(meta);
                     }
                     else if (rowType.name().endsWith("_BANNER")) {
                         for (Map<String, Object> patternData : map) {

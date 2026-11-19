@@ -74,7 +74,6 @@ public final class PlayerInteractListener extends Queue implements Listener {
     }
 
     public static ConcurrentHashMap<String, Object[]> lastInspectorEvent = new ConcurrentHashMap<>();
-    public static ConcurrentHashMap<String, Object[]> suspiciousBlockEvent = new ConcurrentHashMap<>();
 
     private final BlockInspector blockInspector = new BlockInspector();
     private final SignInspector signInspector = new SignInspector();
@@ -447,40 +446,25 @@ public final class PlayerInteractListener extends Queue implements Listener {
                     else if (type == Material.JUKEBOX) {
                         BlockState blockState = block.getState();
                         if (blockState instanceof Jukebox) {
-                            Jukebox jukebox = (Jukebox) blockState;
-                            ItemStack jukeboxRecord = jukebox.isPlaying() ? jukebox.getRecord() : new ItemStack(Material.AIR);
-                            ItemStack oldItemState = jukeboxRecord.clone();
-                            ItemStack newItemState = new ItemStack(Material.AIR);
-
-                            if (jukeboxRecord.getType() == Material.AIR) {
-                                ItemStack handItem = null;
-                                ItemStack mainHand = player.getInventory().getItemInMainHand();
-                                ItemStack offHand = player.getInventory().getItemInOffHand();
-
-                                if (event.getHand().equals(EquipmentSlot.HAND) && mainHand != null && mainHand.getType().name().startsWith("MUSIC_DISC")) {
-                                    handItem = mainHand;
+                            ItemStack record = ((Jukebox) blockState).getRecord();
+                            boolean ejecting = containsItem(record);
+                            ItemStack hand = getHandItem(player, event.getHand());
+                            boolean inserting = !ejecting && event.useItemInHand() != Event.Result.DENY && containsItem(hand) && hand.getType().name().startsWith("MUSIC_DISC_");
+                            if (ejecting || inserting) {
+                                Config config = Config.getConfig(world);
+                                String user = player.getName();
+                                Location location = blockState.getLocation();
+                                if (config.PLAYER_INTERACTIONS) {
+                                    Queue.queuePlayerInteraction(user, location, type, blockState.getBlockData().getAsString());
                                 }
-                                else if (event.getHand().equals(EquipmentSlot.OFF_HAND) && offHand != null && offHand.getType().name().startsWith("MUSIC_DISC")) {
-                                    handItem = offHand;
-                                }
-                                else {
-                                    return;
-                                }
-
-                                oldItemState = new ItemStack(Material.AIR);
-                                newItemState = handItem.clone();
-                            }
-
-                            if (!oldItemState.equals(newItemState)) {
-                                if (Config.getConfig(player.getWorld()).PLAYER_INTERACTIONS) {
-                                    Queue.queuePlayerInteraction(player.getName(), blockState.getLocation(), type, blockState.getBlockData().getAsString());
-                                }
-
-                                if (Config.getConfig(block.getWorld()).ITEM_TRANSACTIONS) {
-                                    boolean logDrops = player.getGameMode() != GameMode.CREATIVE;
-                                    ItemStack[] oldState = new ItemStack[] { oldItemState };
-                                    ItemStack[] newState = new ItemStack[] { newItemState };
-                                    PlayerInteractEntityListener.queueContainerSpecifiedItems(player.getName(), Material.JUKEBOX, new Object[] { oldState, newState }, jukebox.getLocation(), logDrops);
+                                if (config.ITEM_TRANSACTIONS) {
+                                    ItemStack before = ejecting ? record.clone() : new ItemStack(Material.AIR);
+                                    ItemStack after = inserting ? hand.clone() : new ItemStack(Material.AIR);
+                                    if (inserting) {
+                                        after.setAmount(1);
+                                    }
+                                    PlayerInteractEntityListener.queueContainerSpecifiedItems(user, Material.JUKEBOX,
+                                            new Object[] { new ItemStack[] { before }, new ItemStack[] { after } }, location, ejecting);
                                 }
                             }
                         }
@@ -547,65 +531,28 @@ public final class PlayerInteractListener extends Queue implements Listener {
                         BlockState blockState = block.getState();
                         InventoryChangeListener.inventoryTransaction(player.getName(), blockState.getLocation(), null);
                     }
-                    else if (BukkitAdapter.ADAPTER.isSuspiciousBlock(type)) {
-                        ItemStack handItem = null;
-                        ItemStack mainHand = player.getInventory().getItemInMainHand();
-                        ItemStack offHand = player.getInventory().getItemInOffHand();
-                        if (event.getHand().equals(EquipmentSlot.HAND) && mainHand != null) {
-                            handItem = mainHand;
-                        }
-                        else if (event.getHand().equals(EquipmentSlot.OFF_HAND) && offHand != null) {
-                            handItem = offHand;
-                        }
-
-                        if (handItem.getType() == Material.BRUSH) {
-                            BlockState blockState = block.getState();
-                            Location blockLocation = block.getLocation();
-                            Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
-                                Material newType = block.getType();
-                                if (type == newType || (newType != Material.SAND && newType != Material.GRAVEL)) {
-                                    return;
-                                }
-
-                                long systemTime = System.currentTimeMillis();
-                                boolean logChange = true;
-                                if (suspiciousBlockEvent.get(player.getName()) != null) {
-                                    Object[] lastEvent = suspiciousBlockEvent.get(player.getName());
-                                    long lastTime = (long) lastEvent[0];
-                                    long timeSince = systemTime - lastTime;
-                                    Location lastLocation = (Location) lastEvent[1];
-                                    if (timeSince < 5000 && blockLocation.equals(lastLocation)) {
-                                        logChange = false;
-                                    }
-                                }
-
-                                if (logChange) {
-                                    Queue.queueBlockPlace(player.getName(), blockState, newType, blockState, newType, -1, 0, null);
-                                    suspiciousBlockEvent.put(player.getName(), new Object[] { systemTime, blockLocation });
-                                }
-                            }, blockLocation, 100);
-                        }
-                    }
                     else if (type == Material.DRAGON_EGG) {
                         PlayerInteractUtils.clickedDragonEgg(player, block);
                     }
 
                     if (isCake || type == Material.CAKE) {
                         boolean placeCandle = false;
-                        if (type == Material.CAKE) { // check if placing a candle on a cake
-                            Material handType = null;
-                            ItemStack mainHand = player.getInventory().getItemInMainHand();
-                            if (event.getHand().equals(EquipmentSlot.HAND) && mainHand != null) {
-                                handType = mainHand.getType();
-                            }
-
-                            if (handType != null && BlockGroup.CANDLES.contains(handType) && Config.getConfig(block.getWorld()).BLOCK_PLACE) {
-                                BlockState blockState = block.getState();
-                                BlockData blockData = blockState.getBlockData();
-                                Material newMaterial = Material.getMaterial(handType.name() + "_" + Material.CAKE.name());
-                                if (newMaterial != null && ((Cake) blockData).getBites() == 0) {
-                                    Queue.queueBlockPlace(player.getName(), block.getState(), block.getType(), blockState, newMaterial, -1, 0, blockData.getAsString());
+                        if (type == Material.CAKE && event.useItemInHand() != Event.Result.DENY) {
+                            ItemStack hand = getHandItem(player, event.getHand());
+                            if (containsItem(hand) && BlockGroup.CANDLES.contains(hand.getType())) {
+                                BlockState before = block.getState();
+                                Material expected = Material.getMaterial(hand.getType().name() + "_CAKE");
+                                if (expected != null && before.getBlockData() instanceof Cake && ((Cake) before.getBlockData()).getBites() == 0) {
                                     placeCandle = true;
+                                    if (Config.getConfig(world).BLOCK_PLACE) {
+                                        String user = player.getName();
+                                        Scheduler.runTask(CoreProtect.getInstance(), () -> {
+                                            BlockState after = block.getState();
+                                            if (after.getType() == expected) {
+                                                Queue.queueBlockPlace(user, before, type, before, expected, -1, 0, after.getBlockData().getAsString());
+                                            }
+                                        }, before.getLocation());
+                                    }
                                 }
                             }
                         }

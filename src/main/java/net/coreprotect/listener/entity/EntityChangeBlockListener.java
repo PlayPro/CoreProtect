@@ -3,11 +3,13 @@ package net.coreprotect.listener.entity;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.entity.EnderDragon;
 import org.bukkit.entity.Enderman;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.Fox;
+import org.bukkit.entity.Player;
 import org.bukkit.entity.Ravager;
 import org.bukkit.entity.Silverfish;
 import org.bukkit.entity.Turtle;
@@ -16,11 +18,16 @@ import org.bukkit.entity.Zombie;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockDropItemEvent;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
 
+import net.coreprotect.CoreProtect;
+import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.WorldUtils;
 
 public final class EntityChangeBlockListener extends Queue implements Listener {
@@ -33,6 +40,10 @@ public final class EntityChangeBlockListener extends Queue implements Listener {
         }
 
         Config config = Config.getConfig(world);
+        if (event.getEntity() instanceof Player && BukkitAdapter.ADAPTER.isSuspiciousBlock(event.getBlock().getType())) {
+            logBrushCompletion((Player) event.getEntity(), event.getBlock(), event.getBlock().getState(), event.getTo(), config);
+            return;
+        }
         if (!config.ENTITY_CHANGE) {
             return;
         }
@@ -94,6 +105,29 @@ public final class EntityChangeBlockListener extends Queue implements Listener {
                 queueBlockPlace(e, block.getState(), type, block.getState(), newtype, -1, 0, event.getBlockData().getAsString());
             }
         }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    protected void onBrushItemDrop(BlockDropItemEvent event) {
+        BlockState before = event.getBlockState();
+        if (ConfigHandler.isPaper || !BukkitAdapter.ADAPTER.isSuspiciousBlock(before.getType())) {
+            return;
+        }
+        Material expected = before.getType().name().equals("SUSPICIOUS_SAND") ? Material.SAND : Material.GRAVEL;
+        logBrushCompletion(event.getPlayer(), event.getBlock(), before, expected, Config.getConfig(before.getWorld()));
+    }
+
+    private static void logBrushCompletion(Player player, Block block, BlockState before, Material expected, Config config) {
+        if (!config.BLOCK_PLACE || (expected != Material.SAND && expected != Material.GRAVEL)) {
+            return;
+        }
+        String user = player.getName();
+        Scheduler.runTask(CoreProtect.getInstance(), () -> {
+            BlockState after = block.getState();
+            if (after.getType() == expected) {
+                Queue.queueBlockPlace(user, before, before.getType(), before, expected, -1, 0, after.getBlockData().getAsString());
+            }
+        }, before.getLocation());
     }
 
     private void handleFallingBlock(EntityChangeBlockEvent event, FallingBlock fallingBlock, Block block, Material newtype, Material type, World world) {

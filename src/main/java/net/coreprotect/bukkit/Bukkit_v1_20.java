@@ -33,6 +33,7 @@ import org.bukkit.potion.PotionType;
 import org.bukkit.util.Vector;
 
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.utility.MaterialUtils;
 
 /**
  * Bukkit adapter implementation for Minecraft 1.20.
@@ -171,18 +172,26 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
     @Override
     public String parseLegacyName(String name) {
         switch (name) {
-            case "GRASS_PATH":
-                return "DIRT_PATH";
             case "GRASS":
-                return "SHORT_GRASS";
+            case "SHORT_GRASS":
+                return Material.getMaterial("SHORT_GRASS") != null ? "SHORT_GRASS" : "GRASS";
             case "SCUTE":
-                return "TURTLE_SCUTE";
+            case "TURTLE_SCUTE":
+                return Material.getMaterial("TURTLE_SCUTE") != null ? "TURTLE_SCUTE" : "SCUTE";
             default:
-                // Fallback until this method is moved up into v1_21
-                if ("SHORT_GRASS".equals(name) && Material.getMaterial(name) == null) {
-                    return "GRASS";
-                }
-                return name;
+                return super.parseLegacyName(name);
+        }
+    }
+
+    @Override
+    public int getLegacyBlockId(Material material) {
+        switch (material.name()) {
+            case "SHORT_GRASS":
+                return MaterialUtils.getBlockId("GRASS", false);
+            case "TURTLE_SCUTE":
+                return MaterialUtils.getBlockId("SCUTE", false);
+            default:
+                return super.getLegacyBlockId(material);
         }
     }
 

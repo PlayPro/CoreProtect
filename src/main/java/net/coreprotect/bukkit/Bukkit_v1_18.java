@@ -10,14 +10,17 @@ import org.bukkit.inventory.MerchantRecipe;
  */
 public class Bukkit_v1_18 extends Bukkit_v1_17 {
 
-    /**
-     * Flag to track whether the MerchantRecipe.adjust() method is available.
-     * This is initialized on first use and prevents repeated reflection checks.
-     * - null: Not yet checked
-     * - true: Method exists and should be used
-     * - false: Method doesn't exist or failed, fallback to parent implementation
-     */
-    private Boolean hasAdjustMethod = null;
+    private static final boolean HAS_RECIPE_ADJUST = hasPublicMethod(MerchantRecipe.class, "adjust", ItemStack.class);
+
+    protected static boolean hasPublicMethod(Class<?> type, String name, Class<?>... parameters) {
+        try {
+            type.getMethod(name, parameters);
+            return true;
+        }
+        catch (NoSuchMethodException e) {
+            return false;
+        }
+    }
 
     /**
      * Adjusts an ingredient in a merchant recipe for version 1.18+.
@@ -31,32 +34,17 @@ public class Bukkit_v1_18 extends Bukkit_v1_17 {
      */
     @Override
     public ItemStack adjustIngredient(MerchantRecipe recipe, ItemStack itemStack) {
-        if (itemStack == null) {
-            return null;
+        if (itemStack == null || !HAS_RECIPE_ADJUST) {
+            return super.adjustIngredient(recipe, itemStack);
         }
 
         try {
-            // First-time detection of adjust method availability
-            if (hasAdjustMethod == null) {
-                hasAdjustMethod = true;
-                // Test if the adjust method exists using reflection
-                MerchantRecipe.class.getMethod("adjust", ItemStack.class); // Bukkit 1.18.1+
-            }
-            // Skip if we've already determined the method isn't available
-            else if (Boolean.FALSE.equals(hasAdjustMethod)) {
-                return super.adjustIngredient(recipe, itemStack);
-            }
-
-            // Create a clone to avoid modifying the original itemStack
             ItemStack adjustedStack = itemStack.clone();
             recipe.adjust(adjustedStack);
             return adjustedStack;
         }
-        catch (Exception e) {
-            // Method doesn't exist or failed, mark it for future calls
-            hasAdjustMethod = false;
+        catch (RuntimeException e) {
             return super.adjustIngredient(recipe, itemStack);
         }
     }
-
 }

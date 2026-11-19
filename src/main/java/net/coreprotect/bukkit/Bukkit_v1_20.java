@@ -17,6 +17,7 @@ import org.bukkit.block.ChiseledBookshelf;
 import org.bukkit.block.Sign;
 import org.bukkit.block.TileState;
 import org.bukkit.block.sign.Side;
+import org.bukkit.block.sign.SignSide;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -29,6 +30,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionType;
+import org.bukkit.util.Vector;
 
 import net.coreprotect.model.BlockGroup;
 
@@ -43,13 +45,16 @@ import net.coreprotect.model.BlockGroup;
  */
 public class Bukkit_v1_20 extends Bukkit_v1_19 {
 
-    private static final boolean HAS_SIGN_TILE_UPDATE = hasSignTileUpdate();
+    private static final boolean HAS_SIGN_TILE_UPDATE = hasPublicMethod(Player.class, "sendBlockUpdate", Location.class, TileState.class);
+    private static final boolean HAS_CLICKED_POSITION = hasPublicMethod(PlayerInteractEvent.class, "getClickedPosition")
+            && hasPublicMethod(ChiseledBookshelf.class, "getSlot", Vector.class);
+    private static final boolean HAS_BASE_POTION_TYPE = hasPublicMethod(Arrow.class, "getBasePotionType")
+            && hasPublicMethod(PotionMeta.class, "setBasePotionType", PotionType.class);
+    private static final boolean HAS_ITEM_NAME = hasPublicMethod(ItemMeta.class, "getItemName")
+            && hasPublicMethod(ItemMeta.class, "hasItemName");
+    private static final boolean HAS_SPAWN_FUNCTION = hasPublicMethod(World.class, "spawn", Location.class, Class.class, Consumer.class);
 
-    private Boolean hasClickedPosition;
-    private Boolean hasSignTargetSide;
-    private Boolean hasBasePotionType;
-    private Boolean hasItemName;
-    private Boolean hasSpawnFunction;
+    private volatile boolean missingSignTargetSide;
 
     /**
      * Initializes the Bukkit_v1_20 adapter with 1.20-specific block groups and mappings.
@@ -140,29 +145,21 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
         }
     }
 
-    private static boolean hasSignTileUpdate() {
-        try {
-            Player.class.getMethod("sendBlockUpdate", Location.class, TileState.class);
-            return true;
-        }
-        catch (NoSuchMethodException e) {
-            return false;
-        }
-    }
-
     @Override
     public Boolean getSignInteractionSide(Sign sign, Player player) {
-        if (hasSignTargetSide == null) {
-            try {
-                Sign.class.getMethod("getTargetSide", Player.class);
-                hasSignTargetSide = true;
-            }
-            catch (NoSuchMethodException e) {
-                hasSignTargetSide = false;
-            }
+        if (missingSignTargetSide) {
+            return null;
         }
 
-        return hasSignTargetSide ? sign.getTargetSide(player) == sign.getSide(Side.FRONT) : null;
+        SignSide target;
+        try {
+            target = sign.getTargetSide(player);
+        }
+        catch (NoSuchMethodError e) {
+            missingSignTargetSide = true;
+            return null;
+        }
+        return target == null ? null : target == sign.getSide(Side.FRONT);
     }
 
     @Override
@@ -256,26 +253,23 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
 
     @Override
     public ItemStack getChiseledBookshelfBook(BlockState blockState, PlayerInteractEvent event) {
-        try {
-            if (hasClickedPosition == null) {
-                hasClickedPosition = true;
-                // Check if getClickedPosition method exists (Bukkit 1.20.1+)
-                PlayerInteractEvent.class.getMethod("getClickedPosition");
-            }
-            else if (Boolean.FALSE.equals(hasClickedPosition)) {
-                return null; // Method doesn't exist, return null
-            }
-
-            ChiseledBookshelf bookshelf = (ChiseledBookshelf) blockState;
-            int slot = bookshelf.getSlot(event.getClickedPosition());
-            ItemStack book = bookshelf.getInventory().getItem(slot);
-
-            return book == null ? new ItemStack(Material.AIR) : book;
-        }
-        catch (Exception e) {
-            hasClickedPosition = false;
+        if (!HAS_CLICKED_POSITION || !(blockState instanceof ChiseledBookshelf) || event == null) {
             return null;
         }
+
+        Vector clickedPosition = event.getClickedPosition();
+        if (clickedPosition == null) {
+            return null;
+        }
+
+        ChiseledBookshelf bookshelf = (ChiseledBookshelf) blockState;
+        int slot = bookshelf.getSlot(clickedPosition);
+        if (slot < 0) {
+            return null;
+        }
+
+        ItemStack book = bookshelf.getInventory().getItem(slot);
+        return book == null ? new ItemStack(Material.AIR) : book;
     }
 
     @Override
@@ -307,70 +301,36 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
 
     @Override
     public String getItemName(ItemMeta itemMeta) {
-        if (hasItemName == null) {
-            try {
-                ItemMeta.class.getMethod("getItemName");
-                hasItemName = true;
-            }
-            catch (NoSuchMethodException e) {
-                hasItemName = false;
-            }
-        }
-
-        return hasItemName && itemMeta.hasItemName() ? itemMeta.getItemName() : "";
+        return HAS_ITEM_NAME && itemMeta.hasItemName() ? itemMeta.getItemName() : "";
     }
 
     @Override
     public <T extends Entity> T spawn(World world, Location location, Class<T> entityClass, Consumer<? super T> function) {
-        if (hasSpawnFunction == null) {
-            try {
-                // Check if World#spawn accepts java.util.function.Consumer (Bukkit 1.20.2+)
-                World.class.getMethod("spawn", Location.class, Class.class, Consumer.class);
-                hasSpawnFunction = true;
-            }
-            catch (NoSuchMethodException e) {
-                hasSpawnFunction = false;
-            }
-        }
-
-        return hasSpawnFunction ? world.spawn(location, entityClass, function) : super.spawn(world, location, entityClass, function);
+        return HAS_SPAWN_FUNCTION ? world.spawn(location, entityClass, function) : super.spawn(world, location, entityClass, function);
     }
 
     @Override
     public ItemStack getArrowMeta(Arrow arrow, ItemStack itemStack) {
-        try {
-            if (hasBasePotionType == null) {
-                hasBasePotionType = true;
-                // Check if getBasePotionType method exists (Bukkit 1.20.2+)
-                Arrow.class.getMethod("getBasePotionType");
-            }
-            else if (Boolean.FALSE.equals(hasBasePotionType)) {
-                return super.getArrowMeta(arrow, itemStack);
-            }
-
-            // Apply potion effects to the arrow
-            PotionType potionType = arrow.getBasePotionType();
-            Color color = arrow.getColor();
-
-            if (potionType != null || color != null) {
-                itemStack = new ItemStack(Material.TIPPED_ARROW);
-                PotionMeta meta = (PotionMeta) itemStack.getItemMeta();
-                meta.setBasePotionType(potionType);
-                meta.setColor(color);
-
-                for (PotionEffect effect : arrow.getCustomEffects()) {
-                    meta.addCustomEffect(effect, false);
-                }
-
-                itemStack.setItemMeta(meta);
-            }
-
-            return itemStack;
-        }
-        catch (Exception e) {
-            hasBasePotionType = false;
+        if (!HAS_BASE_POTION_TYPE) {
             return super.getArrowMeta(arrow, itemStack);
         }
+
+        PotionType potionType = arrow.getBasePotionType();
+        Color color = arrow.getColor();
+        if (potionType == null && color == null && !arrow.hasCustomEffects()) {
+            return itemStack;
+        }
+
+        ItemStack tippedArrow = new ItemStack(Material.TIPPED_ARROW);
+        PotionMeta meta = (PotionMeta) tippedArrow.getItemMeta();
+        meta.setBasePotionType(potionType);
+        meta.setColor(color);
+        for (PotionEffect effect : arrow.getCustomEffects()) {
+            meta.addCustomEffect(effect, false);
+        }
+
+        tippedArrow.setItemMeta(meta);
+        return tippedArrow;
     }
 
     @Override

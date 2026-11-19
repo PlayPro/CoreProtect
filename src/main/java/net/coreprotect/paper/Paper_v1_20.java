@@ -8,7 +8,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 import org.bukkit.block.sign.Side;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.profile.PlayerTextures;
 
@@ -20,7 +19,7 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 public class Paper_v1_20 extends Paper_v1_19 {
 
-    private Boolean hasSignInteractableSide;
+    private volatile boolean missingSignInteractableSide;
 
     @Override
     public Boolean getSignInteractionSide(Sign sign, Player player) {
@@ -29,17 +28,19 @@ public class Paper_v1_20 extends Paper_v1_19 {
             return front;
         }
 
-        if (hasSignInteractableSide == null) {
-            try {
-                Sign.class.getMethod("getInteractableSideFor", Entity.class);
-                hasSignInteractableSide = true;
-            }
-            catch (NoSuchMethodException e) {
-                hasSignInteractableSide = false;
-            }
+        if (missingSignInteractableSide) {
+            return null;
         }
 
-        return hasSignInteractableSide ? sign.getInteractableSideFor(player) == Side.FRONT : null;
+        Side side;
+        try {
+            side = sign.getInteractableSideFor(player);
+        }
+        catch (NoSuchMethodError e) {
+            missingSignInteractableSide = true;
+            return null;
+        }
+        return side == null ? null : side == Side.FRONT;
     }
 
     @Override

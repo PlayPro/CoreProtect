@@ -3,7 +3,9 @@ package net.coreprotect.database.clickhouse;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLDataException;
 import java.sql.SQLException;
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -111,16 +113,24 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
                     break;
             }
         }
-        loadTrackingRows(rowIds);
-        loadUuids(uuids);
-        loadKillRowIds(killRowIds);
-        owner.prefetchBlockTargets(blockRowIds);
+        try {
+            loadTrackingRows(rowIds);
+            loadUuids(uuids);
+            loadKillRowIds(killRowIds);
+            owner.prefetchBlockTargets(blockRowIds);
+        }
+        catch (SQLDataException | SQLIntegrityConstraintViolationException exception) {
+            if (exception.getSuppressed().length != 0) {
+                throw exception;
+            }
+            // The individual event will handle the bad row without blocking the whole prefetch cohort.
+        }
     }
 
     void linkBlock(int trackingRowId, long blockRowId) throws Exception {
         ClickHouseEntityState state = requireState(trackingRowId);
         if (state.getBlockRowId() != null) {
-            throw new SQLException("Entity spawn tracking row already has a block link");
+            throw new PermanentTransitionException("Entity spawn tracking row already has a block link");
         }
         append(trackingRowId, state.withBlockRowId(blockRowId));
     }
@@ -183,7 +193,7 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
             }
             coordinator.applied(data);
         }
-        catch (PermanentTransitionException exception) {
+        catch (SQLDataException | SQLIntegrityConstraintViolationException exception) {
             coordinator.permanentTransitionFailed(data, exception);
             ErrorReporter.report(exception);
         }
@@ -208,7 +218,7 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
             });
             coordinator.combinedApplied(trackingRowId);
         }
-        catch (PermanentTransitionException exception) {
+        catch (SQLDataException | SQLIntegrityConstraintViolationException exception) {
             coordinator.permanentCombinedFailed(data, exception);
             ErrorReporter.report(exception);
         }
@@ -442,7 +452,7 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
             }
         }
         if (matches.size() > 1) {
-            throw new SQLException("ClickHouse entity UUID resolves to multiple tracking rows: " + uuid);
+            throw new PermanentTransitionException("ClickHouse entity UUID resolves to multiple tracking rows: " + uuid);
         }
         return matches.isEmpty() ? null : matches.values().iterator().next();
     }
@@ -458,7 +468,7 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
             }
         }
         if (matches.size() > 1) {
-            throw new SQLException("ClickHouse kill row resolves to multiple entity spawn rows: " + killRowId);
+            throw new PermanentTransitionException("ClickHouse kill row resolves to multiple entity spawn rows: " + killRowId);
         }
         return matches.isEmpty() ? null : matches.values().iterator().next();
     }
@@ -533,7 +543,7 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
         }
         int ownerRowId = toTrackingRowId(owner.getPointer().getRowId());
         if (allowedTrackingRowId == null || ownerRowId != allowedTrackingRowId) {
-            throw new SQLException("ClickHouse " + identity + " already belongs to entity spawn row " + ownerRowId);
+            throw new PermanentTransitionException("ClickHouse " + identity + " already belongs to entity spawn row " + ownerRowId);
         }
     }
 
@@ -546,7 +556,7 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
 
     private void append(int trackingRowId, ClickHouseEntityState state) throws SQLException {
         if (toTrackingRowId(state.getPointer().getRowId()) != trackingRowId) {
-            throw new SQLException("ClickHouse entity state does not match tracking row " + trackingRowId);
+            throw new PermanentTransitionException("ClickHouse entity state does not match tracking row " + trackingRowId);
         }
         owner.requireBatch().addEntityState(state);
         cacheState(state, true);
@@ -639,7 +649,7 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
         }
     }
 
-    private static final class PermanentTransitionException extends SQLException {
+    private static final class PermanentTransitionException extends SQLIntegrityConstraintViolationException {
 
         private static final long serialVersionUID = 1L;
 

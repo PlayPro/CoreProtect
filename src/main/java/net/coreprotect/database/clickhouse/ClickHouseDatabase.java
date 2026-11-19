@@ -5,6 +5,8 @@ import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLDataException;
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.sql.SQLException;
 import java.util.EnumMap;
 import java.util.List;
@@ -193,10 +195,10 @@ public final class ClickHouseDatabase implements AutoCloseable {
                 }
                 String value = resultSet.getString(2);
                 if (value == null) {
-                    throw new SQLException("ClickHouse " + family.getTableName() + " identifier " + id + " has no value");
+                    throw new SQLDataException("ClickHouse " + family.getTableName() + " identifier " + id + " has no value");
                 }
                 if (resultSet.next()) {
-                    throw new SQLException("ClickHouse " + family.getTableName() + " identifier " + id + " resolves to multiple values");
+                    throw new SQLIntegrityConstraintViolationException("ClickHouse " + family.getTableName() + " identifier " + id + " resolves to multiple values");
                 }
                 return value;
             }
@@ -219,7 +221,7 @@ public final class ClickHouseDatabase implements AutoCloseable {
                 }
                 int id = toIdentifier(resultSet.getLong(1), family.getTableName());
                 if (resultSet.next()) {
-                    throw new SQLException("ClickHouse " + family.getTableName() + " value resolves to multiple identifiers: " + value);
+                    throw new SQLIntegrityConstraintViolationException("ClickHouse " + family.getTableName() + " value resolves to multiple identifiers: " + value);
                 }
                 return id;
             }
@@ -246,10 +248,10 @@ public final class ClickHouseDatabase implements AutoCloseable {
             if (existingId != null) {
                 return existingId;
             }
-            return toIdentifier(canonicalNameUserId(normalizedUser, normalizedUuid), ClickHouseFamily.USER.getTableName());
+            return toIdentifier(canonicalNameUserId(normalizedUser, normalizedUuid, null), ClickHouseFamily.USER.getTableName());
         }
 
-        UUID ownerUuid = UUID.fromString(normalizedUuid);
+        UUID ownerUuid = ClickHouseIdentityReservation.userOwner(normalizedUuid);
         String uuidIdentity = "canonical:user:uuid:" + normalizedUuid;
         long uuidId = identifierReservation.canonicalId(uuidIdentity,
                 () -> {
@@ -260,17 +262,17 @@ public final class ClickHouseDatabase implements AutoCloseable {
                             return existingId;
                         }
                     }
-                    return canonicalNameUserId(normalizedUser, normalizedUuid);
+                    return canonicalNameUserId(normalizedUser, normalizedUuid, ownerUuid);
                 });
         if (!identifierReservation.claimUserOwner(uuidId, ownerUuid)) {
-            throw new SQLException("ClickHouse user identity " + uuidId + " belongs to another UUID");
+            throw new SQLIntegrityConstraintViolationException("ClickHouse user identity " + uuidId + " belongs to another UUID");
         }
         identifierReservation.canonicalId(nameIdentity, uuidId);
         return toIdentifier(uuidId, ClickHouseFamily.USER.getTableName());
     }
 
-    private long canonicalNameUserId(String user, String uuid) throws SQLException {
-        if (uuid.isEmpty()) {
+    private long canonicalNameUserId(String user, String uuid, UUID ownerUuid) throws SQLException {
+        if (ownerUuid == null) {
             String table = ClickHouseIdentifiers.qualified(database, prefix + ClickHouseFamily.USER.getTableName());
             try (Connection connection = jdbc.openAuxiliaryConnection(); PreparedStatement statement = connection.prepareStatement(
                     "SELECT rowid FROM " + table + " WHERE lowerUTF8(`user`)=lowerUTF8(?) ORDER BY " + USER_NAME_ORDER + " LIMIT 1")) {
@@ -284,7 +286,6 @@ public final class ClickHouseDatabase implements AutoCloseable {
         }
         String nameIdentity = "canonical:user:name:" + user;
         String identity = nameIdentity;
-        UUID ownerUuid = uuid.isEmpty() ? null : UUID.fromString(uuid);
         while (true) {
             long id = identifierReservation.canonicalId(identity, () -> identityAllocator.nextRowId(ClickHouseFamily.USER));
             UserIdentity existing = readUserIdentity(id);
@@ -329,7 +330,7 @@ public final class ClickHouseDatabase implements AutoCloseable {
 
     private static int toIdentifier(long id, String family) throws SQLException {
         if (id < 1 || id > Integer.MAX_VALUE) {
-            throw new SQLException("ClickHouse " + family + " identifier is outside CoreProtect's positive signed 32-bit range: " + id);
+            throw new SQLDataException("ClickHouse " + family + " identifier is outside CoreProtect's positive signed 32-bit range: " + id);
         }
         return (int) id;
     }
@@ -352,6 +353,11 @@ public final class ClickHouseDatabase implements AutoCloseable {
     public Map<Long, ClickHouseEventPointer> resolveEventPointers(ClickHouseFamily family, List<Long> rowIds) throws SQLException {
         ensureOpen();
         return targetResolver.resolve(family, rowIds);
+    }
+
+    Map<Long, ClickHouseEventPointer> resolveAvailableEventPointers(ClickHouseFamily family, List<Long> rowIds) throws SQLException {
+        ensureOpen();
+        return targetResolver.resolveAvailable(family, rowIds);
     }
 
     Map<Long, ClickHouseEventPointer> resolveAvailableBlockTargets(List<Long> rowIds, Map<Long, Integer> actions) throws SQLException {

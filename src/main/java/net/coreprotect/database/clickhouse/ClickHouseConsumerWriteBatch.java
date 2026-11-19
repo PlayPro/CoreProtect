@@ -3,6 +3,8 @@ package net.coreprotect.database.clickhouse;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLDataException;
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -384,14 +386,13 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
             }
         }
         if (!remote.isEmpty()) {
-            resolved.putAll(database.resolveEventPointers(family, remote));
+            resolved.putAll(database.resolveAvailableEventPointers(family, remote));
         }
         for (Long rowId : unique) {
             ClickHouseEventPointer pointer = resolved.get(rowId);
-            if (pointer == null) {
-                throw new SQLException("Unable to resolve ClickHouse " + family.getTableName() + " row ID " + rowId);
+            if (pointer != null) {
+                requireBatch().addRollback(pointer, rolledBack);
             }
-            requireBatch().addRollback(pointer, rolledBack);
         }
     }
 
@@ -615,7 +616,7 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
     }
 
     private static SQLException referenceConflict(ReferenceKind kind, int id, String value, int storedId, String storedValue) {
-        return new SQLException("ClickHouse " + kind.name().toLowerCase(Locale.ROOT) + " reference " + id + "='" + value + "' conflicts with " + storedId + "='" + storedValue + "'");
+        return new SQLIntegrityConstraintViolationException("ClickHouse " + kind.name().toLowerCase(Locale.ROOT) + " reference " + id + "='" + value + "' conflicts with " + storedId + "='" + storedValue + "'");
     }
 
     private void stageUser(String user, UserRow row) {
@@ -742,7 +743,7 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
 
     private static int toIntId(long rowId, String family) throws SQLException {
         if (rowId > Integer.MAX_VALUE) {
-            throw new SQLException("ClickHouse " + family + " row IDs exceed CoreProtect's signed integer compatibility range");
+            throw new SQLDataException("ClickHouse " + family + " row IDs exceed CoreProtect's signed integer compatibility range");
         }
         return (int) rowId;
     }

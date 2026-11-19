@@ -1,8 +1,11 @@
 package net.coreprotect.database.clickhouse;
 
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLDataException;
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.Objects;
@@ -111,9 +114,9 @@ final class ClickHouseIdentityReservation {
                 if (!resultSet.next()) {
                     return null;
                 }
-                UUID owner = parseWriterId(prefix + rowId, resultSet.getString(1).substring(prefix.length()));
+                UUID owner = userOwner(resultSet.getString(1).substring(prefix.length()));
                 if (resultSet.next()) {
-                    throw new SQLException("ClickHouse user identity " + rowId + " is already claimed by multiple UUIDs");
+                    throw new SQLIntegrityConstraintViolationException("ClickHouse user identity " + rowId + " is already claimed by multiple UUIDs");
                 }
                 return owner;
             }
@@ -156,7 +159,7 @@ final class ClickHouseIdentityReservation {
                 }
                 long blockStart = resultSet.getLong(1);
                 if (blockStart < 0 || blockStart > Long.MAX_VALUE - BLOCK_SIZE) {
-                    throw new SQLException("ClickHouse identity reservation for " + sequence + " exceeds the supported range");
+                    throw new SQLDataException("ClickHouse identity reservation for " + sequence + " exceeds the supported range");
                 }
                 return blockStart + BLOCK_SIZE;
             }
@@ -210,12 +213,21 @@ final class ClickHouseIdentityReservation {
         return "argMin(" + column + ",(" + CLAIM_ORDER + "))";
     }
 
+    static UUID userOwner(String identity) {
+        try {
+            return UUID.fromString(identity);
+        }
+        catch (IllegalArgumentException exception) {
+            return UUID.nameUUIDFromBytes(("coreprotect:legacy-user:" + identity).getBytes(StandardCharsets.UTF_8));
+        }
+    }
+
     private static UUID parseWriterId(String sequence, String value) throws SQLException {
         try {
             return UUID.fromString(value);
         }
         catch (IllegalArgumentException | NullPointerException exception) {
-            throw new SQLException("ClickHouse identity reservation for " + sequence + " has an invalid writer ID", exception);
+            throw new SQLDataException("ClickHouse identity reservation for " + sequence + " has an invalid writer ID", exception);
         }
     }
 

@@ -51,6 +51,9 @@ public class RollbackRestoreCommand {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, lookupOnlyFlag));
             return;
         }
+        if (!CommandParser.validateCoordinates(player, args)) {
+            return;
+        }
 
         Location lo = (argLocation != null ? argLocation : CommandParser.parseLocation(player, args));
         List<String> argUuids = new ArrayList<>();

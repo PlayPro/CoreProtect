@@ -39,8 +39,24 @@ public class LocationParser {
     }
 
     public static boolean isValidBlockCoordinates(String spec) {
-        double[] coordinates = parseCoordinateValues(spec);
-        return coordinates != null && isBlockCoordinate(coordinates[0]) && isBlockCoordinate(coordinates[coordinates.length - 1]);
+        return parseCoordinateValues(spec) != null;
+    }
+
+    public static String findInvalidCoordinateArgument(String[] arguments) {
+        for (int index = 1; index < arguments.length; index++) {
+            String raw = arguments[index];
+            String value = stripCoordinatePrefix(ParserUtils.normalize(raw));
+            if (value == null) {
+                continue;
+            }
+            if (value.isEmpty() && index + 1 < arguments.length) {
+                value = ParserUtils.normalize(arguments[++index]);
+            }
+            if (!isValidBlockCoordinates(value)) {
+                return raw;
+            }
+        }
+        return null;
     }
 
     private static boolean isBlockCoordinate(double coordinate) {
@@ -138,7 +154,7 @@ public class LocationParser {
             }
             coordinates[index] = coordinate;
         }
-        return coordinates;
+        return isBlockCoordinate(coordinates[0]) && isBlockCoordinate(coordinates[coordinates.length - 1]) ? coordinates : null;
     }
 
     private static double clampY(World world, double y) {
@@ -173,6 +189,9 @@ public class LocationParser {
         for (int index = 1; index < inputArguments.length; index++) {
             String argument = ParserUtils.normalize(inputArguments[index]);
             if (ParserUtils.equalsAny(argument, RADIUS_PREFIXES)) {
+                if (next == 2) {
+                    return new Integer[] { -1 };
+                }
                 next = 2;
                 continue;
             }
@@ -221,7 +240,7 @@ public class LocationParser {
                     }
 
                     if (!validRadius) {
-                        radius = new Integer[] { -1 };
+                        return new Integer[] { -1 };
                     }
                     else if (location != null) {
                         Integer xmin = clampToInt((long) location.getBlockX() - r_x);
@@ -243,7 +262,7 @@ public class LocationParser {
                 next = 0;
             }
         }
-        return radius;
+        return next == 2 ? new Integer[] { -1 } : radius;
     }
 
     private static int clampToInt(long value) {

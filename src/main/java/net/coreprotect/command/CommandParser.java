@@ -141,6 +141,15 @@ public class CommandParser {
         return LocationParser.parseLocation(user, argumentArray);
     }
 
+    static boolean validateCoordinates(CommandSender player, String[] args) {
+        String invalid = LocationParser.findInvalidCoordinateArgument(args);
+        if (invalid == null) {
+            return true;
+        }
+        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, invalid));
+        return false;
+    }
+
     /**
      * Parse noisy/verbose flag from command arguments
      * 

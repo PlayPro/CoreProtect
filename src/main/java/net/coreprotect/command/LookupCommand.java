@@ -48,6 +48,9 @@ public class LookupCommand {
         args = messageFilterResult.getArguments();
         List<String> argFilters = messageFilterResult.getFilters();
         args = CommandParser.parsePage(args);
+        if (!CommandParser.validateCoordinates(player, args)) {
+            return;
+        }
         String worldFilterName = WorldParser.parseWorldFilterName(args, true);
         int argWid = 0;
         String pendingWorldName = null;

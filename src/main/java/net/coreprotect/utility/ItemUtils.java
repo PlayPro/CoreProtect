@@ -1,7 +1,6 @@
 package net.coreprotect.utility;
 
 import java.io.ByteArrayOutputStream;
-import java.lang.reflect.Array;
 import java.util.*;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -28,7 +27,10 @@ import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 
 public class ItemUtils {
-    private static final Map<ItemStack, Integer> GIVABLE_ITEMS = Collections.synchronizedMap(new LinkedHashMap<>());
+    private static final int MAX_GIVABLE_ITEMS = 4096;
+    private static final Map<Integer, ItemStack> GIVABLE_ITEMS = new LinkedHashMap<>(16, 0.75f, true);
+    private static final Map<ItemStack, Integer> GIVABLE_ITEM_IDS = new HashMap<>();
+    private static long nextGivableItemId;
 
     private static final Object UNSERIALIZABLE_VALUE = new Object();
     private static final Logger LOGGER = Logger.getLogger("CoreProtect");
@@ -62,17 +64,35 @@ public class ItemUtils {
         throw new IllegalStateException("Utility class");
     }
 
-    public static ItemStack getGivableItem(int id) {
-        //we can use skip here because it's a linked map from which elements are never removed
-        return GIVABLE_ITEMS.keySet().stream().skip(id).findFirst().orElse(null);
+    public static synchronized ItemStack getGivableItem(int id) {
+        ItemStack item = GIVABLE_ITEMS.get(id);
+        return item == null ? null : item.clone();
     }
 
-    public static Integer makeGivableItem(ItemStack item) {
+    public static synchronized Integer makeGivableItem(ItemStack item) {
         if (item == null) {
-          return null;
+            return null;
         }
 
-        return GIVABLE_ITEMS.computeIfAbsent(item, k -> GIVABLE_ITEMS.size());
+        ItemStack snapshot = item.clone();
+        Integer id = GIVABLE_ITEM_IDS.get(snapshot);
+        if (id != null) {
+            GIVABLE_ITEMS.get(id);
+            return id;
+        }
+        if (nextGivableItemId > Integer.MAX_VALUE) {
+            return null;
+        }
+
+        id = (int) nextGivableItemId++;
+        GIVABLE_ITEMS.put(id, snapshot);
+        GIVABLE_ITEM_IDS.put(snapshot, id);
+        if (GIVABLE_ITEMS.size() > MAX_GIVABLE_ITEMS) {
+            Iterator<Map.Entry<Integer, ItemStack>> iterator = GIVABLE_ITEMS.entrySet().iterator();
+            GIVABLE_ITEM_IDS.remove(iterator.next().getValue());
+            iterator.remove();
+        }
+        return id;
     }
 
     public static void mergeItems(Material material, ItemStack[] items) {
@@ -479,7 +499,8 @@ public class ItemUtils {
                     break;
                 }
 
-                SanitizationResult sanitizationResult = sanitizeByteData(workingData, problematicTypes);
+                Set<Object> active = Collections.newSetFromMap(new IdentityHashMap<>());
+                SanitizationResult sanitizationResult = sanitizeByteData(workingData, problematicTypes, active);
                 if (!sanitizationResult.modified || sanitizationResult.value == UNSERIALIZABLE_VALUE) {
                     break;
                 }
@@ -518,9 +539,10 @@ public class ItemUtils {
 
     private static FailureContext parseSerializationFailure(Throwable throwable) {
         Set<String> typeTokens = new LinkedHashSet<>();
+        Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
         String registryLocation = null;
         Throwable current = throwable;
-        while (current != null) {
+        while (current != null && visited.add(current)) {
             String message = current.getMessage();
             if (message != null) {
                 Matcher typeMatcher = TYPE_TOKEN_PATTERN.matcher(message);
@@ -590,14 +612,20 @@ public class ItemUtils {
         return safeToken.toString().toLowerCase(Locale.ROOT);
     }
 
-    private static boolean isProblematicType(Class<?> valueType, Set<String> problematicTypes) {
+    private static boolean isProblematicType(Object value, Set<String> problematicTypes) {
+        Class<?> valueType = value.getClass();
+        if (value instanceof String || value instanceof Boolean || value instanceof Character || value instanceof UUID || valueType.isArray()
+                || (value instanceof Number && valueType.getModule() == Number.class.getModule())) {
+            return false;
+        }
+
         String typeToken = normalizeTypeToken(valueType.getSimpleName());
         if (typeToken == null) {
             return false;
         }
 
         for (String problematicType : problematicTypes) {
-            if (typeToken.equals(problematicType) || typeToken.startsWith(problematicType) || problematicType.startsWith(typeToken)) {
+            if (typeToken.startsWith(problematicType)) {
                 return true;
             }
         }
@@ -605,22 +633,34 @@ public class ItemUtils {
         return false;
     }
 
-    private static SanitizationResult sanitizeByteData(Object data, Set<String> problematicTypes) {
+    private static SanitizationResult sanitizeByteData(Object data, Set<String> problematicTypes, Set<Object> active) {
         if (data == null) {
             return new SanitizationResult(null, false);
         }
 
-        if (isProblematicType(data.getClass(), problematicTypes)) {
+        if (!(data instanceof Map<?, ?>) && !(data instanceof List<?>) && !(data instanceof Set<?>) && !(data instanceof Object[])) {
+            return isProblematicType(data, problematicTypes) ? new SanitizationResult(UNSERIALIZABLE_VALUE, true) : new SanitizationResult(data, false);
+        }
+        if (!active.add(data)) {
             return new SanitizationResult(UNSERIALIZABLE_VALUE, true);
         }
 
+        try {
+            return sanitizeByteDataContainer(data, problematicTypes, active);
+        }
+        finally {
+            active.remove(data);
+        }
+    }
+
+    private static SanitizationResult sanitizeByteDataContainer(Object data, Set<String> problematicTypes, Set<Object> active) {
         if (data instanceof Map<?, ?>) {
             Map<?, ?> sourceMap = (Map<?, ?>) data;
             Map<Object, Object> sanitizedMap = new LinkedHashMap<>();
             boolean modified = false;
             for (Map.Entry<?, ?> entry : sourceMap.entrySet()) {
-                SanitizationResult sanitizedKey = sanitizeByteData(entry.getKey(), problematicTypes);
-                SanitizationResult sanitizedValue = sanitizeByteData(entry.getValue(), problematicTypes);
+                SanitizationResult sanitizedKey = sanitizeByteData(entry.getKey(), problematicTypes, active);
+                SanitizationResult sanitizedValue = sanitizeByteData(entry.getValue(), problematicTypes, active);
                 if (sanitizedKey.value == UNSERIALIZABLE_VALUE || sanitizedValue.value == UNSERIALIZABLE_VALUE) {
                     modified = true;
                     continue;
@@ -642,7 +682,7 @@ public class ItemUtils {
             List<Object> sanitizedList = new ArrayList<>(sourceList.size());
             boolean modified = false;
             for (Object value : sourceList) {
-                SanitizationResult sanitizedValue = sanitizeByteData(value, problematicTypes);
+                SanitizationResult sanitizedValue = sanitizeByteData(value, problematicTypes, active);
                 if (sanitizedValue.value == UNSERIALIZABLE_VALUE) {
                     sanitizedList.add(null);
                     modified = true;
@@ -660,35 +700,34 @@ public class ItemUtils {
             return new SanitizationResult(sanitizedList, true);
         }
 
-        if (data.getClass().isArray()) {
-            Class<?> componentType = data.getClass().getComponentType();
-            if (componentType.isPrimitive()) {
-                return new SanitizationResult(data, false);
-            }
-
-            int length = Array.getLength(data);
-            Object sanitizedArray = Array.newInstance(componentType, length);
+        if (data instanceof Set<?>) {
+            Set<Object> sanitizedSet = new LinkedHashSet<>();
             boolean modified = false;
-            for (int index = 0; index < length; index++) {
-                SanitizationResult sanitizedValue = sanitizeByteData(Array.get(data, index), problematicTypes);
-                if (sanitizedValue.value == UNSERIALIZABLE_VALUE) {
-                    Array.set(sanitizedArray, index, null);
-                    modified = true;
+            for (Object value : (Set<?>) data) {
+                SanitizationResult sanitizedValue = sanitizeByteData(value, problematicTypes, active);
+                if (sanitizedValue.value != UNSERIALIZABLE_VALUE) {
+                    sanitizedSet.add(sanitizedValue.value);
                 }
-                else {
-                    Array.set(sanitizedArray, index, sanitizedValue.value);
-                    modified |= sanitizedValue.modified;
-                }
+                modified |= sanitizedValue.modified;
             }
-
-            if (!modified) {
-                return new SanitizationResult(data, false);
-            }
-
-            return new SanitizationResult(sanitizedArray, true);
+            return new SanitizationResult(modified ? sanitizedSet : data, modified);
         }
 
-        return new SanitizationResult(data, false);
+        Object[] sourceArray = (Object[]) data;
+        Object[] sanitizedArray = sourceArray.clone();
+        Class<?> componentType = sourceArray.getClass().getComponentType();
+        boolean modified = false;
+        for (int index = 0; index < sourceArray.length; index++) {
+            SanitizationResult sanitizedValue = sanitizeByteData(sourceArray[index], problematicTypes, active);
+            Object value = sanitizedValue.value == UNSERIALIZABLE_VALUE ? null : sanitizedValue.value;
+            if (value != null && !componentType.isInstance(value)) {
+                sanitizedArray = Arrays.copyOf(sanitizedArray, sanitizedArray.length, Object[].class);
+                componentType = Object.class;
+            }
+            sanitizedArray[index] = value;
+            modified |= sanitizedValue.modified;
+        }
+        return new SanitizationResult(modified ? sanitizedArray : data, modified);
     }
 
     private static void logSanitizedMetadata(Set<String> problematicTypes, String registryLocation) {

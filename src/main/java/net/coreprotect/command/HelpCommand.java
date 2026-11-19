@@ -44,11 +44,11 @@ public class HelpCommand {
                 else if (helpcommand.equals("lookup") || helpcommand.equals("lookups") || helpcommand.equals("l")) {
                     Chat.sendMessage(player, Color.DARK_AQUA + root + " lookup <params>");
                     Chat.sendMessage(player, Color.DARK_AQUA + root + " l <params> " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_LOOKUP_1));
-                    Chat.sendMessage(player, Color.DARK_AQUA + root + " lookup <page> " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_LOOKUP_2));
+                    Chat.sendMessage(player, Color.DARK_AQUA + root + " lookup <page[:rows]> " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_LOOKUP_2));
                     Chat.sendMessage(player, Color.GREY + Color.ITALIC + Phrase.build(Phrase.HELP_PARAMETER, root + " help params"));
                 }
                 else if (helpcommand.equals("page")) {
-                    Chat.sendMessage(player, Color.DARK_AQUA + root + " page <page> " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_LOOKUP_2));
+                    Chat.sendMessage(player, Color.DARK_AQUA + root + " page <page[:rows]> " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_LOOKUP_2));
                 }
                 else if (helpcommand.equals("near")) {
                     Chat.sendMessage(player, Color.DARK_AQUA + root + " near " + Color.WHITE + "- " + Phrase.build(Phrase.HELP_NEAR_COMMAND));

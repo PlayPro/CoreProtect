@@ -162,7 +162,7 @@ PURGE_REPAIRING: "修復しようとしています。これには時間がか�
 PURGE_ROWS: "{0}行のデータが削除されました"
 PURGE_STARTED: "データの削除は\"{0}\"で開始されました"
 PURGE_SUCCESS: "データのパージに成功しました"
-RAM_STATS: "{0}GB / {1}GB RAM"
+RAM_STATS: "{0} GiB / {1} GiB RAM"
 RELOAD_STARTED: "構成の再読み込みをしています。しばらくお待ちください"
 RELOAD_SUCCESS: "構成が正常に再読み込みされました"
 ROLLBACK_ABORTED: "ロールバックまたは復元が中止されました"

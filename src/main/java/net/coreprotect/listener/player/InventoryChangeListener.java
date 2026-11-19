@@ -540,6 +540,10 @@ public final class InventoryChangeListener extends Queue implements Listener {
         if (inventory == null) {
             return;
         }
+        int topSize = inventory.getSize();
+        if (event.getRawSlots().stream().noneMatch(slot -> slot >= 0 && slot < topSize)) {
+            return;
+        }
         InventoryHolder inventoryHolder = PaperAdapter.ADAPTER.getHolder(inventory, false);
         if (inventoryHolder != null && inventoryHolder.equals(event.getWhoClicked())) {
             return;

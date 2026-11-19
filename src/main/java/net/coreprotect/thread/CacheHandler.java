@@ -11,6 +11,8 @@ import org.bukkit.Location;
 import org.bukkit.World;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.listener.player.PlayerDropItemListener;
+import net.coreprotect.listener.player.PlayerInteractListener;
 import net.coreprotect.utility.ErrorReporter;
 
 public class CacheHandler implements Runnable {
@@ -161,6 +163,9 @@ public class CacheHandler implements Runnable {
                             cleanupPopulatedChunks();
                             cleanupHopperCaches();
                             cleanupThrottleCaches();
+                            long now = System.currentTimeMillis();
+                            PlayerDropItemListener.clearExpiredAttributions(now);
+                            PlayerInteractListener.clearExpiredInspectorEvents(now);
                             continue;
                         }
 

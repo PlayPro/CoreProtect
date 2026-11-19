@@ -26,6 +26,7 @@ public final class PlayerQuitListener extends Queue implements Listener {
         queuePlayerQuit(player);
         String playerName = player.getName();
         ConfigHandler.clearPlayerState(playerName);
+        PlayerInteractListener.clearInspectorEvent(player.getUniqueId());
         CommandHandler.clearVersionAlert(playerName);
     }
 

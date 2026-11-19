@@ -47,7 +47,6 @@ public final class PlayerDropItemListener implements Listener {
         }
 
         long timestamp = System.currentTimeMillis();
-        clearExpiredAttributions(timestamp);
 
         DropAttribution attribution = itemDropAttributions.get(itemId);
         if (attribution == null) {
@@ -55,7 +54,7 @@ public final class PlayerDropItemListener implements Listener {
         }
 
         if (attribution.expiresAt < timestamp) {
-            itemDropAttributions.remove(itemId);
+            itemDropAttributions.remove(itemId, attribution);
             return null;
         }
 
@@ -68,11 +67,10 @@ public final class PlayerDropItemListener implements Listener {
         }
 
         long timestamp = System.currentTimeMillis();
-        clearExpiredAttributions(timestamp);
         itemDropAttributions.put(item.getUniqueId(), new DropAttribution(user, timestamp + ITEM_DROP_ATTRIBUTION_MS));
     }
 
-    private static void clearExpiredAttributions(long timestamp) {
+    public static void clearExpiredAttributions(long timestamp) {
         itemDropAttributions.entrySet().removeIf(entry -> entry.getValue().expiresAt < timestamp);
     }
 

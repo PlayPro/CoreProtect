@@ -2,6 +2,7 @@ package net.coreprotect.listener.player;
 
 import java.util.EnumSet;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.GameMode;
@@ -84,6 +85,14 @@ public final class PlayerInteractListener extends Queue implements Listener {
     private final SignInspector signInspector = new SignInspector();
     private final ContainerInspector containerInspector = new ContainerInspector();
     private final InteractionInspector interactionInspector = new InteractionInspector();
+
+    public static void clearInspectorEvent(UUID playerId) {
+        lastInspectorEvent.remove(playerId.toString());
+    }
+
+    public static void clearExpiredInspectorEvents(long now) {
+        lastInspectorEvent.values().removeIf(event -> now - (long) event[0] > 1000L);
+    }
 
     private static boolean shouldInspect(PlayerInteractEvent event) {
         EquipmentSlot eventHand = event.getHand();

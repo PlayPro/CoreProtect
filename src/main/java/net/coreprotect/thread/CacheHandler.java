@@ -198,7 +198,6 @@ public class CacheHandler implements Runnable {
                                 break;
                             case 2:
                                 cache = CacheHandler.pistonCache;
-                                scanTime = 900; // 15 minutes
                                 break;
                             case 3:
                                 cache = CacheHandler.spreadCache;

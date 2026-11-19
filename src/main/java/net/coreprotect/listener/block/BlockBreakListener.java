@@ -1,6 +1,7 @@
 package net.coreprotect.listener.block;
 
 import java.util.Locale;
+import java.util.Set;
 
 import org.bukkit.GameMode;
 import org.bukkit.Location;
@@ -116,6 +117,10 @@ public final class BlockBreakListener extends Queue implements Listener {
     }
 
     protected static void processBlockBreak(Player player, String user, Block block, boolean logBreak, int skipScan) {
+        processBlockBreak(player, user, block, logBreak, skipScan, null);
+    }
+
+    static void processBlockBreak(Player player, String user, Block block, boolean logBreak, int skipScan, Set<Block> recordedBlocks) {
         Material type = block.getType();
         World world = block.getWorld();
         int x = block.getX();
@@ -152,6 +157,10 @@ public final class BlockBreakListener extends Queue implements Listener {
             if (scanMin < 7) {
                 Location scanLocation = locationMap[scanMin - 1];
                 Block scanBlock = world.getBlockAt(scanLocation);
+                if (recordedBlocks != null && recordedBlocks.contains(scanBlock)) {
+                    scanMin++;
+                    continue;
+                }
                 Material scanType = scanBlock.getType();
                 if (scanType == Material.SCAFFOLDING) {
                     if (scanMin == BlockUtil.TOP || (type == Material.SCAFFOLDING && scanMin < BlockUtil.TOP)) {
@@ -204,7 +213,7 @@ public final class BlockBreakListener extends Queue implements Listener {
                         }
                     }
                     else { // top/bottom block
-                        if (BlockUtil.verticalBreakScan(player, user, block, scanBlock, scanType, scanMin)) {
+                        if (BlockUtil.verticalBreakScan(player, user, block, scanBlock, scanType, scanMin, recordedBlocks)) {
                             log = false;
                         }
                         else if (scanMin == 5 && (!BlockGroup.TRACK_TOP.contains(scanType) && !BlockGroup.TRACK_TOP_BOTTOM.contains(scanType))) {
@@ -271,6 +280,9 @@ public final class BlockBreakListener extends Queue implements Listener {
                 }
                 if (log) {
                     blockLog = world.getBlockAt(scanLocation);
+                    if (recordedBlocks != null) {
+                        recordedBlocks.add(blockLog);
+                    }
                 }
             }
 

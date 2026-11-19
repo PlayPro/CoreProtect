@@ -1,5 +1,7 @@
 package net.coreprotect.listener.block;
 
+import java.util.Set;
+
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -17,7 +19,7 @@ public class BlockUtil {
     public static final int TOP = 5;
     public static final int BOTTOM = 6;
 
-    public static boolean verticalBreakScan(Player player, String user, Block block, Block scanBlock, Material scanType, int scanMin) {
+    static boolean verticalBreakScan(Player player, String user, Block block, Block scanBlock, Material scanType, int scanMin, Set<Block> recordedBlocks) {
         if (!BlockGroup.VERTICAL.contains(scanType)) {
             return false;
         }
@@ -36,7 +38,10 @@ public class BlockUtil {
             if (!BlockBreakListener.isAttached(block, scanBlock, scanMin)) {
                 return false;
             }
-            BlockBreakListener.processBlockBreak(player, user, scanBlock, true, (scanMin == BOTTOM ? TOP : BOTTOM));
+            if (recordedBlocks != null) {
+                recordedBlocks.add(scanBlock);
+            }
+            BlockBreakListener.processBlockBreak(player, user, scanBlock, true, (scanMin == BOTTOM ? TOP : BOTTOM), recordedBlocks);
             return true;
         }
 

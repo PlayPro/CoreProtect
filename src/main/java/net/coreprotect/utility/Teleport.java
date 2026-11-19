@@ -119,11 +119,11 @@ public class Teleport {
                                 Material safetyMaterial = defaultSafetyMaterial();
                                 Location revertLocation = block1.getLocation();
                                 BlockData originalBlockData = block1.getBlockData().clone();
-                                revertBlocks.computeIfAbsent(revertLocation, key -> originalBlockData);
                                 long token = REVERT_SEQUENCE.incrementAndGet();
                                 REVERT_TOKENS.put(revertLocation, token);
                                 SAFETY_MATERIALS.put(revertLocation, safetyMaterial);
-                                if (block1.getType() != safetyMaterial) {
+                                if (type1 != safetyMaterial) {
+                                    revertBlocks.put(revertLocation, originalBlockData);
                                     block1.setType(safetyMaterial);
                                 }
                                 alert = true;

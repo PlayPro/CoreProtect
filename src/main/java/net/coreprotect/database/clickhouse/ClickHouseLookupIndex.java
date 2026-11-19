@@ -103,8 +103,12 @@ public final class ClickHouseLookupIndex {
             metadata = "SELECT base.* REPLACE(coalesce(state.rolled_back,base.rolled_back) AS rolled_back) FROM (" + metadata
                     + ") AS base LEFT ANY JOIN (" + updates + ") AS state USING(rowid)";
         }
+        String fallback = ClickHouseSchema.eventSource(table, family, predicate);
+        if (!users.isEmpty()) {
+            fallback += " AND user_id IN(" + users + ")";
+        }
         return "SELECT * FROM (" + metadata + ") WHERE " + ready(table) + "=1 UNION ALL SELECT * FROM ("
-                + ClickHouseSchema.eventSource(table, family, predicate) + ") WHERE " + ready(table) + "!=1";
+                + fallback + ") WHERE " + ready(table) + "!=1";
     }
 
     private static String monthRange(String column, long startTime, long endTime) {

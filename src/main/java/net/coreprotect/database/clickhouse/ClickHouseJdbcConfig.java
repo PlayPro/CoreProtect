@@ -45,6 +45,7 @@ public final class ClickHouseJdbcConfig {
         properties.setProperty("connection_timeout", "10000");
         properties.setProperty("socket_timeout", "300000");
         properties.setProperty("retry", "0");
+        properties.setProperty(ClientConfigProperties.HTTP_KEEP_ALIVE_TIMEOUT.getKey(), "5000");
         properties.setProperty(SERVER_SETTING_PREFIX + "async_insert", "0");
         properties.setProperty(SERVER_SETTING_PREFIX + "network_compression_method", "LZ4");
         properties.setProperty(SERVER_SETTING_PREFIX + "do_not_merge_across_partitions_select_final", "1");

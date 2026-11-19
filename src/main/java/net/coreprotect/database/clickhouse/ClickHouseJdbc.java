@@ -24,7 +24,7 @@ public final class ClickHouseJdbc implements AutoCloseable {
         auxiliaryDataSource = pool(config, "CoreProtect-ClickHouse-Identity", 4);
     }
 
-    private static HikariDataSource pool(ClickHouseJdbcConfig config, String name, int maximumPoolSize) {
+    static HikariDataSource pool(ClickHouseJdbcConfig config, String name, int maximumPoolSize) {
         HikariConfig pool = new HikariConfig();
         pool.setDataSource(new HikariClickHouseDataSource(config));
         pool.setPoolName(name);
@@ -32,6 +32,8 @@ public final class ClickHouseJdbc implements AutoCloseable {
         pool.setMaximumPoolSize(maximumPoolSize);
         pool.setConnectionTimeout(10_000L);
         pool.setIdleTimeout(60_000L);
+        pool.setMaxLifetime(120_000L);
+        pool.setKeepaliveTime(30_000L);
         pool.setInitializationFailTimeout(-1L);
         return new HikariDataSource(pool);
     }

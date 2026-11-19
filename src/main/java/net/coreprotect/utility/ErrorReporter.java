@@ -37,8 +37,10 @@ public final class ErrorReporter {
     private static final int MAX_MESSAGE_LENGTH = 500;
     private static final long DEFAULT_POLL_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(60);
 
-    private static final Pattern URI_PATTERN = Pattern.compile("(?:[a-zA-Z][a-zA-Z0-9+.-]*:)*[a-zA-Z][a-zA-Z0-9+.-]*://[^\\s\"'()<>]+");
-    private static final Pattern SECRET_PATTERN = Pattern.compile("(?i)\\b(password|passwd|pwd|token|secret|(?:api[-_]?|auth[-_]?|access[-_]?|private[-_]?|donation[-_]?)?key)\\s*([=:])\\s*(?:\"[^\"]*\"|'[^']*'|[^\\s,&;]+)");
+    private static final Pattern URI_PATTERN = Pattern.compile("(?:[a-zA-Z][a-zA-Z0-9+.-]*+:)++//[^\\s\"<>]++");
+    private static final Pattern SECRET_PATTERN = Pattern.compile(
+            "(?i)([\"']?)\\b(password|passwd|pwd|token|secret|(?:api[-_]?|auth[-_]?|access[-_]?|private[-_]?|donation[-_]?)?key)\\1\\s*([=:])\\s*"
+                    + "(?:\"(?:\\\\[\\s\\S]?|[^\"\\\\])*+\"?|'(?:\\\\[\\s\\S]?|''|[^'\\\\])*+'?|[^\\s,&;]+)");
     private static final Pattern IDENTITY_HASH_PATTERN = Pattern.compile("@[0-9a-fA-F]{4,16}");
     private static final Pattern UUID_PATTERN = Pattern.compile("\\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\b");
     private static final Pattern IP_PATTERN = Pattern.compile("\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b");
@@ -280,7 +282,7 @@ public final class ErrorReporter {
         }
 
         String normalized = URI_PATTERN.matcher(message).replaceAll("<uri>");
-        normalized = SECRET_PATTERN.matcher(normalized).replaceAll("$1$2<redacted>");
+        normalized = SECRET_PATTERN.matcher(normalized).replaceAll("$1$2$1$3<redacted>");
         normalized = IDENTITY_HASH_PATTERN.matcher(normalized).replaceAll("@");
         normalized = UUID_PATTERN.matcher(normalized).replaceAll("<uuid>");
         normalized = IP_PATTERN.matcher(normalized).replaceAll("<ip>");

@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
 
 import net.coreprotect.config.ConfigHandler;
@@ -32,6 +33,7 @@ public class CacheHandler implements Runnable {
     public static ConcurrentHashMap<String, int[]> entityKillDuplicateCache = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, Object[]> redstoneCache = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, Object[]> fallingBlockSpawnCache = new ConcurrentHashMap<>();
+    private static final Map<String, Object[]> blockSources = new ConcurrentHashMap<>();
 
     private static final Object LOCK = new Object();
     private static volatile Thread thread;
@@ -63,6 +65,7 @@ public class CacheHandler implements Runnable {
             thread = null;
             activeHandler = null;
         }
+        clearBlockSources();
         if (handler != null) {
             handler.cancelled = true;
         }
@@ -117,6 +120,33 @@ public class CacheHandler implements Runnable {
         return world.getUID() + ":" + x + ":" + y + ":" + z;
     }
 
+    public static void recordBlockSource(World world, int x, int y, int z, String actor, Material material) {
+        blockSources.put(locationKey(world, x, y, z), new Object[] { System.currentTimeMillis(), actor, material });
+    }
+
+    public static Object[] getBlockSource(World world, int x, int y, int z) {
+        if (world == null) {
+            return null;
+        }
+        Object[] source = blockSources.get(locationKey(world, x, y, z));
+        if (source != null) {
+            return source;
+        }
+
+        String worldName = world.getName();
+        Integer worldId = worldName == null ? null : ConfigHandler.worlds.get(worldName);
+        return worldId == null ? null : lookupCache.get(x + "." + y + "." + z + "." + worldId);
+    }
+
+    public static String getBlockSourceActor(World world, int x, int y, int z) {
+        Object[] source = getBlockSource(world, x, y, z);
+        return source != null && source[1] instanceof String ? (String) source[1] : "";
+    }
+
+    public static void clearBlockSources() {
+        blockSources.clear();
+    }
+
     public static boolean shouldSuppressRepeat(ConcurrentHashMap<String, int[]> cache, String cacheId, int threshold, int resetWindowSeconds) {
         if (cache == null || cacheId == null || cacheId.isEmpty() || threshold <= 0) {
             return false;
@@ -152,7 +182,7 @@ public class CacheHandler implements Runnable {
         try {
             while (ConfigHandler.serverRunning && !cancelled && !Thread.currentThread().isInterrupted()) {
                 try {
-                    for (int id = 0; id < 14; id++) {
+                    for (int id = 0; id < 15; id++) {
                         Thread.sleep(1000);
                         if (!ConfigHandler.serverRunning || cancelled || Thread.currentThread().isInterrupted()) {
                             return;
@@ -227,6 +257,9 @@ public class CacheHandler implements Runnable {
                             case 13:
                                 cache = CacheHandler.fallingBlockSpawnCache;
                                 scanTime = 30; // 30 seconds
+                                break;
+                            case 14:
+                                cache = blockSources;
                                 break;
                         }
 

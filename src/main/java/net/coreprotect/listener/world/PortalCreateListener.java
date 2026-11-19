@@ -14,7 +14,7 @@ import org.bukkit.event.world.PortalCreateEvent;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
-import net.coreprotect.database.Lookup;
+import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.BlockUtils;
 
 public final class PortalCreateListener extends Queue implements Listener {
@@ -54,7 +54,7 @@ public final class PortalCreateListener extends Queue implements Listener {
         for (BlockState block : event.getBlocks()) {
             Material type = block.getType();
             if (type == Material.NETHER_PORTAL || type == Material.FIRE) {
-                String actor = Lookup.whoPlacedCache(block);
+                String actor = CacheHandler.getBlockSourceActor(event.getWorld(), block.getX(), block.getY(), block.getZ());
                 if (!actor.isEmpty()) {
                     return actor;
                 }

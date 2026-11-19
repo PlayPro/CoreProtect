@@ -318,9 +318,7 @@ public class Queue {
 
                     if (cacheLookup) {
                         Location cacheLocation = blockStateLocation.getLocation();
-                        int worldId = WorldUtils.getWorldId(cacheLocation.getWorld().getName());
-                        int unixTimestamp = (int) (System.currentTimeMillis() / 1000L);
-                        CacheHandler.lookupCache.put(cacheLocation.getBlockX() + "." + cacheLocation.getBlockY() + "." + cacheLocation.getBlockZ() + "." + worldId, new Object[] { unixTimestamp, StringUtils.normalizeUsername(user), forceT });
+                        CacheHandler.recordBlockSource(cacheLocation.getWorld(), cacheLocation.getBlockX(), cacheLocation.getBlockY(), cacheLocation.getBlockZ(), StringUtils.normalizeUsername(user), forceT);
                     }
 
                     queueBlockPlace(user, blockStateLocation, blockType, replacedBlock, forceT, forceD, forceData, blockData);

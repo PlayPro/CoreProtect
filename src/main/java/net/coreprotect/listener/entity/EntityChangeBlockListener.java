@@ -1,5 +1,6 @@
 package net.coreprotect.listener.entity;
 
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -38,7 +39,6 @@ import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.EntityUtils;
-import net.coreprotect.utility.WorldUtils;
 
 public final class EntityChangeBlockListener implements Listener {
 
@@ -181,9 +181,7 @@ public final class EntityChangeBlockListener implements Listener {
                 return;
             }
 
-            int worldId = WorldUtils.getWorldId(block.getWorld().getName());
-            String coordKey = block.getX() + "." + block.getY() + "." + block.getZ() + "." + worldId;
-            String user = lookupCachedUser(coordKey, type);
+            String user = lookupCachedUser(block.getWorld(), block.getX(), block.getY(), block.getZ(), type);
             if (user == null) {
                 if (isTrackedFallingAttachment(type)) {
                     return;
@@ -202,9 +200,9 @@ public final class EntityChangeBlockListener implements Listener {
 
         String user = "#gravity";
         if (originData != null) {
-            String originKey = (String) originData[1];
+            Location origin = (Location) originData[1];
             BlockData source = fallingBlock.getBlockData();
-            String lookupUser = source == null ? null : lookupCachedUser(originKey, source.getMaterial());
+            String lookupUser = source == null ? null : lookupCachedUser(origin.getWorld(), origin.getBlockX(), origin.getBlockY(), origin.getBlockZ(), source.getMaterial());
             if (lookupUser != null) {
                 user = lookupUser;
             }
@@ -214,8 +212,8 @@ public final class EntityChangeBlockListener implements Listener {
         Queue.queueBlockPlace(user, before, type, before, newType, -1, 0, event.getBlockData().getAsString());
     }
 
-    private static String lookupCachedUser(String coordKey, Material expectedType) {
-        Object[] data = CacheHandler.lookupCache.get(coordKey);
+    private static String lookupCachedUser(World world, int x, int y, int z, Material expectedType) {
+        Object[] data = CacheHandler.getBlockSource(world, x, y, z);
         if (data == null) {
             return null;
         }

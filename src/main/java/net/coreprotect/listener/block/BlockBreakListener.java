@@ -39,7 +39,6 @@ import net.coreprotect.model.action.SignActions;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.BlockUtils;
-import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.ErrorReporter;
 
 public final class BlockBreakListener extends Queue implements Listener {
@@ -170,7 +169,6 @@ public final class BlockBreakListener extends Queue implements Listener {
                     continue;
                 }
                 if (scanMin == BlockUtil.TOP && (scanType.hasGravity() || BukkitAdapter.ADAPTER.isSuspiciousBlock(scanType)) && Config.getConfig(world).BLOCK_MOVEMENT) {
-                    // FallingBlock listeners read lookupCache to attribute the chain reaction; overwrite the cache up the gravity stack so falls record under whoever broke this block instead of #gravity or the original placer.
                     seedGravityFallAttribution(user, world, x, z, y + 1, scanType);
                 }
                 if (BlockGroup.TRACK_ANY.contains(scanType)) {
@@ -245,14 +243,11 @@ public final class BlockBreakListener extends Queue implements Listener {
     }
 
     private static void seedGravityFallAttribution(String user, World world, int x, int z, int startY, Material startType) {
-        int worldId = WorldUtils.getWorldId(world.getName());
-        int timestamp = (int) (System.currentTimeMillis() / 1000L);
         int worldMax = world.getMaxHeight();
         Material currentType = startType;
         int scanY = startY;
         while (scanY < worldMax) {
-            String coordKey = x + "." + scanY + "." + z + "." + worldId;
-            CacheHandler.lookupCache.put(coordKey, new Object[] { timestamp, user, currentType });
+            CacheHandler.recordBlockSource(world, x, scanY, z, user, currentType);
             scanY++;
             if (scanY >= worldMax) {
                 break;

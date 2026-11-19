@@ -26,6 +26,7 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.model.PendingBlockChange;
+import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.worldedit.WorldEditBlockState;
 
@@ -361,9 +362,7 @@ public class BlockUtils {
 
     public static boolean iceBreakCheck(BlockState block, String user, Material type) {
         if (type.equals(Material.ICE)) { // Ice block
-            int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
-            int wid = WorldUtils.getWorldId(block.getWorld().getName());
-            net.coreprotect.thread.CacheHandler.lookupCache.put("" + block.getX() + "." + block.getY() + "." + block.getZ() + "." + wid + "", new Object[] { unixtimestamp, user, Material.WATER });
+            CacheHandler.recordBlockSource(block.getWorld(), block.getX(), block.getY(), block.getZ(), user, Material.WATER);
             return true;
         }
         return false;

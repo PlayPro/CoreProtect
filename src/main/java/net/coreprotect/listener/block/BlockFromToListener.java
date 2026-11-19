@@ -17,7 +17,6 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
-import net.coreprotect.database.Lookup;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.BlockUtils;
@@ -64,7 +63,7 @@ public final class BlockFromToListener extends Queue implements Listener {
                 }
 
                 if (config.LIQUID_TRACKING) {
-                    String p = Lookup.whoPlacedCache(block);
+                    String p = CacheHandler.getBlockSourceActor(world, block.getX(), block.getY(), block.getZ());
                     if (p.length() > 0) {
                         f = p;
                     }
@@ -145,10 +144,7 @@ public final class BlockFromToListener extends Queue implements Listener {
     }
 
     private static void queueFlow(String user, BlockState target, BlockState replaced, Material liquid, String data) {
-        int worldId = WorldUtils.getWorldId(target.getWorld().getName());
-        int timestamp = (int) (System.currentTimeMillis() / 1000L);
-        String key = target.getX() + "." + target.getY() + "." + target.getZ() + "." + worldId;
-        CacheHandler.lookupCache.put(key, new Object[] { timestamp, user, liquid });
+        CacheHandler.recordBlockSource(target.getWorld(), target.getX(), target.getY(), target.getZ(), user, liquid);
         Queue.queueBlockPlace(user, target, liquid, replaced, liquid, -1, 0, data);
     }
 

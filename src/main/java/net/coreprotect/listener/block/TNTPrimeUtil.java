@@ -10,7 +10,6 @@ import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.EntityUtils;
-import net.coreprotect.utility.WorldUtils;
 
 public final class TNTPrimeUtil {
 
@@ -42,9 +41,8 @@ public final class TNTPrimeUtil {
                 block.getRelative(BlockFace.DOWN)
         };
 
-        int worldId = WorldUtils.getWorldId(block.getWorld().getName());
         for (Block relative : blocks) {
-            Object[] data = CacheHandler.lookupCache.get(relative.getX() + "." + relative.getY() + "." + relative.getZ() + "." + worldId);
+            Object[] data = CacheHandler.getBlockSource(block.getWorld(), relative.getX(), relative.getY(), relative.getZ());
             if (data != null && data[1] instanceof String && data[2] instanceof Material && data[1].toString().length() > 0 && !data[1].toString().startsWith("#")) {
                 Material type = (Material) data[2];
                 if (type == Material.FIRE || type == Material.SOUL_FIRE || type == Material.AIR || type == Material.CAVE_AIR) {

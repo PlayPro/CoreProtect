@@ -13,7 +13,6 @@ import org.bukkit.entity.Player;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.WorldUtils;
 
 public class BlockUtil {
 
@@ -61,13 +60,11 @@ public class BlockUtil {
 
     public static Block gravityScan(Location location, Material type, String player) {
         Block block = location.getBlock();
-        int timestamp = (int) (System.currentTimeMillis() / 1000L);
         if (type.hasGravity() || type == Material.ARMOR_STAND) {
             int x = location.getBlockX();
             int y = location.getBlockY();
             int z = location.getBlockZ();
             World world = location.getWorld();
-            int wid = WorldUtils.getWorldId(world.getName());
             int yc = y - 1;
             // user placing sand/gravel. Find the bottom block
             int bottomfound = 0;
@@ -88,8 +85,7 @@ public class BlockUtil {
                         bottomfound = 1;
                     }
                     else {
-                        String cords = "" + x + "." + yc + "." + z + "." + wid + "";
-                        Object[] data = CacheHandler.lookupCache.get(cords);
+                        Object[] data = CacheHandler.getBlockSource(world, x, yc, z);
                         if (data != null) {
                             Material t = (Material) data[2];
                             if (type.equals(t) && type != Material.ARMOR_STAND) {
@@ -101,7 +97,7 @@ public class BlockUtil {
                     yc--;
                 }
             }
-            CacheHandler.lookupCache.put("" + x + "." + block.getY() + "." + z + "." + wid + "", new Object[] { timestamp, player, type });
+            CacheHandler.recordBlockSource(world, x, block.getY(), z, player, type);
         }
 
         return block;

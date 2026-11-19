@@ -28,7 +28,6 @@ import net.coreprotect.model.SignState;
 import net.coreprotect.model.action.SignActions;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.BlockUtils;
-import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.ErrorReporter;
 
 public final class BlockPlaceListener extends Queue implements Listener {
@@ -104,11 +103,7 @@ public final class BlockPlaceListener extends Queue implements Listener {
                 }
 
                 if (blockType.hasGravity() || BlockUtil.isFloatingScaffolding(blockData)) {
-                    // FallingBlock listeners read lookupCache before the async consumer can populate it; record the placer synchronously so the fall and landing get attributed to the player instead of #gravity.
-                    int worldId = WorldUtils.getWorldId(world.getName());
-                    int timestamp = (int) (System.currentTimeMillis() / 1000L);
-                    String coordKey = blockState.getX() + "." + blockState.getY() + "." + blockState.getZ() + "." + worldId;
-                    CacheHandler.lookupCache.put(coordKey, new Object[] { timestamp, player.getName(), blockType });
+                    CacheHandler.recordBlockSource(world, blockState.getX(), blockState.getY(), blockState.getZ(), player.getName(), blockType);
                 }
 
                 Queue.queueBlockPlace(player.getName(), blockState, blockPlaced.getType(), blockReplaced, null, -1, 0, bBlockData);

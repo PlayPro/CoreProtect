@@ -65,6 +65,9 @@ public class __2_16_0 {
                     Database.commitTransaction(statement, Config.getGlobal().MYSQL);
                 }
             }
+            catch (Database.TransactionCommitException e) {
+                throw e;
+            }
             catch (Exception e) {
                 ErrorReporter.report(e);
             }
@@ -98,6 +101,10 @@ public class __2_16_0 {
             }
             resultSet.close();
             Database.commitTransaction(statement, Config.getGlobal().MYSQL);
+        }
+        catch (Database.TransactionCommitException e) {
+            ErrorReporter.report(e);
+            return false;
         }
         catch (Exception e) {
             ErrorReporter.report(e);

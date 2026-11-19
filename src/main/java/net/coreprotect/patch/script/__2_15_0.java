@@ -53,6 +53,10 @@ public class __2_15_0 {
 
             ConfigHandler.loadTypes(statement);
         }
+        catch (Database.TransactionCommitException e) {
+            ErrorReporter.report(e);
+            return false;
+        }
         catch (Exception e) {
             ErrorReporter.report(e);
         }

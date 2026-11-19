@@ -114,7 +114,7 @@ final class DuckDBDatabase {
                 DuckDBSpatialIndex.createTable(prefix, statement);
                 validateEntityDataColumns(connection, prefix);
 
-                if (!purge) {
+                if (!purge && forceConnection == null) {
                     initialize(prefix, statement);
                 }
             }

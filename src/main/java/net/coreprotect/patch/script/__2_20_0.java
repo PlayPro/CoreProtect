@@ -101,6 +101,10 @@ public class __2_20_0 {
 
             Database.commitTransaction(statement, Config.getGlobal().MYSQL);
         }
+        catch (Database.TransactionCommitException e) {
+            ErrorReporter.report(e);
+            return false;
+        }
         catch (Exception e) {
             ErrorReporter.report(e);
         }

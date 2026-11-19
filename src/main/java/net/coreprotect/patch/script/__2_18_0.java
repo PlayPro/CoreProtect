@@ -201,6 +201,10 @@ public class __2_18_0 {
             }
 
         }
+        catch (Database.TransactionCommitException e) {
+            ErrorReporter.report(e);
+            return false;
+        }
         catch (Exception e) {
             ErrorReporter.report(e);
         }

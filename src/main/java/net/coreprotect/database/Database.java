@@ -15,6 +15,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -126,84 +127,98 @@ public class Database extends Queue {
         }
         finally {
             if (!started) {
-                Consumer.transacting = false;
-                Consumer.interrupt = false;
-                TRANSACTION_ROLLBACK_ONLY.remove();
-                TRANSACTION_ROLLBACK_ACKNOWLEDGED.remove();
+                clearTransactionState();
             }
         }
     }
 
-    public static void commitTransaction(Statement statement, boolean isMySQL) throws Exception {
-        commitTransactionChecked(statement, isMySQL ? DatabaseType.MYSQL : DatabaseType.SQLITE);
+    public static void commitTransaction(Statement statement, boolean isMySQL) throws TransactionCommitException {
+        DatabaseType databaseType = isMySQL ? DatabaseType.MYSQL : DatabaseType.SQLITE;
+        boolean rollbackOnly = isTransactionRollbackOnly();
+        Exception failure = null;
+        try {
+            if (commitTransactionChecked(statement, databaseType)) {
+                return;
+            }
+        }
+        catch (SQLException | InterruptedException exception) {
+            failure = exception;
+        }
+        try {
+            if (!rollbackOnly) {
+                rollbackTransaction(statement, databaseType);
+            }
+        }
+        finally {
+            if (failure instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        throw new TransactionCommitException(failure);
     }
 
-    public static boolean commitTransactionChecked(Statement statement, boolean isMySQL) throws Exception {
+    public static boolean commitTransactionChecked(Statement statement, boolean isMySQL) throws SQLException, InterruptedException {
         return commitTransactionChecked(statement, isMySQL ? DatabaseType.MYSQL : DatabaseType.SQLITE);
     }
 
-    public static boolean commitTransactionChecked(Statement statement, DatabaseType databaseType) throws Exception {
+    public static boolean commitTransactionChecked(Statement statement, DatabaseType databaseType) throws SQLException, InterruptedException {
         return commitTransactionChecked(statement, databaseType, null);
     }
 
-    public static boolean commitTransactionChecked(Statement statement, DatabaseType databaseType, Runnable onCommitAttempt) throws Exception {
+    public static boolean commitTransactionChecked(Statement statement, DatabaseType databaseType, Runnable onCommitAttempt) throws SQLException, InterruptedException {
         rejectClickHouseTransaction(databaseType);
         if (TRANSACTION_ROLLBACK_ONLY.get()) {
-            if (databaseType.isDuckDB() && TRANSACTION_ROLLBACK_ACKNOWLEDGED.get()) {
-                return rollbackTransaction(statement, databaseType);
-            }
-            return false;
+            boolean acknowledged = databaseType.isDuckDB() && TRANSACTION_ROLLBACK_ACKNOWLEDGED.get();
+            boolean rolledBack = rollbackTransaction(statement, databaseType);
+            return acknowledged && rolledBack;
         }
 
         int count = 0;
 
-        while (true) {
-            try {
-                if (databaseType.isDuckDB()) {
-                    Connection connection = statement.getConnection();
-                    if (onCommitAttempt != null) {
-                        onCommitAttempt.run();
-                    }
-                    connection.commit();
-                    try {
-                        connection.setAutoCommit(true);
-                    }
-                    catch (Exception cleanupException) {
-                        reportDatabaseFailure(cleanupException);
+        try {
+            while (true) {
+                try {
+                    if (databaseType.isDuckDB()) {
+                        Connection connection = statement.getConnection();
+                        if (onCommitAttempt != null) {
+                            onCommitAttempt.run();
+                        }
+                        connection.commit();
                         try {
-                            connection.close();
+                            connection.setAutoCommit(true);
                         }
-                        catch (Exception closeException) {
-                            reportDatabaseFailure(closeException);
+                        catch (Exception cleanupException) {
+                            reportDatabaseFailure(cleanupException);
+                            try {
+                                connection.close();
+                            }
+                            catch (Exception closeException) {
+                                reportDatabaseFailure(closeException);
+                            }
                         }
                     }
-                }
-                else {
-                    if (onCommitAttempt != null) {
-                        onCommitAttempt.run();
+                    else {
+                        if (onCommitAttempt != null) {
+                            onCommitAttempt.run();
+                        }
+                        statement.executeUpdate(databaseType.isMySQL() ? "COMMIT" : "COMMIT TRANSACTION");
                     }
-                    statement.executeUpdate(databaseType.isMySQL() ? "COMMIT" : "COMMIT TRANSACTION");
+                    return true;
                 }
-                Consumer.transacting = false;
-                Consumer.interrupt = false;
-                TRANSACTION_ROLLBACK_ONLY.remove();
-                TRANSACTION_ROLLBACK_ACKNOWLEDGED.remove();
-                return true;
-            }
-            catch (Exception e) {
-                if (e.getMessage() != null && e.getMessage().startsWith("[SQLITE_BUSY]") && count < 30) {
-                    Thread.sleep(1000);
-                    count++;
+                catch (Exception e) {
+                    if (e.getMessage() != null && e.getMessage().startsWith("[SQLITE_BUSY]") && count < 30) {
+                        Thread.sleep(1000);
+                        count++;
 
-                    continue;
+                        continue;
+                    }
+                    reportDatabaseFailure(e);
+                    return false;
                 }
-                reportDatabaseFailure(e);
-                Consumer.transacting = false;
-                Consumer.interrupt = false;
-                TRANSACTION_ROLLBACK_ONLY.remove();
-                TRANSACTION_ROLLBACK_ACKNOWLEDGED.remove();
-                return false;
             }
+        }
+        finally {
+            clearTransactionState();
         }
     }
 
@@ -243,12 +258,16 @@ public class Database extends Queue {
             reportDatabaseFailure(e);
         }
         finally {
-            Consumer.transacting = false;
-            Consumer.interrupt = false;
-            TRANSACTION_ROLLBACK_ONLY.remove();
-            TRANSACTION_ROLLBACK_ACKNOWLEDGED.remove();
+            clearTransactionState();
         }
         return rolledBack;
+    }
+
+    private static void clearTransactionState() {
+        Consumer.transacting = false;
+        Consumer.interrupt = false;
+        TRANSACTION_ROLLBACK_ONLY.remove();
+        TRANSACTION_ROLLBACK_ACKNOWLEDGED.remove();
     }
 
     public static void acknowledgeRollbackOnlyTransaction() {
@@ -381,76 +400,86 @@ public class Database extends Queue {
     }
 
     public static Connection getConnection(boolean force, boolean startup, boolean onlyCheckTransacting, int waitTime) {
-        Connection connection = null;
-        if (Consumer.isDatabaseReloadBlocked()) {
+        if (!databaseAccessAllowed(force)) {
             return null;
         }
-        Consumer.lockDatabaseAccess();
-        try {
-            if (Consumer.isDatabaseReloadBlocked()) {
-                return null;
-            }
-            if (!force && (ConfigHandler.converterRunning || ConfigHandler.purgeRunning)) {
-                return connection;
-            }
-            if (ConfigHandler.databaseType.isMySQL()) {
-                try {
-                    connection = ConfigHandler.hikariDataSource.getConnection();
-                    ConfigHandler.databaseReachable = true;
-                }
-                catch (Exception e) {
-                    ConfigHandler.databaseReachable = false;
-                    Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.MYSQL_UNAVAILABLE));
-                    ErrorReporter.report(e);
-                }
-            }
-            else if (ConfigHandler.databaseType.isDuckDB()) {
-                connection = DuckDBDatabase.getConnection();
-                ConfigHandler.databaseReachable = true;
-            }
-            else if (ConfigHandler.databaseType.isClickHouse()) {
-                connection = requireClickHouseDatabase().openConnection();
-                ConfigHandler.databaseReachable = true;
-            }
-            else {
-                if (Consumer.transacting && onlyCheckTransacting) {
-                    Consumer.interrupt = true;
-                }
-
-                long startTime = System.nanoTime();
-                while (Consumer.isPaused && !force && (Consumer.transacting || !onlyCheckTransacting)) {
-                    Thread.sleep(1);
-                    long pauseTime = (System.nanoTime() - startTime) / 1000000;
-
-                    if (pauseTime >= waitTime) {
-                        return connection;
-                    }
-                }
-
-                String database = "jdbc:sqlite:" + ConfigHandler.path + ConfigHandler.sqlite + "";
-                connection = DriverManager.getConnection(database);
-
-                ConfigHandler.databaseReachable = true;
-            }
-
-            if (connection != null) {
-                registerConnection(connection);
-            }
+        if (ConfigHandler.databaseType.isSQLite() && Consumer.transacting && onlyCheckTransacting) {
+            Consumer.interrupt = true;
         }
-        catch (Exception e) {
-            if (ConfigHandler.databaseType.isColumnar()) {
+        try {
+            long started = System.nanoTime();
+            while (sqlitePaused(force, onlyCheckTransacting)) {
+                if (!databaseAccessAllowed(force) || (System.nanoTime() - started) / 1_000_000L >= waitTime) {
+                    return null;
+                }
+                Thread.sleep(1L);
+            }
+            return openRegisteredConnection(force, onlyCheckTransacting, true);
+        }
+        catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+        }
+        catch (Exception exception) {
+            DatabaseType databaseType = ConfigHandler.databaseType;
+            if (databaseType.isMySQL() || databaseType.isColumnar()) {
                 ConfigHandler.databaseReachable = false;
             }
-            boolean recoveryRequested = ConfigHandler.databaseType.isDuckDB() && DuckDBRecovery.request(e);
-            if (!recoveryRequested && (!ConfigHandler.databaseType.isClickHouse() || shouldReportClickHouseConnectionError())) {
-                ErrorReporter.report(e);
+            if (databaseType.isMySQL()) {
+                Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.MYSQL_UNAVAILABLE));
             }
+            boolean recoveryRequested = databaseType.isDuckDB() && DuckDBRecovery.request(exception);
+            if (!recoveryRequested && (!databaseType.isClickHouse() || shouldReportClickHouseConnectionError())) {
+                ErrorReporter.report(exception);
+            }
+        }
+        return null;
+    }
+
+    private static boolean databaseAccessAllowed(boolean force) {
+        return !Consumer.isDatabaseReloadBlocked() && (force || (!ConfigHandler.converterRunning && !ConfigHandler.purgeRunning));
+    }
+
+    private static boolean sqlitePaused(boolean force, boolean onlyCheckTransacting) {
+        return !force && ConfigHandler.databaseType.isSQLite() && Consumer.isPaused && (Consumer.transacting || !onlyCheckTransacting);
+    }
+
+    private static Connection openRegisteredConnection(boolean force, boolean onlyCheckTransacting, boolean publishReachability) throws Exception {
+        Consumer.lockDatabaseAccess();
+        try {
+            if (!databaseAccessAllowed(force) || sqlitePaused(force, onlyCheckTransacting)) {
+                return null;
+            }
+            DatabaseType databaseType = ConfigHandler.databaseType;
+            Connection connection;
+            if (databaseType.isMySQL()) {
+                var dataSource = ConfigHandler.hikariDataSource;
+                if (dataSource == null) {
+                    throw new SQLException("The CoreProtect MySQL connection pool is unavailable");
+                }
+                connection = dataSource.getConnection();
+            }
+            else if (databaseType.isDuckDB()) {
+                connection = DuckDBDatabase.getConnection();
+            }
+            else if (databaseType.isClickHouse()) {
+                connection = requireClickHouseDatabase().openConnection();
+            }
+            else {
+                Properties properties = new Properties();
+                properties.setProperty("busy_timeout", "5000");
+                connection = DriverManager.getConnection("jdbc:sqlite:" + ConfigHandler.path + ConfigHandler.sqlite, properties);
+            }
+            if (connection != null) {
+                registerConnection(connection);
+                if (publishReachability) {
+                    ConfigHandler.databaseReachable = true;
+                }
+            }
+            return connection;
         }
         finally {
             Consumer.unlockDatabaseAccess();
         }
-
-        return connection;
     }
 
     public static boolean awaitConnectionDrain(long timeoutMillis) throws InterruptedException {
@@ -575,31 +604,20 @@ public class Database extends Queue {
     }
 
     public static boolean hasIncompleteMigrationMarker() throws SQLException {
-        Connection connection;
-        if (ConfigHandler.databaseType.isMySQL()) {
-            connection = ConfigHandler.hikariDataSource.getConnection();
-        }
-        else if (ConfigHandler.databaseType.isDuckDB()) {
-            try {
-                connection = DuckDBDatabase.getConnection();
+        try (Connection connection = openRegisteredConnection(true, false, false)) {
+            if (connection == null) {
+                throw new SQLException("Unable to open the database to inspect its migration marker");
             }
-            catch (Exception exception) {
-                if (exception instanceof SQLException) {
-                    throw (SQLException) exception;
-                }
-                throw new SQLException("Unable to inspect the DuckDB migration marker", exception);
+            String sql = "SELECT 1 FROM " + ConfigHandler.prefix + "database_lock WHERE rowid=1 AND status=" + DATABASE_LOCK_MIGRATION_INCOMPLETE + " LIMIT 1";
+            try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery(sql)) {
+                return resultSet.next();
             }
         }
-        else if (ConfigHandler.databaseType.isClickHouse()) {
-            connection = requireClickHouseDatabase().openConnection();
+        catch (SQLException exception) {
+            throw exception;
         }
-        else {
-            connection = DriverManager.getConnection("jdbc:sqlite:" + ConfigHandler.path + ConfigHandler.sqlite);
-        }
-
-        String sql = "SELECT 1 FROM " + ConfigHandler.prefix + "database_lock WHERE rowid=1 AND status=" + DATABASE_LOCK_MIGRATION_INCOMPLETE + " LIMIT 1";
-        try (Connection checkedConnection = connection; Statement statement = checkedConnection.createStatement(); ResultSet resultSet = statement.executeQuery(sql)) {
-            return resultSet.next();
+        catch (Exception exception) {
+            throw new SQLException("Unable to inspect the CoreProtect database migration marker", exception);
         }
     }
 
@@ -628,7 +646,12 @@ public class Database extends Queue {
             return;
         }
         int timestamp = (int) (System.currentTimeMillis() / 1000L);
-        statement.executeUpdate("INSERT INTO " + ConfigHandler.prefix + "version (time,version) VALUES ('" + timestamp + "', '" + version + "')");
+        try (PreparedStatement insert = statement.getConnection().prepareStatement(
+                "INSERT INTO " + ConfigHandler.prefix + "version (time,version) VALUES (?,?)")) {
+            insert.setInt(1, timestamp);
+            insert.setString(2, version);
+            insert.executeUpdate();
+        }
     }
 
     public static long purgeClickHouse(long startTime, long endTime, int worldId, List<Integer> blockTypes, boolean optimize) throws SQLException {
@@ -788,7 +811,8 @@ public class Database extends Queue {
     }
 
     private static void createMySQLTables(String prefix, Connection forceConnection, boolean purge) {
-        try (Connection connection = (forceConnection != null ? forceConnection : Database.getConnection(true, true, true, 0))) {
+        try (Connection openedConnection = forceConnection == null ? Database.getConnection(true, true, true, 0) : null) {
+            Connection connection = forceConnection == null ? openedConnection : forceConnection;
             if (connection == null) {
                 throw new SQLException("Unable to connect to MySQL while initializing the schema");
             }
@@ -801,9 +825,6 @@ public class Database extends Queue {
             }
         }
         catch (Exception e) {
-            if (forceConnection == null) {
-                Config.getGlobal().MYSQL = false;
-            }
             throw new IllegalStateException("Failed to initialize the MySQL schema", e);
         }
     }
@@ -999,7 +1020,8 @@ public class Database extends Queue {
     }
 
     private static void createSQLiteTables(String prefix, boolean forcePrefix, Connection forceConnection, boolean purge) {
-        try (Connection connection = (forceConnection != null ? forceConnection : Database.getConnection(true, 0))) {
+        try (Connection openedConnection = forceConnection == null ? Database.getConnection(true, 0) : null) {
+            Connection connection = forceConnection == null ? openedConnection : forceConnection;
             if (connection == null) {
                 throw new SQLException("Unable to open SQLite while initializing the schema");
             }
@@ -1226,6 +1248,15 @@ public class Database extends Queue {
     private static void rejectClickHouseTransaction(DatabaseType databaseType) throws SQLException {
         if (databaseType.isClickHouse()) {
             throw new SQLException("ClickHouse writes use immutable consumer batches, not JDBC transactions");
+        }
+    }
+
+    public static final class TransactionCommitException extends SQLException {
+
+        private static final long serialVersionUID = 1L;
+
+        private TransactionCommitException(Exception cause) {
+            super("Unable to commit database transaction", cause);
         }
     }
 

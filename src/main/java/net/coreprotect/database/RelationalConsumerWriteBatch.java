@@ -111,9 +111,10 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
                     duckDBSpatialIndex.flush(connection);
                 }
             }
+            boolean rollbackOnly = Database.isTransactionRollbackOnly();
             boolean committed = Database.commitTransactionChecked(transactionStatement, databaseType, () -> commitAttempted = true);
             if (!committed) {
-                boolean rolledBack = Database.rollbackTransaction(transactionStatement, databaseType);
+                boolean rolledBack = !rollbackOnly && Database.rollbackTransaction(transactionStatement, databaseType);
                 if (commitAttempted || !rolledBack) {
                     abandonDuckDBSpatialIndex();
                 }

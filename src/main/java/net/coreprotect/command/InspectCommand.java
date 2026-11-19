@@ -1,6 +1,7 @@
 package net.coreprotect.command;
 
 import java.util.Locale;
+import java.util.Map;
 
 import org.bukkit.command.CommandSender;
 
@@ -40,25 +41,17 @@ public class InspectCommand {
                 return;
             }
 
-            ConfigHandler.inspecting.putIfAbsent(player.getName(), false);
-            if (!ConfigHandler.inspecting.get(player.getName())) {
-                if (command == 0) {
-                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INSPECTOR_ERROR, Selector.SECOND)); // already disabled
-                }
-                else {
-                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INSPECTOR_TOGGLED, Selector.FIRST)); // now enabled
-                    ConfigHandler.inspecting.put(player.getName(), true);
-                }
+            Map<String, Boolean> inspecting = ConfigHandler.inspecting;
+            String playerName = player.getName();
+            boolean wasEnabled;
+            boolean enabled;
+            synchronized (inspecting) {
+                wasEnabled = Boolean.TRUE.equals(inspecting.get(playerName));
+                enabled = command < 0 ? !wasEnabled : command == 1;
+                inspecting.put(playerName, enabled);
             }
-            else {
-                if (command == 1) {
-                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INSPECTOR_ERROR, Selector.FIRST)); // already enabled
-                }
-                else {
-                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INSPECTOR_TOGGLED, Selector.SECOND)); // now disabled
-                    ConfigHandler.inspecting.put(player.getName(), false);
-                }
-            }
+            Phrase phrase = enabled == wasEnabled ? Phrase.INSPECTOR_ERROR : Phrase.INSPECTOR_TOGGLED;
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(phrase, enabled ? Selector.FIRST : Selector.SECOND));
         }
         else {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));

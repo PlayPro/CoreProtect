@@ -29,6 +29,10 @@ public class StatusCommand {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
             return;
         }
+        if (args.length > 1) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, args[1]));
+            return;
+        }
 
         CoreProtect instance = CoreProtect.getInstance();
         PluginDescriptionFile description = instance.getDescription();

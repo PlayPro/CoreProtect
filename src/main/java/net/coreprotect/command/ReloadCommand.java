@@ -23,6 +23,10 @@ public class ReloadCommand {
 
     protected static void runCommand(final CommandSender player, boolean permission, String[] args) {
         if (permission) {
+            if (args.length > 1) {
+                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, args[1]));
+                return;
+            }
             if (ConfigHandler.converterRunning || ConfigHandler.migrationRunning) {
                 Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
                 return;

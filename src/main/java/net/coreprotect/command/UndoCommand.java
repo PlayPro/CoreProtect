@@ -21,6 +21,10 @@ public class UndoCommand {
             Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
             return;
         }
+        if (args.length > 1) {
+            Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, args[1]));
+            return;
+        }
 
         try {
             List<Object> savedRollback = ConfigHandler.lastRollback.get(user.getName());

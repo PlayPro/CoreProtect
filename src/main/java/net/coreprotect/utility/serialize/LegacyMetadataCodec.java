@@ -14,6 +14,7 @@ import java.io.OutputStream;
 import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -36,7 +37,7 @@ final class LegacyMetadataCodec {
     private static final String ALIAS_KEY = "==";
     private static final long MAX_REFERENCES = 1_000_000;
     private static final Set<Class<?>> SIMPLE_TYPES = Set.of(Object.class, String.class, Number.class, Boolean.class, Byte.class,
-            Short.class, Integer.class, Long.class, Float.class, Double.class, Character.class, Enum.class, UUID.class);
+            Short.class, Integer.class, Long.class, Float.class, Double.class, Character.class, Enum.class, UUID.class, Date.class);
     private static final Set<String> SIMPLE_TYPE_NAMES = SIMPLE_TYPES.stream().map(Class::getName).collect(Collectors.toUnmodifiableSet());
     private static final Set<String> COLLECTION_TYPES = Set.of(
             "java.util.ArrayList", "java.util.LinkedList", "java.util.Arrays$ArrayList",
@@ -449,7 +450,7 @@ final class LegacyMetadataCodec {
             }
             try {
                 Class<?> type = Class.forName(component, false, ConfigurationSerializable.class.getClassLoader());
-                return ConfigurationSerializable.class.isAssignableFrom(type);
+                return neutral ? ConfigurationSerializable.class.isAssignableFrom(type) : type == ConfigurationSerializable.class;
             }
             catch (ClassNotFoundException | LinkageError ignored) {
                 return true;

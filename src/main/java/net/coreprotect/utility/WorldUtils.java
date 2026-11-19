@@ -75,7 +75,12 @@ public class WorldUtils {
                 if (resolved.isEmpty()) {
                     return -1;
                 }
-                name = resolved;
+                for (World world : Bukkit.getServer().getWorlds()) {
+                    if (resolved.equals(world.getName())) {
+                        return wid;
+                    }
+                }
+                return -1;
             }
 
             // Determine closest match on world name

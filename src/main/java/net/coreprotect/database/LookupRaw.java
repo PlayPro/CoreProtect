@@ -1697,13 +1697,14 @@ public class LookupRaw extends Queue {
             return baseQuery;
         }
 
-        if (ConfigHandler.databaseType.isDuckDB()) {
+        if (ConfigHandler.databaseType.isColumnar()) {
+            String match = ConfigHandler.databaseType.isClickHouse() ? "message ILIKE ?" : "message ILIKE ? ESCAPE '~'";
             StringBuilder query = new StringBuilder(baseQuery).append(" AND (");
             for (int index = 0; index < messageFilters.size(); index++) {
                 if (index > 0) {
                     query.append(" OR ");
                 }
-                query.append("message ILIKE ? ESCAPE '~'");
+                query.append(match);
                 String filter = messageFilters.get(index) == null ? "" : messageFilters.get(index);
                 bindings.add(escapeLike(filter) + "%");
             }
@@ -1711,8 +1712,7 @@ public class LookupRaw extends Queue {
         }
 
         String alias = table + "FilterRows";
-        String likeOperator = ConfigHandler.databaseType.isColumnar() ? " ILIKE " : " LIKE ";
-        String escapeClause = ConfigHandler.databaseType.isClickHouse() ? "" : " ESCAPE '~'";
+        String match = " LIKE ? ESCAPE '~'";
         StringBuilder query = new StringBuilder(baseQuery)
                 .append(" AND rowid IN (SELECT ").append(alias).append(".rowid FROM ")
                 .append(ConfigHandler.prefix).append(table).append(" ").append(alias).append(" WHERE (");
@@ -1722,8 +1722,8 @@ public class LookupRaw extends Queue {
             }
 
             String prefixExpression = messagePrefix(alias + ".message");
-            query.append("(").append(prefixExpression).append(likeOperator).append("?").append(escapeClause).append(" AND ")
-                    .append(alias).append(".message").append(likeOperator).append("?").append(escapeClause).append(")");
+            query.append("(").append(prefixExpression).append(match).append(" AND ")
+                    .append(alias).append(".message").append(match).append(")");
 
             String filter = messageFilters.get(index) == null ? "" : messageFilters.get(index);
             bindings.add(escapeLike(firstCodePoints(filter, 16)) + "%");
@@ -1738,8 +1738,11 @@ public class LookupRaw extends Queue {
         }
 
         // Inline line predicates keep the outer restrictions usable. MySQL can still index merge the line prefix indexes when unrestricted.
-        if (ConfigHandler.databaseType.isDuckDB() || ConfigHandler.databaseType.isMySQL()) {
-            String match = ConfigHandler.databaseType.isDuckDB() ? " ILIKE ? ESCAPE '~'" : " LIKE ? ESCAPE '~'";
+        if (ConfigHandler.databaseType.isColumnar() || ConfigHandler.databaseType.isMySQL()) {
+            String match = ConfigHandler.databaseType.isColumnar() ? " ILIKE ?" : " LIKE ?";
+            if (!ConfigHandler.databaseType.isClickHouse()) {
+                match += " ESCAPE '~'";
+            }
             StringBuilder query = new StringBuilder(baseQuery).append(" AND (");
             for (int filterIndex = 0; filterIndex < messageFilters.size(); filterIndex++) {
                 if (filterIndex > 0) {
@@ -1761,8 +1764,7 @@ public class LookupRaw extends Queue {
         }
 
         String alias = "signFilterRows";
-        String likeOperator = ConfigHandler.databaseType.isColumnar() ? " ILIKE " : " LIKE ";
-        String escapeClause = ConfigHandler.databaseType.isClickHouse() ? "" : " ESCAPE '~'";
+        String match = " LIKE ? ESCAPE '~'";
         StringBuilder query = new StringBuilder(baseQuery).append(" AND rowid IN (");
         boolean union = false;
         for (String filter : messageFilters) {
@@ -1778,8 +1780,8 @@ public class LookupRaw extends Queue {
                 query.append("SELECT ").append(alias).append(".rowid FROM ")
                         .append(ConfigHandler.prefix).append("sign ").append(alias)
                         .append(" WHERE ").append(alias).append(line <= 4 ? ".face = 0" : ".face <> 0")
-                        .append(" AND (").append(prefixExpression).append(likeOperator).append("?").append(escapeClause).append(" AND ")
-                        .append(alias).append(".").append(column).append(likeOperator).append("?").append(escapeClause).append(")");
+                        .append(" AND (").append(prefixExpression).append(match).append(" AND ")
+                        .append(alias).append(".").append(column).append(match).append(")");
                 bindings.add(prefix);
                 bindings.add(message);
                 union = true;
@@ -1848,9 +1850,6 @@ public class LookupRaw extends Queue {
     private static String messagePrefix(String column) {
         if (ConfigHandler.databaseType.isMySQL()) {
             return column;
-        }
-        if (ConfigHandler.databaseType.isClickHouse()) {
-            return "substringUTF8(" + column + ",1,16)";
         }
         return "substr(" + column + ",1,16)";
     }

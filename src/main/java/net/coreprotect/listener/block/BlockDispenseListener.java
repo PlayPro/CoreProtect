@@ -41,7 +41,7 @@ public final class BlockDispenseListener extends Queue implements Listener {
         Block block = event.getBlock();
         World world = block.getWorld();
         Config config = Config.getConfig(world);
-        if (!event.isCancelled() && config.BLOCK_PLACE) {
+        if (!event.isCancelled()) {
             BlockData blockData = block.getBlockData();
             ItemStack item = event.getItem();
             if (item != null && blockData instanceof Dispenser) {
@@ -56,7 +56,8 @@ public final class BlockDispenseListener extends Queue implements Listener {
                 Location velocityLocation = event.getVelocity().toLocation(world);
                 boolean dispenseRelative = newBlock.getLocation().equals(velocityLocation); // true if velocity location matches relative location
 
-                if (!BlockPreDispenseListener.useBlockPreDispenseEvent || (!BlockPreDispenseListener.useForDroppers && block.getType() == Material.DROPPER)) {
+                if (config.ITEM_TRANSACTIONS && (!BlockPreDispenseListener.useBlockPreDispenseEvent
+                        || (!BlockPreDispenseListener.useForDroppers && block.getType() == Material.DROPPER))) {
                     if (dispenseRelative || material.equals(Material.FLINT_AND_STEEL) || material.equals(Material.SHEARS)) {
                         forceItem = false;
                     }
@@ -99,14 +100,18 @@ public final class BlockDispenseListener extends Queue implements Listener {
                 }
 
                 // The item transaction and bone meal hand-off above are unaffected by this option.
-                if (!config.DISPENSERS) {
+                if (!config.DISPENSERS || block.getType() == Material.DROPPER) {
                     return;
                 }
 
-                if (type == Material.FIRE && (!config.BLOCK_IGNITE || !(newBlockData instanceof Lightable))) {
+                Material previousType = newBlock.getType();
+                Material oldLiquid = targetLiquid(previousType, newBlockData);
+                boolean draining = material == Material.BUCKET;
+                if (type == Material.FIRE && (!config.BLOCK_PLACE || !config.BLOCK_IGNITE || !(newBlockData instanceof Lightable))) {
                     return;
                 }
-                else if (type != Material.FIRE && (!config.BUCKETS || (!config.WATER_FLOW && type.equals(Material.WATER)) || (!config.LAVA_FLOW && type.equals(Material.LAVA)))) {
+                else if (type != Material.FIRE && (!config.BUCKETS || (draining ? !config.BLOCK_BREAK : !config.BLOCK_PLACE)
+                        || !allowsLiquid(config, draining ? oldLiquid : type))) {
                     return;
                 }
 
@@ -121,14 +126,18 @@ public final class BlockDispenseListener extends Queue implements Listener {
                 }
                 else if (dispenseRelative && !type.equals(Material.AIR)) {
                     BlockState blockState = newBlock.getState();
-                    if (config.DUPLICATE_SUPPRESSION && shouldSuppressDispenseLiquidDuplicate(user, newBlock, type)) {
+                    Material previous = oldLiquid != Material.AIR ? oldLiquid : previousType;
+                    if (BlockUtils.isAir(previous) || (type == Material.WATER && newBlockData instanceof Waterlogged && oldLiquid == Material.AIR)) {
+                        previous = Material.AIR;
+                    }
+                    if (config.DUPLICATE_SUPPRESSION && shouldSuppressDispenseLiquidDuplicate(newBlock, previous, type)) {
                         return;
                     }
                     queueBlockPlaceValidate(user, blockState, newBlock, blockState, type, 1, 1, null, 0);
                 }
-                else if (dispenseRelative && material == Material.BUCKET) {
+                else if (dispenseRelative && draining && oldLiquid != Material.AIR) {
                     BlockState blockState = newBlock.getState();
-                    if (config.DUPLICATE_SUPPRESSION && shouldSuppressDispenseLiquidDuplicate(user, newBlock, type)) {
+                    if (config.DUPLICATE_SUPPRESSION && shouldSuppressDispenseLiquidDuplicate(newBlock, oldLiquid, Material.AIR)) {
                         return;
                     }
                     queueBucketRemovalValidate(user, newBlock, blockState);
@@ -156,7 +165,7 @@ public final class BlockDispenseListener extends Queue implements Listener {
                 }
 
                 if (removed) {
-                    Queue.queueBlockBreak(user, blockState, removedType, blockData, 0);
+                    Queue.queueBlockBreak(user, blockState, removedType, waterlogged ? null : blockData, 0);
                 }
             }
             catch (Exception e) {
@@ -165,14 +174,7 @@ public final class BlockDispenseListener extends Queue implements Listener {
         }, block.getLocation(), 0);
     }
 
-    private boolean shouldSuppressDispenseLiquidDuplicate(String user, Block targetBlock, Material newType) {
-        Material oldType = targetBlock.getType();
-        boolean placeLiquid = ("#water".equals(user) || "#lava".equals(user) || "#dispenser".equals(user)) && (newType == Material.WATER || newType == Material.LAVA);
-        boolean removeLiquid = "#dispenser".equals(user) && newType == Material.AIR && (oldType == Material.WATER || oldType == Material.LAVA);
-        if (!placeLiquid && !removeLiquid) {
-            return false;
-        }
-
+    private static boolean shouldSuppressDispenseLiquidDuplicate(Block targetBlock, Material oldType, Material newType) {
         if (!isLiquidToggleType(oldType) || !isLiquidToggleType(newType) || oldType == newType) {
             return false;
         }
@@ -189,8 +191,19 @@ public final class BlockDispenseListener extends Queue implements Listener {
         return CacheHandler.shouldSuppressRepeat(CacheHandler.flowDuplicateCache, signature, DISPENSER_LIQUID_DUPLICATE_THRESHOLD, DISPENSER_LIQUID_DUPLICATE_WINDOW_SECONDS);
     }
 
-    private boolean isLiquidToggleType(Material type) {
-        return type == Material.AIR || type == Material.WATER || type == Material.LAVA;
+    private static boolean allowsLiquid(Config config, Material type) {
+        return (type != Material.WATER || config.WATER_FLOW) && (type != Material.LAVA || config.LAVA_FLOW);
+    }
+
+    private static Material targetLiquid(Material type, BlockData data) {
+        if (data instanceof Waterlogged && ((Waterlogged) data).isWaterlogged()) {
+            return Material.WATER;
+        }
+        return isLiquidToggleType(type) && !BlockUtils.isAir(type) ? type : Material.AIR;
+    }
+
+    private static boolean isLiquidToggleType(Material type) {
+        return BlockUtils.isAir(type) || type == Material.WATER || type == Material.LAVA || (type != null && type.name().equals("POWDER_SNOW"));
     }
 
 }

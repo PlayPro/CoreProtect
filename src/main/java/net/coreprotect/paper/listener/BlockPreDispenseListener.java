@@ -34,7 +34,7 @@ public final class BlockPreDispenseListener extends Queue implements Listener {
         Block block = event.getBlock();
         World world = block.getWorld();
         Config config = Config.getConfig(world);
-        if (!config.BLOCK_PLACE) {
+        if (event.isCancelled()) {
             return;
         }
 

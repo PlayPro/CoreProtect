@@ -685,11 +685,13 @@ public class NetworkHandler implements Runnable {
                 catch (Exception e) {
                     // Unable to connect to update.coreprotect.net
                 }
-                try {
-                    edgeResult = executeHttpRequest(updateEdgeVersionUrl, "GET", userAgent, null, null, false);
-                }
-                catch (Exception e) {
-                    // Unable to connect to update.coreprotect.net
+                if (!isAborted() && ConfigHandler.serverRunning && Config.getGlobal().CHECK_UPDATES) {
+                    try {
+                        edgeResult = executeHttpRequest(updateEdgeVersionUrl, "GET", userAgent, null, null, false);
+                    }
+                    catch (Exception e) {
+                        // Unable to connect to update.coreprotect.net
+                    }
                 }
 
                 if (isAborted() || !ConfigHandler.serverRunning || !Config.getGlobal().CHECK_UPDATES) {

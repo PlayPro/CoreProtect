@@ -11,9 +11,9 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.logger.ItemLogger;
 
-class ItemTransactionProcess extends Queue {
+class ItemTransactionProcess {
 
-    static void process(ConsumerWriteBatch preparedStmt, int batchCount, int processId, int id, int forceData, int time, int offset, String user, Object object) {
+    static void process(ConsumerWriteBatch preparedStmt, int batchCount, int processId, int id, int forceData, int time, int offset, String user, Object object, boolean lastRun) {
         if (object instanceof ItemLogger.PreparedTransaction) {
             ((ItemLogger.PreparedTransaction) object).log(preparedStmt, batchCount, user);
             return;
@@ -28,7 +28,7 @@ class ItemTransactionProcess extends Queue {
                     return;
                 }
                 int currentTime = (int) (System.currentTimeMillis() / 1000L);
-                if (currentTime <= time) {
+                if (!lastRun && currentTime <= time) {
                     Queue.queueItemTransaction(user, location, time, offset, forceData);
                     return;
                 }

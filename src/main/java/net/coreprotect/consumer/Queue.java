@@ -441,7 +441,7 @@ public class Queue {
         }
     }
 
-    protected static boolean queueItemTransaction(String user, Location location, int time, int offset, int itemId) {
+    public static boolean queueItemTransaction(String user, Location location, int time, int offset, int itemId) {
         return queueStandardData(new Object[] { null, Process.ITEM_TRANSACTION, null, offset, null, time, itemId, null }, new String[] { user, null }, location, false, Consumer.reserveConsumer());
     }
 

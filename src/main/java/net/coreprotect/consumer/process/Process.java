@@ -464,7 +464,7 @@ public class Process {
                                     }
                                     break;
                                 case Process.ITEM_TRANSACTION:
-                                    ItemTransactionProcess.process(writeBatch, i, processId, id, forceData, replaceData, blockData, user, object);
+                                    ItemTransactionProcess.process(writeBatch, i, processId, id, forceData, replaceData, blockData, user, object, lastRun);
                                     break;
                                 case Process.STRUCTURE_GROWTH:
                                     StructureGrowthProcess.process(statement, writeBatch, i, processId, id, user, object, forceData);

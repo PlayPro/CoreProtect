@@ -3,6 +3,7 @@ package net.coreprotect.database.logger;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.entity.EntityType;
 
 import net.coreprotect.CoreProtect;
@@ -29,7 +30,8 @@ final class LoggerPreLog {
     }
 
     static boolean samePosition(Location first, Location second) {
-        return first.getWorld() != null && second.getWorld() != null && first.getWorld().getUID().equals(second.getWorld().getUID())
+        World world = first.getWorld();
+        return world != null && world.equals(second.getWorld())
                 && Double.compare(first.getX(), second.getX()) == 0 && Double.compare(first.getY(), second.getY()) == 0
                 && Double.compare(first.getZ(), second.getZ()) == 0;
     }

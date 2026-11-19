@@ -60,13 +60,13 @@ public class TabHandler implements TabCompleter {
             return handleActionParamCompletions(currentArg, lastArg);
         }
         else if (isUserParam(lastArg, currentArg) && hasLookupPermission(sender)) {
-            return handleUserParamCompletions(currentArg, lastArg);
+            return handleUserParamCompletions(currentArg);
         }
         else if (isTimeParam(lastArg, currentArg) && hasTimePermission(sender)) {
             return handleTimeParamCompletions(currentArg, lastArg);
         }
-        else if (isPageParam(lastArg, currentArg) && hasPagePermission(sender)) {
-            return handlePageParamCompletions(currentArg, lastArg);
+        else if (isPageParam(currentArg) && hasPagePermission(sender)) {
+            return handlePageParamCompletions(currentArg);
         }
         else if (isRadiusParam(lastArg, currentArg) && hasRadiusPermission(sender)) {
             return handleRadiusParamCompletions(currentArg, lastArg, argument0);
@@ -136,15 +136,17 @@ public class TabHandler implements TabCompleter {
     }
 
     private boolean isUserParam(String lastArg, String currentArg) {
-        return lastArg.equals("u:") || lastArg.equals("user:") || lastArg.equals("users:") || lastArg.equals("p:") || currentArg.startsWith("u:") || currentArg.startsWith("user:") || currentArg.startsWith("users:") || currentArg.startsWith("p:");
+        int separator = currentArg.indexOf(':');
+        String key = separator < 0 ? lastArg : currentArg.substring(0, separator + 1);
+        return key.equals("u:") || key.equals("user:") || key.equals("users:") || key.equals("p:");
     }
 
     private boolean isTimeParam(String lastArg, String currentArg) {
         return lastArg.equals("t:") || lastArg.equals("time:") || currentArg.startsWith("t:") || currentArg.startsWith("time:");
     }
 
-    private boolean isPageParam(String lastArg, String currentArg) {
-        return lastArg.equals("page:") || currentArg.startsWith("page:");
+    private boolean isPageParam(String currentArg) {
+        return currentArg.startsWith("page:");
     }
 
     private boolean isRadiusParam(String lastArg, String currentArg) {
@@ -252,25 +254,10 @@ public class TabHandler implements TabCompleter {
         return StringUtil.copyPartialMatches(filter + arg, completions, new ArrayList<>(completions.size()));
     }
 
-    private List<String> handleUserParamCompletions(String currentArg, String lastArg) {
-        if (lastArg.equals("u:") || lastArg.equals("user:") || lastArg.equals("users:") || lastArg.equals("p:")) {
-            return null;
-        }
-
-        String arg = "";
-        String[] split = currentArg.split(":", 2);
-        String filter = split[0] + ":";
-        if (split.length > 1) {
-            arg = split[1];
-        }
-
-        List<String> completions = Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
-
-        for (int index = 0; index < completions.size(); index++) {
-            completions.set(index, filter + completions.get(index));
-        }
-
-        return StringUtil.copyPartialMatches(filter + arg, completions, new ArrayList<>(completions.size()));
+    private List<String> handleUserParamCompletions(String currentArg) {
+        String prefix = currentArg.substring(0, currentArg.indexOf(':') + 1);
+        List<String> completions = Bukkit.getOnlinePlayers().stream().map(player -> prefix + player.getName()).collect(Collectors.toList());
+        return StringUtil.copyPartialMatches(currentArg, completions, new ArrayList<>(completions.size()));
     }
 
     private List<String> handleTimeParamCompletions(String currentArg, String lastArg) {
@@ -311,35 +298,13 @@ public class TabHandler implements TabCompleter {
         return StringUtil.copyPartialMatches(filter + arg, completions, new ArrayList<>(completions.size()));
     }
 
-    private List<String> handlePageParamCompletions(String currentArg, String lastArg) {
-        String filter = lastArg;
-        String arg = "";
-        if (currentArg.contains(":")) {
-            String[] split = currentArg.split(":", 2);
-            filter = split[0] + ":";
-            if (split.length > 1) {
-                arg = split[1];
-            }
+    private List<String> handlePageParamCompletions(String currentArg) {
+        String page = currentArg.substring(currentArg.indexOf(':') + 1);
+        if (!page.chars().allMatch(Character::isDigit)) {
+            return null;
         }
-        else {
-            filter = "";
-            arg = currentArg;
-        }
-
-        if (arg.chars().allMatch(Character::isDigit)) {
-            List<String> completions = new ArrayList<>(Arrays.asList(NUMBERS));
-            if (arg.length() < 1) {
-                for (int index = 0; index < completions.size(); index++) {
-                    completions.set(index, filter + arg + completions.get(index));
-                }
-                if (arg.length() == 0) {
-                    completions.remove(0);
-                }
-            }
-            return StringUtil.copyPartialMatches(filter + arg, completions, new ArrayList<>(completions.size()));
-        }
-
-        return null;
+        return Arrays.stream(NUMBERS).filter(digit -> LookupCommand.parsePositiveInt(page + digit) > 0)
+                .map(digit -> currentArg + digit).collect(Collectors.toList());
     }
 
     private List<String> handleRadiusParamCompletions(String currentArg, String lastArg, String baseCommand) {

@@ -610,7 +610,7 @@ public class LookupCommand {
         return page == 0 || (separator >= 0 && rows == 0) ? null : new PageSelection(page, rows);
     }
 
-    private static int parsePositiveInt(String input) {
+    static int parsePositiveInt(String input) {
         if (!isAsciiDigits(input)) {
             return 0;
         }

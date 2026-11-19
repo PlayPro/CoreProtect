@@ -88,8 +88,10 @@ public final class BlockGroup {
         TRACK_TOP_BOTTOM.addAll(LANTERNS);
         LIGHTABLES.addAll(CANDLES);
         INTERACT_BLOCKS.addAll(DOORS);
+        INTERACT_BLOCKS.remove(Material.IRON_DOOR);
         INTERACT_BLOCKS.addAll(BUTTONS);
         SAFE_INTERACT_BLOCKS.addAll(DOORS);
+        SAFE_INTERACT_BLOCKS.remove(Material.IRON_DOOR);
         SAFE_INTERACT_BLOCKS.addAll(BUTTONS);
         NON_ATTACHABLE.addAll(BUTTONS);
         NON_ATTACHABLE.addAll(CANDLES);

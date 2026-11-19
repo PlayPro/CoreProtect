@@ -26,8 +26,8 @@ final class ClickHouseTargetResolver {
 
     ClickHouseTargetResolver(ClickHouseJdbc jdbc, String database, String prefix, UUID datasetId) {
         this.jdbc = Objects.requireNonNull(jdbc, "jdbc");
-        String validatedPrefix = prefix == null || prefix.isEmpty() ? "" : ClickHouseIdentifiers.requireIdentifier(prefix, "ClickHouse table prefix");
-        eventTable = ClickHouseIdentifiers.qualified(database, validatedPrefix + "event_data");
+        String validatedPrefix = ClickHouseIdentifiers.requirePrefix(prefix);
+        eventTable = ClickHouseIdentifiers.qualified(database, validatedPrefix, "event_data");
         this.datasetId = Objects.requireNonNull(datasetId, "datasetId");
     }
 

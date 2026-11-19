@@ -39,8 +39,8 @@ final class ClickHouseBatchPublisher {
         this.jdbc = Objects.requireNonNull(jdbc, "jdbc");
         this.nativeClient = Objects.requireNonNull(nativeClient, "nativeClient");
         this.writerRegistration = Objects.requireNonNull(writerRegistration, "writerRegistration");
-        String validatedPrefix = prefix == null || prefix.isEmpty() ? "" : ClickHouseIdentifiers.requireIdentifier(prefix, "ClickHouse table prefix");
-        eventTable = ClickHouseIdentifiers.qualified(database, validatedPrefix + "event_data");
+        String validatedPrefix = ClickHouseIdentifiers.requirePrefix(prefix);
+        eventTable = ClickHouseIdentifiers.qualified(database, validatedPrefix, "event_data");
     }
 
     ClickHouseBatchReceipt publish(ClickHouseWriteBatch batch) throws SQLException {

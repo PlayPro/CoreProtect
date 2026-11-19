@@ -17,11 +17,22 @@ public final class ClickHouseIdentifiers {
         return value;
     }
 
+    static String requirePrefix(String prefix) {
+        if (prefix == null) {
+            throw new IllegalArgumentException("ClickHouse table prefix cannot be null");
+        }
+        return prefix.isEmpty() ? prefix : requireIdentifier(prefix, "ClickHouse table prefix");
+    }
+
     static String quote(String value, String name) {
         return "`" + requireIdentifier(value, name) + "`";
     }
 
     public static String qualified(String database, String table) {
         return quote(database, "ClickHouse database") + "." + quote(table, "ClickHouse table");
+    }
+
+    static String qualified(String database, String prefix, String suffix) {
+        return qualified(database, requirePrefix(prefix) + suffix);
     }
 }

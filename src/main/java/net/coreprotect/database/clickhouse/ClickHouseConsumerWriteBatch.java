@@ -51,7 +51,7 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
 
     public ClickHouseConsumerWriteBatch(ClickHouseDatabase database, String prefix) {
         this.database = Objects.requireNonNull(database, "database");
-        String validatedPrefix = prefix == null || prefix.isEmpty() ? "" : ClickHouseIdentifiers.requireIdentifier(prefix, "ClickHouse table prefix");
+        String validatedPrefix = ClickHouseIdentifiers.requirePrefix(prefix);
         userTable = ClickHouseIdentifiers.quote(validatedPrefix + ClickHouseFamily.USER.getTableName(), "ClickHouse table");
         usernameLogTable = ClickHouseIdentifiers.quote(validatedPrefix + ClickHouseFamily.USERNAME_LOG.getTableName(), "ClickHouse table");
         entitySpawnUpdates = new ClickHouseEntitySpawnUpdates(this, ClickHouseIdentifiers.quote(validatedPrefix + "event_data", "ClickHouse table"));

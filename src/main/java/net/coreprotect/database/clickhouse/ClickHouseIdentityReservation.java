@@ -31,7 +31,7 @@ final class ClickHouseIdentityReservation {
     ClickHouseIdentityReservation(ClickHouseJdbc jdbc, String database, String prefix, UUID writerId) {
         this.jdbc = Objects.requireNonNull(jdbc, "jdbc");
         this.writerId = Objects.requireNonNull(writerId, "writerId");
-        table = ClickHouseIdentifiers.qualified(database, prefix + "identity_reservation");
+        table = ClickHouseIdentifiers.qualified(database, prefix, "identity_reservation");
     }
 
     long next(String sequence) throws SQLException {

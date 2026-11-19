@@ -16,7 +16,7 @@ public final class ClickHouseStartupReconciler {
 
     public static ClickHouseHighWaterMarks readRemote(Connection connection, String database, String prefix) throws SQLException {
         Objects.requireNonNull(connection, "connection");
-        String validatedPrefix = prefix == null || prefix.isEmpty() ? "" : ClickHouseIdentifiers.requireIdentifier(prefix, "ClickHouse table prefix");
+        String validatedPrefix = ClickHouseIdentifiers.requirePrefix(prefix);
         String eventTable = table(database, validatedPrefix, "event_data");
         String retentionHighWater = table(database, validatedPrefix, "retention_high_water");
         return new ClickHouseHighWaterMarks(readBatchSequence(connection, eventTable, retentionHighWater), readRawRowIds(connection, eventTable, retentionHighWater));
@@ -67,7 +67,7 @@ public final class ClickHouseStartupReconciler {
     }
 
     private static String table(String database, String prefix, String suffix) {
-        return ClickHouseIdentifiers.qualified(database, prefix + suffix);
+        return ClickHouseIdentifiers.qualified(database, prefix, suffix);
     }
 
 }

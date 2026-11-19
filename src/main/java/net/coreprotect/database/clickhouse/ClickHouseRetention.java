@@ -20,14 +20,12 @@ import net.coreprotect.model.action.LookupActions;
 final class ClickHouseRetention {
 
     private static final String MUTATION_SETTINGS = " SETTINGS mutations_sync=2,allow_nondeterministic_mutations=1";
-    private static final String PURGEABLE_FAMILIES = purgeableFamilies();
 
     private final ClickHouseJdbc jdbc;
     private final UUID owner;
     private final String eventTable;
     private final String highWaterTable;
     private final String prefix;
-    private final String database;
     private final String databaseName;
     private final String eventTableName;
     private volatile PurgeAttempt activePurge;
@@ -36,8 +34,7 @@ final class ClickHouseRetention {
         this.jdbc = Objects.requireNonNull(jdbc, "jdbc");
         this.owner = Objects.requireNonNull(owner, "owner");
         databaseName = ClickHouseIdentifiers.requireIdentifier(database, "ClickHouse database");
-        this.database = ClickHouseIdentifiers.quote(databaseName, "ClickHouse database");
-        this.prefix = prefix == null || prefix.isEmpty() ? "" : ClickHouseIdentifiers.requireIdentifier(prefix, "ClickHouse table prefix");
+        this.prefix = ClickHouseIdentifiers.requirePrefix(prefix);
         eventTableName = this.prefix + "event_data";
         eventTable = table("event_data");
         highWaterTable = table("retention_high_water");
@@ -193,7 +190,7 @@ final class ClickHouseRetention {
         }
         for (String candidate : candidates) {
             if (!hasPendingMutation(connection, candidate)) {
-                dropTargets(connection, database + "." + ClickHouseIdentifiers.quote(candidate, "ClickHouse purge target table"));
+                dropTargets(connection, ClickHouseIdentifiers.qualified(databaseName, candidate));
             }
         }
     }
@@ -310,7 +307,7 @@ final class ClickHouseRetention {
     }
 
     private void deletePrimaryRows(Connection connection, long startTime, long endTime) throws SQLException {
-        String sql = "ALTER TABLE " + eventTable + " DELETE WHERE " + ClickHouseLookupIndex.logicalFamily() + " IN(" + PURGEABLE_FAMILIES + ") AND time>=" + startTime + " AND time<" + endTime
+        String sql = "ALTER TABLE " + eventTable + " DELETE WHERE " + ClickHouseLookupIndex.logicalFamily() + " IN(" + ClickHouseSchema.PURGEABLE_FAMILIES + ") AND time>=" + startTime + " AND time<" + endTime
                 + MUTATION_SETTINGS;
         execute(connection, sql);
     }
@@ -359,7 +356,7 @@ final class ClickHouseRetention {
 
     private void dropCoveredPartitions(Connection connection, long startTime, long endTime) throws SQLException {
         String sql = "SELECT DISTINCT _partition_id FROM " + eventTable
-                + " WHERE family IN(" + PURGEABLE_FAMILIES + ") AND time>=? AND time<?";
+                + " WHERE family IN(" + ClickHouseSchema.PURGEABLE_FAMILIES + ") AND time>=? AND time<?";
         List<String> partitions = new ArrayList<>();
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setLong(1, startTime);
@@ -401,16 +398,7 @@ final class ClickHouseRetention {
     }
 
     private String table(String suffix) {
-        return database + "." + ClickHouseIdentifiers.quote(prefix + suffix, "ClickHouse table");
+        return ClickHouseIdentifiers.qualified(databaseName, prefix, suffix);
     }
 
-    private static String purgeableFamilies() {
-        StringJoiner families = new StringJoiner(",");
-        for (ClickHouseFamily family : ClickHouseFamily.values()) {
-            if (family.isPurgeable()) {
-                families.add("'" + family.getTableName() + "'");
-            }
-        }
-        return families.toString();
-    }
 }

@@ -66,7 +66,7 @@ public final class ClickHouseDatabase implements AutoCloseable {
     public static ClickHouseDatabase initialize(ClickHouseJdbcConfig config, String prefix, Path controlDirectory) throws SQLException {
         Objects.requireNonNull(config, "config");
         Objects.requireNonNull(controlDirectory, "controlDirectory");
-        String validatedPrefix = validatePrefix(prefix);
+        String validatedPrefix = ClickHouseIdentifiers.requirePrefix(prefix);
 
         ClickHouseJdbc jdbc = new ClickHouseJdbc(config);
         ClickHouseNativeClient nativeClient = null;
@@ -194,7 +194,7 @@ public final class ClickHouseDatabase implements AutoCloseable {
         }
         ClickHouseFamily family = ClickHouseConsumerWriteBatch.referenceFamily(kind);
         String column = ClickHouseConsumerWriteBatch.referenceValueColumn(kind);
-        String table = ClickHouseIdentifiers.qualified(database, prefix + family.getTableName());
+        String table = ClickHouseIdentifiers.qualified(database, prefix, family.getTableName());
         String sql = "SELECT id,`" + column + "` FROM " + table + " WHERE id=? GROUP BY id,`" + column + "` LIMIT 2";
         try (Connection connection = jdbc.openAuxiliaryConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setInt(1, id);
@@ -220,7 +220,7 @@ public final class ClickHouseDatabase implements AutoCloseable {
         Objects.requireNonNull(value, "value");
         ClickHouseFamily family = ClickHouseConsumerWriteBatch.referenceFamily(kind);
         String column = ClickHouseConsumerWriteBatch.referenceValueColumn(kind);
-        String table = ClickHouseIdentifiers.qualified(database, prefix + family.getTableName());
+        String table = ClickHouseIdentifiers.qualified(database, prefix, family.getTableName());
         String sql = "SELECT id FROM " + table + " WHERE `" + column + "`=? AND id IS NOT NULL GROUP BY id LIMIT 2";
         try (Connection connection = jdbc.openAuxiliaryConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, value);
@@ -282,7 +282,7 @@ public final class ClickHouseDatabase implements AutoCloseable {
 
     private long canonicalNameUserId(String user, String uuid, UUID ownerUuid) throws SQLException {
         if (ownerUuid == null) {
-            String table = ClickHouseIdentifiers.qualified(database, prefix + ClickHouseFamily.USER.getTableName());
+            String table = ClickHouseIdentifiers.qualified(database, prefix, ClickHouseFamily.USER.getTableName());
             try (Connection connection = jdbc.openAuxiliaryConnection(); PreparedStatement statement = connection.prepareStatement(
                     "SELECT rowid FROM " + table + " WHERE lowerUTF8(`user`)=lowerUTF8(?) ORDER BY " + USER_NAME_ORDER + " LIMIT 1")) {
                 statement.setString(1, user);
@@ -312,7 +312,7 @@ public final class ClickHouseDatabase implements AutoCloseable {
     }
 
     private UserIdentity readUserIdentity(long rowId) throws SQLException {
-        String table = ClickHouseIdentifiers.qualified(database, prefix + ClickHouseFamily.USER.getTableName());
+        String table = ClickHouseIdentifiers.qualified(database, prefix, ClickHouseFamily.USER.getTableName());
         try (Connection connection = jdbc.openAuxiliaryConnection(); PreparedStatement statement = connection.prepareStatement(
                 "SELECT `user`,uuid FROM " + table + " WHERE rowid=? LIMIT 1")) {
             statement.setLong(1, rowId);
@@ -407,8 +407,8 @@ public final class ClickHouseDatabase implements AutoCloseable {
     private void synchronizeCoreData(String currentVersion, boolean updateVersion) throws SQLException {
         ensureOpen();
         String requiredVersion = requireCoreVersion(currentVersion);
-        String versionTable = ClickHouseIdentifiers.qualified(database, prefix + ClickHouseFamily.VERSION.getTableName());
-        String databaseLockTable = ClickHouseIdentifiers.qualified(database, prefix + ClickHouseFamily.DATABASE_LOCK.getTableName());
+        String versionTable = ClickHouseIdentifiers.qualified(database, prefix, ClickHouseFamily.VERSION.getTableName());
+        String databaseLockTable = ClickHouseIdentifiers.qualified(database, prefix, ClickHouseFamily.DATABASE_LOCK.getTableName());
         CoreData coreData = readCoreData(versionTable, databaseLockTable);
         Long versionRowId = coreData.versionRowId;
         String storedVersion = coreData.version;
@@ -561,16 +561,6 @@ public final class ClickHouseDatabase implements AutoCloseable {
                 }
             }
         }
-    }
-
-    private static String validatePrefix(String prefix) {
-        if (prefix == null) {
-            throw new IllegalArgumentException("ClickHouse table prefix cannot be null");
-        }
-        if (!prefix.isEmpty()) {
-            ClickHouseIdentifiers.requireIdentifier(prefix, "ClickHouse table prefix");
-        }
-        return prefix;
     }
 
 }

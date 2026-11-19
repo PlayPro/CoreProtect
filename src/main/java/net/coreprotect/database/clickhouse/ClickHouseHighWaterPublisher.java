@@ -22,8 +22,8 @@ final class ClickHouseHighWaterPublisher {
         this.jdbc = Objects.requireNonNull(jdbc, "jdbc");
         this.nativeClient = Objects.requireNonNull(nativeClient, "nativeClient");
         this.writerRegistration = Objects.requireNonNull(writerRegistration, "writerRegistration");
-        String validatedPrefix = prefix == null || prefix.isEmpty() ? "" : ClickHouseIdentifiers.requireIdentifier(prefix, "ClickHouse table prefix");
-        table = ClickHouseIdentifiers.qualified(database, validatedPrefix + "retention_high_water");
+        String validatedPrefix = ClickHouseIdentifiers.requirePrefix(prefix);
+        table = ClickHouseIdentifiers.qualified(database, validatedPrefix, "retention_high_water");
     }
 
     void publish(ClickHouseBatchIdentity identity, Map<ClickHouseFamily, Long> marks) throws SQLException {

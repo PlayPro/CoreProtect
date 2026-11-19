@@ -477,17 +477,10 @@ public class StandardLookupThread implements Runnable {
                                 else {
                                     dname = MaterialUtils.getBlockDisplayName(dtype, ddata);
                                 }
-                                if (dname.length() > 0 && !isPlayer && !dname.contains(":")) {
-                                    dname = "minecraft:" + dname.toLowerCase(Locale.ROOT) + "";
+                                if (!isPlayer && dname.indexOf(':') < 0) {
+                                    dname = dname.toLowerCase(Locale.ROOT);
                                 }
-
-                                // Hide "minecraft:" for now.
-                                if (dname.contains("minecraft:")) {
-                                    String[] blockNameSplit = dname.split(":");
-                                    dname = blockNameSplit[1];
-                                }
-
-                                // Functions.sendMessage(player2, timeago+" " + ChatColors.WHITE + "- " + ChatColors.DARK_AQUA+rbd+""+dplayer+" " + ChatColors.WHITE+rbd+""+a+" " + ChatColors.DARK_AQUA+rbd+"#"+dtype+ChatColors.WHITE + ". " + ChatColors.GREY + "(x"+x+"/y"+y+"/z"+z+")");
+                                dname = stripMinecraftNamespace(dname);
 
                                 Phrase phrase = Phrase.LOOKUP_BLOCK;
                                 String selector = Selector.FIRST;
@@ -665,9 +658,7 @@ public class StandardLookupThread implements Runnable {
             if (materialName == null || materialName.isEmpty()) {
                 materialName = "#" + row.getMaterialId();
             }
-            if (materialName.startsWith("minecraft:")) {
-                materialName = materialName.substring("minecraft:".length());
-            }
+            materialName = stripMinecraftNamespace(materialName);
 
             long removedAmount = row.getRemovedAmount();
             long placedAmount = row.getPlacedAmount();
@@ -682,6 +673,10 @@ public class StandardLookupThread implements Runnable {
             int totalPages = (int) Math.ceil(totalRows / (request.pageSize + 0.0));
             Chat.sendComponent(player, ChatUtils.getPageNavigation(command.getName(), request.page, totalPages));
         }
+    }
+
+    static String stripMinecraftNamespace(String name) {
+        return name.startsWith("minecraft:") ? name.substring("minecraft:".length()) : name;
     }
 
     private static String computeLeftPadding(int time, int now) {

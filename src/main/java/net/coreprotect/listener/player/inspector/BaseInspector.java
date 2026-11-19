@@ -1,6 +1,7 @@
 package net.coreprotect.listener.player.inspector;
 
 import java.sql.Connection;
+import java.sql.Statement;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -19,6 +20,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
+import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.LookupThrottle;
 
 public abstract class BaseInspector {
@@ -46,7 +48,7 @@ public abstract class BaseInspector {
         lookupExecutor = executor;
     }
 
-    protected void startInspection(Player player, Runnable inspection) {
+    protected void startInspection(Player player, InspectionTask inspection) {
         try {
             acquireInspection(player);
         }
@@ -64,10 +66,22 @@ public abstract class BaseInspector {
             try {
                 inspection.run();
             }
+            catch (InspectionException e) {
+                Chat.sendMessage(player, e.getMessage());
+            }
+            catch (Exception e) {
+                ErrorReporter.report(e);
+            }
             finally {
                 LookupThrottle.release(player.getName());
             }
         });
+    }
+
+    protected final void withStatement(Player player, InspectionQuery query) throws Exception {
+        try (Connection connection = getDatabaseConnection(player); Statement statement = connection.createStatement()) {
+            query.run(connection, statement);
+        }
     }
 
     /**
@@ -188,6 +202,16 @@ public abstract class BaseInspector {
         }
 
         return connection;
+    }
+
+    @FunctionalInterface
+    protected interface InspectionTask {
+        void run() throws Exception;
+    }
+
+    @FunctionalInterface
+    protected interface InspectionQuery {
+        void run(Connection connection, Statement statement) throws Exception;
     }
 
     public static class InspectionException extends Exception {

@@ -1,22 +1,16 @@
 package net.coreprotect.command.lookup;
 
-import java.sql.Connection;
-import java.sql.Statement;
+import java.util.List;
 
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 
-import net.coreprotect.database.Database;
 import net.coreprotect.database.lookup.BlockLookup;
 import net.coreprotect.database.lookup.InteractionLookup;
 import net.coreprotect.database.lookup.SignMessageLookup;
-import net.coreprotect.language.Phrase;
 import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.Color;
-import net.coreprotect.utility.ErrorReporter;
-import net.coreprotect.utility.LookupThrottle;
 
 public class BlockLookupThread implements Runnable {
     private final CommandSender player;
@@ -41,58 +35,17 @@ public class BlockLookupThread implements Runnable {
 
     @Override
     public void run() {
-        if (!LookupThrottle.tryAcquire(player.getName(), 50)) {
-            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-            return;
-        }
-
-        try (Connection connection = Database.getConnection(true)) {
-            if (connection != null) {
-                Statement statement = connection.createStatement();
-                if (type == 8) {
-                    java.util.List<String> signData = SignMessageLookup.performLookup(command.getName(), statement, blockState.getLocation(), player, page, limit);
-                    for (String signMessage : signData) {
-                        String bypass = null;
-
-                        if (signMessage.contains("\n")) {
-                            String[] split = signMessage.split("\n");
-                            signMessage = split[0];
-                            bypass = split[1];
-                        }
-
-                        if (signMessage.length() > 0) {
-                            Chat.sendComponent(player, signMessage, bypass);
-                        }
-                    }
-                }
-                else {
-                    String blockdata = null;
-                    if (type == 7) {
-                        blockdata = InteractionLookup.performLookup(command.getName(), statement, block, player, 0, page, limit);
-                    }
-                    else {
-                        blockdata = BlockLookup.performLookup(command.getName(), statement, blockState, player, 0, page, limit, entitySpawnRowId);
-                    }
-                    if (blockdata.contains("\n")) {
-                        for (String b : blockdata.split("\n")) {
-                            Chat.sendComponent(player, b);
-                        }
-                    }
-                    else if (blockdata.length() > 0) {
-                        Chat.sendComponent(player, blockdata);
-                    }
-                }
-                statement.close();
+        LookupWorker.run(player, statement -> {
+            if (type == 8) {
+                List<String> results = SignMessageLookup.performLookup(command.getName(), statement, blockState.getLocation(), player, page, limit);
+                Chat.sendSignLookupComponents(player, results);
             }
             else {
-                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
+                String result = type == 7
+                        ? InteractionLookup.performLookup(command.getName(), statement, block, player, 0, page, limit)
+                        : BlockLookup.performLookup(command.getName(), statement, blockState, player, 0, page, limit, entitySpawnRowId);
+                Chat.sendLookupComponents(player, result);
             }
-        }
-        catch (Exception e) {
-            ErrorReporter.report(e);
-        }
-        finally {
-            LookupThrottle.release(player.getName());
-        }
+        });
     }
 }

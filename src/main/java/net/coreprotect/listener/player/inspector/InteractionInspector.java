@@ -1,47 +1,17 @@
 package net.coreprotect.listener.player.inspector;
 
-import java.sql.Connection;
-import java.sql.Statement;
-
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 
 import net.coreprotect.database.lookup.InteractionLookup;
 import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.ErrorReporter;
 
 public class InteractionInspector extends BaseInspector {
 
-    public void performInteractionLookup(final Player player, final Block finalInteractBlock) {
-        class BasicThread implements Runnable {
-            @Override
-            public void run() {
-                try {
-                    try (Connection connection = getDatabaseConnection(player)) {
-                        Statement statement = connection.createStatement();
-                        String blockData = InteractionLookup.performLookup(null, statement, finalInteractBlock, player, 0, 1, 7);
-
-                        if (blockData.contains("\n")) {
-                            for (String splitData : blockData.split("\n")) {
-                                Chat.sendComponent(player, splitData);
-                            }
-                        }
-                        else {
-                            Chat.sendComponent(player, blockData);
-                        }
-
-                        statement.close();
-                    }
-                }
-                catch (InspectionException e) {
-                    Chat.sendMessage(player, e.getMessage());
-                }
-                catch (Exception e) {
-                    ErrorReporter.report(e);
-                }
-            }
-        }
-
-        startInspection(player, new BasicThread());
+    public void performInteractionLookup(Player player, Block block) {
+        startInspection(player, () -> withStatement(player, (connection, statement) -> {
+            String results = InteractionLookup.performLookup(null, statement, block, player, 0, 1, 7);
+            Chat.sendLookupComponents(player, results);
+        }));
     }
 }

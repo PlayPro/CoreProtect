@@ -67,6 +67,32 @@ public final class Chat {
         sendComponent(sender, string, null);
     }
 
+    public static void sendLookupComponents(CommandSender sender, String result) {
+        if (result.indexOf('\n') >= 0) {
+            for (String line : result.split("\n")) {
+                sendComponent(sender, line);
+            }
+        }
+        else if (!result.isEmpty()) {
+            sendComponent(sender, result);
+        }
+    }
+
+    public static void sendLookupComponents(CommandSender sender, Iterable<String> results) {
+        for (String line : results) {
+            sendComponent(sender, line);
+        }
+    }
+
+    public static void sendSignLookupComponents(CommandSender sender, Iterable<String> results) {
+        for (String row : results) {
+            String[] parts = row.split("\n", 2);
+            if (!parts[0].isEmpty()) {
+                sendComponent(sender, parts[0], parts.length == 2 ? parts[1] : null);
+            }
+        }
+    }
+
     public static void sendMessage(CommandSender sender, String message) {
         if (sender instanceof ConsoleCommandSender) {
             message = message.replace(Color.DARK_AQUA, ChatColor.DARK_AQUA.toString());

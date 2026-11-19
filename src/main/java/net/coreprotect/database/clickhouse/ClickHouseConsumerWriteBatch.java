@@ -45,6 +45,7 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
     private final EnumMap<ReferenceKind, Map<Integer, String>> unpublishedReferences = new EnumMap<>(ReferenceKind.class);
     private ClickHouseWriteBatch batch;
     private boolean closed;
+    private boolean commitAttempted;
 
     public ClickHouseConsumerWriteBatch(ClickHouseDatabase database, String prefix) {
         this.database = Objects.requireNonNull(database, "database");
@@ -60,6 +61,7 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
         if (batch != null) {
             throw new IllegalStateException("ClickHouse consumer batch is already active");
         }
+        commitAttempted = false;
         batch = database.newWriteBatch();
         clearBatchState();
         entitySpawnUpdates.beginBatch();
@@ -86,6 +88,7 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
             return published;
         }
         finally {
+            commitAttempted = current.wasPublicationAttempted();
             current.close();
             batch = null;
             if (!published) {
@@ -96,6 +99,11 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
             Consumer.transacting = false;
             Consumer.interrupt = false;
         }
+    }
+
+    @Override
+    public boolean wasCommitAttempted() {
+        return commitAttempted;
     }
 
     @Override

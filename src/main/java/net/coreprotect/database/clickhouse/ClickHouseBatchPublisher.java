@@ -1,13 +1,19 @@
 package net.coreprotect.database.clickhouse;
 
+import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLNonTransientConnectionException;
+import java.sql.SQLNonTransientException;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
-import net.coreprotect.config.ConfigHandler;
+import com.clickhouse.client.api.ServerException;
 
 final class ClickHouseBatchPublisher {
 
@@ -15,7 +21,10 @@ final class ClickHouseBatchPublisher {
     static final int MAX_PUBLICATION_ATTEMPTS = 3;
     static final int MAX_RECONCILIATION_ATTEMPTS = 3;
     private static final long RETRY_DELAY_MILLIS = 100L;
-    private static final long MAX_RETRY_DELAY_MILLIS = 30_000L;
+    private static final int MEMORY_LIMIT_EXCEEDED = 241;
+    private static final int NOT_ENOUGH_SPACE = 243;
+    private static final int TOO_MANY_PARTS = 252;
+    private static final int ACCESS_DENIED = 497;
 
     private final ClickHouseJdbc jdbc;
     private final ClickHouseNativeClient nativeClient;
@@ -59,9 +68,14 @@ final class ClickHouseBatchPublisher {
         SQLException publicationFailure = null;
         int attempt = 1;
         while (true) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw interrupted("publishing a ClickHouse batch", publicationFailure);
+            }
             try {
                 writerRegistration.verifyOwned();
-                nativeClient.insert(eventTable, ClickHouseSchema.EVENT_COLUMNS, batch.openRows(partitionId), batch.getIdentity(), "records_" + partitionId);
+                InputStream rows = batch.openRows(partitionId);
+                batch.markPublicationAttempted();
+                nativeClient.insert(eventTable, ClickHouseSchema.EVENT_COLUMNS, rows, batch.getIdentity(), "records_" + partitionId);
                 batch.markPartitionPublished(partitionId);
                 return;
             }
@@ -89,13 +103,10 @@ final class ClickHouseBatchPublisher {
                 conflict.addSuppressed(publicationFailure);
                 throw conflict;
             }
-            if (attempt >= MAX_PUBLICATION_ATTEMPTS && !shouldContinueRecovery()) {
+            if (attempt >= MAX_PUBLICATION_ATTEMPTS || isPermanent(publicationFailure)) {
                 throw new SQLException("ClickHouse batch partition " + partitionId + " remained incomplete after " + attempt + " publication attempts", publicationFailure);
             }
-            pauseBeforeRetry(attempt, "republishing a ClickHouse batch partition");
-            if (attempt < Integer.MAX_VALUE) {
-                attempt++;
-            }
+            pauseBeforeRetry(attempt++, "republishing a ClickHouse batch partition");
         }
     }
 
@@ -112,13 +123,10 @@ final class ClickHouseBatchPublisher {
             catch (SQLException exception) {
                 failure = exception;
             }
-            if (attempt >= MAX_RECONCILIATION_ATTEMPTS && !shouldContinueRecovery()) {
+            if (attempt >= MAX_RECONCILIATION_ATTEMPTS || isPermanent(failure)) {
                 throw new SQLException("ClickHouse batch status remained unavailable after " + attempt + " attempts", failure);
             }
-            pauseBeforeRetry(attempt, "reconciling a ClickHouse batch");
-            if (attempt < Integer.MAX_VALUE) {
-                attempt++;
-            }
+            pauseBeforeRetry(attempt++, "reconciling a ClickHouse batch");
         }
     }
 
@@ -157,8 +165,7 @@ final class ClickHouseBatchPublisher {
 
     static void pauseBeforeRetry(int attempt, String operation) throws SQLException {
         try {
-            int shift = Math.min(Math.max(0, attempt - 1), 8);
-            Thread.sleep(Math.min(RETRY_DELAY_MILLIS << shift, MAX_RETRY_DELAY_MILLIS));
+            Thread.sleep(RETRY_DELAY_MILLIS * attempt);
         }
         catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
@@ -166,8 +173,24 @@ final class ClickHouseBatchPublisher {
         }
     }
 
-    static boolean shouldContinueRecovery() {
-        return ConfigHandler.serverRunning || ConfigHandler.shutdownDrainRunning;
+    static boolean isPermanent(SQLException failure) {
+        Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Throwable cause = failure; cause != null && visited.add(cause); cause = cause.getCause()) {
+            if (cause instanceof SQLNonTransientException && !(cause instanceof SQLNonTransientConnectionException)) {
+                return true;
+            }
+            if (cause instanceof SQLException) {
+                String state = ((SQLException) cause).getSQLState();
+                if (state != null && (state.startsWith("22") || state.startsWith("23") || state.startsWith("28") || state.startsWith("42"))) {
+                    return true;
+                }
+            }
+            int code = cause instanceof ServerException ? ((ServerException) cause).getCode() : cause instanceof SQLException ? ((SQLException) cause).getErrorCode() : 0;
+            if (code == MEMORY_LIMIT_EXCEEDED || code == NOT_ENOUGH_SPACE || code == TOO_MANY_PARTS || code == ACCESS_DENIED) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static final class ReceiptStatus {

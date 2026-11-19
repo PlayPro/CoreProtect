@@ -269,6 +269,10 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         return eventCount;
     }
 
+    int storageRowCount() {
+        return partitionRowCounts.values().stream().mapToInt(Integer::intValue).sum();
+    }
+
     int logicalSize() {
         return eventCount - duplicateVersionCount;
     }

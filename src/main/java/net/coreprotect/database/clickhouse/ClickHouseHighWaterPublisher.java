@@ -36,6 +36,9 @@ final class ClickHouseHighWaterPublisher {
             SQLException publicationFailure = null;
             int attempt = 1;
             while (true) {
+                if (Thread.currentThread().isInterrupted()) {
+                    throw ClickHouseBatchPublisher.interrupted("publishing ClickHouse high-water marks", publicationFailure);
+                }
                 try {
                     writerRegistration.verifyOwned();
                     nativeClient.insert(table, ClickHouseSchema.RETENTION_HIGH_WATER_COLUMNS, rows.openStream(), identity, "high_water");
@@ -64,7 +67,7 @@ final class ClickHouseHighWaterPublisher {
                     conflict.addSuppressed(publicationFailure);
                     throw conflict;
                 }
-                if (attempt >= ClickHouseBatchPublisher.MAX_PUBLICATION_ATTEMPTS && !ClickHouseBatchPublisher.shouldContinueRecovery()) {
+                if (attempt >= ClickHouseBatchPublisher.MAX_PUBLICATION_ATTEMPTS || ClickHouseBatchPublisher.isPermanent(publicationFailure)) {
                     throw new SQLException("ClickHouse high-water batch remained incomplete after " + attempt + " publication attempts", publicationFailure);
                 }
                 ClickHouseBatchPublisher.pauseBeforeRetry(attempt++, "republishing ClickHouse high-water marks");
@@ -107,6 +110,9 @@ final class ClickHouseHighWaterPublisher {
                     exception.addSuppressed(failure);
                 }
                 failure = exception;
+                if (ClickHouseBatchPublisher.isPermanent(exception)) {
+                    break;
+                }
             }
             if (attempt < ClickHouseBatchPublisher.MAX_RECONCILIATION_ATTEMPTS) {
                 ClickHouseBatchPublisher.pauseBeforeRetry(attempt, "reconciling ClickHouse high-water marks");

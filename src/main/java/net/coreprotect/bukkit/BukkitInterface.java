@@ -18,6 +18,7 @@ import org.bukkit.block.Skull;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.AbstractArrow;
+import org.bukkit.entity.Boat;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Firework;
@@ -316,6 +317,12 @@ public interface BukkitInterface {
      * @return true when entity data is ready
      */
     boolean isChunkEntitiesLoaded(Chunk chunk);
+
+    String getBoatVariant(Boat boat);
+
+    void setBoatVariant(Boat boat, String variant);
+
+    EntityType resolveStoredBoatType(boolean chest, String variant);
 
     /**
      * Gets metadata from a living entity.

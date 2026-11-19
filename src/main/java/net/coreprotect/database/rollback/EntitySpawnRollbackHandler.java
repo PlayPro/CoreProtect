@@ -41,7 +41,6 @@ import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.EntitySpawnTracking;
-import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
@@ -101,7 +100,7 @@ public final class EntitySpawnRollbackHandler {
             if (rollbackType == 0 && record.isRemoved()) {
                 pairedKillRows.add(record.getKillRowId());
                 List<Object> data = killData.get(record.getKillRowId());
-                EntityType type = EntityUtils.getEntityType((Integer) killRow[6]);
+                EntityType type = EntitySpawnTracking.resolveKillType((Integer) killRow[6], data);
                 Location location = getRowLocation(killRow);
                 if (location != null && EntitySpawnTracking.isPlacedEntityType(type)) {
                     Location exactLocation = EntitySpawnTracking.getKillRestoreLocation(location.getWorld(), data);
@@ -170,7 +169,7 @@ public final class EntitySpawnRollbackHandler {
             }
             else {
                 Location location = record.getLocation();
-                EntityType type = EntityUtils.getEntityType((Integer) row[6]);
+                EntityType type = EntitySpawnTracking.resolveSpawnType((Integer) row[6], record.getState());
                 if (record.getState() == null || location == null || type == null || type == EntityType.UNKNOWN) {
                     continue;
                 }
@@ -195,7 +194,7 @@ public final class EntitySpawnRollbackHandler {
             List<Object[]> transactions = containerRowsByTrackingId.getOrDefault(record.getRowId(), Collections.emptyList());
             if (rollbackType == 0) {
                 List<Object> data = killData.get(killRowId);
-                EntityType type = EntityUtils.getEntityType((Integer) row[6]);
+                EntityType type = EntitySpawnTracking.resolveKillType((Integer) row[6], data);
                 Location location = getRowLocation(row);
                 if (location != null && EntitySpawnTracking.isPlacedEntityType(type)) {
                     Location exactLocation = EntitySpawnTracking.getKillRestoreLocation(location.getWorld(), data);

@@ -125,16 +125,23 @@ public class EntityUtils {
     }
 
     public static EntityType getEntityType(int id) {
-        // Internal ID pulled from DB
-        EntityType entitytype = EntityType.UNKNOWN;
-        String name = getEntityName(id);
-        if (!name.isEmpty()) {
-            if (name.contains(NAMESPACE)) {
-                name = name.split(":")[1];
-            }
-            entitytype = EntityType.valueOf(name.toUpperCase(Locale.ROOT));
+        String name = getStoredEntityTypeName(id);
+        return name.isEmpty() ? EntityType.UNKNOWN : EntityType.valueOf(name);
+    }
+
+    public static EntityType getEntityType(int id, String boatVariant) {
+        String name = getStoredEntityTypeName(id);
+        switch (name) {
+            case "": return EntityType.UNKNOWN;
+            case "BOAT": return BukkitAdapter.ADAPTER.resolveStoredBoatType(false, boatVariant);
+            case "CHEST_BOAT": return BukkitAdapter.ADAPTER.resolveStoredBoatType(true, boatVariant);
+            default: return EntityType.valueOf(name);
         }
-        return entitytype;
+    }
+
+    private static String getStoredEntityTypeName(int id) {
+        String name = getEntityName(id);
+        return (name.startsWith(NAMESPACE) ? name.substring(NAMESPACE.length()) : name).toUpperCase(Locale.ROOT);
     }
 
     public static EntityType getEntityType(String name) {

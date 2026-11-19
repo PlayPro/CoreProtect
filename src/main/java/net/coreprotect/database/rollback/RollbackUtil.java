@@ -510,6 +510,10 @@ public class RollbackUtil extends Lookup {
         Queue.queueEntitySpawn(user, block, type, data);
     }
 
+    static void queueStoredEntitySpawn(String user, BlockState block, int storedTypeId, int data) {
+        Queue.queueEntitySpawn(user, block, storedTypeId, data);
+    }
+
     /**
      * Queues a skull update operation for processing.
      *

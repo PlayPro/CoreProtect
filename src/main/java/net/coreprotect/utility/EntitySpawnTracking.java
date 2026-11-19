@@ -21,7 +21,6 @@ import org.bukkit.Chunk;
 import org.bukkit.DyeColor;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
-import org.bukkit.TreeSpecies;
 import org.bukkit.World;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Boat;
@@ -38,6 +37,7 @@ import org.bukkit.material.Colorable;
 import org.bukkit.persistence.PersistentDataType;
 
 import net.coreprotect.CoreProtect;
+import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.entity.VehicleDestroyListener;
@@ -1058,8 +1058,7 @@ public final class EntitySpawnTracking {
 
         String variant = null;
         if (entity instanceof Boat) {
-            TreeSpecies woodType = ((Boat) entity).getWoodType();
-            variant = woodType == null ? null : woodType.name();
+            variant = BukkitAdapter.ADAPTER.getBoatVariant((Boat) entity);
         }
         else if (isCushion(entity)) {
             DyeColor color = entity instanceof Colorable ? ((Colorable) entity).getColor() : SpigotAdapter.ADAPTER.getCushionColor(entity);
@@ -1127,6 +1126,16 @@ public final class EntitySpawnTracking {
         return data;
     }
 
+    public static EntityType resolveSpawnType(int typeId, List<?> state) {
+        String variant = state != null && state.size() > 2 && state.get(2) instanceof String ? (String) state.get(2) : null;
+        return EntityUtils.getEntityType(typeId, variant);
+    }
+
+    public static EntityType resolveKillType(int typeId, List<?> data) {
+        List<?> state = data != null && data.size() > 2 && data.get(2) instanceof List<?> ? (List<?>) data.get(2) : null;
+        return resolveSpawnType(typeId, state);
+    }
+
     public static Location getKillRestoreLocation(World world, List<Object> data) {
         if (world == null || data == null || data.size() <= KILL_LOCATION_INDEX || !(data.get(KILL_LOCATION_INDEX) instanceof List<?>)) {
             return null;
@@ -1175,19 +1184,19 @@ public final class EntitySpawnTracking {
             entity.setCustomNameVisible((Boolean) state.get(1));
         }
         if (entity instanceof Boat && state.size() > 2 && state.get(2) instanceof String) {
-            try {
-                ((Boat) entity).setWoodType(TreeSpecies.valueOf((String) state.get(2)));
-            }
-            catch (Exception ignored) {
-            }
+            BukkitAdapter.ADAPTER.setBoatVariant((Boat) entity, (String) state.get(2));
         }
         else if (isCushion(entity) && state.size() > 2 && state.get(2) instanceof String) {
-            DyeColor color = DyeColor.valueOf((String) state.get(2));
-            if (entity instanceof Colorable) {
-                ((Colorable) entity).setColor(color);
+            try {
+                DyeColor color = DyeColor.valueOf((String) state.get(2));
+                if (entity instanceof Colorable) {
+                    ((Colorable) entity).setColor(color);
+                }
+                else {
+                    SpigotAdapter.ADAPTER.setCushionColor(entity, color);
+                }
             }
-            else {
-                SpigotAdapter.ADAPTER.setCushionColor(entity, color);
+            catch (IllegalArgumentException ignored) {
             }
         }
         if (entity instanceof InventoryHolder && state.size() > 3 && state.get(3) instanceof List<?>) {

@@ -102,17 +102,22 @@ public class EntityUtil {
     }
 
     public static void spawnEntity(final BlockState block, final EntityType type, final List<Object> list) {
-        if (type == null) {
-            return;
+        if (type != null) {
+            spawnEntity(block, type, list, type.name());
         }
-        scheduleEntitySpawn(block.getLocation(), type, list, true);
+    }
+
+    public static void spawnEntity(BlockState block, EntityType type, List<Object> data, String cacheTypeKey) {
+        if (type != null && type != EntityType.UNKNOWN) {
+            scheduleEntitySpawn(block.getLocation(), type, data, cacheTypeKey);
+        }
     }
 
     public static CompletableFuture<Entity> restoreEntity(final Location blockLocation, final EntityType type, final List<Object> list) {
-        return scheduleEntitySpawn(blockLocation, type, list, false);
+        return scheduleEntitySpawn(blockLocation, type, list, null);
     }
 
-    private static CompletableFuture<Entity> scheduleEntitySpawn(final Location blockLocation, final EntityType type, final List<Object> list, final boolean legacyTransition) {
+    private static CompletableFuture<Entity> scheduleEntitySpawn(final Location blockLocation, final EntityType type, final List<Object> list, final String cacheTypeKey) {
         CompletableFuture<Entity> completion = new CompletableFuture<>();
         if (type == null) {
             completion.complete(null);
@@ -122,6 +127,7 @@ public class EntityUtil {
             completion.complete(null);
             return completion;
         }
+        boolean legacyTransition = cacheTypeKey != null;
         if (!legacyTransition) {
             completion.orTimeout(ENTITY_RESTORE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         }
@@ -161,8 +167,8 @@ public class EntityUtil {
                 if (legacyTransition) {
                     int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
                     int wid = WorldUtils.getWorldId(blockLocation.getWorld().getName());
-                    String token = blockLocation.getBlockX() + "." + blockLocation.getBlockY() + "." + blockLocation.getBlockZ() + "." + wid + "." + type.name();
-                    CacheHandler.entityCache.put(token, new Object[] { unixtimestamp, entity.getEntityId(), entity.getUniqueId() });
+                    String token = blockLocation.getBlockX() + "." + blockLocation.getBlockY() + "." + blockLocation.getBlockZ() + "." + wid + "." + cacheTypeKey;
+                    CacheHandler.entityCache.put(token, new Object[] { unixtimestamp, entity.getEntityId(), entity.getUniqueId(), type });
                 }
 
                 if (entity instanceof Ageable) {

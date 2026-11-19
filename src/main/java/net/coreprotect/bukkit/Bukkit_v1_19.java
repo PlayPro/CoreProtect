@@ -7,7 +7,9 @@ import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.type.MangrovePropagule;
+import org.bukkit.entity.Boat;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.Frog;
 import org.bukkit.entity.Goat;
@@ -32,6 +34,31 @@ public class Bukkit_v1_19 extends Bukkit_v1_18 {
     @Override
     public LivingEntity getFireworkRider(Firework firework) {
         return HAS_FIREWORK_RIDER ? firework.getAttachedTo() : null;
+    }
+
+    @Override
+    public String getBoatVariant(Boat boat) {
+        if (!hasMutableBoatVariant(boat)) {
+            return null;
+        }
+        Boat.Type variant = boat.getBoatType();
+        return variant == null ? null : variant.name();
+    }
+
+    @Override
+    public void setBoatVariant(Boat boat, String variant) {
+        if (hasMutableBoatVariant(boat)) {
+            try {
+                boat.setBoatType(Boat.Type.valueOf(normalizeBoatVariant(variant)));
+            }
+            catch (IllegalArgumentException ignored) {
+            }
+        }
+    }
+
+    private static boolean hasMutableBoatVariant(Boat boat) {
+        EntityType type = boat.getType();
+        return type != null && (type.name().equals("BOAT") || type.name().equals("CHEST_BOAT"));
     }
 
     /**

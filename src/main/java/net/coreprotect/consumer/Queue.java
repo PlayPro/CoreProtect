@@ -454,6 +454,14 @@ public class Queue {
     }
 
     protected static void queueEntitySpawn(String user, BlockState block, EntityType type, int data) {
+        enqueueEntitySpawn(user, block, type, data);
+    }
+
+    protected static void queueEntitySpawn(String user, BlockState block, int storedTypeId, int data) {
+        enqueueEntitySpawn(user, block, storedTypeId, data);
+    }
+
+    private static void enqueueEntitySpawn(String user, BlockState block, Object type, int data) {
         queueStandardData(new Object[] { null, Process.ENTITY_SPAWN, null, 0, null, 0, data, null }, new String[] { user, null }, new Object[] { block, type }, false, Consumer.reserveConsumer());
     }
 

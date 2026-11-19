@@ -56,9 +56,11 @@ public class RollbackEntityHandler {
                 int entityId = -1;
                 EntityType targetType = null;
                 if (rowTypeRaw <= 0 && rowRolledBack == 1) {
-                    entityId = getCachedEntityId(rowX, rowY, rowZ, rowWorldId, oldTypeRaw);
-                    UUID entityUuid = getCachedEntityUuid(rowX, rowY, rowZ, rowWorldId, oldTypeRaw);
-                    targetType = EntityUtils.getEntityType(oldTypeRaw);
+                    Object[] cachedEntity = getCachedEntity(rowX, rowY, rowZ, rowWorldId, oldTypeRaw);
+                    entityId = getCachedEntityId(cachedEntity);
+                    UUID entityUuid = getCachedEntityUuid(cachedEntity);
+                    targetType = cachedEntity != null && cachedEntity.length > 3 && cachedEntity[3] instanceof EntityType
+                            ? (EntityType) cachedEntity[3] : EntityUtils.getEntityType(oldTypeRaw);
                     if (removeCachedEntity(entityUuid, targetType)) {
                         return 1;
                     }
@@ -72,10 +74,11 @@ public class RollbackEntityHandler {
                 if (rowTypeRaw > 0) {
                     // Spawn in entity
                     if (rowRolledBack == 0) {
-                        EntityType entityType = EntityUtils.getEntityType(rowTypeRaw);
-                        // Use the spawnEntity method from the RollbackUtil class instead of Queue
-                        spawnEntity(rowUser, block.getState(), entityType, rowData);
-                        return 1;
+                        EntityType entityType = EntityUtils.getEntityType(rowTypeRaw, null);
+                        if (entityType != null && entityType != EntityType.UNKNOWN) {
+                            RollbackUtil.queueStoredEntitySpawn(rowUser, block.getState(), rowTypeRaw, rowData);
+                            return 1;
+                        }
                     }
                 }
                 else if (rowTypeRaw <= 0) {
@@ -108,16 +111,14 @@ public class RollbackEntityHandler {
         return 0;
     }
 
-    private static int getCachedEntityId(int rowX, int rowY, int rowZ, int rowWorldId, int oldTypeRaw) {
-        Object[] cachedEntity = getCachedEntity(rowX, rowY, rowZ, rowWorldId, oldTypeRaw);
+    private static int getCachedEntityId(Object[] cachedEntity) {
         if (cachedEntity != null && cachedEntity.length > 1 && cachedEntity[1] instanceof Integer) {
             return (Integer) cachedEntity[1];
         }
         return -1;
     }
 
-    private static UUID getCachedEntityUuid(int rowX, int rowY, int rowZ, int rowWorldId, int oldTypeRaw) {
-        Object[] cachedEntity = getCachedEntity(rowX, rowY, rowZ, rowWorldId, oldTypeRaw);
+    private static UUID getCachedEntityUuid(Object[] cachedEntity) {
         if (cachedEntity != null && cachedEntity.length > 2 && cachedEntity[2] instanceof UUID) {
             return (UUID) cachedEntity[2];
         }
@@ -125,9 +126,9 @@ public class RollbackEntityHandler {
     }
 
     private static Object[] getCachedEntity(int rowX, int rowY, int rowZ, int rowWorldId, int oldTypeRaw) {
-        String entityName = EntityUtils.getEntityType(oldTypeRaw).name();
-        String token = rowX + "." + rowY + "." + rowZ + "." + rowWorldId + "." + entityName;
-        return CacheHandler.entityCache.get(token);
+        String prefix = rowX + "." + rowY + "." + rowZ + "." + rowWorldId + ".";
+        Object[] cachedEntity = CacheHandler.entityCache.get(prefix + oldTypeRaw);
+        return cachedEntity == null ? CacheHandler.entityCache.get(prefix + EntityUtils.getEntityType(oldTypeRaw).name()) : cachedEntity;
     }
 
     private static boolean removeCachedEntity(UUID uuid, EntityType targetType) {

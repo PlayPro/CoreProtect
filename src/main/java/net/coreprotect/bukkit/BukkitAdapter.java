@@ -17,6 +17,7 @@ import org.bukkit.DyeColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Tag;
+import org.bukkit.TreeSpecies;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -27,6 +28,7 @@ import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.FaceAttachable;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.AbstractArrow;
+import org.bukkit.entity.Boat;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Firework;
@@ -148,6 +150,56 @@ public class BukkitAdapter implements BukkitInterface {
     @Override
     public boolean isChunkEntitiesLoaded(Chunk chunk) {
         return true;
+    }
+
+    @Override
+    public String getBoatVariant(Boat boat) {
+        TreeSpecies wood = boat.getWoodType();
+        return wood == null ? null : wood.name();
+    }
+
+    @Override
+    public void setBoatVariant(Boat boat, String variant) {
+        try {
+            String legacy = "OAK".equals(variant) ? "GENERIC" : "SPRUCE".equals(variant) ? "REDWOOD" : variant;
+            boat.setWoodType(TreeSpecies.valueOf(legacy));
+        }
+        catch (IllegalArgumentException ignored) {
+        }
+    }
+
+    @Override
+    public EntityType resolveStoredBoatType(boolean chest, String variant) {
+        try {
+            return EntityType.valueOf(chest ? "CHEST_BOAT" : "BOAT");
+        }
+        catch (IllegalArgumentException ignored) {
+            String wood = normalizeBoatVariant(variant);
+            if (wood != null) {
+                String suffix = "BAMBOO".equals(wood) ? "RAFT" : "BOAT";
+                try {
+                    return EntityType.valueOf(wood + (chest ? "_CHEST_" : "_") + suffix);
+                }
+                catch (IllegalArgumentException unsupportedVariant) {
+                }
+            }
+            try {
+                return EntityType.valueOf(chest ? "OAK_CHEST_BOAT" : "OAK_BOAT");
+            }
+            catch (IllegalArgumentException unavailableType) {
+                return EntityType.UNKNOWN;
+            }
+        }
+    }
+
+    protected static String normalizeBoatVariant(String variant) {
+        if ("GENERIC".equals(variant)) {
+            return "OAK";
+        }
+        if ("REDWOOD".equals(variant)) {
+            return "SPRUCE";
+        }
+        return variant;
     }
 
     @Override

@@ -16,7 +16,7 @@ import net.coreprotect.utility.WorldUtils;
 
 public final class TNTPrimeUtil {
 
-    public static boolean useTNTPrimeEvent = false;
+    public static volatile boolean useTNTPrimeEvent = false;
 
     private TNTPrimeUtil() {
     }

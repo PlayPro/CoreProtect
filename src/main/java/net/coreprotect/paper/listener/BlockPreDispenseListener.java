@@ -23,8 +23,8 @@ import net.coreprotect.paper.PaperAdapter;
 
 public final class BlockPreDispenseListener extends Queue implements Listener {
 
-    public static boolean useBlockPreDispenseEvent = true;
-    public static boolean useForDroppers = false;
+    public static volatile boolean useBlockPreDispenseEvent = true;
+    public static volatile boolean useForDroppers = false;
 
     // Maximum time to keep entries in the cache (in milliseconds)
     private static final long CACHE_EXPIRY_TIME = 5000; // 5 seconds

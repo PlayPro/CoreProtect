@@ -15,7 +15,7 @@ import net.coreprotect.utility.WorldUtils;
 
 public final class CampfireStartListener extends Queue implements Listener {
 
-    public static boolean useCampfireStartEvent = true;
+    public static volatile boolean useCampfireStartEvent = true;
 
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onCampfireStart(CampfireStartEvent event) {

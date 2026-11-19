@@ -306,7 +306,6 @@ public class Rollback extends RollbackUtil {
                 userString = user.getName();
             }
 
-            ConfigHandler.rollbackHash.put(userString, new int[] { 0, 0, 0, 0, 0 });
             entitySpawnContext = EntitySpawnRollbackHandler.prepare(spawnList, entitySpawnRecords, trackedKillList, entityKillRecords, entityKillData, entityContainerList, rollbackType, inventoryRollback, preview, userString, location, radius);
             if (rollbackType == 1) {
                 entitySpawnContext.reverseWork();
@@ -393,17 +392,13 @@ public class Rollback extends RollbackUtil {
             dataList.clear();
             itemDataList.clear();
 
-            int[] rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
-            rollbackHashData[0] += entitySpawnContext.getItemCount();
-            rollbackHashData[2] += entitySpawnContext.getEntityCount();
-            ConfigHandler.rollbackHash.put(finalUserString, rollbackHashData);
             if (entitySpawnContext.isCancelled()) {
                 sendAborted(user);
                 return null;
             }
-            int itemCount = rollbackHashData[0];
-            int blockCount = rollbackHashData[1];
-            int entityCount = rollbackHashData[2];
+            int itemCount = entitySpawnContext.getItemCount();
+            int blockCount = entitySpawnContext.getBlockCount();
+            int entityCount = entitySpawnContext.getEntityCount();
             long timeFinish = System.currentTimeMillis();
             double totalSeconds = (timeFinish - timeStart) / 1000.0;
 
@@ -546,11 +541,7 @@ public class Rollback extends RollbackUtil {
             if (entitySpawnContext.isCancelled()) {
                 break;
             }
-            if (!processFoliaEmptyChunks(batchState, userString, verbose, user, preview, actionList)) {
-                Chat.console(Phrase.build(Phrase.ROLLBACK_ABORTED));
-                entitySpawnContext.cancel();
-                break;
-            }
+            processFoliaEmptyChunks(batchState, verbose, user, preview, actionList);
             if (!batchState.hasNext()) {
                 break;
             }
@@ -601,19 +592,16 @@ public class Rollback extends RollbackUtil {
         return work;
     }
 
-    private static boolean processFoliaEmptyChunks(FoliaRollbackBatchState batchState, String userString, boolean verbose, CommandSender user, int preview, List<Integer> actionList) {
+    private static void processFoliaEmptyChunks(FoliaRollbackBatchState batchState, boolean verbose, CommandSender user, int preview, List<Integer> actionList) {
         while (batchState.hasNext() && batchState.peek().world == null) {
             FoliaChunkWork work = batchState.next();
-            prepareChunkCounters(userString);
+
             if (work.lastWorldForChunk) {
                 batchState.chunkCount++;
-                if (!completeChunk(userString, batchState.chunkCount, batchState.totalChunks, verbose, user, preview, actionList)) {
-                    return false;
-                }
+                completeChunk(batchState.chunkCount, batchState.totalChunks, verbose, user, preview, actionList);
             }
         }
 
-        return true;
     }
 
     private static CompletableFuture<Boolean> scheduleFoliaChunkBatchTask(FoliaRollbackBatchState batchState, int rollbackType, int preview, String userString, CommandSender user, boolean inventoryRollback, boolean verbose, List<Integer> actionList, RollbackBlockDataCache blockDataCache, EntitySpawnRollbackHandler.Context entitySpawnContext) {
@@ -627,7 +615,6 @@ public class Rollback extends RollbackUtil {
                 do {
                     FoliaChunkWork work = batchState.next();
 
-                    prepareChunkCounters(userString);
                     if (!processChunkWorld(work.chunkX, work.chunkZ, work.chunkKey, work.worldId, work.blockList, work.itemList, rollbackType, preview, userString, user, work.world, inventoryRollback, blockDataCache, entitySpawnContext)) {
                         future.complete(false);
                         return;
@@ -635,10 +622,7 @@ public class Rollback extends RollbackUtil {
 
                     if (work.lastWorldForChunk) {
                         batchState.chunkCount++;
-                        if (!completeChunk(userString, batchState.chunkCount, batchState.totalChunks, verbose, user, preview, actionList)) {
-                            future.complete(false);
-                            return;
-                        }
+                        completeChunk(batchState.chunkCount, batchState.totalChunks, verbose, user, preview, actionList);
                     }
                 }
                 while (canContinueFoliaBatch(batchState, batchStart));
@@ -695,10 +679,7 @@ public class Rollback extends RollbackUtil {
                         return;
                     }
 
-                    if (!completeChunk(userString, batchState.chunkCount, batchState.totalChunks(), verbose, user, preview, actionList)) {
-                        completion.complete(false);
-                        return;
-                    }
+                    completeChunk(batchState.chunkCount, batchState.totalChunks(), verbose, user, preview, actionList);
                 }
                 while (batchState.hasNext() && (System.nanoTime() - batchStart) < batchBudget);
 
@@ -787,7 +768,7 @@ public class Rollback extends RollbackUtil {
         long chunkKey = entry.getKey();
         int chunkX = getChunkX(entry);
         int chunkZ = getChunkZ(entry);
-        prepareChunkCounters(userString);
+
 
         for (Entry<Integer, World> rollbackWorlds : worldMap.entrySet()) {
             int rollbackWorldId = rollbackWorlds.getKey();
@@ -864,34 +845,11 @@ public class Rollback extends RollbackUtil {
         return rows != null && !rows.isEmpty();
     }
 
-    private static void prepareChunkCounters(String userString) {
-        int[] rollbackHashData = ConfigHandler.rollbackHash.get(userString);
-        int itemCount = rollbackHashData[0];
-        int blockCount = rollbackHashData[1];
-        int entityCount = rollbackHashData[2];
-        int scannedWorlds = rollbackHashData[4];
-        ConfigHandler.rollbackHash.put(userString, new int[] { itemCount, blockCount, entityCount, 0, scannedWorlds });
-    }
-
-    private static boolean completeChunk(String userString, Integer chunkCount, int totalChunks, boolean verbose, CommandSender user, int preview, List<Integer> actionList) {
-        int[] rollbackHashData = ConfigHandler.rollbackHash.get(userString);
-        int itemCount = rollbackHashData[0];
-        int blockCount = rollbackHashData[1];
-        int entityCount = rollbackHashData[2];
-        int next = rollbackHashData[3];
-
-        if (next == 2) {
-            return false;
-        }
-
-        ConfigHandler.rollbackHash.put(userString, new int[] { itemCount, blockCount, entityCount, 0, 0 });
-
+    private static void completeChunk(Integer chunkCount, int totalChunks, boolean verbose, CommandSender user, int preview, List<Integer> actionList) {
         if (verbose && user != null && preview == 0 && !actionList.contains(LookupActions.ITEM)) {
             Integer chunks = totalChunks;
             Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ROLLBACK_CHUNKS_MODIFIED, chunkCount.toString(), chunks.toString(), (chunks == 1 ? Selector.FIRST : Selector.SECOND)));
         }
-
-        return true;
     }
 
     private static boolean processChunkWorld(int chunkX, int chunkZ, long chunkKey, int worldId, HashMap<Long, ArrayList<Object[]>> blockList, HashMap<Long, ArrayList<Object[]>> itemList, int rollbackType, int preview, String userString, CommandSender user, World world, boolean inventoryRollback, RollbackBlockDataCache blockDataCache, EntitySpawnRollbackHandler.Context entitySpawnContext) {
@@ -914,8 +872,10 @@ public class Rollback extends RollbackUtil {
         }
         Player rollbackPlayer = user instanceof Player ? (Player) user : null;
         // On Folia, player inventories are changed on each player's entity scheduler as mutations of this rollback's context
-        EntitySpawnRollbackHandler.Context inventoryContext = ConfigHandler.isFolia ? entitySpawnContext : null;
-        return RollbackProcessor.processChunk(chunkX, chunkZ, chunkKey, blockData, itemData, rollbackType, preview, userString, rollbackPlayer, world, inventoryRollback, blockDataCache, inventoryContext);
+        RollbackCounters counters = new RollbackCounters();
+        boolean completed = RollbackProcessor.processChunk(chunkX, chunkZ, chunkKey, blockData, itemData, rollbackType, preview, userString, rollbackPlayer, world, inventoryRollback, blockDataCache, entitySpawnContext, counters);
+        entitySpawnContext.addChunkCounts(counters);
+        return completed;
     }
 
     private static final class RollbackBatchState {

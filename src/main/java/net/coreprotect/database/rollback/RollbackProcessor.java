@@ -80,10 +80,11 @@ public class RollbackProcessor {
      *            The rollback-scoped BlockData parse cache
      * @param inventoryContext
      *            If not null, player inventory changes are scheduled on each player's entity scheduler as mutations of this rollback context (Folia)
+     * @param counters
+     *            Counts world changes applied by this chunk
      * @return True if successful, false if there was an error
      */
-    public static boolean processChunk(int finalChunkX, int finalChunkZ, long chunkKey, ArrayList<Object[]> blockList, ArrayList<Object[]> itemList, int rollbackType, int preview, String finalUserString, Player finalUser, World bukkitRollbackWorld, boolean inventoryRollback, RollbackBlockDataCache blockDataCache, EntitySpawnRollbackHandler.Context inventoryContext) {
-        RollbackCounters counters = new RollbackCounters();
+    public static boolean processChunk(int finalChunkX, int finalChunkZ, long chunkKey, ArrayList<Object[]> blockList, ArrayList<Object[]> itemList, int rollbackType, int preview, String finalUserString, Player finalUser, World bukkitRollbackWorld, boolean inventoryRollback, RollbackBlockDataCache blockDataCache, EntitySpawnRollbackHandler.Context inventoryContext, RollbackCounters counters) {
 
         try {
             boolean clearInventories = Config.getGlobal().ROLLBACK_ITEMS;
@@ -241,7 +242,7 @@ public class RollbackProcessor {
 
             // Process container items
             Map<Player, List<Integer>> sortPlayers = new HashMap<>();
-            Map<Player, List<InventoryRow>> inventoryRows = inventoryContext != null && inventoryRollback ? new LinkedHashMap<>() : null;
+            Map<Player, List<InventoryRow>> inventoryRows = ConfigHandler.isFolia && inventoryContext != null && inventoryRollback ? new LinkedHashMap<>() : null;
             Object container = null;
             Material containerType = null;
             boolean containerInit = false;
@@ -390,8 +391,6 @@ public class RollbackProcessor {
                 }
             }
 
-            updateRollbackHash(finalUserString, counters, 1);
-
             // Teleport players out of danger if they're within this chunk
             if (preview == 0) {
                 for (Player player : Bukkit.getOnlinePlayers()) {
@@ -424,18 +423,8 @@ public class RollbackProcessor {
         }
         catch (Exception e) {
             ErrorReporter.report(e);
-            updateRollbackHash(finalUserString, counters, 2);
             return false;
         }
-    }
-
-    private static void updateRollbackHash(String finalUserString, RollbackCounters counters, int status) {
-        int[] rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
-        int itemCount = rollbackHashData[0] + counters.getItems();
-        int blockCount = rollbackHashData[1] + counters.getBlocks();
-        int entityCount = rollbackHashData[2] + counters.getEntities();
-        int scannedWorlds = rollbackHashData[4] + 1;
-        ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount, blockCount, entityCount, status, scannedWorlds });
     }
 
     private static int applyInventoryRow(Player player, Object[] row, Material inventoryItem, int rollbackType) {

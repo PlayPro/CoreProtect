@@ -1407,6 +1407,7 @@ public final class EntitySpawnRollbackHandler {
         private final List<CompletableFuture<Boolean>> pending = new ArrayList<>();
         private final Deque<TransactionWork> transactionWaiters = new ArrayDeque<>();
         private final AtomicInteger items = new AtomicInteger();
+        private final AtomicInteger blocks = new AtomicInteger();
         private final AtomicInteger entities = new AtomicInteger();
         private final AtomicBoolean cancelled = new AtomicBoolean();
         private final AtomicBoolean failureReported = new AtomicBoolean();
@@ -1472,6 +1473,16 @@ public final class EntitySpawnRollbackHandler {
             return items.get();
         }
 
+        int getBlockCount() {
+            return blocks.get();
+        }
+
+        void addChunkCounts(RollbackCounters counters) {
+            items.addAndGet(counters.getItems());
+            blocks.addAndGet(counters.getBlocks());
+            entities.addAndGet(counters.getEntities());
+        }
+
         void addItemCount(int count) {
             items.addAndGet(count);
         }
@@ -1487,12 +1498,11 @@ public final class EntitySpawnRollbackHandler {
         }
 
         boolean isCancelled() {
-            int[] rollbackData = ConfigHandler.rollbackHash.get(userString);
             if (!cancelled.get() && preview == 0 && Consumer.isPersistenceHalted()) {
                 reportFailure("Database persistence is halted", null);
                 return true;
             }
-            return cancelled.get() || (rollbackData != null && rollbackData[3] == 2);
+            return cancelled.get();
         }
 
         void reportFailure(String reason, Work value) {

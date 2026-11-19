@@ -65,13 +65,8 @@ public class BlockAPI {
             int x = block.getX();
             int y = block.getY();
             int z = block.getZ();
-            int time = (int) (System.currentTimeMillis() / 1000L);
             int worldId = WorldUtils.getWorldId(block.getWorld().getName());
-            int checkTime = 0;
-
-            if (offset > 0) {
-                checkTime = time - offset;
-            }
+            int checkTime = offset > 0 ? MessageAPI.clampToInt(Math.max(0L, System.currentTimeMillis() / 1000L - offset)) : 0;
 
             try (Statement statement = connection.createStatement()) {
                 String table = DuckDBLookupQuery.spatialTable(connection, "block", worldId, x, x, z, z, "spatial_rows");
@@ -252,10 +247,18 @@ public class BlockAPI {
                 LookupFilter.appendActionWhere(entityWhere, "entity_rows", actions);
 
                 StringBuilder query = new StringBuilder("SELECT * FROM (");
-                query.append("SELECT 0 AS source,container_rows.rowid AS id,container_rows.time,container_rows.").append(ConfigHandler.databaseType.getUserColumn()).append(",container_rows.wid,container_rows.x,container_rows.y,container_rows.z,container_rows.action,container_rows.type,container_rows.data,container_rows.amount,container_rows.metadata,container_rows.rolled_back FROM ")
+                String userColumn = ConfigHandler.databaseType.getUserColumn();
+                query.append("SELECT 0 AS source,container_rows.rowid AS id,container_rows.time AS time,container_rows.")
+                        .append(userColumn).append(" AS ").append(userColumn)
+                        .append(",container_rows.wid AS wid,container_rows.x AS x,container_rows.y AS y,container_rows.z AS z,")
+                        .append("container_rows.action AS action,container_rows.type AS type,container_rows.data AS data,container_rows.amount AS amount,")
+                        .append("container_rows.metadata AS metadata,container_rows.rolled_back AS rolled_back FROM ")
                         .append(filter.table(connection, "container", "container_rows")).append(' ').append(containerWhere);
                 query.append(" UNION ALL ");
-                query.append("SELECT 1 AS source,entity_rows.rowid AS id,entity_rows.time,entity_rows.").append(ConfigHandler.databaseType.getUserColumn()).append(",spawn_rows.current_wid AS wid,spawn_rows.x,spawn_rows.y,spawn_rows.z,entity_rows.action,entity_rows.type,entity_rows.data,entity_rows.amount,entity_rows.metadata,entity_rows.rolled_back FROM ")
+                query.append("SELECT 1 AS source,entity_rows.rowid AS id,entity_rows.time AS time,entity_rows.").append(userColumn).append(" AS ").append(userColumn)
+                        .append(",spawn_rows.current_wid AS wid,spawn_rows.x AS x,spawn_rows.y AS y,spawn_rows.z AS z,")
+                        .append("entity_rows.action AS action,entity_rows.type AS type,entity_rows.data AS data,entity_rows.amount AS amount,")
+                        .append("entity_rows.metadata AS metadata,entity_rows.rolled_back AS rolled_back FROM ")
                         .append(filter.entityContainerTable(connection, "entity_rows")).append(" JOIN ").append(ConfigHandler.prefix).append("entity_spawn spawn_rows ON spawn_rows.rowid=entity_rows.entity_spawn_rowid ").append(entityWhere);
                 query.append(") AS container_lookup ORDER BY time DESC,source DESC,id DESC");
                 filter.appendLimit(query);

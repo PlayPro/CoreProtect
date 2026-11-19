@@ -80,11 +80,11 @@ final class LookupFilter {
 
         return new LookupFilter(userId, checkTime, options.getLocation(), options.getWorld(), options.hasInvalidLocation(), options.getRadius(), options.getLimitOffset(), options.getLimitCount(),
                 options.getIncludeMaterials(), options.getExcludeMaterials(), materialTypes,
-                userIds(connection, options.getUsers()), userIds(connection, options.getExcludeUsers()));
+                options.getUsers().isEmpty() ? null : userIds(connection, options.getUsers()), userIds(connection, options.getExcludeUsers()));
     }
 
     boolean hasInvalidUser() {
-        return userId != null && userId == -1;
+        return userId != null && userId < 0;
     }
 
     boolean hasInvalidLocation() {
@@ -170,7 +170,7 @@ final class LookupFilter {
         String ending = "))";
         if (originalTable != null) {
             String trackingId = ConfigHandler.databaseType.isClickHouse() ? "accurateCastOrNull(linked_rows.data, 'UInt64')" : "linked_rows.data";
-            String trackedRows = "SELECT " + entity + "block_rowid FROM " + ConfigHandler.prefix + "entity_spawn " + entityAlias
+            String trackedRows = "SELECT " + entity + "block_rowid AS rowid FROM " + ConfigHandler.prefix + "entity_spawn " + entityAlias
                     + " INNER JOIN " + ConfigHandler.prefix + "block linked_rows ON linked_rows.rowid=" + entity + "block_rowid AND " + trackingId + "=" + entity + "rowid"
                     + " AND linked_rows.action=" + LookupActions.ENTITY_SPAWN + " WHERE (";
             if (location == null) {
@@ -179,7 +179,7 @@ final class LookupFilter {
                 return;
             }
             // Separate location candidates keep both spatial indexes usable, including on MySQL.
-            query.append(" AND ").append(transaction).append("rowid IN (SELECT rowid FROM (SELECT original_rows.rowid FROM ").append(originalTable).append(" WHERE (");
+            query.append(" AND ").append(transaction).append("rowid IN (SELECT rowid FROM (SELECT original_rows.rowid AS rowid FROM ").append(originalTable).append(" WHERE (");
             tracked = ") UNION ALL " + trackedRows;
             ending = ")) entity_locations)";
         }
@@ -235,34 +235,48 @@ final class LookupFilter {
     void appendMaterialWhere(StringBuilder query, String alias, boolean inventoryBlock) {
         String qualifier = alias.isEmpty() ? "" : alias + ".";
         if (!includeMaterials.isEmpty()) {
-            query.append(" AND ").append(qualifier).append("type IN (").append(materialIds(includeMaterials, inventoryBlock)).append(")");
+            appendIdWhere(query, qualifier + "type", materialIds(includeMaterials, inventoryBlock), true);
         }
         if (!excludeMaterials.isEmpty()) {
-            query.append(" AND ").append(qualifier).append("type NOT IN (").append(materialIds(excludeMaterials, inventoryBlock)).append(")");
+            appendIdWhere(query, qualifier + "type", materialIds(excludeMaterials, inventoryBlock), false);
         }
     }
 
     void appendBlockMaterialWhere(StringBuilder query) {
         String entityActions = LookupActions.ENTITY_KILL + "," + LookupActions.ENTITY_SPAWN;
         if (!includeMaterials.isEmpty()) {
-            query.append(" AND action NOT IN (").append(entityActions).append(") AND ").append(blockMaterialPredicate(includeMaterials));
+            String predicate = blockMaterialPredicate(includeMaterials);
+            if (predicate == null) {
+                query.append(" AND 1 = 0");
+            }
+            else {
+                query.append(" AND action NOT IN (").append(entityActions).append(") AND ").append(predicate);
+            }
         }
         if (!excludeMaterials.isEmpty()) {
-            query.append(" AND (action IN (").append(entityActions).append(") OR NOT ").append(blockMaterialPredicate(excludeMaterials)).append(")");
+            String predicate = blockMaterialPredicate(excludeMaterials);
+            if (predicate != null) {
+                query.append(" AND (action IN (").append(entityActions).append(") OR NOT ").append(predicate).append(")");
+            }
         }
     }
 
     private String blockMaterialPredicate(List<Material> materials) {
-        List<Material> blockMaterials = new ArrayList<>(materials);
-        blockMaterials.removeAll(List.of(Material.STONE));
-        return "(type IN (" + materialIds(blockMaterials, false) + ") OR " + legacyStonePredicate(materials) + ")";
+        List<Material> blockMaterials = materials.stream().filter(material -> material != Material.STONE).collect(Collectors.toList());
+        String ids = materialIds(blockMaterials, false);
+        String stone = legacyStonePredicate(materials);
+        if (ids.isEmpty()) {
+            return stone;
+        }
+        String type = "type IN (" + ids + ")";
+        return stone == null ? "(" + type + ")" : "(" + type + " OR " + stone + ")";
     }
 
     private String legacyStonePredicate(List<Material> materials) {
         StringJoiner stoneData = new StringJoiner(",");
         for (int data = 1; data <= 6; data++) {
             Material material = Material.getMaterial(StringUtils.nameFilter("stone", data).toUpperCase(Locale.ROOT));
-            if (materials.contains(material)) {
+            if (material != null && materials.contains(material)) {
                 stoneData.add(String.valueOf(data));
             }
         }
@@ -275,10 +289,11 @@ final class LookupFilter {
             predicates.add("COALESCE(data,0) IN (" + stoneData + ")");
         }
         if (predicates.length() == 0) {
-            return "1 = 0";
+            return null;
         }
 
-        return "(type IN (" + materialIds(List.of(Material.STONE), false) + ") AND (" + predicates + "))";
+        String ids = materialIds(List.of(Material.STONE), false);
+        return ids.isEmpty() ? null : "(type IN (" + ids + ") AND (" + predicates + "))";
     }
 
     String table(Connection connection, String table, String alias) {
@@ -482,21 +497,32 @@ final class LookupFilter {
                 // An empty name or #global matches every user.
                 return null;
             }
-            result.add(String.valueOf(id));
+            if (id >= 0) {
+                result.add(String.valueOf(id));
+            }
         }
         return result.toString();
     }
 
     static void appendUserWhere(StringBuilder query, String alias, String includeUserIds, String excludeUserIds) {
         String column = (alias.isEmpty() ? "" : alias + ".") + ConfigHandler.databaseType.getUserColumn();
-        if (includeUserIds != null && !includeUserIds.isEmpty()) {
-            query.append(" AND ").append(column).append(" IN (").append(includeUserIds).append(")");
+        if (includeUserIds != null) {
+            appendIdWhere(query, column, includeUserIds, true);
         }
         if (excludeUserIds == null) {
             query.append(" AND 1 = 0");
         }
-        else if (!excludeUserIds.isEmpty()) {
-            query.append(" AND ").append(column).append(" NOT IN (").append(excludeUserIds).append(")");
+        else {
+            appendIdWhere(query, column, excludeUserIds, false);
+        }
+    }
+
+    private static void appendIdWhere(StringBuilder query, String column, String ids, boolean include) {
+        if (!ids.isEmpty()) {
+            query.append(" AND ").append(column).append(include ? " IN (" : " NOT IN (").append(ids).append(")");
+        }
+        else if (include) {
+            query.append(" AND 1 = 0");
         }
     }
 
@@ -504,11 +530,11 @@ final class LookupFilter {
         StringJoiner result = new StringJoiner(",");
         for (Map.Entry<Integer, Material> entry : materialTypes.entrySet()) {
             Material material = inventoryBlock ? ItemUtils.itemFilter(entry.getValue(), true) : entry.getValue();
-            if (material != null && materials.contains(material)) {
+            if (entry.getKey() >= 0 && material != null && materials.contains(material)) {
                 result.add(String.valueOf(entry.getKey()));
             }
         }
-        return result.length() == 0 ? "-1" : result.toString();
+        return result.toString();
     }
 
     private static String alias(String alias) {

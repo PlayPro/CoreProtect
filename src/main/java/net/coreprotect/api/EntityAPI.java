@@ -55,7 +55,10 @@ public class EntityAPI {
 
             boolean snapshot = filter.beginDuckDBSnapshot(connection);
             try {
-                StringBuilder query = new StringBuilder("SELECT entity_rows.time,entity_rows." + ConfigHandler.databaseType.getUserColumn() + ",entity_rows.wid,entity_rows.x,entity_rows.y,entity_rows.z,entity_rows.type,entity_rows.action,entity_rows.rolled_back FROM ");
+                String userColumn = ConfigHandler.databaseType.getUserColumn();
+                StringBuilder query = new StringBuilder("SELECT entity_rows.time AS time,entity_rows." + userColumn + " AS " + userColumn
+                        + ",entity_rows.wid AS wid,entity_rows.x AS x,entity_rows.y AS y,entity_rows.z AS z,"
+                        + "entity_rows.type AS type,entity_rows.action AS action,entity_rows.rolled_back AS rolled_back FROM ");
                 query.append(filter.entityTable(connection, "entity_rows"));
                 query.append(' ');
                 filter.appendEntityWhere(connection, query, "entity_rows");

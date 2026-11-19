@@ -35,38 +35,30 @@ public final class DuckDBRecovery {
             return false;
         }
 
-        boolean reportFailure = false;
-        boolean recoveryExhausted = false;
+        boolean recoveryExhausted;
         synchronized (STATE_LOCK) {
-            if (state == State.HALTED) {
+            if (state != State.HEALTHY) {
                 return true;
             }
-            if (state == State.HEALTHY) {
-                reportFailure = true;
-                if (recoveryAttempts >= MAXIMUM_RECOVERY_ATTEMPTS) {
-                    state = State.HALTED;
-                    recoveryExhausted = true;
-                }
-                else {
-                    state = State.REQUESTED;
-                    nextAttemptNanos = 0L;
-                }
+            recoveryExhausted = recoveryAttempts >= MAXIMUM_RECOVERY_ATTEMPTS;
+            if (recoveryExhausted) {
+                state = State.HALTED;
             }
+            else {
+                state = State.REQUESTED;
+                nextAttemptNanos = 0L;
+            }
+            ConfigHandler.databaseReachable = false;
+            Consumer.requireDatabaseReload();
         }
 
-        ConfigHandler.databaseReachable = false;
-        Consumer.requireDatabaseReload();
-        if (reportFailure) {
-            ErrorReporter.report(failure);
-        }
+        ErrorReporter.report(failure);
         if (recoveryExhausted) {
             reportRecoveryFailure();
-        }
-        else if (reportFailure) {
-            Chat.sendConsoleMessage(Color.YELLOW + "[CoreProtect] " + Phrase.build(Phrase.DATABASE_RECOVERY_STARTED));
-        }
-        if (isHalted()) {
             Consumer.haltPersistence();
+        }
+        else {
+            Chat.sendConsoleMessage(Color.YELLOW + "[CoreProtect] " + Phrase.build(Phrase.DATABASE_RECOVERY_STARTED));
         }
         return true;
     }
@@ -133,22 +125,27 @@ public final class DuckDBRecovery {
                 halt();
                 return;
             }
-            synchronized (STATE_LOCK) {
-                state = State.HEALTHY;
-                nextAttemptNanos = 0L;
-            }
-            ConfigHandler.databaseReachable = true;
             recovered = true;
         }
         catch (Exception exception) {
             failure = exception;
-            ConfigHandler.databaseReachable = false;
-            if (connectionsDrained) {
-                Database.closeConnection();
-            }
         }
         finally {
-            Consumer.endDatabaseReload(recovered);
+            try {
+                if (connectionsDrained && !recovered) {
+                    Database.closeConnection();
+                }
+            }
+            finally {
+                synchronized (STATE_LOCK) {
+                    ConfigHandler.databaseReachable = recovered;
+                    Consumer.endDatabaseReload(recovered);
+                    if (recovered) {
+                        state = State.HEALTHY;
+                        nextAttemptNanos = 0L;
+                    }
+                }
+            }
         }
 
         if (recovered) {

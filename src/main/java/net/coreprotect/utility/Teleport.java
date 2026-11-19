@@ -32,7 +32,6 @@ public class Teleport {
 
     public static ConcurrentHashMap<Location, BlockData> revertBlocks = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Location, Long> REVERT_TOKENS = new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<Location, Material> SAFETY_MATERIALS = new ConcurrentHashMap<>();
     private static final AtomicLong REVERT_SEQUENCE = new AtomicLong(0L);
     private static final Set<Material> UNSAFE_BLOCKS = createUnsafeBlocks();
 
@@ -74,11 +73,11 @@ public class Teleport {
         return gameMode != GameMode.CREATIVE && gameMode != GameMode.SPECTATOR && !player.isFlying();
     }
 
-    private static Material defaultSafetyMaterial() {
-        return ConfigHandler.isFolia ? Material.DIRT : Material.BARRIER;
+    public static void performSafeTeleport(Player player, Location location, boolean enforceTeleport) {
+        performSafeTeleport(player, location, enforceTeleport, ConfigHandler.isFolia);
     }
 
-    public static void performSafeTeleport(Player player, Location location, boolean enforceTeleport) {
+    static void performSafeTeleport(Player player, Location location, boolean enforceTeleport, boolean folia) {
         try {
             if (player == null || location == null || location.getWorld() == null) {
                 return;
@@ -108,23 +107,23 @@ public class Teleport {
 
                 if (BlockUtils.passableBlock(block1) && BlockUtils.passableBlock(block2) && !isUnsafeBlock(type1) && !isUnsafeBlock(type2)) {
                     Block blockBelow = checkY > minHeight ? world.getBlockAt(playerX, checkY - 1, playerZ) : null;
+                    boolean needsSupport = enforceTeleport || (folia && checkY >= playerY);
                     boolean belowHazardous = blockBelow == null
                             || isUnsafeBlock(blockBelow.getType())
-                            || (enforceTeleport && BlockUtils.passableBlock(blockBelow) && !isSafeLiquid(blockBelow.getType()));
+                            || (needsSupport && BlockUtils.passableBlock(blockBelow) && !isSafeLiquid(blockBelow.getType()));
 
                     if (belowHazardous && isVulnerablePlayer(player)) {
-                        if (checkY < maxFeetY) {
+                        // Folia stops region ticks before plugins can restore temporary blocks.
+                        if (!folia && checkY < maxFeetY) {
                             Block blockAboveHead = world.getBlockAt(playerX, checkY + 2, playerZ);
                             if (BlockUtils.passableBlock(blockAboveHead) && !isUnsafeBlock(blockAboveHead.getType())) {
-                                Material safetyMaterial = defaultSafetyMaterial();
                                 Location revertLocation = block1.getLocation();
                                 BlockData originalBlockData = block1.getBlockData().clone();
                                 long token = REVERT_SEQUENCE.incrementAndGet();
                                 REVERT_TOKENS.put(revertLocation, token);
-                                SAFETY_MATERIALS.put(revertLocation, safetyMaterial);
-                                if (type1 != safetyMaterial) {
+                                if (type1 != Material.BARRIER) {
                                     revertBlocks.put(revertLocation, originalBlockData);
-                                    block1.setType(safetyMaterial);
+                                    block1.setType(Material.BARRIER);
                                 }
                                 alert = true;
                                 checkY++;
@@ -148,7 +147,7 @@ public class Teleport {
                     if (checkY != playerY || enforceTeleport) {
                         double oldY = targetLocation.getY();
                         targetLocation.setY(checkY);
-                        if (ConfigHandler.isFolia) {
+                        if (folia) {
                             PaperAdapter.ADAPTER.teleportAsync(player, targetLocation);
                         }
                         else {
@@ -193,52 +192,24 @@ public class Teleport {
             return;
         }
         BlockData revertData = revertBlocks.remove(revertLocation);
-        Material safetyMaterial = SAFETY_MATERIALS.remove(revertLocation);
         if (revertData == null) {
             return;
         }
-        Material expectedSafety = safetyMaterial != null ? safetyMaterial : defaultSafetyMaterial();
         Block block = revertLocation.getBlock();
-        if (block.getType() == expectedSafety) {
+        if (block.getType() == Material.BARRIER) {
             block.setBlockData(revertData);
         }
     }
 
     public static void revertAllBlocks() {
         for (Location revertLocation : new ArrayList<>(revertBlocks.keySet())) {
-            if (revertLocation == null || revertLocation.getWorld() == null) {
-                revertBlocks.remove(revertLocation);
-                REVERT_TOKENS.remove(revertLocation);
-                SAFETY_MATERIALS.remove(revertLocation);
-                continue;
-            }
-            if (PaperAdapter.ADAPTER != null && !PaperAdapter.ADAPTER.isOwnedByCurrentRegion(
-                    revertLocation.getWorld(), revertLocation.getBlockX() >> 4, revertLocation.getBlockZ() >> 4)) {
-                Long token = REVERT_TOKENS.get(revertLocation);
-                CoreProtect plugin = CoreProtect.getInstance();
-                if (token != null && plugin != null && plugin.isEnabled()) {
-                    try {
-                        Scheduler.runTask(plugin, () -> revertBlockIfUnchanged(revertLocation, token), revertLocation);
-                        continue;
-                    }
-                    catch (Exception e) {
-                        // Fall through to clean maps if scheduler is unavailable during shutdown
-                    }
-                }
-                revertBlocks.remove(revertLocation);
-                REVERT_TOKENS.remove(revertLocation);
-                SAFETY_MATERIALS.remove(revertLocation);
-                continue;
-            }
             BlockData revertData = revertBlocks.remove(revertLocation);
             REVERT_TOKENS.remove(revertLocation);
-            Material safetyMaterial = SAFETY_MATERIALS.remove(revertLocation);
-            if (revertData == null) {
+            if (revertData == null || revertLocation.getWorld() == null) {
                 continue;
             }
-            Material expectedSafety = safetyMaterial != null ? safetyMaterial : defaultSafetyMaterial();
             Block block = revertLocation.getBlock();
-            if (block.getType() == expectedSafety) {
+            if (block.getType() == Material.BARRIER) {
                 block.setBlockData(revertData);
             }
         }

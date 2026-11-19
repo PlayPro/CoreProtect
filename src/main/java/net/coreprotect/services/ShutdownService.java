@@ -67,7 +67,7 @@ public class ShutdownService {
                 }
 
                 // Revert any temporary teleport blocks
-                revertTeleportBlocks(plugin, serverStopping);
+                revertTeleportBlocks();
 
                 if (ConfigHandler.serverRunning) {
                     EntitySpawnTracking.queueLoadedLocationsForShutdown();
@@ -189,15 +189,11 @@ public class ShutdownService {
     /**
      * Reverts any blocks that were temporarily changed during player teleports
      */
-    private static void revertTeleportBlocks(Plugin plugin, boolean serverStopping) {
+    private static void revertTeleportBlocks() {
         if (Teleport.revertBlocks.isEmpty()) {
             return;
         }
         try {
-            if (ConfigHandler.isFolia && serverStopping) {
-                plugin.getLogger().warning("Folia region shutdown prevented cleanup of temporary teleport blocks.");
-                return;
-            }
             Teleport.revertAllBlocks();
         }
         catch (Exception e) {

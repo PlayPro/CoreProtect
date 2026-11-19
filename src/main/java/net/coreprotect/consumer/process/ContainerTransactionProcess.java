@@ -3,7 +3,6 @@ package net.coreprotect.consumer.process;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -11,6 +10,7 @@ import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
+import net.coreprotect.consumer.QueuePayload;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.logger.ContainerLogger;
@@ -50,8 +50,7 @@ class ContainerTransactionProcess {
         }
 
         Location location = (Location) object;
-        Map<Integer, Object> inventories = Consumer.consumerInventories.get(processId);
-        Object inventory = inventories.get(id);
+        Object inventory = QueuePayload.detail(Consumer.consumerObjects.get(processId).get(id));
         if (inventory == null) {
             return;
         }

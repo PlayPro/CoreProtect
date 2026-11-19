@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import net.coreprotect.consumer.Consumer;
+import net.coreprotect.consumer.QueuePayload;
 import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.model.rollback.RollbackUpdateTargets;
 import net.coreprotect.utility.MaterialUtils;
@@ -18,9 +19,8 @@ class RollbackUpdateProcess {
     }
 
     static void process(ConsumerWriteBatch batch, int processId, int id, int action, int table, boolean inventoryRollback) throws Exception {
-        Map<Integer, List<Object[]>> updateLists = Consumer.consumerObjectArrayList.get(processId);
-        if (updateLists.get(id) != null) {
-            List<Object[]> list = updateLists.get(id);
+        List<Object[]> list = QueuePayload.detail(Consumer.consumerObjects.get(processId).get(id));
+        if (list != null) {
             process(batch, list, action, table, inventoryRollback);
         }
     }

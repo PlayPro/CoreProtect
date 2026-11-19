@@ -13,8 +13,6 @@ import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.bukkit.Bukkit;
-import org.bukkit.block.BlockState;
-import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
@@ -62,23 +60,7 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
     // public static ConcurrentHashMap<Integer, Integer[]> consumer_id = new ConcurrentHashMap<>();
     public static Map<Integer, Integer[]> consumer_id = Collections.synchronizedMap(new HashMap<>());
     public static ConcurrentHashMap<Integer, Map<Integer, String[]>> consumerUsers = new ConcurrentHashMap<>(4, 0.75f, 2);
-    @Deprecated
-    public static ConcurrentHashMap<Integer, Map<Integer, String>> consumerStrings = new ConcurrentHashMap<>(4, 0.75f, 2);
-    @Deprecated
-    public static ConcurrentHashMap<Integer, Map<Integer, Object[]>> consumerSigns = new ConcurrentHashMap<>(4, 0.75f, 2);
-    @Deprecated
-    public static ConcurrentHashMap<Integer, Map<Integer, ItemStack[]>> consumerContainers = new ConcurrentHashMap<>(4, 0.75f, 2);
-    @Deprecated
-    public static ConcurrentHashMap<Integer, Map<Integer, Object>> consumerInventories = new ConcurrentHashMap<>(4, 0.75f, 2);
-    @Deprecated
-    public static ConcurrentHashMap<Integer, Map<Integer, List<BlockState>>> consumerBlockList = new ConcurrentHashMap<>(4, 0.75f, 2);
-    @Deprecated
-    public static ConcurrentHashMap<Integer, Map<Integer, List<Object[]>>> consumerObjectArrayList = new ConcurrentHashMap<>(4, 0.75f, 2);
-    @Deprecated
-    public static ConcurrentHashMap<Integer, Map<Integer, List<Object>>> consumerObjectList = new ConcurrentHashMap<>(4, 0.75f, 2);
-
     public static ConcurrentHashMap<Integer, Map<Integer, Object>> consumerObjects = new ConcurrentHashMap<>(4, 0.75f, 2);
-    // ^merge maps into single object based map
 
     private static void errorDelay() {
         try {
@@ -167,20 +149,6 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         Consumer.consumerUsers.put(1, new HashMap<>());
         Consumer.consumerObjects.put(0, new HashMap<>());
         Consumer.consumerObjects.put(1, new HashMap<>());
-        Consumer.consumerStrings.put(0, new HashMap<>());
-        Consumer.consumerStrings.put(1, new HashMap<>());
-        Consumer.consumerSigns.put(0, new HashMap<>());
-        Consumer.consumerSigns.put(1, new HashMap<>());
-        Consumer.consumerInventories.put(0, new HashMap<>());
-        Consumer.consumerInventories.put(1, new HashMap<>());
-        Consumer.consumerBlockList.put(0, new HashMap<>());
-        Consumer.consumerBlockList.put(1, new HashMap<>());
-        Consumer.consumerObjectArrayList.put(0, new HashMap<>());
-        Consumer.consumerObjectArrayList.put(1, new HashMap<>());
-        Consumer.consumerObjectList.put(0, new HashMap<>());
-        Consumer.consumerObjectList.put(1, new HashMap<>());
-        Consumer.consumerContainers.put(0, new HashMap<>());
-        Consumer.consumerContainers.put(1, new HashMap<>());
     }
 
     public static boolean isRunning() {

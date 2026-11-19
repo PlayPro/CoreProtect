@@ -30,7 +30,7 @@ import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 
-public class ContainerLogger extends Queue {
+public class ContainerLogger {
 
     private static final int CONTAINER_DUPLICATE_THRESHOLD_DROPPER = 512;
     private static final int CONTAINER_DUPLICATE_THRESHOLD_DISPENSER = 256;
@@ -79,7 +79,7 @@ public class ContainerLogger extends Queue {
             boolean duplicateSuppression = Config.getConfig(location.getWorld()).DUPLICATE_SUPPRESSION;
 
             // Check if this is a dispenser with no actual changes
-            if (duplicateSuppression && "#dispenser".equals(player) && getForceContainerSize(loggingContainerId) == 0 && ItemUtils.compareContainers(oldInventory, newInventory)) {
+            if (duplicateSuppression && "#dispenser".equals(player) && Queue.getForceContainerSize(loggingContainerId) == 0 && ItemUtils.compareContainers(oldInventory, newInventory)) {
                 recordDispenserUnchanged(location);
                 if (capture != null) {
                     capture.accept(new PreparedTransaction(type, faceData, location, new ItemStack[0], new ItemStack[0]));
@@ -96,7 +96,7 @@ public class ContainerLogger extends Queue {
                 ConfigHandler.dispenserNoChange.remove(locationKey);
             }
 
-            ItemStack[] forceState = peekForceContainer(loggingContainerId);
+            ItemStack[] forceState = Queue.peekForceContainer(loggingContainerId);
             if (forceState != null) {
                 newInventory = ItemUtils.getContainerState(forceState);
             }
@@ -107,7 +107,7 @@ public class ContainerLogger extends Queue {
 
             if (duplicateSuppression && shouldSuppressContainerDuplicate(player, location, oldInventory, newInventory)) {
                 if (forceState != null) {
-                    pollForceContainer(loggingContainerId);
+                    Queue.pollForceContainer(loggingContainerId);
                 }
                 if (capture != null) {
                     capture.accept(new PreparedTransaction(type, faceData, location, new ItemStack[0], new ItemStack[0]));
@@ -138,7 +138,7 @@ public class ContainerLogger extends Queue {
             }
 
             if (forceState != null) {
-                pollForceContainer(loggingContainerId);
+                Queue.pollForceContainer(loggingContainerId);
             }
             oldList.remove(0);
             ConfigHandler.oldContainer.put(loggingContainerId, oldList);

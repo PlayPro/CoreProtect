@@ -1,13 +1,13 @@
 package net.coreprotect.consumer.process;
 
 import net.coreprotect.database.ConsumerWriteBatch;
-import java.util.Map;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.consumer.Consumer;
+import net.coreprotect.consumer.QueuePayload;
 import net.coreprotect.database.logger.ContainerBreakLogger;
 import net.coreprotect.utility.HopperTransactionUtils;
 
@@ -16,9 +16,8 @@ class ContainerBreakProcess {
     static void process(ConsumerWriteBatch preparedStmt, int batchCount, int processId, int id, Material type, String user, Object object) {
         if (object instanceof Location) {
             Location location = (Location) object;
-            Map<Integer, ItemStack[]> containers = Consumer.consumerContainers.get(processId);
-            if (containers.get(id) != null) {
-                ItemStack[] container = containers.get(id);
+            ItemStack[] container = QueuePayload.detail(Consumer.consumerObjects.get(processId).get(id));
+            if (container != null) {
                 String transactionId = HopperTransactionUtils.getTransactionId(location);
                 HopperTransactionUtils.synchronizeTransaction(transactionId, () -> ContainerBreakLogger.log(preparedStmt, batchCount, user, location, type, container));
             }

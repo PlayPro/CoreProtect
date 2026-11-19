@@ -55,7 +55,6 @@ import net.coreprotect.worldedit.WorldEditBlockState;
 public class Queue {
 
     private static final int MAX_ROLLBACK_ROWS_PER_RECORD = 100_000;
-    private static final Object ROLLBACK_WITHOUT_LOCATION = new Object();
 
     public static synchronized void addForceContainer(String id, ItemStack[] container) {
         if (container == null) {
@@ -114,10 +113,10 @@ public class Queue {
     }
 
     private static boolean queueStandardData(Object[] data, String[] user, Object object, boolean first, long reservation) {
-        return queueStandardData(data, user, object, first, null, null, reservation);
+        return queueStandardData(data, user, object, first, null, reservation);
     }
 
-    private static synchronized <T> boolean queueStandardData(Object[] data, String[] user, Object object, boolean first, Map<Integer, ? extends Map<Integer, T>> additionalMaps, T additionalData, long reservation) {
+    private static synchronized boolean queueStandardData(Object[] data, String[] user, Object object, boolean first, Object detail, long reservation) {
         boolean rollbackPublication = Process.isRollbackPublication((int) data[1], object);
         if (Consumer.isPersistenceHalted()) {
             Consumer.completeReservation(reservation, 1);
@@ -137,11 +136,8 @@ public class Queue {
                 user[0] = StringUtils.normalizeUsername(user[0]);
             }
             data[0] = consumerId;
-            if (additionalMaps != null) {
-                additionalMaps.get(currentConsumer).put(consumerId, additionalData);
-            }
             Consumer.consumerUsers.get(currentConsumer).put(consumerId, user);
-            Consumer.consumerObjects.get(currentConsumer).put(consumerId, object);
+            Consumer.consumerObjects.get(currentConsumer).put(consumerId, detail == null ? object : new QueuePayload(object, detail));
             if (first) {
                 Consumer.consumer.get(currentConsumer).add(0, data);
             }
@@ -156,9 +152,6 @@ public class Queue {
                     Consumer.consumer.get(currentConsumer).remove(data);
                     Consumer.consumerUsers.get(currentConsumer).remove(consumerId);
                     Consumer.consumerObjects.get(currentConsumer).remove(consumerId);
-                    if (additionalMaps != null) {
-                        additionalMaps.get(currentConsumer).remove(consumerId);
-                    }
                     if (rollbackPublication) {
                         Consumer.completeRollbackPublications(1);
                     }
@@ -339,11 +332,11 @@ public class Queue {
     }
 
     public static void queueContainerBreak(String user, Location location, Material type, ItemStack[] oldInventory) {
-        queueStandardData(new Object[] { null, Process.CONTAINER_BREAK, type, 0, null, 0, 0, null }, new String[] { user, null }, location, false, Consumer.consumerContainers, oldInventory, Consumer.reserveConsumer());
+        queueStandardData(new Object[] { null, Process.CONTAINER_BREAK, type, 0, null, 0, 0, null }, new String[] { user, null }, location, false, oldInventory, Consumer.reserveConsumer());
     }
 
     public static synchronized void queueContainerTransaction(String user, Location location, Material type, Object inventory, int chestId) {
-        queueStandardData(new Object[] { null, Process.CONTAINER_TRANSACTION, type, 0, null, 0, chestId, null }, new String[] { user, null }, location, false, Consumer.consumerInventories, inventory, Consumer.reserveConsumer());
+        queueStandardData(new Object[] { null, Process.CONTAINER_TRANSACTION, type, 0, null, 0, chestId, null }, new String[] { user, null }, location, false, inventory, Consumer.reserveConsumer());
     }
 
     public static void queueSpecifiedContainerTransaction(String user, Location location, Material type, BlockFace face, ItemStack[] before, ItemStack[] after) {
@@ -455,7 +448,7 @@ public class Queue {
     }
 
     public static void queueEntityKill(String user, Location location, List<Object> data, EntityType type) {
-        queueStandardData(new Object[] { null, Process.ENTITY_KILL, null, 0, null, 0, 0, null }, new String[] { user, null }, new Object[] { getBlockLocation(location), type, null }, false, Consumer.consumerObjectList, data, Consumer.reserveConsumer());
+        queueStandardData(new Object[] { null, Process.ENTITY_KILL, null, 0, null, 0, 0, null }, new String[] { user, null }, new Object[] { getBlockLocation(location), type, null }, false, data, Consumer.reserveConsumer());
     }
 
     protected static void queueEntitySpawn(String user, BlockState block, EntityType type, int data) {
@@ -541,7 +534,7 @@ public class Queue {
             blockStates.add(relative.getState());
         }
 
-        queueStandardData(new Object[] { null, Process.NATURAL_BLOCK_BREAK, type, data, null, 0, 0, blockData }, new String[] { user, null }, block, false, Consumer.consumerBlockList, blockStates, Consumer.reserveConsumer());
+        queueStandardData(new Object[] { null, Process.NATURAL_BLOCK_BREAK, type, data, null, 0, 0, blockData }, new String[] { user, null }, block, false, blockStates, Consumer.reserveConsumer());
     }
 
     public static boolean queuePlayerChat(Player player, String message, long timestamp, boolean cancelled) {
@@ -573,11 +566,11 @@ public class Queue {
         if (!config.PLAYER_MESSAGES || (cancelled && !config.LOG_CANCELLED_CHAT)) {
             return false;
         }
-        return queueStandardData(new Object[] { null, Process.PLAYER_CHAT, null, 0, null, 0, 0, null }, new String[] { player.getName(), null }, new Object[] { timestamp, location.clone() }, false, Consumer.consumerStrings, message, Consumer.reserveConsumer());
+        return queueStandardData(new Object[] { null, Process.PLAYER_CHAT, null, 0, null, 0, 0, null }, new String[] { player.getName(), null }, new Object[] { timestamp, location.clone() }, false, message, Consumer.reserveConsumer());
     }
 
     public static void queuePlayerCommand(Player player, String message, long timestamp) {
-        queueStandardData(new Object[] { null, Process.PLAYER_COMMAND, null, 0, null, 0, 0, null }, new String[] { player.getName(), null }, new Object[] { timestamp, player.getLocation().clone() }, false, Consumer.consumerStrings, message, Consumer.reserveConsumer());
+        queueStandardData(new Object[] { null, Process.PLAYER_COMMAND, null, 0, null, 0, 0, null }, new String[] { player.getName(), null }, new Object[] { timestamp, player.getLocation().clone() }, false, message, Consumer.reserveConsumer());
     }
 
     public static void queuePlayerInteraction(String user, BlockState block, Material type) {
@@ -594,7 +587,7 @@ public class Queue {
 
     public static void queuePlayerLogin(Player player, int time, int configSessions, int configUsernames) {
         String uuid = player.getUniqueId().toString();
-        queueStandardData(new Object[] { null, Process.PLAYER_LOGIN, null, configSessions, null, configUsernames, time, null }, new String[] { player.getName(), uuid }, player.getLocation().clone(), false, Consumer.consumerStrings, uuid, Consumer.reserveConsumer());
+        queueStandardData(new Object[] { null, Process.PLAYER_LOGIN, null, configSessions, null, configUsernames, time, null }, new String[] { player.getName(), uuid }, player.getLocation().clone(), false, uuid, Consumer.reserveConsumer());
     }
 
     public static void queuePlayerQuit(Player player, int time) {
@@ -699,8 +692,8 @@ public class Queue {
                 int consumerId = firstConsumerId + recordIndex;
                 records.add(new Object[] { consumerId, table, null, inventoryRollback ? 1 : 0, null, 0, action, null });
                 Consumer.consumerUsers.get(currentConsumer).put(consumerId, new String[] { normalizedUser, null });
-                Consumer.consumerObjects.get(currentConsumer).put(consumerId, location == null ? ROLLBACK_WITHOUT_LOCATION : location);
-                Consumer.consumerObjectArrayList.get(currentConsumer).put(consumerId, new ArrayList<>(rows.subList(fromIndex, toIndex)));
+                QueuePayload payload = new QueuePayload(location, new ArrayList<>(rows.subList(fromIndex, toIndex)));
+                Consumer.consumerObjects.get(currentConsumer).put(consumerId, payload);
             }
             Consumer.consumer.get(currentConsumer).addAll(records);
             published = true;
@@ -713,7 +706,6 @@ public class Queue {
                         int consumerId = firstConsumerId + recordIndex;
                         Consumer.consumerUsers.get(currentConsumer).remove(consumerId);
                         Consumer.consumerObjects.get(currentConsumer).remove(consumerId);
-                        Consumer.consumerObjectArrayList.get(currentConsumer).remove(consumerId);
                     }
                     if (registered) {
                         Consumer.completeRollbackPublications(recordCount);
@@ -733,7 +725,7 @@ public class Queue {
 
     public static void queueSignText(String user, Location location, int action, int color, int colorSecondary, boolean frontGlowing, boolean backGlowing, boolean isWaxed, boolean isFront, String line1, String line2, String line3, String line4, String line5, String line6, String line7, String line8, int offset) {
         Object[] signData = new Object[] { colorSecondary, BlockUtils.getSignData(frontGlowing, backGlowing), isWaxed, isFront, line1, line2, line3, line4, line5, line6, line7, line8 };
-        queueStandardData(new Object[] { null, Process.SIGN_TEXT, null, color, null, action, offset, null }, new String[] { user, null }, location, false, Consumer.consumerSigns, signData, Consumer.reserveConsumer());
+        queueStandardData(new Object[] { null, Process.SIGN_TEXT, null, color, null, action, offset, null }, new String[] { user, null }, location, false, signData, Consumer.reserveConsumer());
     }
 
     protected static void queueSignUpdate(String user, BlockState block, int action, int time) {
@@ -745,7 +737,7 @@ public class Queue {
     }
 
     protected static void queueStructureGrow(String user, BlockState block, List<BlockState> blockList, int replacedListSize) {
-        queueStandardData(new Object[] { null, Process.STRUCTURE_GROWTH, null, 0, null, 0, replacedListSize, null }, new String[] { user, null }, block, false, Consumer.consumerBlockList, blockList, Consumer.reserveConsumer());
+        queueStandardData(new Object[] { null, Process.STRUCTURE_GROWTH, null, 0, null, 0, replacedListSize, null }, new String[] { user, null }, block, false, blockList, Consumer.reserveConsumer());
     }
 
     protected static void queueWorldInsert(int id, String world) {

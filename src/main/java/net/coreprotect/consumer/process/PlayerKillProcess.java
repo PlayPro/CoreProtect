@@ -3,7 +3,6 @@ package net.coreprotect.consumer.process;
 import net.coreprotect.database.ConsumerWriteBatch;
 
 import org.bukkit.Location;
-import org.bukkit.block.BlockState;
 
 import net.coreprotect.database.logger.PlayerKillLogger;
 
@@ -12,26 +11,17 @@ class PlayerKillProcess {
     static void process(ConsumerWriteBatch preparedStmt, int batchCount, int id, Object object, String user) {
         if (object instanceof Object[]) {
             Object[] values = (Object[]) object;
-            if (values.length <= 1 || !isLocationData(values[0]) || !(values[1] instanceof String)) {
+            if (values.length <= 1 || !(values[1] instanceof String)) {
                 return;
             }
 
-            Location location = getLocation(values[0]);
+            Location location = EntityKillProcess.getLocation(values[0]);
+            if (location == null) {
+                return;
+            }
             String player = (String) values[1];
             PlayerKillLogger.log(preparedStmt, batchCount, user, location, player);
         }
     }
 
-    private static boolean isLocationData(Object value) {
-        return value instanceof Location || value instanceof BlockState;
-    }
-
-    private static Location getLocation(Object value) {
-        if (value instanceof Location) {
-            return ((Location) value).clone();
-        }
-
-        BlockState block = (BlockState) value;
-        return new Location(block.getWorld(), block.getX(), block.getY(), block.getZ());
-    }
 }

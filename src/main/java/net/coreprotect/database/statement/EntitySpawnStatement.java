@@ -14,7 +14,6 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.StringJoiner;
 import java.util.Set;
 import java.util.UUID;
 
@@ -40,7 +39,8 @@ import net.coreprotect.utility.serialize.EntityDataCodec.Kind;
 
 public final class EntitySpawnStatement {
 
-    private static final int SELECT_BATCH_SIZE = 500;
+    private static final String SPAWN_IDENTITY_COLUMNS = "rowid AS id,uuid,wid,origin_x,origin_y,origin_z,block_rowid";
+    private static final String LOOKUP_COLUMNS = "rowid AS id,block_rowid,time,uuid,current_wid,x,y,z";
 
     private EntitySpawnStatement() {
         throw new IllegalStateException("Database class");
@@ -85,72 +85,61 @@ public final class EntitySpawnStatement {
     }
 
     public static Map<Integer, EntitySpawnRecord> loadRecords(Connection connection, Collection<Integer> rowIds) throws SQLException {
-        return loadRecords(connection, rowIds, true);
+        return loadRecords(connection, rowIds, false, true);
     }
 
     public static Map<Integer, EntitySpawnRecord> loadLocationRecords(Connection connection, Collection<Integer> rowIds) throws SQLException {
-        return loadRecords(connection, rowIds, false);
-    }
-
-    private static Map<Integer, EntitySpawnRecord> loadRecords(Connection connection, Collection<Integer> rowIds, boolean includeState) throws SQLException {
-        Map<Integer, EntitySpawnRecord> records = new HashMap<>();
-        if (rowIds.isEmpty()) {
-            return records;
-        }
-
-        List<Integer> ids = new ArrayList<>(rowIds);
-        for (int offset = 0; offset < ids.size(); offset += SELECT_BATCH_SIZE) {
-            int end = Math.min(offset + SELECT_BATCH_SIZE, ids.size());
-            loadRecordBatch(connection, ids.subList(offset, end), records, false, includeState);
-        }
-
-        return records;
+        return loadRecords(connection, rowIds, false, false);
     }
 
     public static Map<Integer, EntitySpawnRecord> loadRecordsByKillRowIds(Connection connection, Collection<Integer> killRowIds) throws SQLException {
-        Map<Integer, EntitySpawnRecord> records = new HashMap<>();
-        if (killRowIds.isEmpty()) {
-            return records;
-        }
+        return loadRecords(connection, killRowIds, true, false);
+    }
 
-        List<Integer> ids = new ArrayList<>(killRowIds);
-        for (int offset = 0; offset < ids.size(); offset += SELECT_BATCH_SIZE) {
-            int end = Math.min(offset + SELECT_BATCH_SIZE, ids.size());
-            loadRecordBatch(connection, ids.subList(offset, end), records, true);
-        }
+    private static Map<Integer, EntitySpawnRecord> loadRecords(Connection connection, Collection<Integer> rowIds, boolean byKillRowId, boolean includeState) throws SQLException {
+        Map<Integer, EntitySpawnRecord> records = new HashMap<>();
+        String keyColumn = byKillRowId ? "kill_rowid" : "rowid";
+        String columns = "rowid AS id,kill_rowid,uuid,wid,origin_x,origin_y,origin_z,current_wid,x,y,z,yaw,pitch,removed" + (includeState ? ",data" : "");
+        String query = "SELECT " + columns + " FROM " + ConfigHandler.prefix + "entity_spawn WHERE " + keyColumn;
+        StatementBatches.selectIn(connection, query, rowIds, PreparedStatement::setInt, row -> {
+            int rowId = row.getInt("id");
+            int killRowId = row.getInt("kill_rowid");
+            List<Object> state = includeState ? EntityStatement.readData(row, "data", Kind.ENTITY_SPAWN) : null;
+            if (state != null && state.size() < 4) {
+                state = null;
+            }
+
+            EntitySpawnRecord record = new EntitySpawnRecord(rowId, killRowId, UUID.fromString(row.getString("uuid")), row.getInt("wid"),
+                    row.getDouble("origin_x"), row.getDouble("origin_y"), row.getDouble("origin_z"), row.getInt("current_wid"), row.getDouble("x"),
+                    row.getDouble("y"), row.getDouble("z"), row.getFloat("yaw"), row.getFloat("pitch"), row.getInt("removed") == 1, state);
+            records.put(byKillRowId ? killRowId : rowId, record);
+        });
         return records;
     }
 
     public static Map<UUID, EntitySpawnIdentity> loadIdentities(Connection connection, Collection<UUID> uuids) throws SQLException {
         Map<UUID, EntitySpawnIdentity> identities = new HashMap<>();
-        if (uuids.isEmpty()) {
-            return identities;
-        }
-
-        List<UUID> ids = new ArrayList<>(uuids);
-        for (int offset = 0; offset < ids.size(); offset += SELECT_BATCH_SIZE) {
-            int end = Math.min(offset + SELECT_BATCH_SIZE, ids.size());
-            for (EntitySpawnIdentity identity : loadIdentityBatch(connection, ids.subList(offset, end), false)) {
-                identities.put(identity.getUuid(), identity);
-            }
-        }
+        String query = "SELECT " + SPAWN_IDENTITY_COLUMNS + " FROM " + ConfigHandler.prefix + "entity_spawn WHERE uuid";
+        StatementBatches.selectIn(connection, query, uuids, (statement, index, uuid) -> statement.setString(index, uuid.toString()), row -> {
+            EntitySpawnIdentity identity = readIdentity(row);
+            identities.put(identity.getUuid(), identity);
+        });
         return identities;
     }
 
     public static Map<Integer, EntitySpawnIdentity> loadIdentitiesByRowIds(Connection connection, Collection<Integer> rowIds) throws SQLException {
         Map<Integer, EntitySpawnIdentity> identities = new HashMap<>();
-        if (rowIds.isEmpty()) {
-            return identities;
-        }
-
-        List<Integer> ids = new ArrayList<>(rowIds);
-        for (int offset = 0; offset < ids.size(); offset += SELECT_BATCH_SIZE) {
-            int end = Math.min(offset + SELECT_BATCH_SIZE, ids.size());
-            for (EntitySpawnIdentity identity : loadIdentityBatch(connection, ids.subList(offset, end), true)) {
-                identities.put(identity.getRowId(), identity);
-            }
-        }
+        String query = "SELECT " + SPAWN_IDENTITY_COLUMNS + " FROM " + ConfigHandler.prefix + "entity_spawn WHERE rowid";
+        StatementBatches.selectIn(connection, query, rowIds, PreparedStatement::setInt, row -> {
+            EntitySpawnIdentity identity = readIdentity(row);
+            identities.put(identity.getRowId(), identity);
+        });
         return identities;
+    }
+
+    private static EntitySpawnIdentity readIdentity(ResultSet row) throws SQLException {
+        return new EntitySpawnIdentity(row.getInt("id"), UUID.fromString(row.getString("uuid")), row.getInt("wid"),
+                row.getDouble("origin_x"), row.getDouble("origin_y"), row.getDouble("origin_z"), row.getObject("block_rowid") != null);
     }
 
     public static Set<UUID> loadActiveUuids(Connection connection, Location location, Integer[] radius) throws Exception {
@@ -159,37 +148,8 @@ public final class EntitySpawnStatement {
 
     public static Set<UUID> loadActiveUuids(Connection connection, Location location, Integer[] radius, long startTime, long endTime) throws Exception {
         Set<UUID> uuids = new HashSet<>();
-        StringBuilder query = new StringBuilder("SELECT uuid FROM ").append(ConfigHandler.prefix).append("entity_spawn WHERE removed=0 AND current_wid=? AND x>=? AND x<? AND z>=? AND z<?");
-        if (startTime > 0) {
-            query.append(" AND time>?");
-        }
-        if (endTime > 0) {
-            query.append(" AND time<=?");
-        }
-        long minX = Math.floorDiv(radius[1].longValue(), 16L) * 16L;
-        long maxX = (Math.floorDiv(radius[2].longValue(), 16L) + 1L) * 16L;
-        long minZ = Math.floorDiv(radius[5].longValue(), 16L) * 16L;
-        long maxZ = (Math.floorDiv(radius[6].longValue(), 16L) + 1L) * 16L;
-
-        try (PreparedStatement statement = connection.prepareStatement(query.toString())) {
-            statement.setInt(1, WorldUtils.getWorldId(location.getWorld().getName()));
-            statement.setLong(2, minX);
-            statement.setLong(3, maxX);
-            statement.setLong(4, minZ);
-            statement.setLong(5, maxZ);
-            int parameterIndex = 6;
-            if (startTime > 0) {
-                statement.setLong(parameterIndex++, startTime);
-            }
-            if (endTime > 0) {
-                statement.setLong(parameterIndex, endTime);
-            }
-            try (ResultSet resultSet = statement.executeQuery()) {
-                while (resultSet.next()) {
-                    uuids.add(UUID.fromString(resultSet.getString("uuid")));
-                }
-            }
-        }
+        readChunkRows(connection, "uuid", true, location, radius, startTime, endTime,
+                row -> uuids.add(UUID.fromString(row.getString("uuid"))));
         return uuids;
     }
 
@@ -204,43 +164,13 @@ public final class EntitySpawnStatement {
 
         Map<UUID, EntityLookupContext.Row> rows = new LinkedHashMap<>();
         Set<UUID> databaseCandidates = new HashSet<>();
-        StringBuilder query = new StringBuilder("SELECT rowid AS id,block_rowid,time,uuid,current_wid,x,y,z,removed FROM ")
-                .append(ConfigHandler.prefix)
-                .append("entity_spawn WHERE current_wid=? AND x>=? AND x<? AND z>=? AND z<?");
-        if (startTime > 0L) {
-            query.append(" AND time>?");
-        }
-        if (endTime > 0L) {
-            query.append(" AND time<=?");
-        }
-
-        long minimumX = Math.floorDiv(radius[1].longValue(), 16L) * 16L;
-        long maximumX = (Math.floorDiv(radius[2].longValue(), 16L) + 1L) * 16L;
-        long minimumZ = Math.floorDiv(radius[5].longValue(), 16L) * 16L;
-        long maximumZ = (Math.floorDiv(radius[6].longValue(), 16L) + 1L) * 16L;
-        try (PreparedStatement statement = connection.prepareStatement(query.toString())) {
-            statement.setInt(1, WorldUtils.getWorldId(location.getWorld().getName()));
-            statement.setLong(2, minimumX);
-            statement.setLong(3, maximumX);
-            statement.setLong(4, minimumZ);
-            statement.setLong(5, maximumZ);
-            int parameterIndex = 6;
-            if (startTime > 0L) {
-                statement.setLong(parameterIndex++, startTime);
+        readChunkRows(connection, LOOKUP_COLUMNS + ",removed", false, location, radius, startTime, endTime, resultSet -> {
+            EntityLookupContext.Row row = lookupRow(resultSet);
+            rows.put(row.getUuid(), row);
+            if (resultSet.getInt("removed") == 0) {
+                databaseCandidates.add(row.getUuid());
             }
-            if (endTime > 0L) {
-                statement.setLong(parameterIndex, endTime);
-            }
-            try (ResultSet resultSet = statement.executeQuery()) {
-                while (resultSet.next()) {
-                    EntityLookupContext.Row row = lookupRow(resultSet);
-                    rows.put(row.getUuid(), row);
-                    if (resultSet.getInt("removed") == 0) {
-                        databaseCandidates.add(row.getUuid());
-                    }
-                }
-            }
-        }
+        });
 
         EntitySpawnTracking.LoadedEntityRadius loadedEntities = EntitySpawnTracking.findLoadedEntities(location, radius, databaseCandidates);
         Set<UUID> missing = new HashSet<>(loadedEntities.getInside());
@@ -253,27 +183,46 @@ public final class EntitySpawnStatement {
         return EntityLookupContext.reusable(loadedEntities.getInside(), loadedEntities.getLoadedCandidates(), rows.values());
     }
 
+    private static void readChunkRows(Connection connection, String columns, boolean activeOnly, Location location, Integer[] radius, long startTime,
+            long endTime, StatementBatches.RowReader read) throws Exception {
+        StringBuilder query = new StringBuilder("SELECT ").append(columns).append(" FROM ").append(ConfigHandler.prefix)
+                .append("entity_spawn WHERE current_wid=? AND x>=? AND x<? AND z>=? AND z<?");
+        if (activeOnly) {
+            query.append(" AND removed=0");
+        }
+        if (startTime > 0L) {
+            query.append(" AND time>?");
+        }
+        if (endTime > 0L) {
+            query.append(" AND time<=?");
+        }
+
+        try (PreparedStatement statement = connection.prepareStatement(query.toString())) {
+            statement.setInt(1, WorldUtils.getWorldId(location.getWorld().getName()));
+            statement.setLong(2, chunkStart(radius[1]));
+            statement.setLong(3, chunkStart(radius[2]) + 16L);
+            statement.setLong(4, chunkStart(radius[5]));
+            statement.setLong(5, chunkStart(radius[6]) + 16L);
+            int parameterIndex = 6;
+            if (startTime > 0L) {
+                statement.setLong(parameterIndex++, startTime);
+            }
+            if (endTime > 0L) {
+                statement.setLong(parameterIndex, endTime);
+            }
+            StatementBatches.readRows(statement, read);
+        }
+    }
+
+    private static long chunkStart(int coordinate) {
+        return Math.floorDiv((long) coordinate, 16L) * 16L;
+    }
+
     private static List<EntityLookupContext.Row> loadLookupRows(Connection connection, Collection<UUID> uuids) throws SQLException {
         List<EntityLookupContext.Row> rows = new ArrayList<>();
-        List<UUID> values = new ArrayList<>(uuids);
-        for (int offset = 0; offset < values.size(); offset += SELECT_BATCH_SIZE) {
-            int end = Math.min(offset + SELECT_BATCH_SIZE, values.size());
-            StringJoiner placeholders = new StringJoiner(",");
-            for (int index = offset; index < end; index++) {
-                placeholders.add("?");
-            }
-            String query = "SELECT rowid AS id,block_rowid,time,uuid,current_wid,x,y,z FROM " + ConfigHandler.prefix + "entity_spawn WHERE uuid IN(" + placeholders + ")";
-            try (PreparedStatement statement = connection.prepareStatement(query)) {
-                for (int index = offset; index < end; index++) {
-                    statement.setString(index - offset + 1, values.get(index).toString());
-                }
-                try (ResultSet resultSet = statement.executeQuery()) {
-                    while (resultSet.next()) {
-                        rows.add(lookupRow(resultSet));
-                    }
-                }
-            }
-        }
+        String query = "SELECT " + LOOKUP_COLUMNS + " FROM " + ConfigHandler.prefix + "entity_spawn WHERE uuid";
+        StatementBatches.selectIn(connection, query, uuids, (statement, index, uuid) -> statement.setString(index, uuid.toString()),
+                row -> rows.add(lookupRow(row)));
         return rows;
     }
 
@@ -302,70 +251,6 @@ public final class EntitySpawnStatement {
     private static Double nullableDouble(ResultSet resultSet, String column) throws SQLException {
         double value = resultSet.getDouble(column);
         return resultSet.wasNull() ? null : value;
-    }
-
-    private static void loadRecordBatch(Connection connection, List<Integer> ids, Map<Integer, EntitySpawnRecord> records, boolean byKillRowId) throws SQLException {
-        loadRecordBatch(connection, ids, records, byKillRowId, !byKillRowId);
-    }
-
-    private static void loadRecordBatch(Connection connection, List<Integer> ids, Map<Integer, EntitySpawnRecord> records, boolean byKillRowId, boolean includeState) throws SQLException {
-        StringJoiner placeholders = new StringJoiner(",");
-        for (int ignored : ids) {
-            placeholders.add("?");
-        }
-
-        String keyColumn = byKillRowId ? "kill_rowid" : "rowid";
-        String columns = "rowid AS id,kill_rowid,uuid,wid,origin_x,origin_y,origin_z,current_wid,x,y,z,yaw,pitch,removed" + (includeState ? ",data" : "");
-        String query = "SELECT " + columns + " FROM " + ConfigHandler.prefix + "entity_spawn WHERE " + keyColumn + " IN(" + placeholders + ")";
-        try (PreparedStatement statement = connection.prepareStatement(query)) {
-            for (int index = 0; index < ids.size(); index++) {
-                statement.setInt(index + 1, ids.get(index));
-            }
-
-            try (ResultSet resultSet = statement.executeQuery()) {
-                while (resultSet.next()) {
-                    int rowId = resultSet.getInt("id");
-                    int killRowId = resultSet.getInt("kill_rowid");
-                    List<Object> state = null;
-                    if (includeState) {
-                        state = EntityStatement.readData(resultSet, "data", Kind.ENTITY_SPAWN);
-                        if (state != null && state.size() < 4) {
-                            state = null;
-                        }
-                    }
-                    EntitySpawnRecord record = new EntitySpawnRecord(rowId, killRowId, UUID.fromString(resultSet.getString("uuid")), resultSet.getInt("wid"), resultSet.getDouble("origin_x"), resultSet.getDouble("origin_y"), resultSet.getDouble("origin_z"), resultSet.getInt("current_wid"), resultSet.getDouble("x"), resultSet.getDouble("y"), resultSet.getDouble("z"), resultSet.getFloat("yaw"), resultSet.getFloat("pitch"), resultSet.getInt("removed") == 1, state);
-                    records.put(byKillRowId ? killRowId : rowId, record);
-                }
-            }
-        }
-    }
-
-    private static List<EntitySpawnIdentity> loadIdentityBatch(Connection connection, List<?> ids, boolean byRowId) throws SQLException {
-        StringJoiner placeholders = new StringJoiner(",");
-        for (int ignored = 0; ignored < ids.size(); ignored++) {
-            placeholders.add("?");
-        }
-
-        String keyColumn = byRowId ? "rowid" : "uuid";
-        String query = "SELECT rowid AS id,uuid,wid,origin_x,origin_y,origin_z,block_rowid FROM " + ConfigHandler.prefix + "entity_spawn WHERE " + keyColumn + " IN(" + placeholders + ")";
-        try (PreparedStatement statement = connection.prepareStatement(query)) {
-            for (int index = 0; index < ids.size(); index++) {
-                if (byRowId) {
-                    statement.setInt(index + 1, (Integer) ids.get(index));
-                }
-                else {
-                    statement.setString(index + 1, ids.get(index).toString());
-                }
-            }
-
-            List<EntitySpawnIdentity> identities = new ArrayList<>();
-            try (ResultSet resultSet = statement.executeQuery()) {
-                while (resultSet.next()) {
-                    identities.add(new EntitySpawnIdentity(resultSet.getInt("id"), UUID.fromString(resultSet.getString("uuid")), resultSet.getInt("wid"), resultSet.getDouble("origin_x"), resultSet.getDouble("origin_y"), resultSet.getDouble("origin_z"), resultSet.getObject("block_rowid") != null));
-                }
-            }
-            return identities;
-        }
     }
 
     public static final class Updates implements ConsumerEntitySpawnUpdates {
@@ -489,28 +374,13 @@ public final class EntitySpawnStatement {
                         }
                         break;
                     case ROLLBACK:
-                        applyRollback(data);
-                        break;
                     case RESTORE:
-                        applyRestore(data);
-                        break;
                     case KILL_ROLLBACK:
-                        applyKillRollback(data);
-                        break;
                     case KILL_RESTORE:
-                        applyKillRestore(data);
-                        break;
                     case COMPOSITE_ROLLBACK:
-                        applyCompositeRollback(data);
-                        break;
                     case COMPOSITE_RESTORE:
-                        applyCompositeRestore(data);
-                        break;
                     case CLAIM_RELEASE:
-                        if (!trackingRowExists(data.getTrackingRowId())) {
-                            throw new PermanentTransitionException("Missing entity spawn tracking row for claim release");
-                        }
-                        coordinator.transitionApplied(data.getTrackingRowId());
+                        applyTransition(data);
                         break;
                     default:
                         break;
@@ -538,7 +408,7 @@ public final class EntitySpawnStatement {
             coordinator.beginCombined(update);
             try {
                 Database.executeSavepoint(transitionStatement, "entity_container_transition", () -> {
-                    applyCombinedTransition(data);
+                    applyTransition(data);
                     rowUpdate.execute();
                 });
                 coordinator.combinedApplied(trackingRowId);
@@ -560,7 +430,7 @@ public final class EntitySpawnStatement {
             coordinator.entityFound(uuid);
         }
 
-        private void applyCombinedTransition(EntitySpawnData data) throws Exception {
+        private void applyTransition(EntitySpawnData data) throws Exception {
             switch (data.getOperation()) {
                 case ROLLBACK:
                     applyRollback(data);

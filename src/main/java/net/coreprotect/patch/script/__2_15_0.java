@@ -24,7 +24,7 @@ public class __2_15_0 {
             String preparedQuery = "UPDATE " + ConfigHandler.prefix + "material_map SET material = ? WHERE rowid = ?";
             PreparedStatement preparedStatement = statement.getConnection().prepareStatement(preparedQuery);
 
-            Database.beginTransaction(statement, Config.getGlobal().MYSQL);
+            Database.beginTransaction(statement, ConfigHandler.databaseType);
             ResultSet rs = statement.executeQuery(query);
             while (rs.next()) {
                 int rowid = rs.getInt("id");
@@ -37,7 +37,7 @@ public class __2_15_0 {
                 }
             }
             rs.close();
-            Database.commitTransaction(statement, Config.getGlobal().MYSQL);
+            Database.commitTransaction(statement, ConfigHandler.databaseType);
 
             try {
                 if (Config.getGlobal().MYSQL) {

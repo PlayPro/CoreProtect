@@ -58,7 +58,6 @@ public class Database extends Queue {
     public static final int ENTITY_MAP = 11;
     public static final int BLOCKDATA = 12;
     public static final int ITEM = 13;
-    public static final int ENTITY_SPAWN = 14;
     public static final int ENTITY_CONTAINER = 15;
     public static final int ENTITY_INTERACTION = 16;
 
@@ -95,11 +94,11 @@ public class Database extends Queue {
         SQL_QUERIES.put(ART, "INSERT INTO %sprefix%art_map (id, art) VALUES (?, ?)");
         SQL_QUERIES.put(ENTITY_MAP, "INSERT INTO %sprefix%entity_map (id, entity) VALUES (?, ?)");
         SQL_QUERIES.put(BLOCKDATA, "INSERT INTO %sprefix%blockdata_map (id, data) VALUES (?, ?)");
-        SQL_QUERIES.put(ENTITY_SPAWN, "INSERT INTO %sprefix%entity_spawn (time, uuid, wid, current_wid, origin_x, origin_y, origin_z, x, y, z, yaw, pitch, data, removed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         SQL_QUERIES.put(ENTITY_CONTAINER, "INSERT INTO %sprefix%entity_container (time, %user%, entity_spawn_rowid, wid, x, y, z, type, data, amount, metadata, action, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         SQL_QUERIES.put(ENTITY_INTERACTION, "INSERT INTO %sprefix%entity_interaction (time, %user%, entity_spawn_rowid, wid, x, y, z, type, action, metadata, rolled_back) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     }
 
+    @Deprecated
     public static void beginTransaction(Statement statement, boolean isMySQL) throws SQLException {
         beginTransaction(statement, isMySQL ? DatabaseType.MYSQL : DatabaseType.SQLITE);
     }
@@ -132,8 +131,12 @@ public class Database extends Queue {
         }
     }
 
+    @Deprecated
     public static void commitTransaction(Statement statement, boolean isMySQL) throws TransactionCommitException {
-        DatabaseType databaseType = isMySQL ? DatabaseType.MYSQL : DatabaseType.SQLITE;
+        commitTransaction(statement, isMySQL ? DatabaseType.MYSQL : DatabaseType.SQLITE);
+    }
+
+    public static void commitTransaction(Statement statement, DatabaseType databaseType) throws TransactionCommitException {
         boolean rollbackOnly = isTransactionRollbackOnly();
         Exception failure = null;
         try {
@@ -145,7 +148,7 @@ public class Database extends Queue {
             failure = exception;
         }
         try {
-            if (!rollbackOnly) {
+            if (!rollbackOnly && !databaseType.isClickHouse()) {
                 rollbackTransaction(statement, databaseType);
             }
         }
@@ -157,6 +160,7 @@ public class Database extends Queue {
         throw new TransactionCommitException(failure);
     }
 
+    @Deprecated
     public static boolean commitTransactionChecked(Statement statement, boolean isMySQL) throws SQLException, InterruptedException {
         return commitTransactionChecked(statement, isMySQL ? DatabaseType.MYSQL : DatabaseType.SQLITE);
     }
@@ -222,6 +226,7 @@ public class Database extends Queue {
         }
     }
 
+    @Deprecated
     public static boolean rollbackTransaction(Statement statement, boolean isMySQL) {
         return rollbackTransaction(statement, isMySQL ? DatabaseType.MYSQL : DatabaseType.SQLITE);
     }
@@ -321,10 +326,9 @@ public class Database extends Queue {
         }
     }
 
+    @Deprecated
     public static void performCheckpoint(Statement statement, boolean isMySQL) throws SQLException {
-        if (!isMySQL) {
-            statement.executeUpdate("PRAGMA wal_checkpoint(TRUNCATE)");
-        }
+        performCheckpoint(statement, isMySQL ? DatabaseType.MYSQL : DatabaseType.SQLITE);
     }
 
     public static void performCheckpoint(Statement statement, DatabaseType databaseType) throws SQLException {

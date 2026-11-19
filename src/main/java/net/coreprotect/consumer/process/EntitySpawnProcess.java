@@ -18,7 +18,7 @@ class EntitySpawnProcess {
             BlockState block = (BlockState) ((Object[]) object)[0];
             Object recordedType = ((Object[]) object)[1];
             String query = "SELECT data FROM " + ConfigHandler.prefix + "entity WHERE rowid=" + rowId + " LIMIT 1 OFFSET 0";
-            List<Object> data = EntityStatement.getData(statement, block, query);
+            List<Object> data = EntityStatement.getData(statement, query);
             if (recordedType instanceof Integer) {
                 int typeId = (Integer) recordedType;
                 EntityUtil.spawnEntity(block, EntitySpawnTracking.resolveKillType(typeId, data), data, Integer.toString(typeId));

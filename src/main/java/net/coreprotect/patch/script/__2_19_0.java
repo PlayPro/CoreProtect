@@ -144,7 +144,7 @@ public class __2_19_0 {
             String preparedQueryUpdate = "UPDATE " + ConfigHandler.prefix + "sign SET action = 1 WHERE rowid = ?";
             PreparedStatement preparedSignStatement = statement.getConnection().prepareStatement(preparedSignQuery);
             PreparedStatement preparedStatementUpdate = statement.getConnection().prepareStatement(preparedQueryUpdate);
-            Database.beginTransaction(statement, Config.getGlobal().MYSQL);
+            Database.beginTransaction(statement, ConfigHandler.databaseType);
 
             ResultSet resultSet = statement.executeQuery(blockQuery);
             while (resultSet.next()) {
@@ -167,7 +167,7 @@ public class __2_19_0 {
             preparedSignStatement.close();
             preparedStatementUpdate.close();
 
-            Database.commitTransaction(statement, Config.getGlobal().MYSQL);
+            Database.commitTransaction(statement, ConfigHandler.databaseType);
         }
         catch (Database.TransactionCommitException e) {
             ErrorReporter.report(e);

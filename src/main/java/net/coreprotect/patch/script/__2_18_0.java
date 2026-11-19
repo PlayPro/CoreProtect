@@ -59,7 +59,7 @@ public class __2_18_0 {
                 PreparedStatement preparedContainerStatement = statement.getConnection().prepareStatement(preparedContainerQuery);
                 PreparedStatement preparedContainerUpdateStatement = statement.getConnection().prepareStatement(preparedContainerUpdateQuery);
                 PreparedStatement preparedMaterialDeleteStatement = statement.getConnection().prepareStatement(preparedMaterialDeleteQuery);
-                Database.beginTransaction(statement, Config.getGlobal().MYSQL);
+                Database.beginTransaction(statement, ConfigHandler.databaseType);
                 try {
                     ResultSet resultSet = statement.executeQuery(query);
                     while (resultSet.next()) {
@@ -165,7 +165,7 @@ public class __2_18_0 {
                 catch (Exception e) {
                     ErrorReporter.report(e);
                 }
-                Database.commitTransaction(statement, Config.getGlobal().MYSQL);
+                Database.commitTransaction(statement, ConfigHandler.databaseType);
 
                 preparedBlockStatement.close();
                 preparedBlockUpdateStatement.close();

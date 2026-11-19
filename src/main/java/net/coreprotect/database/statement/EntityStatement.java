@@ -12,10 +12,8 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.StringJoiner;
 
 import org.bukkit.attribute.Attribute;
-import org.bukkit.block.BlockState;
 import org.bukkit.util.io.BukkitObjectOutputStream;
 
 import net.coreprotect.bukkit.BukkitAdapter;
@@ -29,8 +27,6 @@ import net.coreprotect.utility.serialize.EntityDataCodec;
 import net.coreprotect.utility.serialize.EntityDataCodec.Kind;
 
 public class EntityStatement {
-
-    private static final int SELECT_BATCH_SIZE = 500;
 
     private EntityStatement() {
         throw new IllegalStateException("Database class");
@@ -134,7 +130,7 @@ public class EntityStatement {
         return value;
     }
 
-    public static List<Object> getData(Statement statement, BlockState block, String query) {
+    public static List<Object> getData(Statement statement, String query) {
         List<Object> result = new ArrayList<>();
 
         try (ResultSet resultSet = statement.executeQuery(query)) {
@@ -151,33 +147,13 @@ public class EntityStatement {
 
     public static Map<Integer, List<Object>> loadData(Connection connection, Collection<Integer> rowIds) throws SQLException {
         Map<Integer, List<Object>> result = new HashMap<>();
-        if (rowIds.isEmpty()) {
-            return result;
-        }
-
-        List<Integer> ids = new ArrayList<>(rowIds);
-        for (int offset = 0; offset < ids.size(); offset += SELECT_BATCH_SIZE) {
-            int end = Math.min(offset + SELECT_BATCH_SIZE, ids.size());
-            StringJoiner placeholders = new StringJoiner(",");
-            for (int ignored = offset; ignored < end; ignored++) {
-                placeholders.add("?");
+        String query = "SELECT rowid AS id,data FROM " + ConfigHandler.prefix + "entity WHERE rowid";
+        StatementBatches.selectIn(connection, query, rowIds, PreparedStatement::setInt, row -> {
+            List<Object> data = readData(row, "data", Kind.ENTITY);
+            if (!data.isEmpty()) {
+                result.put(row.getInt("id"), data);
             }
-
-            String query = "SELECT rowid AS id,data FROM " + ConfigHandler.prefix + "entity WHERE rowid IN(" + placeholders + ")";
-            try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
-                for (int index = offset; index < end; index++) {
-                    preparedStatement.setInt(index - offset + 1, ids.get(index));
-                }
-                try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                    while (resultSet.next()) {
-                        List<Object> data = readData(resultSet, "data", Kind.ENTITY);
-                        if (!data.isEmpty()) {
-                            result.put(resultSet.getInt("id"), data);
-                        }
-                    }
-                }
-            }
-        }
+        });
         return result;
     }
 

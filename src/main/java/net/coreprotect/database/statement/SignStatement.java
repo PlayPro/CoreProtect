@@ -39,7 +39,7 @@ public class SignStatement {
         String query = "SELECT rowid, time, color, color_secondary, data, waxed, line_1, line_2, line_3, line_4, line_5, line_6, line_7, line_8 FROM "
                 + ConfigHandler.prefix + "sign WHERE " + ConfigHandler.databaseType.getUserColumn() + "=? AND "
                 + LocationQuery.predicate("wid", "=?") + " AND " + LocationQuery.predicate("x", "=?") + " AND y=? AND "
-                + LocationQuery.predicate("z", "=?") + " AND time" + comparison + "? AND face=? ORDER BY " + order + " LIMIT 1";
+                + LocationQuery.predicate("z", "=?") + " AND time" + comparison + "? AND COALESCE(face,0)=? ORDER BY " + order + " LIMIT 1";
         try (PreparedStatement statement = connection.prepareStatement(query)) {
             statement.setInt(1, actor);
             statement.setInt(2, world);
@@ -101,7 +101,7 @@ public class SignStatement {
                         .append(ConfigHandler.prefix).append("sign WHERE ").append(LocationQuery.predicate("wid", "=" + row[10]))
                         .append(" AND ").append(LocationQuery.predicate("x", "=" + row[3])).append(" AND y=").append(row[4])
                         .append(" AND ").append(LocationQuery.predicate("z", "=" + row[5]))
-                        .append(" AND face=").append(((SignRollbackChange) row[14]).isFront() ? 0 : 1)
+                        .append(" AND COALESCE(face,0)=").append(((SignRollbackChange) row[14]).isFront() ? 0 : 1)
                         .append(" AND rowid<").append(id).append(" ORDER BY rowid DESC LIMIT 1) previous_sign");
             }
             try (ResultSet result = statement.executeQuery(query.toString())) {

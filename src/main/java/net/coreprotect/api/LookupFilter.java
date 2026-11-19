@@ -63,7 +63,7 @@ final class LookupFilter {
         Integer userId = MessageAPI.getUserId(connection, options.getUser());
         int checkTime = 0;
         if (options.getTime() > 0) {
-            checkTime = (int) (System.currentTimeMillis() / 1000L) - options.getTime();
+            checkTime = MessageAPI.clampToInt(Math.max(0L, System.currentTimeMillis() / 1000L - options.getTime()));
         }
 
         Map<Integer, Material> materialTypes = new HashMap<>();

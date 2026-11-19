@@ -24,6 +24,7 @@ import org.bukkit.plugin.Plugin;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.utility.SkullProfileUtils;
 
 public class PaperAdapter implements PaperInterface {
 
@@ -175,6 +176,11 @@ public class PaperAdapter implements PaperInterface {
 
     @Override
     public String getSkullOwner(Skull skull) {
+        String owner = BukkitAdapter.ADAPTER == null ? null : BukkitAdapter.ADAPTER.getSkullProfileOwner(skull);
+        if (owner != null) {
+            return owner;
+        }
+
         OfflinePlayer player = skull.getOwningPlayer();
         if (player == null || player.getUniqueId() == null) {
             return null;
@@ -185,19 +191,25 @@ public class PaperAdapter implements PaperInterface {
 
     @Override
     public void setSkullOwner(Skull skull, String owner) {
-        if (owner != null && owner.length() >= 32 && owner.contains("-")) {
-            skull.setOwningPlayer(Bukkit.getOfflinePlayer(UUID.fromString(owner)));
+        UUID uuid = SkullProfileUtils.parseOwnerUuid(owner);
+        if (uuid != null) {
+            skull.setOwningPlayer(Bukkit.getOfflinePlayer(uuid));
+        }
+        else if (BukkitAdapter.ADAPTER != null && SkullProfileUtils.isOwnerName(owner)) {
+            BukkitAdapter.ADAPTER.setSkullProfileOwner(skull, owner);
         }
     }
 
     @Override
     public String getSkullSkin(Skull skull) {
-        return null;
+        return BukkitAdapter.ADAPTER == null ? null : BukkitAdapter.ADAPTER.getSkullSkin(skull);
     }
 
     @Override
     public void setSkullSkin(Skull skull, String skin) {
-        return;
+        if (BukkitAdapter.ADAPTER != null) {
+            BukkitAdapter.ADAPTER.setSkullSkin(skull, skin);
+        }
     }
 
     @Override

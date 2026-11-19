@@ -29,17 +29,15 @@ public class SkullStatement {
     }
 
     public static void getData(Statement statement, BlockState block, String query) {
-        try {
-            if (!(block instanceof Skull)) {
-                return;
-            }
+        if (!(block instanceof Skull)) {
+            return;
+        }
 
-            Skull skull = (Skull) block;
-            ResultSet resultSet = statement.executeQuery(query);
-
+        Skull skull = (Skull) block;
+        try (ResultSet resultSet = statement.executeQuery(query)) {
             while (resultSet.next()) {
                 String owner = resultSet.getString("owner");
-                if (owner != null && owner.length() > 1) {
+                if (owner != null && !owner.isEmpty()) {
                     PaperAdapter.ADAPTER.setSkullOwner(skull, owner);
                 }
 
@@ -48,8 +46,6 @@ public class SkullStatement {
                     PaperAdapter.ADAPTER.setSkullSkin(skull, skin);
                 }
             }
-
-            resultSet.close();
         }
         catch (Exception e) {
             ErrorReporter.report(e);

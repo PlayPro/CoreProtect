@@ -1,7 +1,16 @@
 package net.coreprotect.bukkit;
 
+import java.net.URL;
+import java.util.UUID;
+
+import org.bukkit.Bukkit;
+import org.bukkit.block.Skull;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
+import org.bukkit.profile.PlayerProfile;
+import org.bukkit.profile.PlayerTextures;
+
+import net.coreprotect.utility.SkullProfileUtils;
 
 /**
  * Bukkit adapter implementation for Minecraft 1.18.
@@ -11,6 +20,7 @@ import org.bukkit.inventory.MerchantRecipe;
 public class Bukkit_v1_18 extends Bukkit_v1_17 {
 
     private static final boolean HAS_RECIPE_ADJUST = hasPublicMethod(MerchantRecipe.class, "adjust", ItemStack.class);
+    private static final boolean HAS_SKULL_PROFILES = hasPublicMethod(Skull.class, "getOwnerProfile");
 
     protected static boolean hasPublicMethod(Class<?> type, String name, Class<?>... parameters) {
         try {
@@ -45,6 +55,86 @@ public class Bukkit_v1_18 extends Bukkit_v1_17 {
         }
         catch (RuntimeException e) {
             return super.adjustIngredient(recipe, itemStack);
+        }
+    }
+
+    @Override
+    public String getSkullProfileOwner(Skull skull) {
+        return HAS_SKULL_PROFILES ? SkullProfiles.getOwner(skull) : null;
+    }
+
+    @Override
+    public void setSkullProfileOwner(Skull skull, String name) {
+        if (HAS_SKULL_PROFILES && SkullProfileUtils.isOwnerName(name)) {
+            SkullProfiles.setOwner(skull, name);
+        }
+    }
+
+    @Override
+    public String getSkullSkin(Skull skull) {
+        return HAS_SKULL_PROFILES ? SkullProfiles.getSkin(skull) : null;
+    }
+
+    @Override
+    public void setSkullSkin(Skull skull, String skin) {
+        if (HAS_SKULL_PROFILES) {
+            SkullProfiles.setSkin(skull, skin);
+        }
+    }
+
+    private static final class SkullProfiles {
+        private static PlayerProfile getProfile(Skull skull) {
+            try {
+                return skull.getOwnerProfile();
+            }
+            catch (IllegalArgumentException e) {
+                return null;
+            }
+        }
+
+        private static String getOwner(Skull skull) {
+            PlayerProfile profile = getProfile(skull);
+            if (profile == null) {
+                return null;
+            }
+
+            UUID uuid = profile.getUniqueId();
+            return uuid == null ? profile.getName() : uuid.toString();
+        }
+
+        private static void setOwner(Skull skull, String name) {
+            try {
+                skull.setOwnerProfile(Bukkit.createPlayerProfile(name));
+            }
+            catch (IllegalArgumentException ignored) {
+            }
+        }
+
+        private static String getSkin(Skull skull) {
+            PlayerProfile profile = getProfile(skull);
+            URL skin = profile == null ? null : profile.getTextures().getSkin();
+            return skin == null ? null : skin.toString();
+        }
+
+        private static void setSkin(Skull skull, String skin) {
+            URL url = SkullProfileUtils.getSkinUrl(skin);
+            if (url == null) {
+                return;
+            }
+
+            try {
+                PlayerProfile profile = getProfile(skull);
+                if (profile == null || (profile.getUniqueId() == null && !SkullProfileUtils.isOwnerName(profile.getName()))) {
+                    profile = Bukkit.createPlayerProfile(UUID.randomUUID());
+                }
+
+                PlayerTextures textures = profile.getTextures();
+                textures.setSkin(url);
+                profile.setTextures(textures);
+                skull.setOwnerProfile(profile);
+            }
+            catch (IllegalArgumentException ignored) {
+            }
         }
     }
 }

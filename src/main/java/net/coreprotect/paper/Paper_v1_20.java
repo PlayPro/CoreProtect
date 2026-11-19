@@ -1,6 +1,5 @@
 package net.coreprotect.paper;
 
-import java.net.URI;
 import java.net.URL;
 import java.util.UUID;
 
@@ -15,6 +14,7 @@ import com.destroystokyo.paper.profile.PlayerProfile;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.SkullProfileUtils;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 public class Paper_v1_20 extends Paper_v1_19 {
@@ -77,15 +77,16 @@ public class Paper_v1_20 extends Paper_v1_19 {
 
     @Override
     public void setSkullOwner(Skull skull, String owner) {
-        if (owner == null || owner.length() == 0) {
+        UUID uuid = SkullProfileUtils.parseOwnerUuid(owner);
+        if (uuid == null && !SkullProfileUtils.isOwnerName(owner)) {
             return;
         }
 
-        if (owner.length() >= 32 && owner.contains("-")) {
-            skull.setPlayerProfile(Bukkit.createProfile(UUID.fromString(owner)));
+        try {
+            PlayerProfile profile = uuid == null ? Bukkit.createProfile(owner) : Bukkit.createProfile(uuid);
+            skull.setPlayerProfile(profile);
         }
-        else {
-            skull.setPlayerProfile(Bukkit.createProfile(owner));
+        catch (IllegalArgumentException ignored) {
         }
     }
 
@@ -107,11 +108,7 @@ public class Paper_v1_20 extends Paper_v1_19 {
     @Override
     public void setSkullSkin(Skull skull, String skin) {
         try {
-            if (skin == null || skin.length() == 0) {
-                return;
-            }
-
-            String skinUrl = SkullSkin.getSkinUrl(skin);
+            URL skinUrl = SkullProfileUtils.getSkinUrl(skin);
             if (skinUrl == null) {
                 return;
             }
@@ -122,7 +119,7 @@ public class Paper_v1_20 extends Paper_v1_19 {
             }
 
             PlayerTextures textures = playerProfile.getTextures();
-            textures.setSkin(URI.create(skinUrl).toURL());
+            textures.setSkin(skinUrl);
             playerProfile.setTextures(textures);
             skull.setPlayerProfile(playerProfile);
         }

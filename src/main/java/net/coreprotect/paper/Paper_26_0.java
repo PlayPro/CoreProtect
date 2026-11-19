@@ -1,5 +1,6 @@
 package net.coreprotect.paper;
 
+import java.net.URL;
 import java.util.UUID;
 
 import org.bukkit.block.Skull;
@@ -9,6 +10,7 @@ import com.destroystokyo.paper.profile.ProfileProperty;
 import io.papermc.paper.datacomponent.item.ResolvableProfile;
 import net.coreprotect.config.Config;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.SkullProfileUtils;
 
 public class Paper_26_0 extends Paper_v1_20 {
 
@@ -34,19 +36,16 @@ public class Paper_26_0 extends Paper_v1_20 {
 
     @Override
     public void setSkullOwner(Skull skull, String owner) {
-        if (owner == null || owner.length() == 0) {
+        UUID uuid = SkullProfileUtils.parseOwnerUuid(owner);
+        if (uuid == null && !SkullProfileUtils.isOwnerName(owner)) {
             return;
         }
 
         ResolvableProfile.Builder builder = copyProfile(skull.getProfile(), true);
-        if (owner.length() >= 32 && owner.contains("-")) {
-            builder.uuid(UUID.fromString(owner));
+        if (uuid != null) {
+            builder.uuid(uuid);
         }
-        else if (owner.length() <= 16) {
-            builder.name(owner);
-        }
-        else {
-            super.setSkullOwner(skull, owner);
+        else if (!setProfileName(builder, owner)) {
             return;
         }
 
@@ -77,12 +76,12 @@ public class Paper_26_0 extends Paper_v1_20 {
 
             ProfileProperty property = SkullSkin.getTexturesProperty(skin);
             if (property == null) {
-                String skinUrl = SkullSkin.getSkinUrl(skin);
+                URL skinUrl = SkullProfileUtils.getSkinUrl(skin);
                 if (skinUrl == null) {
                     return;
                 }
 
-                property = new ProfileProperty("textures", SkullSkin.getTexturesPropertyValue(skinUrl));
+                property = new ProfileProperty("textures", SkullSkin.getTexturesPropertyValue(skinUrl.toString()));
             }
 
             ResolvableProfile.Builder builder = copyProfile(skull.getProfile(), false);
@@ -94,29 +93,43 @@ public class Paper_26_0 extends Paper_v1_20 {
         }
     }
 
-    private ResolvableProfile.Builder copyProfile(ResolvableProfile profile, boolean includeSkin) {
+    private ResolvableProfile.Builder copyProfile(ResolvableProfile profile, boolean replacingOwner) {
         ResolvableProfile.Builder builder = ResolvableProfile.resolvableProfile();
         if (profile == null) {
             return builder;
         }
 
-        if (profile.uuid() != null) {
-            builder.uuid(profile.uuid());
-        }
-        if (profile.name() != null) {
-            builder.name(profile.name());
+        if (!replacingOwner) {
+            if (profile.uuid() != null) {
+                builder.uuid(profile.uuid());
+            }
+            setProfileName(builder, profile.name());
         }
         if (profile.skinPatch() != null) {
             builder.skinPatch(profile.skinPatch());
         }
 
         for (ProfileProperty property : profile.properties()) {
-            if (includeSkin || !SkullSkin.isTexturesProperty(property)) {
+            if (replacingOwner || !SkullSkin.isTexturesProperty(property)) {
                 builder.addProperty(property);
             }
         }
 
         return builder;
+    }
+
+    private static boolean setProfileName(ResolvableProfile.Builder builder, String name) {
+        if (!SkullProfileUtils.isOwnerName(name)) {
+            return false;
+        }
+
+        try {
+            builder.name(name);
+            return true;
+        }
+        catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
 }

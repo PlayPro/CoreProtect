@@ -14,6 +14,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
+import org.bukkit.block.Skull;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
@@ -111,6 +112,20 @@ public interface BukkitInterface {
      * @return The block data, or null if unsupported/unavailable
      */
     BlockData createBlockDataFromString(String blockData);
+
+    default String getSkullProfileOwner(Skull skull) {
+        return null;
+    }
+
+    default void setSkullProfileOwner(Skull skull, String name) {
+    }
+
+    default String getSkullSkin(Skull skull) {
+        return null;
+    }
+
+    default void setSkullSkin(Skull skull, String skin) {
+    }
 
     // --------------------------------------------------------------------------
     // Material type checking methods

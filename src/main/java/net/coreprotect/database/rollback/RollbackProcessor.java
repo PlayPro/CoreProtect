@@ -48,6 +48,11 @@ public class RollbackProcessor {
         }
     }
 
+    private static boolean isEntityPlacementMaterial(Material material) {
+        return BukkitAdapter.ADAPTER.isItemFrame(material) || material == Material.PAINTING
+                || material == Material.ARMOR_STAND || material == Material.END_CRYSTAL;
+    }
+
     /**
      * Process data for a specific chunk
      * 
@@ -82,6 +87,10 @@ public class RollbackProcessor {
     public static boolean processChunk(int finalChunkX, int finalChunkZ, long chunkKey, ArrayList<Object[]> blockList, ArrayList<Object[]> itemList, int rollbackType, int preview, String finalUserString, Player finalUser, World bukkitRollbackWorld, boolean inventoryRollback, RollbackBlockDataCache blockDataCache, EntitySpawnRollbackHandler.Context inventoryContext, RollbackCounters counters) {
 
         try {
+            if (preview > 0 && finalUser == null) {
+                return true;
+            }
+
             boolean clearInventories = Config.getGlobal().ROLLBACK_ITEMS;
             ArrayList<Object[]> data = blockList != null ? blockList : new ArrayList<>();
             ArrayList<Object[]> itemData = itemList != null ? itemList : new ArrayList<>();
@@ -151,24 +160,18 @@ public class RollbackProcessor {
                     rowTypeRaw = 0;
                 }
                 if (preview > 0) {
-                    if (rowAction != 3) { // entity kill
+                    if (rowAction == LookupActions.ENTITY_KILL) {
+                        counters.addEntities(1);
+                    }
+                    else if (rowAction != LookupActions.ENTITY_SPAWN && !isEntityPlacementMaterial(oldTypeMaterial) && !isEntityPlacementMaterial(rowType)) {
                         Block block = bukkitRollbackWorld.getBlockAt(rowX, rowY, rowZ);
                         if (preview == 2) {
-                            Material blockType = block.getType();
-                            if (!BukkitAdapter.ADAPTER.isItemFrame(blockType) && !blockType.equals(Material.PAINTING) && !blockType.equals(Material.ARMOR_STAND) && !blockType.equals(Material.END_CRYSTAL)) {
-                                BlockUtils.prepareTypeAndData(chunkChanges, block, blockType, block.getBlockData(), true);
-                                counters.addBlocks(1);
-                            }
+                            BlockUtils.prepareTypeAndData(chunkChanges, block, block.getType(), block.getBlockData(), true);
                         }
                         else {
-                            if ((!BukkitAdapter.ADAPTER.isItemFrame(rowType)) && (rowType != Material.PAINTING) && (rowType != Material.ARMOR_STAND) && (rowType != Material.END_CRYSTAL)) {
-                                BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, true);
-                                counters.addBlocks(1);
-                            }
+                            BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, true);
                         }
-                    }
-                    else {
-                        counters.addEntities(1);
+                        counters.addBlocks(1);
                     }
                 }
                 else if (rowAction == 3) { // entity kill
@@ -196,7 +199,7 @@ public class RollbackProcessor {
                         countBlock = false;
                     }
 
-                    if ((rowType == pendingChangeType) && ((!BukkitAdapter.ADAPTER.isItemFrame(oldTypeMaterial)) && (oldTypeMaterial != Material.PAINTING) && (oldTypeMaterial != Material.ARMOR_STAND)) && (oldTypeMaterial != Material.END_CRYSTAL)) {
+                    if (rowType == pendingChangeType && !isEntityPlacementMaterial(oldTypeMaterial)) {
                         // block is already changed!
                         BlockData checkData = rowType == Material.AIR ? blockData : rawBlockData;
                         if (checkData != null) {

@@ -566,20 +566,18 @@ public class RollbackBlockHandler extends Queue {
      *            The user performing the rollback
      */
     public static void applyBlockChanges(Map<Block, PendingBlockChange> chunkChanges, int preview, Player user) {
-        if (preview == 0 || user == null) {
+        if (preview > 0) {
+            if (user != null) {
+                for (Entry<Block, PendingBlockChange> chunkChange : chunkChanges.entrySet()) {
+                    Util.sendBlockChange(user, chunkChange.getKey().getLocation(), chunkChange.getValue().blockData());
+                }
+            }
+        }
+        else {
             applyBlockChanges(chunkChanges, true, true);
             applyBlockChanges(chunkChanges, true, false);
             applyBlockChanges(chunkChanges, false, false);
             applyBlockChanges(chunkChanges, false, true);
-            chunkChanges.clear();
-            return;
-        }
-
-        for (Entry<Block, PendingBlockChange> chunkChange : chunkChanges.entrySet()) {
-            Block changeBlock = chunkChange.getKey();
-            PendingBlockChange change = chunkChange.getValue();
-            BlockData changeBlockData = change.blockData();
-            Util.sendBlockChange(user, changeBlock.getLocation(), changeBlockData);
         }
         chunkChanges.clear();
     }

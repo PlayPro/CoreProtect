@@ -1628,7 +1628,6 @@ public final class EntitySpawnRollbackHandler {
             }
             releaseClaim(value.record.getRowId());
             entities.addAndGet(count);
-            items.addAndGet(value.transactionItemCount);
             return true;
         }
 
@@ -1691,7 +1690,6 @@ public final class EntitySpawnRollbackHandler {
         private boolean transition(NoWorldTransition value) {
             if (preview > 0) {
                 entities.addAndGet(value.count);
-                items.addAndGet(value.transactionItemCount);
                 return true;
             }
             try {
@@ -1822,7 +1820,6 @@ public final class EntitySpawnRollbackHandler {
         private final List<Object> killData;
         private final List<Object[]> transactions;
         private final List<Object[]> appliedTransactions = new ArrayList<>();
-        private final int transactionItemCount;
         private final AtomicBoolean complete = new AtomicBoolean();
         private final AtomicInteger locationRetries = new AtomicInteger();
         private int transactionIndex;
@@ -1843,7 +1840,6 @@ public final class EntitySpawnRollbackHandler {
             this.location = location == null ? null : location.clone();
             this.killData = killData;
             this.transactions = new ArrayList<>(transactions);
-            this.transactionItemCount = itemCount(transactions);
         }
 
         private static Work spawnRemoval(long blockRowId, EntitySpawnRecord record, Location location, List<Object[]> transactions) {

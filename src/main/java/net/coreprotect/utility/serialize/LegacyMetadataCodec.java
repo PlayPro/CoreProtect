@@ -5,11 +5,14 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InvalidClassException;
+import java.io.ObjectInputFilter;
+import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.ObjectStreamClass;
 import java.io.ObjectStreamField;
 import java.io.OutputStream;
 import java.io.Serializable;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -19,6 +22,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.bukkit.configuration.serialization.ConfigurationSerializable;
 import org.bukkit.util.io.BukkitObjectInputStream;
@@ -28,6 +33,31 @@ final class LegacyMetadataCodec {
     private static final String WRAPPER_CLASS = "org.bukkit.util.io.Wrapper";
     private static final long WRAPPER_UID = -986209235411767547L;
     private static final String ALIAS_KEY = "==";
+    private static final long MAX_REFERENCES = 1_000_000;
+    private static final Set<Class<?>> SIMPLE_TYPES = Set.of(Object.class, String.class, Number.class, Boolean.class, Byte.class,
+            Short.class, Integer.class, Long.class, Float.class, Double.class, Character.class, Enum.class, UUID.class);
+    private static final Set<String> SIMPLE_TYPE_NAMES = SIMPLE_TYPES.stream().map(Class::getName).collect(Collectors.toUnmodifiableSet());
+    private static final Set<String> COLLECTION_TYPES = Set.of(
+            "java.util.ArrayList", "java.util.LinkedList", "java.util.Arrays$ArrayList",
+            "java.util.HashMap", "java.util.LinkedHashMap", "java.util.TreeMap", "java.util.EnumMap",
+            "java.util.HashSet", "java.util.LinkedHashSet", "java.util.TreeSet", "java.util.EnumSet",
+            "java.util.EnumSet$SerializationProxy", "java.util.RegularEnumSet", "java.util.JumboEnumSet", "java.util.Map$Entry",
+            "java.util.Collections$EmptyList", "java.util.Collections$EmptyMap", "java.util.Collections$EmptySet",
+            "java.util.Collections$SingletonList", "java.util.Collections$SingletonMap", "java.util.Collections$SingletonSet",
+            "java.util.Collections$UnmodifiableCollection", "java.util.Collections$UnmodifiableList",
+            "java.util.Collections$UnmodifiableRandomAccessList", "java.util.Collections$UnmodifiableMap", "java.util.Collections$UnmodifiableSet",
+            "java.util.Collections$UnmodifiableSortedMap", "java.util.Collections$UnmodifiableSortedSet",
+            "java.util.Collections$UnmodifiableNavigableMap", "java.util.Collections$UnmodifiableNavigableSet",
+            "java.util.Collections$ReverseComparator", "java.util.Comparators$NaturalOrderComparator",
+            "java.util.CollSer", "java.util.ImmutableCollections$List12", "java.util.ImmutableCollections$ListN",
+            "java.util.ImmutableCollections$Map1", "java.util.ImmutableCollections$MapN",
+            "java.util.ImmutableCollections$Set12", "java.util.ImmutableCollections$SetN",
+            "com.google.common.collect.ImmutableMap$SerializedForm", "com.google.common.collect.RegularImmutableMap",
+            "com.google.common.collect.ImmutableBiMap$SerializedForm", "com.google.common.collect.RegularImmutableBiMap",
+            "com.google.common.collect.SingletonImmutableBiMap", "com.google.common.collect.ImmutableList$SerializedForm",
+            "com.google.common.collect.RegularImmutableList", "com.google.common.collect.SingletonImmutableList",
+            "com.google.common.collect.ImmutableSet$SerializedForm", "com.google.common.collect.RegularImmutableSet",
+            "com.google.common.collect.SingletonImmutableSet");
 
     private LegacyMetadataCodec() {
         throw new IllegalStateException("Codec class");
@@ -158,6 +188,35 @@ final class LegacyMetadataCodec {
         }
     }
 
+    private static Class<? extends Enum<?>> registryEnum(String type) {
+        switch (type) {
+            case "org.bukkit.attribute.Attribute":
+                return AttributeValue.class;
+            case "org.bukkit.entity.Villager$Profession":
+                return VillagerProfessionValue.class;
+            case "org.bukkit.entity.Villager$Type":
+                return VillagerTypeValue.class;
+            case "org.bukkit.entity.Cat$Type":
+                return CatTypeValue.class;
+            case "org.bukkit.entity.Frog$Variant":
+                return FrogVariantValue.class;
+            case "org.bukkit.Sound":
+                return LegacySoundValue.class;
+            case "org.bukkit.block.banner.PatternType":
+                return LegacyRegistryEnums.PatternValue.class;
+            case "org.bukkit.Art":
+                return LegacyRegistryEnums.ArtValue.class;
+            case "org.bukkit.block.Biome":
+                return LegacyRegistryEnums.BiomeValue.class;
+            case "org.bukkit.Fluid":
+                return LegacyRegistryEnums.FluidValue.class;
+            case "org.bukkit.map.MapCursor$Type":
+                return LegacyRegistryEnums.MapCursorValue.class;
+            default:
+                return null;
+        }
+    }
+
     enum AttributeValue implements RegistryValue {
         GENERIC_MAX_HEALTH,
         GENERIC_FOLLOW_RANGE,
@@ -279,7 +338,7 @@ final class LegacyMetadataCodec {
         }
     }
 
-    private static final class MetadataInput extends BukkitObjectInputStream {
+    private static final class MetadataInput extends ObjectInputStream {
 
         private final boolean neutral;
         private boolean registryValues;
@@ -287,43 +346,137 @@ final class LegacyMetadataCodec {
         private MetadataInput(InputStream input, boolean neutral) throws IOException {
             super(input);
             this.neutral = neutral;
+            ObjectInputFilter inherited = getObjectInputFilter();
+            setObjectInputFilter(info -> {
+                if (info.depth() > BinaryCodecSupport.MAX_DEPTH || info.references() > MAX_REFERENCES
+                        || info.arrayLength() > BinaryCodecSupport.MAX_CONTAINER_LENGTH
+                        || info.streamBytes() > BinaryCodecSupport.MAX_ENCODED_LENGTH
+                        || (info.serialClass() != null && !isAllowedClass(info.serialClass()))) {
+                    return ObjectInputFilter.Status.REJECTED;
+                }
+                return inherited == null ? ObjectInputFilter.Status.UNDECIDED : inherited.checkInput(info);
+            });
             enableResolveObject(!neutral);
+        }
+
+        @Override
+        protected Class<?> resolveClass(ObjectStreamClass descriptor) throws IOException, ClassNotFoundException {
+            String name = descriptor.getName();
+            int dimensions = arrayDimensions(name);
+            if (descriptor.forClass() == null && !isAllowedName(componentName(name, dimensions), dimensions > 0)) {
+                throw new InvalidClassException(name, "Unsupported legacy metadata type");
+            }
+            Class<?> type = super.resolveClass(descriptor);
+            if (!isAllowedClass(type)) {
+                throw new InvalidClassException(descriptor.getName(), "Unsupported legacy metadata type");
+            }
+            return type;
+        }
+
+        @Override
+        protected Class<?> resolveProxyClass(String[] interfaces) throws IOException {
+            throw new InvalidClassException("Proxy classes are not supported in legacy metadata");
+        }
+
+        @Override
+        protected Object resolveObject(Object value) {
+            if (!(value instanceof ConfigurationValue)) {
+                return value;
+            }
+            ConfigurationValue configuration = (ConfigurationValue) value;
+            return BinaryCodecSupport.restoreConfiguration(configuration.alias(), configuration.values());
+        }
+
+        private static boolean isAllowedClass(Class<?> type) {
+            boolean array = type.isArray();
+            while (type.isArray()) {
+                type = type.getComponentType();
+            }
+            if (type.isPrimitive() || (array && type == Serializable.class) || SIMPLE_TYPES.contains(type) || COLLECTION_TYPES.contains(type.getName())
+                    || type == ConfigurationValue.class || (type.isEnum() && RegistryValue.class.isAssignableFrom(type))) {
+                return true;
+            }
+            boolean platformType = type.getClassLoader() == ConfigurationSerializable.class.getClassLoader()
+                    && isPlatformMetadataName(type.getName());
+            return platformType && (type.isEnum() || BinaryCodecSupport.isPlatformConfigurationType(type));
+        }
+
+        private static boolean isAllowedName(String name, boolean array) {
+            return SIMPLE_TYPE_NAMES.contains(name) || COLLECTION_TYPES.contains(name) || isPlatformMetadataName(name)
+                    || name.startsWith(LegacyMetadataCodec.class.getName() + "$")
+                    || name.startsWith(LegacyRegistryEnums.class.getName() + "$") || name.equals(LegacySoundValue.class.getName())
+                    || (array && (name.equals(Serializable.class.getName()) || (name.length() == 1 && "BCDFIJSZ".contains(name))));
+        }
+
+        private static boolean isPlatformMetadataName(String name) {
+            return name.startsWith("org.bukkit.") || name.startsWith("io.papermc.paper.") || name.startsWith("com.destroystokyo.paper.");
+        }
+
+        private static int arrayDimensions(String name) {
+            int dimensions = 0;
+            while (dimensions < name.length() && name.charAt(dimensions) == '[') {
+                dimensions++;
+            }
+            return dimensions;
+        }
+
+        private static String componentName(String name, int dimensions) {
+            return dimensions > 0 && name.startsWith("L", dimensions) && name.endsWith(";")
+                    ? name.substring(dimensions + 1, name.length() - 1) : name.substring(dimensions);
+        }
+
+        private boolean usesMetadataArray(String component) {
+            if (registrySurrogate(component) != null) {
+                return true;
+            }
+            if (!isPlatformMetadataName(component)) {
+                return false;
+            }
+            try {
+                Class<?> type = Class.forName(component, false, ConfigurationSerializable.class.getClassLoader());
+                return ConfigurationSerializable.class.isAssignableFrom(type);
+            }
+            catch (ClassNotFoundException | LinkageError ignored) {
+                return true;
+            }
+        }
+
+        private Class<? extends Enum<?>> registrySurrogate(String name) {
+            Class<? extends Enum<?>> surrogate = registryEnum(name);
+            if (!neutral && surrogate != null && surrogate.getDeclaringClass() != LegacyMetadataCodec.class) {
+                try {
+                    if (Class.forName(name, false, ConfigurationSerializable.class.getClassLoader()).isEnum()) {
+                        return null;
+                    }
+                }
+                catch (ClassNotFoundException | LinkageError ignored) {
+                }
+            }
+            return surrogate;
         }
 
         @Override
         protected ObjectStreamClass readClassDescriptor() throws IOException, ClassNotFoundException {
             ObjectStreamClass descriptor = super.readClassDescriptor();
-            if (neutral && descriptor.getName().equals(WRAPPER_CLASS)) {
+            if (descriptor.getName().equals(WRAPPER_CLASS)) {
                 validateWrapper(descriptor);
                 return ObjectStreamClass.lookup(ConfigurationValue.class);
             }
-            Class<?> registryValue;
-            switch (descriptor.getName()) {
-                case "org.bukkit.attribute.Attribute":
-                    registryValue = AttributeValue.class;
-                    break;
-                case "org.bukkit.entity.Villager$Profession":
-                    registryValue = VillagerProfessionValue.class;
-                    break;
-                case "org.bukkit.entity.Villager$Type":
-                    registryValue = VillagerTypeValue.class;
-                    break;
-                case "org.bukkit.entity.Cat$Type":
-                    registryValue = CatTypeValue.class;
-                    break;
-                case "org.bukkit.entity.Frog$Variant":
-                    registryValue = FrogVariantValue.class;
-                    break;
-                default:
-                    registryValue = null;
-                    break;
-            }
+            Class<?> registryValue = registrySurrogate(descriptor.getName());
             if (registryValue != null) {
                 if (descriptor.getSerialVersionUID() != 0 || descriptor.getFields().length != 0) {
                     throw new InvalidClassException(descriptor.getName(), "Unsupported legacy metadata registry enum layout");
                 }
                 registryValues = true;
                 return ObjectStreamClass.lookup(registryValue);
+            }
+            String name = descriptor.getName();
+            int dimensions = arrayDimensions(name);
+            if (dimensions > 0 && usesMetadataArray(componentName(name, dimensions))) {
+                if (dimensions > 255 || descriptor.getFields().length != 0) {
+                    throw new InvalidClassException(name, "Unsupported legacy metadata array layout");
+                }
+                return ObjectStreamClass.lookup(Array.newInstance(Object.class, new int[dimensions]).getClass());
             }
             return descriptor;
         }

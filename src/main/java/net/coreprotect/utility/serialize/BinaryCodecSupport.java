@@ -6,7 +6,11 @@ import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
+
+import org.bukkit.configuration.serialization.ConfigurationSerializable;
+import org.bukkit.configuration.serialization.ConfigurationSerialization;
 
 final class BinaryCodecSupport {
 
@@ -20,10 +24,32 @@ final class BinaryCodecSupport {
 
     static final int MAX_ENCODED_LENGTH = 32 * 1024 * 1024;
     static final int MAX_CONTAINER_LENGTH = 4 * 1024 * 1024;
-    private static final int MAX_DEPTH = 64;
+    static final int MAX_DEPTH = 64;
 
     private BinaryCodecSupport() {
         throw new IllegalStateException("Support class");
+    }
+
+    static boolean isPlatformConfigurationType(Class<?> type) {
+        String name = type.getName();
+        return ConfigurationSerializable.class.isAssignableFrom(type)
+                && type.getClassLoader() == ConfigurationSerializable.class.getClassLoader()
+                && (name.startsWith("org.bukkit.") || name.startsWith("io.papermc.paper.") || name.startsWith("com.destroystokyo.paper."));
+    }
+
+    static Object restoreConfiguration(String alias, Map<String, Object> serialized) {
+        Class<? extends ConfigurationSerializable> type = ConfigurationSerialization.getClassByAlias(alias);
+        if (type != null && isPlatformConfigurationType(type)) {
+            try {
+                Object value = ConfigurationSerialization.deserializeObject(serialized, type);
+                if (value != null) {
+                    return value;
+                }
+            }
+            catch (RuntimeException | LinkageError ignored) {
+            }
+        }
+        return serialized;
     }
 
     static int compareBytes(byte[] first, byte[] second) {

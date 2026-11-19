@@ -3,6 +3,7 @@ package net.coreprotect.command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import com.sk89q.worldedit.IncompleteRegionException;
 import com.sk89q.worldedit.LocalSession;
 import com.sk89q.worldedit.bukkit.WorldEditPlugin;
 import com.sk89q.worldedit.math.BlockVector3;
@@ -15,43 +16,38 @@ import net.coreprotect.utility.ErrorReporter;
 public class WorldEditHandler {
 
     protected static Integer[] runWorldEditCommand(CommandSender user) {
-        Integer[] result = null;
+        if (!(user instanceof Player)) {
+            return null;
+        }
+        Player player = (Player) user;
         try {
             WorldEditPlugin worldEdit = WorldEditLogger.getWorldEdit(user.getServer());
-            if (worldEdit != null && user instanceof Player) {
-                LocalSession session = worldEdit.getSession((Player) user);
-                World world = session.getSelectionWorld();
-                if (world != null) {
-                    Region region = session.getSelection(world);
-                    if (region != null && world.getName().equals(((Player) user).getWorld().getName())) {
-                        BlockVector3 block = region.getMinimumPoint();
-                        int x = block.getBlockX();
-                        int y = block.getBlockY();
-                        int z = block.getBlockZ();
-                        int width = region.getWidth();
-                        int height = region.getHeight();
-                        int length = region.getLength();
-                        int max = width;
-                        if (height > max) {
-                            max = height;
-                        }
-                        if (length > max) {
-                            max = length;
-                        }
-                        int xMin = x;
-                        int xMax = x + (width - 1);
-                        int yMin = y;
-                        int yMax = y + (height - 1);
-                        int zMin = z;
-                        int zMax = z + (length - 1);
-                        result = new Integer[] { max, xMin, xMax, yMin, yMax, zMin, zMax, 1 };
-                    }
-                }
+            if (worldEdit == null) {
+                return null;
             }
+            LocalSession session = worldEdit.getSession(player);
+            World world = session.getSelectionWorld();
+            if (world == null || !world.getName().equals(player.getWorld().getName())) {
+                return null;
+            }
+            Region region = session.getSelection(world);
+            if (region == null) {
+                return null;
+            }
+            BlockVector3 minimum = region.getMinimumPoint();
+            BlockVector3 maximum = region.getMaximumPoint();
+            long width = (long) maximum.getBlockX() - minimum.getBlockX() + 1;
+            long length = (long) maximum.getBlockZ() - minimum.getBlockZ() + 1;
+            int radius = (int) Math.min(Integer.MAX_VALUE, Math.max(width, length) / 2);
+            return new Integer[] { radius, minimum.getBlockX(), maximum.getBlockX(), minimum.getBlockY(), maximum.getBlockY(),
+                    minimum.getBlockZ(), maximum.getBlockZ(), 1 };
+        }
+        catch (IncompleteRegionException incomplete) {
+            return null;
         }
         catch (Exception e) {
             ErrorReporter.report(e);
         }
-        return result;
+        return null;
     }
 }

@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import org.bukkit.Bukkit;
 import org.bukkit.DyeColor;
@@ -82,6 +83,22 @@ import net.coreprotect.utility.WorldUtils;
 public class EntityUtil {
 
     private static final long ENTITY_RESTORE_TIMEOUT_SECONDS = 30L;
+
+    private static final Map<String, Material> WORKSTATIONS = Map.ofEntries(
+            Map.entry("armorer", Material.BLAST_FURNACE),
+            Map.entry("butcher", Material.SMOKER),
+            Map.entry("cartographer", Material.CARTOGRAPHY_TABLE),
+            Map.entry("cleric", Material.BREWING_STAND),
+            Map.entry("farmer", Material.COMPOSTER),
+            Map.entry("fisherman", Material.BARREL),
+            Map.entry("fletcher", Material.FLETCHING_TABLE),
+            Map.entry("leatherworker", Material.CAULDRON),
+            Map.entry("librarian", Material.LECTERN),
+            Map.entry("mason", Material.STONECUTTER),
+            Map.entry("shepherd", Material.LOOM),
+            Map.entry("toolsmith", Material.SMITHING_TABLE),
+            Map.entry("weaponsmith", Material.GRINDSTONE));
+
 
     /**
      * Position in the entity kill data list of the attribute format marker, followed by the baseline bits. Index 7
@@ -349,84 +366,20 @@ public class EntityUtil {
                     }
                     else if (entity instanceof AbstractVillager) {
                         AbstractVillager abstractVillager = (AbstractVillager) entity;
-                        if (count == 0) {
-                            if (abstractVillager instanceof Villager) {
-                                Villager villager = (Villager) abstractVillager;
-                                if (value instanceof String) {
-                                    String key = (String) value;
-                                    value = registryValue(key, Profession.class);
-                                    if (value == null) {
-                                        NamespacedKey namespacedKey = namespacedKey(key);
-                                        value = namespacedKey == null ? null : Registry.VILLAGER_PROFESSION.get(namespacedKey);
-                                    }
-                                }
-                                if (value instanceof Profession) {
-                                    villager.setProfession((Profession) value);
-                                }
+                        if (count == 0 && abstractVillager instanceof Villager) {
+                            Profession profession = villagerVariant(value, Profession.class, key -> Registry.VILLAGER_PROFESSION.get(key));
+                            if (profession != null) {
+                                ((Villager) abstractVillager).setProfession(profession);
                             }
                         }
-                        else if (count == 1) {
-                            if (abstractVillager instanceof Villager && (value instanceof Villager.Type || value instanceof String)) {
-                                Villager villager = (Villager) abstractVillager;
-                                if (value instanceof String) {
-                                    String key = (String) value;
-                                    value = registryValue(key, Villager.Type.class);
-                                    if (value == null) {
-                                        NamespacedKey namespacedKey = namespacedKey(key);
-                                        value = namespacedKey == null ? null : Registry.VILLAGER_TYPE.get(namespacedKey);
-                                    }
-                                }
-                                if (value instanceof Villager.Type) {
-                                    villager.setVillagerType((Villager.Type) value);
-                                }
+                        else if (count == 1 && abstractVillager instanceof Villager) {
+                            Villager.Type variant = villagerVariant(value, Villager.Type.class, key -> Registry.VILLAGER_TYPE.get(key));
+                            if (variant != null) {
+                                ((Villager) abstractVillager).setVillagerType(variant);
                             }
                         }
-                        else if (count == 2) {
-                            List<MerchantRecipe> merchantRecipes = new ArrayList<>();
-                            @SuppressWarnings("unchecked")
-                            List<Object> set = (List<Object>) value;
-                            for (Object recipes : set) {
-                                @SuppressWarnings("unchecked")
-                                List<Object> recipe = (List<Object>) recipes;
-                                @SuppressWarnings("unchecked")
-                                List<Object> itemMap = (List<Object>) recipe.get(0);
-                                @SuppressWarnings("unchecked")
-                                ItemStack result = ItemStack.deserialize((Map<String, Object>) itemMap.get(0));
-                                @SuppressWarnings("unchecked")
-                                List<List<Map<String, Object>>> metadata = (List<List<Map<String, Object>>>) itemMap.get(1);
-                                Object[] populatedStack = Rollback.populateItemStack(result, metadata);
-                                result = (ItemStack) populatedStack[2];
-                                int uses = (int) recipe.get(1);
-                                int maxUses = (int) recipe.get(2);
-                                boolean experienceReward = (boolean) recipe.get(3);
-                                List<ItemStack> merchantIngredients = new ArrayList<>();
-                                @SuppressWarnings("unchecked")
-                                List<Object> ingredients = (List<Object>) recipe.get(4);
-                                for (Object ingredient : ingredients) {
-                                    @SuppressWarnings("unchecked")
-                                    List<Object> ingredientMap = (List<Object>) ingredient;
-                                    @SuppressWarnings("unchecked")
-                                    ItemStack item = ItemStack.deserialize((Map<String, Object>) ingredientMap.get(0));
-                                    @SuppressWarnings("unchecked")
-                                    List<List<Map<String, Object>>> itemMetaData = (List<List<Map<String, Object>>>) ingredientMap.get(1);
-                                    populatedStack = Rollback.populateItemStack(item, itemMetaData);
-                                    item = (ItemStack) populatedStack[2];
-                                    merchantIngredients.add(item);
-                                }
-                                MerchantRecipe merchantRecipe = new MerchantRecipe(result, uses, maxUses, experienceReward);
-                                if (recipe.size() > 6) {
-                                    int villagerExperience = (int) recipe.get(5);
-                                    float priceMultiplier = ((Number) recipe.get(6)).floatValue();
-                                    merchantRecipe = new MerchantRecipe(result, uses, maxUses, experienceReward, villagerExperience, priceMultiplier);
-                                }
-                                merchantRecipe.setIngredients(merchantIngredients);
-                                BukkitAdapter.ADAPTER.setMerchantRecipeMeta(merchantRecipe, recipe);
-                                PaperAdapter.ADAPTER.setMerchantRecipeMeta(merchantRecipe, recipe);
-                                merchantRecipes.add(merchantRecipe);
-                            }
-                            if (!merchantRecipes.isEmpty()) {
-                                abstractVillager.setRecipes(merchantRecipes);
-                            }
+                        else if (count == 2 && value instanceof List<?>) {
+                            restoreRecipes(abstractVillager, (List<?>) value);
                         }
                         else if (abstractVillager instanceof Villager) {
                             Villager villager = (Villager) abstractVillager;
@@ -493,16 +446,9 @@ public class EntityUtil {
                             zombieVillager.setBaby(set);
                         }
                         else if (count == 1) {
-                            if (value instanceof String) {
-                                String key = (String) value;
-                                value = registryValue(key, Profession.class);
-                                if (value == null) {
-                                    NamespacedKey namespacedKey = namespacedKey(key);
-                                    value = namespacedKey == null ? null : Registry.VILLAGER_PROFESSION.get(namespacedKey);
-                                }
-                            }
-                            if (value instanceof Profession) {
-                                zombieVillager.setVillagerProfession((Profession) value);
+                            Profession profession = villagerVariant(value, Profession.class, key -> Registry.VILLAGER_PROFESSION.get(key));
+                            if (profession != null) {
+                                zombieVillager.setVillagerProfession(profession);
                             }
                         }
                     }
@@ -838,6 +784,85 @@ public class EntityUtil {
         }
     }
 
+    private static <T> T villagerVariant(Object value, Class<T> type, Function<NamespacedKey, T> fallback) {
+        if (type.isInstance(value)) {
+            return type.cast(value);
+        }
+        if (!(value instanceof String)) {
+            return null;
+        }
+        String name = (String) value;
+        Object nativeValue = registryValue(name, type);
+        if (type.isInstance(nativeValue)) {
+            return type.cast(nativeValue);
+        }
+        NamespacedKey key = namespacedKey(name);
+        return key == null ? null : fallback.apply(key);
+    }
+
+    static void restoreRecipes(AbstractVillager villager, List<?> storedRecipes) {
+        List<MerchantRecipe> recipes = new ArrayList<>();
+        for (Object stored : storedRecipes) {
+            if (!(stored instanceof List<?>)) {
+                continue;
+            }
+            List<?> recipe = (List<?>) stored;
+            if (recipe.size() < 5 || !(recipe.get(1) instanceof Number) || !(recipe.get(2) instanceof Number)
+                    || !(recipe.get(3) instanceof Boolean) || !(recipe.get(4) instanceof List<?>)) {
+                continue;
+            }
+            ItemStack result = readRecipeItem(recipe.get(0));
+            if (result == null) {
+                continue;
+            }
+            List<?> storedIngredients = (List<?>) recipe.get(4);
+            List<ItemStack> ingredients = new ArrayList<>(storedIngredients.size());
+            for (Object ingredient : storedIngredients) {
+                ItemStack stack = readRecipeItem(ingredient);
+                if (stack != null) {
+                    ingredients.add(stack);
+                }
+            }
+            if (ingredients.isEmpty() || ingredients.size() != storedIngredients.size()) {
+                continue;
+            }
+            int uses = ((Number) recipe.get(1)).intValue();
+            int maxUses = ((Number) recipe.get(2)).intValue();
+            boolean experienceReward = (Boolean) recipe.get(3);
+            MerchantRecipe restored;
+            if (recipe.size() > 6 && recipe.get(5) instanceof Number && recipe.get(6) instanceof Number) {
+                restored = new MerchantRecipe(result, uses, maxUses, experienceReward,
+                        ((Number) recipe.get(5)).intValue(), ((Number) recipe.get(6)).floatValue());
+            }
+            else {
+                restored = new MerchantRecipe(result, uses, maxUses, experienceReward);
+            }
+            restored.setIngredients(ingredients);
+            BukkitAdapter.ADAPTER.setMerchantRecipeMeta(restored, recipe);
+            PaperAdapter.ADAPTER.setMerchantRecipeMeta(restored, recipe);
+            recipes.add(restored);
+        }
+        if (!recipes.isEmpty()) {
+            villager.setRecipes(recipes);
+        }
+    }
+
+    private static ItemStack readRecipeItem(Object stored) {
+        if (!(stored instanceof List<?>)) {
+            return null;
+        }
+        List<?> item = (List<?>) stored;
+        Object data = valueAt(item, 0);
+        try {
+            ItemStack stack = restoreEquipment(data);
+            Object metadata = valueAt(item, 1);
+            return stack != null && metadata instanceof List<?> ? (ItemStack) Rollback.populateItemStack(stack, metadata)[2] : stack;
+        }
+        catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
     private static void restoreVillagerMemories(Villager villager, List<?> memories) {
         for (Object memoryObject : memories) {
             if (!(memoryObject instanceof List<?>)) {
@@ -959,9 +984,7 @@ public class EntityUtil {
     }
 
     private static boolean isVillagerWorkstation(Material blockType) {
-        return blockType == Material.BLAST_FURNACE || blockType == Material.SMOKER || blockType == Material.CARTOGRAPHY_TABLE || blockType == Material.BREWING_STAND || blockType == Material.COMPOSTER || blockType == Material.BARREL ||
-            blockType == Material.FLETCHING_TABLE || isCauldron(blockType) || blockType == Material.LECTERN || blockType == Material.STONECUTTER || blockType == Material.LOOM || blockType == Material.SMITHING_TABLE ||
-            blockType == Material.GRINDSTONE;
+        return isCauldron(blockType) || WORKSTATIONS.containsValue(blockType);
     }
 
     private static boolean isCauldron(Material blockType) {
@@ -983,47 +1006,7 @@ public class EntityUtil {
             professionName = professionName.substring("minecraft:".length());
         }
 
-        if (professionName.equals("armorer")) {
-            return Material.BLAST_FURNACE;
-        }
-        else if (professionName.equals("butcher")) {
-            return Material.SMOKER;
-        }
-        else if (professionName.equals("cartographer")) {
-            return Material.CARTOGRAPHY_TABLE;
-        }
-        else if (professionName.equals("cleric")) {
-            return Material.BREWING_STAND;
-        }
-        else if (professionName.equals("farmer")) {
-            return Material.COMPOSTER;
-        }
-        else if (professionName.equals("fisherman")) {
-            return Material.BARREL;
-        }
-        else if (professionName.equals("fletcher")) {
-            return Material.FLETCHING_TABLE;
-        }
-        else if (professionName.equals("leatherworker")) {
-            return Material.CAULDRON;
-        }
-        else if (professionName.equals("librarian")) {
-            return Material.LECTERN;
-        }
-        else if (professionName.equals("mason")) {
-            return Material.STONECUTTER;
-        }
-        else if (professionName.equals("shepherd")) {
-            return Material.LOOM;
-        }
-        else if (professionName.equals("toolsmith")) {
-            return Material.SMITHING_TABLE;
-        }
-        else if (professionName.equals("weaponsmith")) {
-            return Material.GRINDSTONE;
-        }
-
-        return null;
+        return WORKSTATIONS.get(professionName);
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })

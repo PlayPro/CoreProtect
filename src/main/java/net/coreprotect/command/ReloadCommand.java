@@ -23,7 +23,7 @@ public class ReloadCommand {
 
     protected static void runCommand(final CommandSender player, boolean permission, String[] args) {
         if (permission) {
-            if (ConfigHandler.converterRunning) {
+            if (ConfigHandler.converterRunning || ConfigHandler.migrationRunning) {
                 Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
                 return;
             }
@@ -66,6 +66,10 @@ public class ReloadCommand {
     }
 
     static synchronized boolean performReload(CommandSender player) throws InterruptedException {
+        if (ConfigHandler.converterRunning || ConfigHandler.migrationRunning) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
+            return false;
+        }
         final boolean resumePersistenceAfterCancellation = !Consumer.isDatabaseReloadPaused();
         boolean resumePersistence = resumePersistenceAfterCancellation;
         Consumer.OperationStartResult startResult = Consumer.beginDatabaseReload();

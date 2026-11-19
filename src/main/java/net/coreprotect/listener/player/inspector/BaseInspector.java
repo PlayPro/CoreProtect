@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.bukkit.entity.Player;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.Database;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.channel.PluginChannelHandshakeListener;
@@ -159,7 +160,14 @@ public abstract class BaseInspector {
     }
 
     private void acquireInspection(Player player) throws InspectionException {
-        if (ConfigHandler.converterRunning) {
+        requireInspectionAvailable();
+        if (!LookupThrottle.tryAcquire(player.getName(), 100)) {
+            throw new InspectionException(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
+        }
+    }
+
+    private static void requireInspectionAvailable() throws InspectionException {
+        if (ConfigHandler.converterRunning || ConfigHandler.migrationRunning) {
             throw new InspectionException(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
         }
 
@@ -167,12 +175,13 @@ public abstract class BaseInspector {
             throw new InspectionException(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
         }
 
-        if (!LookupThrottle.tryAcquire(player.getName(), 100)) {
+        if (Consumer.isDatabaseReloadBlocked()) {
             throw new InspectionException(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
         }
     }
 
     protected Connection getDatabaseConnection(Player player) throws Exception {
+        requireInspectionAvailable();
         Connection connection = Database.getConnection(true);
         if (connection == null) {
             throw new InspectionException(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));

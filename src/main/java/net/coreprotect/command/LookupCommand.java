@@ -152,7 +152,7 @@ public class LookupCommand {
                 return;
             }
         }
-        if (ConfigHandler.converterRunning) {
+        if (ConfigHandler.converterRunning || ConfigHandler.migrationRunning) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
             return;
         }

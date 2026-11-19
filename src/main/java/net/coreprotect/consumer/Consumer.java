@@ -259,6 +259,16 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         return databaseReloadRunning;
     }
 
+    public static boolean trySetManualPause(boolean paused) {
+        synchronized (rollbackPurgeGate) {
+            if (databaseReloadPaused || persistenceHalted || ConfigHandler.converterRunning || ConfigHandler.migrationRunning || ConfigHandler.purgeRunning) {
+                return false;
+            }
+            ConfigHandler.pauseConsumer = paused;
+            return true;
+        }
+    }
+
     public static boolean isBackgroundPurgeRunning() {
         return backgroundPurgeRunning;
     }

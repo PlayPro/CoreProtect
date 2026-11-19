@@ -107,7 +107,7 @@ public class CommandHandler implements CommandExecutor {
                 UndoCommand.runCommand(user, command, permission, argumentArray);
             }
             else if (corecommand.equals("help")) {
-                HelpCommand.runCommand(user, permission, argumentArray);
+                HelpCommand.runCommand(user, permission, commandLabel, argumentArray);
             }
             else if (corecommand.equals("purge")) {
                 PurgeCommand.runCommand(user, permission, argumentArray);

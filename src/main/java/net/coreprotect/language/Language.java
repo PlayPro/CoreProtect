@@ -82,6 +82,7 @@ public class Language {
         phrases.put(Phrase.HELP_ACTION_1, "Restrict the lookup to a certain action.");
         phrases.put(Phrase.HELP_ACTION_2, "Examples: [a:block], [a:+block], [a:-block] [a:click], [a:container], [a:inventory], [a:item], [a:kill], [a:spawn], [a:chat], [a:command], [a:sign], [a:session], [a:username]");
         phrases.put(Phrase.HELP_COMMAND, "Display more info for that command.");
+        phrases.put(Phrase.HELP_COORDINATES, "Set the center of a radius using coordinates.");
         phrases.put(Phrase.HELP_EXCLUDE_1, "Exclude blocks/users.");
         phrases.put(Phrase.HELP_EXCLUDE_2, "Examples: [e:stone], [e:Notch], [e:stone,Notch]");
         phrases.put(Phrase.HELP_FILTER_1, "Filter chat, command, or sign text.");
@@ -101,6 +102,7 @@ public class Language {
         phrases.put(Phrase.HELP_LOOKUP_1, "Command shortcut.");
         phrases.put(Phrase.HELP_LOOKUP_2, "Use after inspecting a block to view logs.");
         phrases.put(Phrase.HELP_LOOKUP_COMMAND, "Advanced block data lookup.");
+        phrases.put(Phrase.HELP_NEAR_COMMAND, "Look up nearby activity.");
         phrases.put(Phrase.HELP_NO_INFO, "Information for command \"{0}\" not found.");
         phrases.put(Phrase.HELP_PARAMETER, "Please see \"{0}\" for detailed parameter info.");
         phrases.put(Phrase.HELP_PARAMS_1, "Perform the {lookup|rollback|restore}.");

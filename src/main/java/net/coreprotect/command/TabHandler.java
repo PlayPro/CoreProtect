@@ -27,7 +27,8 @@ import net.coreprotect.config.ConfigHandler;
 public class TabHandler implements TabCompleter {
 
     // private static String[] COMMANDS = new String[] { "help", "inspect", "rollback", "restore", "lookup", "purge", "reload", "status", "near", "undo" }; // max 10!
-    private static final String[] HELP = new String[] { "inspect", "rollback", "restore", "lookup", "purge", "teleport", "status", "params", "users", "time", "radius", "action", "include", "exclude", "filter" };
+    private static final String[] HELP = { "inspect", "i", "rollback", "restore", "lookup", "near", "page", "purge", "teleport", "tp", "status", "stats", "version",
+            "params", "users", "time", "radius", "c:", "coord:", "coords:", "location:", "action", "include", "i:", "exclude", "filter" };
     private static final String[] PARAMS = new String[] { "user:", "time:", "radius:", "action:", "include:", "exclude:", "filter:", "#container" };
     private static final String[] ACTIONS = new String[] { "block", "+block", "-block", "click", "kill", "spawn", "+container", "-container", "container", "chat", "command", "+inventory", "-inventory", "inventory", "item", "+item", "-item", "sign", "session", "+session", "-session", "username" };
     private static final String[] NUMBERS = new String[] { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9" };
@@ -47,6 +48,10 @@ public class TabHandler implements TabCompleter {
         String argument0 = args[0].toLowerCase(Locale.ROOT);
         String currentArg = args[args.length - 1].toLowerCase(Locale.ROOT).trim();
         String lastArg = args.length > 1 ? args[args.length - 2].toLowerCase(Locale.ROOT).trim() : "";
+
+        if (argument0.equals("help")) {
+            return args.length == 2 && sender.hasPermission("coreprotect.help") ? StringUtil.copyPartialMatches(currentArg, Arrays.asList(HELP), new ArrayList<>()) : null;
+        }
 
         ParamState paramState = getParamState(sender, args);
 
@@ -425,11 +430,7 @@ public class TabHandler implements TabCompleter {
         String argument0 = cmd0.toLowerCase(Locale.ROOT);
         String argument1 = cmd1.toLowerCase(Locale.ROOT);
 
-        if (argument0.equals("help") && sender.hasPermission("coreprotect.help")) {
-            List<String> completions = new ArrayList<>(Arrays.asList(HELP));
-            return StringUtil.copyPartialMatches(argument1, completions, new ArrayList<>(completions.size()));
-        }
-        else if (argument0.equals("purge") && sender.hasPermission("coreprotect.purge")) {
+        if (argument0.equals("purge") && sender.hasPermission("coreprotect.purge")) {
             List<String> completions = new ArrayList<>(Arrays.asList("t:", "r:", "i:", "e:", "a:kill"));
             return StringUtil.copyPartialMatches(argument1, completions, new ArrayList<>(completions.size()));
         }

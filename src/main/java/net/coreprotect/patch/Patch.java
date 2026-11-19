@@ -5,13 +5,15 @@ import java.io.FileInputStream;
 import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 import java.util.jar.JarEntry;
 import java.util.jar.JarInputStream;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
@@ -25,6 +27,7 @@ import net.coreprotect.utility.ErrorReporter;
 
 public class Patch {
 
+    private static final Pattern STORED_VERSION = Pattern.compile("([0-9]+(?:[.,][0-9]+)*)(?:-[A-Za-z0-9][A-Za-z0-9._-]*)?(?:\\+[A-Za-z0-9][A-Za-z0-9._-]*)?");
     private static boolean patching = false;
     private static boolean patchNotification = false;
     private static Integer[] firstVersion = null;
@@ -57,45 +60,46 @@ public class Patch {
         return (version.split(".__"))[1].replaceAll("_", ".");
     }
 
-    public static Integer[] getDatabaseVersion(Connection connection, boolean lastVersion) {
-        Integer[] last_version = new Integer[] { 0, 0, 0 };
+    public static Integer[] getDatabaseVersion(Connection connection, boolean lastVersion) throws SQLException {
+        return getDatabaseVersion(connection, ConfigHandler.prefix, lastVersion);
+    }
+
+    public static Integer[] getDatabaseVersion(Connection connection, String tablePrefix, boolean lastVersion) throws SQLException {
+        String query = "SELECT version FROM " + tablePrefix + "version ORDER BY rowid " + (lastVersion ? "DESC" : "ASC") + " LIMIT 1";
+        try (Statement statement = connection.createStatement(); ResultSet rows = statement.executeQuery(query)) {
+            return rows.next() ? parseDatabaseVersion(rows.getString("version")) : new Integer[] { 0, 0, 0 };
+        }
+    }
+
+    private static Integer[] parseDatabaseVersion(String raw) throws SQLException {
+        Matcher matcher = STORED_VERSION.matcher(raw == null ? "" : raw.trim());
+        if (!matcher.matches()) {
+            throw new SQLException("Invalid recorded database version");
+        }
+        String[] components = matcher.group(1).split("[.,]");
+        Integer[] version = new Integer[Math.max(3, components.length)];
         try {
-            String query = "SELECT version FROM " + ConfigHandler.prefix + "version ORDER BY rowid " + (lastVersion ? "DESC" : "ASC") + " LIMIT 1 OFFSET 0";
-            Statement statement = connection.createStatement();
-            ResultSet rs = statement.executeQuery(query);
-            while (rs.next()) {
-                String version = rs.getString("version");
-                if (!version.contains(".")) { // v200-205
-                    int version_int = Integer.parseInt(version);
-                    version = String.format(Locale.ROOT, "%3.2f", version_int / 100.0);
-                }
-                version = version.replaceAll(",", ".");
-                String[] old_version_split = version.split("\\.");
-                if (old_version_split.length > 2) { // #.#.#...
-                    last_version = new Integer[old_version_split.length];
-                    for (int i = 0; i < old_version_split.length; i++) {
-                        last_version[i] = Integer.parseInt(old_version_split[i]);
-                    }
-                }
-                else { // #.#
-                    int revision = 0;
-                    String parse = old_version_split[1];
-                    if (parse.length() > 1) {
-                        revision = Integer.parseInt(parse.substring(1));
-                    }
-                    last_version[0] = Integer.parseInt(old_version_split[0]);
-                    last_version[1] = revision;
-                    last_version[2] = 0;
+            if (components.length == 1) { // v200–205
+                int compactVersion = Integer.parseInt(components[0]);
+                version = new Integer[] { compactVersion / 100, compactVersion % 10, 0 };
+            }
+            else if (components.length == 2) { // v2.00–2.09
+                String revision = components[1];
+                version = new Integer[] { Integer.parseInt(components[0]), revision.length() > 1 ? Integer.parseInt(revision.substring(1)) : 0, 0 };
+            }
+            else {
+                for (int index = 0; index < components.length; index++) {
+                    version[index] = Integer.parseInt(components[index]);
                 }
             }
-            rs.close();
-            statement.close();
         }
-        catch (Exception e) {
-            ErrorReporter.report(e);
+        catch (NumberFormatException exception) {
+            throw new SQLException("Invalid recorded database version", exception);
         }
-
-        return last_version;
+        if (version[0] == 0) {
+            throw new SQLException("Invalid recorded database version");
+        }
+        return version;
     }
 
     private static List<String> getPatches() throws Exception {
@@ -235,8 +239,10 @@ public class Patch {
     public static boolean versionCheck(Statement statement) {
         try {
             Integer[] currentVersion = VersionUtils.getInternalPluginVersion();
-            firstVersion = getDatabaseVersion(statement.getConnection(), false);
-            Integer[] lastVersion = getDatabaseVersion(statement.getConnection(), true);
+            Connection connection = statement.getConnection();
+            Integer[] oldestVersion = getDatabaseVersion(connection, false);
+            Integer[] lastVersion = getDatabaseVersion(connection, true);
+            firstVersion = oldestVersion;
 
             boolean newVersion = VersionUtils.newVersion(lastVersion, currentVersion);
             if (newVersion && lastVersion[0] > 0 && !ConfigHandler.converterRunning) {

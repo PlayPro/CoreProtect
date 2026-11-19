@@ -27,9 +27,11 @@ public class SpigotAdapter implements SpigotInterface {
     public static final int SPIGOT_V1_20 = BukkitAdapter.BUKKIT_V1_20;
     public static final int SPIGOT_V1_21 = BukkitAdapter.BUKKIT_V1_21;
     public static final int SPIGOT_V1_21_5 = BukkitAdapter.BUKKIT_V1_21_5;
+    public static final int SPIGOT_V1_21_11 = BukkitAdapter.BUKKIT_V1_21_11;
     public static final int SPIGOT_V26_0 = BukkitAdapter.BUKKIT_V26_0;
     public static final int SPIGOT_V26_1 = BukkitAdapter.BUKKIT_V26_1;
     public static final int SPIGOT_V26_2 = BukkitAdapter.BUKKIT_V26_2;
+    public static final int SPIGOT_V26_3 = BukkitAdapter.BUKKIT_V26_3;
 
     public static void loadAdapter() {
         if (!ConfigHandler.isSpigot || ConfigHandler.SERVER_VERSION == SPIGOT_UNAVAILABLE) {

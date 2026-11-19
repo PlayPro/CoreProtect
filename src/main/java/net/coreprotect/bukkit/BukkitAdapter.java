@@ -74,10 +74,10 @@ public class BukkitAdapter implements BukkitInterface {
     public static final int BUKKIT_V1_21 = 21;
     public static final int BUKKIT_V1_21_5 = 21005;
     public static final int BUKKIT_V1_21_11 = 21011;
-    public static final int BUKKIT_V26_0 = 26000;
-    public static final int BUKKIT_V26_1 = 26010;
-    public static final int BUKKIT_V26_2 = 26020;
-    public static final int BUKKIT_V26_3 = 26030;
+    public static final int BUKKIT_V26_0 = 260000;
+    public static final int BUKKIT_V26_1 = 260100;
+    public static final int BUKKIT_V26_2 = 260200;
+    public static final int BUKKIT_V26_3 = 260300;
 
     public static int getAdapterVersion(int major, int minor) {
         return getAdapterVersion(major, minor, 0);
@@ -88,7 +88,7 @@ public class BukkitAdapter implements BukkitInterface {
             return minor == 21 && patch >= 5 ? (minor * 1000) + patch : minor;
         }
 
-        return (major * 1000) + (minor * 10) + patch;
+        return (major * 10000) + (minor * 100) + patch;
     }
 
     /**

@@ -396,7 +396,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
         set("batch_ordinal", eventCount);
         set("family", family.getTableName());
         set("rowid", rowId);
-        set("time", time);
+        set("time", Integer.toUnsignedLong(time));
         if (family == ClickHouseFamily.USER) {
             set("data", Integer.toUnsignedLong(time));
         }
@@ -493,8 +493,7 @@ public final class ClickHouseEventBatch implements AutoCloseable {
 
     private void commitRow(ClickHouseFamily family, long rowId) throws SQLException {
         int partitionId = ClickHouseSchema.eventPartitionId(family, currentTime);
-        rows.commitRow(family.getTableName() + " event", partitionId);
-        int rowCount = ClickHouseLookupIndex.append(rows, family, partitionId, false) ? 2 : 1;
+        int rowCount = ClickHouseLookupIndex.commitIndexedRow(rows, family, partitionId, false);
         partitionRowCounts.merge(partitionId, rowCount, Math::addExact);
         if (isVersionedFamily(family) && !versionRowIds.computeIfAbsent(family, ignored -> new HashSet<>()).add(rowId)) {
             duplicateVersionCount++;

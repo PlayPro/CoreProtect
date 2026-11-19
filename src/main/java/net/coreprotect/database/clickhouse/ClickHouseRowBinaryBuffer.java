@@ -27,7 +27,6 @@ final class ClickHouseRowBinaryBuffer implements AutoCloseable {
     private final Object[] values;
     private final List<RowSpan> rowSpans = new ArrayList<>();
     private boolean sealed;
-    private boolean failed;
     private boolean rowStarted;
 
     ClickHouseRowBinaryBuffer(List<String> columns, List<String> types) {
@@ -85,7 +84,7 @@ final class ClickHouseRowBinaryBuffer implements AutoCloseable {
         commitRow(description, 0);
     }
 
-    void commitRow(String description, int partitionId) throws SQLException {
+    int commitRow(String description, int partitionId) throws SQLException {
         ensureWritable();
         requireActiveRow();
         if (partitionId < 0) {
@@ -98,9 +97,12 @@ final class ClickHouseRowBinaryBuffer implements AutoCloseable {
             }
             rowSpans.add(new RowSpan(partitionId, start, rows.size() - start));
             rowStarted = false;
+            return start;
         }
         catch (IOException | RuntimeException exception) {
-            failed = true;
+            rows.truncate(start);
+            rowStarted = false;
+            Arrays.fill(values, null);
             throw new SQLException("Failed to encode ClickHouse " + description, exception);
         }
     }
@@ -154,7 +156,6 @@ final class ClickHouseRowBinaryBuffer implements AutoCloseable {
             }
             rowSpans.remove(rowSpans.size() - 1);
         }
-        failed = false;
         rowStarted = false;
     }
 
@@ -169,9 +170,6 @@ final class ClickHouseRowBinaryBuffer implements AutoCloseable {
     private void ensureWritable() {
         if (sealed) {
             throw new IllegalStateException("ClickHouse RowBinary buffer is sealed");
-        }
-        if (failed) {
-            throw new IllegalStateException("ClickHouse RowBinary buffer is invalid after an encoding failure");
         }
     }
 
@@ -247,7 +245,7 @@ final class ClickHouseRowBinaryBuffer implements AutoCloseable {
     }
 
     private static long unsignedInt32(Object value) {
-        long number = value instanceof Integer ? Integer.toUnsignedLong((Integer) value) : ((Number) value).longValue();
+        long number = ((Number) value).longValue();
         if (number < 0 || number > 0xffff_ffffL) {
             throw new IllegalArgumentException("ClickHouse UInt32 value is out of range: " + number);
         }

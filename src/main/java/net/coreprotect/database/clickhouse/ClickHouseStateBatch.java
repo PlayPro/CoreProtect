@@ -167,7 +167,7 @@ final class ClickHouseStateBatch implements AutoCloseable {
         rows.set("batch_ordinal", ordinal);
         rows.set("family", family.getTableName());
         rows.set("rowid", rowId);
-        rows.set("time", time);
+        rows.set("time", Integer.toUnsignedLong(time));
         rows.set("wid", worldId);
         rows.set("x", x);
         rows.set("z", z);

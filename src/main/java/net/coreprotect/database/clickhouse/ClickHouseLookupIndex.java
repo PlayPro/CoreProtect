@@ -34,6 +34,17 @@ public final class ClickHouseLookupIndex {
                 + "transform(x,[1,2,3,4,5,17,18,19,20],['block','container','entity_container','item','entity_interaction','block','container','entity_container','item'],''),family)";
     }
 
+    static int commitIndexedRow(ClickHouseRowBinaryBuffer rows, ClickHouseFamily family, int partition, boolean state) throws SQLException {
+        int start = rows.commitRow(family.getTableName() + (state ? " state update" : " event"), partition);
+        try {
+            return append(rows, family, partition, state) ? 2 : 1;
+        }
+        catch (SQLException | RuntimeException exception) {
+            rows.restore(start);
+            throw exception;
+        }
+    }
+
     static boolean append(ClickHouseRowBinaryBuffer rows, ClickHouseFamily family, int partition, boolean state) throws SQLException {
         int code = familyCode(family.getTableName());
         if (code == 0) {

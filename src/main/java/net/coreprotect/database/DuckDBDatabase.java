@@ -160,7 +160,7 @@ final class DuckDBDatabase {
     }
 
     private static String rowId(String prefix, String table) {
-        String type = table.equals("block") ? "BIGINT" : "INTEGER";
+        String type = table.equals("block") || table.equals("container") || table.equals("item") ? "BIGINT" : "INTEGER";
         return "rowid " + type + " NOT NULL DEFAULT nextval('" + sequence(prefix, table) + "')";
     }
 

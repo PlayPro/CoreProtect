@@ -19,6 +19,7 @@ import java.util.StringJoiner;
 import java.util.UUID;
 
 import org.bukkit.Location;
+import org.bukkit.World;
 
 import net.coreprotect.database.ConsumerEntitySpawnUpdates;
 import net.coreprotect.database.Database;
@@ -161,7 +162,9 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
         if (state.isRemoved()) {
             return false;
         }
-        append(trackingRowId, state.withLocation(worldId, x, y, z, yaw, pitch));
+        if (!sameBlock(state, worldId, x, y, z)) {
+            append(trackingRowId, state.withLocation(worldId, x, y, z, yaw, pitch));
+        }
         return true;
     }
 
@@ -172,7 +175,7 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
         if (!coordinator.begin(data)) {
             return null;
         }
-        EntitySpawnIdentity createdIdentity = null;
+        EntitySpawnIdentity[] createdIdentity = new EntitySpawnIdentity[1];
         try {
             switch (data.getOperation()) {
                 case VERIFY:
@@ -182,10 +185,10 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
                     updateLocation(data);
                     break;
                 case REMOVED:
-                    createdIdentity = remove(data);
+                    owner.executeAtomically("entity_spawn_removal", () -> createdIdentity[0] = remove(data));
                     break;
                 case REVIVED:
-                    revive(data);
+                    owner.executeAtomically("entity_spawn_revival", () -> revive(data));
                     break;
                 default:
                     owner.executeAtomically("entity_spawn_transition", () -> applyTransition(data));
@@ -201,7 +204,7 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
             coordinator.failed(data);
             Database.handleWriteFailure(exception);
         }
-        return createdIdentity;
+        return createdIdentity[0];
     }
 
     @Override
@@ -289,7 +292,10 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
             coordinator.locationMissing(data);
             return;
         }
-        append(toTrackingRowId(state.getPointer().getRowId()), withLocation(state, data.getLocation()));
+        ClickHouseEntityState updated = withLocation(state, data.getLocation());
+        if (!sameBlock(state, updated.getWorldId(), updated.getX(), updated.getY(), updated.getZ())) {
+            append(toTrackingRowId(state.getPointer().getRowId()), updated);
+        }
         coordinator.locationFound(data);
     }
 
@@ -548,8 +554,14 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
     }
 
     private ClickHouseEntityState readState(ResultSet resultSet) throws Exception {
-        int rowId = resultSet.getInt("rowid");
-        ClickHouseEventPointer pointer = new ClickHouseEventPointer(datasetId, ClickHouseFamily.ENTITY_SPAWN, resultSet.getLong("batch_sequence"), resultSet.getInt("batch_ordinal"), rowId, resultSet.getInt("time"), resultSet.getInt("wid"), resultSet.getInt("key_x"), resultSet.getInt("key_z"));
+        int rowId;
+        try {
+            rowId = toTrackingRowId(resultSet.getLong("rowid"));
+        }
+        catch (IllegalStateException exception) {
+            throw new SQLDataException("Invalid ClickHouse entity spawn row ID", exception);
+        }
+        ClickHouseEventPointer pointer = new ClickHouseEventPointer(datasetId, ClickHouseFamily.ENTITY_SPAWN, resultSet.getLong("batch_sequence"), resultSet.getInt("batch_ordinal"), rowId, (int) resultSet.getLong("time"), resultSet.getInt("wid"), resultSet.getInt("key_x"), resultSet.getInt("key_z"));
         byte[] data = DatabaseUtils.getBytes(resultSet, "data");
         return new ClickHouseEntityState(pointer, nullableLong(resultSet, "block_rowid"), nullableInteger(resultSet, "kill_rowid"), UUID.fromString(resultSet.getString("uuid")), resultSet.getInt("current_wid"), resultSet.getDouble("current_x"), resultSet.getDouble("current_y"), resultSet.getDouble("current_z"), resultSet.getFloat("yaw"), resultSet.getFloat("pitch"), data, resultSet.getInt("removed") == 1);
     }
@@ -572,10 +584,6 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
             states.putIfAbsent(rowId, state);
         }
         loadedTrackingRowIds.add(rowId);
-        loadedUuids.add(state.getUuid());
-        if (state.getKillRowId() != null) {
-            loadedKillRowIds.add(state.getKillRowId());
-        }
     }
 
     private void clearStateCache() {
@@ -595,8 +603,22 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
     }
 
     private static ClickHouseEntityState withLocation(ClickHouseEntityState state, Location location) {
-        Objects.requireNonNull(location, "location");
-        return state.withLocation(WorldUtils.getWorldId(location.getWorld().getName()), location.getX(), location.getY(), location.getZ(), location.getYaw(), location.getPitch());
+        if (location == null) {
+            return state;
+        }
+        World world;
+        try {
+            world = location.getWorld();
+        }
+        catch (IllegalArgumentException unloadedWorld) {
+            return state;
+        }
+        return world == null ? state : state.withLocation(WorldUtils.getWorldId(world.getName()), location.getX(), location.getY(), location.getZ(), location.getYaw(), location.getPitch());
+    }
+
+    private static boolean sameBlock(ClickHouseEntityState state, int worldId, double x, double y, double z) {
+        return state.getWorldId() == worldId && Math.floor(state.getX()) == Math.floor(x)
+                && Math.floor(state.getY()) == Math.floor(y) && Math.floor(state.getZ()) == Math.floor(z);
     }
 
     private static Long nullableLong(ResultSet resultSet, String column) throws SQLException {
@@ -610,8 +632,8 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
     }
 
     private static int toTrackingRowId(long rowId) {
-        if (rowId > Integer.MAX_VALUE) {
-            throw new IllegalStateException("ClickHouse entity spawn row ID exceeds CoreProtect's signed integer compatibility range");
+        if (rowId < 1 || rowId > Integer.MAX_VALUE) {
+            throw new IllegalStateException("ClickHouse entity spawn row ID is outside CoreProtect's signed integer compatibility range");
         }
         return (int) rowId;
     }

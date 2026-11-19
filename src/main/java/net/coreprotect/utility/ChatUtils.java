@@ -79,7 +79,7 @@ public class ChatUtils {
             }
 
             int displayStart = (page - 2) < 1 ? 1 : (page - 2);
-            int displayEnd = (page + 2) > totalPages ? totalPages : (page + 2);
+            int displayEnd = (int) Math.min(totalPages, page + 2L);
             if (page > 999 || (page > 101 && totalPages > 99999)) { // limit to max 5 page numbers
                 displayStart = (displayStart + 1) < displayEnd ? (displayStart + 1) : displayStart;
                 displayEnd = (displayEnd - 1) > displayStart ? (displayEnd - 1) : displayEnd;
@@ -111,7 +111,7 @@ public class ChatUtils {
                 displayStart = 2;
             }
 
-            for (int displayPage = displayStart; displayPage <= displayEnd; displayPage++) {
+            for (long displayPage = displayStart; displayPage <= displayEnd; displayPage++) {
                 if (page != displayPage) {
                     pagination.append(Color.WHITE + Chat.COMPONENT_TAG_OPEN + Chat.COMPONENT_COMMAND + "|/" + escapedCommand + " l " + displayPage + "|" + displayPage + (displayPage < totalPages ? " " : "") + Chat.COMPONENT_TAG_CLOSE);
                 }

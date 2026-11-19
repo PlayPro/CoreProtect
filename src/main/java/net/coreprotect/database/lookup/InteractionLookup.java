@@ -53,9 +53,9 @@ public class InteractionLookup {
             int time = (int) (System.currentTimeMillis() / 1000L);
             int worldId = WorldUtils.getWorldId(block.getWorld().getName());
             int checkTime = 0;
-            int count = 0;
-            int rowMax = page * limit;
-            int pageStart = rowMax - limit;
+            long count = 0;
+            long rowMax = (long) page * limit;
+            long pageStart = rowMax - limit;
             if (offset > 0) {
                 checkTime = time - offset;
             }
@@ -74,7 +74,7 @@ public class InteractionLookup {
                 query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE " + where + " LIMIT 1 OFFSET 0";
                 results = statement.executeQuery(query);
                 while (results.next()) {
-                    count = results.getInt("count");
+                    count = results.getLong("count");
                 }
                 results.close();
                 query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,rolled_back FROM " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE " + where + " ORDER BY " + ConfigHandler.getDescendingEventOrder() + " LIMIT " + limit + " OFFSET " + pageStart;
@@ -84,7 +84,7 @@ public class InteractionLookup {
             StringBuilder resultBuilder = new StringBuilder();
             while (results.next()) {
                 if (combinedDuckDBPage) {
-                    count = results.getInt("count");
+                    count = results.getLong("count");
                     if (results.getObject("result_id") == null) {
                         continue;
                     }
@@ -124,7 +124,7 @@ public class InteractionLookup {
             }
             result = resultBuilder.toString();
             results.close();
-            int totalPages = (int) Math.ceil(count / (limit + 0.0));
+            int totalPages = count == 0 ? 0 : (int) Math.min(Integer.MAX_VALUE, 1 + (count - 1) / limit);
 
             if (found) {
                 if (count > limit) {

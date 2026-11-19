@@ -73,9 +73,9 @@ public class BlockLookup {
             long time = (System.currentTimeMillis() / 1000L);
             int worldId = WorldUtils.getWorldId(block.getWorld().getName());
             long checkTime = 0;
-            int count = 0;
-            int rowMax = page * limit;
-            int page_start = rowMax - limit;
+            long count = 0;
+            long rowMax = (long) page * limit;
+            long page_start = rowMax - limit;
             if (offset > 0) {
                 checkTime = time - offset;
             }
@@ -112,7 +112,7 @@ public class BlockLookup {
                 query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "block " + index + "WHERE " + where + " LIMIT 1 OFFSET 0";
                 results = statement.executeQuery(query);
                 while (results.next()) {
-                    count = results.getInt("count");
+                    count = results.getLong("count");
                 }
                 results.close();
                 String columns = "time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,rolled_back" + (entitySpawnRowId == null ? "" : ",wid,x,y,z");
@@ -124,7 +124,7 @@ public class BlockLookup {
 
             while (results.next()) {
                 if (combinedDuckDBPage) {
-                    count = results.getInt("count");
+                    count = results.getLong("count");
                     if (results.getObject("result_id") == null) {
                         continue;
                     }
@@ -208,7 +208,7 @@ public class BlockLookup {
 
             resultText = resultTextBuilder.toString();
             results.close();
-            int totalPages = (int) Math.ceil(count / (limit + 0.0));
+            int totalPages = count == 0 ? 0 : (int) Math.min(Integer.MAX_VALUE, 1 + (count - 1) / limit);
 
             if (found) {
                 if (count > limit) {

@@ -57,9 +57,9 @@ public class SignMessageLookup {
             int z = l.getBlockZ();
             long time = (System.currentTimeMillis() / 1000L);
             int worldId = WorldUtils.getWorldId(l.getWorld().getName());
-            int count = 0;
-            int rowMax = page * limit;
-            int pageStart = rowMax - limit;
+            long count = 0;
+            long rowMax = (long) page * limit;
+            long pageStart = rowMax - limit;
 
             String where = LocationQuery.predicate("wid", " = " + worldId) + " AND " + LocationQuery.predicate("x", " = " + x) + " AND " + LocationQuery.predicate("z", " = " + z) + " AND y = " + y + " AND action = " + SignActions.PLACE + " AND (LENGTH(line_1) > 0 OR LENGTH(line_2) > 0 OR LENGTH(line_3) > 0 OR LENGTH(line_4) > 0 OR LENGTH(line_5) > 0 OR LENGTH(line_6) > 0 OR LENGTH(line_7) > 0 OR LENGTH(line_8) > 0)";
             boolean combinedDuckDBPage = ConfigHandler.databaseType.isDuckDB();
@@ -75,7 +75,7 @@ public class SignMessageLookup {
                 query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "sign " + WorldUtils.getWidIndex("sign") + "WHERE " + where + " LIMIT 1 OFFSET 0";
                 results = statement.executeQuery(query);
                 while (results.next()) {
-                    count = results.getInt("count");
+                    count = results.getLong("count");
                 }
                 results.close();
                 query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",face,line_1,line_2,line_3,line_4,line_5,line_6,line_7,line_8 FROM " + ConfigHandler.prefix + "sign " + WorldUtils.getWidIndex("sign") + "WHERE " + where + " ORDER BY " + ConfigHandler.getDescendingEventOrder() + " LIMIT " + limit + " OFFSET " + pageStart;
@@ -84,7 +84,7 @@ public class SignMessageLookup {
 
             while (results.next()) {
                 if (combinedDuckDBPage) {
-                    count = results.getInt("count");
+                    count = results.getLong("count");
                     if (results.getObject("result_id") == null) {
                         continue;
                     }
@@ -170,7 +170,7 @@ public class SignMessageLookup {
                 PluginChannelListener.getInstance().sendMessageData(commandSender, resultTime, resultUser, message.toString(), true, x, y, z, worldId);
             }
             results.close();
-            int totalPages = (int) Math.ceil(count / (limit + 0.0));
+            int totalPages = count == 0 ? 0 : (int) Math.min(Integer.MAX_VALUE, 1 + (count - 1) / limit);
 
             if (found) {
                 if (count > limit) {

@@ -421,9 +421,14 @@ public class LookupCommand {
                 return;
             }
             int rows = pageRows(player, page, session.request.pageSize);
-            if (rows > 0) {
-                startStandardLookup(player, command, session.request.forPage(page.page, rows), session);
+            if (rows == 0) {
+                return;
             }
+            if ((long) page.page * rows > Integer.MAX_VALUE) {
+                sendPageUsage(player);
+                return;
+            }
+            startStandardLookup(player, command, session.request.forPage(page.page, rows), session);
         }
         else if (type == 9) {
             Integer entity = ConfigHandler.lookupEntityInteraction.get(name);
@@ -625,10 +630,6 @@ public class LookupCommand {
         int rows = limitRows(player, page.rows > 0 ? page.rows : defaultRows);
         if (rows <= 0) {
             sendNoSavedLookup(player);
-            return 0;
-        }
-        if ((long) page.page * rows > Integer.MAX_VALUE) {
-            sendPageUsage(player);
             return 0;
         }
         return rows;

@@ -25,7 +25,7 @@ public final class DuckDBLookupQuery {
         return DuckDBSpatialIndex.entityTableExpression(connection, ConfigHandler.prefix, table, entitySpawnRowIds, alias);
     }
 
-    public static String pageQuery(String sourceTable, String baseTable, String where, String columns, boolean orderByTime, int limit, int offset) {
+    public static String pageQuery(String sourceTable, String baseTable, String where, String columns, boolean orderByTime, int limit, long offset) {
         String matchingColumns = orderByTime ? "rowid,time" : "rowid";
         String pageOrder = orderByTime ? "time DESC,rowid DESC" : "rowid DESC";
         String resultOrder = orderByTime ? "page_rows.time DESC NULLS LAST,page_rows.rowid DESC NULLS LAST" : "page_rows.rowid DESC NULLS LAST";

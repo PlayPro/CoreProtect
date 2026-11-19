@@ -51,9 +51,9 @@ public final class EntityInteractionLookup {
         try {
             String resolvedCommand = resolveCommand(command, commandSender);
             int currentTime = (int) (System.currentTimeMillis() / 1000L);
-            int rowMax = page * limit;
-            int pageStart = rowMax - limit;
-            int count = 0;
+            long rowMax = (long) page * limit;
+            long pageStart = rowMax - limit;
+            long count = 0;
             String where = "entity_spawn_rowid=" + entitySpawnRowId;
 
             EntitySpawnRecord record = EntitySpawnStatement.loadLocationRecords(statement.getConnection(), Collections.singleton(entitySpawnRowId)).get(entitySpawnRowId);
@@ -68,14 +68,14 @@ public final class EntityInteractionLookup {
             }
             else {
                 try (ResultSet results = statement.executeQuery("SELECT COUNT(*) AS count FROM " + ConfigHandler.prefix + "entity_interaction WHERE " + where)) {
-                    count = results.next() ? results.getInt("count") : 0;
+                    count = results.next() ? results.getLong("count") : 0;
                 }
                 query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,type,action,rolled_back FROM " + ConfigHandler.prefix + "entity_interaction WHERE " + where + " ORDER BY time DESC,rowid DESC LIMIT " + limit + " OFFSET " + pageStart;
             }
             try (ResultSet results = statement.executeQuery(query)) {
                 while (results.next()) {
                     if (combinedDuckDBPage) {
-                        count = results.getInt("count");
+                        count = results.getLong("count");
                         if (results.getObject("result_id") == null) {
                             continue;
                         }
@@ -111,7 +111,7 @@ public final class EntityInteractionLookup {
             }
 
             if (found && count > limit) {
-                int totalPages = (int) Math.ceil(count / (limit + 0.0));
+                int totalPages = count == 0 ? 0 : (int) Math.min(Integer.MAX_VALUE, 1 + (count - 1) / limit);
                 result.add(Color.WHITE + "-----");
                 result.add(ChatUtils.getPageNavigation(resolvedCommand, page, totalPages));
             }

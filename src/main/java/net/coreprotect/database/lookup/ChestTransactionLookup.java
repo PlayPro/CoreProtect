@@ -78,9 +78,9 @@ public class ChestTransactionLookup {
             int displayX = l.getBlockX();
             int displayY = l.getBlockY();
             int displayZ = l.getBlockZ();
-            int count = 0;
-            int rowMax = page * limit;
-            int pageStart = rowMax - limit;
+            long count = 0;
+            long rowMax = (long) page * limit;
+            long pageStart = rowMax - limit;
 
             String table = ConfigHandler.prefix + "container";
             String tableName = "container";
@@ -137,7 +137,7 @@ public class ChestTransactionLookup {
                 query = "SELECT COUNT(*) as count FROM " + table + " " + index + "WHERE " + where + " LIMIT 1 OFFSET 0";
                 results = statement.executeQuery(query);
                 while (results.next()) {
-                    count = results.getInt("count");
+                    count = results.getLong("count");
                 }
                 results.close();
                 query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,action,type,data,amount,metadata,rolled_back FROM " + table + " " + index + "WHERE " + where + " ORDER BY " + order + " LIMIT " + limit + " OFFSET " + pageStart;
@@ -145,7 +145,7 @@ public class ChestTransactionLookup {
             }
             while (results.next()) {
                 if (combinedDuckDBPage) {
-                    count = results.getInt("count");
+                    count = results.getLong("count");
                     if (results.getObject("result_id") == null) {
                         continue;
                     }
@@ -197,7 +197,7 @@ public class ChestTransactionLookup {
                 PluginChannelListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_CONTAINER, selector, resultUser, target, resultAmount, displayX, displayY, displayZ, displayWorldId, rbFormat, true, tag.contains("+"));
             }
             results.close();
-            int totalPages = (int) Math.ceil(count / (limit + 0.0));
+            int totalPages = count == 0 ? 0 : (int) Math.min(Integer.MAX_VALUE, 1 + (count - 1) / limit);
 
             if (found) {
                 if (count > limit) {

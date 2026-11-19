@@ -190,11 +190,12 @@ public class Queue {
     }
 
     public static void queueBlockBreak(String user, BlockState block, Material type, String blockData, Material breakType, int extraData, int blockNumber) {
-        if (type == Material.SPAWNER && block instanceof CreatureSpawner) { // Mob spawner
+        boolean matchingMaterial = type != null && block != null && type == block.getType();
+        if (matchingMaterial && type == Material.SPAWNER && block instanceof CreatureSpawner) { // Mob spawner
             CreatureSpawner mobSpawner = (CreatureSpawner) block;
             extraData = EntityUtils.getSpawnerType(mobSpawner.getSpawnedType());
         }
-        else if (type != null && BlockGroup.LOGGED_BY_LOWER_HALF.contains(type)) { // Double plant
+        else if (matchingMaterial && BlockGroup.LOGGED_BY_LOWER_HALF.contains(type)) { // Double plant
             if (block.getBlockData() instanceof Bisected) {
                 if (((Bisected) block.getBlockData()).getHalf().equals(Half.TOP)) {
                     if (blockNumber == 5) {
@@ -212,7 +213,7 @@ public class Queue {
                 }
             }
         }
-        else if (type != null && type.name().endsWith("_BED") && block.getBlockData() instanceof Bed) {
+        else if (matchingMaterial && type.name().endsWith("_BED") && block.getBlockData() instanceof Bed) {
             if (((Bed) block.getBlockData()).getPart().equals(Part.HEAD)) {
                 return;
             }
@@ -228,7 +229,7 @@ public class Queue {
         Material replaceType = null;
         int replaceData = 0;
 
-        if (type == Material.SPAWNER && blockLocation instanceof CreatureSpawner) { // Mob spawner
+        if (type == Material.SPAWNER && (forceType == null || forceType == type) && blockLocation instanceof CreatureSpawner && blockLocation.getType() == type) { // Mob spawner
             CreatureSpawner mobSpawner = (CreatureSpawner) blockLocation;
             data = EntityUtils.getSpawnerType(mobSpawner.getSpawnedType());
             forceData = 1;

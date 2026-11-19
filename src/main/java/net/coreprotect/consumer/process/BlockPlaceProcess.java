@@ -15,8 +15,9 @@ class BlockPlaceProcess {
     static void process(ConsumerWriteBatch preparedStmt, ConsumerWriteBatch preparedStmtSkulls, int batchCount, Material blockType, int blockData, Material replaceType, int replaceData, int forceData, String user, Object object, String newBlockData, String replacedBlockData) {
         if (object instanceof BlockState) {
             BlockState block = (BlockState) object;
-            List<Object> meta = BlockUtils.processMeta(block);
-            if (BlockUtils.isSkull(blockType)) {
+            boolean matchingMaterial = blockType == null || blockType == block.getType();
+            List<Object> meta = matchingMaterial ? BlockUtils.processMeta(block) : null;
+            if (matchingMaterial && BlockUtils.isSkull(blockType)) {
                 SkullPlaceLogger.log(preparedStmt, preparedStmtSkulls, batchCount, user, block, blockType, replaceType, replaceData, meta, newBlockData, replacedBlockData);
             }
             else {

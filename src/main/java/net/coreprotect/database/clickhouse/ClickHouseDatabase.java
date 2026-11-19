@@ -12,6 +12,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
@@ -23,6 +25,7 @@ public final class ClickHouseDatabase implements AutoCloseable {
 
     private static final int MINIMUM_SERVER_MAJOR = 26;
     private static final int MINIMUM_SERVER_MINOR = 1;
+    private static final Pattern SERVER_VERSION = Pattern.compile("^([0-9]+)\\.([0-9]+)(?=$|[.+-])");
 
     private final ClickHouseJdbc jdbc;
     private final String database;
@@ -488,12 +491,16 @@ public final class ClickHouseDatabase implements AutoCloseable {
                 throw new SQLException("ClickHouse did not return its server version");
             }
             String version = resultSet.getString(1);
-            String[] parts = version == null ? new String[0] : version.split("\\.", 3);
+            Matcher parts = SERVER_VERSION.matcher(version == null ? "" : version);
+            if (!parts.find()) {
+                throw new SQLException("Unsupported ClickHouse server version: " + version);
+            }
+
             int major;
             int minor;
             try {
-                major = parts.length > 0 ? Integer.parseInt(parts[0]) : -1;
-                minor = parts.length > 1 ? Integer.parseInt(parts[1]) : -1;
+                major = Integer.parseInt(parts.group(1));
+                minor = Integer.parseInt(parts.group(2));
             }
             catch (NumberFormatException exception) {
                 throw new SQLException("Unsupported ClickHouse server version: " + version, exception);

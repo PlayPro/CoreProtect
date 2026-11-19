@@ -197,8 +197,10 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
 
     @Override
     public void setColor(Sign sign, boolean isFront, int color) {
-        Side side = isFront ? Side.FRONT : Side.BACK;
-        sign.getSide(side).setColor(DyeColor.getByColor(Color.fromRGB(color)));
+        DyeColor dye = getSignDyeColor(color);
+        if (dye != null) {
+            sign.getSide(isFront ? Side.FRONT : Side.BACK).setColor(dye);
+        }
     }
 
     @Override
@@ -209,7 +211,8 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
     @Override
     public int getColor(Sign sign, boolean isFront) {
         Side side = isFront ? Side.FRONT : Side.BACK;
-        return sign.getSide(side).getColor().getColor().asRGB();
+        DyeColor dye = sign.getSide(side).getColor();
+        return dye == null ? 0 : dye.getColor().asRGB();
     }
 
     @Override
@@ -283,6 +286,9 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
 
     @Override
     public String getLine(Sign sign, int line) {
+        if (line < 0 || line >= 8) {
+            return "";
+        }
         if (line < 4) {
             return sign.getSide(Side.FRONT).getLine(line);
         }
@@ -293,6 +299,9 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
 
     @Override
     public void setLine(Sign sign, int line, String string) {
+        if (line < 0 || line >= 8) {
+            return;
+        }
         string = string == null ? "" : string;
 
         if (line < 4) {

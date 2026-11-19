@@ -214,12 +214,15 @@ public class Bukkit_v1_19 extends Bukkit_v1_18 {
             }
             else if (entity instanceof Tadpole) {
                 Tadpole tadpole = (Tadpole) entity;
-                if (count == 0) {
-                    tadpole.setAge((int) value);
+                if (count == 0 && value instanceof Number) {
+                    tadpole.setAge(((Number) value).intValue());
                     return true;
                 }
             }
             else if (entity instanceof Goat) {
+                if (!(value instanceof Boolean)) {
+                    return false;
+                }
                 Goat goat = (Goat) entity;
                 boolean boolValue = (Boolean) value;
 

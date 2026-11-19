@@ -8,7 +8,7 @@ public class Paper_v1_17 extends PaperHandler {
 
     @Override
     public String getLine(Sign sign, int line) {
-        if (line >= 4) {
+        if (line < 0 || line >= 4) {
             return "";
         }
 

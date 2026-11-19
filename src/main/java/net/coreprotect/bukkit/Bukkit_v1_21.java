@@ -209,7 +209,16 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
      */
     @Override
     public Object getRegistryKey(Object value) {
-        return ((Keyed) value).getKey().toString();
+        if (!(value instanceof Keyed)) {
+            return null;
+        }
+        try {
+            NamespacedKey key = ((Keyed) value).getKey();
+            return key == null ? null : key.toString();
+        }
+        catch (IllegalStateException e) {
+            return null;
+        }
     }
 
 
@@ -226,9 +235,15 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override
     public Object getRegistryValue(String key, Object tClass) {
+        if (key == null || !(tClass instanceof Class<?>) || !Keyed.class.isAssignableFrom((Class<?>) tClass)) {
+            return null;
+        }
         NamespacedKey namespacedKey = NamespacedKey.fromString(key);
-        // return RegistryAccess.registryAccess().getRegistry(RegistryKey.CAT_VARIANT).get((NamespacedKey)value);
-        return Bukkit.getRegistry((Class) tClass).get(namespacedKey);
+        if (namespacedKey == null) {
+            return null;
+        }
+        Registry<?> registry = Bukkit.getRegistry((Class) tClass);
+        return registry == null ? null : registry.get(namespacedKey);
     }
 
     @Override
@@ -305,9 +320,9 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
         if (value instanceof String) {
             value = getRegistryValue((String) value, org.bukkit.entity.Wolf.Variant.class);
         }
-        org.bukkit.entity.Wolf.Variant variant = (org.bukkit.entity.Wolf.Variant) value;
-        wolf.setVariant(variant);
-
+        if (value instanceof org.bukkit.entity.Wolf.Variant) {
+            wolf.setVariant((org.bukkit.entity.Wolf.Variant) value);
+        }
     }
 
     @Override

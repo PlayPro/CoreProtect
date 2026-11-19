@@ -38,6 +38,9 @@ public class SpigotHandler extends SpigotAdapter implements SpigotInterface {
         try {
             Object handle = entity.getClass().getMethod("getHandle").invoke(entity);
             Object color = handle.getClass().getMethod("getColor").invoke(handle);
+            if (color == null) {
+                return null;
+            }
             int id = ((Number) color.getClass().getMethod("getId").invoke(color)).intValue();
             return DyeColor.getByWoolData((byte) id);
         }
@@ -49,6 +52,9 @@ public class SpigotHandler extends SpigotAdapter implements SpigotInterface {
 
     @Override
     public void setCushionColor(Entity entity, DyeColor color) {
+        if (color == null) {
+            return;
+        }
         try {
             Object handle = entity.getClass().getMethod("getHandle").invoke(entity);
             Class<?> colorClass = handle.getClass().getMethod("getColor").getReturnType();

@@ -45,6 +45,9 @@ public class Paper_v1_20 extends Paper_v1_19 {
 
     @Override
     public String getLine(Sign sign, int line) {
+        if (line < 0 || line >= 8) {
+            return "";
+        }
         // https://docs.adventure.kyori.net/serializer/
         if (line < 4) {
             return LegacyComponentSerializer.legacySection().serialize(sign.getSide(Side.FRONT).line(line));

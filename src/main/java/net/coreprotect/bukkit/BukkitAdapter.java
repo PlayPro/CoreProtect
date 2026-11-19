@@ -510,7 +510,7 @@ public class BukkitAdapter implements BukkitInterface {
 
     @Override
     public String getLine(Sign sign, int line) {
-        if (line < 4) {
+        if (line >= 0 && line < 4) {
             return sign.getLine(line);
         }
         else {
@@ -524,7 +524,7 @@ public class BukkitAdapter implements BukkitInterface {
             string = "";
         }
 
-        if (line < 4) {
+        if (line >= 0 && line < 4) {
             sign.setLine(line, string);
         }
     }
@@ -567,11 +567,14 @@ public class BukkitAdapter implements BukkitInterface {
 
     @Override
     public void setColor(Sign sign, boolean isFront, int color) {
-        if (!isFront) {
-            return;
+        DyeColor dye = isFront ? getSignDyeColor(color) : null;
+        if (dye != null) {
+            sign.setColor(dye);
         }
+    }
 
-        sign.setColor(DyeColor.getByColor(Color.fromRGB(color)));
+    protected static DyeColor getSignDyeColor(int color) {
+        return (color & ~0xFFFFFF) == 0 ? DyeColor.getByColor(Color.fromRGB(color)) : null;
     }
 
     @Override
@@ -581,11 +584,8 @@ public class BukkitAdapter implements BukkitInterface {
 
     @Override
     public int getColor(Sign sign, boolean isFront) {
-        if (isFront) {
-            return sign.getColor().getColor().asRGB();
-        }
-
-        return 0;
+        DyeColor dye = isFront ? sign.getColor() : null;
+        return dye == null ? 0 : dye.getColor().asRGB();
     }
 
     // -------------------- Registry methods --------------------

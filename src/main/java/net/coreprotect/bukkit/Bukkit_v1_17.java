@@ -29,6 +29,7 @@ import org.bukkit.inventory.meta.BundleMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
 
@@ -131,9 +132,8 @@ public class Bukkit_v1_17 extends BukkitAdapter {
         }
         else if (entity instanceof Goat) {
             Goat goat = (Goat) entity;
-            if (count == 0) {
-                boolean isScreaming = (Boolean) value;
-                goat.setScreaming(isScreaming);
+            if (count == 0 && value instanceof Boolean) {
+                goat.setScreaming((Boolean) value);
                 return true;
             }
         }
@@ -175,10 +175,14 @@ public class Bukkit_v1_17 extends BukkitAdapter {
     @Override
     public boolean setItemMeta(Material rowType, ItemStack itemstack, List<Map<String, Object>> map) {
         if (BukkitAdapter.ADAPTER.isBundle(rowType)) {
-            BundleMeta meta = (BundleMeta) itemstack.getItemMeta();
+            ItemMeta itemMeta = itemstack.getItemMeta();
+            if (!(itemMeta instanceof BundleMeta)) {
+                return false;
+            }
+            BundleMeta meta = (BundleMeta) itemMeta;
             for (Map<String, Object> itemData : map) {
                 ItemStack itemStack = ItemUtils.unserializeItemStack(itemData);
-                if (itemStack != null) {
+                if (itemStack != null && !BlockUtils.isAir(itemStack.getType())) {
                     meta.addItem(itemStack);
                 }
             }

@@ -16,6 +16,7 @@ public final class LookupOptions {
     private final int radius;
     private final Location location;
     private final World world;
+    private final boolean invalidLocation;
     private final int limitOffset;
     private final int limitCount;
     private final List<Material> includeMaterials;
@@ -39,6 +40,7 @@ public final class LookupOptions {
         this.radius = builder.radius;
         this.location = builder.location;
         this.world = builder.world;
+        this.invalidLocation = builder.invalidLocation;
         this.limitOffset = builder.limitOffset;
         this.limitCount = builder.limitCount;
         this.includeMaterials = builder.includeMaterials;
@@ -74,11 +76,15 @@ public final class LookupOptions {
     }
 
     public Location getLocation() {
-        return location;
+        return location == null ? null : location.clone();
     }
 
     public World getWorld() {
         return world;
+    }
+
+    boolean hasInvalidLocation() {
+        return invalidLocation;
     }
 
     public int getLimitOffset() {
@@ -155,6 +161,7 @@ public final class LookupOptions {
         private int radius = -1;
         private Location location;
         private World world;
+        private boolean invalidLocation;
         private int limitOffset = -1;
         private int limitCount = -1;
         private List<Material> includeMaterials = List.of();
@@ -186,16 +193,14 @@ public final class LookupOptions {
         }
 
         public Builder location(Location location) {
-            this.location = location;
-            this.world = null;
-            this.radius = 0;
-            return this;
+            return radius(location, 0);
         }
 
         public Builder radius(Location location, int radius) {
-            this.location = location;
+            this.location = location == null ? null : location.clone();
             this.world = null;
             this.radius = radius;
+            this.invalidLocation = location == null;
             return this;
         }
 
@@ -203,10 +208,14 @@ public final class LookupOptions {
             this.world = world;
             this.location = null;
             this.radius = -1;
+            this.invalidLocation = false;
             return this;
         }
 
         public Builder limit(int offset, int count) {
+            if ((offset < 0 || count < 0) && (offset != -1 || count != -1)) {
+                throw new IllegalArgumentException("Limit requires a non-negative offset and count or (-1, -1)");
+            }
             this.limitOffset = offset;
             this.limitCount = count;
             return this;

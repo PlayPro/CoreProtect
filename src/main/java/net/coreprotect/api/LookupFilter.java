@@ -31,6 +31,7 @@ final class LookupFilter {
     private final int checkTime;
     private final Location location;
     private final World world;
+    private final boolean invalidLocation;
     private final int radius;
     private final int limitOffset;
     private final int limitCount;
@@ -40,11 +41,12 @@ final class LookupFilter {
     private final String includeUserIds;
     private final String excludeUserIds;
 
-    private LookupFilter(Integer userId, int checkTime, Location location, World world, int radius, int limitOffset, int limitCount, List<Material> includeMaterials, List<Material> excludeMaterials, Map<Integer, Material> materialTypes, String includeUserIds, String excludeUserIds) {
+    private LookupFilter(Integer userId, int checkTime, Location location, World world, boolean invalidLocation, int radius, int limitOffset, int limitCount, List<Material> includeMaterials, List<Material> excludeMaterials, Map<Integer, Material> materialTypes, String includeUserIds, String excludeUserIds) {
         this.userId = userId;
         this.checkTime = checkTime;
         this.location = location;
         this.world = location == null ? world : location.getWorld();
+        this.invalidLocation = invalidLocation || (location != null && this.world == null);
         this.radius = radius;
         this.limitOffset = limitOffset;
         this.limitCount = limitCount;
@@ -76,7 +78,7 @@ final class LookupFilter {
             }
         }
 
-        return new LookupFilter(userId, checkTime, options.getLocation(), options.getWorld(), options.getRadius(), options.getLimitOffset(), options.getLimitCount(),
+        return new LookupFilter(userId, checkTime, options.getLocation(), options.getWorld(), options.hasInvalidLocation(), options.getRadius(), options.getLimitOffset(), options.getLimitCount(),
                 options.getIncludeMaterials(), options.getExcludeMaterials(), materialTypes,
                 userIds(connection, options.getUsers()), userIds(connection, options.getExcludeUsers()));
     }
@@ -86,7 +88,7 @@ final class LookupFilter {
     }
 
     boolean hasInvalidLocation() {
-        return location != null && location.getWorld() == null;
+        return invalidLocation;
     }
 
     boolean hasLocation() {

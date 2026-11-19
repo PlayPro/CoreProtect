@@ -8,6 +8,7 @@ import java.sql.Statement;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.StringJoiner;
 import java.util.UUID;
 
 import net.coreprotect.config.Config;
@@ -395,10 +396,39 @@ public class __2_25_1 {
         statement.executeUpdate("ALTER TABLE " + table + " MODIFY art TEXT");
     }
 
+    private static void widenMySQLSignText(Statement statement) throws SQLException {
+        String table = ConfigHandler.prefix + "sign";
+        Map<String, String> types = new LinkedHashMap<>();
+        try (ResultSet columns = statement.executeQuery("SHOW COLUMNS FROM " + table + " WHERE Field LIKE 'line_%'")) {
+            while (columns.next()) {
+                types.put(columns.getString("Field").toLowerCase(Locale.ROOT), columns.getString("Type"));
+            }
+        }
+        StringJoiner changes = new StringJoiner(", ");
+        for (int line = 1; line <= 8; line++) {
+            String column = "line_" + line;
+            String existingType = types.get(column);
+            if (existingType == null) {
+                throw new SQLException("Missing MySQL column " + table + "." + column);
+            }
+            String type = existingType.toLowerCase(Locale.ROOT);
+            if (type.equals("text") || type.equals("mediumtext") || type.equals("longtext")) {
+                continue;
+            }
+            if (!type.startsWith("varchar(") && !type.startsWith("char(") && !type.equals("tinytext")) {
+                throw new SQLException("Unsupported MySQL " + table + "." + column + " type: " + existingType);
+            }
+            changes.add("MODIFY " + column + " TEXT");
+        }
+        if (changes.length() > 0) {
+            statement.executeUpdate("ALTER TABLE " + table + " " + changes);
+        }
+    }
+
     protected static boolean patch(Statement statement) {
         try {
             if (Config.getGlobal().MYSQL) {
-                statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "sign MODIFY line_1 TEXT, MODIFY line_2 TEXT, MODIFY line_3 TEXT, MODIFY line_4 TEXT, MODIFY line_5 TEXT, MODIFY line_6 TEXT, MODIFY line_7 TEXT, MODIFY line_8 TEXT");
+                widenMySQLSignText(statement);
                 widenMySQLBlockMetadata(statement);
                 widenMySQLArt(statement);
             }

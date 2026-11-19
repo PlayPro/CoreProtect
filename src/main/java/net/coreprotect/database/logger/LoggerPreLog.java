@@ -1,8 +1,8 @@
 package net.coreprotect.database.logger;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.entity.EntityType;
 
@@ -17,16 +17,26 @@ final class LoggerPreLog {
     }
 
     static CoreProtectPreLogEvent fire(String user, Location location, CoreProtectPreLogEvent.Action action, int actionId, Material material, EntityType entityType, String message) {
-        CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location == null ? null : location.clone(), action, actionId, material, entityType, message);
-        if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
-            CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+        CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, action, actionId, material, entityType, message);
+        if (Config.getGlobal().API_ENABLED) {
+            CoreProtect plugin = CoreProtect.getInstance();
+            Server server = plugin == null ? null : plugin.getServer();
+            if (server != null) {
+                server.getPluginManager().callEvent(event);
+            }
         }
 
         String actor = event.getUser();
-        if (event.isCancelled() || actor == null || actor.isBlank() || ConfigHandler.isBlacklisted(actor) || event.getLocation() == null) {
+        if (event.isCancelled() || actor == null || actor.isBlank() || ConfigHandler.isBlacklisted(actor)) {
             return null;
         }
-        return event;
+        Location eventLocation = event.getLocation();
+        try {
+            return eventLocation != null && eventLocation.getWorld() != null ? event : null;
+        }
+        catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 
     static boolean samePosition(Location first, Location second) {

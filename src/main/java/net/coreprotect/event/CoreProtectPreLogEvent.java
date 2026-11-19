@@ -1,5 +1,6 @@
 package net.coreprotect.event;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.EntityType;
@@ -43,9 +44,9 @@ public class CoreProtectPreLogEvent extends Event implements Cancellable {
     }
 
     public CoreProtectPreLogEvent(String user, Location location, Action action, int actionId, Material material, EntityType entityType, String message) {
-        super(true);
+        super(Bukkit.getServer() == null || !Bukkit.isPrimaryThread());
         this.user = StringUtils.normalizeUsername(user);
-        this.location = location;
+        this.location = location == null ? null : location.clone();
         this.action = action == null ? Action.UNKNOWN : action;
         this.actionId = actionId;
         this.material = material;
@@ -66,8 +67,9 @@ public class CoreProtectPreLogEvent extends Event implements Cancellable {
         return user;
     }
 
+    /** Returns a copy. Use {@link #setLocation(Location)} to relocate the event. */
     public Location getLocation() {
-        return location;
+        return location == null ? null : location.clone();
     }
 
     public Action getAction() {
@@ -113,7 +115,12 @@ public class CoreProtectPreLogEvent extends Event implements Cancellable {
             throw new IllegalArgumentException("Invalid location");
         }
 
-        this.location = newLocation;
+        Location copy = newLocation.clone();
+        if (copy.getWorld() == null) {
+            throw new IllegalArgumentException("Invalid location");
+        }
+
+        this.location = copy;
     }
 
     @Override

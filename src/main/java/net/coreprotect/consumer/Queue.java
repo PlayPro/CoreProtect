@@ -55,6 +55,7 @@ import net.coreprotect.worldedit.WorldEditBlockState;
 public class Queue {
 
     private static final int MAX_ROLLBACK_ROWS_PER_RECORD = 100_000;
+    private static final Object ROLLBACK_WITHOUT_LOCATION = new Object();
 
     public static synchronized void addForceContainer(String id, ItemStack[] container) {
         if (container == null) {
@@ -244,10 +245,14 @@ public class Queue {
             replaceType = blockReplaced.getType();
             replaceData = 0;
 
-            if (replaceType != null && (replaceType == Material.IRON_DOOR || BlockGroup.DOORS.contains(replaceType) || replaceType.equals(Material.SUNFLOWER) || replaceType.equals(Material.LILAC) || replaceType.equals(Material.TALL_GRASS) || replaceType.equals(Material.LARGE_FERN) || replaceType.equals(Material.ROSE_BUSH) || replaceType.equals(Material.PEONY)) && replaceData >= 8) { // Double plant top half
+            if (BlockGroup.LOGGED_BY_LOWER_HALF.contains(replaceType) && blockReplaced.getBlockData() instanceof Bisected
+                    && ((Bisected) blockReplaced.getBlockData()).getHalf() == Half.TOP
+                    && blockReplaced.getY() > BukkitAdapter.ADAPTER.getMinHeight(blockReplaced.getWorld())) {
                 BlockState blockBelow = blockReplaced.getWorld().getBlockAt(blockReplaced.getX(), blockReplaced.getY() - 1, blockReplaced.getZ()).getState();
-                Material belowType = blockBelow.getType();
-                Queue.queueBlockBreak(user, blockBelow, belowType, blockBelow.getBlockData().getAsString(), 0);
+                if (blockBelow.getType() == replaceType && blockBelow.getBlockData() instanceof Bisected
+                        && ((Bisected) blockBelow.getBlockData()).getHalf() == Half.BOTTOM) {
+                    Queue.queueBlockBreak(user, blockBelow, replaceType, blockBelow.getBlockData().getAsString(), 0);
+                }
             }
         }
 
@@ -450,7 +455,7 @@ public class Queue {
     }
 
     public static void queueEntityKill(String user, Location location, List<Object> data, EntityType type) {
-        queueStandardData(new Object[] { null, Process.ENTITY_KILL, null, 0, null, 0, 0 }, new String[] { user, null }, new Object[] { getBlockLocation(location), type, null }, false, Consumer.consumerObjectList, data, Consumer.reserveConsumer());
+        queueStandardData(new Object[] { null, Process.ENTITY_KILL, null, 0, null, 0, 0, null }, new String[] { user, null }, new Object[] { getBlockLocation(location), type, null }, false, Consumer.consumerObjectList, data, Consumer.reserveConsumer());
     }
 
     protected static void queueEntitySpawn(String user, BlockState block, EntityType type, int data) {
@@ -597,17 +602,10 @@ public class Queue {
     }
 
     protected static void queueRollbackUpdate(String user, Location location, List<Object[]> list, int table, int action) {
-        if (location == null) {
-            location = new Location(Bukkit.getServer().getWorlds().get(0), 0, 0, 0);
-        }
-
         queueRollbackUpdates(user, location, list, table, action, false);
     }
 
     public static void queueEntityContainerRollbackUpdate(String user, Location location, List<Object[]> rows, int rollbackType, boolean inventoryRollback) {
-        if (location == null) {
-            location = new Location(Bukkit.getServer().getWorlds().get(0), 0, 0, 0);
-        }
         queueRollbackUpdates(user, location, rows, Process.ENTITY_CONTAINER_ROLLBACK_UPDATE, rollbackType, inventoryRollback);
     }
 
@@ -701,7 +699,7 @@ public class Queue {
                 int consumerId = firstConsumerId + recordIndex;
                 records.add(new Object[] { consumerId, table, null, inventoryRollback ? 1 : 0, null, 0, action, null });
                 Consumer.consumerUsers.get(currentConsumer).put(consumerId, new String[] { normalizedUser, null });
-                Consumer.consumerObjects.get(currentConsumer).put(consumerId, location);
+                Consumer.consumerObjects.get(currentConsumer).put(consumerId, location == null ? ROLLBACK_WITHOUT_LOCATION : location);
                 Consumer.consumerObjectArrayList.get(currentConsumer).put(consumerId, new ArrayList<>(rows.subList(fromIndex, toIndex)));
             }
             Consumer.consumer.get(currentConsumer).addAll(records);

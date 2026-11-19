@@ -29,6 +29,7 @@ final class ContainerCapture {
     private final Player owner;
     private final String transactionId;
     private final String group;
+    private final String blockId;
     private final String snapshotOwner;
 
     private ContainerCapture(String user, Material type, Location location, Inventory inventory, ItemStack[] before, Player owner) {
@@ -40,6 +41,7 @@ final class ContainerCapture {
         this.owner = owner;
         this.transactionId = HopperTransactionUtils.getTransactionId(user, type, location);
         this.group = HopperTransactionUtils.getViewerGroupId(user, type, location);
+        this.blockId = type == Material.ENDER_CHEST ? HopperTransactionUtils.getLoggingIdSuffix(location) : group;
         this.snapshotOwner = group + "#capture";
     }
 
@@ -52,7 +54,7 @@ final class ContainerCapture {
         ContainerCapture capture = new ContainerCapture(user, type, location, inventory, before, owner);
         StartResult started = HopperTransactionUtils.synchronizeTransaction(capture.transactionId, () -> {
             ContainerCapture previous = PENDING.get(capture.group);
-            if (previous != null && previous.user.equals(user) && previous.type == type) {
+            if (previous != null && previous.user.equals(user) && previous.type == type && previous.blockId.equals(capture.blockId)) {
                 return new StartResult(false, null);
             }
             Runnable previousCompletion = previous == null ? null : previous.finishLocked(before);

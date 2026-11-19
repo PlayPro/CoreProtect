@@ -532,11 +532,11 @@ public final class InventoryChangeListener implements Listener {
 
         Player player = (Player) viewer;
         InventoryHolder inventoryHolder = PaperAdapter.ADAPTER.getHolder(inventory, false);
-        if (inventoryHolder != null && inventoryHolder.equals(player)) {
+        boolean enderChest = inventory.equals(player.getEnderChest());
+        if (!enderChest && inventoryHolder != null && inventoryHolder.equals(player)) {
             return;
         }
 
-        boolean enderChest = inventory.equals(player.getEnderChest());
         if (isSupportedContainer(inventoryHolder) || enderChest || isAdvancedChest(inventory)) {
             onInventoryInteractAsync(player, inventory, enderChest);
         }

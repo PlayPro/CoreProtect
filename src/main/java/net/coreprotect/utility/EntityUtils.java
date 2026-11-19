@@ -59,6 +59,10 @@ public class EntityUtils {
                 return "#enderdragon";
             case "#wither_skull":
                 return "#wither";
+            case "#wind_charge":
+                return "#windcharge";
+            case "#breeze_wind_charge":
+                return "#breezewindcharge";
             default:
                 return user;
         }

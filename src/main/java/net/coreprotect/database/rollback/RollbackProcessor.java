@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 
 import org.bukkit.Bukkit;
@@ -18,6 +19,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Powerable;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -29,6 +31,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.consumer.process.Process;
+import net.coreprotect.database.rollback.RollbackBlockHandler.BlockReplayResult;
 import net.coreprotect.database.rollback.RollbackUtil.ContainerReplayResult;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.PendingBlockChange;
@@ -39,10 +42,12 @@ import net.coreprotect.model.item.InventorySources;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.Teleport;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.entity.EntityUtil;
 
 public class RollbackProcessor extends Queue {
 
@@ -178,8 +183,16 @@ public class RollbackProcessor extends Queue {
                         counters.addBlocks(1);
                     }
                 }
-                else if (rowAction == 3) { // entity kill
-                    int entities = RollbackEntityHandler.processEntity(bukkitRollbackWorld, oldTypeRaw, rowTypeRaw, rowData, rowAction, rowRolledBack, rowX, rowY, rowZ, rowWorldId, rowUser);
+                else if (rowAction == LookupActions.ENTITY_KILL && rollbackType == 0 && inventoryContext != null) {
+                    if (rowRolledBack == 0) {
+                        restoreLegacyKill(inventoryContext, bukkitRollbackWorld, row);
+                    }
+                }
+                else if (rowAction == LookupActions.ENTITY_KILL) {
+                    AtomicBoolean removalStarted = new AtomicBoolean();
+                    int entities = RollbackEntityHandler.processEntity(bukkitRollbackWorld, oldTypeRaw, rowTypeRaw, rowData, rowAction, rowRolledBack, rowX, rowY, rowZ, rowWorldId, rowUser,
+                            inventoryContext == null ? null : () -> beginDeferredMutation(inventoryContext, removalStarted),
+                            inventoryContext == null ? null : removal -> publishDeferredChange(inventoryContext, removalStarted, removal, row, rollbackType, false, true));
                     counters.addEntities(entities);
                     if (entities > 0) {
                         appliedBlocks.add(row);
@@ -236,10 +249,11 @@ public class RollbackProcessor extends Queue {
                         }
                     }
 
-                    if (RollbackBlockHandler.processBlockChange(bukkitRollbackWorld, block, row, rollbackType, clearInventories, chunkChanges, countBlock, oldTypeMaterial, pendingChangeType, pendingChangeData, counters, rawBlockData, changeType, changeBlock, changeBlockData, meta != null ? new ArrayList<>(meta) : null, blockData, rowUser, rowType, rowX, rowY, rowZ, rowTypeRaw, rowData, rowAction, rowWorldId, blockDataString, inventoryContext) && countBlock) {
+                    BlockReplayResult result = RollbackBlockHandler.processBlockChange(bukkitRollbackWorld, block, row, rollbackType, clearInventories, chunkChanges, countBlock, oldTypeMaterial, pendingChangeType, pendingChangeData, counters, rawBlockData, changeType, changeBlock, changeBlockData, meta != null ? new ArrayList<>(meta) : null, blockData, rowUser, rowType, rowX, rowY, rowZ, rowTypeRaw, rowData, rowAction, rowWorldId, blockDataString, inventoryContext);
+                    if (result.counted()) {
                         counters.addBlocks(1);
                     }
-                    if (oldTypeMaterial != null && rowType != null && rowRolledBack == rollbackType) {
+                    if (result.applied() && oldTypeMaterial != null && rowType != null && rowRolledBack == rollbackType) {
                         appliedBlocks.add(row);
                     }
                 }
@@ -291,6 +305,59 @@ public class RollbackProcessor extends Queue {
             ErrorReporter.report(e);
             return false;
         }
+    }
+
+    static void restoreLegacyKill(EntitySpawnRollbackHandler.Context context, World world, Object[] row) {
+        int storedTypeId = (Integer) row[6];
+        int dataId = (Integer) row[7];
+        List<Object> data = context.getLegacyKillData(dataId);
+        EntityType type = EntitySpawnTracking.resolveKillType(storedTypeId, data);
+        if (type == null || type == EntityType.UNKNOWN || context.isCancelled()) {
+            return;
+        }
+
+        Location location = new Location(world, (Integer) row[3], (Integer) row[4], (Integer) row[5]);
+        AtomicBoolean started = new AtomicBoolean();
+        CompletableFuture<Boolean> restored = EntityUtil.restoreLegacyEntity(location, type, data, storedTypeId, () -> beginDeferredMutation(context, started))
+                .thenApply(entity -> entity != null);
+        publishDeferredChange(context, started, restored, row, 0, false, true);
+    }
+
+    static boolean beginDeferredMutation(EntitySpawnRollbackHandler.Context context, AtomicBoolean started) {
+        if (!context.beginMutation()) {
+            return false;
+        }
+        started.set(true);
+        return true;
+    }
+
+    static void publishDeferredChange(EntitySpawnRollbackHandler.Context context, AtomicBoolean started, CompletableFuture<Boolean> change,
+            Object[] row, int rollbackType, boolean countBlock, boolean countEntity) {
+        CompletableFuture<Boolean> publication = change.handle((applied, error) -> {
+            try {
+                if (error != null) {
+                    context.reportFailure("Deferred rollback change did not finish", null);
+                    ErrorReporter.report(error);
+                    return false;
+                }
+                if (applied) {
+                    Queue.queueRollbackUpdate(context.actor(), null, List.<Object[]>of(row), Process.ROLLBACK_UPDATE, rollbackType);
+                    if (countBlock) {
+                        context.addBlockCount();
+                    }
+                    if (countEntity) {
+                        context.addEntityCount();
+                    }
+                }
+                return true;
+            }
+            finally {
+                if (started.get()) {
+                    context.endMutation();
+                }
+            }
+        });
+        context.addPending(publication);
     }
 
     public static int replayContainerRows(World world, Block inspectedBlock, List<Object[]> rows, int rollbackType, String actor, BooleanSupplier cancelled) {

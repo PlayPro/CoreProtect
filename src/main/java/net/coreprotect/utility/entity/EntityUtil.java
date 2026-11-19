@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 
 import org.bukkit.Bukkit;
@@ -133,7 +134,18 @@ public class EntityUtil {
         return scheduleEntitySpawn(blockLocation, type, list, null);
     }
 
-    private static CompletableFuture<Entity> scheduleEntitySpawn(final Location blockLocation, final EntityType type, final List<Object> list, final String cacheTypeKey) {
+    public static CompletableFuture<Entity> restoreLegacyEntity(Location location, EntityType type, List<Object> data, int storedTypeId, BooleanSupplier allowed) {
+        if (type == null || type == EntityType.UNKNOWN) {
+            return CompletableFuture.completedFuture(null);
+        }
+        return scheduleEntitySpawn(location, type, data, Integer.toString(storedTypeId), allowed);
+    }
+
+    private static CompletableFuture<Entity> scheduleEntitySpawn(Location blockLocation, EntityType type, List<Object> list, String cacheTypeKey) {
+        return scheduleEntitySpawn(blockLocation, type, list, cacheTypeKey, null);
+    }
+
+    private static CompletableFuture<Entity> scheduleEntitySpawn(final Location blockLocation, final EntityType type, final List<Object> list, final String cacheTypeKey, BooleanSupplier allowed) {
         CompletableFuture<Entity> completion = new CompletableFuture<>();
         if (type == null) {
             completion.complete(null);
@@ -156,18 +168,25 @@ public class EntityUtil {
         }
         final Location entityLocation = restoreLocation;
         Runnable task = () -> {
+            if (allowed != null && completion.isDone()) {
+                return;
+            }
             Entity entity = null;
             try {
+                if (allowed != null && !allowed.getAsBoolean()) {
+                    completion.complete(null);
+                    return;
+                }
                 entity = entityLocation.getWorld().spawnEntity(entityLocation, type);
+                if (allowed != null && (entity == null || !entity.isValid())) {
+                    completion.complete(null);
+                    return;
+                }
 
                 if (list.isEmpty()) {
                     completeEntityRestore(completion, entity, legacyTransition);
                     return;
                 }
-                if (legacyTransition && list.size() > 7 && list.get(7) instanceof String) {
-                    EntitySpawnTracking.trackRevivedEntity(entity, UUID.fromString((String) list.get(7)));
-                }
-
                 @SuppressWarnings("unchecked")
                 List<Object> age = (List<Object>) list.get(0);
                 @SuppressWarnings("unchecked")
@@ -178,13 +197,6 @@ public class EntityUtil {
                 if (list.size() >= 5) {
                     entity.setCustomNameVisible((Boolean) list.get(3));
                     entity.setCustomName((String) list.get(4));
-                }
-
-                if (legacyTransition) {
-                    int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
-                    int wid = WorldUtils.getWorldId(blockLocation.getWorld().getName());
-                    String token = blockLocation.getBlockX() + "." + blockLocation.getBlockY() + "." + blockLocation.getBlockZ() + "." + wid + "." + cacheTypeKey;
-                    CacheHandler.entityCache.put(token, new Object[] { unixtimestamp, entity.getEntityId(), entity.getUniqueId(), type });
                 }
 
                 if (entity instanceof Ageable) {
@@ -502,14 +514,34 @@ public class EntityUtil {
                 if (entity instanceof Villager) {
                     BukkitAdapter.ADAPTER.refreshVillagerBrain((Villager) entity);
                 }
+                if (legacyTransition) {
+                    if (list.size() > 7 && list.get(7) instanceof String) {
+                        EntitySpawnTracking.trackRevivedEntity(entity, UUID.fromString((String) list.get(7)));
+                    }
+                    int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
+                    int wid = WorldUtils.getWorldId(blockLocation.getWorld().getName());
+                    String token = blockLocation.getBlockX() + "." + blockLocation.getBlockY() + "." + blockLocation.getBlockZ() + "." + wid + "." + cacheTypeKey;
+                    CacheHandler.entityCache.put(token, new Object[] { unixtimestamp, entity.getEntityId(), entity.getUniqueId(), type });
+                }
                 completeEntityRestore(completion, entity, legacyTransition);
             }
             catch (Exception e) {
-                if (!legacyTransition && entity != null) {
-                    EntitySpawnTracking.removeWithoutRemovalLog(entity);
+                if (entity != null && (!legacyTransition || allowed != null)) {
+                    try {
+                        EntitySpawnTracking.removeWithoutRemovalLog(entity);
+                        EntitySpawnTracking.forget(entity.getUniqueId());
+                    }
+                    catch (Exception cleanupError) {
+                        e.addSuppressed(cleanupError);
+                    }
                 }
-                ErrorReporter.report(e);
-                completion.complete(null);
+                if (allowed != null) {
+                    completion.completeExceptionally(e);
+                }
+                else {
+                    ErrorReporter.report(e);
+                    completion.complete(null);
+                }
             }
         };
         try {

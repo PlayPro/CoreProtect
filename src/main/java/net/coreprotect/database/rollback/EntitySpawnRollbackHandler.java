@@ -1411,6 +1411,7 @@ public final class EntitySpawnRollbackHandler {
         private final AtomicInteger entities = new AtomicInteger();
         private final AtomicBoolean cancelled = new AtomicBoolean();
         private final AtomicBoolean failureReported = new AtomicBoolean();
+        private Map<Integer, List<Object>> legacyKillData = Collections.emptyMap();
         private int activeMutations;
         private boolean transactionWorkActive;
         private boolean transactionWorkAdvancing;
@@ -1481,6 +1482,26 @@ public final class EntitySpawnRollbackHandler {
             items.addAndGet(counters.getItems());
             blocks.addAndGet(counters.getBlocks());
             entities.addAndGet(counters.getEntities());
+        }
+
+        void setLegacyKillData(Map<Integer, List<Object>> legacyKillData) {
+            this.legacyKillData = legacyKillData;
+        }
+
+        List<Object> getLegacyKillData(int id) {
+            return legacyKillData.getOrDefault(id, Collections.emptyList());
+        }
+
+        void addEntityCount() {
+            entities.incrementAndGet();
+        }
+
+        void addBlockCount() {
+            blocks.incrementAndGet();
+        }
+
+        String actor() {
+            return userString;
         }
 
         void addItemCount(int count) {

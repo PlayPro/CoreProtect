@@ -301,6 +301,17 @@ public class Rollback extends RollbackUtil {
             if (rollbackType == 1) {
                 entitySpawnContext.reverseWork();
             }
+            else if (preview == 0) {
+                Set<Integer> legacyKillIds = new HashSet<>();
+                for (Object[] row : rollbackLookupList) {
+                    if ((Integer) row[8] == LookupActions.ENTITY_KILL && (Integer) row[7] > 0 && MaterialUtils.rolledBack((Integer) row[9], false) == 0) {
+                        legacyKillIds.add((Integer) row[7]);
+                    }
+                }
+                if (!legacyKillIds.isEmpty()) {
+                    entitySpawnContext.setLegacyKillData(EntityStatement.loadData(statement.getConnection(), legacyKillIds));
+                }
+            }
             addEntitySpawnChunks(entitySpawnContext, worldList, chunkList, location);
 
             if (user != null && verbose && preview == 0 && !actionList.contains(LookupActions.ITEM)) {

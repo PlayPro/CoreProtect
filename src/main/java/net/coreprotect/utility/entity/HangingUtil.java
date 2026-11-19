@@ -2,7 +2,10 @@ package net.coreprotect.utility.entity;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import org.bukkit.Art;
 import org.bukkit.Location;
@@ -71,58 +74,82 @@ public class HangingUtil {
         PlayerInteractEntityListener.queueContainerSpecifiedItems(user, Material.ITEM_FRAME, new Object[] { before, new ItemStack[0], frame.getFacing() }, frame.getLocation(), logDrops);
     }
 
-    public static void spawnHanging(BlockState state, Material type, String hangingData, int rowData) {
+    public static boolean spawnHanging(BlockState state, Material type, String hangingData, int rowData) {
+        return restoreHanging(state, type, hangingData, rowData, null).getNow(true);
+    }
+
+    public static CompletableFuture<Boolean> restoreHanging(BlockState state, Material type, String hangingData, int rowData, BooleanSupplier beforeSpawn) {
         try {
             boolean painting = type == Material.PAINTING;
             if (!painting && !BukkitAdapter.ADAPTER.isItemFrame(type)) {
-                return;
+                return CompletableFuture.completedFuture(false);
             }
             List<BlockFace> faces = painting ? WALL_FACES : FRAME_FACES;
             Block block = state.getBlock();
             BlockFace stored = parseFacing(hangingData);
             BlockFace face = stored != null && faces.contains(stored) ? stored : findFacing(block, faces);
             if (face == null) {
-                return;
+                return CompletableFuture.completedFuture(false);
             }
-
             Art art = painting ? BukkitAdapter.ADAPTER.getPaintingArt(MaterialUtils.getArtName(rowData)) : null;
             if (painting && art == null) {
-                return;
+                return CompletableFuture.completedFuture(false);
             }
-            Hanging existing = findAt(state, face, decoration -> painting == (decoration instanceof Painting), false);
-            if (existing != null) {
-                existing.remove();
-            }
+
+            Hanging existing = findAt(state, face, decoration -> getMaterial(decoration) == type, false);
             Location location = block.getLocation();
+            CompletableFuture<Boolean> completion = new CompletableFuture<>();
             if (painting) {
                 Location anchor = paintingAnchor(location, face, art.getBlockWidth(), art.getBlockHeight());
+                Runnable task = () -> completeSpawn(completion, beforeSpawn, existing, () -> BukkitAdapter.ADAPTER.spawn(
+                        anchor.getWorld(), anchor, Painting.class, restored -> {
+                            restored.setFacingDirection(face, true);
+                            restored.setArt(art, true);
+                        }));
                 if (owns(anchor.getWorld(), anchor.getBlockX(), anchor.getBlockZ())) {
-                    spawnPainting(anchor, face, art);
+                    task.run();
+                }
+                else if (existing == null) {
+                    Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), task, anchor, 0);
                 }
                 else {
-                    Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> spawnPainting(anchor, face, art), anchor, 0);
+                    completion.complete(false);
                 }
             }
             else {
                 Material itemType = MaterialUtils.getType(rowData);
-                BukkitAdapter.ADAPTER.spawn(block.getWorld(), location, BukkitAdapter.ADAPTER.getFrameClass(type), frame -> {
-                    frame.setFacingDirection(face, true);
-                    if (itemType != null && !BlockUtils.isAir(itemType)) {
-                        frame.setItem(new ItemStack(itemType, 1));
-                    }
-                });
+                completeSpawn(completion, beforeSpawn, existing, () -> BukkitAdapter.ADAPTER.spawn(
+                        block.getWorld(), location, BukkitAdapter.ADAPTER.getFrameClass(type), frame -> {
+                            frame.setFacingDirection(face, true);
+                            if (itemType != null && !BlockUtils.isAir(itemType)) {
+                                frame.setItem(new ItemStack(itemType, 1));
+                            }
+                        }));
             }
+            return completion;
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            return CompletableFuture.completedFuture(false);
         }
     }
 
-    private static void spawnPainting(Location anchor, BlockFace face, Art art) {
-        BukkitAdapter.ADAPTER.spawn(anchor.getWorld(), anchor, Painting.class, painting -> {
-            painting.setFacingDirection(face, true);
-            painting.setArt(art, true);
-        });
+    private static void completeSpawn(CompletableFuture<Boolean> completion, BooleanSupplier beforeSpawn, Hanging existing, Supplier<? extends Hanging> spawn) {
+        try {
+            if (beforeSpawn != null && !beforeSpawn.getAsBoolean()) {
+                completion.complete(false);
+                return;
+            }
+            if (existing != null) {
+                existing.remove();
+            }
+            Hanging restored = spawn.get();
+            completion.complete(restored != null && restored.isValid());
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+            completion.complete(false);
+        }
     }
 
     static Location paintingAnchor(Location location, BlockFace face, int width, int height) {
@@ -171,20 +198,22 @@ public class HangingUtil {
         removeHanging(state, null, hangingData);
     }
 
-    public static void removeHanging(BlockState state, Material type, String hangingData) {
+    public static boolean removeHanging(BlockState state, Material type, String hangingData) {
         try {
             BlockFace face = parseFacing(hangingData);
             if (face == null && hangingData != null && !hangingData.isBlank()) {
-                return;
+                return false;
             }
             Hanging target = findAt(state, face, decoration -> type == null || getMaterial(decoration) == type, true);
             if (target != null) {
                 target.remove();
+                return true;
             }
         }
         catch (Exception e) {
             ErrorReporter.report(e);
         }
+        return false;
     }
 
     private static Hanging findAt(BlockState state, BlockFace face, Predicate<Hanging> matchesType, boolean requireUnique) {

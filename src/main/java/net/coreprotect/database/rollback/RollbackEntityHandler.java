@@ -2,6 +2,9 @@ package net.coreprotect.database.rollback;
 
 import java.util.Arrays;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -49,6 +52,11 @@ public class RollbackEntityHandler {
      * @return The number of entities affected (1 if successful, 0 otherwise)
      */
     public static int processEntity(World bukkitWorld, int oldTypeRaw, int rowTypeRaw, int rowData, int rowAction, int rowRolledBack, int rowX, int rowY, int rowZ, int rowWorldId, String rowUser) {
+        return processEntity(bukkitWorld, oldTypeRaw, rowTypeRaw, rowData, rowAction, rowRolledBack, rowX, rowY, rowZ, rowWorldId, rowUser, null, null);
+    }
+
+    static int processEntity(World bukkitWorld, int oldTypeRaw, int rowTypeRaw, int rowData, int rowAction, int rowRolledBack, int rowX, int rowY, int rowZ, int rowWorldId, String rowUser,
+            BooleanSupplier canRemove, Consumer<CompletableFuture<Boolean>> pendingRemoval) {
         try {
             // Entity kill
             if (rowAction == LookupActions.ENTITY_KILL) {
@@ -60,8 +68,9 @@ public class RollbackEntityHandler {
                     UUID entityUuid = getCachedEntityUuid(cachedEntity);
                     targetType = cachedEntity != null && cachedEntity.length > 3 && cachedEntity[3] instanceof EntityType
                             ? (EntityType) cachedEntity[3] : EntityUtils.getEntityType(oldTypeRaw);
-                    if (removeCachedEntity(entityUuid, targetType)) {
-                        return 1;
+                    int removed = removeCachedEntity(entityUuid, targetType, canRemove, pendingRemoval);
+                    if (removed >= 0) {
+                        return removed;
                     }
                 }
 
@@ -134,21 +143,43 @@ public class RollbackEntityHandler {
         return type == null || type == EntityType.UNKNOWN ? null : CacheHandler.entityCache.get(prefix + type.name());
     }
 
-    private static boolean removeCachedEntity(UUID uuid, EntityType targetType) {
+    private static int removeCachedEntity(UUID uuid, EntityType targetType, BooleanSupplier canRemove, Consumer<CompletableFuture<Boolean>> pendingRemoval) {
         if (uuid == null) {
-            return false;
+            return -1;
         }
 
         Entity entity = Bukkit.getEntity(uuid);
         if (entity == null || !entity.getType().equals(targetType)) {
-            return false;
+            return -1;
         }
         if (ConfigHandler.isFolia && !PaperAdapter.ADAPTER.isOwnedByCurrentRegion(entity)) {
-            return PaperAdapter.ADAPTER.executeEntityTask(CoreProtect.getInstance(), entity, () -> removeEntity(entity), null);
+            if (pendingRemoval == null) {
+                return PaperAdapter.ADAPTER.executeEntityTask(CoreProtect.getInstance(), entity, () -> removeEntity(entity), null) ? 1 : -1;
+            }
+            CompletableFuture<Boolean> completion = new CompletableFuture<>();
+            Runnable task = () -> {
+                try {
+                    if (completion.isDone() || !entity.isValid() || !canRemove.getAsBoolean()) {
+                        completion.complete(false);
+                        return;
+                    }
+                    removeEntity(entity);
+                    completion.complete(true);
+                }
+                catch (Exception exception) {
+                    completion.completeExceptionally(exception);
+                }
+            };
+            if (!PaperAdapter.ADAPTER.executeEntityTask(CoreProtect.getInstance(), entity, task, () -> completion.complete(false))) {
+                completion.complete(false);
+                return -1;
+            }
+            pendingRemoval.accept(completion);
+            return 0;
         }
 
         removeEntity(entity);
-        return true;
+        return 1;
     }
 
     private static boolean removeMatchingEntity(Iterable<? extends Entity> entities, int cachedEntityId, EntityType targetType, int xmin, int xmax, int ymin, int ymax, int zmin, int zmax, boolean useBounds) {

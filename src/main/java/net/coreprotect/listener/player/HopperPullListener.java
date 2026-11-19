@@ -14,6 +14,7 @@ import org.bukkit.inventory.ItemStack;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.HopperTransactionUtils;
 import net.coreprotect.utility.ItemUtils;
@@ -50,9 +51,10 @@ public final class HopperPullListener {
         }
 
         ConfigHandler.hopperAbort.remove(loggingChestId);
+        String transactionId = HopperTransactionUtils.getTransactionId(location);
+        HopperTransactionUtils.recordItemRemoved(transactionId, movedItem);
         boolean hopperTransactions = Config.getConfig(location.getWorld()).HOPPER_TRANSACTIONS;
         if (!hopperTransactions) {
-            HopperTransactionUtils.recordItemRemoved(HopperTransactionUtils.getTransactionId(location), movedItem);
             return;
         }
 
@@ -67,11 +69,9 @@ public final class HopperPullListener {
             return;
         }
         if (Config.getConfig(location.getWorld()).HOPPER_FILTER_META && !movedItem.hasItemMeta()) {
-            HopperTransactionUtils.recordItemRemoved(HopperTransactionUtils.getTransactionId(location), movedItem);
             return;
         }
 
-        String transactionId = HopperTransactionUtils.getTransactionId(location);
         PendingPull pending = pendingPulls.compute(transactionId, (key, current) -> {
             PendingPull value = current;
             if (value == null) {
@@ -86,7 +86,7 @@ public final class HopperPullListener {
         }
     }
 
-    static void flushPendingPull(Location location, Inventory inventory, ItemStack[] checkpoint) {
+    static void flushPendingPull(Location location, ItemStack[] checkpoint) {
         if (location == null || location.getWorld() == null || checkpoint == null) {
             return;
         }
@@ -97,12 +97,15 @@ public final class HopperPullListener {
             return;
         }
 
-        Inventory sourceInventory = inventory == null ? pending.inventory : inventory;
-        submitPendingPull(pending, sourceInventory, checkpoint);
+        submitPendingPull(pending, checkpoint);
+    }
+
+    static void flushPendingPull(Location location) {
+        flushPendingPull(location, (Inventory) null);
     }
 
     static void flushPendingPull(Location location, Inventory inventory) {
-        if (location == null || location.getWorld() == null || inventory == null) {
+        if (location == null || location.getWorld() == null || !ownedByCurrentRegion(location)) {
             return;
         }
 
@@ -112,9 +115,10 @@ public final class HopperPullListener {
             return;
         }
 
-        ItemStack[] checkpoint = ItemUtils.getContainerState(inventory.getContents());
+        Inventory checkpointInventory = inventory == null ? pending.inventory : inventory;
+        ItemStack[] checkpoint = ItemUtils.getContainerState(checkpointInventory.getContents());
         if (pendingPulls.remove(transactionId, pending)) {
-            submitPendingPull(pending, inventory, checkpoint);
+            submitPendingPull(pending, checkpoint);
         }
     }
 
@@ -122,15 +126,24 @@ public final class HopperPullListener {
         for (Map.Entry<String, PendingPull> entry : pendingPulls.entrySet()) {
             PendingPull pending = entry.getValue();
             try {
+                if (!ownedByCurrentRegion(pending.location)) {
+                    pendingPulls.remove(entry.getKey(), pending);
+                    continue;
+                }
                 ItemStack[] checkpoint = ItemUtils.getContainerState(pending.inventory.getContents());
                 if (pendingPulls.remove(entry.getKey(), pending)) {
-                    submitPendingPull(pending, pending.inventory, checkpoint);
+                    submitPendingPull(pending, checkpoint);
                 }
             }
             catch (Exception e) {
                 ErrorReporter.report(e);
             }
         }
+    }
+
+    private static boolean ownedByCurrentRegion(Location location) {
+        return !ConfigHandler.isFolia || location.isWorldLoaded() && PaperAdapter.ADAPTER.isOwnedByCurrentRegion(
+                location.getWorld(), location.getBlockX() >> 4, location.getBlockZ() >> 4);
     }
 
     static int pendingLocations() {
@@ -151,16 +164,16 @@ public final class HopperPullListener {
         }
 
         ItemStack[] checkpoint = ItemUtils.getContainerState(pending.inventory.getContents());
-        submitPendingPull(pending, pending.inventory, checkpoint);
+        submitPendingPull(pending, checkpoint);
     }
 
-    private static void submitPendingPull(PendingPull pending, Inventory sourceInventory, ItemStack[] checkpoint) {
-        if (pending == null || sourceInventory == null || checkpoint == null || pending.accumulator.isEmpty()) {
+    private static void submitPendingPull(PendingPull pending, ItemStack[] checkpoint) {
+        if (pending == null || checkpoint == null || pending.accumulator.isEmpty()) {
             return;
         }
 
         ContainerTransactionDispatcher.submit(pending.location, () -> pending.accumulator.replay(checkpoint, pending.maxStackSize,
-                (user, sourceBefore, movedItem) -> InventoryChangeListener.onHopperInventoryInteract(user, sourceInventory, sourceBefore, pending.location, movedItem)));
+                (user, sourceBefore, sourceAfter) -> InventoryChangeListener.queueHopperInventoryChange(user, pending.location, sourceBefore, sourceAfter)));
     }
 
     private static final class PendingPull {

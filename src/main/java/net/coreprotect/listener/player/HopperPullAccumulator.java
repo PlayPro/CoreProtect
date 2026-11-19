@@ -55,8 +55,9 @@ final class HopperPullAccumulator {
             for (long repetition = 0; repetition < run.repetitions; repetition++) {
                 ItemStack movedItem = run.item.clone();
                 movedItem.setAmount(run.amount);
-                consumer.accept(run.user, state, movedItem);
-                state = removeFromState(state, movedItem);
+                ItemStack[] after = removeFromState(state, movedItem);
+                consumer.accept(run.user, state, after);
+                state = after;
             }
         }
     }
@@ -148,7 +149,7 @@ final class HopperPullAccumulator {
 
     @FunctionalInterface
     interface MoveConsumer {
-        void accept(String user, ItemStack[] sourceBefore, ItemStack movedItem);
+        void accept(String user, ItemStack[] sourceBefore, ItemStack[] sourceAfter);
     }
 
     private static final class MoveRun {

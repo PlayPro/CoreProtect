@@ -7,7 +7,6 @@ import java.util.Map;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.config.ConfigHandler;
@@ -97,14 +96,7 @@ class ContainerTransactionProcess {
             if (force_size == 0 && ConfigHandler.oldContainer.getOrDefault(loggingChestId, Collections.synchronizedList(new ArrayList<>())).size() == 1
                     && HopperTransactionUtils.pendingDeltaCount(transactingChestId) == 0) {
                 int loopCount = ConfigHandler.loggingChest.getOrDefault(loggingChestId, 0);
-                int maxInventorySize = (99 * 54);
-                try {
-                    Inventory checkInventory = (Inventory) inventory;
-                    maxInventorySize = checkInventory.getSize() * checkInventory.getMaxStackSize();
-                }
-                catch (Exception e) {
-                    // use default of 5,346
-                }
+                int maxInventorySize = 99 * (inventory instanceof ItemStack[] ? ((ItemStack[]) inventory).length : 54);
 
                 if (loopCount > maxInventorySize) {
                     ItemStack[] destinationContents = null;

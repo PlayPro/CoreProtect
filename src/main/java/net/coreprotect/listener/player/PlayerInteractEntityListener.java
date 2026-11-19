@@ -1,11 +1,9 @@
 package net.coreprotect.listener.player;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Creature;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.ItemFrame;
@@ -31,7 +29,6 @@ import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.EntitySpawnTracking;
-import net.coreprotect.utility.HopperTransactionUtils;
 import net.coreprotect.utility.ItemUtils;
 
 public final class PlayerInteractEntityListener extends Queue implements Listener {
@@ -167,43 +164,14 @@ public final class PlayerInteractEntityListener extends Queue implements Listene
     }
 
     public static void queueContainerSpecifiedItems(String user, Material type, Object container, Location location, boolean logDrop) {
-        ItemStack[] contents = (ItemStack[]) ((Object[]) container)[0];
+        Object[] event = (Object[]) container;
+        ItemStack[] before = (ItemStack[]) event[0];
+        ItemStack[] after = (ItemStack[]) event[1];
+        BlockFace face = event.length > 2 ? (BlockFace) event[2] : null;
+        Queue.queueSpecifiedContainerTransaction(user, location, type, face, before, after);
 
-        String transactingChestId = HopperTransactionUtils.getTransactionId(location);
-        String loggingChestIdSuffix = HopperTransactionUtils.getLoggingIdSuffix(location);
-        String loggingChestId = HopperTransactionUtils.getLoggingId(user, loggingChestIdSuffix);
-        HopperTransactionUtils.synchronizeTransaction(transactingChestId, () -> {
-            int chestId = Queue.getChestId(loggingChestId);
-            if (chestId > 0) {
-                int forceSize = Queue.getForceContainerSize(loggingChestId);
-                if (forceSize > 0) {
-                    List<ItemStack[]> list = ConfigHandler.oldContainer.get(loggingChestId);
-
-                    if (list.size() <= forceSize) {
-                        list.add(ItemUtils.getContainerState(contents));
-                        ConfigHandler.oldContainer.put(loggingChestId, list);
-                        HopperTransactionUtils.registerSnapshot(transactingChestId, loggingChestId, false);
-                    }
-                }
-            }
-            else {
-                List<ItemStack[]> list = new ArrayList<>();
-                list.add(ItemUtils.getContainerState(contents));
-                ConfigHandler.oldContainer.put(loggingChestId, list);
-                ConfigHandler.addOldContainerViewer(loggingChestIdSuffix, loggingChestId);
-                HopperTransactionUtils.registerSnapshot(transactingChestId, loggingChestId, true);
-            }
-
-            Queue.queueContainerTransaction(user, location, type, container, chestId);
-        });
-
-        if (logDrop) {
-            ItemStack dropItem = contents[0];
-            if (dropItem.getType() == Material.AIR) {
-                return;
-            }
-
-            PlayerDropItemListener.playerDropItem(location, user, dropItem);
+        if (logDrop && before.length > 0 && before[0] != null && before[0].getType() != Material.AIR) {
+            PlayerDropItemListener.playerDropItem(location, user, before[0]);
         }
     }
 }

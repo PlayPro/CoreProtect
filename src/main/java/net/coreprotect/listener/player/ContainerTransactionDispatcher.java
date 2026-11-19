@@ -5,7 +5,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.plugin.IllegalPluginAccessException;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
@@ -70,7 +69,7 @@ final class ContainerTransactionDispatcher {
 
         private void start() {
             CoreProtect plugin = CoreProtect.getInstance();
-            if (ConfigHandler.shutdownDrainRunning || !plugin.isEnabled()) {
+            if (ConfigHandler.shutdownDrainRunning || plugin == null || !plugin.isEnabled()) {
                 drain();
                 return;
             }
@@ -82,7 +81,7 @@ final class ContainerTransactionDispatcher {
             try {
                 Scheduler.runTaskAsynchronously(plugin, this::drain);
             }
-            catch (IllegalPluginAccessException e) {
+            catch (RuntimeException e) {
                 drain();
             }
         }

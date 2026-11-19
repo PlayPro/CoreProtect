@@ -10,7 +10,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.BlockFace;
-import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.CoreProtect;
@@ -62,12 +61,6 @@ public class ContainerLogger extends Queue {
             else if (container instanceof ItemStack[]) {
                 contents = (ItemStack[]) container;
             }
-            else {
-                Inventory inventory = (Inventory) container;
-                if (inventory != null) {
-                    contents = inventory.getContents();
-                }
-            }
 
             if (contents == null) {
                 return;
@@ -89,28 +82,7 @@ public class ContainerLogger extends Queue {
 
             // Check if this is a dispenser with no actual changes
             if (duplicateSuppression && "#dispenser".equals(player) && getForceContainerSize(loggingContainerId) == 0 && ItemUtils.compareContainers(oldInventory, newInventory)) {
-                // No changes detected, mark this dispenser in the dispenserNoChange map
-                // Extract the location key from the loggingContainerId
-                // Format: #dispenser.x.y.z
-                String[] parts = loggingContainerId.split("\\.");
-                if (parts.length >= 4) {
-                    int x = Integer.parseInt(parts[1]);
-                    int y = Integer.parseInt(parts[2]);
-                    int z = Integer.parseInt(parts[3]);
-
-                    // Create the location key
-                    String locationKey = location.getWorld().getUID().toString() + "." + x + "." + y + "." + z;
-
-                    // Check if we have pending event details for this dispenser
-                    Object[] pendingEvent = ConfigHandler.dispenserPending.remove(locationKey);
-                    if (pendingEvent != null) {
-                        // We have the exact event details, use them to mark this event as unchanged
-                        String eventKey = (String) pendingEvent[0];
-
-                        // Get or create the inner map for this location
-                        ConfigHandler.dispenserNoChange.computeIfAbsent(locationKey, k -> new ConcurrentHashMap<>()).put(eventKey, System.currentTimeMillis());
-                    }
-                }
+                recordDispenserUnchanged(location);
                 if (capture != null) {
                     capture.accept(new PreparedTransaction(type, faceData, location, new ItemStack[0], new ItemStack[0]));
                 }
@@ -197,6 +169,15 @@ public class ContainerLogger extends Queue {
         }
     }
 
+    public static void recordDispenserUnchanged(Location location) {
+        String key = HopperTransactionUtils.getTransactionId(location);
+        Object[] pendingEvent = ConfigHandler.dispenserPending.remove(key);
+        if (pendingEvent != null) {
+            ConfigHandler.dispenserNoChange.computeIfAbsent(key, unused -> new ConcurrentHashMap<>())
+                    .put((String) pendingEvent[0], System.currentTimeMillis());
+        }
+    }
+
     private static void logContents(ConsumerWriteBatch containerBatch, ConsumerWriteBatch itemBatch, int batchCount, String user, Material type, String faceData, Location location, ItemStack[] removed, ItemStack[] added, Integer preparedTime, boolean clearHopper) {
         if (type != Material.ENDER_CHEST) {
             logTransaction(containerBatch, batchCount, user, type, faceData, removed, ItemTransactionActions.REMOVE, location, preparedTime, clearHopper);
@@ -206,6 +187,13 @@ public class ContainerLogger extends Queue {
             ItemLogger.logTransaction(itemBatch, batchCount, 0, user, location, removed, ItemTransactionActions.REMOVE_ENDER, preparedTime);
             ItemLogger.logTransaction(itemBatch, batchCount, 0, user, location, added, ItemTransactionActions.ADD_ENDER, preparedTime);
         }
+    }
+
+    public static PreparedTransaction prepareSpecifiedTransaction(Location location, Material type, BlockFace face, ItemStack[] before, ItemStack[] after) {
+        ItemStack[] removed = ItemUtils.getContainerState(before);
+        ItemStack[] added = ItemUtils.getContainerState(after);
+        subtractSharedItems(removed, added);
+        return new PreparedTransaction(type, face == null ? null : face.name(), location, removed, added);
     }
 
     public static final class PreparedTransaction {

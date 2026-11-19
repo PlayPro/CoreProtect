@@ -13,6 +13,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.CreatureSpawner;
 import org.bukkit.block.data.BlockData;
@@ -31,6 +32,7 @@ import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.process.Process;
+import net.coreprotect.database.logger.ContainerLogger;
 import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.listener.block.BlockUtil;
 import net.coreprotect.model.BlockGroup;
@@ -352,6 +354,14 @@ public class Queue {
 
     protected static synchronized void queueContainerTransaction(String user, Location location, Material type, Object inventory, int chestId) {
         queueStandardData(new Object[] { null, Process.CONTAINER_TRANSACTION, type, 0, null, 0, chestId, null }, new String[] { user, null }, location, false, Consumer.consumerInventories, inventory, Consumer.reserveConsumer());
+    }
+
+    public static void queueSpecifiedContainerTransaction(String user, Location location, Material type, BlockFace face, ItemStack[] before, ItemStack[] after) {
+        if (user == null || user.isEmpty() || location == null || location.getWorld() == null || type == null || before == null || after == null) {
+            return;
+        }
+        ContainerLogger.PreparedTransaction transaction = ContainerLogger.prepareSpecifiedTransaction(location, type, face, before, after);
+        queueStandardData(new Object[] { null, Process.CONTAINER_TRANSACTION, type, 0, null, 0, 0, null }, new String[] { user, null }, transaction, false, Consumer.reserveConsumer());
     }
 
     public static void queueEntityContainerTransaction(String user, java.util.UUID entityUuid, Location currentLocation, ItemStack[] oldContents, ItemStack[] newContents) {

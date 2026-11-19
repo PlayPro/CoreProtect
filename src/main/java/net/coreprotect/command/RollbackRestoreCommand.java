@@ -22,6 +22,7 @@ import org.bukkit.entity.Player;
 
 import net.coreprotect.command.parser.ActionParser;
 import net.coreprotect.command.parser.ParserUtils;
+import net.coreprotect.command.parser.TimeParser;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
@@ -54,6 +55,11 @@ public class RollbackRestoreCommand {
         if (!CommandParser.validateCoordinates(player, args)) {
             return;
         }
+        TimeParser.ParsedTime requestedTime = TimeParser.parseDurationArguments(args);
+        if (requestedTime.invalidArgument() != null) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, requestedTime.invalidArgument()));
+            return;
+        }
 
         Location lo = (argLocation != null ? argLocation : CommandParser.parseLocation(player, args));
         List<String> argUuids = new ArrayList<>();
@@ -66,8 +72,8 @@ public class RollbackRestoreCommand {
         List<Object> argBlocks = CommandParser.parseRestricted(player, args, argAction);
         Map<Object, Boolean> argExclude = CommandParser.parseExcluded(player, args, argAction);
         List<String> argExcludeUsers = CommandParser.parseExcludedUsers(player, args);
-        String ts = CommandParser.parseTimeString(args);
-        long[] argTime = CommandParser.parseTime(args);
+        String ts = requestedTime.description();
+        long[] argTime = requestedTime.sortedSeconds();
         long startTime = argTime[0];
         long endTime = argTime[1];
         int argWid = CommandParser.parseWorld(args, true, true);

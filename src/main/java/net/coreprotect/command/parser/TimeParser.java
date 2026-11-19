@@ -103,15 +103,33 @@ public class TimeParser {
         }
     }
 
-    private static final class ParsedTime {
+    public static final class ParsedTime {
         private final DurationSide first = new DurationSide();
         private final DurationSide second = new DurationSide();
         private boolean range;
+        private String invalidArgument;
 
-        private long[] sortedSeconds() {
+        public long[] sortedSeconds() {
             long firstSeconds = first.toSeconds();
             long secondSeconds = range ? second.toSeconds() : 0L;
             return new long[] { Math.max(firstSeconds, secondSeconds), Math.min(firstSeconds, secondSeconds) };
+        }
+
+        public String invalidArgument() {
+            return invalidArgument;
+        }
+
+        public String description() {
+            if (first.isEmpty()) {
+                return "";
+            }
+            StringBuilder builder = new StringBuilder();
+            first.appendFormatted(builder, range);
+            if (range && !second.isEmpty()) {
+                builder.append(" -");
+                second.appendFormatted(builder, true);
+            }
+            return builder.toString();
         }
     }
 
@@ -148,42 +166,34 @@ public class TimeParser {
      * @return A formatted time string
      */
     public static String parseTimeString(String[] inputArguments) {
-        ParsedTime parsed = parseDurationArguments(inputArguments);
-        if (parsed.first.isEmpty()) {
-            return "";
-        }
-
-        StringBuilder builder = new StringBuilder();
-        parsed.first.appendFormatted(builder, parsed.range);
-        if (parsed.range && !parsed.second.isEmpty()) {
-            builder.append(" -");
-            parsed.second.appendFormatted(builder, true);
-        }
-        return builder.toString();
+        return parseDurationArguments(inputArguments).description();
     }
 
-    private static ParsedTime parseDurationArguments(String[] inputArguments) {
+    public static ParsedTime parseDurationArguments(String[] inputArguments) {
         ParsedTime parsed = new ParsedTime();
-        int next = 0;
+        String pendingPrefix = null;
 
         for (int index = 1; index < inputArguments.length; index++) {
-            String argument = ParserUtils.normalize(inputArguments[index]);
-            if (ParserUtils.equalsAny(argument, TIME_PREFIXES)) {
-                next = 1;
-                continue;
-            }
-
+            String raw = inputArguments[index];
+            String argument = ParserUtils.normalize(raw);
             String stripped = ParserUtils.stripPrefix(argument, TIME_PREFIXES);
-            if (next == 1 || stripped != null) {
-                String spec = (stripped != null) ? stripped : argument;
-                next = 0;
-                parseDurationSpec(spec, parsed);
+            if (pendingPrefix != null) {
+                if (stripped != null || !parseDurationSpec(argument, parsed)) {
+                    parsed.invalidArgument = pendingPrefix;
+                    return parsed;
+                }
+                pendingPrefix = null;
             }
-            else {
-                next = 0;
+            else if ("".equals(stripped)) {
+                pendingPrefix = raw;
+            }
+            else if (stripped != null && !parseDurationSpec(stripped, parsed)) {
+                parsed.invalidArgument = raw;
+                return parsed;
             }
         }
 
+        parsed.invalidArgument = pendingPrefix;
         return parsed;
     }
 

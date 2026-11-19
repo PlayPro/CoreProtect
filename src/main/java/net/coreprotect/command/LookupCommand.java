@@ -24,6 +24,7 @@ import net.coreprotect.command.parser.ActionParser;
 import net.coreprotect.command.parser.LocationParser;
 import net.coreprotect.command.parser.MessageFilterParser;
 import net.coreprotect.command.parser.RollbackStateParser;
+import net.coreprotect.command.parser.TimeParser;
 import net.coreprotect.command.parser.WorldParser;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
@@ -51,6 +52,11 @@ public class LookupCommand {
         if (!CommandParser.validateCoordinates(player, args)) {
             return;
         }
+        TimeParser.ParsedTime requestedTime = TimeParser.parseDurationArguments(args);
+        if (requestedTime.invalidArgument() != null) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, requestedTime.invalidArgument()));
+            return;
+        }
         String worldFilterName = WorldParser.parseWorldFilterName(args, true);
         int argWid = 0;
         String pendingWorldName = null;
@@ -73,7 +79,7 @@ public class LookupCommand {
         List<Object> argBlocks = CommandParser.parseRestricted(player, args, argAction);
         Map<Object, Boolean> argExclude = CommandParser.parseExcluded(player, args, argAction);
         List<String> argExcludeUsers = CommandParser.parseExcludedUsers(player, args);
-        long[] argTime = CommandParser.parseTime(args);
+        long[] argTime = requestedTime.sortedSeconds();
         long startTime = argTime[0];
         long endTime = argTime[1];
         int parseRows = CommandParser.parseRows(args);

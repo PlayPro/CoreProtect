@@ -784,7 +784,7 @@ public final class EntitySpawnRollbackHandler {
                     EntitySpawnTracking.removeWithoutRemovalLog(entity);
                 }
                 EntitySpawnTracking.forget(entity.getUniqueId());
-                completion.complete(context.compositeTransition(work, transition, 2));
+                completion.complete(context.transition(work, transition, 2));
                 return completion;
             }
 
@@ -1632,25 +1632,6 @@ public final class EntitySpawnRollbackHandler {
         }
 
         private boolean transition(Work value, EntitySpawnData data, int count) {
-            if (!value.complete.compareAndSet(false, true)) {
-                return true;
-            }
-            try {
-                publishTransition(data, value.appliedTransactions);
-                claimedRows.remove(value.record.getRowId());
-                items.addAndGet(value.appliedItemCount);
-                entities.addAndGet(count);
-                return true;
-            }
-            catch (Exception e) {
-                releaseClaim(value.record.getRowId());
-                cancel();
-                ErrorReporter.report(e);
-                return false;
-            }
-        }
-
-        private boolean compositeTransition(Work value, EntitySpawnData data, int count) {
             if (!value.complete.compareAndSet(false, true)) {
                 return true;
             }

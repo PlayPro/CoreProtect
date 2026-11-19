@@ -5,7 +5,6 @@ import java.util.List;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 
-import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.utility.ItemUtils;
 
 public class RollbackItemHandler {
@@ -58,23 +57,5 @@ public class RollbackItemHandler {
         }
     }
 
-    /**
-     * Update the item count in the rollback hash
-     * 
-     * @param userString
-     *            The username for this rollback
-     * @param increment
-     *            The amount to increment the item count by
-     */
-    public static void updateItemCount(String userString, int increment) {
-        int[] rollbackHashData = ConfigHandler.rollbackHash.get(userString);
-        int itemCount = rollbackHashData[0];
-        int blockCount = rollbackHashData[1];
-        int entityCount = rollbackHashData[2];
-        int scannedWorlds = rollbackHashData[4];
-
-        itemCount += increment;
-        ConfigHandler.rollbackHash.put(userString, new int[] { itemCount, blockCount, entityCount, 0, scannedWorlds });
-    }
 
 }

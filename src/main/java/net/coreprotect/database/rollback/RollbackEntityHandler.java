@@ -7,7 +7,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.Block;
-import org.bukkit.block.BlockState;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 
@@ -67,8 +66,8 @@ public class RollbackEntityHandler {
                 }
 
                 Block block = bukkitWorld.getBlockAt(rowX, rowY, rowZ);
-                if (!bukkitWorld.isChunkLoaded(block.getChunk())) {
-                    bukkitWorld.getChunkAt(block.getLocation());
+                if (!bukkitWorld.isChunkLoaded(rowX >> 4, rowZ >> 4)) {
+                    bukkitWorld.getChunkAt(rowX >> 4, rowZ >> 4);
                 }
 
                 if (rowTypeRaw > 0) {
@@ -194,20 +193,4 @@ public class RollbackEntityHandler {
         return entityX >= xmin && entityX <= xmax && entityY >= ymin && entityY <= ymax && entityZ >= zmin && entityZ <= zmax;
     }
 
-    /**
-     * Spawns an entity at the given block location.
-     * 
-     * @param user
-     *            The username of the player
-     * @param block
-     *            The block state where the entity should be spawned
-     * @param type
-     *            The type of entity to spawn
-     * @param data
-     *            Additional data for the entity
-     */
-    public static void spawnEntity(String user, BlockState block, EntityType type, int data) {
-        // Create a new helper method that will delegate to Queue
-        RollbackUtil.queueEntitySpawn(user, block, type, data);
-    }
 }

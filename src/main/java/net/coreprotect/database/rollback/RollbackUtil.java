@@ -18,7 +18,6 @@ import org.bukkit.block.ShulkerBox;
 import org.bukkit.block.banner.Pattern;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.Inventory;
@@ -346,35 +345,6 @@ public class RollbackUtil extends Lookup {
         }
     }
 
-    public static void sortContainerItems(PlayerInventory inventory, List<Integer> modifiedArmorSlots) {
-        try {
-            ItemStack[] armorContents = inventory.getArmorContents();
-            ItemStack[] storageContents = inventory.getStorageContents();
-
-            for (int armor = 0; armor < armorContents.length; armor++) {
-                ItemStack armorItem = armorContents[armor];
-                if (armorItem == null || !modifiedArmorSlots.contains(armor)) {
-                    continue;
-                }
-
-                for (int storage = 0; storage < storageContents.length; storage++) {
-                    ItemStack storageItem = storageContents[storage];
-                    if (storageItem == null) {
-                        storageContents[storage] = armorItem;
-                        armorContents[armor] = null;
-                        break;
-                    }
-                }
-            }
-
-            inventory.setArmorContents(armorContents);
-            inventory.setStorageContents(storageContents);
-        }
-        catch (Exception e) {
-            ErrorReporter.report(e);
-        }
-    }
-
     private static void buildFireworkEffect(Builder effectBuilder, Material rowType, ItemStack itemstack) {
         try {
             FireworkEffect effect = effectBuilder.build();
@@ -622,37 +592,9 @@ public class RollbackUtil extends Lookup {
         return BlockStatement.deserializeMetadata(metadata);
     }
 
-    /**
-     * Queues an entity spawn operation for processing.
-     *
-     * @param user
-     *            The username of the player
-     * @param block
-     *            The block state where the entity should be spawned
-     * @param type
-     *            The type of entity to spawn
-     * @param data
-     *            Additional data for the entity
-     */
-    public static void queueEntitySpawn(String user, BlockState block, EntityType type, int data) {
-        Queue.queueEntitySpawn(user, block, type, data);
-    }
 
     static void queueStoredEntitySpawn(String user, BlockState block, int storedTypeId, int data) {
         Queue.queueEntitySpawn(user, block, storedTypeId, data);
     }
 
-    /**
-     * Queues a skull update operation for processing.
-     *
-     * @param user
-     *            The username of the player
-     * @param block
-     *            The block state to update
-     * @param rowId
-     *            The row ID for the skull data
-     */
-    public static void queueSkullUpdate(String user, BlockState block, int rowId) {
-        Queue.queueSkullUpdate(user, block, rowId);
-    }
 }

@@ -9,6 +9,7 @@ import org.bukkit.command.CommandSender;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.utility.LookupThrottle;
+import net.coreprotect.database.Database;
 import net.coreprotect.database.DuckDBLookupQuery;
 import net.coreprotect.database.LocationQuery;
 import net.coreprotect.database.statement.UserStatement;
@@ -19,7 +20,6 @@ import net.coreprotect.utility.ChatUtils;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
-import net.coreprotect.utility.ErrorReporter;
 
 public class InteractionLookup {
 
@@ -151,7 +151,7 @@ public class InteractionLookup {
             });
         }
         catch (Exception e) {
-            ErrorReporter.report(e);
+            Database.reportDatabaseFailure(e);
         }
 
         return result;

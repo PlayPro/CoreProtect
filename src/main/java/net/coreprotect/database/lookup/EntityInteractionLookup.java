@@ -15,6 +15,7 @@ import org.bukkit.entity.EntityType;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.utility.LookupThrottle;
+import net.coreprotect.database.Database;
 import net.coreprotect.database.DuckDBLookupQuery;
 import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.database.statement.UserStatement;
@@ -27,7 +28,6 @@ import net.coreprotect.utility.ChatUtils;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.EntityUtils;
-import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.WorldUtils;
 
 public final class EntityInteractionLookup {
@@ -129,7 +129,7 @@ public final class EntityInteractionLookup {
             });
         }
         catch (Exception e) {
-            ErrorReporter.report(e);
+            Database.reportDatabaseFailure(e);
         }
         return result;
     }

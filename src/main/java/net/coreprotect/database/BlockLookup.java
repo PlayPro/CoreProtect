@@ -47,7 +47,7 @@ public class BlockLookup {
             results.close();
         }
         catch (Exception e) {
-            ErrorReporter.report(e);
+            Database.reportDatabaseFailure(e);
         }
 
         return result;

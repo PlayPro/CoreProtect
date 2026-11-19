@@ -120,7 +120,9 @@ public class LookupRaw extends Queue {
             boolean orderByTime = false;
             boolean foundPageRow = false;
             try (ResultSet results = rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime, 0, limitCount, restrictWorld, lookup, false, entityContainerId, false, false, false, rollbackState, null, true, limitOffset, knownTotalRows, cursor, explicitWorldId)) {
-                Lookup.requireQueryResult(results, failOnError);
+                if (!Lookup.hasQueryResult(results, failOnError)) {
+                    return new RawLookupPage(totalRows, Collections.emptyList(), null);
+                }
                 boolean first = true;
                 while (results.next()) {
                     if (first) {
@@ -153,8 +155,7 @@ public class LookupRaw extends Queue {
                 return new RawLookupPage(totalRows, Collections.emptyList(), null);
             }
             List<Object[]> rows = performLookupRaw(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime, -1, -1, restrictWorld, lookup, entityContainerId, rollbackState, pageRows, false, explicitWorldId);
-            Lookup.requireQueryResult(rows, failOnError);
-            if (rows == null || rows.isEmpty()) {
+            if (!Lookup.hasQueryResult(rows, failOnError) || rows.isEmpty()) {
                 return new RawLookupPage(totalRows, Collections.emptyList(), null);
             }
             LookupCursor nextCursor = foundPageRow ? new LookupCursor(currentPage + 1, limitCount, cursorTime, cursorSource, cursorRowId, orderByTime) : null;

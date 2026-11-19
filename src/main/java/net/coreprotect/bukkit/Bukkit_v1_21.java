@@ -71,6 +71,7 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
      */
     public Bukkit_v1_21() {
         initializeBlockGroups();
+        BlockGroup.LANTERNS.addAll(blockMaterials("lanterns", "COPPER_LANTERN"));
         initializeTrapdoorBlocks();
         BlockGroup.INTERACT_BLOCKS.addAll(copperChestMaterials());
         BlockGroup.CONTAINERS.addAll(copperChestMaterials());
@@ -112,7 +113,6 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
             BlockGroup.NON_ATTACHABLE.add(copperWallTorch);
             BlockGroup.UPDATE_STATE.add(copperWallTorch);
         }
-        BlockGroup.LANTERNS.addAll(blockMaterials("lanterns", "COPPER_LANTERN"));
     }
 
     /**

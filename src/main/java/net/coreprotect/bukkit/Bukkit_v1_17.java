@@ -47,6 +47,8 @@ public class Bukkit_v1_17 extends BukkitAdapter {
      */
     public Bukkit_v1_17() {
         initializeBlockGroups();
+        BlockGroup.CANDLES.addAll(Tag.CANDLES.getValues());
+        BlockGroup.CANDLES.addAll(Tag.CANDLE_CAKES.getValues());
     }
 
     /**
@@ -63,9 +65,6 @@ public class Bukkit_v1_17 extends BukkitAdapter {
         BlockGroup.TRACK_BOTTOM.addAll(List.of(Material.CAVE_VINES, Material.CAVE_VINES_PLANT, Material.HANGING_ROOTS));
 
         BlockGroup.VINES.add(Material.CAVE_VINES);
-
-        BlockGroup.CANDLES.addAll(Tag.CANDLES.getValues());
-        BlockGroup.CANDLES.addAll(Tag.CANDLE_CAKES.getValues());
 
         BlockGroup.AMETHYST.addAll(List.of(Material.SMALL_AMETHYST_BUD, Material.MEDIUM_AMETHYST_BUD, Material.LARGE_AMETHYST_BUD, Material.AMETHYST_CLUSTER));
 

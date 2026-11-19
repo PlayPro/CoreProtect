@@ -212,6 +212,17 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         databaseLifecycle.readLock().lock();
     }
 
+    public static boolean tryLockDatabaseAccess() {
+        if (isDatabaseReloadBlocked() || !databaseLifecycle.readLock().tryLock()) {
+            return false;
+        }
+        if (isDatabaseReloadBlocked()) {
+            unlockDatabaseAccess();
+            return false;
+        }
+        return true;
+    }
+
     public static void unlockDatabaseAccess() {
         databaseLifecycle.readLock().unlock();
     }

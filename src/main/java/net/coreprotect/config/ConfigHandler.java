@@ -879,7 +879,18 @@ public class ConfigHandler {
     public static int resolveIdentifierId(CacheType type, String value, boolean create) {
         IdentifierStore store = identifierStore(type.kind);
         Integer cached = store.values.get().get(value);
-        return cached != null ? cached : resolveMissingIdentifierId(store, value, create);
+        if (cached != null) {
+            return cached;
+        }
+        if (!Consumer.tryLockDatabaseAccess()) {
+            return -1;
+        }
+        try {
+            return resolveMissingIdentifierId(store, value, create);
+        }
+        finally {
+            Consumer.unlockDatabaseAccess();
+        }
     }
 
     private static int resolveMissingIdentifierId(IdentifierStore store, String value, boolean create) {
@@ -1007,7 +1018,15 @@ public class ConfigHandler {
         if (value != null || id < 1 || !databaseType.isClickHouse()) {
             return value;
         }
-        return loadMissingIdentifierValue(store, id);
+        if (!Consumer.tryLockDatabaseAccess()) {
+            return null;
+        }
+        try {
+            return databaseType.isClickHouse() ? loadMissingIdentifierValue(store, id) : store.reversed.get().get(id);
+        }
+        finally {
+            Consumer.unlockDatabaseAccess();
+        }
     }
 
     private static synchronized String loadMissingIdentifierValue(IdentifierStore store, int id) {
@@ -1316,17 +1335,23 @@ public class ConfigHandler {
         }
     }
 
-    public static void clearTransientPlayerState() {
+    public static void clearLookupHistory() {
         synchronized (lookupThrottle) {
-            inspecting.clear();
             lookupThrottle.clear();
-            teleportThrottle.clear();
             lookupType.clear();
             lookupPage.clear();
             lookupCommand.clear();
             lookupSessions.clear();
             lookupEntityContainer.clear();
             lookupEntityInteraction.clear();
+        }
+    }
+
+    public static void clearTransientPlayerState() {
+        synchronized (lookupThrottle) {
+            inspecting.clear();
+            teleportThrottle.clear();
+            clearLookupHistory();
         }
         hopperAbort.clear();
         hopperSuccess.clear();

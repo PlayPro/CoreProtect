@@ -586,6 +586,10 @@ public class Database extends Queue {
         ConfigHandler.databaseTables.addAll(DATABASE_TABLES);
     }
 
+    public static ClickHouseDatabase getActiveClickHouseDatabase() throws SQLException {
+        return requireClickHouseDatabase();
+    }
+
     public static synchronized ClickHouseDatabase detachClickHouseDatabase() throws SQLException {
         ClickHouseDatabase database = clickHouseDatabase;
         if (database == null) {

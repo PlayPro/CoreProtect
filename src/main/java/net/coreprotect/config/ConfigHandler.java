@@ -706,10 +706,10 @@ public class ConfigHandler {
         if (preparedClickHouse == null) {
             throw new IllegalArgumentException("Prepared ClickHouse database cannot be null");
         }
-        loadDatabase(preparedClickHouse, true);
+        loadDatabase(preparedClickHouse, false);
     }
 
-    private static void loadDatabase(ClickHouseDatabase preparedClickHouse, boolean migrationActivation) {
+    private static boolean loadDatabase(ClickHouseDatabase preparedClickHouse, boolean startup) {
         if (preparedClickHouse != null && !ConfigHandler.databaseType.isClickHouse()) {
             throw new IllegalArgumentException("A prepared ClickHouse database can only activate a ClickHouse target");
         }
@@ -719,13 +719,15 @@ public class ConfigHandler {
             if (preparedClickHouse != null) {
                 Database.installClickHouseDatabase(preparedClickHouse);
             }
-            else {
-                initializeDatabase();
+            else if (!initializeDatabase(startup)) {
+                ConfigHandler.databaseReachable = false;
+                return false;
             }
-            if (!migrationActivation && Database.hasIncompleteMigrationMarker()) {
+            if (preparedClickHouse == null && Database.hasIncompleteMigrationMarker()) {
                 throw new IllegalStateException("Database contains an incomplete CoreProtect migration and cannot be activated");
             }
             ConfigHandler.databaseReachable = true;
+            return true;
         }
         catch (Exception exception) {
             Database.closeConnection();
@@ -750,7 +752,7 @@ public class ConfigHandler {
         return properties;
     }
 
-    private static void initializeDatabase() {
+    private static boolean initializeDatabase(boolean startup) throws SQLException {
         if (ConfigHandler.databaseType.isClickHouse()) {
             try {
                 Config global = Config.getGlobal();
@@ -760,7 +762,7 @@ public class ConfigHandler {
             catch (Exception exception) {
                 throw new IllegalStateException("Failed to initialize ClickHouse", exception);
             }
-            return;
+            return true;
         }
 
         if (ConfigHandler.databaseType.isEmbedded()) {
@@ -826,7 +828,24 @@ public class ConfigHandler {
             ConfigHandler.hikariDataSource = new HikariDataSource(config);
         }
 
+        return initializeSchema(startup);
+    }
+
+    private static boolean initializeSchema(boolean startup) throws SQLException {
+        if (startup && ConfigHandler.databaseType.isMySQL() && Config.getGlobal().DATABASE_LOCK) {
+            try (Connection connection = Database.getConnection(true, 0)) {
+                if (connection == null) {
+                    return false;
+                }
+                try (Statement statement = connection.createStatement()) {
+                    if (!checkDatabaseLock(statement, true)) {
+                        return false;
+                    }
+                }
+            }
+        }
         Database.createDatabaseTables(ConfigHandler.prefix, false, null, ConfigHandler.databaseType, false);
+        return true;
     }
 
     public static boolean loadMaterials(Statement statement) {
@@ -1182,6 +1201,10 @@ public class ConfigHandler {
     }
 
     private static boolean checkDatabaseLock(Statement statement) {
+        return checkDatabaseLock(statement, false);
+    }
+
+    private static boolean checkDatabaseLock(Statement statement, boolean allowMissingMySQLTable) {
         try {
             if (Config.getGlobal().DATABASE_LOCK) {
                 boolean locked = true;
@@ -1211,6 +1234,12 @@ public class ConfigHandler {
 
                             locked = true;
                         }
+                    }
+                    catch (SQLException e) {
+                        if (allowMissingMySQLTable && e.getErrorCode() == 1146 && "42S02".equals(e.getSQLState())) {
+                            return true;
+                        }
+                        throw e;
                     }
                 }
             }
@@ -1243,7 +1272,10 @@ public class ConfigHandler {
             BlockGroup.initialize();
 
             ConfigHandler.loadConfig(); // Load (or create) the configuration file.
-            ConfigHandler.loadDatabase(); // Initialize MySQL and create tables if necessary.
+            if (!loadDatabase(null, startup)) {
+                cleanupFailedInitialization(startup);
+                return false;
+            }
 
             if (startup) {
                 ListenerHandler.registerNetworking(); // Register channels for networking API

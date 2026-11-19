@@ -77,6 +77,7 @@ public class __2_25_1 {
             throw claimFailure("original table identity changed", lock, owner, sourceId, comment);
         }
         if (existingClaim == null) {
+            requireIdleDatabase(connection, source);
             execute(connection, "CREATE TABLE IF NOT EXISTS " + lock + " (marker UInt8) ENGINE=TinyLog COMMENT '" + comment + "'");
         }
         String actualClaim = tableProperty(connection, database, lockName, "comment");

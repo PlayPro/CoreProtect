@@ -1,37 +1,25 @@
 package net.coreprotect.database;
 
 import java.sql.Statement;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 
 import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
+import org.bukkit.World;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.ArmorStand;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.ItemFrame;
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.CoreProtect;
-import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.consumer.process.Process;
 import net.coreprotect.database.rollback.Rollback;
 import net.coreprotect.database.rollback.RollbackComplete;
-import net.coreprotect.listener.player.InventoryChangeListener;
-import net.coreprotect.model.BlockGroup;
+import net.coreprotect.database.rollback.RollbackProcessor;
 import net.coreprotect.thread.Scheduler;
-import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.ItemUtils;
-import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.ErrorReporter;
 
 public class ContainerRollback extends Rollback {
@@ -57,155 +45,52 @@ public class ContainerRollback extends Rollback {
                 return false;
             }
 
-            String userString = "#server";
-            if (user != null) {
-                userString = user.getName();
-            }
+            String userString = user == null ? "#server" : user.getName();
 
-            if (admission != null && !admission.getAsBoolean()) {
+            if (location == null || location.getWorld() == null || (admission != null && !admission.getAsBoolean())) {
                 return false;
             }
-            Queue.queueRollbackUpdate(userString, location, lookupList, Process.CONTAINER_ROLLBACK_UPDATE, rollbackType); // Perform update transaction in consumer
-            if (Consumer.isPersistenceHalted()) {
-                sendAborted(user, "Database persistence halted while queuing container rollback updates.");
-                return false;
-            }
-
-            final String finalUserString = userString;
-            ConfigHandler.rollbackHash.put(userString, new int[] { 0, 0, 0, 0, 0 });
-
-            Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        int[] rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
-                        if (Consumer.isPersistenceHalted()) {
-                            Chat.console("Container rollback/restore for " + finalUserString + " aborted: database persistence halted before the container could be modified.");
-                            ConfigHandler.rollbackHash.put(finalUserString, new int[] { rollbackHashData[0], rollbackHashData[1], rollbackHashData[2], 2, rollbackHashData[4] });
-                            return;
-                        }
-                        int itemCount = rollbackHashData[0];
-                        // int blockCount = rollbackHashData[1];
-                        int entityCount = rollbackHashData[2];
-                        Block block = location.getBlock();
-
-                        if (!block.getWorld().isChunkLoaded(block.getChunk())) {
-                            block.getWorld().getChunkAt(block.getLocation());
-                        }
-                        Object container = null;
-                        Material type = block.getType();
-                        List<ItemFrame> matchingFrames = new ArrayList<>();
-
-                        if (BlockGroup.CONTAINERS.contains(type)) {
-                            container = Rollback.resolveBlockContainer(block);
-                        }
-                        else {
-                            for (Entity entity : block.getChunk().getEntities()) {
-                                if (entity.getLocation().getBlockX() == location.getBlockX() && entity.getLocation().getBlockY() == location.getBlockY() && entity.getLocation().getBlockZ() == location.getBlockZ()) {
-                                    if (entity instanceof ArmorStand) {
-                                        type = Material.ARMOR_STAND;
-                                        container = ItemUtils.getEntityEquipment((LivingEntity) entity);
-                                    }
-                                    else if (entity instanceof ItemFrame) {
-                                        type = Material.ITEM_FRAME;
-                                        container = entity;
-                                        matchingFrames.add((ItemFrame) entity);
-                                    }
-                                }
-                            }
-                        }
-
-                        int modifyCount = 0;
-                        if (container != null) {
-                            if (container instanceof Inventory) {
-                                InventoryChangeListener.flushPendingContainer((Inventory) container, location);
-                            }
-                            for (Object[] lookupRow : lookupList) {
-                                // int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
-                                // int rowId = lookupRow[0];
-                                // int rowTime = (Integer)lookupRow[1];
-                                // int rowUserId = (Integer)lookupRow[2];
-                                // int rowX = (Integer)lookupRow[3];
-                                // int rowY = (Integer)lookupRow[4];
-                                // int rowZ = (Integer)lookupRow[5];
-                                int rowTypeRaw = (Integer) lookupRow[6];
-                                int rowData = (Integer) lookupRow[7];
-                                int rowAction = (Integer) lookupRow[8];
-                                int rowRolledBack = MaterialUtils.rolledBack((Integer) lookupRow[9], false);
-                                // int rowWid = (Integer)lookupRow[10];
-                                int rowAmount = (Integer) lookupRow[11];
-                                byte[] rowMetadata = (byte[]) lookupRow[12];
-                                Material rowType = MaterialUtils.getType(rowTypeRaw);
-
-                                if ((rollbackType == 0 && rowRolledBack == 0) || (rollbackType == 1 && rowRolledBack == 1)) {
-                                    modifyCount = modifyCount + rowAmount;
-                                    int action = 0;
-
-                                    if (rollbackType == 0 && rowAction == 0) {
-                                        action = 1;
-                                    }
-
-                                    if (rollbackType == 1 && rowAction == 1) {
-                                        action = 1;
-                                    }
-
-                                    ItemStack itemstack = new ItemStack(rowType, rowAmount);
-                                    Object[] populatedStack = Rollback.populateItemStack(itemstack, rowMetadata);
-                                    int slot = (Integer) populatedStack[0];
-                                    String faceData = (String) populatedStack[1];
-                                    itemstack = (ItemStack) populatedStack[2];
-
-                                    if (type == Material.ITEM_FRAME && faceData.length() > 0) {
-                                        BlockFace blockFace = BlockFace.valueOf(faceData);
-                                        ItemFrame itemFrame = (ItemFrame) container;
-                                        if (blockFace != itemFrame.getFacing()) {
-                                            for (ItemFrame frame : matchingFrames) {
-                                                if (blockFace == frame.getFacing()) {
-                                                    container = frame;
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    Rollback.modifyContainerItems(type, container, slot, itemstack, action);
-                                }
-                            }
-                        }
-                        matchingFrames.clear();
-
-                        ConfigHandler.rollbackHash.put(finalUserString, new int[] { itemCount, modifyCount, entityCount, 1, 1 });
+            CompletableFuture<Integer> completion = new CompletableFuture<>();
+            AtomicBoolean started = new AtomicBoolean();
+            AtomicBoolean cancelled = new AtomicBoolean();
+            Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
+                if (!started.compareAndSet(false, true)) {
+                    return;
+                }
+                try {
+                    if (Consumer.isPersistenceHalted()) {
+                        throw new IllegalStateException("Database persistence halted before the container could be modified");
                     }
-                    catch (Exception e) {
-                        ErrorReporter.report(e);
-                        int[] rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
-                        if (rollbackHashData != null) {
-                            ConfigHandler.rollbackHash.put(finalUserString, new int[] { rollbackHashData[0], rollbackHashData[1], rollbackHashData[2], 2, rollbackHashData[4] });
-                        }
+
+                    World world = location.getWorld();
+                    int chunkX = location.getBlockX() >> 4;
+                    int chunkZ = location.getBlockZ() >> 4;
+                    if (!world.isChunkLoaded(chunkX, chunkZ)) {
+                        world.getChunkAt(chunkX, chunkZ);
                     }
+                    int itemCount = RollbackProcessor.replayContainerRows(world, location.getBlock(), lookupList, rollbackType, userString, cancelled::get);
+                    completion.complete(itemCount);
+                }
+                catch (Exception e) {
+                    completion.completeExceptionally(e);
                 }
             }, location, 0);
 
-            int[] rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
-            int next = rollbackHashData[3];
-            int sleepTime = 0;
-
-            while (next == 0) {
-                sleepTime = sleepTime + 5;
-                Thread.sleep(5);
-                rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
-                next = rollbackHashData[3];
-                if (sleepTime > 300000) {
-                    Chat.console("Container rollback/restore for " + finalUserString + " aborted: timed out after 300 seconds waiting for the container task.");
-                    break;
-                }
+            int itemCount;
+            try {
+                itemCount = completion.get(300, TimeUnit.SECONDS);
             }
-            if (next != 1) {
-                sendAborted(user);
+            catch (TimeoutException | InterruptedException e) {
+                cancelled.set(true);
+                if (!started.compareAndSet(false, true)) {
+                    completion.handle((count, error) -> null).join();
+                }
+                if (e instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                }
+                sendAborted(user, e instanceof TimeoutException ? "Timed out waiting for the container task." : "Interrupted while waiting for the container task.");
                 return false;
             }
-            rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
-            int itemCount = rollbackHashData[1];
             long timeFinish = System.currentTimeMillis();
             double totalSeconds = (timeFinish - timeStart) / 1000.0;
 

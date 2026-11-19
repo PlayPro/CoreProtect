@@ -29,7 +29,6 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
-import net.coreprotect.consumer.process.Process;
 import net.coreprotect.database.Lookup;
 import net.coreprotect.database.LookupConverter;
 import net.coreprotect.database.statement.EntitySpawnStatement;
@@ -43,7 +42,6 @@ import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.model.entity.EntitySpawnRecord;
 import net.coreprotect.model.item.InventorySources;
 import net.coreprotect.model.lookup.EntityLookupContext;
-import net.coreprotect.model.rollback.RollbackUpdateTargets;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.thread.TickTimeMonitor;
@@ -123,13 +121,11 @@ public class Rollback extends RollbackUtil {
             Set<Integer> entitySpawnRowIds = new HashSet<>();
             Set<Integer> entityKillRowIds = new HashSet<>();
             Set<Integer> entityContainerTrackingRowIds = new HashSet<>();
-            Set<Integer> entityContainerInventoryTrackingRowIds = new HashSet<>();
             boolean inventoryRollback = actionList.contains(LookupActions.ITEM);
             for (Object[] row : lookupList) {
                 if (row.length > 15 && row[14] instanceof Integer && (Integer) row[14] == InventorySources.ENTITY_CONTAINER) {
                     if (inventoryRollback) {
                         entityContainerInventoryList.add(row);
-                        entityContainerInventoryTrackingRowIds.add((Integer) row[15]);
                     }
                     else {
                         entityContainerList.add(row);
@@ -199,10 +195,7 @@ public class Rollback extends RollbackUtil {
 
                 itemList.removeIf(row -> {
                     if (row.length > 15 && row[14] instanceof Integer && (Integer) row[14] == InventorySources.ENTITY_CONTAINER) {
-                        if (inventoryRollback) {
-                            entityContainerInventoryTrackingRowIds.add((Integer) row[15]);
-                        }
-                        else {
+                        if (!inventoryRollback) {
                             entityContainerList.add(row);
                             entityContainerTrackingRowIds.add((Integer) row[15]);
                             return true;
@@ -212,10 +205,6 @@ public class Rollback extends RollbackUtil {
                 });
             }
             itemList.addAll(entityContainerInventoryList);
-            if (inventoryRollback && !entityContainerInventoryTrackingRowIds.isEmpty()) {
-                Map<Integer, EntitySpawnRecord> containerLocations = EntitySpawnStatement.loadLocationRecords(statement.getConnection(), entityContainerInventoryTrackingRowIds);
-                itemList = routeEntityContainerInventoryRows(itemList, containerLocations, location);
-            }
 
             if (!entityContainerTrackingRowIds.isEmpty()) {
                 Map<Integer, EntitySpawnRecord> containerRecords = EntitySpawnStatement.loadRecords(statement.getConnection(), entityContainerTrackingRowIds);
@@ -230,6 +219,8 @@ public class Rollback extends RollbackUtil {
             HashMap<Integer, HashMap<Long, ArrayList<Object[]>>> dataList = new HashMap<>();
             HashMap<Integer, HashMap<Long, ArrayList<Object[]>>> itemDataList = new HashMap<>();
             Set<Integer> inventoryUserUuids = new HashSet<>();
+            List<World> loadedWorlds = inventoryRollback ? Bukkit.getWorlds() : Collections.emptyList();
+            Integer inventoryDispatchWorld = loadedWorlds.isEmpty() ? null : WorldUtils.getWorldId(loadedWorlds.get(0).getName());
             int listC = 0;
             while (listC < 2) {
                 List<Object[]> scanList = rollbackLookupList;
@@ -243,7 +234,7 @@ public class Rollback extends RollbackUtil {
                     int rowX = (Integer) result[3];
                     int rowY = (Integer) result[4];
                     int rowZ = (Integer) result[5];
-                    int rowWorldId = (Integer) result[10];
+                    int rowWorldId = inventoryDispatchWorld != null && listC == 1 ? inventoryDispatchWorld : (Integer) result[10];
                     int chunkX = rowX >> 4;
                     int chunkZ = rowZ >> 4;
                     long chunkKey = inventoryRollback ? 0 : (chunkX & 0xffffffffL | (chunkZ & 0xffffffffL) << 32);
@@ -333,51 +324,6 @@ public class Rollback extends RollbackUtil {
             if (admission != null && !admission.getAsBoolean()) {
                 return null;
             }
-            // Perform update transaction(s) in consumer
-            if (preview == 0) {
-                if (actionList.contains(LookupActions.ITEM)) {
-                    List<Object[]> blockList = new ArrayList<>();
-                    List<Object[]> inventoryList = new ArrayList<>();
-                    List<Object[]> containerList = new ArrayList<>();
-                    List<Object[]> entityContainerInventoryUpdates = new ArrayList<>();
-                    for (Object[] data : itemList) {
-                        int table = (Integer) data[14];
-                        if (table == RollbackUpdateTargets.INVENTORY_ITEM) {
-                            inventoryList.add(data);
-                        }
-                        else if (table == RollbackUpdateTargets.CONTAINER) {
-                            containerList.add(data);
-                        }
-                        else if (table == InventorySources.ENTITY_CONTAINER) {
-                            entityContainerInventoryUpdates.add(data);
-                        }
-                        else {
-                            blockList.add(data);
-                        }
-                    }
-                    if (!inventoryList.isEmpty()) {
-                        Queue.queueRollbackUpdate(userString, location, inventoryList, Process.INVENTORY_ROLLBACK_UPDATE, rollbackType);
-                    }
-                    if (!containerList.isEmpty()) {
-                        Queue.queueRollbackUpdate(userString, location, containerList, Process.INVENTORY_CONTAINER_ROLLBACK_UPDATE, rollbackType);
-                    }
-                    if (!entityContainerInventoryUpdates.isEmpty()) {
-                        Queue.queueEntityContainerRollbackUpdate(userString, location, entityContainerInventoryUpdates, rollbackType, true);
-                    }
-                    if (!blockList.isEmpty()) {
-                        Queue.queueRollbackUpdate(userString, location, blockList, Process.BLOCK_INVENTORY_ROLLBACK_UPDATE, rollbackType);
-                    }
-                }
-                else {
-                    if (!rollbackLookupList.isEmpty() && !actionList.contains(LookupActions.SIGN)) {
-                        Queue.queueRollbackUpdate(userString, location, rollbackLookupList, Process.ROLLBACK_UPDATE, rollbackType);
-                    }
-                    if (!itemList.isEmpty()) {
-                        Queue.queueRollbackUpdate(userString, location, itemList, Process.CONTAINER_ROLLBACK_UPDATE, rollbackType);
-                    }
-                }
-            }
-
             if (ConfigHandler.isFolia) {
                 chunkCount += processFoliaChunks(sortedChunks, worldList, dataList, itemDataList, rollbackType, preview, finalUserString, user, inventoryRollback, verbose, actionList, blockDataCache, entitySpawnContext);
             }
@@ -475,64 +421,6 @@ public class Rollback extends RollbackUtil {
     protected static void sendAborted(CommandSender user, String reason) {
         Chat.console("Rollback/restore for " + (user == null ? "#server" : user.getName()) + " aborted: " + reason);
         sendAborted(user);
-    }
-
-    private static List<Object[]> routeEntityContainerInventoryRows(List<Object[]> rows, Map<Integer, EntitySpawnRecord> records, Location commandLocation) {
-        World fallbackWorld = commandLocation == null ? null : commandLocation.getWorld();
-        List<World> loadedWorlds = Bukkit.getWorlds();
-        if (fallbackWorld == null && !loadedWorlds.isEmpty()) {
-            fallbackWorld = loadedWorlds.get(0);
-        }
-
-        Map<Integer, Location> currentLocations = new HashMap<>(records.size());
-        for (Entry<Integer, EntitySpawnRecord> entry : records.entrySet()) {
-            EntitySpawnRecord record = entry.getValue();
-            Location currentLocation = EntitySpawnTracking.getCachedLocation(record.getUuid());
-            if (currentLocation == null) {
-                World currentWorld = Bukkit.getWorld(WorldUtils.getWorldName(record.getWorldId()));
-                if (currentWorld != null) {
-                    currentLocation = new Location(currentWorld, record.getX(), record.getY(), record.getZ());
-                }
-            }
-            if (currentLocation == null && commandLocation != null && commandLocation.getWorld() != null) {
-                currentLocation = commandLocation;
-            }
-            if (currentLocation == null && fallbackWorld != null) {
-                currentLocation = new Location(fallbackWorld, record.getX(), record.getY(), record.getZ());
-            }
-            if (currentLocation != null) {
-                currentLocations.put(entry.getKey(), currentLocation);
-            }
-        }
-
-        List<Object[]> routedRows = new ArrayList<>(rows.size());
-        for (Object[] row : rows) {
-            if (row.length <= 15 || !(row[14] instanceof Integer) || (Integer) row[14] != InventorySources.ENTITY_CONTAINER) {
-                routedRows.add(row);
-                continue;
-            }
-
-            Object[] routedRow = row.clone();
-            EntitySpawnRecord record = records.get((Integer) row[15]);
-            Location currentLocation = currentLocations.get((Integer) row[15]);
-            if (currentLocation == null && commandLocation != null && commandLocation.getWorld() != null) {
-                currentLocation = commandLocation;
-            }
-            if (currentLocation == null && fallbackWorld != null) {
-                double currentX = record == null ? (Integer) row[3] : record.getX();
-                double currentY = record == null ? (Integer) row[4] : record.getY();
-                double currentZ = record == null ? (Integer) row[5] : record.getZ();
-                currentLocation = new Location(fallbackWorld, currentX, currentY, currentZ);
-            }
-            if (currentLocation != null) {
-                routedRow[3] = currentLocation.getBlockX();
-                routedRow[4] = currentLocation.getBlockY();
-                routedRow[5] = currentLocation.getBlockZ();
-                routedRow[10] = WorldUtils.getWorldId(currentLocation.getWorld().getName());
-            }
-            routedRows.add(routedRow);
-        }
-        return routedRows;
     }
 
     private static int processFoliaChunks(List<Entry<Long, Integer>> sortedChunks, LinkedHashSet<Integer> worldList, HashMap<Integer, HashMap<Long, ArrayList<Object[]>>> dataList, HashMap<Integer, HashMap<Long, ArrayList<Object[]>>> itemDataList, int rollbackType, int preview, String userString, CommandSender user, boolean inventoryRollback, boolean verbose, List<Integer> actionList, RollbackBlockDataCache blockDataCache, EntitySpawnRollbackHandler.Context entitySpawnContext) throws InterruptedException {
@@ -872,10 +760,17 @@ public class Rollback extends RollbackUtil {
         }
         Player rollbackPlayer = user instanceof Player ? (Player) user : null;
         // On Folia, player inventories are changed on each player's entity scheduler as mutations of this rollback's context
+        if (!entitySpawnContext.beginMutation()) {
+            return false;
+        }
         RollbackCounters counters = new RollbackCounters();
-        boolean completed = RollbackProcessor.processChunk(chunkX, chunkZ, chunkKey, blockData, itemData, rollbackType, preview, userString, rollbackPlayer, world, inventoryRollback, blockDataCache, entitySpawnContext, counters);
-        entitySpawnContext.addChunkCounts(counters);
-        return completed;
+        try {
+            return RollbackProcessor.processChunk(chunkX, chunkZ, chunkKey, blockData, itemData, rollbackType, preview, userString, rollbackPlayer, world, inventoryRollback, blockDataCache, entitySpawnContext, counters);
+        }
+        finally {
+            entitySpawnContext.addChunkCounts(counters);
+            entitySpawnContext.endMutation();
+        }
     }
 
     private static final class RollbackBatchState {

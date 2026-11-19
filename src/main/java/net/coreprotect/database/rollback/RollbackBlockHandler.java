@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.bukkit.DyeColor;
@@ -608,6 +609,10 @@ public class RollbackBlockHandler extends Queue {
      *            The user performing the rollback
      */
     public static void applyBlockChanges(Map<Block, PendingBlockChange> chunkChanges, int preview, Player user) {
+        applyBlockChanges(chunkChanges, preview, user, block -> { });
+    }
+
+    static void applyBlockChanges(Map<Block, PendingBlockChange> chunkChanges, int preview, Player user, Consumer<Block> onApplied) {
         if (preview > 0) {
             if (user != null) {
                 for (Entry<Block, PendingBlockChange> chunkChange : chunkChanges.entrySet()) {
@@ -616,20 +621,21 @@ public class RollbackBlockHandler extends Queue {
             }
         }
         else {
-            applyBlockChanges(chunkChanges, true, true);
-            applyBlockChanges(chunkChanges, true, false);
-            applyBlockChanges(chunkChanges, false, false);
-            applyBlockChanges(chunkChanges, false, true);
+            applyBlockChanges(chunkChanges, true, true, onApplied);
+            applyBlockChanges(chunkChanges, true, false, onApplied);
+            applyBlockChanges(chunkChanges, false, false, onApplied);
+            applyBlockChanges(chunkChanges, false, true, onApplied);
         }
         chunkChanges.clear();
     }
 
-    private static void applyBlockChanges(Map<Block, PendingBlockChange> chunkChanges, boolean airChange, boolean applyPhysics) {
+    private static void applyBlockChanges(Map<Block, PendingBlockChange> chunkChanges, boolean airChange, boolean applyPhysics, Consumer<Block> onApplied) {
         for (Entry<Block, PendingBlockChange> chunkChange : chunkChanges.entrySet()) {
             PendingBlockChange change = chunkChange.getValue();
             boolean changeToAir = isAirChange(change);
             if (changeToAir == airChange && change.applyPhysics() == applyPhysics) {
                 BlockUtils.setTypeAndData(chunkChange.getKey(), null, change.blockData(), !changeToAir && applyPhysics);
+                onApplied.accept(chunkChange.getKey());
             }
         }
     }

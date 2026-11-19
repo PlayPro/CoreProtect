@@ -1,6 +1,7 @@
 package net.coreprotect.database.rollback;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -94,6 +95,7 @@ public class RollbackProcessor extends Queue {
      * @return True if successful, false if there was an error
      */
     public static boolean processChunk(int finalChunkX, int finalChunkZ, long chunkKey, ArrayList<Object[]> blockList, ArrayList<Object[]> itemList, int rollbackType, int preview, String finalUserString, Player finalUser, World bukkitRollbackWorld, boolean inventoryRollback, RollbackBlockDataCache blockDataCache, EntitySpawnRollbackHandler.Context inventoryContext, RollbackCounters counters) {
+        ChunkBlockChanges chunkChanges = new ChunkBlockChanges();
         try {
             if (preview > 0 && finalUser == null) {
                 return true;
@@ -102,7 +104,6 @@ public class RollbackProcessor extends Queue {
             boolean clearInventories = Config.getGlobal().ROLLBACK_ITEMS;
             ArrayList<Object[]> data = blockList != null ? blockList : new ArrayList<>();
             ArrayList<Object[]> itemData = itemList != null ? itemList : new ArrayList<>();
-            Map<Block, PendingBlockChange> chunkChanges = new LinkedHashMap<>();
             loadChunk(bukkitRollbackWorld, finalChunkX, finalChunkZ, inventoryRollback);
 
             if (!data.isEmpty() && (Integer) data.get(0)[8] == LookupActions.SIGN) {
@@ -112,7 +113,6 @@ public class RollbackProcessor extends Queue {
                 data.clear();
             }
 
-            List<Object[]> appliedBlocks = new ArrayList<>();
             // Process blocks
             for (Object[] row : data) {
                 int rowX = (Integer) row[3];
@@ -195,7 +195,7 @@ public class RollbackProcessor extends Queue {
                             inventoryContext == null ? null : removal -> publishDeferredChange(inventoryContext, removalStarted, removal, row, rollbackType, false, true));
                     counters.addEntities(entities);
                     if (entities > 0) {
-                        appliedBlocks.add(row);
+                        chunkChanges.recordReplay(null, row, BlockReplayResult.APPLIED, true);
                     }
                 }
                 else {
@@ -250,22 +250,14 @@ public class RollbackProcessor extends Queue {
                     }
 
                     BlockReplayResult result = RollbackBlockHandler.processBlockChange(bukkitRollbackWorld, block, row, rollbackType, clearInventories, chunkChanges, countBlock, oldTypeMaterial, pendingChangeType, pendingChangeData, counters, rawBlockData, changeType, changeBlock, changeBlockData, meta != null ? new ArrayList<>(meta) : null, blockData, rowUser, rowType, rowX, rowY, rowZ, rowTypeRaw, rowData, rowAction, rowWorldId, blockDataString, inventoryContext);
-                    if (result.counted()) {
-                        counters.addBlocks(1);
-                    }
-                    if (result.applied() && oldTypeMaterial != null && rowType != null && rowRolledBack == rollbackType) {
-                        appliedBlocks.add(row);
-                    }
+                    boolean markApplied = result.applied() && oldTypeMaterial != null && rowType != null && rowRolledBack == rollbackType;
+                    chunkChanges.recordReplay(block, row, result, markApplied);
                 }
             }
             data.clear();
 
-            // Apply cached block changes
-            RollbackBlockHandler.applyBlockChanges(chunkChanges, preview, finalUser instanceof Player ? (Player) finalUser : null);
-
-            if (!appliedBlocks.isEmpty()) {
-                Queue.queueRollbackUpdate(finalUserString, null, appliedBlocks, Process.ROLLBACK_UPDATE, rollbackType);
-            }
+            RollbackBlockHandler.applyBlockChanges(chunkChanges, preview, finalUser, chunkChanges::confirmPendingWrite);
+            chunkChanges.publishAppliedRows(finalUserString, rollbackType, counters);
             if (preview > 0) {
                 return true;
             }
@@ -302,8 +294,89 @@ public class RollbackProcessor extends Queue {
             return true;
         }
         catch (Exception e) {
+            try {
+                chunkChanges.publishAppliedRows(finalUserString, rollbackType, counters);
+            }
+            catch (Exception publicationFailure) {
+                e.addSuppressed(publicationFailure);
+            }
             ErrorReporter.report(e);
             return false;
+        }
+    }
+
+    private static final class ChunkBlockChanges extends LinkedHashMap<Block, PendingBlockChange> {
+        private static final long serialVersionUID = 1L;
+
+        private final Map<Block, PendingWrite> pendingWrites = new HashMap<>();
+        private final List<PendingWrite> supersededWrites = new ArrayList<>();
+        private final List<ReplayedBlockRow> rows = new ArrayList<>();
+
+        @Override
+        public PendingBlockChange remove(Object block) {
+            PendingWrite superseded = pendingWrites.remove(block);
+            if (superseded != null) {
+                supersededWrites.add(superseded);
+            }
+            return super.remove(block);
+        }
+
+        private void recordReplay(Block block, Object[] row, BlockReplayResult result, boolean publishMarker) {
+            if (result.applied()) {
+                supersededWrites.forEach(write -> write.applied = true);
+            }
+            supersededWrites.clear();
+            if (result.counted() || publishMarker) {
+                PendingWrite write = containsKey(block) ? pendingWrites.computeIfAbsent(block, key -> new PendingWrite()) : null;
+                rows.add(new ReplayedBlockRow(row, write, result.counted(), publishMarker));
+            }
+        }
+
+        private void confirmPendingWrite(Block block) {
+            PendingWrite write = pendingWrites.remove(block);
+            if (write != null) {
+                write.applied = true;
+            }
+        }
+
+        private void publishAppliedRows(String actor, int rollbackType, RollbackCounters counters) {
+            if (rows.isEmpty()) {
+                return;
+            }
+            List<Object[]> applied = new ArrayList<>();
+            for (ReplayedBlockRow replay : rows) {
+                if (replay.write != null && !replay.write.applied) {
+                    continue;
+                }
+                if (replay.counted) {
+                    counters.addBlocks(1);
+                }
+                if (replay.publishMarker) {
+                    applied.add(replay.row);
+                }
+            }
+            rows.clear();
+            if (!applied.isEmpty()) {
+                Queue.queueRollbackUpdate(actor, null, applied, Process.ROLLBACK_UPDATE, rollbackType);
+            }
+        }
+    }
+
+    private static final class PendingWrite {
+        private boolean applied;
+    }
+
+    private static final class ReplayedBlockRow {
+        private final Object[] row;
+        private final PendingWrite write;
+        private final boolean counted;
+        private final boolean publishMarker;
+
+        private ReplayedBlockRow(Object[] row, PendingWrite write, boolean counted, boolean publishMarker) {
+            this.row = row;
+            this.write = write;
+            this.counted = counted;
+            this.publishMarker = publishMarker;
         }
     }
 

@@ -47,6 +47,7 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
     private ClickHouseWriteBatch batch;
     private boolean closed;
     private boolean commitAttempted;
+    private boolean commitDefinitelyRejected;
     private boolean ownsConsumerTransaction;
 
     public ClickHouseConsumerWriteBatch(ClickHouseDatabase database, String prefix) {
@@ -64,6 +65,7 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
             throw new IllegalStateException("ClickHouse consumer batch is already active");
         }
         commitAttempted = false;
+        commitDefinitelyRejected = false;
         batch = database.newWriteBatch();
         clearBatchState();
         entitySpawnUpdates.beginBatch();
@@ -96,6 +98,7 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
         }
         finally {
             commitAttempted = current.wasPublicationAttempted();
+            commitDefinitelyRejected = current.wasPublicationDefinitelyRejected();
             current.close();
             batch = null;
             if (!published) {
@@ -109,6 +112,11 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
     @Override
     public boolean wasCommitAttempted() {
         return commitAttempted;
+    }
+
+    @Override
+    public boolean wasCommitDefinitelyRejected() {
+        return commitDefinitelyRejected;
     }
 
     @Override

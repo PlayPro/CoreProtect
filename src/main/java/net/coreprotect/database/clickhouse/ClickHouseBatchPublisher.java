@@ -69,18 +69,27 @@ final class ClickHouseBatchPublisher {
     }
 
     private void publishPartition(ClickHouseWriteBatch batch, ClickHouseBatchReceipt receipt, int partitionId, int expectedRowCount) throws SQLException {
-        publishWithRetry("ClickHouse batch partition " + partitionId, () -> {
-            writerRegistration.verifyOwned();
-            InputStream rows = batch.openRows(partitionId);
-            batch.markPublicationAttempted();
-            nativeClient.insert(eventTable, ClickHouseSchema.EVENT_COLUMNS, rows, batch.getIdentity(), "records_" + partitionId);
-        }, () -> {
-            ReceiptStatus status = readReceiptStatus(batch.getIdentity(), partitionId);
-            if (status.matches(receipt, expectedRowCount)) {
-                return Reconciliation.COMPLETE;
+        boolean firstPartitionAttempt = !batch.wasPublicationAttempted();
+        try {
+            publishWithRetry("ClickHouse batch partition " + partitionId, () -> {
+                writerRegistration.verifyOwned();
+                InputStream rows = batch.openRows(partitionId);
+                batch.markPublicationAttempted();
+                nativeClient.insert(eventTable, ClickHouseSchema.EVENT_COLUMNS, rows, batch.getIdentity(), "records_" + partitionId);
+            }, () -> {
+                ReceiptStatus status = readReceiptStatus(batch.getIdentity(), partitionId);
+                if (status.matches(receipt, expectedRowCount)) {
+                    return Reconciliation.COMPLETE;
+                }
+                return status.isEmpty() ? Reconciliation.RETRY : Reconciliation.CONFLICT;
+            }, () -> conflict(receipt, partitionId));
+        }
+        catch (DefiniteRejectionException exception) {
+            if (firstPartitionAttempt) {
+                batch.markPublicationDefinitelyRejected();
             }
-            return status.isEmpty() ? Reconciliation.RETRY : Reconciliation.CONFLICT;
-        }, () -> conflict(receipt, partitionId));
+            throw exception;
+        }
         batch.markPartitionPublished(partitionId);
     }
 
@@ -118,7 +127,11 @@ final class ClickHouseBatchPublisher {
                 throw conflictFailure;
             }
             if (attempt >= MAX_PUBLICATION_ATTEMPTS || isPermanent(publicationFailure)) {
-                throw new SQLException(operation + " remained incomplete after " + attempt + " publication attempts", publicationFailure);
+                String message = operation + " remained incomplete after " + attempt + " publication attempts";
+                if (attempt == 1 && isServerAccessDenied(publicationFailure)) {
+                    throw new DefiniteRejectionException(message, publicationFailure);
+                }
+                throw new SQLException(message, publicationFailure);
             }
             requirePublicationAllowed("republishing " + operation, publicationFailure);
             pauseBeforeRetry(attempt, "republishing " + operation);
@@ -232,6 +245,24 @@ final class ClickHouseBatchPublisher {
             }
         }
         return false;
+    }
+
+    private static boolean isServerAccessDenied(SQLException failure) {
+        Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Throwable cause = failure; cause != null && visited.add(cause); cause = cause.getCause()) {
+            if (cause instanceof ServerException && ((ServerException) cause).getCode() == ACCESS_DENIED) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static final class DefiniteRejectionException extends SQLException {
+        private static final long serialVersionUID = 1L;
+
+        private DefiniteRejectionException(String message, SQLException cause) {
+            super(message, cause);
+        }
     }
 
     private static final class ReceiptStatus {

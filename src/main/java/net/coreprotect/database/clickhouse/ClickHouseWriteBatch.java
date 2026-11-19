@@ -17,6 +17,7 @@ public final class ClickHouseWriteBatch implements AutoCloseable {
     private boolean closed;
     private boolean published;
     private boolean publicationAttempted;
+    private boolean publicationDefinitelyRejected;
 
     ClickHouseWriteBatch(ClickHouseBatchIdentity identity, ClickHouseRowIdAllocator rowIdAllocator) {
         this.identity = Objects.requireNonNull(identity, "identity");
@@ -96,10 +97,19 @@ public final class ClickHouseWriteBatch implements AutoCloseable {
 
     void markPublicationAttempted() {
         publicationAttempted = true;
+        publicationDefinitelyRejected = false;
     }
 
     boolean wasPublicationAttempted() {
         return publicationAttempted;
+    }
+
+    void markPublicationDefinitelyRejected() {
+        publicationDefinitelyRejected = publishedPartitions.isEmpty();
+    }
+
+    boolean wasPublicationDefinitelyRejected() {
+        return publicationDefinitelyRejected;
     }
 
     InputStream openRows() {

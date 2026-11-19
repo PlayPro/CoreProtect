@@ -1366,7 +1366,7 @@ public class Process {
     }
 
     private static TransactionOutcome failedCommitOutcome(ConsumerWriteBatch batch) {
-        return batch.wasCommitAttempted() ? TransactionOutcome.DISCARDED : TransactionOutcome.RETAINED;
+        return !batch.wasCommitAttempted() || batch.wasCommitDefinitelyRejected() ? TransactionOutcome.RETAINED : TransactionOutcome.DISCARDED;
     }
 
     private static void completeTransactionState(ConsumerEntitySpawnUpdates entitySpawnUpdates, List<PendingEntityContainerTransaction> pendingEntityContainerTransactions, List<EntityContainerRollbackRetry> pendingEntityContainerRollbacks, List<PendingEntityInteraction> pendingEntityInteractions, Map<UUID, Location> pendingEntityIdentityConfirmations, Set<UUID> invalidatedEntityIdentityConfirmations, Set<UUID> promotedEntityIdentities, Map<UUID, EntitySpawnIdentity> entitySpawnIdentities, List<PendingEntitySpawnLog> pendingEntitySpawnLogs, TransactionOutcome outcome) {

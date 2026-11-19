@@ -65,7 +65,10 @@ public class BlockAPI {
             int x = block.getX();
             int y = block.getY();
             int z = block.getZ();
-            int worldId = WorldUtils.getWorldId(block.getWorld().getName());
+            int worldId = WorldUtils.findWorldId(connection, block.getWorld().getName());
+            if (worldId < 0) {
+                return result;
+            }
             int checkTime = offset > 0 ? MessageAPI.clampToInt(Math.max(0L, System.currentTimeMillis() / 1000L - offset)) : 0;
 
             try (Statement statement = connection.createStatement()) {

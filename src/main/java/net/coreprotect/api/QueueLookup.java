@@ -94,8 +94,11 @@ public class QueueLookup extends Queue {
                     String user = userData[0];
                     BlockState blockState = (BlockState) objectData;
                     Location location = blockState.getLocation();
-                    int worldId = WorldUtils.getWorldId(location.getWorld().getName());
-                    int resultType = MaterialUtils.getBlockId(blockType);
+                    int worldId = WorldUtils.findHistoricalWorldId(location.getWorld().getName());
+                    if (worldId < 0) {
+                        continue;
+                    }
+                    int resultType = MaterialUtils.getBlockId(blockType == null ? Material.AIR.name() : blockType.name(), false);
                     int time = (int) (System.currentTimeMillis() / 1000L);
 
                     String[] lookupData = new String[] { String.valueOf(time), user, String.valueOf(location.getBlockX()), String.valueOf(location.getBlockY()), String.valueOf(location.getBlockZ()), String.valueOf(resultType), String.valueOf(legacyData), String.valueOf(action), "0", String.valueOf(worldId), blockData };

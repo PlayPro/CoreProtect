@@ -30,7 +30,7 @@ final class LookupFilter {
     private final Integer userId;
     private final int checkTime;
     private final Location location;
-    private final World world;
+    private final Integer worldId;
     private final boolean invalidLocation;
     private final int radius;
     private final int limitOffset;
@@ -41,12 +41,12 @@ final class LookupFilter {
     private final String includeUserIds;
     private final String excludeUserIds;
 
-    private LookupFilter(Integer userId, int checkTime, Location location, World world, boolean invalidLocation, int radius, int limitOffset, int limitCount, List<Material> includeMaterials, List<Material> excludeMaterials, Map<Integer, Material> materialTypes, String includeUserIds, String excludeUserIds) {
+    private LookupFilter(Integer userId, int checkTime, Location location, Integer worldId, boolean invalidLocation, int radius, int limitOffset, int limitCount, List<Material> includeMaterials, List<Material> excludeMaterials, Map<Integer, Material> materialTypes, String includeUserIds, String excludeUserIds) {
         this.userId = userId;
         this.checkTime = checkTime;
         this.location = location;
-        this.world = location == null ? world : location.getWorld();
-        this.invalidLocation = invalidLocation || (location != null && this.world == null);
+        this.worldId = worldId;
+        this.invalidLocation = invalidLocation;
         this.radius = radius;
         this.limitOffset = limitOffset;
         this.limitCount = limitCount;
@@ -68,19 +68,37 @@ final class LookupFilter {
             checkTime = MessageAPI.clampToInt(Math.max(0L, System.currentTimeMillis() / 1000L - options.getTime()));
         }
 
-        Map<Integer, Material> materialTypes = new HashMap<>();
-        if (!options.getIncludeMaterials().isEmpty() || !options.getExcludeMaterials().isEmpty()) {
+        Location location = options.getLocation();
+        World world = location == null ? options.getWorld() : location.getWorld();
+        Integer worldId = world == null ? null : WorldUtils.findWorldId(connection, world.getName());
+        boolean invalidLocation = options.hasInvalidLocation() || (location != null && world == null) || (worldId != null && worldId < 0);
+        Map<Integer, Material> materialTypes = Collections.emptyMap();
+        if (!invalidLocation && (!options.getIncludeMaterials().isEmpty() || !options.getExcludeMaterials().isEmpty())) {
+            materialTypes = readMaterialTypes(connection);
+        }
+
+        return new LookupFilter(userId, checkTime, location, worldId, invalidLocation, options.getRadius(), options.getLimitOffset(), options.getLimitCount(),
+                options.getIncludeMaterials(), options.getExcludeMaterials(), materialTypes,
+                options.getUsers().isEmpty() ? null : userIds(connection, options.getUsers()), userIds(connection, options.getExcludeUsers()));
+    }
+
+    private static Map<Integer, Material> readMaterialTypes(Connection connection) throws Exception {
+        Map<Integer, String> cached = ConfigHandler.materialsReversed;
+        Map<Integer, String> materialNames;
+        synchronized (cached) {
+            materialNames = new HashMap<>(cached);
+        }
+        if (materialNames.isEmpty()) {
             try (PreparedStatement statement = connection.prepareStatement("SELECT id, material FROM " + ConfigHandler.prefix + "material_map");
                     ResultSet results = statement.executeQuery()) {
                 while (results.next()) {
-                    materialTypes.put(results.getInt("id"), MaterialUtils.getTypeFromStoredName(results.getString("material")));
+                    materialNames.put(results.getInt("id"), results.getString("material"));
                 }
             }
         }
-
-        return new LookupFilter(userId, checkTime, options.getLocation(), options.getWorld(), options.hasInvalidLocation(), options.getRadius(), options.getLimitOffset(), options.getLimitCount(),
-                options.getIncludeMaterials(), options.getExcludeMaterials(), materialTypes,
-                options.getUsers().isEmpty() ? null : userIds(connection, options.getUsers()), userIds(connection, options.getExcludeUsers()));
+        Map<Integer, Material> materialTypes = new HashMap<>();
+        materialNames.forEach((id, material) -> materialTypes.put(id, MaterialUtils.getTypeFromStoredName(material)));
+        return materialTypes;
     }
 
     boolean hasInvalidUser() {
@@ -128,7 +146,7 @@ final class LookupFilter {
         }
         appendUserWhere(query, alias, includeUserIds, excludeUserIds);
 
-        if (world != null) {
+        if (worldId != null) {
             query.append(" AND ").append(LocationQuery.predicate(qualifier + "wid", " = ?"));
         }
         if (location != null) {
@@ -161,7 +179,7 @@ final class LookupFilter {
             query.append(" AND ").append(transaction).append(ConfigHandler.databaseType.getUserColumn()).append(" = ?");
         }
         appendUserWhere(query, transactionAlias, includeUserIds, excludeUserIds);
-        if (world == null) {
+        if (worldId == null) {
             return;
         }
 
@@ -307,7 +325,6 @@ final class LookupFilter {
         int maximumX = radius > 0 ? MessageAPI.clampToInt((long) x + radius) : x;
         int minimumZ = radius > 0 ? MessageAPI.clampToInt((long) z - radius) : z;
         int maximumZ = radius > 0 ? MessageAPI.clampToInt((long) z + radius) : z;
-        int worldId = WorldUtils.getWorldId(location.getWorld().getName());
         return DuckDBLookupQuery.spatialTable(connection, table, worldId, minimumX, maximumX, minimumZ, maximumZ, alias);
     }
 
@@ -330,9 +347,11 @@ final class LookupFilter {
         int maximumX = radius > 0 ? MessageAPI.clampToInt((long) x + radius) : x;
         int minimumZ = radius > 0 ? MessageAPI.clampToInt((long) z - radius) : z;
         int maximumZ = radius > 0 ? MessageAPI.clampToInt((long) z + radius) : z;
-        int worldId = WorldUtils.getWorldId(location.getWorld().getName());
         boolean block = table.equals("block");
         List<Long> rowIds = loadCurrentEntityRowIds(connection, block ? "block_rowid" : "rowid");
+        if (!block && rowIds.stream().anyMatch(id -> id > Integer.MAX_VALUE)) {
+            return ConfigHandler.prefix + table + alias(alias);
+        }
         return DuckDBSpatialIndex.tableExpression(
                 connection,
                 ConfigHandler.prefix,
@@ -362,7 +381,7 @@ final class LookupFilter {
             int x = location.getBlockX();
             int y = location.getBlockY();
             int z = location.getBlockZ();
-            statement.setInt(parameterIndex++, WorldUtils.getWorldId(location.getWorld().getName()));
+            statement.setInt(parameterIndex++, worldId);
             if (radius > 0) {
                 int minimumX = MessageAPI.clampToInt((long) x - radius);
                 int maximumX = MessageAPI.clampToInt((long) x + radius);
@@ -410,8 +429,8 @@ final class LookupFilter {
             statement.setInt(parameterIndex++, userId);
         }
 
-        if (world != null) {
-            statement.setInt(parameterIndex++, WorldUtils.getWorldId(world.getName()));
+        if (worldId != null) {
+            statement.setInt(parameterIndex++, worldId);
         }
 
         if (location != null) {
@@ -443,12 +462,11 @@ final class LookupFilter {
         if (userId != null) {
             statement.setInt(parameterIndex++, userId);
         }
-        if (world == null) {
+        if (worldId == null) {
             return parameterIndex;
         }
 
         if (location == null) {
-            int worldId = WorldUtils.getWorldId(world.getName());
             statement.setInt(parameterIndex++, worldId);
             statement.setInt(parameterIndex++, worldId);
             return parameterIndex;
@@ -457,7 +475,6 @@ final class LookupFilter {
         int x = location.getBlockX();
         int y = location.getBlockY();
         int z = location.getBlockZ();
-        int worldId = WorldUtils.getWorldId(location.getWorld().getName());
         statement.setInt(parameterIndex++, worldId);
         if (radius > 0) {
             int minimumX = MessageAPI.clampToInt((long) x - radius);

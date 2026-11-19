@@ -1,5 +1,8 @@
 package net.coreprotect.utility;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.bukkit.Bukkit;
@@ -34,6 +37,26 @@ public class WorldUtils {
             return cached;
         }
         return ConfigHandler.databaseType.isClickHouse() ? Database.findClickHouseIdentifierId(ReferenceKind.WORLD, name) : -1;
+    }
+
+    public static int findWorldId(Connection connection, String name) throws SQLException {
+        Integer cached = ConfigHandler.worlds.get(name);
+        if (cached != null) {
+            return cached;
+        }
+
+        try (PreparedStatement statement = connection.prepareStatement("SELECT id, world FROM " + ConfigHandler.prefix + "world WHERE world = ?")) {
+            statement.setString(1, name);
+            try (ResultSet results = statement.executeQuery()) {
+                while (results.next()) {
+                    if (name.equals(results.getString("world"))) {
+                        long id = results.getLong("id");
+                        return id >= 0 && id <= Integer.MAX_VALUE ? (int) id : -1;
+                    }
+                }
+            }
+        }
+        return -1;
     }
 
     public static String getWorldName(int id) {

@@ -5,15 +5,18 @@ import java.util.Map;
 
 import org.bukkit.FireworkEffect;
 import org.bukkit.FireworkEffect.Builder;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Jukebox;
 import org.bukkit.block.ShulkerBox;
 import org.bukkit.block.banner.Pattern;
 import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.inventory.EntityEquipment;
@@ -42,12 +45,111 @@ import net.coreprotect.utility.AttributeUtils;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.entity.HangingUtil;
 
 public class RollbackUtil extends Lookup {
 
     public static Object resolveBlockContainer(Block block) {
         BlockState state = block.getState();
         return state instanceof Jukebox ? state : BlockUtils.getContainerInventory(state, false);
+    }
+
+    public static ContainerTarget resolveContainer(Block block, ContainerItem item) {
+        boolean frameRow = !item.faceData.isEmpty();
+        BlockFace face = frameRow ? HangingUtil.parseFrameFace(item.faceData) : null;
+        if ((frameRow && (face == null || item.armorStand)) || (item.armorStand && (item.slot < 0 || item.slot > 5))) {
+            return null;
+        }
+
+        if (!frameRow && !item.armorStand) {
+            Material type = block.getType();
+            if (BlockGroup.CONTAINERS.contains(type)) {
+                Object container = resolveBlockContainer(block);
+                if (container != null) {
+                    return new ContainerTarget(type, container);
+                }
+            }
+        }
+
+        ContainerTarget target = null;
+        for (Entity entity : block.getChunk().getEntities()) {
+            if (!(entity instanceof ItemFrame) && !(entity instanceof ArmorStand)) {
+                continue;
+            }
+            Location location = entity.getLocation();
+            if (location.getBlockX() != block.getX() || location.getBlockY() != block.getY() || location.getBlockZ() != block.getZ()) {
+                continue;
+            }
+
+            ContainerTarget candidate = null;
+            if (entity instanceof ItemFrame && !item.armorStand && (face == null || ((ItemFrame) entity).getFacing() == face)) {
+                candidate = new ContainerTarget(Material.ITEM_FRAME, entity);
+            }
+            else if (entity instanceof ArmorStand && !frameRow) {
+                EntityEquipment equipment = ItemUtils.getEntityEquipment((ArmorStand) entity);
+                if (equipment != null) {
+                    candidate = new ContainerTarget(Material.ARMOR_STAND, equipment);
+                }
+            }
+            if (candidate != null) {
+                if (target != null) {
+                    return null;
+                }
+                target = candidate;
+            }
+        }
+        return target;
+    }
+
+    public static final class ContainerTarget {
+        private final Material type;
+        private final Object container;
+
+        private ContainerTarget(Material type, Object container) {
+            this.type = type;
+            this.container = container;
+        }
+
+        public Material type() {
+            return type;
+        }
+
+        public Object container() {
+            return container;
+        }
+    }
+
+    public static final class ContainerItem {
+        private final int slot;
+        private final String faceData;
+        private final ItemStack stack;
+        private final boolean armorStand;
+
+        private ContainerItem(int slot, String faceData, ItemStack stack, boolean armorStand) {
+            this.slot = slot;
+            this.faceData = faceData;
+            this.stack = stack;
+            this.armorStand = armorStand;
+        }
+
+        public int slot() {
+            return slot;
+        }
+
+        public ItemStack stack() {
+            return stack;
+        }
+
+        public boolean sameTarget(ContainerItem previous) {
+            if (previous == null || armorStand != previous.armorStand || !faceData.equals(previous.faceData)) {
+                return false;
+            }
+            return !armorStand || (slot >= 0 && slot < 6) == (previous.slot >= 0 && previous.slot < 6);
+        }
+
+        private Object[] toLegacyArray() {
+            return new Object[] { slot, faceData, stack };
+        }
     }
 
     protected static int modifyContainerItems(Material type, Object container, int slot, ItemStack itemstack, int action) {
@@ -294,9 +396,13 @@ public class RollbackUtil extends Lookup {
     }
 
     @SuppressWarnings("unchecked")
-    public static Object[] populateItemStack(ItemStack itemstack, Object list) {
+    private static ContainerItem decodeItemStack(ItemStack itemstack, Object list) {
         int slot = 0;
         String faceData = "";
+        boolean armorStand = false;
+        if (list == null) {
+            return new ContainerItem(slot, faceData, itemstack, armorStand);
+        }
 
         try {
             /*
@@ -334,7 +440,7 @@ public class RollbackUtil extends Lookup {
                     itemstack.setItemMeta(meta);
                 }
 
-                return new Object[] { slot, faceData, itemstack };
+                return new ContainerItem(slot, faceData, itemstack, armorStand);
             }
 
             int itemCount = 0;
@@ -352,10 +458,12 @@ public class RollbackUtil extends Lookup {
                 Map<String, Object> mapData = map.get(0);
 
                 if (mapData.get("slot") != null) {
-                    slot = (Integer) mapData.get("slot");
+                    armorStand = true;
+                    Object storedSlot = mapData.get("slot");
+                    slot = storedSlot instanceof Integer ? (Integer) storedSlot : -1;
                 }
                 else if (mapData.get("facing") != null) {
-                    faceData = (String) mapData.get("facing");
+                    faceData = String.valueOf(mapData.get("facing"));
                 }
                 else if (mapData.get("modifiers") != null) {
                     ItemMeta itemMeta = itemstack.getItemMeta();
@@ -489,12 +597,19 @@ public class RollbackUtil extends Lookup {
         catch (Exception e) {
             ErrorReporter.report(e);
         }
-        return new Object[] { slot, faceData, itemstack };
+        return new ContainerItem(slot, faceData, itemstack, armorStand);
+    }
+
+    public static Object[] populateItemStack(ItemStack itemstack, Object list) {
+        return decodeItemStack(itemstack, list).toLegacyArray();
     }
 
     public static Object[] populateItemStack(ItemStack itemstack, byte[] metadata) {
-        List<Object> metaList = deserializeMetadata(metadata);
-        return metaList == null ? new Object[] { 0, "", itemstack } : populateItemStack(itemstack, metaList);
+        return decodeContainerItem(itemstack, metadata).toLegacyArray();
+    }
+
+    public static ContainerItem decodeContainerItem(ItemStack itemstack, byte[] metadata) {
+        return decodeItemStack(itemstack, deserializeMetadata(metadata));
     }
 
     /**

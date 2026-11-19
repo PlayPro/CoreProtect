@@ -56,6 +56,8 @@ public class Bukkit_v1_17 extends BukkitAdapter {
      * This includes new blocks like amethyst, candles, pointed dripstone, etc.
      */
     private void initializeBlockGroups() {
+        BlockGroup.CONTAINERS.add(Material.GLOW_ITEM_FRAME);
+
         BlockGroup.TRACK_ANY.addAll(List.of(Material.SMALL_AMETHYST_BUD, Material.MEDIUM_AMETHYST_BUD, Material.LARGE_AMETHYST_BUD, Material.AMETHYST_CLUSTER, Material.GLOW_LICHEN));
 
         BlockGroup.TRACK_TOP.addAll(List.of(Material.AZALEA, Material.FLOWERING_AZALEA, Material.SMALL_DRIPLEAF, Material.BIG_DRIPLEAF));

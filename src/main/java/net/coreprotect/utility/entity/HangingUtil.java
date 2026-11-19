@@ -2,6 +2,7 @@ package net.coreprotect.utility.entity;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Predicate;
 
 import org.bukkit.Art;
 import org.bukkit.Location;
@@ -88,7 +89,10 @@ public class HangingUtil {
             if (painting && art == null) {
                 return;
             }
-            removeAt(state, type, face, true);
+            Hanging existing = findAt(state, face, decoration -> painting == (decoration instanceof Painting), false);
+            if (existing != null) {
+                existing.remove();
+            }
             Location location = block.getLocation();
             if (painting) {
                 Location anchor = paintingAnchor(location, face, art.getBlockWidth(), art.getBlockHeight());
@@ -150,8 +154,12 @@ public class HangingUtil {
         if (data == null || !data.regionMatches(true, 0, "FACING=", 0, "FACING=".length())) {
             return null;
         }
+        return parseFrameFace(data.substring("FACING=".length()));
+    }
+
+    public static BlockFace parseFrameFace(String value) {
         try {
-            BlockFace face = BlockFace.valueOf(data.substring("FACING=".length()).trim().toUpperCase(Locale.ROOT));
+            BlockFace face = BlockFace.valueOf(value.trim().toUpperCase(Locale.ROOT));
             return FRAME_FACES.contains(face) ? face : null;
         }
         catch (IllegalArgumentException ignored) {
@@ -160,30 +168,47 @@ public class HangingUtil {
     }
 
     public static void removeHanging(BlockState state, String hangingData) {
+        removeHanging(state, null, hangingData);
+    }
+
+    public static void removeHanging(BlockState state, Material type, String hangingData) {
         try {
-            removeAt(state, null, parseFacing(hangingData), false);
+            BlockFace face = parseFacing(hangingData);
+            if (face == null && hangingData != null && !hangingData.isBlank()) {
+                return;
+            }
+            Hanging target = findAt(state, face, decoration -> type == null || getMaterial(decoration) == type, true);
+            if (target != null) {
+                target.remove();
+            }
         }
         catch (Exception e) {
             ErrorReporter.report(e);
         }
     }
 
-    private static void removeAt(BlockState state, Material type, BlockFace face, boolean firstOnly) {
+    private static Hanging findAt(BlockState state, BlockFace face, Predicate<Hanging> matchesType, boolean requireUnique) {
+        Hanging target = null;
         for (Entity entity : state.getChunk().getEntities()) {
             if (!(entity instanceof Hanging) || !isSupportedDecoration((Hanging) entity)) {
                 continue;
             }
-            if (type != null && (type == Material.PAINTING) != (entity instanceof Painting)) {
+            Hanging decoration = (Hanging) entity;
+            if (!matchesType.test(decoration)) {
                 continue;
             }
             Location location = entity.getLocation();
             if (location.getBlockX() == state.getX() && location.getBlockY() == state.getY() && location.getBlockZ() == state.getZ()
-                    && (face == null || ((Hanging) entity).getFacing() == face)) {
-                entity.remove();
-                if (firstOnly) {
-                    return;
+                    && (face == null || decoration.getFacing() == face)) {
+                if (!requireUnique) {
+                    return decoration;
                 }
+                if (target != null) {
+                    return null;
+                }
+                target = decoration;
             }
         }
+        return target;
     }
 }

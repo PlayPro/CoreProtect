@@ -112,7 +112,7 @@ public class RollbackBlockHandler extends Queue {
                 }
 
                 if ((rowType == Material.AIR) && ((BukkitAdapter.ADAPTER.isItemFrame(oldTypeMaterial)) || (oldTypeMaterial == Material.PAINTING))) {
-                    HangingUtil.removeHanging(block.getState(), blockDataString);
+                    HangingUtil.removeHanging(block.getState(), oldTypeMaterial, blockDataString);
                 }
                 else if ((BukkitAdapter.ADAPTER.isItemFrame(rowType)) || (rowType == Material.PAINTING)) {
                     HangingUtil.spawnHanging(block.getState(), rowType, blockDataString, rowData);

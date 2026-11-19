@@ -15,13 +15,9 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Powerable;
-import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.ItemFrame;
-import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -30,8 +26,9 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.rollback.RollbackUtil.ContainerItem;
+import net.coreprotect.database.rollback.RollbackUtil.ContainerTarget;
 import net.coreprotect.listener.player.InventoryChangeListener;
-import net.coreprotect.model.BlockGroup;
 import net.coreprotect.model.PendingBlockChange;
 import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.model.item.ItemTransactionActions;
@@ -228,7 +225,7 @@ public class RollbackProcessor {
                         }
                     }
 
-                    if (RollbackBlockHandler.processBlockChange(bukkitRollbackWorld, block, row, rollbackType, clearInventories, chunkChanges, countBlock, oldTypeMaterial, pendingChangeType, pendingChangeData, counters, rawBlockData, changeType, changeBlock, changeBlockData, meta != null ? new ArrayList<>(meta) : null, blockData, rowUser, rowType, rowX, rowY, rowZ, rowTypeRaw, rowData, rowAction, rowWorldId, BlockUtils.byteDataToString((byte[]) row[13], rowTypeRaw)) && countBlock) {
+                    if (RollbackBlockHandler.processBlockChange(bukkitRollbackWorld, block, row, rollbackType, clearInventories, chunkChanges, countBlock, oldTypeMaterial, pendingChangeType, pendingChangeData, counters, rawBlockData, changeType, changeBlock, changeBlockData, meta != null ? new ArrayList<>(meta) : null, blockData, rowUser, rowType, rowX, rowY, rowZ, rowTypeRaw, rowData, rowAction, rowWorldId, blockDataString) && countBlock) {
                         counters.addBlocks(1);
                     }
                 }
@@ -241,14 +238,12 @@ public class RollbackProcessor {
             // Process container items
             Map<Player, List<Integer>> sortPlayers = new HashMap<>();
             Map<Player, List<InventoryRow>> inventoryRows = ConfigHandler.isFolia && inventoryContext != null && inventoryRollback ? new LinkedHashMap<>() : null;
-            Object container = null;
-            Material containerType = null;
-            boolean containerInit = false;
+            ContainerTarget container = null;
             int lastX = 0;
             int lastY = 0;
             int lastZ = 0;
             int lastWorldId = 0;
-            String lastFace = "";
+            ContainerItem lastItem = null;
 
             for (Object[] row : itemData) {
                 int rowX = (Integer) row[3];
@@ -310,45 +305,19 @@ public class RollbackProcessor {
                     }
 
                     if ((rollbackType == 0 && rowRolledBack == 0) || (rollbackType == 1 && rowRolledBack == 1)) {
-                        ItemStack itemstack = new ItemStack(rowType, rowAmount);
-                        Object[] populatedStack = RollbackItemHandler.populateItemStack(itemstack, rowMetadata);
-                        String faceData = (String) populatedStack[1];
-
-                        if (!containerInit || rowX != lastX || rowY != lastY || rowZ != lastZ || rowWorldId != lastWorldId || !faceData.equals(lastFace)) {
-                            container = null; // container patch 2.14.0
+                        ContainerItem item = RollbackUtil.decodeContainerItem(new ItemStack(rowType, rowAmount), rowMetadata);
+                        if (rowX != lastX || rowY != lastY || rowZ != lastZ || rowWorldId != lastWorldId || !item.sameTarget(lastItem)) {
                             Block block = bukkitRollbackWorld.getBlockAt(rowX, rowY, rowZ);
-
-                            if (BlockGroup.CONTAINERS.contains(block.getType())) {
-                                container = RollbackUtil.resolveBlockContainer(block);
-                                if (container instanceof Inventory) {
-                                    InventoryChangeListener.flushPendingContainer((Inventory) container, block.getLocation());
-                                }
-
-                                containerType = block.getType();
-                            }
-                            else if (BlockGroup.CONTAINERS.contains(Material.ARMOR_STAND) || BlockGroup.CONTAINERS.contains(Material.ITEM_FRAME)) {
-                                for (Entity entity : block.getChunk().getEntities()) {
-                                    if (entity.getLocation().getBlockX() == rowX && entity.getLocation().getBlockY() == rowY && entity.getLocation().getBlockZ() == rowZ) {
-                                        if (entity instanceof ArmorStand) {
-                                            container = ItemUtils.getEntityEquipment((LivingEntity) entity);
-                                            containerType = Material.ARMOR_STAND;
-                                        }
-                                        else if (entity instanceof ItemFrame) {
-                                            container = entity;
-                                            containerType = Material.ITEM_FRAME;
-                                            if (faceData.length() > 0 && (BlockFace.valueOf(faceData) == ((ItemFrame) entity).getFacing())) {
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
+                            container = RollbackUtil.resolveContainer(block, item);
+                            if (container != null && container.container() instanceof Inventory) {
+                                InventoryChangeListener.flushPendingContainer((Inventory) container.container(), block.getLocation());
                             }
 
                             lastX = rowX;
                             lastY = rowY;
                             lastZ = rowZ;
                             lastWorldId = rowWorldId;
-                            lastFace = faceData;
+                            lastItem = item;
                         }
 
                         if (container != null) {
@@ -361,13 +330,9 @@ public class RollbackProcessor {
                                 action = 1;
                             }
 
-                            int slot = (Integer) populatedStack[0];
-                            itemstack = (ItemStack) populatedStack[2];
-
-                            RollbackUtil.modifyContainerItems(containerType, container, slot, itemstack, action);
+                            RollbackUtil.modifyContainerItems(container.type(), container.container(), item.slot(), item.stack(), action);
                             counters.addItems(rowAmount);
                         }
-                        containerInit = true;
                     }
                 }
             }

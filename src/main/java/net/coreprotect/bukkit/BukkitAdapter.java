@@ -234,8 +234,13 @@ public class BukkitAdapter implements BukkitInterface {
     }
 
     public static <T> T resolveRegistryValue(BukkitInterface adapter, Object value, Class<T> type) {
-        Object resolved = adapter != null && value instanceof String ? adapter.getRegistryValue((String) value, type) : value;
-        return type.isInstance(resolved) ? type.cast(resolved) : null;
+        try {
+            Object resolved = adapter != null && value instanceof String ? adapter.getRegistryValue((String) value, type) : value;
+            return type.isInstance(resolved) ? type.cast(resolved) : null;
+        }
+        catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     @Override

@@ -136,7 +136,7 @@ public class ChestTool {
                 return;
             }
             Chest chestData = (Chest) relativeBlockData;
-            if (chestData.getType() == newType) {
+            if (chestData.getType() != Type.SINGLE) {
                 return;
             }
             Chest updated = (Chest) relativeBlockData.clone();

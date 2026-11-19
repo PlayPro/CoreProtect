@@ -298,29 +298,30 @@ public class ItemUtils {
     }
 
     private static boolean isEmptyContainerSlot(ItemStack item) {
-        return item == null || item.getType() == Material.AIR || item.getAmount() <= 0;
+        return item == null || BlockUtils.isAir(item.getType()) || item.getAmount() <= 0;
     }
 
     public static int setPlayerArmor(PlayerInventory inventory, ItemStack itemStack) {
-        String itemName = itemStack.getType().name();
+        Material type = itemStack.getType();
+        String itemName = type.name();
         boolean isHelmet = (itemName.endsWith("_HELMET") || itemName.endsWith("_HEAD") || itemName.endsWith("_SKULL") || itemName.endsWith("_PUMPKIN"));
-        boolean isChestplate = (itemName.endsWith("_CHESTPLATE"));
+        boolean isChestplate = type == Material.ELYTRA || itemName.endsWith("_CHESTPLATE");
         boolean isLeggings = (itemName.endsWith("_LEGGINGS"));
         boolean isBoots = (itemName.endsWith("_BOOTS"));
 
-        if (isHelmet && inventory.getHelmet() == null) {
+        if (isHelmet && isEmptyContainerSlot(inventory.getHelmet())) {
             inventory.setHelmet(itemStack);
             return 3;
         }
-        else if (isChestplate && inventory.getChestplate() == null) {
+        else if (isChestplate && isEmptyContainerSlot(inventory.getChestplate())) {
             inventory.setChestplate(itemStack);
             return 2;
         }
-        else if (isLeggings && inventory.getLeggings() == null) {
+        else if (isLeggings && isEmptyContainerSlot(inventory.getLeggings())) {
             inventory.setLeggings(itemStack);
             return 1;
         }
-        else if (isBoots && inventory.getBoots() == null) {
+        else if (isBoots && isEmptyContainerSlot(inventory.getBoots())) {
             inventory.setBoots(itemStack);
             return 0;
         }
@@ -345,60 +346,60 @@ public class ItemUtils {
     }
 
     public static ItemStack[] getContainerContents(Material type, Object container, Location location) {
-        ItemStack[] contents = null;
-        if (Config.getConfig(location.getWorld()).ITEM_TRANSACTIONS && BlockGroup.CONTAINERS.contains(type)) {
-            try {
-                // container may be null if called from within WorldEdit logger
-                if (container == null) {
-                    container = location.getBlock();
-                }
+        if (!Config.getConfig(location.getWorld()).ITEM_TRANSACTIONS) {
+            return null;
+        }
 
-                if (type == Material.ARMOR_STAND) {
-                    LivingEntity entity = (LivingEntity) container;
-                    EntityEquipment equipment = getEntityEquipment(entity);
+        boolean itemFrame = BukkitAdapter.ADAPTER.isItemFrame(type);
+        if (!itemFrame && !BlockGroup.CONTAINERS.contains(type)) {
+            return null;
+        }
+
+        boolean armorStand = type == Material.ARMOR_STAND;
+        ItemStack[] contents = null;
+        try {
+            if (armorStand) {
+                if (container instanceof LivingEntity) {
+                    EntityEquipment equipment = getEntityEquipment((LivingEntity) container);
                     if (equipment != null) {
                         contents = getArmorStandContents(equipment);
                     }
                 }
-                else if (type == Material.ITEM_FRAME) {
-                    ItemFrame entity = (ItemFrame) container;
-                    contents = getItemFrameItem(entity);
+            }
+            else if (itemFrame) {
+                if (container instanceof ItemFrame) {
+                    contents = getItemFrameItem((ItemFrame) container);
                 }
-                else if (type == Material.JUKEBOX) {
-                    org.bukkit.block.Jukebox blockState = (org.bukkit.block.Jukebox) ((Block) container).getState();
+            }
+            else {
+                Block block = container == null ? location.getBlock() : (Block) container;
+                if (type == Material.JUKEBOX) {
+                    org.bukkit.block.Jukebox blockState = (org.bukkit.block.Jukebox) block.getState();
                     contents = BlockUtils.getJukeboxItem(blockState);
                 }
                 else {
-                    Block block = (Block) container;
                     Inventory inventory = BlockUtils.getContainerInventory(block.getState(), true);
                     if (inventory != null) {
                         contents = inventory.getContents();
                     }
                 }
+            }
 
-                if (type == Material.ARMOR_STAND || type == Material.ITEM_FRAME) {
-                    boolean hasItem = false;
-                    for (ItemStack item : contents) {
-                        if (item != null && !item.getType().equals(Material.AIR)) {
-                            hasItem = true;
-                            break;
-                        }
-                    }
-                    if (!hasItem) {
-                        contents = null;
+            if (contents != null && (armorStand || itemFrame)) {
+                for (ItemStack item : contents) {
+                    if (!isEmptyContainerSlot(item)) {
+                        return getContainerState(contents);
                     }
                 }
+                return null;
+            }
 
-                if (contents != null) {
-                    contents = getContainerState(contents);
-                }
-            }
-            catch (Exception e) {
-                ErrorReporter.report(e);
-            }
+            return getContainerState(contents);
         }
-
-        return contents;
+        catch (Exception e) {
+            ErrorReporter.report(e);
+            return null;
+        }
     }
 
     public static EntityEquipment getEntityEquipment(LivingEntity entity) {
@@ -460,6 +461,10 @@ public class ItemUtils {
 
         if (material == Material.WATER) {
             return Material.WATER_BUCKET;
+        }
+
+        if (material.name().equals("POWDER_SNOW")) {
+            return Material.getMaterial("POWDER_SNOW_BUCKET");
         }
 
         return material.isItem() ? material : null;

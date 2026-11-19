@@ -99,6 +99,10 @@ public class UserParser {
             }
 
             String stripped = ParserUtils.stripPrefix(argument, EXCLUDE_PREFIXES);
+            if (stripped == null && next == 5 && argument.indexOf(':') >= 0 && MessageFilterParser.isLookupTerminator(argument)) {
+                next = 0;
+                continue;
+            }
             if (next == 5 || stripped != null) {
                 String excludeSpec = (stripped != null) ? stripped : argument;
                 if (excludeSpec.contains(",")) {
@@ -121,7 +125,7 @@ public class UserParser {
 
     private static void addExcludedUserIfNotMaterial(List<String> excluded, String token) {
         String candidate = token.trim();
-        if (!candidate.isEmpty() && !MaterialParser.isBlockOrEntity(candidate)) {
+        if (!candidate.isEmpty() && candidate.indexOf(':') < 0 && !MaterialParser.isBlockOrEntity(candidate)) {
             excluded.add(candidate);
         }
     }

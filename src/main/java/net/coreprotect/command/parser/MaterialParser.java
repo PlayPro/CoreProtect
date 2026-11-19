@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
@@ -38,6 +39,16 @@ public class MaterialParser {
             "exclude:",
             "e:"
     };
+
+    private static final Map<String, Supplier<Set<Material>>> TAGS = Map.of(
+            "#button", () -> BlockGroup.BUTTONS,
+            "#sign", () -> BlockGroup.SIGNS,
+            "#container", () -> BlockGroup.CONTAINERS,
+            "#door", () -> BlockGroup.DOORS,
+            "#natural", () -> BlockGroup.NATURAL_BLOCKS,
+            "#pressure_plate", () -> BlockGroup.PRESSURE_PLATES,
+            "#shulker_box", () -> BlockGroup.SHULKER_BOXES,
+            "#bundle", () -> BlockGroup.BUNDLES.isEmpty() ? null : BlockGroup.BUNDLES);
 
     public static String stripIncludePrefix(String normalizedArgument) {
         return ParserUtils.stripPrefix(normalizedArgument, INCLUDE_PREFIXES);
@@ -110,17 +121,33 @@ public class MaterialParser {
     public static Map<Object, Boolean> parseExcluded(CommandSender player, String[] inputArguments, List<Integer> argAction) {
         Map<Object, Boolean> excluded = new HashMap<>();
         int next = 0;
+        String pendingPrefix = null;
 
         for (int index = 1; index < inputArguments.length; index++) {
             String argument = ParserUtils.normalize(inputArguments[index]);
 
             if (ParserUtils.equalsAny(argument, EXCLUDE_PREFIXES)) {
+                if (pendingPrefix != null) {
+                    rejectTarget(player, pendingPrefix);
+                    return null;
+                }
+                pendingPrefix = argument;
                 next = 5;
                 continue;
             }
 
             String stripped = stripExcludePrefix(argument);
+            boolean startsParameter = argument.indexOf(':') >= 0 && MessageFilterParser.isLookupTerminator(argument);
+            if (pendingPrefix != null && startsParameter) {
+                rejectTarget(player, pendingPrefix);
+                return null;
+            }
+            if (stripped == null && next == 5 && startsParameter) {
+                next = 0;
+                continue;
+            }
             if (next == 5 || stripped != null) {
+                pendingPrefix = null;
                 String spec = (stripped != null) ? stripped : argument;
                 if (spec.contains(",")) {
                     for (String part : spec.split(",")) {
@@ -141,6 +168,10 @@ public class MaterialParser {
             else {
                 next = 0;
             }
+        }
+        if (pendingPrefix != null) {
+            rejectTarget(player, pendingPrefix);
+            return null;
         }
         return excluded;
     }
@@ -165,6 +196,9 @@ public class MaterialParser {
             Object target = resolveTarget(token, argAction);
             if (target != null) {
                 excluded.put(target, false);
+            }
+            else if (token.indexOf(':') >= 0) {
+                return rejectTarget(player, token);
             }
         }
         return true;
@@ -208,43 +242,18 @@ public class MaterialParser {
      */
     public static Map<String, Set<Material>> getTags() {
         Map<String, Set<Material>> tagMap = new HashMap<>();
-        tagMap.put("#button", BlockGroup.BUTTONS);
-        tagMap.put("#sign", BlockGroup.SIGNS);
-        tagMap.put("#container", BlockGroup.CONTAINERS);
-        tagMap.put("#door", BlockGroup.DOORS);
-        tagMap.put("#natural", BlockGroup.NATURAL_BLOCKS);
-        tagMap.put("#pressure_plate", BlockGroup.PRESSURE_PLATES);
-        tagMap.put("#shulker_box", BlockGroup.SHULKER_BOXES);
-        if (!BlockGroup.BUNDLES.isEmpty()) {
-            tagMap.put("#bundle", BlockGroup.BUNDLES);
-        }
+        TAGS.forEach((tag, supplier) -> {
+            Set<Material> materials = supplier.get();
+            if (materials != null) {
+                tagMap.put(tag, materials);
+            }
+        });
         return tagMap;
     }
 
     private static Set<Material> resolveTagMaterials(String argument) {
-        if (argument == null || !argument.startsWith("#")) {
-            return null;
-        }
-        switch (argument) {
-            case "#button":
-                return BlockGroup.BUTTONS;
-            case "#sign":
-                return BlockGroup.SIGNS;
-            case "#container":
-                return BlockGroup.CONTAINERS;
-            case "#door":
-                return BlockGroup.DOORS;
-            case "#natural":
-                return BlockGroup.NATURAL_BLOCKS;
-            case "#pressure_plate":
-                return BlockGroup.PRESSURE_PLATES;
-            case "#shulker_box":
-                return BlockGroup.SHULKER_BOXES;
-            case "#bundle":
-                return BlockGroup.BUNDLES.isEmpty() ? null : BlockGroup.BUNDLES;
-            default:
-                return null;
-        }
+        Supplier<Set<Material>> supplier = argument == null ? null : TAGS.get(argument);
+        return supplier == null ? null : supplier.get();
     }
 
     /**

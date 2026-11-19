@@ -36,9 +36,13 @@ public class UserParser {
         for (int index = 1; index < inputArguments.length; index++) {
             String argument = ParserUtils.normalize(inputArguments[index]);
 
-            if (next == 2) {
+            boolean startsParameter = MessageFilterParser.isLookupTerminator(argument);
+            if (next == 2 && !startsParameter) {
                 next = argument.endsWith(",") ? 2 : 0;
                 continue;
+            }
+            if (startsParameter && (next != 1 || argument.indexOf(':') >= 0)) {
+                next = 0;
             }
             if (ParserUtils.equalsAny(argument, USER_PREFIXES)) {
                 next = 1;

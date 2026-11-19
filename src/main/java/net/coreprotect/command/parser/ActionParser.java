@@ -66,7 +66,7 @@ public class ActionParser {
             String argument = ParserUtils.normalize(inputArguments[index]);
 
             if (next == 1 && MessageFilterParser.isLookupTerminator(argument)) {
-                next = 0;
+                return invalidAction();
             }
             if (ParserUtils.equalsAny(argument, ACTION_PREFIXES)) {
                 next = 1;
@@ -85,24 +85,34 @@ public class ActionParser {
                     for (String action : actionSpec.split(",", -1)) {
                         if (!action.isEmpty()) {
                             ParseResult parsedAction = parseActions(new String[] { "lookup", "a:" + action }, false);
+                            if (parsedAction.getActions().contains(-1)) {
+                                return invalidAction();
+                            }
                             result.addAll(parsedAction.getActions());
                             entityActionFilter = entityActionFilter.merge(parsedAction.getEntityActionFilter());
                         }
                     }
                     if (result.isEmpty()) {
-                        result.add(-1);
+                        return invalidAction();
                     }
                     next = 0;
                     continue;
                 }
                 entityActionFilter = applySingleAction(actionSpec, result);
+                if (result.contains(-1)) {
+                    return invalidAction();
+                }
                 next = 0;
             }
             else {
                 next = 0;
             }
         }
-        return new ParseResult(result, entityActionFilter);
+        return next == 1 ? invalidAction() : new ParseResult(result, entityActionFilter);
+    }
+
+    private static ParseResult invalidAction() {
+        return new ParseResult(List.of(-1), EntityActionFilter.NONE);
     }
 
     private static EntityActionFilter applySingleAction(String argument, List<Integer> result) {

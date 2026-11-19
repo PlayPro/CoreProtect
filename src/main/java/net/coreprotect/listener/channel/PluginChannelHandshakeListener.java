@@ -36,8 +36,8 @@ public class PluginChannelHandshakeListener implements PluginMessageListener, Li
     private static volatile PluginChannelHandshakeListener instance;
 
     public PluginChannelHandshakeListener() {
-        instance = this;
         pluginChannelPlayers = ConcurrentHashMap.newKeySet();
+        instance = this;
     }
 
     public static PluginChannelHandshakeListener getInstance() {

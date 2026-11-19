@@ -1,5 +1,7 @@
 package net.coreprotect.database.statement;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -7,8 +9,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.bukkit.block.BlockState;
-import org.bukkit.block.Sign;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.ConsumerWriteBatch;
@@ -17,7 +17,6 @@ import net.coreprotect.database.LocationQuery;
 import net.coreprotect.model.SignState;
 import net.coreprotect.model.action.SignActions;
 import net.coreprotect.model.rollback.SignRollbackChange;
-import net.coreprotect.utility.ErrorReporter;
 
 public class SignStatement {
 
@@ -34,20 +33,54 @@ public class SignStatement {
         }
     }
 
-    public static void getData(Statement statement, BlockState block, String query) {
-        try {
-            if (!(block instanceof Sign)) {
-                return;
+    public static SignState loadBlockState(Connection connection, int actor, int world, int x, int y, int z, int time, boolean before) throws SQLException {
+        String order = before ? ConfigHandler.getDescendingEventOrder() : ConfigHandler.getAscendingEventOrder();
+        String comparison = before ? "<" : ">=";
+        String query = "SELECT rowid, time, color, color_secondary, data, waxed, line_1, line_2, line_3, line_4, line_5, line_6, line_7, line_8 FROM "
+                + ConfigHandler.prefix + "sign WHERE " + ConfigHandler.databaseType.getUserColumn() + "=? AND "
+                + LocationQuery.predicate("wid", "=?") + " AND " + LocationQuery.predicate("x", "=?") + " AND y=? AND "
+                + LocationQuery.predicate("z", "=?") + " AND time" + comparison + "? AND face=? ORDER BY " + order + " LIMIT 1";
+        try (PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setInt(1, actor);
+            statement.setInt(2, world);
+            statement.setInt(3, x);
+            statement.setInt(4, y);
+            statement.setInt(5, z);
+            statement.setInt(6, time);
+            SignFace front = readFace(statement, 0);
+            SignFace back = readFace(statement, 1);
+            if (front == null) {
+                return back == null ? null : back.state;
+            }
+            if (back == null) {
+                return front.state;
             }
 
-            try (ResultSet resultSet = statement.executeQuery(query)) {
-                while (resultSet.next()) {
-                    SignState.read(resultSet).apply((Sign) block);
-                }
+            int comparisonOrder = ConfigHandler.databaseType.isClickHouse() ? Integer.compare(front.time, back.time) : 0;
+            if (comparisonOrder == 0) {
+                comparisonOrder = Long.compare(front.rowId, back.rowId);
             }
+            return (before ? comparisonOrder >= 0 : comparisonOrder <= 0)
+                    ? front.state.withFace(back.state, false) : back.state.withFace(front.state, true);
         }
-        catch (Exception e) {
-            ErrorReporter.report(e);
+    }
+
+    private static SignFace readFace(PreparedStatement statement, int face) throws SQLException {
+        statement.setInt(7, face);
+        try (ResultSet result = statement.executeQuery()) {
+            return result.next() ? new SignFace(result.getLong("rowid"), result.getInt("time"), SignState.read(result)) : null;
+        }
+    }
+
+    private static final class SignFace {
+        private final long rowId;
+        private final int time;
+        private final SignState state;
+
+        private SignFace(long rowId, int time, SignState state) {
+            this.rowId = rowId;
+            this.time = time;
+            this.state = state;
         }
     }
 
@@ -68,6 +101,7 @@ public class SignStatement {
                         .append(ConfigHandler.prefix).append("sign WHERE ").append(LocationQuery.predicate("wid", "=" + row[10]))
                         .append(" AND ").append(LocationQuery.predicate("x", "=" + row[3])).append(" AND y=").append(row[4])
                         .append(" AND ").append(LocationQuery.predicate("z", "=" + row[5]))
+                        .append(" AND face=").append(((SignRollbackChange) row[14]).isFront() ? 0 : 1)
                         .append(" AND rowid<").append(id).append(" ORDER BY rowid DESC LIMIT 1) previous_sign");
             }
             try (ResultSet result = statement.executeQuery(query.toString())) {

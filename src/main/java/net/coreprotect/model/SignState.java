@@ -65,6 +65,14 @@ public final class SignState {
         return new SignState(lines, frontColor, backColor, frontGlow, backGlow, isWaxed);
     }
 
+    public SignState withFace(SignState source, boolean front) {
+        String[] merged = lines.clone();
+        int start = front ? 0 : 4;
+        System.arraycopy(source.lines, start, merged, start, 4);
+        return new SignState(merged, front ? source.color : color, front ? colorSecondary : source.colorSecondary,
+                front ? source.frontGlowing : frontGlowing, front ? backGlowing : source.backGlowing, waxed);
+    }
+
     public int getColor(boolean front) {
         return front ? color : colorSecondary;
     }

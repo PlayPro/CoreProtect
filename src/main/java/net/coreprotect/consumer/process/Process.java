@@ -506,7 +506,7 @@ public class Process {
                                     WorldInsertProcess.process(writeBatch, i, statement, object, forceData);
                                     break;
                                 case Process.SIGN_UPDATE:
-                                    SignUpdateProcess.process(statement, object, user, blockData, forceData);
+                                    SignUpdateProcess.process(connection, object, user, blockData, forceData);
                                     break;
                                 case Process.SKULL_UPDATE:
                                     SkullUpdateProcess.process(statement, object, forceData);

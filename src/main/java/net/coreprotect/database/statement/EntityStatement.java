@@ -68,6 +68,9 @@ public class EntityStatement {
             return serializeDataStrict(data, kind, databaseType);
         }
         catch (Exception e) {
+            if (databaseType.isColumnar()) {
+                throw new IllegalArgumentException("Unable to encode " + databaseType.getDisplayName() + " entity data", e);
+            }
             ErrorReporter.report(e);
             return null;
         }
@@ -134,13 +137,10 @@ public class EntityStatement {
     public static List<Object> getData(Statement statement, BlockState block, String query) {
         List<Object> result = new ArrayList<>();
 
-        try {
-            ResultSet resultSet = statement.executeQuery(query);
+        try (ResultSet resultSet = statement.executeQuery(query)) {
             while (resultSet.next()) {
                 result = readData(resultSet, "data", Kind.ENTITY);
             }
-
-            resultSet.close();
         }
         catch (Exception e) {
             ErrorReporter.report(e);

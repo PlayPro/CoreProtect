@@ -1059,17 +1059,17 @@ public class Database extends Queue {
 
     private static void identifyExistingTablesAndIndexes(Statement statement, String attachDatabase, List<String> tableData, List<String> indexData) throws SQLException {
         String query = "SELECT type,name FROM " + attachDatabase + "sqlite_master WHERE type='table' OR type='index';";
-        ResultSet rs = statement.executeQuery(query);
-        while (rs.next()) {
-            String type = rs.getString("type");
-            if (type.equalsIgnoreCase("table")) {
-                tableData.add(rs.getString("name"));
-            }
-            else if (type.equalsIgnoreCase("index")) {
-                indexData.add(rs.getString("name"));
+        try (ResultSet result = statement.executeQuery(query)) {
+            while (result.next()) {
+                String type = result.getString("type");
+                if (type.equalsIgnoreCase("table")) {
+                    tableData.add(result.getString("name"));
+                }
+                else if (type.equalsIgnoreCase("index")) {
+                    indexData.add(result.getString("name"));
+                }
             }
         }
-        rs.close();
     }
 
     private static void createSQLiteTableStructures(String prefix, Statement statement, List<String> tableData) throws SQLException {

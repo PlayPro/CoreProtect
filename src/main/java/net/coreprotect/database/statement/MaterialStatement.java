@@ -22,19 +22,12 @@ public class MaterialStatement {
     }
 
     public static boolean hasMaterial(Statement statement, String query) {
-        boolean result = false;
-
-        try {
-            ResultSet resultSet = statement.executeQuery(query);
-            if (resultSet.next()) {
-                result = true;
-            }
-            resultSet.close();
+        try (ResultSet resultSet = statement.executeQuery(query)) {
+            return resultSet.next();
         }
         catch (Exception e) {
-            Database.handleWriteFailure(e);
+            Database.reportDatabaseFailure(e);
+            return false;
         }
-
-        return result;
     }
 }

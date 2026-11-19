@@ -1,8 +1,13 @@
 package net.coreprotect.patch.script;
 
+import java.nio.charset.StandardCharsets;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.StringJoiner;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -13,203 +18,200 @@ import org.bukkit.block.data.Rotatable;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.database.Database;
 import net.coreprotect.patch.Patch;
 import net.coreprotect.utility.BlockUtils;
-import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.ErrorReporter;
 
 public class __2_18_0 {
 
-    protected static boolean createIndexes = true;
+    private static final String LEGACY_PREFIX = "minecraft:legacy_";
 
     protected static boolean patch(Statement statement) {
+        return patch(statement, true);
+    }
+
+    static boolean patch(Statement statement, boolean createIndexes) {
+        boolean referencesChanged = false;
         try {
-
-            try {
-                if (Config.getGlobal().MYSQL) {
-                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "block ADD COLUMN blockdata BLOB");
+            String prefix = ConfigHandler.prefix;
+            if (Config.getGlobal().MYSQL) {
+                try {
+                    statement.executeUpdate("ALTER TABLE " + prefix + "block ADD COLUMN blockdata BLOB");
+                }
+                catch (SQLException e) {
+                    if (e.getErrorCode() != 1060) {
+                        throw e;
+                    }
                 }
             }
-            catch (Exception e) {
-                String error = e.getMessage().toLowerCase();
-                if (!error.contains("duplicate") && !error.contains("error 1060")) {
-                    ErrorReporter.report(e);
-                    return false;
-                }
-            }
-
             if (!Patch.continuePatch()) {
                 return false;
             }
 
-            String query = "SELECT rowid, id, material FROM " + ConfigHandler.prefix + "material_map WHERE material LIKE 'minecraft:legacy_%' LIMIT 1 OFFSET 0";
-            String preparedBlockQuery = "SELECT rowid as id, data, blockdata FROM " + ConfigHandler.prefix + "block WHERE type = ? AND action < '3'";
-            String preparedContainerQuery = "SELECT rowid as id FROM " + ConfigHandler.prefix + "container WHERE type = ?";
-            String preparedBlockUpdateQuery = "UPDATE " + ConfigHandler.prefix + "block SET type = ?, blockdata = ? WHERE rowid = ?";
-            String preparedContainerUpdateQuery = "UPDATE " + ConfigHandler.prefix + "container SET type = ? WHERE rowid = ?";
-            String preparedMaterialDeleteQuery = "DELETE FROM " + ConfigHandler.prefix + "material_map WHERE rowid = ?";
-
-            boolean hasLegacy = true;
-            while (hasLegacy) {
-                hasLegacy = false;
-
-                PreparedStatement preparedBlockStatement = statement.getConnection().prepareStatement(preparedBlockQuery);
-                PreparedStatement preparedBlockUpdateStatement = statement.getConnection().prepareStatement(preparedBlockUpdateQuery);
-                PreparedStatement preparedContainerStatement = statement.getConnection().prepareStatement(preparedContainerQuery);
-                PreparedStatement preparedContainerUpdateStatement = statement.getConnection().prepareStatement(preparedContainerUpdateQuery);
-                PreparedStatement preparedMaterialDeleteStatement = statement.getConnection().prepareStatement(preparedMaterialDeleteQuery);
-                Database.beginTransaction(statement, ConfigHandler.databaseType);
-                try {
-                    ResultSet resultSet = statement.executeQuery(query);
-                    while (resultSet.next()) {
-                        int blockCount = 1;
-                        int containerCount = 1;
-                        int rowid = resultSet.getInt("rowid");
-                        int oldID = resultSet.getInt("id");
-                        String materialName = resultSet.getString("material");
-
-                        boolean legacy = true;
-                        switch (materialName) {
-                            case "minecraft:legacy_wall_sign":
-                                materialName = "minecraft:oak_wall_sign";
-                                legacy = false;
-                                break;
-                            case "minecraft:legacy_skull":
-                                materialName = "minecraft:skeleton_skull";
-                                legacy = false;
-                                break;
-                            case "minecraft:legacy_long_grass":
-                                materialName = "minecraft:grass";
-                                legacy = false;
-                                break;
-                            case "minecraft:legacy_double_plant":
-                                materialName = "minecraft:tall_grass";
-                                legacy = false;
-                                break;
+            List<LegacyMaterial> legacyMaterials = new ArrayList<>();
+            try (ResultSet rows = statement.executeQuery("SELECT rowid,id,material FROM " + prefix + "material_map WHERE material LIKE 'minecraft:legacy_%' ORDER BY rowid")) {
+                while (rows.next()) {
+                    String name = rows.getString("material");
+                    if (name != null && name.startsWith(LEGACY_PREFIX)) {
+                        Material material = modernMaterial(name);
+                        if (material != null && !material.isLegacy()) {
+                            legacyMaterials.add(new LegacyMaterial(rows.getLong("rowid"), rows.getInt("id"), material));
                         }
-
-                        Material material = Material.matchMaterial(materialName, legacy);
-                        int newID = MaterialUtils.getBlockId(material);
-
-                        preparedBlockStatement.setInt(1, oldID);
-                        ResultSet blockResults = preparedBlockStatement.executeQuery();
-                        while (blockResults.next()) {
-                            int blockID = blockResults.getInt("id");
-                            int blockData = blockResults.getInt("data");
-                            byte[] blockBlockData = blockResults.getBytes("blockdata");
-
-                            Material validatedMaterial = material;
-                            int validatedID = newID;
-                            if (validatedMaterial == Material.WHITE_WOOL) {
-                                validatedMaterial = getWoolColor(blockData);
-                                validatedID = MaterialUtils.getBlockId(validatedMaterial);
-                            }
-
-                            if (blockBlockData == null && validatedMaterial.isBlock()) {
-                                BlockData newBlockData = null;
-                                try {
-                                    newBlockData = Bukkit.getUnsafe().fromLegacy(validatedMaterial, (byte) blockData);
-                                }
-                                catch (Exception e) {
-                                    // unable to generate block data
-                                }
-                                if (newBlockData != null) {
-                                    if (validatedMaterial == Material.OAK_WALL_SIGN && newBlockData instanceof Directional) {
-                                        Directional directional = (Directional) newBlockData;
-                                        BlockFace newDirection = getLegacyDirection(blockData);
-                                        directional.setFacing(newDirection);
-                                    }
-                                    if (validatedMaterial == Material.SKELETON_SKULL && newBlockData instanceof Rotatable) {
-                                        Rotatable rotatable = (Rotatable) newBlockData;
-                                        BlockFace newRotation = getLegacyRotation(blockData);
-                                        rotatable.setRotation(newRotation);
-                                    }
-                                    blockBlockData = BlockUtils.stringToByteData(newBlockData.getAsString(), validatedID);
-                                }
-                            }
-
-                            preparedBlockUpdateStatement.setInt(1, validatedID);
-                            preparedBlockUpdateStatement.setObject(2, blockBlockData);
-                            preparedBlockUpdateStatement.setInt(3, blockID);
-                            preparedBlockUpdateStatement.addBatch();
-                            if (blockCount % 1000 == 0) {
-                                preparedBlockUpdateStatement.executeBatch();
-                            }
-                            blockCount++;
-                        }
-                        preparedBlockUpdateStatement.executeBatch();
-                        blockResults.close();
-
-                        preparedContainerStatement.setInt(1, oldID);
-                        ResultSet containerResults = preparedContainerStatement.executeQuery();
-                        while (containerResults.next()) {
-                            int containerID = containerResults.getInt("id");
-                            preparedContainerUpdateStatement.setInt(1, newID);
-                            preparedContainerUpdateStatement.setInt(2, containerID);
-                            preparedContainerUpdateStatement.addBatch();
-                            if (containerCount % 1000 == 0) {
-                                preparedContainerUpdateStatement.executeBatch();
-                            }
-                            containerCount++;
-                        }
-                        preparedContainerUpdateStatement.executeBatch();
-                        containerResults.close();
-
-                        preparedMaterialDeleteStatement.setInt(1, rowid);
-                        preparedMaterialDeleteStatement.executeUpdate();
-                        hasLegacy = true;
                     }
-                    resultSet.close();
-                }
-                catch (Exception e) {
-                    ErrorReporter.report(e);
-                }
-                Database.commitTransaction(statement, ConfigHandler.databaseType);
-
-                preparedBlockStatement.close();
-                preparedBlockUpdateStatement.close();
-                preparedContainerStatement.close();
-                preparedContainerUpdateStatement.close();
-                preparedMaterialDeleteStatement.close();
-
-                if (!Patch.continuePatch()) {
-                    return false;
                 }
             }
-
+            if (!legacyMaterials.isEmpty()) {
+                LegacyPatchReferences materials = new LegacyPatchReferences(statement, prefix + "material_map", "material");
+                LegacyPatchReferences blockdata = new LegacyPatchReferences(statement, prefix + "blockdata_map", "data");
+                for (LegacyMaterial entry : legacyMaterials) {
+                    LegacyPatchTransaction.run(statement, () -> migrateMaterial(statement, prefix, entry, materials, blockdata));
+                    referencesChanged = true;
+                    if (!Patch.continuePatch()) {
+                        return false;
+                    }
+                }
+            }
+            referencesChanged = false;
+            if (!ConfigHandler.loadMaterials(statement) || !ConfigHandler.loadBlockdata(statement)) {
+                return false;
+            }
             if (createIndexes) {
-                try {
-                    if (Config.getGlobal().MYSQL) {
-                        statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "art_map ADD INDEX(id)");
-                        statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "entity_map ADD INDEX(id)");
-                        statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "material_map ADD INDEX(id)");
-                        statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "world ADD INDEX(id)");
-                        statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "blockdata_map ADD INDEX(id)");
-                    }
-                    else {
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS art_map_id_index ON " + ConfigHandler.prefix + "art_map(id);");
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS blockdata_map_id_index ON " + ConfigHandler.prefix + "blockdata_map(id);");
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS entity_map_id_index ON " + ConfigHandler.prefix + "entity_map(id);");
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS material_map_id_index ON " + ConfigHandler.prefix + "material_map(id);");
-                        statement.executeUpdate("CREATE INDEX IF NOT EXISTS world_id_index ON " + ConfigHandler.prefix + "world(id);");
-                    }
-                }
-                catch (Exception e) {
-                    ErrorReporter.report(e);
-                }
+                createIndexes(statement, prefix);
             }
-
-        }
-        catch (Database.TransactionCommitException e) {
-            ErrorReporter.report(e);
-            return false;
+            return true;
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+            return false;
         }
+        finally {
+            if (referencesChanged) {
+                ConfigHandler.loadMaterials(statement);
+                ConfigHandler.loadBlockdata(statement);
+            }
+        }
+    }
 
-        return true;
+    static Material modernMaterial(String materialName) {
+        switch (materialName) {
+            case "minecraft:legacy_wall_sign":
+                return Material.OAK_WALL_SIGN;
+            case "minecraft:legacy_skull":
+                return Material.SKELETON_SKULL;
+            case "minecraft:legacy_long_grass":
+                Material grass = Material.matchMaterial("minecraft:short_grass", false);
+                return grass == null ? Material.matchMaterial("minecraft:grass", false) : grass;
+            case "minecraft:legacy_double_plant":
+                return Material.TALL_GRASS;
+            default:
+                Material legacyMaterial = Material.matchMaterial(materialName, false);
+                if (legacyMaterial == null || !legacyMaterial.isLegacy()) {
+                    return null;
+                }
+                Material modernMaterial = Bukkit.getUnsafe().fromLegacy(legacyMaterial);
+                return modernMaterial == Material.AIR && legacyMaterial != Material.LEGACY_AIR ? null : modernMaterial;
+        }
+    }
+
+    private static void migrateMaterial(Statement statement, String prefix, LegacyMaterial entry, LegacyPatchReferences materials,
+            LegacyPatchReferences blockdata) throws SQLException {
+        int modernId = materials.resolve(statement, entry.material.getKey().toString());
+        try (PreparedStatement blocks = statement.getConnection().prepareStatement("SELECT rowid,data,blockdata FROM " + prefix + "block WHERE type = ? AND action < 3");
+                PreparedStatement updateBlock = statement.getConnection().prepareStatement("UPDATE " + prefix + "block SET type = ?, blockdata = ? WHERE rowid = ?");
+                PreparedStatement updateContainers = statement.getConnection().prepareStatement("UPDATE " + prefix + "container SET type = ? WHERE type = ?");
+                PreparedStatement deleteMaterial = statement.getConnection().prepareStatement("DELETE FROM " + prefix + "material_map WHERE rowid = ?")) {
+            blocks.setInt(1, entry.id);
+            try (ResultSet rows = blocks.executeQuery()) {
+                int batchSize = 0;
+                while (rows.next()) {
+                    int data = rows.getInt("data");
+                    Material material = entry.material == Material.WHITE_WOOL ? getWoolColor(data) : entry.material;
+                    int materialId = material == entry.material ? modernId : materials.resolve(statement, material.getKey().toString());
+                    byte[] encoded = rows.getBytes("blockdata");
+                    if (encoded == null && material.isBlock()) {
+                        encoded = encodeBlockData(statement, material, data, blockdata);
+                    }
+                    updateBlock.setInt(1, materialId);
+                    updateBlock.setBytes(2, encoded);
+                    updateBlock.setLong(3, rows.getLong("rowid"));
+                    updateBlock.addBatch();
+                    if (++batchSize == 1000) {
+                        updateBlock.executeBatch();
+                        batchSize = 0;
+                    }
+                }
+                if (batchSize > 0) {
+                    updateBlock.executeBatch();
+                }
+            }
+            updateContainers.setInt(1, modernId);
+            updateContainers.setInt(2, entry.id);
+            updateContainers.executeUpdate();
+            deleteMaterial.setLong(1, entry.rowId);
+            deleteMaterial.executeUpdate();
+        }
+    }
+
+    private static byte[] encodeBlockData(Statement statement, Material material, int data, LegacyPatchReferences blockdata) throws SQLException {
+        BlockData converted;
+        try {
+            converted = Bukkit.getUnsafe().fromLegacy(material, (byte) data);
+        }
+        catch (IllegalArgumentException | UnsupportedOperationException e) {
+            return null;
+        }
+        if (converted == null) {
+            return null;
+        }
+        if (material == Material.OAK_WALL_SIGN && converted instanceof Directional) {
+            ((Directional) converted).setFacing(getLegacyDirection(data));
+        }
+        else if (material == Material.SKELETON_SKULL && converted instanceof Rotatable) {
+            ((Rotatable) converted).setRotation(getLegacyRotation(data));
+        }
+        BlockData defaults = BlockUtils.createBlockData(material);
+        String properties = converted.getAsString();
+        String prefix = material.getKey() + "[";
+        if (defaults == null || defaults.getAsString().equals(properties) || !properties.startsWith(prefix) || !properties.endsWith("]")) {
+            return null;
+        }
+        StringJoiner encoded = new StringJoiner(",");
+        for (String property : properties.substring(prefix.length(), properties.length() - 1).split(",")) {
+            if (!property.isEmpty()) {
+                encoded.add(Integer.toString(blockdata.resolve(statement, property)));
+            }
+        }
+        return encoded.length() == 0 ? null : encoded.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static void createIndexes(Statement statement, String prefix) throws SQLException {
+        for (String table : List.of("art_map", "entity_map", "material_map", "world", "blockdata_map")) {
+            if (Config.getGlobal().MYSQL) {
+                try {
+                    statement.executeUpdate("ALTER TABLE " + prefix + table + " ADD INDEX(id)");
+                }
+                catch (SQLException e) {
+                    if (e.getErrorCode() != 1061) {
+                        throw e;
+                    }
+                }
+            }
+            else {
+                statement.executeUpdate("CREATE INDEX IF NOT EXISTS " + table + "_id_index ON " + prefix + table + "(id)");
+            }
+        }
+    }
+
+    private static final class LegacyMaterial {
+        private final long rowId;
+        private final int id;
+        private final Material material;
+
+        private LegacyMaterial(long rowId, int id, Material material) {
+            this.rowId = rowId;
+            this.id = id;
+            this.material = material;
+        }
     }
 
     protected static Material getWoolColor(int data) {

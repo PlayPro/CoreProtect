@@ -45,7 +45,8 @@ public final class ArmorStandManipulateListener extends Queue implements Listene
             Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
             return;
         }
-        if (!LookupThrottle.tryAcquire(finalPlayer.getName(), 100)) {
+        LookupThrottle.Claim claim = LookupThrottle.acquire(finalPlayer.getName(), 100);
+        if (claim == null) {
             Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
             return;
         }
@@ -69,12 +70,9 @@ public final class ArmorStandManipulateListener extends Queue implements Listene
                 catch (Exception e) {
                     ErrorReporter.report(e);
                 }
-                finally {
-                    LookupThrottle.release(finalPlayer.getName());
-                }
             }
         }
-        BaseInspector.runLookup(finalPlayer, new BasicThread());
+        BaseInspector.runLookup(finalPlayer, claim, new BasicThread());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

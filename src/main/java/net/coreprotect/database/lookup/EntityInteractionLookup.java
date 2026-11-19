@@ -14,6 +14,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.EntityType;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.utility.LookupThrottle;
 import net.coreprotect.database.DuckDBLookupQuery;
 import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.database.statement.UserStatement;
@@ -118,10 +119,14 @@ public final class EntityInteractionLookup {
                 result.add(rowMax > count && count > 0 ? Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS_PAGE, Selector.SECOND) : noData());
             }
 
-            ConfigHandler.lookupEntityInteraction.put(commandSender.getName(), entitySpawnRowId);
-            ConfigHandler.lookupType.put(commandSender.getName(), 9);
-            ConfigHandler.lookupPage.put(commandSender.getName(), page);
-            ConfigHandler.lookupCommand.put(commandSender.getName(), displayLocation == null ? "0.0.0.0.9." + limit : displayLocation.x + "." + displayLocation.y + "." + displayLocation.z + "." + displayLocation.worldId + ".9." + limit);
+            String name = commandSender.getName();
+            String history = displayLocation == null ? "0.0.0.0.9." + limit : displayLocation.x + "." + displayLocation.y + "." + displayLocation.z + "." + displayLocation.worldId + ".9." + limit;
+            LookupThrottle.publish(name, () -> {
+                ConfigHandler.lookupEntityInteraction.put(name, entitySpawnRowId);
+                ConfigHandler.lookupType.put(name, 9);
+                ConfigHandler.lookupPage.put(name, page);
+                ConfigHandler.lookupCommand.put(name, history);
+            });
         }
         catch (Exception e) {
             ErrorReporter.report(e);
@@ -189,9 +194,12 @@ public final class EntityInteractionLookup {
     }
 
     private static void clearLookup(CommandSender commandSender) {
-        ConfigHandler.lookupEntityInteraction.remove(commandSender.getName());
-        ConfigHandler.lookupType.remove(commandSender.getName());
-        ConfigHandler.lookupCommand.remove(commandSender.getName());
+        String name = commandSender.getName();
+        LookupThrottle.publish(name, () -> {
+            ConfigHandler.lookupEntityInteraction.remove(name);
+            ConfigHandler.lookupType.remove(name);
+            ConfigHandler.lookupCommand.remove(name);
+        });
     }
 
     private static final class DisplayLocation {

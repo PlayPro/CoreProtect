@@ -55,7 +55,8 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
             return;
         }
-        if (!LookupThrottle.tryAcquire(player.getName(), 100)) {
+        LookupThrottle.Claim claim = LookupThrottle.acquire(player.getName(), 100);
+        if (claim == null) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
             return;
         }
@@ -86,12 +87,9 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
                 catch (Exception e) {
                     ErrorReporter.report(e);
                 }
-                finally {
-                    LookupThrottle.release(player.getName());
-                }
             }
         }
-        BaseInspector.runLookup(player, new BasicThread());
+        BaseInspector.runLookup(player, claim, new BasicThread());
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)

@@ -1231,27 +1231,31 @@ public class ConfigHandler {
         if (playerName == null || playerName.isEmpty()) {
             return;
         }
-        inspecting.remove(playerName);
-        lookupThrottle.remove(playerName);
-        teleportThrottle.remove(playerName);
-        lookupType.remove(playerName);
-        lookupPage.remove(playerName);
-        lookupCommand.remove(playerName);
-        lookupSessions.remove(playerName);
-        lookupEntityContainer.remove(playerName);
-        lookupEntityInteraction.remove(playerName);
+        synchronized (lookupThrottle) {
+            inspecting.remove(playerName);
+            lookupThrottle.remove(playerName);
+            teleportThrottle.remove(playerName);
+            lookupType.remove(playerName);
+            lookupPage.remove(playerName);
+            lookupCommand.remove(playerName);
+            lookupSessions.remove(playerName);
+            lookupEntityContainer.remove(playerName);
+            lookupEntityInteraction.remove(playerName);
+        }
     }
 
     public static void clearTransientPlayerState() {
-        inspecting.clear();
-        lookupThrottle.clear();
-        teleportThrottle.clear();
-        lookupType.clear();
-        lookupPage.clear();
-        lookupCommand.clear();
-        lookupSessions.clear();
-        lookupEntityContainer.clear();
-        lookupEntityInteraction.clear();
+        synchronized (lookupThrottle) {
+            inspecting.clear();
+            lookupThrottle.clear();
+            teleportThrottle.clear();
+            lookupType.clear();
+            lookupPage.clear();
+            lookupCommand.clear();
+            lookupSessions.clear();
+            lookupEntityContainer.clear();
+            lookupEntityInteraction.clear();
+        }
         hopperAbort.clear();
         hopperSuccess.clear();
         dispenserNoChange.clear();

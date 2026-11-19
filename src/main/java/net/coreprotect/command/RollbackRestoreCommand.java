@@ -335,7 +335,8 @@ public class RollbackRestoreCommand {
                         class BasicThread2 implements Runnable {
                             @Override
                             public void run() {
-                                if (!LookupThrottle.tryAcquire(player.getName(), 100)) {
+                                LookupThrottle.Claim claim = LookupThrottle.acquire(player.getName(), 100);
+                                if (claim == null) {
                                     Consumer.releaseRollback(player.getName());
                                     Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
                                     return;
@@ -456,7 +457,7 @@ public class RollbackRestoreCommand {
                                 }
                                 finally {
                                     Consumer.releaseRollback(player2.getName());
-                                    LookupThrottle.release(player2.getName());
+                                    claim.close();
                                 }
                             }
                         }

@@ -13,6 +13,7 @@ import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.utility.LookupThrottle;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.DuckDBLookupQuery;
 import net.coreprotect.database.LocationQuery;
@@ -39,8 +40,9 @@ public class ChestTransactionLookup {
 
     public static List<String> performLookup(String command, Statement statement, Location l, CommandSender commandSender, int page, int limit, boolean exact, Integer entitySpawnRowId) {
         List<String> result = new ArrayList<>();
+        String name = commandSender.getName();
         if (entitySpawnRowId == null) {
-            ConfigHandler.lookupEntityContainer.remove(commandSender.getName());
+            LookupThrottle.publish(name, () -> ConfigHandler.lookupEntityContainer.remove(name));
         }
 
         try {
@@ -212,16 +214,17 @@ public class ChestTransactionLookup {
                 }
             }
 
-            ConfigHandler.lookupType.put(commandSender.getName(), 1);
-            ConfigHandler.lookupPage.put(commandSender.getName(), page);
-            String lookupCommand = x + "." + y + "." + z + "." + worldId + "." + x2 + "." + y2 + "." + z2 + "." + limit;
-            if (entitySpawnRowId != null) {
-                lookupCommand = displayX + "." + displayY + "." + displayZ + "." + displayWorldId + "." + displayX + "." + displayY + "." + displayZ + "." + limit;
-            }
-            ConfigHandler.lookupCommand.put(commandSender.getName(), lookupCommand);
-            if (entitySpawnRowId != null) {
-                ConfigHandler.lookupEntityContainer.put(commandSender.getName(), entitySpawnRowId);
-            }
+            String history = entitySpawnRowId == null
+                    ? x + "." + y + "." + z + "." + worldId + "." + x2 + "." + y2 + "." + z2 + "." + limit
+                    : displayX + "." + displayY + "." + displayZ + "." + displayWorldId + "." + displayX + "." + displayY + "." + displayZ + "." + limit;
+            LookupThrottle.publish(name, () -> {
+                ConfigHandler.lookupType.put(name, 1);
+                ConfigHandler.lookupPage.put(name, page);
+                ConfigHandler.lookupCommand.put(name, history);
+                if (entitySpawnRowId != null) {
+                    ConfigHandler.lookupEntityContainer.put(name, entitySpawnRowId);
+                }
+            });
         }
         catch (Exception e) {
             ErrorReporter.report(e);

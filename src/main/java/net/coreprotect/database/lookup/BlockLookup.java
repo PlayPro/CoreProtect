@@ -1,6 +1,7 @@
 package net.coreprotect.database.lookup;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.utility.LookupThrottle;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.DuckDBLookupQuery;
 import net.coreprotect.database.LocationQuery;
@@ -31,9 +32,12 @@ public class BlockLookup {
     public static String performEntityLookup(String command, Statement statement, BlockState block, CommandSender commandSender, int page, int limit, UUID entityUuid) throws SQLException {
         Integer entitySpawnRowId = EntitySpawnStatement.findRowIdByUuid(statement.getConnection(), entityUuid);
         if (entitySpawnRowId == null) {
-            ConfigHandler.lookupType.remove(commandSender.getName());
-            ConfigHandler.lookupCommand.remove(commandSender.getName());
-            ConfigHandler.lookupPage.remove(commandSender.getName());
+            String name = commandSender.getName();
+            LookupThrottle.publish(name, () -> {
+                ConfigHandler.lookupType.remove(name);
+                ConfigHandler.lookupCommand.remove(name);
+                ConfigHandler.lookupPage.remove(name);
+            });
             return Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_DATA_LOCATION, Selector.FIRST);
         }
         return performLookup(command, statement, block, commandSender, 0, page, limit, entitySpawnRowId);
@@ -226,9 +230,13 @@ public class BlockLookup {
                 }
             }
 
-            ConfigHandler.lookupPage.put(commandSender.getName(), page);
-            ConfigHandler.lookupType.put(commandSender.getName(), 2);
-            ConfigHandler.lookupCommand.put(commandSender.getName(), x + "." + y + "." + z + "." + worldId + ".0." + limit + (entitySpawnRowId == null ? "" : "." + entitySpawnRowId));
+            String name = commandSender.getName();
+            String history = x + "." + y + "." + z + "." + worldId + ".0." + limit + (entitySpawnRowId == null ? "" : "." + entitySpawnRowId);
+            LookupThrottle.publish(name, () -> {
+                ConfigHandler.lookupPage.put(name, page);
+                ConfigHandler.lookupType.put(name, 2);
+                ConfigHandler.lookupCommand.put(name, history);
+            });
         }
         catch (Exception e) {
             Database.reportDatabaseFailure(e);

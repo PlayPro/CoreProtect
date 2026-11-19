@@ -8,6 +8,7 @@ import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.utility.LookupThrottle;
 import net.coreprotect.database.DuckDBLookupQuery;
 import net.coreprotect.database.LocationQuery;
 import net.coreprotect.database.statement.UserStatement;
@@ -141,9 +142,13 @@ public class InteractionLookup {
                 }
             }
 
-            ConfigHandler.lookupPage.put(commandSender.getName(), page);
-            ConfigHandler.lookupType.put(commandSender.getName(), 7);
-            ConfigHandler.lookupCommand.put(commandSender.getName(), x + "." + y + "." + z + "." + worldId + ".2." + limit);
+            String name = commandSender.getName();
+            String history = x + "." + y + "." + z + "." + worldId + ".2." + limit;
+            LookupThrottle.publish(name, () -> {
+                ConfigHandler.lookupPage.put(name, page);
+                ConfigHandler.lookupType.put(name, 7);
+                ConfigHandler.lookupCommand.put(name, history);
+            });
         }
         catch (Exception e) {
             ErrorReporter.report(e);

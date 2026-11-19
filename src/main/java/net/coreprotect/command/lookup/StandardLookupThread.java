@@ -70,16 +70,32 @@ public class StandardLookupThread implements Runnable {
     private final Command command;
     private final StandardLookupRequest request;
     private final LookupSession previousSession;
+    private final LookupThrottle.Claim claim;
 
     public StandardLookupThread(CommandSender player, Command command, StandardLookupRequest request, LookupSession previousSession) {
         this.player = player;
         this.command = command;
         this.request = request;
         this.previousSession = previousSession;
+        this.claim = LookupThrottle.acquire(player.getName(), 50);
     }
 
     @Override
     public void run() {
+        if (claim == null) {
+            sendLookupBusy();
+            return;
+        }
+        claim.runLookup(this::execute);
+    }
+
+    public void cancel() {
+        if (claim != null) {
+            claim.close();
+        }
+    }
+
+    private void execute() {
         List<String> rollbackUsers = request.filters.users;
         List<Object> blockList = request.filters.includedBlocks;
         Map<Object, Boolean> excludedBlocks = request.filters.excludedBlocks;
@@ -96,14 +112,6 @@ public class StandardLookupThread implements Runnable {
         LookupRollbackState rollbackState = request.rollbackState;
         boolean summaryLookup = outputMode == LookupOutputMode.SUMMARY;
         if (summaryLookup && !SUMMARY_LOOKUP_ACTIVE.compareAndSet(false, true)) {
-            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-            return;
-        }
-
-        if (!LookupThrottle.tryAcquire(player.getName(), 50)) {
-            if (summaryLookup) {
-                SUMMARY_LOOKUP_ACTIVE.set(false);
-            }
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
             return;
         }
@@ -603,7 +611,6 @@ public class StandardLookupThread implements Runnable {
             if (summaryLookup) {
                 SUMMARY_LOOKUP_ACTIVE.set(false);
             }
-            LookupThrottle.release(player.getName());
         }
     }
 
@@ -614,17 +621,19 @@ public class StandardLookupThread implements Runnable {
     private void saveSession(int scopedWorldId, Long[] rowData, LookupCursor cursor) {
         String name = player.getName();
         LookupSession session = new LookupSession(request.forSession(scopedWorldId), rowData, cursor);
-        if (previousSession == null) {
-            ConfigHandler.lookupSessions.put(name, session);
-        }
-        else if (!ConfigHandler.lookupSessions.replace(name, previousSession, session)) {
-            return;
-        }
-        ConfigHandler.lookupEntityInteraction.remove(name);
-        if (!request.filters.actions.contains(LookupActions.INSPECT_CONTAINER)) {
-            ConfigHandler.lookupEntityContainer.remove(name);
-        }
-        ConfigHandler.lookupType.put(name, LookupSession.STANDARD_LOOKUP);
+        LookupThrottle.publish(name, () -> {
+            if (previousSession == null) {
+                ConfigHandler.lookupSessions.put(name, session);
+            }
+            else if (!ConfigHandler.lookupSessions.replace(name, previousSession, session)) {
+                return;
+            }
+            ConfigHandler.lookupEntityInteraction.remove(name);
+            if (!request.filters.actions.contains(LookupActions.INSPECT_CONTAINER)) {
+                ConfigHandler.lookupEntityContainer.remove(name);
+            }
+            ConfigHandler.lookupType.put(name, LookupSession.STANDARD_LOOKUP);
+        });
     }
 
     private void outputRowCount(long rows) {

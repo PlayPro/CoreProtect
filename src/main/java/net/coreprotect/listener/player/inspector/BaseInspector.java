@@ -49,8 +49,9 @@ public abstract class BaseInspector {
     }
 
     protected void startInspection(Player player, InspectionTask inspection) {
+        LookupThrottle.Claim claim;
         try {
-            acquireInspection(player);
+            claim = acquireInspection(player);
         }
         catch (InspectionException e) {
             Chat.sendMessage(player, e.getMessage());
@@ -62,7 +63,7 @@ public abstract class BaseInspector {
             handshakeListener.verifyNetworkingPermission(player);
         }
 
-        runLookup(player, () -> {
+        runLookup(player, claim, () -> {
             try {
                 inspection.run();
             }
@@ -71,9 +72,6 @@ public abstract class BaseInspector {
             }
             catch (Exception e) {
                 ErrorReporter.report(e);
-            }
-            finally {
-                LookupThrottle.release(player.getName());
             }
         });
     }
@@ -88,20 +86,20 @@ public abstract class BaseInspector {
      * Runs a lookup on the shared inspector threads. The caller holds the player's throttle slot and the lookup
      * releases it, so it is only released here when the lookup is rejected or discarded at shutdown.
      */
-    public static void runLookup(Player player, Runnable lookup) {
+    public static void runLookup(Player player, LookupThrottle.Claim claim, Runnable lookup) {
         ThreadPoolExecutor executor = lookupExecutor;
         try {
             if (executor == null) {
                 throw new RejectedExecutionException();
             }
-            executor.execute(new InspectorLookup(player.getName(), lookup));
+            executor.execute(new InspectorLookup(player.getName(), claim, lookup));
         }
         catch (RejectedExecutionException e) {
-            LookupThrottle.release(player.getName());
+            claim.close();
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
         }
         catch (RuntimeException | Error e) {
-            LookupThrottle.release(player.getName());
+            claim.close();
             throw e;
         }
     }
@@ -145,18 +143,20 @@ public abstract class BaseInspector {
     private static void discardQueued(List<Runnable> queued) {
         for (Runnable runnable : queued) {
             if (runnable instanceof InspectorLookup) {
-                LookupThrottle.release(((InspectorLookup) runnable).playerName);
+                ((InspectorLookup) runnable).claim.close();
             }
         }
     }
 
     private static final class InspectorLookup implements Runnable {
         private final String playerName;
+        private final LookupThrottle.Claim claim;
         private final Runnable lookup;
         private volatile Thread thread;
 
-        private InspectorLookup(String playerName, Runnable lookup) {
+        private InspectorLookup(String playerName, LookupThrottle.Claim claim, Runnable lookup) {
             this.playerName = playerName;
+            this.claim = claim;
             this.lookup = lookup;
         }
 
@@ -165,7 +165,7 @@ public abstract class BaseInspector {
             thread = Thread.currentThread();
             activeLookups.add(this);
             try {
-                lookup.run();
+                claim.runLookup(lookup);
             }
             finally {
                 activeLookups.remove(this);
@@ -173,11 +173,13 @@ public abstract class BaseInspector {
         }
     }
 
-    private void acquireInspection(Player player) throws InspectionException {
+    private LookupThrottle.Claim acquireInspection(Player player) throws InspectionException {
         requireInspectionAvailable();
-        if (!LookupThrottle.tryAcquire(player.getName(), 100)) {
+        LookupThrottle.Claim claim = LookupThrottle.acquire(player.getName(), 100);
+        if (claim == null) {
             throw new InspectionException(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
         }
+        return claim;
     }
 
     private static void requireInspectionAvailable() throws InspectionException {

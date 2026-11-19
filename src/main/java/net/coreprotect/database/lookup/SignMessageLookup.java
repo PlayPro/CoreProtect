@@ -11,6 +11,7 @@ import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.utility.LookupThrottle;
 import net.coreprotect.database.DuckDBLookupQuery;
 import net.coreprotect.database.LocationQuery;
 import net.coreprotect.database.statement.UserStatement;
@@ -186,9 +187,13 @@ public class SignMessageLookup {
                 }
             }
 
-            ConfigHandler.lookupType.put(commandSender.getName(), 8);
-            ConfigHandler.lookupPage.put(commandSender.getName(), page);
-            ConfigHandler.lookupCommand.put(commandSender.getName(), x + "." + y + "." + z + "." + worldId + ".8." + limit);
+            String name = commandSender.getName();
+            String history = x + "." + y + "." + z + "." + worldId + ".8." + limit;
+            LookupThrottle.publish(name, () -> {
+                ConfigHandler.lookupType.put(name, 8);
+                ConfigHandler.lookupPage.put(name, page);
+                ConfigHandler.lookupCommand.put(name, history);
+            });
         }
         catch (Exception e) {
             ErrorReporter.report(e);

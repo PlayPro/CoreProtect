@@ -19,11 +19,16 @@ final class LookupWorker {
 
     static void run(CommandSender sender, Query query) {
         String name = sender.getName();
-        if (!LookupThrottle.tryAcquire(name, 50)) {
+        LookupThrottle.Claim claim = LookupThrottle.acquire(name, 50);
+        if (claim == null) {
             sendBusy(sender);
             return;
         }
 
+        claim.runLookup(() -> execute(sender, query));
+    }
+
+    private static void execute(CommandSender sender, Query query) {
         try (Connection connection = Database.getConnection(true)) {
             if (connection == null) {
                 sendBusy(sender);
@@ -36,9 +41,6 @@ final class LookupWorker {
         }
         catch (Exception e) {
             ErrorReporter.report(e);
-        }
-        finally {
-            LookupThrottle.release(name);
         }
     }
 

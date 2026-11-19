@@ -558,7 +558,14 @@ public class LookupCommand {
 
     private static void startStandardLookup(CommandSender player, Command command, StandardLookupRequest request, LookupSession session) {
         Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Color.ITALIC + Phrase.build(Phrase.LOOKUP_SEARCHING));
-        new Thread(new StandardLookupThread(player, command, request, session)).start();
+        StandardLookupThread lookup = new StandardLookupThread(player, command, request, session);
+        try {
+            new Thread(lookup).start();
+        }
+        catch (RuntimeException | Error e) {
+            lookup.cancel();
+            throw e;
+        }
     }
 
     private static boolean isAsciiDigits(String value) {

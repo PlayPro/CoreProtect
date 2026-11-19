@@ -1722,7 +1722,7 @@ public class LookupRaw extends Queue {
                 if (filterIndex > 0) {
                     query.append(" OR ");
                 }
-                query.append("((face=0 AND (");
+                query.append("((").append(SignLookupText.frontFace("face")).append(" AND (");
                 appendSignLines(query, 1, 4, match);
                 query.append(")) OR (face<>0 AND (");
                 appendSignLines(query, 5, 8, match);
@@ -1753,7 +1753,7 @@ public class LookupRaw extends Queue {
                 String prefixExpression = messagePrefix(alias + "." + column);
                 query.append("SELECT ").append(alias).append(".rowid FROM ")
                         .append(ConfigHandler.prefix).append("sign ").append(alias)
-                        .append(" WHERE ").append(alias).append(line <= 4 ? ".face = 0" : ".face <> 0")
+                        .append(" WHERE ").append(line <= 4 ? SignLookupText.frontFace(alias + ".face") : alias + ".face <> 0")
                         .append(" AND (").append(prefixExpression).append(match).append(" AND ")
                         .append(alias).append(".").append(column).append(match).append(")");
                 bindings.add(prefix);
@@ -1775,7 +1775,7 @@ public class LookupRaw extends Queue {
         for (String filter : excluded) {
             String pattern = escapeLike(filter) + "%";
             if (sign) {
-                query.append(" AND (face IS NULL OR (face=0 AND (");
+                query.append(" AND ((").append(SignLookupText.frontFace("face")).append(" AND (");
                 appendExcludedSignLines(query, 1, 4, match);
                 query.append(")) OR (face<>0 AND (");
                 appendExcludedSignLines(query, 5, 8, match);

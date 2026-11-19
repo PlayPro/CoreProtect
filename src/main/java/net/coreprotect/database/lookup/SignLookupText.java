@@ -5,9 +5,13 @@ import java.sql.SQLException;
 import java.util.StringJoiner;
 
 public final class SignLookupText {
-    public static final String HAS_VISIBLE_TEXT = "(((face=0 OR face IS NULL) AND (" + nonemptyLines(1) + ")) OR (face<>0 AND (" + nonemptyLines(5) + ")))";
+    public static final String HAS_VISIBLE_TEXT = "((" + frontFace("face") + " AND (" + nonemptyLines(1) + ")) OR (face<>0 AND (" + nonemptyLines(5) + ")))";
 
     private SignLookupText() {
+    }
+
+    public static String frontFace(String column) {
+        return "(" + column + "=0 OR " + column + " IS NULL)";
     }
 
     private static String nonemptyLines(int firstLine) {

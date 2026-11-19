@@ -539,7 +539,7 @@ public class CoreProtectAPI extends Queue {
      * @return True if the transaction was logged
      */
     public boolean logContainerTransaction(String user, Location location) {
-        if (!isEnabled()) {
+        if (!isEnabled() || !isValidUserAndLocation(user, location)) {
             return false;
         }
 
@@ -556,7 +556,7 @@ public class CoreProtectAPI extends Queue {
      * @return True if the placement was logged
      */
     public boolean logPlacement(String user, BlockState blockState) {
-        if (!isEnabled() || blockState == null || user == null || user.isEmpty()) {
+        if (!isEnabled() || !isValidUserAndBlockState(user, blockState)) {
             return false;
         }
 
@@ -578,19 +578,13 @@ public class CoreProtectAPI extends Queue {
      * @return True if the placement was logged
      */
     public boolean logPlacement(String user, Location location, Material type, BlockData blockData) {
-        if (!isEnabled() || !isValidUserAndLocation(user, location)) {
+        if (type == null || !isEnabled() || !isValidUserAndLocation(user, location)) {
             return false;
         }
 
-        Block block = location.getBlock();
-        BlockState blockState = block.getState();
-        String blockDataString = null;
-
-        if (blockData != null) {
-            blockDataString = blockData.getAsString();
-        }
-
-        Queue.queueBlockPlace(user, blockState, block.getType(), null, type, -1, 0, blockDataString);
+        BlockState blockState = location.getBlock().getState();
+        String blockDataString = blockData == null ? null : blockData.getAsString();
+        Queue.queueBlockPlace(user, blockState, type, null, type, -1, 0, blockDataString);
         return true;
     }
 
@@ -606,13 +600,7 @@ public class CoreProtectAPI extends Queue {
      * @return True if the placement was logged
      */
     public boolean logPlacement(String user, Location location, BlockData blockData) {
-        if (!isEnabled() || !isValidUserAndLocation(user, location) || blockData == null) {
-            return false;
-        }
-
-        Block block = location.getBlock();
-        Queue.queueBlockPlace(user, block.getState(), block.getType(), null, block.getType(), -1, 0, blockData.getAsString());
-        return true;
+        return blockData != null && logPlacement(user, location, blockData.getMaterial(), blockData);
     }
 
     /**
@@ -631,11 +619,11 @@ public class CoreProtectAPI extends Queue {
      */
     @Deprecated
     public boolean logPlacement(String user, Location location, Material type, byte data) {
-        if (!isEnabled() || !isValidUserAndLocation(user, location)) {
+        if (type == null || !isEnabled() || !isValidUserAndLocation(user, location)) {
             return false;
         }
 
-        Queue.queueBlockPlace(user, location.getBlock().getState(), location.getBlock().getType(), null, type, data, 1, null);
+        Queue.queueBlockPlace(user, location.getBlock().getState(), type, null, type, data, 1, null);
         return true;
     }
 
@@ -649,7 +637,7 @@ public class CoreProtectAPI extends Queue {
      * @return True if the removal was logged
      */
     public boolean logRemoval(String user, BlockState blockState) {
-        if (!isEnabled() || blockState == null || user == null || user.isEmpty()) {
+        if (!isEnabled() || !isValidUserAndBlockState(user, blockState)) {
             return false;
         }
 
@@ -671,18 +659,16 @@ public class CoreProtectAPI extends Queue {
      * @return True if the removal was logged
      */
     public boolean logRemoval(String user, Location location, Material type, BlockData blockData) {
-        if (!isEnabled() || !isValidUserAndLocation(user, location)) {
+        if (type == null || !isEnabled() || !isValidUserAndLocation(user, location)) {
             return false;
         }
 
-        String blockDataString = null;
-        if (blockData != null) {
-            blockDataString = blockData.getAsString();
-        }
-
+        String blockDataString = blockData == null ? null : blockData.getAsString();
         Block block = location.getBlock();
-        Database.containerBreakCheck(user, block.getType(), block, null, location);
-        Queue.queueBlockBreak(user, location.getBlock().getState(), type, blockDataString, 0);
+        if (block.getType() == type) {
+            Database.containerBreakCheck(user, type, block, null, location);
+        }
+        Queue.queueBlockBreak(user, block.getState(), type, blockDataString, 0);
         return true;
     }
 
@@ -698,14 +684,7 @@ public class CoreProtectAPI extends Queue {
      * @return True if the removal was logged
      */
     public boolean logRemoval(String user, Location location, BlockData blockData) {
-        if (!isEnabled() || !isValidUserAndLocation(user, location) || blockData == null) {
-            return false;
-        }
-
-        Block block = location.getBlock();
-        Database.containerBreakCheck(user, block.getType(), block, null, location);
-        Queue.queueBlockBreak(user, block.getState(), block.getType(), blockData.getAsString(), 0);
-        return true;
+        return blockData != null && logRemoval(user, location, blockData.getMaterial(), blockData);
     }
 
     /**
@@ -724,7 +703,7 @@ public class CoreProtectAPI extends Queue {
      */
     @Deprecated
     public boolean logRemoval(String user, Location location, Material type, byte data) {
-        if (!isEnabled() || !isValidUserAndLocation(user, location)) {
+        if (type == null || !type.isBlock() || !isEnabled() || !isValidUserAndLocation(user, location)) {
             return false;
         }
 
@@ -1205,7 +1184,27 @@ public class CoreProtectAPI extends Queue {
      *            The location to check
      * @return True if the user and location are valid
      */
-    private boolean isValidUserAndLocation(String user, Location location) {
-        return user != null && location != null && !user.isEmpty();
+    private static boolean isValidUserAndLocation(String user, Location location) {
+        if (user == null || user.isBlank() || location == null) {
+            return false;
+        }
+        try {
+            return location.getWorld() != null;
+        }
+        catch (IllegalArgumentException ignored) {
+            return false;
+        }
+    }
+
+    private static boolean isValidUserAndBlockState(String user, BlockState blockState) {
+        if (user == null || user.isBlank() || blockState == null) {
+            return false;
+        }
+        try {
+            return blockState.getWorld() != null;
+        }
+        catch (IllegalArgumentException | IllegalStateException ignored) {
+            return false;
+        }
     }
 }

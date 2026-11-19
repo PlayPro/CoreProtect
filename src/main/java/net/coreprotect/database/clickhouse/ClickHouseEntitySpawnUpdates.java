@@ -504,7 +504,7 @@ final class ClickHouseEntitySpawnUpdates implements ConsumerEntitySpawnUpdates {
                 for (int ignored = 0; ignored < batch.size(); ignored++) {
                     placeholders.add("?");
                 }
-                String sql = "SELECT " + COLUMNS + " FROM " + eventTable + " FINAL WHERE family=? AND " + column + " IN(" + placeholders + ")" + additionalFilter;
+                String sql = "SELECT " + COLUMNS + " FROM " + eventTable + " FINAL WHERE family=? AND origin_x IS NOT NULL AND " + column + " IN(" + placeholders + ")" + additionalFilter;
                 try (PreparedStatement statement = connection.prepareStatement(sql)) {
                     statement.setString(1, ClickHouseFamily.ENTITY_SPAWN.getTableName());
                     for (int index = 0; index < batch.size(); index++) {

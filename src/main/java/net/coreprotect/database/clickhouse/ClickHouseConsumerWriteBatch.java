@@ -52,9 +52,9 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
     public ClickHouseConsumerWriteBatch(ClickHouseDatabase database, String prefix) {
         this.database = Objects.requireNonNull(database, "database");
         String validatedPrefix = prefix == null || prefix.isEmpty() ? "" : ClickHouseIdentifiers.requireIdentifier(prefix, "ClickHouse table prefix");
-        userTable = validatedPrefix + ClickHouseFamily.USER.getTableName();
-        usernameLogTable = validatedPrefix + ClickHouseFamily.USERNAME_LOG.getTableName();
-        entitySpawnUpdates = new ClickHouseEntitySpawnUpdates(this, validatedPrefix + "event_data");
+        userTable = ClickHouseIdentifiers.quote(validatedPrefix + ClickHouseFamily.USER.getTableName(), "ClickHouse table");
+        usernameLogTable = ClickHouseIdentifiers.quote(validatedPrefix + ClickHouseFamily.USERNAME_LOG.getTableName(), "ClickHouse table");
+        entitySpawnUpdates = new ClickHouseEntitySpawnUpdates(this, ClickHouseIdentifiers.quote(validatedPrefix + "event_data", "ClickHouse table"));
     }
 
     @Override
@@ -375,32 +375,6 @@ public final class ClickHouseConsumerWriteBatch implements ConsumerWriteBatch {
             ClickHouseEventPointer pointer = resolved.get(rowId);
             if (pointer != null) {
                 requireBatch().addRollback(pointer, rolledBack);
-            }
-        }
-    }
-
-    @Override
-    public void updateRolledBackRows(int target, int rolledBack, List<Object[]> rows) throws Exception {
-        Objects.requireNonNull(rows, "rows");
-        ClickHouseFamily family = rollbackFamily(target);
-        if (family == ClickHouseFamily.ENTITY_CONTAINER) {
-            ConsumerWriteBatch.super.updateRolledBackRows(target, rolledBack, rows);
-            return;
-        }
-        ClickHouseWriteBatch current = requireBatch();
-        Set<Long> unique = new LinkedHashSet<>();
-        for (Object[] row : rows) {
-            if (row == null || row.length <= 10
-                    || !(row[0] instanceof Long)
-                    || !(row[1] instanceof Integer)
-                    || !(row[3] instanceof Integer)
-                    || !(row[5] instanceof Integer)
-                    || !(row[10] instanceof Integer)) {
-                throw new IllegalArgumentException("ClickHouse rollback rows are missing required event coordinates");
-            }
-            long rowId = (Long) row[0];
-            if (unique.add(rowId)) {
-                current.addRollback(family, rowId, (Integer) row[1], (Integer) row[10], (Integer) row[3], (Integer) row[5], rolledBack);
             }
         }
     }

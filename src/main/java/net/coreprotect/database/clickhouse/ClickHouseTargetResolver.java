@@ -71,6 +71,8 @@ final class ClickHouseTargetResolver {
         }
         String sql = "SELECT rowid,batch_sequence,batch_ordinal,time,wid,x,z" + (actions == null ? "" : ",action") + " FROM " + eventTable + " FINAL"
                 + " WHERE family=?"
+                + (family == ClickHouseFamily.ENTITY_SPAWN ? " AND origin_x IS NOT NULL"
+                        : ClickHouseSchema.rollbackProjection(family.getTableName()) != null ? " AND action IS NOT NULL" : "")
                 + " AND rowid IN(" + placeholders + ")";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, family.getTableName());

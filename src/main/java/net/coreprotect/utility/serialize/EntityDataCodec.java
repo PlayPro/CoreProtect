@@ -4,12 +4,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -20,10 +18,8 @@ import org.bukkit.Keyed;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Sound;
 import org.bukkit.configuration.serialization.ConfigurationSerializable;
-import org.bukkit.configuration.serialization.ConfigurationSerialization;
 import org.bukkit.potion.PotionEffectType;
 
-import net.coreprotect.bukkit.BukkitAdapter;
 
 public final class EntityDataCodec {
 
@@ -77,8 +73,6 @@ public final class EntityDataCodec {
     private static final int DOUBLE_ONE = 21;
     private static final int DOUBLE_INTEGER = 22;
     private static final int DOUBLE_FLOAT = 23;
-    private static final String BUKKIT_PACKAGE = "org.bukkit.";
-    private static final String REMOVED_FOOD_EFFECT_ALIAS = "FoodEffect";
     private static final String[] STRING_DICTIONARY = {
             "minecraft:random_spawn_bonus",
             "minecraft:explosion_knockback_resistance",
@@ -113,7 +107,7 @@ public final class EntityDataCodec {
             "minecraft:entity_interaction_range",
             "minecraft:leader_zombie_bonus"
     };
-    private static final Map<String, Integer> STRING_IDENTIFIERS = stringIdentifiers();
+    private static final Map<String, Integer> STRING_IDENTIFIERS = BinaryCodecSupport.stringIdentifiers(DESCRIPTION, STRING_DICTIONARY);
 
     private EntityDataCodec() {
         throw new IllegalStateException("Codec class");
@@ -144,7 +138,7 @@ public final class EntityDataCodec {
         }
 
         try {
-            BinaryInput input = new BinaryInput(encoded, resolveConfigurations);
+            BinaryInput input = new BinaryInput(encoded);
             input.requireHeader(expectedKind);
             Object value = input.readValue(1);
             input.requireEnd();
@@ -153,7 +147,7 @@ public final class EntityDataCodec {
             }
             @SuppressWarnings("unchecked")
             List<Object> data = (List<Object>) value;
-            return data;
+            return resolveConfigurations ? BinaryCodecSupport.restoreValues(data) : data;
         }
         catch (StackOverflowError error) {
             throw new IllegalArgumentException("Entity data exceeds the maximum nesting depth", error);
@@ -248,24 +242,31 @@ public final class EntityDataCodec {
             output.writeString(value.toString());
         }
         else if (value instanceof LegacyMetadataCodec.ConfigurationValue) {
-            LegacyMetadataCodec.ConfigurationValue configuration = (LegacyMetadataCodec.ConfigurationValue) value;
-            output.write(CONFIGURATION);
-            output.writeString(configuration.alias());
-            encodeMapBody(output, configuration.values(), true, depth);
+            encodeConfigurationValue(output, (LegacyMetadataCodec.ConfigurationValue) value, depth);
         }
         else if (value instanceof ConfigurationSerializable) {
-            encodeConfigurationValue(output, (ConfigurationSerializable) value, depth);
+            encodeConfigurationValue(output, BinaryCodecSupport.configurationValue((ConfigurationSerializable) value, DESCRIPTION), depth);
         }
         else if (value instanceof Keyed || value instanceof Sound || value instanceof PotionEffectType) {
             output.write(STRING);
-            output.writeString(registryKey(value));
+            output.writeString(BinaryCodecSupport.registryKey(value, DESCRIPTION));
         }
         else if (value instanceof LegacyMetadataCodec.RegistryValue) {
             output.write(STRING);
             output.writeString(((LegacyMetadataCodec.RegistryValue) value).key());
         }
+        else if (value instanceof BinaryCodecSupport.EnumValue) {
+            encodeEnum(output, (BinaryCodecSupport.EnumValue) value);
+        }
         else if (value instanceof Enum<?>) {
-            encodeEnum(output, (Enum<?>) value, configurationValue);
+            Enum<?> enumValue = (Enum<?>) value;
+            if (configurationValue) {
+                encodeEnum(output, BinaryCodecSupport.enumValue(enumValue, DESCRIPTION));
+            }
+            else {
+                output.write(STRING);
+                output.writeString(enumValue.name());
+            }
         }
         else if (value instanceof Set<?>) {
             encodeSet(output, (Set<?>) value, configurationValue, depth);
@@ -318,37 +319,16 @@ public final class EntityDataCodec {
         }
     }
 
-    private static void encodeConfigurationValue(BinaryOutput output, ConfigurationSerializable value, int depth) {
-        Class<? extends ConfigurationSerializable> type = value.getClass();
-        String alias = ConfigurationSerialization.getAlias(type);
-        if (alias == null || alias.isEmpty()) {
-            throw new IllegalArgumentException("Configuration-serializable entity data type has no alias " + type.getName());
-        }
-        requirePlatformType(type);
-        Map<String, Object> serialized = value.serialize();
-        if (serialized == null) {
-            throw new IllegalArgumentException("Configuration-serializable entity data value is null " + alias);
-        }
-
+    private static void encodeConfigurationValue(BinaryOutput output, LegacyMetadataCodec.ConfigurationValue configuration, int depth) {
         output.write(CONFIGURATION);
-        output.writeString(alias);
-        encodeMapBody(output, serialized, true, depth);
+        output.writeString(configuration.alias());
+        encodeMapBody(output, configuration.values(), true, depth);
     }
 
-    private static void encodeEnum(BinaryOutput output, Enum<?> value, boolean configurationValue) {
-        if (!configurationValue) {
-            output.write(STRING);
-            output.writeString(value.name());
-            return;
-        }
-
-        Class<?> type = value.getDeclaringClass();
-        if (!isBukkitApiType(type)) {
-            throw new IllegalArgumentException("Disallowed entity data enum " + type.getName());
-        }
+    private static void encodeEnum(BinaryOutput output, BinaryCodecSupport.EnumValue value) {
         output.write(ENUM);
-        output.writeString(type.getName().substring(BUKKIT_PACKAGE.length()));
-        output.writeString(value.name());
+        output.writeString(value.typeName);
+        output.writeString(value.constant);
     }
 
     private static void encodeSet(BinaryOutput output, Set<?> values, boolean configurationValue, int depth) {
@@ -374,7 +354,7 @@ public final class EntityDataCodec {
     private static void encodeMapBody(BinaryOutput output, Map<?, ?> values, boolean configurationValue, int depth) {
         Map<String, Object> sorted = new TreeMap<>();
         for (Map.Entry<?, ?> entry : values.entrySet()) {
-            String key = mapKey(entry.getKey());
+            String key = BinaryCodecSupport.mapKey(entry.getKey(), DESCRIPTION);
             BinaryCodecSupport.validateUnicode(DESCRIPTION, key);
             if (sorted.containsKey(key)) {
                 throw new IllegalArgumentException("Duplicate entity data map key " + key);
@@ -387,125 +367,6 @@ public final class EntityDataCodec {
             output.writeString(entry.getKey());
             encodeValue(output, entry.getValue(), configurationValue, depth + 1);
         }
-    }
-
-    private static Object parseConfigurationValue(String alias, Map<String, Object> serialized) {
-        Class<? extends ConfigurationSerializable> type = ConfigurationSerialization.getClassByAlias(alias);
-        if (type == null) {
-            if (REMOVED_FOOD_EFFECT_ALIAS.equals(alias)) {
-                return serialized;
-            }
-            throw new IllegalArgumentException("Unknown configuration-serializable entity data type " + alias);
-        }
-        requirePlatformType(type);
-        try {
-            Object result = ConfigurationSerialization.deserializeObject(serialized, type);
-            if (result == null) {
-                throw new IllegalArgumentException("Unable to deserialize configuration-serializable entity data type " + alias);
-            }
-            return result;
-        }
-        catch (RuntimeException | LinkageError exception) {
-            throw new IllegalArgumentException("Unable to deserialize configuration-serializable entity data type " + alias, exception);
-        }
-    }
-
-    private static Object parseEnum(String className, String value) {
-        String qualifiedClassName = BUKKIT_PACKAGE + className;
-        try {
-            Class<?> type = Class.forName(qualifiedClassName, false, EntityDataCodec.class.getClassLoader());
-            if (!isBukkitApiType(type) || !type.isEnum()) {
-                throw new IllegalArgumentException("Disallowed entity data enum " + qualifiedClassName);
-            }
-            @SuppressWarnings({ "rawtypes", "unchecked" })
-            Object result = Enum.valueOf((Class<? extends Enum>) type.asSubclass(Enum.class), value);
-            return result;
-        }
-        catch (ClassNotFoundException | LinkageError | SecurityException exception) {
-            throw new IllegalArgumentException("Unknown entity data enum " + qualifiedClassName, exception);
-        }
-        catch (IllegalArgumentException exception) {
-            throw new IllegalArgumentException("Unknown " + qualifiedClassName + " entity data enum value " + value, exception);
-        }
-    }
-
-    private static String mapKey(Object value) {
-        if (value instanceof LegacyMetadataCodec.RegistryValue) {
-            return ((LegacyMetadataCodec.RegistryValue) value).key();
-        }
-        if (value instanceof String || value instanceof NamespacedKey) {
-            return value.toString();
-        }
-        if (value instanceof Keyed || value instanceof Sound || value instanceof PotionEffectType) {
-            return registryKey(value);
-        }
-        throw new IllegalArgumentException("Unsupported entity data map key " + (value == null ? "null" : value.getClass().getName()));
-    }
-
-    private static String registryKey(Object value) {
-        try {
-            Object key = BukkitAdapter.ADAPTER.getRegistryKey(value);
-            if (key instanceof String) {
-                return requireKey((String) key);
-            }
-        }
-        catch (RuntimeException | LinkageError exception) {
-        }
-
-        if (value instanceof Keyed) {
-            NamespacedKey key = ((Keyed) value).getKey();
-            if (key != null) {
-                return key.toString();
-            }
-        }
-        if (value instanceof Sound && value instanceof Enum<?>) {
-            return requireKey("minecraft:" + ((Enum<?>) value).name().toLowerCase(Locale.ROOT).replace('_', '.'));
-        }
-        if (value instanceof PotionEffectType) {
-            @SuppressWarnings({ "deprecation", "removal" })
-            String name = ((PotionEffectType) value).getName();
-            if (name != null && !name.isEmpty()) {
-                return requireKey("minecraft:" + name.toLowerCase(Locale.ROOT));
-            }
-        }
-        throw new IllegalArgumentException("Unable to determine registry key for entity data type " + value.getClass().getName());
-    }
-
-    private static boolean isBukkitApiType(Class<?> type) {
-        String name = type.getName();
-        return name.startsWith(BUKKIT_PACKAGE)
-                && !name.startsWith("org.bukkit.craftbukkit.")
-                && type.getClassLoader() == ConfigurationSerializable.class.getClassLoader();
-    }
-
-    private static void requirePlatformType(Class<?> type) {
-        if (type.getClassLoader() != ConfigurationSerializable.class.getClassLoader()) {
-            throw new IllegalArgumentException("Disallowed configuration-serializable entity data type " + type.getName());
-        }
-    }
-
-    @SuppressWarnings({ "deprecation", "removal" })
-    private static NamespacedKey parseNamespacedKey(String value) {
-        int separator = value.indexOf(':');
-        if (separator <= 0 || separator == value.length() - 1 || value.indexOf(':', separator + 1) >= 0) {
-            throw new IllegalArgumentException("Invalid namespaced key " + value);
-        }
-        return new NamespacedKey(value.substring(0, separator), value.substring(separator + 1));
-    }
-
-    private static String requireKey(String value) {
-        parseNamespacedKey(value);
-        return value;
-    }
-
-    private static Map<String, Integer> stringIdentifiers() {
-        Map<String, Integer> identifiers = new HashMap<>();
-        for (int index = 0; index < STRING_DICTIONARY.length; index++) {
-            if (identifiers.put(STRING_DICTIONARY[index], index) != null) {
-                throw new IllegalStateException("Duplicate entity data dictionary value " + STRING_DICTIONARY[index]);
-            }
-        }
-        return Collections.unmodifiableMap(identifiers);
     }
 
     private static final class BinaryOutput extends BinaryCodecSupport.Output {
@@ -529,11 +390,9 @@ public final class EntityDataCodec {
 
     private static final class BinaryInput extends BinaryCodecSupport.Input {
 
-        private final boolean resolveConfigurations;
 
-        private BinaryInput(byte[] data, boolean resolveConfigurations) {
+        private BinaryInput(byte[] data) {
             super(data, DESCRIPTION);
-            this.resolveConfigurations = resolveConfigurations;
         }
 
         private void requireHeader(Kind expectedKind) {
@@ -595,12 +454,11 @@ public final class EntityDataCodec {
                 case SET:
                     return readSet(depth);
                 case ENUM:
-                    return parseEnum(readString(), readString());
+                    return new BinaryCodecSupport.EnumValue(readString(), readString());
                 case CONFIGURATION:
                     String alias = readString();
                     Map<String, Object> serialized = readMapBody(depth);
-                    return resolveConfigurations ? parseConfigurationValue(alias, serialized)
-                            : new LegacyMetadataCodec.ConfigurationValue(alias, serialized);
+                    return new LegacyMetadataCodec.ConfigurationValue(alias, serialized);
                 case DOUBLE_ZERO:
                     return 0.0D;
                 case DOUBLE_ONE:

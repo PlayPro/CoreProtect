@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.bukkit.Keyed;
 import org.bukkit.configuration.serialization.ConfigurationSerializable;
 import org.bukkit.util.io.BukkitObjectInputStream;
 
@@ -215,6 +216,20 @@ final class LegacyMetadataCodec {
             default:
                 return null;
         }
+    }
+
+    static String legacyRegistryKey(String type, String name) {
+        Class<? extends Enum<?>> enumType = registryEnum(type);
+        if (enumType != null) {
+            try {
+                @SuppressWarnings({ "unchecked", "rawtypes" })
+                RegistryValue value = (RegistryValue) Enum.valueOf((Class) enumType, name);
+                return value.key();
+            }
+            catch (IllegalArgumentException ignored) {
+            }
+        }
+        return null;
     }
 
     enum AttributeValue implements RegistryValue {
@@ -490,6 +505,19 @@ final class LegacyMetadataCodec {
             super(output);
             Class<?> wrapper = Class.forName(WRAPPER_CLASS, false, BukkitObjectInputStream.class.getClassLoader());
             wrapperDescriptor = validateWrapper(ObjectStreamClass.lookup(wrapper));
+            enableReplaceObject(true);
+        }
+
+        @Override
+        protected Object replaceObject(Object value) {
+            if (value instanceof BinaryCodecSupport.EnumValue) {
+                Object restored = ((BinaryCodecSupport.EnumValue) value).restore();
+                if (restored instanceof Keyed && !(restored instanceof Enum<?>)) {
+                    return BinaryCodecSupport.registryKey(restored, "legacy metadata");
+                }
+                return restored;
+            }
+            return value;
         }
 
         @Override

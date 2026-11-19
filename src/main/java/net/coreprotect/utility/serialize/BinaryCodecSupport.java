@@ -4,13 +4,26 @@ import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
+import org.bukkit.Keyed;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Sound;
 import org.bukkit.configuration.serialization.ConfigurationSerializable;
 import org.bukkit.configuration.serialization.ConfigurationSerialization;
+import org.bukkit.potion.PotionEffectType;
+
+import net.coreprotect.bukkit.BukkitAdapter;
 
 final class BinaryCodecSupport {
 
@@ -25,6 +38,8 @@ final class BinaryCodecSupport {
     static final int MAX_ENCODED_LENGTH = 32 * 1024 * 1024;
     static final int MAX_CONTAINER_LENGTH = 4 * 1024 * 1024;
     static final int MAX_DEPTH = 64;
+    private static final String BUKKIT_PACKAGE = "org.bukkit.";
+    private static final String PAPER_PACKAGE = "io.papermc.paper.";
 
     private BinaryCodecSupport() {
         throw new IllegalStateException("Support class");
@@ -35,6 +50,19 @@ final class BinaryCodecSupport {
         return ConfigurationSerializable.class.isAssignableFrom(type)
                 && type.getClassLoader() == ConfigurationSerializable.class.getClassLoader()
                 && (name.startsWith("org.bukkit.") || name.startsWith("io.papermc.paper.") || name.startsWith("com.destroystokyo.paper."));
+    }
+
+    static LegacyMetadataCodec.ConfigurationValue configurationValue(ConfigurationSerializable value, String description) {
+        Class<? extends ConfigurationSerializable> type = value.getClass();
+        if (!isPlatformConfigurationType(type)) {
+            throw new IllegalArgumentException("Disallowed configuration-serializable " + description + " type " + type.getName());
+        }
+        String alias = ConfigurationSerialization.getAlias(type);
+        Map<String, Object> serialized = value.serialize();
+        if (serialized == null) {
+            throw new IllegalArgumentException("Configuration-serializable " + description + " value is null " + alias);
+        }
+        return new LegacyMetadataCodec.ConfigurationValue(alias, serialized);
     }
 
     static Object restoreConfiguration(String alias, Map<String, Object> serialized) {
@@ -50,6 +78,178 @@ final class BinaryCodecSupport {
             }
         }
         return serialized;
+    }
+
+    static EnumValue enumValue(Enum<?> value, String description) {
+        Class<?> type = value.getDeclaringClass();
+        if (!isPlatformEnumType(type)) {
+            throw new IllegalArgumentException("Disallowed " + description + " enum " + type.getName());
+        }
+        String name = type.getName();
+        return new EnumValue(name.startsWith(BUKKIT_PACKAGE) ? name.substring(BUKKIT_PACKAGE.length()) : name, value.name());
+    }
+
+    private static boolean isPlatformEnumType(Class<?> type) {
+        String name = type.getName();
+        return type.getClassLoader() == ConfigurationSerializable.class.getClassLoader()
+                && (name.startsWith(PAPER_PACKAGE) || (name.startsWith(BUKKIT_PACKAGE) && !name.startsWith("org.bukkit.craftbukkit.")));
+    }
+
+    static final class EnumValue {
+        final String typeName;
+        final String constant;
+
+        EnumValue(String typeName, String constant) {
+            this.typeName = typeName;
+            this.constant = constant;
+            if (typeName.isEmpty() || constant.isEmpty() || qualifiedType().startsWith("org.bukkit.craftbukkit.")) {
+                throw new IllegalArgumentException("Invalid metadata enum " + typeName + "." + constant);
+            }
+        }
+
+        private String qualifiedType() {
+            return typeName.startsWith(PAPER_PACKAGE) ? typeName : BUKKIT_PACKAGE + typeName;
+        }
+
+        Object restore() {
+            String qualifiedType = qualifiedType();
+            String registryValue = LegacyMetadataCodec.legacyRegistryKey(qualifiedType, constant);
+            try {
+                Class<?> type = Class.forName(qualifiedType, false, ConfigurationSerializable.class.getClassLoader());
+                if (isPlatformEnumType(type)) {
+                    if (type.isEnum()) {
+                        Object value = BukkitAdapter.getLegacyEnumValue(type, constant);
+                        if (value != null) {
+                            return value;
+                        }
+                    }
+                    else if (Keyed.class.isAssignableFrom(type)) {
+                        String key = registryValue == null ? "minecraft:" + constant.toLowerCase(Locale.ROOT) : registryValue;
+                        Object value = BukkitAdapter.resolveRegistryValue(BukkitAdapter.ADAPTER, key, type);
+                        if (value != null) {
+                            return value;
+                        }
+                    }
+                }
+            }
+            catch (ClassNotFoundException | RuntimeException | LinkageError ignored) {
+            }
+            return registryValue == null ? constant : registryValue;
+        }
+    }
+
+    static List<Object> restoreValues(List<Object> values) {
+        List<Object> restored = new ArrayList<>(values.size());
+        for (Object value : values) {
+            restored.add(restoreValue(value));
+        }
+        return restored;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Object restoreValue(Object value) {
+        if (value instanceof EnumValue) {
+            return ((EnumValue) value).restore();
+        }
+        if (value instanceof LegacyMetadataCodec.ConfigurationValue) {
+            LegacyMetadataCodec.ConfigurationValue configuration = (LegacyMetadataCodec.ConfigurationValue) value;
+            Map<String, Object> fields = configuration.values();
+            fields.replaceAll((key, fieldValue) -> restoreValue(fieldValue));
+            return restoreConfiguration(configuration.alias(), fields);
+        }
+        if (value instanceof List<?>) {
+            return restoreValues((List<Object>) value);
+        }
+        if (value instanceof Map<?, ?>) {
+            Map<?, ?> fields = (Map<?, ?>) value;
+            Map<Object, Object> restored = new LinkedHashMap<>();
+            fields.forEach((key, fieldValue) -> {
+                Object resolved = restoreValue(key);
+                if (resolved != key && (fields.containsKey(resolved) || restored.containsKey(resolved))) {
+                    resolved = key;
+                }
+                restored.put(resolved, restoreValue(fieldValue));
+            });
+            return restored;
+        }
+        if (value instanceof Set<?>) {
+            Set<?> elements = (Set<?>) value;
+            Set<Object> restored = new LinkedHashSet<>();
+            for (Object element : elements) {
+                Object resolved = restoreValue(element);
+                if (resolved != element && (elements.contains(resolved) || restored.contains(resolved))) {
+                    resolved = element;
+                }
+                restored.add(resolved);
+            }
+            return restored;
+        }
+        return value;
+    }
+
+    static String mapKey(Object value, String description) {
+        if (value instanceof LegacyMetadataCodec.RegistryValue) {
+            return ((LegacyMetadataCodec.RegistryValue) value).key();
+        }
+        if (value instanceof String || value instanceof NamespacedKey) {
+            return value.toString();
+        }
+        if (value instanceof Keyed || value instanceof Sound || value instanceof PotionEffectType) {
+            return registryKey(value, description);
+        }
+        throw new IllegalArgumentException("Unsupported " + description + " map key " + (value == null ? "null" : value.getClass().getName()));
+    }
+
+    static String registryKey(Object value, String description) {
+        try {
+            Object key = BukkitAdapter.ADAPTER.getRegistryKey(value);
+            if (key instanceof String) {
+                return requireKey((String) key);
+            }
+        }
+        catch (RuntimeException | LinkageError ignored) {
+        }
+        if (value instanceof Keyed) {
+            NamespacedKey key = ((Keyed) value).getKey();
+            if (key != null) {
+                return key.toString();
+            }
+        }
+        if (value instanceof Sound && value instanceof Enum<?>) {
+            return requireKey("minecraft:" + ((Enum<?>) value).name().toLowerCase(Locale.ROOT).replace('_', '.'));
+        }
+        if (value instanceof PotionEffectType) {
+            @SuppressWarnings({ "deprecation", "removal" })
+            String name = ((PotionEffectType) value).getName();
+            if (name != null && !name.isEmpty()) {
+                return requireKey("minecraft:" + name.toLowerCase(Locale.ROOT));
+            }
+        }
+        throw new IllegalArgumentException("Unable to determine registry key for " + description + " type " + value.getClass().getName());
+    }
+
+    @SuppressWarnings({ "deprecation", "removal" })
+    static NamespacedKey parseNamespacedKey(String value) {
+        int separator = value.indexOf(':');
+        if (separator <= 0 || separator == value.length() - 1 || value.indexOf(':', separator + 1) >= 0) {
+            throw new IllegalArgumentException("Invalid namespaced key " + value);
+        }
+        return new NamespacedKey(value.substring(0, separator), value.substring(separator + 1));
+    }
+
+    static String requireKey(String value) {
+        parseNamespacedKey(value);
+        return value;
+    }
+
+    static Map<String, Integer> stringIdentifiers(String description, String[] dictionary) {
+        Map<String, Integer> identifiers = new HashMap<>();
+        for (int index = 0; index < dictionary.length; index++) {
+            if (identifiers.put(dictionary[index], index) != null) {
+                throw new IllegalStateException("Duplicate " + description + " dictionary value " + dictionary[index]);
+            }
+        }
+        return Collections.unmodifiableMap(identifiers);
     }
 
     static int compareBytes(byte[] first, byte[] second) {

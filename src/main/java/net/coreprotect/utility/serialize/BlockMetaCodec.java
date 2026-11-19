@@ -5,13 +5,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -24,10 +22,8 @@ import org.bukkit.Keyed;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Sound;
 import org.bukkit.configuration.serialization.ConfigurationSerializable;
-import org.bukkit.configuration.serialization.ConfigurationSerialization;
 import org.bukkit.potion.PotionEffectType;
 
-import net.coreprotect.bukkit.BukkitAdapter;
 
 public final class BlockMetaCodec {
 
@@ -99,8 +95,6 @@ public final class BlockMetaCodec {
     private static final int STRING_MINECRAFT = 2;
     private static final int STRING_REFERENCE = 3;
     private static final String MINECRAFT_PREFIX = "minecraft:";
-    private static final String BUKKIT_PACKAGE = "org.bukkit.";
-    private static final String REMOVED_FOOD_EFFECT_ALIAS = "FoodEffect";
     private static final String[] DYE_COLORS = {
             "WHITE", "ORANGE", "MAGENTA", "LIGHT_BLUE", "YELLOW", "LIME", "PINK", "GRAY",
             "LIGHT_GRAY", "CYAN", "PURPLE", "BLUE", "BROWN", "GREEN", "RED", "BLACK"
@@ -174,7 +168,7 @@ public final class BlockMetaCodec {
             "minecraft:punch",
             "minecraft:thorns"
     };
-    private static final Map<String, Integer> STRING_IDENTIFIERS = stringIdentifiers();
+    private static final Map<String, Integer> STRING_IDENTIFIERS = BinaryCodecSupport.stringIdentifiers(DESCRIPTION, STRING_DICTIONARY);
 
     private BlockMetaCodec() {
         throw new IllegalStateException("Codec class");
@@ -218,7 +212,7 @@ public final class BlockMetaCodec {
         }
 
         try {
-            BinaryInput input = new BinaryInput(encoded, resolveConfigurations);
+            BinaryInput input = new BinaryInput(encoded);
             Kind kind = input.readHeader();
             List<Object> metadata;
             switch (kind) {
@@ -244,7 +238,7 @@ public final class BlockMetaCodec {
                     throw new IllegalStateException("Unsupported block metadata kind " + kind);
             }
             input.requireEnd();
-            return metadata;
+            return resolveConfigurations ? BinaryCodecSupport.restoreValues(metadata) : metadata;
         }
         catch (StackOverflowError error) {
             throw new IllegalArgumentException("Block metadata exceeds the maximum nesting depth", error);
@@ -427,24 +421,24 @@ public final class BlockMetaCodec {
             output.writeString(value.toString());
         }
         else if (value instanceof LegacyMetadataCodec.ConfigurationValue) {
-            LegacyMetadataCodec.ConfigurationValue configuration = (LegacyMetadataCodec.ConfigurationValue) value;
-            output.write(CONFIGURATION);
-            output.writeString(configuration.alias());
-            encodeStringMapBody(output, configuration.values(), depth);
+            encodeConfigurationValue(output, (LegacyMetadataCodec.ConfigurationValue) value, depth);
         }
         else if (value instanceof ConfigurationSerializable) {
-            encodeConfigurationValue(output, (ConfigurationSerializable) value, depth);
+            encodeConfigurationValue(output, BinaryCodecSupport.configurationValue((ConfigurationSerializable) value, DESCRIPTION), depth);
         }
         else if (value instanceof Keyed || value instanceof Sound || value instanceof PotionEffectType) {
             output.write(STRING);
-            output.writeString(registryKey(value));
+            output.writeString(BinaryCodecSupport.registryKey(value, DESCRIPTION));
         }
         else if (value instanceof LegacyMetadataCodec.RegistryValue) {
             output.write(STRING);
             output.writeString(((LegacyMetadataCodec.RegistryValue) value).key());
         }
+        else if (value instanceof BinaryCodecSupport.EnumValue) {
+            encodeEnum(output, (BinaryCodecSupport.EnumValue) value);
+        }
         else if (value instanceof Enum<?>) {
-            encodeEnum(output, (Enum<?>) value);
+            encodeEnum(output, BinaryCodecSupport.enumValue((Enum<?>) value, DESCRIPTION));
         }
         else if (value instanceof Set<?>) {
             encodeSet(output, (Set<?>) value, depth);
@@ -504,30 +498,16 @@ public final class BlockMetaCodec {
         }
     }
 
-    private static void encodeConfigurationValue(BinaryOutput output, ConfigurationSerializable value, int depth) {
-        Class<? extends ConfigurationSerializable> type = value.getClass();
-        String alias = ConfigurationSerialization.getAlias(type);
-        if (alias == null || alias.isEmpty()) {
-            throw new IllegalArgumentException("Configuration-serializable block metadata type has no alias " + type.getName());
-        }
-        requirePlatformType(type);
-        Map<String, Object> serialized = value.serialize();
-        if (serialized == null) {
-            throw new IllegalArgumentException("Configuration-serializable block metadata value is null " + alias);
-        }
+    private static void encodeConfigurationValue(BinaryOutput output, LegacyMetadataCodec.ConfigurationValue configuration, int depth) {
         output.write(CONFIGURATION);
-        output.writeString(alias);
-        encodeStringMapBody(output, serialized, depth);
+        output.writeString(configuration.alias());
+        encodeStringMapBody(output, configuration.values(), depth);
     }
 
-    private static void encodeEnum(BinaryOutput output, Enum<?> value) {
-        Class<?> type = value.getDeclaringClass();
-        if (!isBukkitApiType(type)) {
-            throw new IllegalArgumentException("Disallowed block metadata enum " + type.getName());
-        }
+    private static void encodeEnum(BinaryOutput output, BinaryCodecSupport.EnumValue value) {
         output.write(ENUM);
-        output.writeString(type.getName().substring(BUKKIT_PACKAGE.length()));
-        output.writeString(value.name());
+        output.writeString(value.typeName);
+        output.writeString(value.constant);
     }
 
     private static void encodeSet(BinaryOutput output, Set<?> values, int depth) {
@@ -569,7 +549,7 @@ public final class BlockMetaCodec {
     private static void encodeStringMapBody(BinaryOutput output, Map<?, ?> values, int depth) {
         Map<String, Object> sorted = new TreeMap<>();
         for (Map.Entry<?, ?> entry : values.entrySet()) {
-            String key = mapKey(entry.getKey());
+            String key = BinaryCodecSupport.mapKey(entry.getKey(), DESCRIPTION);
             BinaryCodecSupport.validateUnicode(DESCRIPTION, key);
             if (sorted.containsKey(key)) {
                 throw new IllegalArgumentException("Duplicate block metadata map key " + key);
@@ -665,122 +645,6 @@ public final class BlockMetaCodec {
             }
         }
         return result;
-    }
-
-    private static Object parseConfigurationValue(String alias, Map<String, Object> serialized) {
-        Class<? extends ConfigurationSerializable> type = ConfigurationSerialization.getClassByAlias(alias);
-        if (type == null) {
-            if (REMOVED_FOOD_EFFECT_ALIAS.equals(alias)) {
-                return serialized;
-            }
-            throw new IllegalArgumentException("Unknown configuration-serializable block metadata type " + alias);
-        }
-        requirePlatformType(type);
-        try {
-            Object result = ConfigurationSerialization.deserializeObject(serialized, type);
-            if (result == null) {
-                throw new IllegalArgumentException("Unable to deserialize configuration-serializable block metadata type " + alias);
-            }
-            return result;
-        }
-        catch (RuntimeException | LinkageError exception) {
-            throw new IllegalArgumentException("Unable to deserialize configuration-serializable block metadata type " + alias, exception);
-        }
-    }
-
-    private static Object parseEnum(String className, String value) {
-        String qualifiedClassName = BUKKIT_PACKAGE + className;
-        try {
-            Class<?> type = Class.forName(qualifiedClassName, false, BlockMetaCodec.class.getClassLoader());
-            if (!isBukkitApiType(type) || !type.isEnum()) {
-                throw new IllegalArgumentException("Disallowed block metadata enum " + qualifiedClassName);
-            }
-            @SuppressWarnings({ "rawtypes", "unchecked" })
-            Object result = Enum.valueOf((Class<? extends Enum>) type.asSubclass(Enum.class), value);
-            return result;
-        }
-        catch (ClassNotFoundException | LinkageError | SecurityException exception) {
-            throw new IllegalArgumentException("Unknown block metadata enum " + qualifiedClassName, exception);
-        }
-        catch (IllegalArgumentException exception) {
-            throw new IllegalArgumentException("Unknown " + qualifiedClassName + " block metadata enum value " + value, exception);
-        }
-    }
-
-    private static String mapKey(Object value) {
-        if (value instanceof String || value instanceof NamespacedKey) {
-            return value.toString();
-        }
-        if (value instanceof Keyed || value instanceof Sound || value instanceof PotionEffectType) {
-            return registryKey(value);
-        }
-        throw new IllegalArgumentException("Unsupported block metadata map key " + (value == null ? "null" : value.getClass().getName()));
-    }
-
-    private static String registryKey(Object value) {
-        try {
-            Object key = BukkitAdapter.ADAPTER.getRegistryKey(value);
-            if (key instanceof String) {
-                return requireKey((String) key);
-            }
-        }
-        catch (RuntimeException | LinkageError exception) {
-        }
-
-        if (value instanceof Keyed) {
-            NamespacedKey key = ((Keyed) value).getKey();
-            if (key != null) {
-                return key.toString();
-            }
-        }
-        if (value instanceof Sound && value instanceof Enum<?>) {
-            return requireKey("minecraft:" + ((Enum<?>) value).name().toLowerCase(Locale.ROOT).replace('_', '.'));
-        }
-        if (value instanceof PotionEffectType) {
-            @SuppressWarnings({ "deprecation", "removal" })
-            String name = ((PotionEffectType) value).getName();
-            if (name != null && !name.isEmpty()) {
-                return requireKey("minecraft:" + name.toLowerCase(Locale.ROOT));
-            }
-        }
-        throw new IllegalArgumentException("Unable to determine registry key for block metadata type " + value.getClass().getName());
-    }
-
-    private static boolean isBukkitApiType(Class<?> type) {
-        String name = type.getName();
-        return name.startsWith(BUKKIT_PACKAGE)
-                && !name.startsWith("org.bukkit.craftbukkit.")
-                && type.getClassLoader() == ConfigurationSerializable.class.getClassLoader();
-    }
-
-    private static void requirePlatformType(Class<?> type) {
-        if (type.getClassLoader() != ConfigurationSerializable.class.getClassLoader()) {
-            throw new IllegalArgumentException("Disallowed configuration-serializable block metadata type " + type.getName());
-        }
-    }
-
-    @SuppressWarnings({ "deprecation", "removal" })
-    private static NamespacedKey parseNamespacedKey(String value) {
-        int separator = value.indexOf(':');
-        if (separator <= 0 || separator == value.length() - 1 || value.indexOf(':', separator + 1) >= 0) {
-            throw new IllegalArgumentException("Invalid namespaced key " + value);
-        }
-        return new NamespacedKey(value.substring(0, separator), value.substring(separator + 1));
-    }
-
-    private static String requireKey(String value) {
-        parseNamespacedKey(value);
-        return value;
-    }
-
-    private static Map<String, Integer> stringIdentifiers() {
-        Map<String, Integer> identifiers = new HashMap<>();
-        for (int index = 0; index < STRING_DICTIONARY.length; index++) {
-            if (identifiers.put(STRING_DICTIONARY[index], index) != null) {
-                throw new IllegalStateException("Duplicate block metadata dictionary value " + STRING_DICTIONARY[index]);
-            }
-        }
-        return Collections.unmodifiableMap(identifiers);
     }
 
     private static int colorIdentifier(String value) {
@@ -882,11 +746,9 @@ public final class BlockMetaCodec {
     private static final class BinaryInput extends BinaryCodecSupport.Input {
         private final List<String> localStrings = new ArrayList<>();
         private final Map<String, Integer> localStringIdentifiers = new HashMap<>();
-        private final boolean resolveConfigurations;
 
-        private BinaryInput(byte[] data, boolean resolveConfigurations) {
+        private BinaryInput(byte[] data) {
             super(data, DESCRIPTION);
-            this.resolveConfigurations = resolveConfigurations;
         }
 
         private Kind readHeader() {
@@ -996,10 +858,9 @@ public final class BlockMetaCodec {
                 case CONFIGURATION:
                     String alias = readString();
                     Map<String, Object> serialized = readStringMapBody(depth);
-                    return resolveConfigurations ? parseConfigurationValue(alias, serialized)
-                            : new LegacyMetadataCodec.ConfigurationValue(alias, serialized);
+                    return new LegacyMetadataCodec.ConfigurationValue(alias, serialized);
                 case ENUM:
-                    return parseEnum(readString(), readString());
+                    return new BinaryCodecSupport.EnumValue(readString(), readString());
                 case DOUBLE_ZERO:
                     return 0.0D;
                 case DOUBLE_ONE:

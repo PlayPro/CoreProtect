@@ -100,6 +100,7 @@ public class LocationParser {
      * @return The modified location
      */
     public static Location parseCoordinates(Location location, String[] inputArguments, int worldId) {
+        World targetWorld = worldId > 0 ? Bukkit.getWorld(WorldUtils.getWorldName(worldId)) : null;
         int next = 0;
         for (int index = 1; index < inputArguments.length; index++) {
             String argument = ParserUtils.normalize(inputArguments[index]);
@@ -120,7 +121,6 @@ public class LocationParser {
                 double y = (parsed.length == 3) ? parsed[1] : (location != null ? location.getY() : 0.0);
                 double z = parsed[parsed.length - 1];
 
-                World targetWorld = worldId > 0 ? Bukkit.getWorld(WorldUtils.getWorldName(worldId)) : null;
                 if (targetWorld != null) {
                     location = new Location(targetWorld, x, clampY(targetWorld, y), z);
                 }
@@ -132,6 +132,9 @@ public class LocationParser {
             else {
                 next = 0;
             }
+        }
+        if (targetWorld != null && location != null && !targetWorld.equals(location.getWorld())) {
+            return new Location(targetWorld, location.getX(), clampY(targetWorld, location.getY()), location.getZ(), location.getYaw(), location.getPitch());
         }
         return location;
     }

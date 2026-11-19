@@ -36,9 +36,12 @@ public class WorldParser {
                 worldId = 0;
             }
             else if (lower.startsWith("#")) {
-                worldId = WorldUtils.matchWorld(lower);
+                String worldName = value.substring(1).trim();
+                worldId = requireLoaded ? -1 : ConfigHandler.worlds.getOrDefault(worldName, -1);
+                if (worldId == -1) {
+                    worldId = WorldUtils.matchWorld(lower);
+                }
                 if (worldId == -1 && !requireLoaded) {
-                    String worldName = value.substring(1).trim();
                     if (!worldName.isEmpty()) {
                         worldId = ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.WORLDS, worldName, false);
                     }
@@ -59,7 +62,7 @@ public class WorldParser {
      */
     public static String parseWorldName(String[] inputArguments, boolean processWorldEdit) {
         String worldName = parseWorldFilterName(inputArguments, processWorldEdit);
-        return worldName == null ? "" : worldName.toLowerCase(Locale.ROOT);
+        return worldName == null ? "" : worldName;
     }
 
     public static String parseWorldFilterName(String[] inputArguments, boolean processWorldEdit) {

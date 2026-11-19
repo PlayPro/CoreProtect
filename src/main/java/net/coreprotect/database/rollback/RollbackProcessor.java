@@ -132,7 +132,7 @@ public class RollbackProcessor {
                     normalizeRollbackBlockData(rawBlockData);
                 }
 
-                String rowUser = ConfigHandler.playerIdCacheReversed.get((Integer) row[2]);
+                String rowUser = ConfigHandler.playerIdCacheReversed.getOrDefault((Integer) row[2], "");
                 int oldTypeRaw = rowTypeRaw;
                 Material oldTypeMaterial = MaterialUtils.getType(oldTypeRaw);
 

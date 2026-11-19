@@ -128,7 +128,11 @@ public class RollbackEntityHandler {
     private static Object[] getCachedEntity(int rowX, int rowY, int rowZ, int rowWorldId, int oldTypeRaw) {
         String prefix = rowX + "." + rowY + "." + rowZ + "." + rowWorldId + ".";
         Object[] cachedEntity = CacheHandler.entityCache.get(prefix + oldTypeRaw);
-        return cachedEntity == null ? CacheHandler.entityCache.get(prefix + EntityUtils.getEntityType(oldTypeRaw).name()) : cachedEntity;
+        if (cachedEntity != null) {
+            return cachedEntity;
+        }
+        EntityType type = EntityUtils.getEntityType(oldTypeRaw, null);
+        return type == null || type == EntityType.UNKNOWN ? null : CacheHandler.entityCache.get(prefix + type.name());
     }
 
     private static boolean removeCachedEntity(UUID uuid, EntityType targetType) {

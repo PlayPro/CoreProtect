@@ -710,6 +710,7 @@ public final class EntitySpawnRollbackHandler {
                 }
                 if (entity == null) {
                     context.reportFailure("Entity restoration did not return an entity", work);
+                    context.cancel();
                     completion.complete(false);
                     context.endMutation();
                     return;

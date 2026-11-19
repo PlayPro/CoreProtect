@@ -533,20 +533,4 @@ public class RollbackUtil extends Lookup {
     public static void queueSkullUpdate(String user, BlockState block, int rowId) {
         Queue.queueSkullUpdate(user, block, rowId);
     }
-
-    /**
-     * Queues a sign update operation for processing.
-     *
-     * @param user
-     *            The username of the player
-     * @param block
-     *            The block state to update
-     * @param action
-     *            The action type
-     * @param time
-     *            The time of the update
-     */
-    public static void queueSignUpdate(String user, BlockState block, int action, int time) {
-        Queue.queueSignUpdate(user, block, action, time);
-    }
 }

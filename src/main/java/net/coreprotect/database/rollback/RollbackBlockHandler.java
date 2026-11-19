@@ -278,7 +278,7 @@ public class RollbackBlockHandler extends Queue {
                 }
                 else if (BukkitAdapter.ADAPTER.isSign(rowType)) {// sign
                     BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
-                    Queue.queueSignUpdate(rowUser, block.getState(), rollbackType, (Integer) row[1]);
+                    Queue.queueSignUpdate((Integer) row[2], block.getState(), rollbackType, (Integer) row[1]);
 
                     return countBlock;
                 }
@@ -505,7 +505,7 @@ public class RollbackBlockHandler extends Queue {
         }
 
         if ((rowType != Material.AIR) && changeBlock) {
-            if (rowUser.length() > 0) {
+            if (rowUser != null && !rowUser.isEmpty()) {
                 CacheHandler.lookupCache.put(rowX + "." + rowY + "." + rowZ + "." + rowWorldId, new Object[] { unixtimestamp, rowUser, rowType });
             }
         }

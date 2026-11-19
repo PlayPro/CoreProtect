@@ -728,8 +728,8 @@ public class Queue {
         queueStandardData(new Object[] { null, Process.SIGN_TEXT, null, color, null, action, offset, null }, new String[] { user, null }, location, false, signData, Consumer.reserveConsumer());
     }
 
-    protected static void queueSignUpdate(String user, BlockState block, int action, int time) {
-        queueStandardData(new Object[] { null, Process.SIGN_UPDATE, null, action, null, 0, time, null }, new String[] { user, null }, block, false, Consumer.reserveConsumer());
+    protected static void queueSignUpdate(int userId, BlockState block, int action, int time) {
+        queueStandardData(new Object[] { null, Process.SIGN_UPDATE, null, action, null, userId, time, null }, new String[] { null, null }, block, false, Consumer.reserveConsumer());
     }
 
     protected static void queueSkullUpdate(String user, BlockState block, int rowId) {

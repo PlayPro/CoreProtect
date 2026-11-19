@@ -505,7 +505,7 @@ public class Process {
                                     ConfigHandler.insertQueuedIdentifier(writeBatch, statement, ReferenceKind.WORLD, i, object, forceData);
                                     break;
                                 case Process.SIGN_UPDATE:
-                                    SignUpdateProcess.process(connection, object, user, blockData, forceData);
+                                    SignUpdateProcess.process(connection, object, replaceData, blockData, forceData);
                                     break;
                                 case Process.SKULL_UPDATE:
                                     SkullUpdateProcess.process(statement, object, forceData);

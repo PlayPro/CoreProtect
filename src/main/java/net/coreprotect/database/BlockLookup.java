@@ -27,7 +27,7 @@ public class BlockLookup {
             int x = block.getX();
             int y = block.getY();
             int z = block.getZ();
-            int time = (int) (System.currentTimeMillis() / 1000L);
+            long cacheTimeMillis = System.currentTimeMillis();
             int worldId = WorldUtils.getWorldId(block.getWorld().getName());
             String table = DuckDBLookupQuery.spatialTable(statement.getConnection(), "block", worldId, x, x, z, z, "spatial_rows");
             String index = ConfigHandler.databaseType.isDuckDB() ? "" : WorldUtils.getWidIndex("block");
@@ -41,7 +41,7 @@ public class BlockLookup {
                     result = UserStatement.getName(statement.getConnection(), resultUserId);
                     if (result.length() > 0) {
                         Material resultMaterial = MaterialUtils.getType(resultType);
-                        CacheHandler.lookupCache.put("" + x + "." + y + "." + z + "." + worldId + "", new Object[] { time, result, resultMaterial });
+                        CacheHandler.lookupCache.put("" + x + "." + y + "." + z + "." + worldId + "", new Object[] { cacheTimeMillis, result, resultMaterial });
                     }
                 }
             }

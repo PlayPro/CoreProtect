@@ -50,7 +50,7 @@ public final class EntityInteractionLookup {
 
         try {
             String resolvedCommand = resolveCommand(command, commandSender);
-            int currentTime = (int) (System.currentTimeMillis() / 1000L);
+            long currentTime = System.currentTimeMillis() / 1000L;
             long rowMax = (long) page * limit;
             long pageStart = rowMax - limit;
             long count = 0;

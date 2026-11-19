@@ -27,8 +27,8 @@ public class LookupConverter {
                 try {
                     int newId = i - 1;
                     if (i == 2) {
-                        if (map[i] instanceof Integer) {
-                            int userId = (Integer) map[i];
+                        if (map[i] instanceof Number) {
+                            int userId = Math.toIntExact(((Number) map[i]).longValue());
                             String userResult = UserStatement.getName(statement.getConnection(), userId);
                             results[newId] = userResult;
                         }
@@ -37,10 +37,10 @@ public class LookupConverter {
                         }
                     }
                     else if (i == 13 && map[i] instanceof byte[]) {
-                        results[newId] = BlockUtils.byteDataToString((byte[]) map[i], (int) map[6]);
+                        results[newId] = BlockUtils.byteDataToString((byte[]) map[i], Math.toIntExact(((Number) map[6]).longValue()));
                     }
                     else if (i > 0) { // skip rowid
-                        if (map[i] instanceof Integer) {
+                        if (map[i] instanceof Number) {
                             results[newId] = map[i].toString();
                         }
                         else if (map[i] instanceof String) {

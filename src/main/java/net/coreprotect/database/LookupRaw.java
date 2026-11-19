@@ -236,9 +236,16 @@ public class LookupRaw extends Queue {
             List<?> signIncludes = !lookup && actionList.contains(LookupActions.SIGN) ? List.copyOf(restrictList) : List.of();
             List<?> signExcludes = !lookup && actionList.contains(LookupActions.SIGN) ? List.copyOf(excludeList.keySet()) : List.of();
             while (results.next()) {
+                long eventTime = results.getLong("time");
+                Number resultTime;
+                if (lookup) {
+                    resultTime = eventTime;
+                }
+                else {
+                    resultTime = Math.toIntExact(eventTime);
+                }
                 if (actionList.contains(LookupActions.CHAT) || actionList.contains(LookupActions.COMMAND)) {
                     long resultId = results.getLong("id");
-                    int resultTime = results.getInt("time");
                     int resultUserId = results.getInt("user");
                     String resultMessage = results.getString("message");
 
@@ -254,7 +261,6 @@ public class LookupRaw extends Queue {
                 }
                 else if (actionList.contains(LookupActions.SESSION)) {
                     long resultId = results.getLong("id");
-                    int resultTime = results.getInt("time");
                     int resultUserId = results.getInt("user");
                     int resultWorldId = results.getInt("wid");
                     int resultX = results.getInt("x");
@@ -267,7 +273,6 @@ public class LookupRaw extends Queue {
                 }
                 else if (actionList.contains(LookupActions.USERNAME)) {
                     long resultId = results.getLong("id");
-                    int resultTime = results.getInt("time");
                     String resultUuid = results.getString("uuid");
                     String resultUser = results.getString("user");
 
@@ -276,7 +281,6 @@ public class LookupRaw extends Queue {
                 }
                 else if (actionList.contains(LookupActions.SIGN)) {
                     long resultId = results.getLong("id");
-                    int resultTime = results.getInt("time");
                     int resultUserId = results.getInt("user");
                     int resultWorldId = results.getInt("wid");
                     int resultX = results.getInt("x");
@@ -362,7 +366,6 @@ public class LookupRaw extends Queue {
                     int resultAction = results.getInt("action");
                     int resultRolledBack = results.getInt("rolled_back");
                     int resultType = results.getInt("type");
-                    int resultTime = results.getInt("time");
                     int resultX = results.getInt("x");
                     int resultY = results.getInt("y");
                     int resultZ = results.getInt("z");

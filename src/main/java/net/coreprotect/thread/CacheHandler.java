@@ -230,11 +230,11 @@ public class CacheHandler implements Runnable {
                                 break;
                         }
 
-                        int timestamp = (int) (System.currentTimeMillis() / 1000L) - scanTime;
+                        long timestamp = System.currentTimeMillis() / 1000L - scanTime;
                         cache.values().removeIf(value -> {
                             try {
                                 Object[] data = (Object[]) value;
-                                int time = (data[0] instanceof Long) ? (int) ((long) data[0] / 1000L) : (int) data[0];
+                                long time = (data[0] instanceof Long) ? (long) data[0] / 1000L : (int) data[0];
                                 return time < timestamp;
                             }
                             catch (Exception e) {

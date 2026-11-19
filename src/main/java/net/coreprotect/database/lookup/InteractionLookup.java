@@ -50,9 +50,9 @@ public class InteractionLookup {
             int x = block.getX();
             int y = block.getY();
             int z = block.getZ();
-            int time = (int) (System.currentTimeMillis() / 1000L);
+            long time = System.currentTimeMillis() / 1000L;
             int worldId = WorldUtils.getWorldId(block.getWorld().getName());
-            int checkTime = 0;
+            long checkTime = 0L;
             long count = 0;
             long rowMax = (long) page * limit;
             long pageStart = rowMax - limit;

@@ -8,6 +8,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.type.MangrovePropagule;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Firework;
 import org.bukkit.entity.Frog;
 import org.bukkit.entity.Goat;
 import org.bukkit.entity.LivingEntity;
@@ -25,6 +26,13 @@ import net.coreprotect.model.BlockGroup;
  * - Sculk blocks
  */
 public class Bukkit_v1_19 extends Bukkit_v1_18 {
+
+    private static final boolean HAS_FIREWORK_RIDER = hasPublicMethod(Firework.class, "getAttachedTo");
+
+    @Override
+    public LivingEntity getFireworkRider(Firework firework) {
+        return HAS_FIREWORK_RIDER ? firework.getAttachedTo() : null;
+    }
 
     /**
      * Initializes the Bukkit_v1_19 adapter with 1.19-specific block groups.

@@ -17,8 +17,10 @@ import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Arrow;
+import org.bukkit.entity.AbstractArrow;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Firework;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Painting;
 import org.bukkit.entity.Player;
@@ -297,6 +299,10 @@ public interface BukkitInterface {
      * @return The item stack with arrow metadata
      */
     ItemStack getArrowMeta(Arrow arrow, ItemStack itemStack);
+
+    ItemStack getArrowItem(AbstractArrow arrow);
+
+    LivingEntity getFireworkRider(Firework firework);
 
     // --------------------------------------------------------------------------
     // Entity methods

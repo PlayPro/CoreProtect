@@ -14,6 +14,7 @@ import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Firework;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
@@ -84,6 +85,11 @@ public class PaperAdapter implements PaperInterface {
     @Override
     public BlockState getBlockState(Block block, boolean useSnapshot) {
         return block.getState();
+    }
+
+    @Override
+    public LivingEntity getFireworkRider(Firework firework) {
+        return BukkitAdapter.ADAPTER.getFireworkRider(firework);
     }
 
     @Override

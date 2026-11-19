@@ -26,8 +26,10 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.FaceAttachable;
 import org.bukkit.entity.Arrow;
+import org.bukkit.entity.AbstractArrow;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Firework;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Painting;
@@ -343,6 +345,16 @@ public class BukkitAdapter implements BukkitInterface {
 
     @Override
     public ItemStack adjustIngredient(MerchantRecipe recipe, ItemStack itemStack) {
+        return null;
+    }
+
+    @Override
+    public ItemStack getArrowItem(AbstractArrow arrow) {
+        return null;
+    }
+
+    @Override
+    public LivingEntity getFireworkRider(Firework firework) {
         return null;
     }
 

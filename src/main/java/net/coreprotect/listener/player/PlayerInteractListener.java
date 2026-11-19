@@ -1,9 +1,6 @@
 package net.coreprotect.listener.player;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.EnumSet;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -63,6 +60,18 @@ import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.ErrorReporter;
 
 public final class PlayerInteractListener extends Queue implements Listener {
+
+    private static final Set<Material> ENTITY_LAUNCH_ITEMS = EnumSet.of(Material.ARMOR_STAND, Material.END_CRYSTAL, Material.BOW, Material.CROSSBOW, Material.TRIDENT,
+            Material.EXPERIENCE_BOTTLE, Material.SPLASH_POTION, Material.LINGERING_POTION, Material.ENDER_PEARL, Material.FIREWORK_ROCKET, Material.EGG, Material.SNOWBALL);
+
+    static {
+        for (String name : new String[] { "WIND_CHARGE", "BLUE_EGG", "BROWN_EGG" }) {
+            Material material = Material.getMaterial(name);
+            if (material != null) {
+                ENTITY_LAUNCH_ITEMS.add(material);
+            }
+        }
+    }
 
     public static ConcurrentHashMap<String, Object[]> lastInspectorEvent = new ConcurrentHashMap<>();
     public static ConcurrentHashMap<String, Object[]> suspiciousBlockEvent = new ConcurrentHashMap<>();
@@ -617,26 +626,8 @@ public final class PlayerInteractListener extends Queue implements Listener {
             }
 
             if (event.useItemInHand() != Event.Result.DENY) {
-                List<Material> entityBlockTypes = new ArrayList<>(Arrays.asList(Material.ARMOR_STAND, Material.END_CRYSTAL, Material.BOW, Material.CROSSBOW, Material.TRIDENT, Material.EXPERIENCE_BOTTLE, Material.SPLASH_POTION, Material.LINGERING_POTION, Material.ENDER_PEARL, Material.FIREWORK_ROCKET, Material.EGG, Material.SNOWBALL));
-                try {
-                    entityBlockTypes.add(Material.valueOf("WIND_CHARGE"));
-                    entityBlockTypes.add(Material.valueOf("BLUE_EGG"));
-                    entityBlockTypes.add(Material.valueOf("BROWN_EGG"));
-                }
-                catch (Exception e) {
-                    // not running MC 1.21+
-                }
-                ItemStack handItem = null;
-                ItemStack mainHand = player.getInventory().getItemInMainHand();
-                ItemStack offHand = player.getInventory().getItemInOffHand();
-
-                if (event.getHand().equals(EquipmentSlot.HAND) && mainHand != null && entityBlockTypes.contains(mainHand.getType())) {
-                    handItem = mainHand;
-                }
-                else if (event.getHand().equals(EquipmentSlot.OFF_HAND) && offHand != null && entityBlockTypes.contains(offHand.getType())) {
-                    handItem = offHand;
-                }
-                else {
+                ItemStack handItem = getHandItem(player, event.getHand());
+                if (!containsItem(handItem) || !ENTITY_LAUNCH_ITEMS.contains(handItem.getType())) {
                     return;
                 }
 
@@ -686,10 +677,10 @@ public final class PlayerInteractListener extends Queue implements Listener {
                     Location blockLocation = relativeBlockLocation.clone();
                     blockLocation.setY(blockLocation.getY() + 1);
 
-                    if (handItem.getType() == Material.ARMOR_STAND || handItem.getType() == Material.FIREWORK_ROCKET) {
-                        if (block == null) {
-                            return;
-                        }
+                    if (handItem.getType() == Material.ARMOR_STAND && block == null) {
+                        return;
+                    }
+                    if (block != null && (handItem.getType() == Material.ARMOR_STAND || handItem.getType() == Material.FIREWORK_ROCKET)) {
 
                         Block relativeBlock = block.getRelative(event.getBlockFace());
                         relativeBlockLocation = relativeBlock.getLocation();
@@ -698,7 +689,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
 
                     String relativeBlockKey = world.getName() + "-" + relativeBlockLocation.getBlockX() + "-" + relativeBlockLocation.getBlockY() + "-" + relativeBlockLocation.getBlockZ();
                     String blockKey = world.getName() + "-" + blockLocation.getBlockX() + "-" + blockLocation.getBlockY() + "-" + blockLocation.getBlockZ();
-                    Object[] keys = new Object[] { System.currentTimeMillis(), relativeBlockKey, blockKey, handItem };
+                    Object[] keys = new Object[] { System.currentTimeMillis(), relativeBlockKey, blockKey, handItem.clone(), world.getUID() };
                     ConfigHandler.entityBlockMapper.put(player.getName(), keys);
                 }
             }

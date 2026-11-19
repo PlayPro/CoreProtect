@@ -19,6 +19,7 @@ import org.bukkit.block.data.type.PitcherCrop;
 import org.bukkit.block.sign.Side;
 import org.bukkit.block.sign.SignSide;
 import org.bukkit.entity.Arrow;
+import org.bukkit.entity.AbstractArrow;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.BlockExplodeEvent;
@@ -52,6 +53,7 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
             && hasPublicMethod(ChiseledBookshelf.class, "getSlot", Vector.class);
     private static final boolean HAS_BASE_POTION_TYPE = hasPublicMethod(Arrow.class, "getBasePotionType")
             && hasPublicMethod(PotionMeta.class, "setBasePotionType", PotionType.class);
+    private static final boolean HAS_ARROW_ITEM = hasPublicMethod(AbstractArrow.class, "getItem");
     private static final boolean HAS_ITEM_NAME = hasPublicMethod(ItemMeta.class, "getItemName")
             && hasPublicMethod(ItemMeta.class, "hasItemName");
     private static final boolean HAS_SPAWN_FUNCTION = hasPublicMethod(World.class, "spawn", Location.class, Class.class, Consumer.class);
@@ -322,6 +324,11 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
     @Override
     public <T extends Entity> T spawn(World world, Location location, Class<T> entityClass, Consumer<? super T> function) {
         return HAS_SPAWN_FUNCTION ? world.spawn(location, entityClass, function) : super.spawn(world, location, entityClass, function);
+    }
+
+    @Override
+    public ItemStack getArrowItem(AbstractArrow arrow) {
+        return HAS_ARROW_ITEM ? arrow.getItem() : null;
     }
 
     @Override

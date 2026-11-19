@@ -11,6 +11,7 @@ import org.bukkit.block.Sign;
 import org.bukkit.block.Skull;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Firework;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
@@ -26,6 +27,8 @@ public interface PaperInterface {
     public BlockState getBlockState(Block block, boolean useSnapshot);
 
     public boolean isStopping(Server server);
+
+    LivingEntity getFireworkRider(Firework firework);
 
     public double getAverageTickTime(Server server);
 

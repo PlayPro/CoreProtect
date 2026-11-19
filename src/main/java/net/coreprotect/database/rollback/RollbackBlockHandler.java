@@ -36,6 +36,7 @@ import org.bukkit.entity.EnderCrystal;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
@@ -61,6 +62,27 @@ public class RollbackBlockHandler extends Queue {
 
         try {
             if (changeBlock) {
+                if (rowType == Material.AIR && oldTypeMaterial == Material.ARMOR_STAND) {
+                    boolean clearEquipment = clearInventories && BlockGroup.CONTAINERS.contains(Material.ARMOR_STAND);
+                    for (Entity entity : block.getChunk().getEntities()) {
+                        if (!(entity instanceof ArmorStand)) {
+                            continue;
+                        }
+                        Location location = entity.getLocation();
+                        if (location.getBlockX() != rowX || location.getBlockY() != rowY || location.getBlockZ() != rowZ) {
+                            continue;
+                        }
+                        if (clearEquipment) {
+                            EntityEquipment equipment = ItemUtils.getEntityEquipment((ArmorStand) entity);
+                            if (equipment != null) {
+                                equipment.clear();
+                            }
+                        }
+                        entity.remove();
+                    }
+                    return countBlock;
+                }
+
                 /* If modifying the head of a piston, update the base piston block to prevent it from being destroyed */
                 if (changeBlockData instanceof PistonHead) {
                     PistonHead pistonHead = (PistonHead) changeBlockData;
@@ -165,31 +187,11 @@ public class RollbackBlockHandler extends Queue {
                     // broke block ID #0
                 }
                 else if ((rowType == Material.AIR) || (rowType == Material.TNT)) {
-                    if (clearInventories) {
-                        if (BlockGroup.CONTAINERS.contains(changeType)) {
-                            Inventory inventory = BlockUtils.getContainerInventory(block.getState(), false);
-                            if (inventory != null) {
-                                InventoryChangeListener.flushPendingContainer(inventory, block.getLocation());
-                                inventory.clear();
-                            }
-                        }
-                        else if (BlockGroup.CONTAINERS.contains(Material.ARMOR_STAND)) {
-                            if ((oldTypeMaterial == Material.ARMOR_STAND)) {
-                                for (Entity entity : block.getChunk().getEntities()) {
-                                    if (entity instanceof ArmorStand) {
-                                        Location entityLocation = entity.getLocation();
-                                        entityLocation.setY(entityLocation.getY() + 0.99);
-
-                                        if (entityLocation.getBlockX() == rowX && entityLocation.getBlockY() == rowY && entityLocation.getBlockZ() == rowZ) {
-                                            ItemUtils.getEntityEquipment((ArmorStand) entity).clear();
-
-                                            entityLocation.setY(entityLocation.getY() - 1.99);
-                                            PaperAdapter.ADAPTER.teleportAsync(entity, entityLocation);
-                                            entity.remove();
-                                        }
-                                    }
-                                }
-                            }
+                    if (clearInventories && BlockGroup.CONTAINERS.contains(changeType)) {
+                        Inventory inventory = BlockUtils.getContainerInventory(block.getState(), false);
+                        if (inventory != null) {
+                            InventoryChangeListener.flushPendingContainer(inventory, block.getLocation());
+                            inventory.clear();
                         }
                     }
 

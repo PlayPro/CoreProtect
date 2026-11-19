@@ -15,6 +15,7 @@ import org.bukkit.block.Skull;
 import org.bukkit.block.data.Bisected;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Directional;
+import org.bukkit.block.data.FaceAttachable;
 import org.bukkit.block.data.MultipleFacing;
 import org.bukkit.block.data.Rail;
 import org.bukkit.block.data.Rail.Shape;
@@ -49,10 +50,33 @@ public final class BlockBreakListener extends Queue implements Listener {
     }
 
     static boolean isAttached(Block block, Block scanBlock, BlockData blockData, int scanMin) {
-        if (blockData instanceof Directional && !(blockData instanceof Bisected) && scanMin != BlockUtil.BOTTOM && scanMin != BlockUtil.TOP) {
+        if (blockData instanceof Bell) {
+            Bell bell = (Bell) blockData;
+            switch (bell.getAttachment()) {
+                case SINGLE_WALL:
+                    return scanMin < BlockUtil.TOP && scanBlock.getRelative(bell.getFacing()).getLocation().equals(block.getLocation());
+                case FLOOR:
+                    return scanMin == BlockUtil.TOP;
+                case CEILING:
+                    return scanMin == BlockUtil.BOTTOM;
+                default:
+                    return false;
+            }
+        }
+        if (blockData instanceof Rail && scanMin < BlockUtil.TOP) {
+            Shape shape = ((Rail) blockData).getShape();
+            return (scanMin == 1 && shape == Shape.ASCENDING_WEST)
+                    || (scanMin == 2 && shape == Shape.ASCENDING_EAST)
+                    || (scanMin == 3 && shape == Shape.ASCENDING_NORTH)
+                    || (scanMin == 4 && shape == Shape.ASCENDING_SOUTH);
+        }
+        if (blockData instanceof Directional && !(blockData instanceof Bisected || blockData instanceof FaceAttachable) && scanMin < BlockUtil.TOP) {
             Directional directional = (Directional) blockData;
             BlockFace blockFace = directional.getFacing();
             if (blockData instanceof Bed) {
+                if (block.getType() != scanBlock.getType()) {
+                    return false;
+                }
                 blockFace = ((Bed) blockData).getPart() == Bed.Part.FOOT ? blockFace.getOppositeFace() : blockFace;
             }
             return scanBlock.getRelative(blockFace.getOppositeFace()).getLocation().equals(block.getLocation());

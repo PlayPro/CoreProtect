@@ -15,6 +15,8 @@ import org.bukkit.block.Sign;
 import org.bukkit.block.data.Bisected;
 import org.bukkit.block.data.Bisected.Half;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.MultipleFacing;
+import org.bukkit.block.BlockFace;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -28,6 +30,7 @@ import net.coreprotect.model.BlockGroup;
 import net.coreprotect.model.action.SignActions;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.BlockUtils;
 
 public final class BlockExplodeListener extends Queue implements Listener {
 
@@ -76,15 +79,21 @@ public final class BlockExplodeListener extends Queue implements Listener {
                         }
                         continue;
                     }
-                    if (!tracksAttachment(scanType, scan)) {
+                    if (!tracksAttachment(scanType, scan) && !followsColumn(block.getType(), scanType, scan)) {
                         continue;
                     }
 
                     BlockData blockData = scanBlock.getBlockData();
-                    if (!BlockBreakListener.isAttached(block, scanBlock, blockData, scan)) {
+                    if (scanType == Material.PISTON_HEAD && block.getType() != Material.PISTON && block.getType() != Material.STICKY_PISTON) {
+                        continue;
+                    }
+                    if (!BlockBreakListener.isAttached(block, scanBlock, blockData, scan) || !allFacesLoseSupport(blockMap, scanBlock, blockData)) {
                         continue;
                     }
                     blockMap.put(key, scanBlock);
+                    if (extendsColumn(scanType, scan)) {
+                        appendColumn(blockMap, scanBlock, scan, worldMinHeight, worldMaxHeight);
+                    }
 
                     if (blockData instanceof Bisected && !BukkitAdapter.ADAPTER.isSingleBlockPitcherCrop(blockData)) {
                         Half half = ((Bisected) blockData).getHalf();
@@ -138,6 +147,51 @@ public final class BlockExplodeListener extends Queue implements Listener {
         }
     }
 
+    private static boolean allFacesLoseSupport(Map<Long, Block> blockMap, Block block, BlockData data) {
+        if (!(data instanceof MultipleFacing)) {
+            return true;
+        }
+        for (BlockFace face : ((MultipleFacing) data).getFaces()) {
+            if (!blockMap.containsKey(positionKey(block.getX() + face.getModX(), block.getY() + face.getModY(), block.getZ() + face.getModZ()))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean extendsColumn(Material material, int scan) {
+        if (scan == BlockUtil.TOP) {
+            return BlockGroup.VERTICAL_TOP.contains(material) || BlockGroup.VERTICAL_TOP_BOTTOM.contains(material);
+        }
+        if (scan == BlockUtil.BOTTOM) {
+            return BlockGroup.VERTICAL_BOTTOM.contains(material) || BlockGroup.VERTICAL_TOP_BOTTOM.contains(material);
+        }
+        return false;
+    }
+
+    private static boolean followsColumn(Material support, Material candidate, int scan) {
+        return extendsColumn(candidate, scan) && (support == candidate || tracksAttachment(candidate, scan));
+    }
+
+    private static void appendColumn(Map<Long, Block> blockMap, Block support, int scan, int minHeight, int maxHeight) {
+        World world = support.getWorld();
+        int step = scan == BlockUtil.TOP ? 1 : -1;
+        int x = support.getX();
+        int z = support.getZ();
+        for (int y = support.getY() + step; y >= minHeight && y < maxHeight; y += step) {
+            long key = positionKey(x, y, z);
+            if (blockMap.containsKey(key)) {
+                break;
+            }
+            Block next = world.getBlockAt(x, y, z);
+            if (!followsColumn(support.getType(), next.getType(), scan) || !BlockBreakListener.isAttached(support, next, scan)) {
+                break;
+            }
+            blockMap.put(key, next);
+            support = next;
+        }
+    }
+
     private static boolean tracksAttachment(Material type, int scan) {
         if (BlockGroup.TRACK_ANY.contains(type)) {
             return true;
@@ -154,37 +208,25 @@ public final class BlockExplodeListener extends Queue implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onBlockExplode(BlockExplodeEvent event) {
-        Material eventMaterial = BukkitAdapter.ADAPTER.getExplodedBlock(event);
-        World world = event.getBlock().getLocation().getWorld();
-
-        if (!BukkitAdapter.ADAPTER.shouldLogExplosion(event)){
+        if (event.isCancelled()) {
             return;
         }
-
-        String user = "";
-        if (!eventMaterial.equals(Material.AIR) && !eventMaterial.equals(Material.CAVE_AIR)) {
-            user = eventMaterial.name().toLowerCase(Locale.ROOT);
-
-            if (user.contains("respawn_anchor")) {
+        World world = event.getBlock().getWorld();
+        if (!Config.getConfig(world).EXPLOSIONS || !BukkitAdapter.ADAPTER.shouldLogExplosion(event)) {
+            return;
+        }
+        Material eventMaterial = BukkitAdapter.ADAPTER.getExplodedBlock(event);
+        String user = "#explosion";
+        if (eventMaterial != null && !BlockUtils.isAir(eventMaterial)) {
+            String name = eventMaterial.name().toLowerCase(Locale.ROOT);
+            if (eventMaterial == Material.RESPAWN_ANCHOR) {
                 user = "#respawn_anchor";
             }
-            else if (user.contains("_bed")) {
+            else if (name.endsWith("_bed")) {
                 user = "#bed";
             }
         }
-        
-        if (!user.startsWith("#")) {
-            user = "#explosion";
-        }
-
-        boolean log = false;
-        if (Config.getConfig(world).EXPLOSIONS) {
-            log = true;
-        }
-
-        if (!event.isCancelled() && log) {
-            processBlockExplode(user, world, event.blockList());
-        }
+        processBlockExplode(user, world, event.blockList());
     }
 
 }

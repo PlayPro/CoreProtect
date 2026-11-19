@@ -11,6 +11,7 @@ import net.coreprotect.utility.EntityUtils;
 public class EntityResult implements CoreProtectResult {
     private final long time;
     private final String username;
+    private final String victim;
     private final String world;
     private final int x;
     private final int y;
@@ -20,6 +21,11 @@ public class EntityResult implements CoreProtectResult {
     private final int rolledBack;
 
     public EntityResult(long time, String username, String world, int x, int y, int z, int type, int actionId, int rolledBack) {
+        this(time, username, world, x, y, z, type, actionId, rolledBack, null);
+    }
+
+    public EntityResult(long time, String username, String world, int x, int y, int z, int type, int actionId, int rolledBack, String victim) {
+        this.victim = actionId == LookupActions.ENTITY_KILL && type == 0 ? victim : null;
         this.time = time;
         this.username = username;
         this.world = world;
@@ -41,6 +47,14 @@ public class EntityResult implements CoreProtectResult {
 
     public String getPlayer() {
         return username;
+    }
+
+    /**
+     * Returns the recorded name of the killed player, or null for other events
+     * and player kills whose victim cannot be resolved.
+     */
+    public String getVictim() {
+        return victim;
     }
 
     public long getTimestamp() {

@@ -22,6 +22,8 @@ public final class LookupOptions {
     private final List<Material> excludeMaterials;
     private final List<String> users;
     private final List<String> excludeUsers;
+    private final List<String> victims;
+    private final List<String> excludeVictims;
     private final List<String> textStartsWithAny;
     private final List<String> textStartsWithNone;
     private final List<ContainerAction> containerActions;
@@ -45,6 +47,8 @@ public final class LookupOptions {
         this.excludeMaterials = builder.excludeMaterials;
         this.users = builder.users;
         this.excludeUsers = builder.excludeUsers;
+        this.victims = builder.victims;
+        this.excludeVictims = builder.excludeVictims;
         this.textStartsWithAny = builder.textStartsWithAny;
         this.textStartsWithNone = builder.textStartsWithNone;
         this.containerActions = builder.containerActions;
@@ -109,6 +113,14 @@ public final class LookupOptions {
         return excludeUsers;
     }
 
+    public List<String> getVictims() {
+        return victims;
+    }
+
+    public List<String> getExcludeVictims() {
+        return excludeVictims;
+    }
+
     public List<String> getTextStartsWithAny() {
         return textStartsWithAny;
     }
@@ -161,6 +173,8 @@ public final class LookupOptions {
         private List<Material> excludeMaterials = List.of();
         private List<String> users = List.of();
         private List<String> excludeUsers = List.of();
+        private List<String> victims = List.of();
+        private List<String> excludeVictims = List.of();
         private List<String> textStartsWithAny = List.of();
         private List<String> textStartsWithNone = List.of();
         private List<ContainerAction> containerActions = List.of();
@@ -230,6 +244,36 @@ public final class LookupOptions {
         public Builder excludeUsers(List<String> users) {
             this.excludeUsers = List.copyOf(users);
             return this;
+        }
+
+        /**
+         * Includes kills of any named player in entityLookup only, before pagination.
+         * Empty means no victim restriction; unknown names never match.
+         * @throws IllegalArgumentException for blank names or special users beginning with '#'
+         */
+        public Builder victims(List<String> victims) {
+            this.victims = victimNames(victims);
+            return this;
+        }
+
+        /**
+         * Excludes kills of named players in entityLookup only, before pagination.
+         * Other entity events and kills with an unknown victim are retained.
+         * @throws IllegalArgumentException for blank names or special users beginning with '#'
+         */
+        public Builder excludeVictims(List<String> victims) {
+            this.excludeVictims = victimNames(victims);
+            return this;
+        }
+
+        private static List<String> victimNames(List<String> victims) {
+            List<String> copy = List.copyOf(victims);
+            for (String victim : copy) {
+                if (victim.isBlank() || victim.startsWith("#")) {
+                    throw new IllegalArgumentException("Victim filters require player names");
+                }
+            }
+            return copy;
         }
 
         /**

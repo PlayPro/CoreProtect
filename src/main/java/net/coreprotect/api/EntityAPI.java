@@ -3,6 +3,7 @@ package net.coreprotect.api;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -55,7 +56,7 @@ public class EntityAPI {
 
             boolean snapshot = filter.beginDuckDBSnapshot(connection);
             try {
-                StringBuilder query = new StringBuilder("SELECT entity_rows.time,entity_rows." + ConfigHandler.databaseType.getUserColumn() + ",entity_rows.wid,entity_rows.x,entity_rows.y,entity_rows.z,entity_rows.type,entity_rows.action,entity_rows.rolled_back FROM ");
+                StringBuilder query = new StringBuilder("SELECT entity_rows.time,entity_rows." + ConfigHandler.databaseType.getUserColumn() + ",entity_rows.wid,entity_rows.x,entity_rows.y,entity_rows.z,entity_rows.type,entity_rows.data,entity_rows.action,entity_rows.rolled_back FROM ");
                 query.append(filter.entityTable(connection, "entity_rows"));
                 query.append(' ');
                 filter.appendEntityWhere(connection, query, "entity_rows");
@@ -69,6 +70,7 @@ public class EntityAPI {
                 if (!options.getExcludeEntities().isEmpty()) {
                     query.append(" AND NOT ").append(entityPredicate(options.getExcludeEntities()));
                 }
+                appendVictimFilters(connection, query, options);
                 query.append(" ORDER BY ").append(ConfigHandler.getDescendingEventOrder().replace("time", "entity_rows.time").replace("rowid", "entity_rows.rowid"));
                 filter.appendLimit(query);
 
@@ -78,7 +80,7 @@ public class EntityAPI {
                         while (results.next()) {
                             result.add(new EntityResult(
                                     results.getLong("time"), UserStatement.getName(connection, results.getInt("user")), WorldUtils.getWorldName(results.getInt("wid")),
-                                    results.getInt("x"), results.getInt("y"), results.getInt("z"), results.getInt("type"), results.getInt("action"), results.getInt("rolled_back")
+                                    results.getInt("x"), results.getInt("y"), results.getInt("z"), results.getInt("type"), results.getInt("action"), results.getInt("rolled_back"), victim(connection, results)
                             ));
                         }
                     }
@@ -92,6 +94,50 @@ public class EntityAPI {
             ErrorReporter.report(e);
         }
         return result;
+    }
+
+    private static String victim(Connection connection, ResultSet results) throws SQLException {
+        // data holds a victim user ID only for player kills; other events reuse it.
+        if (results.getInt("action") != LookupActions.ENTITY_KILL || results.getInt("type") != 0 || results.wasNull()) {
+            return null;
+        }
+        long id = results.getLong("data");
+        if (results.wasNull() || id <= 0 || id > Integer.MAX_VALUE) {
+            return null;
+        }
+        String name = UserStatement.getName(connection, (int) id);
+        return name == null || name.isEmpty() ? null : name;
+    }
+
+    private static void appendVictimFilters(Connection connection, StringBuilder query, LookupOptions options) throws SQLException {
+        if (!options.getVictims().isEmpty()) {
+            String ids = victimIds(connection, options.getVictims());
+            if (ids.isEmpty()) {
+                query.append(" AND 1 = 0");
+            }
+            else {
+                query.append(" AND entity_rows.action=").append(LookupActions.ENTITY_KILL)
+                        .append(" AND entity_rows.type=0 AND entity_rows.data IN (").append(ids).append(')');
+            }
+        }
+        if (!options.getExcludeVictims().isEmpty()) {
+            String ids = victimIds(connection, options.getExcludeVictims());
+            if (!ids.isEmpty()) {
+                query.append(" AND NOT (COALESCE(entity_rows.action,-1)=").append(LookupActions.ENTITY_KILL)
+                        .append(" AND COALESCE(entity_rows.type,-1)=0 AND COALESCE(entity_rows.data,0) IN (").append(ids).append("))");
+            }
+        }
+    }
+
+    private static String victimIds(Connection connection, List<String> names) throws SQLException {
+        StringJoiner ids = new StringJoiner(",");
+        for (String name : names) {
+            int id = UserStatement.findId(connection, name);
+            if (id > 0) {
+                ids.add(Integer.toString(id));
+            }
+        }
+        return ids.toString();
     }
 
     private static String entityPredicate(List<EntityType> entities) {

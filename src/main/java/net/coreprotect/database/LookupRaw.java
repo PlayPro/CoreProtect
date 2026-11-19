@@ -588,13 +588,13 @@ public class LookupRaw extends Queue {
             }
             boolean validAction = false;
             String queryBlock = "";
-            String queryEntity = "";
             String queryLimit = "";
             String queryTable = "block";
             String action = "";
             String actionExclude = "";
             String includeBlock = "";
             String includeEntity = "";
+            boolean restrictTypes = false;
             String excludeBlock = "";
             String excludeEntity = "";
             String users = "";
@@ -628,39 +628,22 @@ public class LookupRaw extends Queue {
                 users = checkUserText.toString();
             }
 
-            if (restrictList.size() > 0) {
-                StringBuilder includeListMaterial = new StringBuilder();
+            if (!restrictList.isEmpty()) {
+                StringJoiner includeListMaterial = new StringJoiner(",");
                 StringJoiner includeListEntity = new StringJoiner(",");
 
                 for (Object restrictTarget : restrictList) {
-                    String targetName = "";
-
                     if (restrictTarget instanceof Material) {
-                        targetName = ((Material) restrictTarget).name();
-                        if (includeListMaterial.length() == 0) {
-                            includeListMaterial = includeListMaterial.append(MaterialUtils.getBlockId(targetName, false));
-                        }
-                        else {
-                            includeListMaterial.append(",").append(MaterialUtils.getBlockId(targetName, false));
-                        }
-
-                        /* Include legacy IDs */
-                        int legacyId = BukkitAdapter.ADAPTER.getLegacyBlockId((Material) restrictTarget);
-                        if (legacyId > 0) {
-                            includeListMaterial.append(",").append(legacyId);
-                        }
+                        restrictTypes = true;
+                        addMaterialTypeIds(includeListMaterial, (Material) restrictTarget);
                     }
                     else if (restrictTarget instanceof EntityType) {
+                        restrictTypes = true;
                         addEntityTypeIds(includeListEntity, (EntityType) restrictTarget);
                     }
                     else if (restrictTarget instanceof String) {
-                        int blockId = MaterialUtils.getBlockId((String) restrictTarget, false);
-                        if (includeListMaterial.length() == 0) {
-                            includeListMaterial = includeListMaterial.append(blockId);
-                        }
-                        else {
-                            includeListMaterial.append(",").append(blockId);
-                        }
+                        restrictTypes = true;
+                        addTypeId(includeListMaterial, MaterialUtils.getBlockId((String) restrictTarget, false));
                     }
                 }
 
@@ -668,41 +651,19 @@ public class LookupRaw extends Queue {
                 includeEntity = includeListEntity.toString();
             }
 
-            if (excludeList.size() > 0) {
-                StringBuilder excludeListMaterial = new StringBuilder();
+            if (!excludeList.isEmpty()) {
+                StringJoiner excludeListMaterial = new StringJoiner(",");
                 StringJoiner excludeListEntity = new StringJoiner(",");
 
                 for (Object restrictTarget : excludeList.keySet()) {
-                    String targetName = "";
-
                     if (restrictTarget instanceof Material) {
-                        targetName = ((Material) restrictTarget).name();
-                        if (excludeListMaterial.length() == 0) {
-                            excludeListMaterial = excludeListMaterial.append(MaterialUtils.getBlockId(targetName, false));
-                        }
-                        else {
-                            excludeListMaterial.append(",").append(MaterialUtils.getBlockId(targetName, false));
-                        }
-
-                        /* Include legacy IDs */
-                        int legacyId = BukkitAdapter.ADAPTER.getLegacyBlockId((Material) restrictTarget);
-                        if (legacyId > 0) {
-                            excludeListMaterial.append(",").append(legacyId);
-                        }
+                        addMaterialTypeIds(excludeListMaterial, (Material) restrictTarget);
                     }
                     else if (restrictTarget instanceof EntityType) {
                         addEntityTypeIds(excludeListEntity, (EntityType) restrictTarget);
                     }
                     else if (restrictTarget instanceof String) {
-                        int blockId = MaterialUtils.getBlockId((String) restrictTarget, false);
-                        if (blockId > -1) {
-                            if (excludeListMaterial.length() == 0) {
-                                excludeListMaterial = excludeListMaterial.append(blockId);
-                            }
-                            else {
-                                excludeListMaterial.append(",").append(blockId);
-                            }
-                        }
+                        addTypeId(excludeListMaterial, MaterialUtils.getBlockId((String) restrictTarget, false));
                     }
                 }
 
@@ -908,16 +869,8 @@ public class LookupRaw extends Queue {
                 actionPredicate = standardActionLookup ? buildActionPredicate(action, actionList, entityActionFilter) : "action IN(" + action + ")";
                 queryBlock = queryBlock + " " + actionPredicate + " AND";
             }
-            else if (inventoryQuery || actionExclude.length() > 0 || includeBlock.length() > 0 || includeEntity.length() > 0 || excludeBlock.length() > 0 || excludeEntity.length() > 0) {
+            else if (inventoryQuery || actionExclude.length() > 0) {
                 queryBlock = queryBlock + " action NOT IN(-1) AND";
-            }
-
-            if ((lookup || !actionList.contains(LookupActions.SIGN)) && (includeBlock.length() > 0 || includeEntity.length() > 0)) {
-                queryBlock = queryBlock + " type IN(" + (includeBlock.length() > 0 ? includeBlock : "0") + ") AND";
-            }
-
-            if ((lookup || !actionList.contains(LookupActions.SIGN)) && (excludeBlock.length() > 0 || excludeEntity.length() > 0)) {
-                queryBlock = queryBlock + " type NOT IN(" + (excludeBlock.length() > 0 ? excludeBlock : "0") + ") AND";
             }
 
             if (usernameLookup) {
@@ -982,17 +935,12 @@ public class LookupRaw extends Queue {
                 queryEntityContainer = queryEntityContainer.replace(standardLocationQuery, entityContainerLocationQuery);
             }
             if (entityContainerId != null) {
-                queryEntityContainer = "(" + queryEntityContainer + ") AND entity_spawn_rowid=" + entityContainerId;
+                queryEntityContainer += " AND entity_spawn_rowid=" + entityContainerId;
             }
+            queryEntityContainer += sourceTypePredicate(restrictTypes, includeBlock, excludeBlock);
+            queryNonBlock += sourceTypePredicate(restrictTypes, includeBlock, excludeBlock);
 
-            queryEntity = queryBlock;
-            if (includeBlock.length() > 0 || includeEntity.length() > 0) {
-                queryEntity = queryEntity.replace("type IN(" + (includeBlock.length() > 0 ? includeBlock : "0") + ")", "type IN(" + (includeEntity.length() > 0 ? includeEntity : "0") + ")");
-            }
-            if (excludeBlock.length() > 0 || excludeEntity.length() > 0) {
-                queryEntity = queryEntity.replace("type NOT IN(" + (excludeBlock.length() > 0 ? excludeBlock : "0") + ")", "type NOT IN(" + (excludeEntity.length() > 0 ? excludeEntity : "0") + ")");
-            }
-            String queryEntityInteraction = queryEntity;
+            String queryEntityInteraction = queryBlock;
             if (!entitySpawnLocationQuery.isEmpty()) {
                 queryEntityInteraction = queryEntityInteraction.replace(entitySpawnLocationQuery, standardLocationQuery);
             }
@@ -1002,8 +950,8 @@ public class LookupRaw extends Queue {
             if (!actionPredicate.isEmpty()) {
                 queryEntityInteraction = queryEntityInteraction.replace(actionPredicate, "1");
             }
-            String baseQuery = ((!includeEntity.isEmpty() || !excludeEntity.isEmpty()) ? queryEntity : queryBlock);
-            String blockSourceQuery = actionList.size() == 1 && actionList.contains(LookupActions.INTERACTION) ? queryBlock : baseQuery;
+            queryEntityInteraction += sourceTypePredicate(restrictTypes, includeEntity, excludeEntity);
+            String blockSourceQuery = queryBlock + blockTypePredicate(restrictTypes, includeBlock, includeEntity, excludeBlock, excludeEntity);
             if (!summary && !selectPageRows && limitOffset > -1 && limitCount > -1) {
                 queryLimit = " LIMIT " + limitCount + " OFFSET " + limitOffset;
                 unionLimit = " ORDER BY time DESC, id DESC LIMIT " + (limitOffset + limitCount) + "";
@@ -1045,6 +993,17 @@ public class LookupRaw extends Queue {
             else if (actionList.contains(LookupActions.ITEM)) {
                 queryTable = "item";
                 rows = "rowid as id,time," + userColumn + ",wid,x,y,z,type,data as metadata,0 as data,amount,action,rolled_back,0 as entity_spawn_rowid";
+            }
+
+            String baseQuery = queryBlock;
+            if (queryTable.equals("block")) {
+                baseQuery = blockSourceQuery;
+            }
+            else if (queryTable.equals("container") || queryTable.equals("item")) {
+                baseQuery = queryNonBlock;
+            }
+            else if (restrictTypes && (lookup || !queryTable.equals("sign"))) {
+                baseQuery += " AND 1=0";
             }
 
             if (selectPageRows) {
@@ -1149,12 +1108,13 @@ public class LookupRaw extends Queue {
                     rows = "rowid as id,time," + userColumn + ",wid,x,y,z,type,meta as metadata,data,-1 as amount,action,rolled_back,0 as entity_spawn_rowid";
                 }
 
+                String inventoryBlockQuery = blockSourceQuery;
                 if (inventoryQuery) {
                     if (validAction) {
-                        baseQuery = baseQuery.replace("action IN(" + action + ")", "action IN(" + LookupActions.BLOCK_PLACE + ")");
+                        inventoryBlockQuery = inventoryBlockQuery.replace("action IN(" + action + ")", "action IN(" + LookupActions.BLOCK_PLACE + ")");
                     }
                     else {
-                        baseQuery = baseQuery.replace("action NOT IN(-1)", "action IN(" + LookupActions.BLOCK_PLACE + ")");
+                        inventoryBlockQuery = inventoryBlockQuery.replace("action NOT IN(-1)", "action IN(" + LookupActions.BLOCK_PLACE + ")");
                     }
 
                     if (!count && !selectPageRows) {
@@ -1162,11 +1122,7 @@ public class LookupRaw extends Queue {
                     }
                 }
 
-                if (includeBlock.length() > 0 || excludeBlock.length() > 0) {
-                    baseQuery = baseQuery.replace("action NOT IN(-1)", "action NOT IN(" + LookupActions.ENTITY_KILL + "," + LookupActions.ENTITY_SPAWN + ")"); // if block specified for include/exclude, filter out entity data
-                }
-
-                String sourceQuery = restrictSource(baseQuery, pageRows, InventorySources.BLOCK);
+                String sourceQuery = restrictSource(inventoryBlockQuery, pageRows, InventorySources.BLOCK);
                 String sourceTable = sourceTable(statement, "block", locationWorldId, sourceBounds, entityContext, entitySpawnLocation, pageRows, clickHouseLookup, pageRows == null ? timeQuery : sourceQuery.trim());
                 query = unionSelect + blockQuery(rows, sourceTable, index, sourceQuery, entitySpawnLocationQuery, originalBlockLocationQuery, currentBlockLocationQuery, count) + unionLimit + ") UNION ALL ";
                 itemLookup = true;
@@ -1635,13 +1591,52 @@ public class LookupRaw extends Queue {
     }
 
     private static void addEntityTypeIds(StringJoiner filter, EntityType type) {
-        List<Integer> ids = EntityUtils.getEntityIds(type);
-        if (ids.isEmpty()) {
-            filter.add("-1");
+        for (int id : EntityUtils.getEntityIds(type)) {
+            addTypeId(filter, id);
         }
-        else {
-            ids.forEach(id -> filter.add(id.toString()));
+    }
+
+    private static void addMaterialTypeIds(StringJoiner filter, Material material) {
+        addTypeId(filter, MaterialUtils.getBlockId(material.name(), false));
+        int legacyId = BukkitAdapter.ADAPTER.getLegacyBlockId(material);
+        if (legacyId > 0) {
+            addTypeId(filter, legacyId);
         }
+    }
+
+    private static void addTypeId(StringJoiner filter, int id) {
+        if (id >= 0) {
+            filter.add(Integer.toString(id));
+        }
+    }
+
+    private static String sourceTypePredicate(boolean restrictTypes, String include, String exclude) {
+        String predicate = restrictTypes ? (include.isEmpty() ? " AND 1=0" : " AND type IN(" + include + ")") : "";
+        return exclude.isEmpty() ? predicate : predicate + " AND type NOT IN(" + exclude + ")";
+    }
+
+    private static String blockTypePredicate(boolean restrictTypes, String includeMaterial, String includeEntity, String excludeMaterial, String excludeEntity) {
+        String entityActions = "(" + LookupActions.ENTITY_KILL + "," + LookupActions.ENTITY_SPAWN + ")";
+        String materialAction = "action NOT IN" + entityActions;
+        String entityAction = "action IN" + entityActions;
+        StringBuilder predicate = new StringBuilder();
+        if (restrictTypes) {
+            StringJoiner allowed = new StringJoiner(" OR ");
+            if (!includeMaterial.isEmpty()) {
+                allowed.add("(" + materialAction + " AND type IN(" + includeMaterial + "))");
+            }
+            if (!includeEntity.isEmpty()) {
+                allowed.add("(" + entityAction + " AND type IN(" + includeEntity + "))");
+            }
+            predicate.append(" AND ").append(allowed.length() == 0 ? "1=0" : "(" + allowed + ")");
+        }
+        if (!excludeMaterial.isEmpty()) {
+            predicate.append(" AND (").append(entityAction).append(" OR type NOT IN(").append(excludeMaterial).append("))");
+        }
+        if (!excludeEntity.isEmpty()) {
+            predicate.append(" AND (").append(materialAction).append(" OR type NOT IN(").append(excludeEntity).append("))");
+        }
+        return predicate.toString();
     }
 
     private static String placedEntityTypeIds() {

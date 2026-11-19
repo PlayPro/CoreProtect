@@ -561,7 +561,9 @@ public class PurgeCommand {
             if (ConfigHandler.databaseType.isMySQL() && optimize) {
                 removed += sweepMySqlOrphans(connection, filter);
             }
-            removed += deleteOrphanedEntityRows(connection, retainedPrefix);
+            if (!abort) {
+                removed += deleteOrphanedEntityRows(connection, retainedPrefix, filter);
+            }
             if (ConfigHandler.databaseType.isMySQL() && optimize) {
                 optimizeMySqlTables(connection, player);
             }
@@ -769,16 +771,13 @@ public class PurgeCommand {
             if (!table.equals("database_lock")) {
                 try {
                     String timeLimit = "";
-                    if (table.equals("entity_spawn")) {
-                        timeLimit = " WHERE removed=0 OR block_rowid IN(SELECT rowid FROM " + purgePrefix + "block) OR kill_rowid IN(SELECT rowid FROM " + purgePrefix + "entity) OR rowid IN(SELECT entity_spawn_rowid FROM " + purgePrefix + "entity_container) OR rowid IN(SELECT entity_spawn_rowid FROM " + purgePrefix + "entity_interaction)";
-                    }
-                    else if (table.equals("entity")) {
+                    if (table.equals("entity")) {
                         timeLimit = " WHERE " + purgeFilter.entityRetainCondition(purgePrefix + "block");
                     }
                     else {
-                        String purgeCondition = purgeFilter.deleteCondition(table, ConfigHandler.prefix);
+                        String purgeCondition = purgeFilter.deleteCondition(table);
                         if (purgeCondition != null) {
-                            timeLimit = " WHERE NOT (" + purgeCondition + ")";
+                            timeLimit = " WHERE NOT COALESCE((" + purgeCondition + "), 0)";
                         }
                     }
                     query = "INSERT INTO " + purgePrefix + table + insertColumns + " SELECT " + selectColumns + " FROM " + ConfigHandler.prefix + table + timeLimit;
@@ -827,7 +826,7 @@ public class PurgeCommand {
                         executePurgeStatement(connection, query);
                     }
                     else {
-                        String purgeCondition = purgeFilter.deleteCondition(table, ConfigHandler.prefix);
+                        String purgeCondition = purgeFilter.deleteCondition(table);
                         if (purgeCondition != null) {
                             query = "DELETE FROM " + purgePrefix + table + " WHERE " + purgeCondition;
                             executePurgeStatement(connection, query);
@@ -858,7 +857,7 @@ public class PurgeCommand {
             requirePurgeNotCancelled();
             Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_PROCESSING, table.replace('_', ' ')));
             try {
-                String purgeCondition = purgeFilter.deleteCondition(table, ConfigHandler.prefix);
+                String purgeCondition = purgeFilter.deleteCondition(table);
                 boolean deleteEntities = purgeCondition != null && table.equals("block") && purgeFilter.removesKills() && !purgeFilter.purgesEntitiesByTime();
                 // Kill rows and their entity data go together, or the kept kills lose their rollback data
                 boolean atomic = deleteEntities && ConfigHandler.databaseType.isMySQL();
@@ -934,8 +933,7 @@ public class PurgeCommand {
         return removed;
     }
 
-    private static long deleteOrphanedEntityRows(Connection connection, String retainedPrefix) throws Exception {
-        long removed = 0;
+    static long deleteOrphanedEntityRows(Connection connection, String retainedPrefix, PurgeFilter filter) throws Exception {
         String query;
         requirePurgeNotCancelled();
         query = "UPDATE " + retainedPrefix + "entity_spawn SET kill_rowid=NULL WHERE kill_rowid IS NOT NULL AND NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity WHERE " + retainedPrefix + "entity.rowid=" + retainedPrefix + "entity_spawn.kill_rowid)";
@@ -946,18 +944,8 @@ public class PurgeCommand {
         executePurgeUpdate(connection, query);
 
         requirePurgeNotCancelled();
-        query = "DELETE FROM " + retainedPrefix + "entity_interaction WHERE NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity_spawn WHERE " + retainedPrefix + "entity_spawn.rowid=" + retainedPrefix + "entity_interaction.entity_spawn_rowid)";
-        removed = removed + executePurgeUpdate(connection, query);
-
-        requirePurgeNotCancelled();
-        query = "DELETE FROM " + retainedPrefix + "entity_container WHERE NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity_spawn WHERE " + retainedPrefix + "entity_spawn.rowid=" + retainedPrefix + "entity_container.entity_spawn_rowid)";
-        removed = removed + executePurgeUpdate(connection, query);
-
-        requirePurgeNotCancelled();
-        query = "DELETE FROM " + retainedPrefix + "entity_spawn WHERE removed=1 AND block_rowid IS NULL AND kill_rowid IS NULL AND NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity_container WHERE " + retainedPrefix + "entity_container.entity_spawn_rowid=" + retainedPrefix + "entity_spawn.rowid) AND NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity_interaction WHERE " + retainedPrefix + "entity_interaction.entity_spawn_rowid=" + retainedPrefix + "entity_spawn.rowid)";
-        removed = removed + executePurgeUpdate(connection, query);
-
-        return removed;
+        query = "DELETE FROM " + retainedPrefix + "entity_spawn WHERE " + filter.unreferencedSpawnCondition(retainedPrefix);
+        return executePurgeUpdate(connection, query);
     }
 
     private static void optimizeMySqlTables(Connection connection, CommandSender player) throws Exception {

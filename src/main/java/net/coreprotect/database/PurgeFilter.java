@@ -99,11 +99,9 @@ public final class PurgeFilter {
      *
      * @param table
      *            the table name without prefix
-     * @param prefix
-     *            the prefix of the tables that subqueries read from
      * @return the SQL condition, or null when the purge keeps every row of the table
      */
-    public String deleteCondition(String table, String prefix) {
+    public String deleteCondition(String table) {
         if (table.equals("block")) {
             return blockCondition("");
         }
@@ -119,10 +117,15 @@ public final class PurgeFilter {
         if (!PurgePolicy.isWorldScoped(table)) {
             return null;
         }
-        if (table.equals("entity_container") || table.equals("entity_interaction")) {
-            return timeCondition("") + " AND (wid = " + worldId + " OR entity_spawn_rowid IN(SELECT rowid FROM " + prefix + "entity_spawn WHERE current_wid = " + worldId + "))";
-        }
         return timeCondition("") + " AND wid = " + worldId;
+    }
+
+    public String unreferencedSpawnCondition(String prefix) {
+        String spawn = prefix + "entity_spawn";
+        return timeCondition("") + (worldId > 0 ? " AND wid = " + worldId : "")
+                + " AND removed=1 AND block_rowid IS NULL AND kill_rowid IS NULL"
+                + " AND NOT EXISTS (SELECT 1 FROM " + prefix + "entity_container WHERE entity_spawn_rowid=" + spawn + ".rowid)"
+                + " AND NOT EXISTS (SELECT 1 FROM " + prefix + "entity_interaction WHERE entity_spawn_rowid=" + spawn + ".rowid)";
     }
 
     /**

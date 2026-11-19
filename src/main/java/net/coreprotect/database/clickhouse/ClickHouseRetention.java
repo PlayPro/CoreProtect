@@ -98,7 +98,7 @@ final class ClickHouseRetention {
                     removed = countTargets(connection, targetTable);
                     deleteTargets(connection, targetTable);
                 }
-                removed += cleanupEntityData(connection, targetTable);
+                removed += cleanupEntityData(connection, targetTable, startTime, endTime, worldId);
 
                 if (optimize) {
                     try (Statement statement = connection.createStatement()) {
@@ -226,15 +226,8 @@ final class ClickHouseRetention {
             }
 
             if (worldId > 0) {
-                if (family == ClickHouseFamily.ENTITY_CONTAINER || family == ClickHouseFamily.ENTITY_INTERACTION) {
-                    sql.append(" AND ((wid IS NOT NULL AND _key_wid=?) OR entity_spawn_rowid IN(SELECT rowid FROM ").append(table("entity_spawn")).append(" WHERE current_wid=?))");
-                    integerParameters.add(worldId);
-                    integerParameters.add(worldId);
-                }
-                else {
-                    sql.append(" AND wid IS NOT NULL AND _key_wid=?");
-                    integerParameters.add(worldId);
-                }
+                sql.append(" AND wid IS NOT NULL AND _key_wid=?");
+                integerParameters.add(worldId);
             }
 
             try (PreparedStatement statement = connection.prepareStatement(sql.toString())) {
@@ -275,24 +268,19 @@ final class ClickHouseRetention {
         execute(connection, sql);
     }
 
-    private long cleanupEntityData(Connection connection, String targetTable) throws SQLException {
+    private long cleanupEntityData(Connection connection, String targetTable, long startTime, long endTime, int worldId) throws SQLException {
         clearMissingReference(connection, "block_rowid", "block_rowid_present", "block");
         clearMissingReference(connection, "kill_rowid", "kill_rowid_present", "entity");
 
         clearTargets(connection, targetTable);
-        selectOrphanChildren(connection, targetTable, ClickHouseFamily.ENTITY_CONTAINER);
-        selectOrphanChildren(connection, targetTable, ClickHouseFamily.ENTITY_INTERACTION);
-        long removed = countTargets(connection, targetTable);
-        deleteTargets(connection, targetTable);
-
-        clearTargets(connection, targetTable);
         String orphanSpawns = "INSERT INTO " + targetTable
                 + " SELECT 'entity_spawn',rowid FROM " + table("entity_spawn")
-                + " WHERE removed=1 AND block_rowid IS NULL AND kill_rowid IS NULL"
+                + " WHERE time>=" + startTime + " AND time<" + endTime + (worldId > 0 ? " AND wid=" + worldId : "")
+                + " AND removed=1 AND block_rowid IS NULL AND kill_rowid IS NULL"
                 + " AND rowid NOT IN(SELECT assumeNotNull(entity_spawn_rowid) FROM " + table("entity_container") + " WHERE entity_spawn_rowid IS NOT NULL)"
                 + " AND rowid NOT IN(SELECT assumeNotNull(entity_spawn_rowid) FROM " + table("entity_interaction") + " WHERE entity_spawn_rowid IS NOT NULL)";
         execute(connection, orphanSpawns);
-        removed += countTargets(connection, targetTable);
+        long removed = countTargets(connection, targetTable);
         deleteTargets(connection, targetTable);
         return removed;
     }
@@ -302,12 +290,6 @@ final class ClickHouseRetention {
                 + " WHERE family='entity_spawn' AND " + presenceColumn + "=1"
                 + " AND " + valueColumn + " IS NOT NULL AND " + valueColumn + " NOT IN(SELECT rowid FROM " + table(referencedFamily) + ")"
                 + MUTATION_SETTINGS;
-        execute(connection, sql);
-    }
-
-    private void selectOrphanChildren(Connection connection, String targetTable, ClickHouseFamily family) throws SQLException {
-        String sql = "INSERT INTO " + targetTable + " SELECT '" + family.getTableName() + "',rowid FROM " + table(family.getTableName())
-                + " WHERE entity_spawn_rowid IS NULL OR assumeNotNull(entity_spawn_rowid) NOT IN(SELECT rowid FROM " + table("entity_spawn") + ")";
         execute(connection, sql);
     }
 

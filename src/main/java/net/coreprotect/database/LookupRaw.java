@@ -103,7 +103,7 @@ public class LookupRaw extends Queue {
         if (limitCount <= 0 || limitOffset < 0) {
             throw new IllegalArgumentException("Lookup pages require a positive size and non-negative offset");
         }
-        int currentPage = (limitOffset / limitCount) + 1;
+        long currentPage = (long) limitOffset / limitCount + 1L;
         if (cursor != null && (knownTotalRows < 0L || limitOffset == 0 || limitOffset % limitCount != 0
                 || cursor.getNextPage() != currentPage || cursor.getPageSize() != limitCount)) {
             cursor = null;
@@ -160,7 +160,8 @@ public class LookupRaw extends Queue {
             if (!Lookup.hasQueryResult(rows, failOnError) || rows.isEmpty()) {
                 return new RawLookupPage(totalRows, Collections.emptyList(), null);
             }
-            LookupCursor nextCursor = foundPageRow ? new LookupCursor(currentPage + 1, limitCount, cursorTime, cursorSource, cursorRowId, orderByTime) : null;
+            LookupCursor nextCursor = foundPageRow && currentPage < Integer.MAX_VALUE
+                    ? new LookupCursor((int) currentPage + 1, limitCount, cursorTime, cursorSource, cursorRowId, orderByTime) : null;
             return new RawLookupPage(totalRows, rows, nextCursor);
         }
         catch (Exception exception) {

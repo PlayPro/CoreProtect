@@ -28,6 +28,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.clickhouse.ClickHouseLookup;
+import net.coreprotect.database.lookup.SignLookupText;
 import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.database.statement.SignStatement;
 import net.coreprotect.database.statement.UserStatement;
@@ -292,66 +293,8 @@ public class LookupRaw extends Queue {
                         list.add(new Object[] { resultId, resultTime, resultUserId, resultX, resultY, resultZ, 0, 0, LookupActions.SIGN, results.getInt("rolled_back"), resultWorldId, -1, null, null, change, 0 });
                         continue;
                     }
-                    String line1 = results.getString("line_1");
-                    String line2 = results.getString("line_2");
-                    String line3 = results.getString("line_3");
-                    String line4 = results.getString("line_4");
-                    String line5 = results.getString("line_5");
-                    String line6 = results.getString("line_6");
-                    String line7 = results.getString("line_7");
-                    String line8 = results.getString("line_8");
-
-                    StringBuilder message = new StringBuilder();
-                    if (isFront && line1 != null && line1.length() > 0) {
-                        message.append(line1);
-                        if (!line1.endsWith(" ")) {
-                            message.append(" ");
-                        }
-                    }
-                    if (isFront && line2 != null && line2.length() > 0) {
-                        message.append(line2);
-                        if (!line2.endsWith(" ")) {
-                            message.append(" ");
-                        }
-                    }
-                    if (isFront && line3 != null && line3.length() > 0) {
-                        message.append(line3);
-                        if (!line3.endsWith(" ")) {
-                            message.append(" ");
-                        }
-                    }
-                    if (isFront && line4 != null && line4.length() > 0) {
-                        message.append(line4);
-                        if (!line4.endsWith(" ")) {
-                            message.append(" ");
-                        }
-                    }
-                    if (!isFront && line5 != null && line5.length() > 0) {
-                        message.append(line5);
-                        if (!line5.endsWith(" ")) {
-                            message.append(" ");
-                        }
-                    }
-                    if (!isFront && line6 != null && line6.length() > 0) {
-                        message.append(line6);
-                        if (!line6.endsWith(" ")) {
-                            message.append(" ");
-                        }
-                    }
-                    if (!isFront && line7 != null && line7.length() > 0) {
-                        message.append(line7);
-                        if (!line7.endsWith(" ")) {
-                            message.append(" ");
-                        }
-                    }
-                    if (!isFront && line8 != null && line8.length() > 0) {
-                        message.append(line8);
-                        if (!line8.endsWith(" ")) {
-                            message.append(" ");
-                        }
-                    }
-
-                    Object[] dataArray = new Object[] { resultId, resultTime, resultUserId, resultWorldId, resultX, resultY, resultZ, message.toString() };
+                    String message = SignLookupText.read(results, isFront);
+                    Object[] dataArray = new Object[] { resultId, resultTime, resultUserId, resultWorldId, resultX, resultY, resultZ, message };
                     list.add(dataArray);
                 }
                 else {
@@ -915,7 +858,7 @@ public class LookupRaw extends Queue {
 
             if (actionList.contains(LookupActions.SIGN)) {
                 if (lookup) {
-                    queryBlock = queryBlock + " action = " + SignActions.PLACE + " AND (LENGTH(line_1) > 0 OR LENGTH(line_2) > 0 OR LENGTH(line_3) > 0 OR LENGTH(line_4) > 0 OR LENGTH(line_5) > 0 OR LENGTH(line_6) > 0 OR LENGTH(line_7) > 0 OR LENGTH(line_8) > 0) AND";
+                    queryBlock = queryBlock + " action = " + SignActions.PLACE + " AND " + SignLookupText.HAS_VISIBLE_TEXT + " AND";
                 }
                 else {
                     queryBlock = queryBlock + " action IN(" + SignActions.PLACE + "," + SignActions.EDIT + ") AND";

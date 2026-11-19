@@ -206,16 +206,16 @@ public class ContainerRollback extends Rollback {
                 return false;
             }
             rollbackHashData = ConfigHandler.rollbackHash.get(finalUserString);
-            int blockCount = rollbackHashData[1];
+            int itemCount = rollbackHashData[1];
             long timeFinish = System.currentTimeMillis();
             double totalSeconds = (timeFinish - timeStart) / 1000.0;
 
             if (user != null) {
                 int file = -1;
-                if (blockCount > 0) {
+                if (itemCount > 0) {
                     file = 1;
                 }
-                int itemCount = 0;
+                int blockCount = 0;
                 int entityCount = 0;
 
                 RollbackComplete.output(user, location, checkUsers, restrictList, excludeList, excludeUserList, actionList, timeString, file, totalSeconds, itemCount, blockCount, entityCount, rollbackType, radius, verbose, restrictWorld, 0);

@@ -22,9 +22,11 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryPickupItemEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -540,6 +542,19 @@ public final class InventoryChangeListener implements Listener {
         if (isSupportedContainer(inventoryHolder) || enderChest || isAdvancedChest(inventory)) {
             onInventoryInteractAsync(player, inventory, enderChest);
         }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    protected void onInventoryClose(InventoryCloseEvent event) {
+        HumanEntity viewer = event.getPlayer();
+        if (viewer instanceof Player) {
+            ContainerCapture.finishEnderChest((Player) viewer, event.getInventory());
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    protected void onPlayerQuit(PlayerQuitEvent event) {
+        ContainerCapture.finishEnderChest(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

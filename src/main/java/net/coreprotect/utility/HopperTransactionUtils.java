@@ -42,16 +42,20 @@ public final class HopperTransactionUtils {
 
     public static String getTransactionId(String user, Material type, Location location) {
         if (type == Material.ENDER_CHEST) {
-            return ENDER_CHEST_PREFIX + StringUtils.normalizeUsername(user).toLowerCase(Locale.ROOT);
+            return getEnderChestGroupId(user);
         }
         return getTransactionId(location);
     }
 
     public static String getViewerGroupId(String user, Material type, Location location) {
         if (type == Material.ENDER_CHEST) {
-            return ENDER_CHEST_PREFIX + StringUtils.normalizeUsername(user).toLowerCase(Locale.ROOT);
+            return getEnderChestGroupId(user);
         }
         return getLoggingIdSuffix(location);
+    }
+
+    public static String getEnderChestGroupId(String user) {
+        return ENDER_CHEST_PREFIX + StringUtils.normalizeUsername(user).toLowerCase(Locale.ROOT);
     }
 
     public static String getLoggingId(String user, Location location) {
@@ -60,7 +64,7 @@ public final class HopperTransactionUtils {
 
     public static String getLoggingId(String user, Material type, Location location) {
         if (type == Material.ENDER_CHEST) {
-            return ENDER_CHEST_PREFIX + StringUtils.normalizeUsername(user).toLowerCase(Locale.ROOT) + getLoggingIdSuffix(location);
+            return getEnderChestGroupId(user) + getLoggingIdSuffix(location);
         }
         return getLoggingId(user, location);
     }

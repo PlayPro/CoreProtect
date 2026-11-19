@@ -8,6 +8,7 @@ public final class LookupActions {
     public static final int INTERACTION = 2;
     public static final int ENTITY_KILL = 3;
     public static final int CONTAINER = 4;
+    public static final int INSPECT_CONTAINER = 5;
     public static final int CHAT = 6;
     public static final int COMMAND = 7;
     public static final int SESSION = 8;

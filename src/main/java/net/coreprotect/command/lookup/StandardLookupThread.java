@@ -7,6 +7,7 @@ import java.sql.Statement;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -22,7 +23,6 @@ import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 
-import com.google.common.base.Strings;
 
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
@@ -42,6 +42,8 @@ import net.coreprotect.model.item.InventorySources;
 import net.coreprotect.model.item.ItemTransactionActions;
 import net.coreprotect.model.lookup.EntityLookupContext;
 import net.coreprotect.model.lookup.LookupCursor;
+import net.coreprotect.model.lookup.LookupSession;
+import net.coreprotect.model.lookup.StandardLookupRequest;
 import net.coreprotect.model.lookup.LookupOutputMode;
 import net.coreprotect.model.lookup.LookupPage;
 import net.coreprotect.model.lookup.LookupRollbackState;
@@ -66,70 +68,32 @@ public class StandardLookupThread implements Runnable {
 
     private final CommandSender player;
     private final Command command;
-    private final List<String> rollbackUsers;
-    private final List<Object> blockList;
-    private final Map<Object, Boolean> excludedBlocks;
-    private final List<String> excludedUsers;
-    private final List<Integer> actions;
-    private final EntityActionFilter entityActionFilter;
-    private final List<String> messageFilters;
-    private final Integer[] radius;
-    private final Location location;
-    private final int x;
-    private final int y;
-    private final int z;
-    private final int worldId;
-    private final int argWorldId;
-    private final String pendingWorldName;
-    private final long timeStart;
-    private final long timeEnd;
-    private final int noisy;
-    private final int excluded;
-    private final int restricted;
-    private final int page;
-    private final int displayResults;
-    private final int typeLookup;
-    private final String rtime;
-    private final LookupOutputMode outputMode;
-    private final LookupRollbackState rollbackState;
+    private final StandardLookupRequest request;
+    private final LookupSession previousSession;
 
-    public StandardLookupThread(CommandSender player, Command command, List<String> rollbackUsers, List<Object> blockList, Map<Object, Boolean> excludedBlocks, List<String> excludedUsers, List<Integer> actions, EntityActionFilter entityActionFilter, List<String> messageFilters, Integer[] radius, Location location, int x, int y, int z, int worldId, int argWorldId, long timeStart, long timeEnd, int noisy, int excluded, int restricted, int page, int displayResults, int typeLookup, String rtime, LookupOutputMode outputMode, LookupRollbackState rollbackState) {
-        this(player, command, rollbackUsers, blockList, excludedBlocks, excludedUsers, actions, entityActionFilter, messageFilters, radius, location, x, y, z, worldId, argWorldId, timeStart, timeEnd, noisy, excluded, restricted, page, displayResults, typeLookup, rtime, outputMode, rollbackState, null);
-    }
-
-    public StandardLookupThread(CommandSender player, Command command, List<String> rollbackUsers, List<Object> blockList, Map<Object, Boolean> excludedBlocks, List<String> excludedUsers, List<Integer> actions, EntityActionFilter entityActionFilter, List<String> messageFilters, Integer[] radius, Location location, int x, int y, int z, int worldId, int argWorldId, long timeStart, long timeEnd, int noisy, int excluded, int restricted, int page, int displayResults, int typeLookup, String rtime, LookupOutputMode outputMode, LookupRollbackState rollbackState, String pendingWorldName) {
+    public StandardLookupThread(CommandSender player, Command command, StandardLookupRequest request, LookupSession previousSession) {
         this.player = player;
         this.command = command;
-        this.rollbackUsers = rollbackUsers;
-        this.blockList = blockList;
-        this.excludedBlocks = excludedBlocks;
-        this.excludedUsers = excludedUsers;
-        this.actions = actions;
-        this.entityActionFilter = entityActionFilter;
-        this.messageFilters = messageFilters;
-        this.radius = radius;
-        this.location = location;
-        this.x = x;
-        this.y = y;
-        this.z = z;
-        this.worldId = worldId;
-        this.argWorldId = argWorldId;
-        this.pendingWorldName = pendingWorldName;
-        this.timeStart = timeStart;
-        this.timeEnd = timeEnd;
-        this.noisy = noisy;
-        this.excluded = excluded;
-        this.restricted = restricted;
-        this.page = page;
-        this.displayResults = displayResults;
-        this.typeLookup = typeLookup;
-        this.rtime = rtime;
-        this.outputMode = outputMode;
-        this.rollbackState = rollbackState;
+        this.request = request;
+        this.previousSession = previousSession;
     }
 
     @Override
     public void run() {
+        List<String> rollbackUsers = request.filters.users;
+        List<Object> blockList = request.filters.includedBlocks;
+        Map<Object, Boolean> excludedBlocks = request.filters.excludedBlocks;
+        List<String> excludedUsers = request.filters.excludedUsers;
+        List<Integer> actions = request.filters.actions;
+        EntityActionFilter entityActionFilter = request.filters.entityActions;
+        List<String> messageFilters = request.filters.messages;
+        Integer[] radius = request.scope.radius();
+        long timeStart = request.scope.startTime;
+        long timeEnd = request.scope.endTime;
+        int page = request.page;
+        int displayResults = request.pageSize;
+        LookupOutputMode outputMode = request.outputMode;
+        LookupRollbackState rollbackState = request.rollbackState;
         boolean summaryLookup = outputMode == LookupOutputMode.SUMMARY;
         if (summaryLookup && !SUMMARY_LOOKUP_ACTIVE.compareAndSet(false, true)) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
@@ -145,7 +109,13 @@ public class StandardLookupThread implements Runnable {
         }
 
         try (Connection connection = Database.getConnection(true)) {
-            int scopedWorldId = argWorldId;
+            if (previousSession != null && (ConfigHandler.lookupSessions.get(player.getName()) != previousSession
+                    || !Integer.valueOf(LookupSession.STANDARD_LOOKUP).equals(ConfigHandler.lookupType.get(player.getName())))) {
+                sendLookupBusy();
+                return;
+            }
+            int scopedWorldId = request.scope.explicitWorldId;
+            String pendingWorldName = request.scope.pendingWorldName;
             String scopedWorldName = null;
             if (pendingWorldName != null) {
                 if (connection == null) {
@@ -171,8 +141,8 @@ public class StandardLookupThread implements Runnable {
             }
 
             List<String> uuidList = new ArrayList<>();
-            Integer entityContainerId = actions.contains(5) ? ConfigHandler.lookupEntityContainer.get(player.getName()) : null;
-            Location finalLocation = location;
+            Integer entityContainerId = actions.contains(LookupActions.INSPECT_CONTAINER) ? ConfigHandler.lookupEntityContainer.get(player.getName()) : null;
+            Location finalLocation = request.scope.location();
             boolean exists = false;
             if (connection == null) {
                 sendLookupBusy();
@@ -234,10 +204,10 @@ public class StandardLookupThread implements Runnable {
                     if (scopedWorldId > 0) {
                         restrict_world = true;
                         String worldName = scopedWorldName != null ? scopedWorldName : WorldUtils.getWorldName(scopedWorldId);
-                        finalLocation = new Location(Bukkit.getServer().getWorld(worldName), x, y, z);
+                        finalLocation = new Location(Bukkit.getServer().getWorld(worldName), request.scope.x, request.scope.y, request.scope.z);
                     }
                     else if (finalLocation != null) {
-                        finalLocation = new Location(Bukkit.getServer().getWorld(WorldUtils.getWorldName(worldId)), x, y, z);
+                        finalLocation = new Location(Bukkit.getServer().getWorld(WorldUtils.getWorldName(request.scope.worldId)), request.scope.x, request.scope.y, request.scope.z);
                     }
 
                     EntityLookupContext entityContext = EntityLookupContext.legacy(Collections.emptySet(), Collections.emptySet());
@@ -258,14 +228,11 @@ public class StandardLookupThread implements Runnable {
                     boolean checkRows = true;
                     LookupPage lookupPage = null;
                     List<LookupSummaryRow> summaryRows = null;
-                    LookupCursor cursor = typeLookup == 5 && outputMode == LookupOutputMode.DETAIL && ConfigHandler.databaseType.isColumnar()
-                            ? ConfigHandler.lookupCursor.get(player.getName()) : null;
+                    LookupCursor cursor = previousSession != null && outputMode == LookupOutputMode.DETAIL && ConfigHandler.databaseType.isColumnar()
+                            ? previousSession.cursor : null;
 
-                    if (typeLookup == 5 && page > 1) {
-                        Long[] savedRows = ConfigHandler.lookupRows.get(player.getName());
-                        if (savedRows != null && savedRows.length >= 5) {
-                            rowData = savedRows.clone();
-                        }
+                    if (previousSession != null && page > 1) {
+                        rowData = previousSession.rowCounts();
                         rows = rowData[4];
                         if (outputMode == LookupOutputMode.SUMMARY) {
                             recordRows = rowData[0];
@@ -329,14 +296,9 @@ public class StandardLookupThread implements Runnable {
                         Map<UUID, Location> loadedEntityLocations = Collections.emptyMap();
                         Set<Integer> entitySpawnRowIds = new HashSet<>();
                         for (String[] data : lookupList) {
-                            if (data.length > 7 && data[6] != null && data[7] != null && Integer.parseInt(data[7]) == LookupActions.ENTITY_SPAWN) {
-                                entitySpawnRowIds.add(Integer.parseInt(data[6]));
-                            }
-                            if (data.length > 14 && data[13] != null && data[14] != null && Integer.parseInt(data[13]) == InventorySources.ENTITY_CONTAINER) {
-                                entitySpawnRowIds.add(Integer.parseInt(data[14]));
-                            }
-                            if (data.length > 14 && data[13] != null && data[14] != null && Integer.parseInt(data[13]) == InventorySources.ENTITY_INTERACTION) {
-                                entitySpawnRowIds.add(Integer.parseInt(data[14]));
+                            int trackingRowId = trackingRowId(data);
+                            if (trackingRowId != 0) {
+                                entitySpawnRowIds.add(trackingRowId);
                             }
                         }
                         if (!entitySpawnRowIds.isEmpty()) {
@@ -363,82 +325,73 @@ public class StandardLookupThread implements Runnable {
                         Chat.sendMessage(player, Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.LOOKUP_HEADER, "CoreProtect" + Color.WHITE + " | " + Color.DARK_AQUA) + Color.WHITE + " -----");
                         if (actions.contains(LookupActions.CHAT) || actions.contains(LookupActions.COMMAND)) {
                             for (String[] data : lookupList) {
-                                String time = data[0];
+                                int time = Integer.parseInt(data[0]);
                                 String dplayer = data[1];
                                 String message = data[2];
-                                String timeago = ChatUtils.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
+                                String timeago = ChatUtils.getTimeSince(time, unixtimestamp, true);
                                 Chat.sendComponent(player, timeago + " " + Color.WHITE + "- " + Color.DARK_AQUA + dplayer + ": " + Color.WHITE, message);
                                 if (PluginChannelHandshakeListener.getInstance().isPluginChannelPlayer(player)) {
                                     int wid = Integer.parseInt(data[3]);
                                     int dataX = Integer.parseInt(data[4]);
                                     int dataY = Integer.parseInt(data[5]);
                                     int dataZ = Integer.parseInt(data[6]);
-                                    PluginChannelListener.getInstance().sendMessageData(player, Integer.parseInt(time), dplayer, message, false, dataX, dataY, dataZ, wid);
+                                    PluginChannelListener.getInstance().sendMessageData(player, time, dplayer, message, false, dataX, dataY, dataZ, wid);
                                 }
                             }
                         }
                         else if (actions.contains(LookupActions.SESSION)) {
                             for (String[] data : lookupList) {
-                                String time = data[0];
+                                int time = Integer.parseInt(data[0]);
                                 String dplayer = data[1];
                                 int wid = Integer.parseInt(data[2]);
                                 int dataX = Integer.parseInt(data[3]);
                                 int dataY = Integer.parseInt(data[4]);
                                 int dataZ = Integer.parseInt(data[5]);
                                 int action = Integer.parseInt(data[6]);
-                                String timeago = ChatUtils.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
-                                int timeLength = 50 + (ChatUtils.getTimeSince(Integer.parseInt(time), unixtimestamp, false).replaceAll("[^0-9]", "").length() * 6);
-                                String leftPadding = Color.BOLD + Strings.padStart("", 10, ' ');
-                                if (timeLength % 4 == 0) {
-                                    leftPadding = Strings.padStart("", timeLength / 4, ' ');
-                                }
-                                else {
-                                    leftPadding = leftPadding + Color.WHITE + Strings.padStart("", (timeLength - 50) / 4, ' ');
-                                }
+                                String timeago = ChatUtils.getTimeSince(time, unixtimestamp, true);
+                                String leftPadding = computeLeftPadding(time, unixtimestamp);
 
                                 String tag = (action != SessionActions.LOGOUT ? Color.GREEN + "+" : Color.RED + "-");
                                 Chat.sendComponent(player, timeago + " " + tag + " " + Color.DARK_AQUA + Phrase.build(Phrase.LOOKUP_LOGIN, Color.DARK_AQUA + dplayer + Color.WHITE, (action != SessionActions.LOGOUT ? Selector.FIRST : Selector.SECOND)));
                                 Chat.sendComponent(player, Color.WHITE + leftPadding + Color.GREY + "^ " + ChatUtils.getCoordinates(command.getName(), wid, dataX, dataY, dataZ, true, true) + "");
-                                PluginChannelListener.getInstance().sendInfoData(player, Integer.parseInt(time), Phrase.LOOKUP_LOGIN, (action != SessionActions.LOGOUT ? Selector.FIRST : Selector.SECOND), dplayer, -1, dataX, dataY, dataZ, wid);
+                                PluginChannelListener.getInstance().sendInfoData(player, time, Phrase.LOOKUP_LOGIN, (action != SessionActions.LOGOUT ? Selector.FIRST : Selector.SECOND), dplayer, -1, dataX, dataY, dataZ, wid);
                             }
                         }
                         else if (actions.contains(LookupActions.USERNAME)) {
+                            Map<String, String> namesByUuid = new HashMap<>();
                             for (String[] data : lookupList) {
-                                String time = data[0];
-                                String user = UserStatement.getNameByUuid(connection, data[1]);
+                                int time = Integer.parseInt(data[0]);
+                                String uuid = data[1];
+                                if (!namesByUuid.containsKey(uuid)) {
+                                    namesByUuid.put(uuid, UserStatement.getNameByUuid(connection, uuid));
+                                }
+                                String user = namesByUuid.get(uuid);
                                 String username = data[2];
-                                String timeago = ChatUtils.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
+                                String timeago = ChatUtils.getTimeSince(time, unixtimestamp, true);
                                 Chat.sendComponent(player, timeago + " " + Color.WHITE + "- " + Phrase.build(Phrase.LOOKUP_USERNAME, Color.DARK_AQUA + user + Color.WHITE, Color.DARK_AQUA + username + Color.WHITE));
-                                PluginChannelListener.getInstance().sendUsernameData(player, Integer.parseInt(time), user, username);
+                                PluginChannelListener.getInstance().sendUsernameData(player, time, user, username);
                             }
                         }
                         else if (actions.contains(LookupActions.SIGN)) {
                             for (String[] data : lookupList) {
-                                String time = data[0];
+                                int time = Integer.parseInt(data[0]);
                                 String dplayer = data[1];
                                 int wid = Integer.parseInt(data[2]);
                                 int dataX = Integer.parseInt(data[3]);
                                 int dataY = Integer.parseInt(data[4]);
                                 int dataZ = Integer.parseInt(data[5]);
                                 String message = data[6];
-                                String timeago = ChatUtils.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
-                                int timeLength = 50 + (ChatUtils.getTimeSince(Integer.parseInt(time), unixtimestamp, false).replaceAll("[^0-9]", "").length() * 6);
-                                String leftPadding = Color.BOLD + Strings.padStart("", 10, ' ');
-                                if (timeLength % 4 == 0) {
-                                    leftPadding = Strings.padStart("", timeLength / 4, ' ');
-                                }
-                                else {
-                                    leftPadding = leftPadding + Color.WHITE + Strings.padStart("", (timeLength - 50) / 4, ' ');
-                                }
+                                String timeago = ChatUtils.getTimeSince(time, unixtimestamp, true);
+                                String leftPadding = computeLeftPadding(time, unixtimestamp);
 
                                 Chat.sendComponent(player, timeago + " " + Color.WHITE + "- " + Color.DARK_AQUA + dplayer + ": " + Color.WHITE, message);
                                 Chat.sendComponent(player, Color.WHITE + leftPadding + Color.GREY + "^ " + ChatUtils.getCoordinates(command.getName(), wid, dataX, dataY, dataZ, true, true) + "");
-                                PluginChannelListener.getInstance().sendMessageData(player, Integer.parseInt(time), dplayer, message, true, dataX, dataY, dataZ, wid);
+                                PluginChannelListener.getInstance().sendMessageData(player, time, dplayer, message, true, dataX, dataY, dataZ, wid);
                             }
                         }
                         else if (LookupActions.isInventoryLookup(actions)) {
                             for (String[] data : lookupList) {
-                                String time = data[0];
+                                int time = Integer.parseInt(data[0]);
                                 String dplayer = data[1];
                                 int dtype = Integer.parseInt(data[5]);
                                 int ddata = Integer.parseInt(data[6]);
@@ -456,7 +409,7 @@ public class StandardLookupThread implements Runnable {
                                     dataZ = entityLocation.z;
                                 }
                                 String rbd = MaterialUtils.rolledBack(Integer.parseInt(data[8]), true) == 1 ? Color.STRIKETHROUGH : "";
-                                String timeago = ChatUtils.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
+                                String timeago = ChatUtils.getTimeSince(time, unixtimestamp, true);
                                 Material blockType = ItemUtils.itemFilter(MaterialUtils.getType(dtype), (Integer.parseInt(data[13]) == 0));
                                 String dname = StringUtils.nameFilter(blockType.name().toLowerCase(Locale.ROOT), ddata);
                                 byte[] metadata = data[11] == null ? null : data[11].getBytes(StandardCharsets.ISO_8859_1);
@@ -465,34 +418,13 @@ public class StandardLookupThread implements Runnable {
 
                                 String selector = Selector.FIRST;
                                 String tag = Color.WHITE + "-";
-                                if (daction == ItemTransactionActions.DROP || daction == ItemTransactionActions.PICKUP) {
-                                    selector = (daction != ItemTransactionActions.DROP ? Selector.FIRST : Selector.SECOND);
-                                    tag = (daction != ItemTransactionActions.DROP ? Color.GREEN + "+" : Color.RED + "-");
-                                }
-                                else if (daction == ItemTransactionActions.REMOVE_ENDER || daction == ItemTransactionActions.ADD_ENDER) {
-                                    selector = (daction == ItemTransactionActions.REMOVE_ENDER ? Selector.FIRST : Selector.SECOND);
-                                    tag = (daction == ItemTransactionActions.REMOVE_ENDER ? Color.GREEN + "+" : Color.RED + "-");
-                                }
-                                else if (daction == ItemTransactionActions.THROW || daction == ItemTransactionActions.SHOOT) {
-                                    selector = Selector.SECOND;
-                                    tag = Color.RED + "-";
-                                }
-                                else if (daction == ItemTransactionActions.BREAK || daction == ItemTransactionActions.DESTROY || daction == ItemTransactionActions.CREATE) {
-                                    selector = (daction == ItemTransactionActions.CREATE ? Selector.FIRST : Selector.SECOND);
-                                    tag = (daction == ItemTransactionActions.CREATE ? Color.GREEN + "+" : Color.RED + "-");
-                                }
-                                else if (daction == ItemTransactionActions.SELL || daction == ItemTransactionActions.BUY) { // LOOKUP_TRADE
-                                    selector = (daction == ItemTransactionActions.BUY ? Selector.FIRST : Selector.SECOND);
-                                    tag = (daction == ItemTransactionActions.BUY ? Color.GREEN + "+" : Color.RED + "-");
-                                }
-                                else { // LOOKUP_CONTAINER
-                                    selector = (daction == ItemTransactionActions.REMOVE ? Selector.FIRST : Selector.SECOND);
-                                    tag = (daction == ItemTransactionActions.REMOVE ? Color.GREEN + "+" : Color.RED + "-");
-                                }
+                                boolean added = ItemTransactionActions.getInventoryActionId(daction) == ItemTransactionActions.ADD;
+                                selector = added ? Selector.FIRST : Selector.SECOND;
+                                tag = added ? Color.GREEN + "+" : Color.RED + "-";
 
                                 String coordinateInfo = entityLocation == null ? "" : entityLocation.getOriginTooltip();
                                 Chat.sendComponent(player, timeago + " " + tag + " " + Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, "x" + amount, ChatUtils.createTooltip(Color.DARK_AQUA + rbd + dname, tooltip) + coordinateInfo + ChatUtils.filterComponent(player.hasPermission("coreprotect.give"), ChatUtils.createGiveItemComponent(Color.GREY + "(↓)", command.getName(), itemId)) + Color.WHITE, selector));
-                                PluginChannelListener.getInstance().sendData(player, Integer.parseInt(time), Phrase.LOOKUP_CONTAINER, selector, dplayer, dname, amount, dataX, dataY, dataZ, wid, rbd, true, tag.contains("+"));
+                                PluginChannelListener.getInstance().sendData(player, time, Phrase.LOOKUP_CONTAINER, selector, dplayer, dname, amount, dataX, dataY, dataZ, wid, rbd, true, tag.contains("+"));
                             }
                         }
                         else {
@@ -503,7 +435,7 @@ public class StandardLookupThread implements Runnable {
                                     rbd = Color.STRIKETHROUGH;
                                 }
 
-                                String time = data[0];
+                                int time = Integer.parseInt(data[0]);
                                 String dplayer = data[1];
                                 int dataX = Integer.parseInt(data[2]);
                                 int dataY = Integer.parseInt(data[3]);
@@ -525,15 +457,8 @@ public class StandardLookupThread implements Runnable {
                                 }
                                 String tag = Color.WHITE + "-";
 
-                                String timeago = ChatUtils.getTimeSince(Integer.parseInt(time), unixtimestamp, true);
-                                int timeLength = 50 + (ChatUtils.getTimeSince(Integer.parseInt(time), unixtimestamp, false).replaceAll("[^0-9]", "").length() * 6);
-                                String leftPadding = Color.BOLD + Strings.padStart("", 10, ' ');
-                                if (timeLength % 4 == 0) {
-                                    leftPadding = Strings.padStart("", timeLength / 4, ' ');
-                                }
-                                else {
-                                    leftPadding = leftPadding + Color.WHITE + Strings.padStart("", (timeLength - 50) / 4, ' ');
-                                }
+                                String timeago = ChatUtils.getTimeSince(time, unixtimestamp, true);
+                                String leftPadding = computeLeftPadding(time, unixtimestamp);
 
                                 String dname = "";
                                 boolean isPlayer = false;
@@ -567,7 +492,7 @@ public class StandardLookupThread implements Runnable {
                                 Phrase phrase = Phrase.LOOKUP_BLOCK;
                                 String selector = Selector.FIRST;
                                 String action = "a:block";
-                                if (actions.contains(LookupActions.CONTAINER) || actions.contains(5) || actions.contains(LookupActions.ITEM) || amount > -1) {
+                                if (actions.contains(LookupActions.CONTAINER) || actions.contains(LookupActions.INSPECT_CONTAINER) || actions.contains(LookupActions.ITEM) || amount > -1) {
                                     byte[] metadata = data[11] == null ? null : data[11].getBytes(StandardCharsets.ISO_8859_1);
                                     String tooltip = ItemUtils.getEnchantments(metadata, dtype, amount);
                                     Integer itemId = ItemUtils.makeGivableItem(ItemUtils.getItemStack(metadata, dtype, amount));
@@ -592,13 +517,15 @@ public class StandardLookupThread implements Runnable {
                                     }
                                     else {
                                         phrase = Phrase.LOOKUP_CONTAINER; // {added|removed}
-                                        selector = (daction != ItemTransactionActions.REMOVE ? Selector.FIRST : Selector.SECOND);
-                                        tag = (daction != ItemTransactionActions.REMOVE ? Color.GREEN + "+" : Color.RED + "-");
+                                        boolean added = daction == ItemTransactionActions.ADD || (daction != ItemTransactionActions.REMOVE
+                                                && ItemTransactionActions.getInventoryActionId(daction) == ItemTransactionActions.ADD);
+                                        selector = added ? Selector.FIRST : Selector.SECOND;
+                                        tag = added ? Color.GREEN + "+" : Color.RED + "-";
                                         action = "a:container";
                                     }
 
                                     Chat.sendComponent(player, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, "x" + amount, ChatUtils.createTooltip(Color.DARK_AQUA + rbd + dname, tooltip) + ChatUtils.filterComponent(player.hasPermission("coreprotect.give"), ChatUtils.createGiveItemComponent(Color.GREY + "(↓)", command.getName(), itemId)) + Color.WHITE, selector));
-                                    PluginChannelListener.getInstance().sendData(player, Integer.parseInt(time), phrase, selector, dplayer, dname, (tag.contains("+") ? 1 : -1), dataX, dataY, dataZ, wid, rbd, action.contains("container"), tag.contains("+"));
+                                    PluginChannelListener.getInstance().sendData(player, time, phrase, selector, dplayer, dname, amount, dataX, dataY, dataZ, wid, rbd, action.contains("container"), tag.contains("+"));
                                 }
                                 else {
                                     if (entityInteraction) {
@@ -633,7 +560,7 @@ public class StandardLookupThread implements Runnable {
                                     }
 
                                     Chat.sendComponent(player, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, Color.DARK_AQUA + rbd + dname + Color.WHITE, selector));
-                                    PluginChannelListener.getInstance().sendData(player, Integer.parseInt(time), phrase, selector, dplayer, dname, (tag.contains("+") ? 1 : -1), dataX, dataY, dataZ, wid, rbd, false, tag.contains("+"));
+                                    PluginChannelListener.getInstance().sendData(player, time, phrase, selector, dplayer, dname, amount, dataX, dataY, dataZ, wid, rbd, false, tag.contains("+"));
                                 }
 
                                 action = (actions.size() == 0 ? " (" + action + ")" : "");
@@ -670,7 +597,12 @@ public class StandardLookupThread implements Runnable {
             sendLookupBusy();
         }
         catch (Exception failure) {
-            Database.reportDatabaseFailure(failure);
+            if (failure instanceof SQLException) {
+                Database.reportDatabaseFailure(failure);
+            }
+            else {
+                ErrorReporter.report(failure);
+            }
             sendLookupBusy();
         }
         finally {
@@ -686,32 +618,19 @@ public class StandardLookupThread implements Runnable {
     }
 
     private void saveSession(int scopedWorldId, Long[] rowData, LookupCursor cursor) {
-        ConfigHandler.lookupEntityInteraction.remove(player.getName());
-        if (!actions.contains(5)) {
-            ConfigHandler.lookupEntityContainer.remove(player.getName());
+        String name = player.getName();
+        LookupSession session = new LookupSession(request.forSession(scopedWorldId), rowData, cursor);
+        if (previousSession == null) {
+            ConfigHandler.lookupSessions.put(name, session);
         }
-        String bc = x + "." + y + "." + z + "." + worldId + "." + timeStart + "." + timeEnd + "." + noisy + "." + excluded + "." + restricted + "." + scopedWorldId + "." + displayResults;
-        ConfigHandler.lookupCommand.put(player.getName(), bc);
-        ConfigHandler.lookupPage.put(player.getName(), page);
-        ConfigHandler.lookupTime.put(player.getName(), rtime);
-        ConfigHandler.lookupType.put(player.getName(), 5);
-        ConfigHandler.lookupElist.put(player.getName(), excludedBlocks);
-        ConfigHandler.lookupEUserlist.put(player.getName(), excludedUsers);
-        ConfigHandler.lookupBlist.put(player.getName(), blockList);
-        ConfigHandler.lookupUlist.put(player.getName(), rollbackUsers);
-        ConfigHandler.lookupAlist.put(player.getName(), actions);
-        ConfigHandler.lookupEntityActionFilter.put(player.getName(), entityActionFilter);
-        ConfigHandler.lookupFlist.put(player.getName(), messageFilters);
-        ConfigHandler.lookupRadius.put(player.getName(), radius);
-        ConfigHandler.lookupOutputMode.put(player.getName(), outputMode == LookupOutputMode.COUNT ? LookupOutputMode.DETAIL : outputMode);
-        ConfigHandler.lookupRollbackState.put(player.getName(), rollbackState);
-        ConfigHandler.lookupRows.put(player.getName(), rowData);
-        if (cursor == null) {
-            ConfigHandler.lookupCursor.remove(player.getName());
+        else if (!ConfigHandler.lookupSessions.replace(name, previousSession, session)) {
+            return;
         }
-        else {
-            ConfigHandler.lookupCursor.put(player.getName(), cursor);
+        ConfigHandler.lookupEntityInteraction.remove(name);
+        if (!request.filters.actions.contains(LookupActions.INSPECT_CONTAINER)) {
+            ConfigHandler.lookupEntityContainer.remove(name);
         }
+        ConfigHandler.lookupType.put(name, LookupSession.STANDARD_LOOKUP);
     }
 
     private void outputRowCount(long rows) {
@@ -721,7 +640,7 @@ public class StandardLookupThread implements Runnable {
 
     private void outputSummary(Connection connection, List<LookupSummaryRow> summaryRows, long totalRows, long recordRows) {
         if (summaryRows.isEmpty()) {
-            if (page == 1 && recordRows > 0) {
+            if (request.page == 1 && recordRows > 0) {
                 outputRowCount(recordRows);
             }
             else {
@@ -759,25 +678,41 @@ public class StandardLookupThread implements Runnable {
                     + Color.WHITE + " " + Color.DARK_AQUA + materialName + Color.WHITE);
         }
 
-        if (totalRows > displayResults) {
-            int totalPages = (int) Math.ceil(totalRows / (displayResults + 0.0));
-            Chat.sendComponent(player, ChatUtils.getPageNavigation(command.getName(), page, totalPages));
+        if (totalRows > request.pageSize) {
+            int totalPages = (int) Math.ceil(totalRows / (request.pageSize + 0.0));
+            Chat.sendComponent(player, ChatUtils.getPageNavigation(command.getName(), request.page, totalPages));
         }
     }
 
-    private static EntityDisplayLocation resolveEntityDisplayLocation(String[] data, Map<Integer, EntitySpawnRecord> records, Map<UUID, Location> loadedLocations) {
-        if (data.length <= 14 || data[7] == null) {
-            return null;
+    private static String computeLeftPadding(int time, int now) {
+        String formatted = ChatUtils.getTimeSince(time, now, false);
+        int digits = 0;
+        for (int i = 0; i < formatted.length(); i++) {
+            char character = formatted.charAt(i);
+            if (character >= '0' && character <= '9') {
+                digits++;
+            }
         }
+        int width = 50 + digits * 6;
+        return width % 4 == 0 ? " ".repeat(width / 4) : Color.BOLD + " ".repeat(10) + Color.WHITE + " ".repeat((width - 50) / 4);
+    }
 
-        int trackingRowId = 0;
-        if (data[13] != null && (Integer.parseInt(data[13]) == InventorySources.ENTITY_CONTAINER || Integer.parseInt(data[13]) == InventorySources.ENTITY_INTERACTION) && data[14] != null) {
-            trackingRowId = Integer.parseInt(data[14]);
+    private static int trackingRowId(String[] data) {
+        if (data.length > 14 && data[13] != null && data[14] != null) {
+            int source = Integer.parseInt(data[13]);
+            if (source == InventorySources.ENTITY_CONTAINER || source == InventorySources.ENTITY_INTERACTION) {
+                return Integer.parseInt(data[14]);
+            }
         }
-        else if (data[6] != null && Integer.parseInt(data[7]) == LookupActions.ENTITY_SPAWN) {
-            trackingRowId = Integer.parseInt(data[6]);
+        if (data.length > 7 && data[6] != null && data[7] != null && Integer.parseInt(data[7]) == LookupActions.ENTITY_SPAWN) {
+            return Integer.parseInt(data[6]);
         }
-        if (trackingRowId == 0) {
+        return 0;
+    }
+
+    private static EntityDisplayLocation resolveEntityDisplayLocation(String[] data, Map<Integer, EntitySpawnRecord> records, Map<UUID, Location> loadedLocations) {
+        int trackingRowId = trackingRowId(data);
+        if (trackingRowId == 0 || data.length <= 14) {
             return null;
         }
 

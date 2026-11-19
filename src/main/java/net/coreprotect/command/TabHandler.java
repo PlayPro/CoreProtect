@@ -17,6 +17,7 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.bukkit.util.StringUtil;
 
+import net.coreprotect.model.lookup.LookupSession;
 import net.coreprotect.command.parser.ActionParser;
 import net.coreprotect.command.parser.MaterialParser;
 import net.coreprotect.command.parser.ParserUtils;
@@ -171,8 +172,10 @@ public class TabHandler implements TabCompleter {
         ParamState state = new ParamState();
         String senderName = sender.getName();
 
-        if (ConfigHandler.lookupType.get(senderName) != null && ConfigHandler.lookupPage.get(senderName) != null) {
-            state.pageLookup = true;
+        Integer lookupType = ConfigHandler.lookupType.get(senderName);
+        if (lookupType != null) {
+            state.pageLookup = lookupType == LookupSession.STANDARD_LOOKUP
+                    ? ConfigHandler.lookupSessions.containsKey(senderName) : ConfigHandler.lookupPage.containsKey(senderName);
         }
 
         for (int i = 1; i < args.length; i++) {
@@ -219,18 +222,7 @@ public class TabHandler implements TabCompleter {
         }
 
         if (!state.hasContainer) {
-            Integer lookupType = ConfigHandler.lookupType.get(senderName);
-            if (lookupType != null) {
-                if (lookupType == 1) {
-                    state.validContainer = true;
-                }
-                else if (lookupType == 5) {
-                    List<String> lookupUsers = ConfigHandler.lookupUlist.get(senderName);
-                    if (lookupUsers != null && lookupUsers.contains("#container")) {
-                        state.validContainer = true;
-                    }
-                }
-            }
+            state.validContainer = LookupCommand.hasContainerHistory(senderName);
         }
 
         return state;

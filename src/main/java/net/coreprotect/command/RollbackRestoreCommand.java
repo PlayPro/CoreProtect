@@ -33,6 +33,7 @@ import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.model.action.EntityActionFilter;
 import net.coreprotect.model.action.LookupActions;
+import net.coreprotect.model.lookup.StandardLookupRequest;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.WorldUtils;
@@ -135,7 +136,7 @@ public class RollbackRestoreCommand {
 
             int DEFAULT_RADIUS = Config.getGlobal().DEFAULT_RADIUS;
             boolean exactEntityContainer = argUsers.contains("#container") && ConfigHandler.lookupEntityContainer.get(player.getName()) != null;
-            if ((player instanceof Player || player instanceof BlockCommandSender) && argRadius == null && DEFAULT_RADIUS > 0 && !forceglobal && !argAction.contains(LookupActions.ITEM) && !argAction.contains(5) && !exactEntityContainer) {
+            if ((player instanceof Player || player instanceof BlockCommandSender) && argRadius == null && DEFAULT_RADIUS > 0 && !forceglobal && !argAction.contains(LookupActions.ITEM) && !argAction.contains(LookupActions.INSPECT_CONTAINER) && !exactEntityContainer) {
                 Location location = lo;
                 int xmin = location.getBlockX() - DEFAULT_RADIUS;
                 int xmax = location.getBlockX() + DEFAULT_RADIUS;
@@ -239,38 +240,24 @@ public class RollbackRestoreCommand {
                         return;
                     }
 
-                    boolean valid = false;
-                    if (ConfigHandler.lookupType.get(player.getName()) != null) {
-                        int lookupType = ConfigHandler.lookupType.get(player.getName());
-                        if (lookupType == 1) {
-                            valid = true;
-                        }
-                        else if (lookupType == 5) {
-                            List<String> lookupUsers = ConfigHandler.lookupUlist.get(player.getName());
-                            if (lookupUsers != null && lookupUsers.contains("#container")) {
-                                valid = true;
-                            }
-                        }
-                    }
-                    if (valid) {
+                    StandardLookupRequest.Scope container = LookupCommand.containerScope(player.getName());
+                    if (container != null) {
                         if (preview > 0) {
                             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PREVIEW_TRANSACTION, Selector.FIRST));
                             return;
                         }
                         else {
-                            String lcommand = ConfigHandler.lookupCommand.get(player.getName());
-                            String[] data = lcommand.split("\\.");
-                            x = Integer.parseInt(data[0]);
-                            y = Integer.parseInt(data[1]);
-                            z = Integer.parseInt(data[2]);
-                            wid = Integer.parseInt(data[3]);
+                            x = container.x;
+                            y = container.y;
+                            z = container.z;
+                            wid = container.worldId;
                             String containerWorldName = WorldUtils.getWorldName(wid);
                             World containerWorld = Bukkit.getServer().getWorld(containerWorldName);
                             if (containerWorld == null) {
                                 Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.WORLD_NOT_FOUND, containerWorldName));
                                 return;
                             }
-                            argAction.add(5);
+                            argAction.add(LookupActions.INSPECT_CONTAINER);
                             argRadius = null;
                             argWid = 0;
                             lo = new Location(containerWorld, x, y, z);
@@ -432,7 +419,7 @@ public class RollbackRestoreCommand {
                                             }
 
                                             boolean completed = true;
-                                            if (finalArgAction.contains(5) && ConfigHandler.lookupEntityContainer.get(player2.getName()) == null) {
+                                            if (finalArgAction.contains(LookupActions.INSPECT_CONTAINER) && ConfigHandler.lookupEntityContainer.get(player2.getName()) == null) {
                                                 completed = ContainerRollback.performContainerRollbackRestore(statement, player2, uuidList, rollbackusers2, rtime, blist, elist, euserlist, finalArgAction, location, radius, finalTimeStart, finalTimeEnd, restrictWorld, false, verbose, action, admission);
                                             }
                                             else {

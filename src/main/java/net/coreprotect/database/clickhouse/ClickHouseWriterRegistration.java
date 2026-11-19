@@ -69,6 +69,18 @@ final class ClickHouseWriterRegistration implements AutoCloseable {
     }
 
     synchronized UUID schemaOwner() throws SQLException {
+        UUID stored = lookupGateOwner();
+        try {
+            Object fileKey = Files.readAttributes(writerFile, java.nio.file.attribute.BasicFileAttributes.class).fileKey();
+            String identity = stored + "\n" + writerFile.toRealPath() + "\n" + fileKey;
+            return UUID.nameUUIDFromBytes(identity.getBytes(StandardCharsets.UTF_8));
+        }
+        catch (IOException exception) {
+            throw new SQLException("Unable to read ClickHouse schema owner identity", exception);
+        }
+    }
+
+    synchronized UUID lookupGateOwner() throws SQLException {
         verifyOwned();
         try {
             if (writerChannel.size() == 0) {
@@ -87,13 +99,10 @@ final class ClickHouseWriterRegistration implements AutoCloseable {
             while (value.hasRemaining() && writerChannel.read(value) >= 0) {
             }
             value.flip();
-            UUID stored = UUID.fromString(StandardCharsets.US_ASCII.decode(value).toString());
-            Object fileKey = Files.readAttributes(writerFile, java.nio.file.attribute.BasicFileAttributes.class).fileKey();
-            String identity = stored + "\n" + writerFile.toRealPath() + "\n" + fileKey;
-            return UUID.nameUUIDFromBytes(identity.getBytes(StandardCharsets.UTF_8));
+            return UUID.fromString(StandardCharsets.US_ASCII.decode(value).toString());
         }
         catch (IOException | IllegalArgumentException exception) {
-            throw new SQLException("Unable to read ClickHouse schema owner identity", exception);
+            throw new SQLException("Unable to read ClickHouse writer identity", exception);
         }
     }
 

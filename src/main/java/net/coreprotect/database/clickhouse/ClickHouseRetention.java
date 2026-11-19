@@ -65,7 +65,7 @@ final class ClickHouseRetention {
         }
     }
 
-    synchronized long purge(long startTime, long endTime, int worldId, List<Integer> blockTypes, boolean optimize) throws SQLException {
+    synchronized long purge(long startTime, long endTime, int worldId, List<Integer> blockTypes, boolean optimize, boolean exclusive) throws SQLException {
         if (startTime < 0 || endTime <= startTime || endTime > 0xffff_ffffL) {
             throw new IllegalArgumentException("Invalid ClickHouse purge time range");
         }
@@ -82,12 +82,15 @@ final class ClickHouseRetention {
         activePurge = attempt;
         boolean recoverLookupGate = false;
         Throwable failure = null;
-        try (Connection connection = jdbc.openConnection()) {
+        try (Connection connection = jdbc.openMaintenanceConnection()) {
             attempt.connection = connection;
             requirePurgeNotCancelled();
             cleanupAbandonedTargets(connection);
             if (hasPendingMutation(connection, "")) {
                 throw new SQLException("ClickHouse purge requires earlier mutations to finish first");
+            }
+            if (exclusive) {
+                ClickHouseLookupIndex.recoverStale(connection, databaseName, prefix);
             }
             snapshotHighWaterMarks(connection);
             requirePurgeNotCancelled();

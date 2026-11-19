@@ -42,7 +42,7 @@ public final class ClickHouseDatabase implements AutoCloseable {
     private boolean closed;
 
     private ClickHouseDatabase(ClickHouseJdbc jdbc, ClickHouseNativeClient nativeClient, String database, String prefix, UUID datasetId,
-            ClickHouseIdentityAllocator identityAllocator, ClickHouseIdentityReservation identifierReservation, ClickHouseWriterRegistration writerRegistration) throws SQLException {
+            ClickHouseIdentityAllocator identityAllocator, ClickHouseIdentityReservation identifierReservation, ClickHouseWriterRegistration writerRegistration, UUID lookupGateOwner) {
         this.jdbc = jdbc;
         this.nativeClient = nativeClient;
         this.database = database;
@@ -53,7 +53,7 @@ public final class ClickHouseDatabase implements AutoCloseable {
         this.writerRegistration = writerRegistration;
         publisher = new ClickHouseBatchPublisher(jdbc, nativeClient, writerRegistration, database, prefix);
         highWaterPublisher = new ClickHouseHighWaterPublisher(jdbc, nativeClient, writerRegistration, database, prefix);
-        retention = new ClickHouseRetention(jdbc, database, prefix, writerRegistration.schemaOwner());
+        retention = new ClickHouseRetention(jdbc, database, prefix, lookupGateOwner);
         targetResolver = new ClickHouseTargetResolver(jdbc, database, prefix, datasetId);
     }
 
@@ -72,6 +72,8 @@ public final class ClickHouseDatabase implements AutoCloseable {
         try {
             writerRegistration = new ClickHouseWriterRegistration(controlDirectory);
             writerRegistration.acquire();
+            UUID lookupGateOwner = writerRegistration.lookupGateOwner();
+            UUID schemaOwner = writerRegistration.schemaOwner();
             UUID writerId = UUID.randomUUID();
             nativeClient = new ClickHouseNativeClient(config);
             List<String> statements = ClickHouseSchema.createStatements(config.getDatabase(), validatedPrefix);
@@ -84,11 +86,11 @@ public final class ClickHouseDatabase implements AutoCloseable {
                     jdbc.executeDdl(connection, statements.get(index));
                 }
                 try (Connection patch = ClickHouseJdbc.openPatchConnection(config)) {
-                    net.coreprotect.patch.script.__2_25_1.upgradeClickHouseSchema(patch, config.getDatabase(), validatedPrefix, writerRegistration.schemaOwner());
+                    net.coreprotect.patch.script.__2_25_1.upgradeClickHouseSchema(patch, config.getDatabase(), validatedPrefix, schemaOwner);
                 }
                 ClickHouseSchema.validatePhysicalSchema(connection, config.getDatabase(), validatedPrefix);
                 storageIdentity = loadStorageIdentity(connection, config.getDatabase(), validatedPrefix);
-                ClickHouseLookupIndex.recover(connection, config.getDatabase(), validatedPrefix, writerRegistration.schemaOwner());
+                ClickHouseLookupIndex.recoverStartup(connection, config.getDatabase(), validatedPrefix, lookupGateOwner, schemaOwner);
                 for (int index = ClickHouseSchema.PHYSICAL_TABLE_COUNT; index < statements.size(); index++) {
                     jdbc.executeDdl(connection, statements.get(index));
                 }
@@ -97,7 +99,7 @@ public final class ClickHouseDatabase implements AutoCloseable {
             ClickHouseIdentityReservation reservation = new ClickHouseIdentityReservation(jdbc, config.getDatabase(), validatedPrefix, writerId);
             ClickHouseIdentityAllocator identityAllocator = new ClickHouseIdentityAllocator(storageIdentity.getDatasetId(), reservation, remoteMarks);
             return new ClickHouseDatabase(jdbc, nativeClient, config.getDatabase(), validatedPrefix, storageIdentity.getDatasetId(), identityAllocator, reservation,
-                    writerRegistration);
+                    writerRegistration, lookupGateOwner);
         }
         catch (SQLException | RuntimeException exception) {
             try {
@@ -358,9 +360,17 @@ public final class ClickHouseDatabase implements AutoCloseable {
     }
 
     public long purge(long startTime, long endTime, int worldId, List<Integer> blockTypes, boolean optimize) throws SQLException {
+        return purge(startTime, endTime, worldId, blockTypes, optimize, false);
+    }
+
+    public long purgeExclusive(long startTime, long endTime, int worldId, List<Integer> blockTypes, boolean optimize) throws SQLException {
+        return purge(startTime, endTime, worldId, blockTypes, optimize, true);
+    }
+
+    private long purge(long startTime, long endTime, int worldId, List<Integer> blockTypes, boolean optimize, boolean exclusive) throws SQLException {
         ensureOpen();
         writerRegistration.verifyOwned();
-        return retention.purge(startTime, endTime, worldId, blockTypes, optimize);
+        return retention.purge(startTime, endTime, worldId, blockTypes, optimize, exclusive);
     }
 
     public void cancelPurge() {

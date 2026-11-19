@@ -15,11 +15,12 @@ public final class ClickHouseJdbc implements AutoCloseable {
 
     private static final Set<String> DDL_OPERATIONS = Set.of("ALTER", "CREATE", "DROP", "RENAME", "TRUNCATE");
 
+    private final ClickHouseJdbcConfig config;
     private final HikariDataSource dataSource;
     private final HikariDataSource auxiliaryDataSource;
 
     public ClickHouseJdbc(ClickHouseJdbcConfig config) {
-        Objects.requireNonNull(config, "config");
+        this.config = Objects.requireNonNull(config, "config");
         dataSource = pool(config, "CoreProtect-ClickHouse", 10);
         try {
             auxiliaryDataSource = pool(config, "CoreProtect-ClickHouse-Identity", 4);
@@ -56,6 +57,10 @@ public final class ClickHouseJdbc implements AutoCloseable {
     public static Connection openPatchConnection(ClickHouseJdbcConfig config) throws SQLException {
         ClickHouseJdbcConfig patch = config.forPatches();
         return new DataSourceImpl(patch.getJdbcUrl(), patch.getProperties()).getConnection();
+    }
+
+    Connection openMaintenanceConnection() throws SQLException {
+        return openPatchConnection(config);
     }
 
     Connection openAuxiliaryConnection() throws SQLException {

@@ -662,7 +662,7 @@ public class Database extends Queue {
         if (!Config.getGlobal().DATABASE_LOCK) {
             throw new SQLException("ClickHouse purge requires database-lock to be enabled and every other CoreProtect installation sharing the database and prefix to be stopped");
         }
-        return requireClickHouseDatabase().purge(startTime, endTime, worldId, blockTypes, optimize);
+        return requireClickHouseDatabase().purgeExclusive(startTime, endTime, worldId, blockTypes, optimize);
     }
 
     public static void cancelClickHousePurge() {

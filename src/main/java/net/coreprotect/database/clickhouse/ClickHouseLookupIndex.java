@@ -5,6 +5,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.StringJoiner;
 import java.util.UUID;
 
 public final class ClickHouseLookupIndex {
@@ -13,6 +16,7 @@ public final class ClickHouseLookupIndex {
     public static final String METADATA_COLUMNS = "rowid,time,user_id,wid,x,y,z,wid_present,x_present,z_present,type,data,action,rolled_back,amount,entity_spawn_rowid";
     private static final String[] RETAINED_COLUMNS = ("batch_sequence,batch_ordinal,write_version," + METADATA_COLUMNS).split(",");
     private static final UUID ZERO_UUID = new UUID(0, 0);
+    private static final String LOOKUP_GATE = "family='_batch_receipt' AND wid=0 AND x=0 AND z=-1 AND rowid=1 AND lookup_kind=3";
 
     private ClickHouseLookupIndex() {
         throw new IllegalStateException("Lookup index class");
@@ -66,8 +70,7 @@ public final class ClickHouseLookupIndex {
     }
 
     public static String ready(String table) {
-        return "(SELECT ifNull(min(status),1) FROM " + table
-                + " FINAL WHERE family='_batch_receipt' AND wid=0 AND x=0 AND z=-1 AND rowid=1 AND lookup_kind=3)";
+        return "(SELECT ifNull(min(status),1) FROM " + table + " FINAL WHERE " + LOOKUP_GATE + ")";
     }
 
     public static void setReady(Connection connection, String table, UUID owner, boolean ready) throws SQLException {
@@ -79,25 +82,54 @@ public final class ClickHouseLookupIndex {
     }
 
     static void recover(Connection connection, String database, String prefix, UUID owner) throws SQLException {
-        String table = ClickHouseIdentifiers.qualified(database, prefix + "event_data");
-        try (Statement statement = connection.createStatement(); ResultSet result = statement.executeQuery(
-                "SELECT 1 FROM " + table + " FINAL WHERE family='_batch_receipt' AND wid=0 AND x=0 AND z=-1"
-                        + " AND rowid=1 AND lookup_kind=3 AND batch_id='" + owner + "' AND status=0 LIMIT 1")) {
-            if (!result.next()) {
-                return;
+        recoverOwners(connection, database, prefix, List.of(owner));
+    }
+
+    static void recoverStartup(Connection connection, String database, String prefix, UUID owner, UUID legacyOwner) throws SQLException {
+        recoverOwners(connection, database, prefix, List.of(owner, legacyOwner));
+    }
+
+    static void recoverStale(Connection connection, String database, String prefix) throws SQLException {
+        recoverOwners(connection, database, prefix, List.of());
+    }
+
+    private static void recoverOwners(Connection connection, String database, String prefix, List<UUID> owners) throws SQLException {
+        String tableName = prefix + "event_data";
+        String table = ClickHouseIdentifiers.qualified(database, tableName);
+        String filter = "";
+        if (!owners.isEmpty()) {
+            StringJoiner placeholders = new StringJoiner(",", " AND batch_id IN(", ")");
+            owners.forEach(owner -> placeholders.add("toUUID(?)"));
+            filter = placeholders.toString();
+        }
+        List<UUID> closedGates = new ArrayList<>();
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT toString(batch_id) FROM " + table + " FINAL WHERE " + LOOKUP_GATE + " AND status=0" + filter)) {
+            for (int index = 0; index < owners.size(); index++) {
+                statement.setString(index + 1, owners.get(index).toString());
             }
+            try (ResultSet result = statement.executeQuery()) {
+                while (result.next()) {
+                    closedGates.add(UUID.fromString(result.getString(1)));
+                }
+            }
+        }
+        if (closedGates.isEmpty()) {
+            return;
         }
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT 1 FROM system.mutations WHERE database=? AND table=? AND NOT is_done LIMIT 1")) {
             statement.setString(1, database);
-            statement.setString(2, prefix + "event_data");
+            statement.setString(2, tableName);
             try (ResultSet result = statement.executeQuery()) {
                 if (result.next()) {
                     throw new SQLException("ClickHouse maintenance has unfinished mutations; allow them to finish before restarting");
                 }
             }
         }
-        setReady(connection, table, owner, true);
+        for (UUID owner : closedGates) {
+            setReady(connection, table, owner, true);
+        }
     }
 
     static String source(String table, String family, String predicate, String users, long startTime, long endTime, boolean state) {

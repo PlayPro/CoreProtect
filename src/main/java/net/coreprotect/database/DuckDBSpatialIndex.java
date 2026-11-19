@@ -401,7 +401,7 @@ public final class DuckDBSpatialIndex {
 
     private static WriterState loadWriterState(Connection connection, String prefix, String key, long observedGeneration) throws SQLException {
         WriterState state = new WriterState();
-        DuckDBConnection duckDBConnection = connection.unwrap(DuckDBConnection.class);
+        DuckDBConnection duckDBConnection = requireDuckDBConnection(connection);
         try (Connection scanConnection = duckDBConnection.duplicate(); Connection metadataConnection = duckDBConnection.duplicate()) {
             scanConnection.setAutoCommit(false);
             metadataConnection.setAutoCommit(false);
@@ -570,12 +570,16 @@ public final class DuckDBSpatialIndex {
         }
     }
 
-    private static Map<Source, IndexSnapshot> loadSnapshots(Connection connection, String prefix) throws SQLException {
+    private static DuckDBConnection requireDuckDBConnection(Connection connection) throws SQLException {
         DuckDBConnection duckDBConnection = connection.unwrap(DuckDBConnection.class);
         if (duckDBConnection == null) {
             throw new SQLException("DuckDB connection required");
         }
+        return duckDBConnection;
+    }
 
+    private static Map<Source, IndexSnapshot> loadSnapshots(Connection connection, String prefix) throws SQLException {
+        DuckDBConnection duckDBConnection = requireDuckDBConnection(connection);
         Map<Source, List<Segment>> segmentsBySource = new EnumMap<>(Source.class);
         Map<Source, Boolean> usableBySource = new EnumMap<>(Source.class);
         for (Source source : Source.values()) {
@@ -1231,7 +1235,7 @@ public final class DuckDBSpatialIndex {
         private BloomFilter entities;
         private long coveredThrough = -1L;
         private long startRowId;
-        private long endRowId;
+        private long lastRowId;
         private int rowCount;
 
         private Accumulator(Source source) {
@@ -1244,7 +1248,7 @@ public final class DuckDBSpatialIndex {
         }
 
         private void add(long rowId, int worldId, int x, int z, Integer entitySpawnRowId) throws SQLException {
-            if (rowId <= 0L || (rowCount > 0 ? rowId <= endRowId : coveredThrough >= 0L && rowId <= coveredThrough)) {
+            if (rowId <= lastRowId || rowId <= coveredThrough) {
                 throw new SQLException("DuckDB spatial index rows must have increasing positive row IDs");
             }
             if (source.entityRows && (entitySpawnRowId == null || entitySpawnRowId <= 0)) {
@@ -1253,7 +1257,7 @@ public final class DuckDBSpatialIndex {
             if (rowCount == 0) {
                 startRowId = coveredThrough >= 0L ? coveredThrough + 1L : rowId;
             }
-            endRowId = rowId;
+            lastRowId = rowId;
             rowCount++;
             chunks.add(spatialKey(worldId, Math.floorDiv(x, 16), Math.floorDiv(z, 16)));
             if (entities != null) {
@@ -1268,14 +1272,13 @@ public final class DuckDBSpatialIndex {
             if (rowCount == 0) {
                 return;
             }
-            completed.add(new Segment(startRowId, endRowId, rowCount, chunks, entities));
+            completed.add(new Segment(startRowId, lastRowId, rowCount, chunks, entities));
             if (coveredThrough >= 0L) {
-                coveredThrough = endRowId;
+                coveredThrough = lastRowId;
             }
             chunks = new BloomFilter();
             entities = source.entityRows ? new BloomFilter() : null;
             startRowId = 0L;
-            endRowId = 0L;
             rowCount = 0;
         }
 
@@ -1286,7 +1289,7 @@ public final class DuckDBSpatialIndex {
             copy.entities = entities == null ? null : entities.copy();
             copy.coveredThrough = coveredThrough;
             copy.startRowId = startRowId;
-            copy.endRowId = endRowId;
+            copy.lastRowId = lastRowId;
             copy.rowCount = rowCount;
             return copy;
         }

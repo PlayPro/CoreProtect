@@ -10,7 +10,6 @@ import org.bukkit.entity.EntityType;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.QueuePayload;
 import net.coreprotect.database.logger.EntityKillLogger;
-import net.coreprotect.utility.EntityUtils;
 
 class EntityKillProcess {
 
@@ -28,8 +27,7 @@ class EntityKillProcess {
             EntityType type = (EntityType) values[1];
             List<Object> objectList = QueuePayload.detail(Consumer.consumerObjects.get(processId).get(id));
             if (objectList != null) {
-                int entityId = EntityUtils.getEntityId(type);
-                EntityKillLogger.log(preparedStmt, preparedStmtEntities, preparedStmtEntityKillLinks, batchCount, user, location, objectList, entityId);
+                EntityKillLogger.log(preparedStmt, preparedStmtEntities, preparedStmtEntityKillLinks, batchCount, user, location, objectList, type);
             }
         }
     }

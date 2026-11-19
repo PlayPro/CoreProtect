@@ -14,6 +14,7 @@ import net.coreprotect.database.statement.EntityStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
 import net.coreprotect.model.action.LookupActions;
+import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.WorldUtils;
 
 public class EntityKillLogger {
@@ -23,12 +24,15 @@ public class EntityKillLogger {
     }
 
     public static void log(ConsumerWriteBatch preparedStmt, ConsumerWriteBatch preparedStmt2, ConsumerWriteBatch preparedStmtEntityKillLinks, int batchCount, String user, Location location, List<Object> data, int type) {
+        log(preparedStmt, preparedStmt2, preparedStmtEntityKillLinks, batchCount, user, location, data, EntityUtils.getEntityType(type));
+    }
+
+    public static void log(ConsumerWriteBatch preparedStmt, ConsumerWriteBatch preparedStmt2, ConsumerWriteBatch preparedStmtEntityKillLinks, int batchCount, String user, Location location, List<Object> data, EntityType checkType) {
         try {
             if (ConfigHandler.isBlacklisted(user)){
                 return;
             }
 
-            EntityType checkType = net.coreprotect.utility.EntityUtils.getEntityType(type);
             if (checkType == null) {
                 return;
             }
@@ -61,7 +65,7 @@ public class EntityKillLogger {
                 EntitySpawnStatement.addKillLink(preparedStmtEntityKillLinks, (String) data.get(7), entity_key);
             }
 
-            BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, type, entity_key, null, null, LookupActions.ENTITY_KILL, 0);
+            BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, EntityUtils.getEntityId(checkType), entity_key, null, null, LookupActions.ENTITY_KILL, 0);
         }
         catch (Exception e) {
             Database.handleWriteFailure(e);

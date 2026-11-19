@@ -11,7 +11,6 @@ import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.QueuePayload;
 import net.coreprotect.database.Lookup;
 import net.coreprotect.database.logger.BlockBreakLogger;
-import net.coreprotect.utility.MaterialUtils;
 
 class NaturalBlockBreakProcess {
 
@@ -26,7 +25,7 @@ class NaturalBlockBreakProcess {
                         user = removed;
                     }
                 }
-                BlockBreakLogger.log(preparedStmt, batchCount, user, block.getLocation(), MaterialUtils.getBlockId(blockType), blockData, null, block.getBlockData().getAsString(), overrideData);
+                BlockBreakLogger.log(preparedStmt, batchCount, user, block.getLocation(), blockType, blockData, null, block.getBlockData().getAsString(), overrideData);
             }
         }
     }

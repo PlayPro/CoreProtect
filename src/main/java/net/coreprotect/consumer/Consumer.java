@@ -151,6 +151,10 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         Consumer.consumerObjects.put(1, new HashMap<>());
     }
 
+    public static boolean isConsumerThread() {
+        return Thread.currentThread() == consumerThread;
+    }
+
     public static boolean isRunning() {
         return consumerThread != null && consumerThread.isAlive();
     }

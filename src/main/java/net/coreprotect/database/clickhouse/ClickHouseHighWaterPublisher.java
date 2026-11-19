@@ -3,6 +3,7 @@ package net.coreprotect.database.clickhouse;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -33,45 +34,16 @@ final class ClickHouseHighWaterPublisher {
         }
 
         try (ClickHouseRowBinaryBuffer rows = encode(identity, marks)) {
-            SQLException publicationFailure = null;
-            int attempt = 1;
-            while (true) {
-                if (Thread.currentThread().isInterrupted()) {
-                    throw ClickHouseBatchPublisher.interrupted("publishing ClickHouse high-water marks", publicationFailure);
-                }
-                try {
-                    writerRegistration.verifyOwned();
-                    nativeClient.insert(table, ClickHouseSchema.RETENTION_HIGH_WATER_COLUMNS, rows.openStream(), identity, "high_water");
-                    return;
-                }
-                catch (ClickHouseWriterRegistration.OwnershipException exception) {
-                    throw exception;
-                }
-                catch (SQLException exception) {
-                    publicationFailure = exception;
-                }
-
-                Status status;
-                try {
-                    status = readStatus(identity);
-                }
-                catch (SQLException reconciliationFailure) {
-                    reconciliationFailure.addSuppressed(publicationFailure);
-                    throw reconciliationFailure;
-                }
+            ClickHouseBatchPublisher.publishWithRetry("ClickHouse high-water batch", () -> {
+                writerRegistration.verifyOwned();
+                nativeClient.insert(table, ClickHouseSchema.RETENTION_HIGH_WATER_COLUMNS, rows.openStream(), identity, "high_water");
+            }, () -> {
+                Status status = readStatus(identity);
                 if (status.matches(marks)) {
-                    return;
+                    return ClickHouseBatchPublisher.Reconciliation.COMPLETE;
                 }
-                if (!status.isRetryableSubsetOf(marks)) {
-                    SQLException conflict = new SQLException("ClickHouse high-water batch is partial or conflicting for batch sequence " + identity.getBatchSequence());
-                    conflict.addSuppressed(publicationFailure);
-                    throw conflict;
-                }
-                if (attempt >= ClickHouseBatchPublisher.MAX_PUBLICATION_ATTEMPTS || ClickHouseBatchPublisher.isPermanent(publicationFailure)) {
-                    throw new SQLException("ClickHouse high-water batch remained incomplete after " + attempt + " publication attempts", publicationFailure);
-                }
-                ClickHouseBatchPublisher.pauseBeforeRetry(attempt++, "republishing ClickHouse high-water marks");
-            }
+                return status.isRetryableSubsetOf(marks) ? ClickHouseBatchPublisher.Reconciliation.RETRY : ClickHouseBatchPublisher.Reconciliation.CONFLICT;
+            }, () -> new SQLException("ClickHouse high-water batch is partial or conflicting for batch sequence " + identity.getBatchSequence()));
         }
     }
 
@@ -97,31 +69,6 @@ final class ClickHouseHighWaterPublisher {
     }
 
     private Status readStatus(ClickHouseBatchIdentity identity) throws SQLException {
-        SQLException failure = null;
-        for (int attempt = 1; attempt <= ClickHouseBatchPublisher.MAX_RECONCILIATION_ATTEMPTS; attempt++) {
-            if (Thread.currentThread().isInterrupted()) {
-                throw ClickHouseBatchPublisher.interrupted("reconciling ClickHouse high-water marks", failure);
-            }
-            try {
-                return readRawStatus(identity);
-            }
-            catch (SQLException exception) {
-                if (failure != null && failure != exception) {
-                    exception.addSuppressed(failure);
-                }
-                failure = exception;
-                if (ClickHouseBatchPublisher.isPermanent(exception)) {
-                    break;
-                }
-            }
-            if (attempt < ClickHouseBatchPublisher.MAX_RECONCILIATION_ATTEMPTS) {
-                ClickHouseBatchPublisher.pauseBeforeRetry(attempt, "reconciling ClickHouse high-water marks");
-            }
-        }
-        throw new SQLException("ClickHouse high-water status remained unavailable after " + ClickHouseBatchPublisher.MAX_RECONCILIATION_ATTEMPTS + " attempts", failure);
-    }
-
-    private Status readRawStatus(ClickHouseBatchIdentity identity) throws SQLException {
         String sql = "SELECT family,rowid,count() FROM " + table
                 + " WHERE batch_sequence=? GROUP BY family,rowid";
         EnumMap<ClickHouseFamily, Long> values = new EnumMap<>(ClickHouseFamily.class);
@@ -135,7 +82,7 @@ final class ClickHouseHighWaterPublisher {
                         family = ClickHouseFamily.fromTableName(resultSet.getString(1));
                     }
                     catch (IllegalArgumentException exception) {
-                        throw new SQLException("Unknown ClickHouse family in high-water reconciliation", exception);
+                        throw new SQLDataException("Unknown ClickHouse family in high-water reconciliation", exception);
                     }
                     if (resultSet.getLong(3) != 1L || values.put(family, resultSet.getLong(2)) != null) {
                         conflicting = true;

@@ -261,6 +261,16 @@ public class Process {
                 }
                 else {
                     preflightUser(writeBatch, data, users);
+                    if (ConfigHandler.databaseType.isClickHouse() && writeBatch.shouldCommit()) {
+                        if (commit(writeBatch) != TransactionOutcome.COMMITTED) {
+                            failConsumerBatch(consumerData, users, consumerObject, 0, 0);
+                            return;
+                        }
+                        if (!beginConsumerTransaction(writeBatch)) {
+                            deferConsumerRetry();
+                            return;
+                        }
+                    }
                 }
                 int action = (int) data[1];
                 hasEntitySpawnUpdates |= action == Process.ENTITY_SPAWN_UPDATE || action == Process.ENTITY_CONTAINER_TRANSITION_UPDATE;

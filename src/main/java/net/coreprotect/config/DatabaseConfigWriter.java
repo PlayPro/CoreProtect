@@ -176,29 +176,26 @@ public final class DatabaseConfigWriter {
     }
 
     static int findComment(String line, int start) {
-        boolean singleQuoted = false;
-        boolean doubleQuoted = false;
-        boolean escaped = false;
-        for (int index = start; index < line.length(); index++) {
+        char quote = start < line.length() ? line.charAt(start) : '\0';
+        boolean quoted = quote == '\'' || quote == '"';
+        for (int index = quoted ? start + 1 : start; index < line.length(); index++) {
             char character = line.charAt(index);
-            if (doubleQuoted && character == '\\' && !escaped) {
-                escaped = true;
-                continue;
-            }
-            if (character == '"' && !singleQuoted && !escaped) {
-                doubleQuoted = !doubleQuoted;
-            }
-            else if (character == '\'' && !doubleQuoted) {
-                if (singleQuoted && index + 1 < line.length() && line.charAt(index + 1) == '\'') {
+            if (quoted) {
+                if (quote == '"' && character == '\\') {
                     index++;
-                    continue;
                 }
-                singleQuoted = !singleQuoted;
+                else if (character == quote) {
+                    if (quote == '\'' && index + 1 < line.length() && line.charAt(index + 1) == quote) {
+                        index++;
+                    }
+                    else {
+                        quoted = false;
+                    }
+                }
             }
-            else if (character == '#' && !singleQuoted && !doubleQuoted && (index == start || Character.isWhitespace(line.charAt(index - 1)))) {
+            else if (character == '#' && (index == start || Character.isWhitespace(line.charAt(index - 1)))) {
                 return index;
             }
-            escaped = false;
         }
         return -1;
     }

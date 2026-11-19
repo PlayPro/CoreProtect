@@ -12,7 +12,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
-import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.config.Config;
@@ -79,11 +78,6 @@ public final class ArmorStandManipulateListener extends Queue implements Listene
     protected void onPlayerArmorStandManipulateEvent(PlayerArmorStandManipulateEvent event) {
         Player player = event.getPlayer();
         final ArmorStand armorStand = event.getRightClicked();
-        EntityEquipment equipment = armorStand.getEquipment();
-        ItemStack[] oldContents = ItemUtils.getArmorStandContents(equipment);
-        ItemStack[] newContents = oldContents.clone();
-        ItemStack item = event.getArmorStandItem();
-        ItemStack playerItem = event.getPlayerItem();
 
         if (ConfigHandler.inspecting.get(player.getName()) != null) {
             if (ConfigHandler.inspecting.get(player.getName())) {
@@ -104,8 +98,11 @@ public final class ArmorStandManipulateListener extends Queue implements Listene
             return;
         }
 
-        int slot = 0;
+        int slot;
         switch (event.getSlot()) {
+            case FEET:
+                slot = 0;
+                break;
             case LEGS:
                 slot = 1;
                 break;
@@ -122,27 +119,22 @@ public final class ArmorStandManipulateListener extends Queue implements Listene
                 slot = 5;
                 break;
             default:
-                slot = 0;
+                return;
         }
-        // 0: BOOTS, 1: LEGGINGS, 2: CHESTPLATE, 3: HELMET, 4: MAINHAND, 5: OFFHAND
 
-        if (item.getType() == playerItem.getType()) {
+        ItemStack previous = event.getArmorStandItem();
+        ItemStack placed = event.getPlayerItem().clone();
+        if (placed.getAmount() > 1) {
+            placed.setAmount(1);
+        }
+        if (previous.equals(placed)) {
             return;
         }
-        else if (item.getType() != Material.AIR && playerItem.getType() == Material.AIR) {
-            oldContents[slot] = item.clone();
-            newContents[slot] = new ItemStack(Material.AIR);
-            PlayerInteractEntityListener.queueContainerSpecifiedItems(player.getName(), Material.ARMOR_STAND, new Object[] { oldContents, newContents }, armorStand.getLocation(), false);
-        }
-        else if (item.getType() == Material.AIR && playerItem.getType() != Material.AIR) {
-            oldContents[slot] = new ItemStack(Material.AIR);
-            newContents[slot] = playerItem.clone();
-            PlayerInteractEntityListener.queueContainerSpecifiedItems(player.getName(), Material.ARMOR_STAND, new Object[] { oldContents, newContents }, armorStand.getLocation(), false);
-        }
-        else if (item.getType() != Material.AIR && playerItem.getType() != Material.AIR) {
-            oldContents[slot] = item.clone();
-            newContents[slot] = playerItem.clone();
-            PlayerInteractEntityListener.queueContainerSpecifiedItems(player.getName(), Material.ARMOR_STAND, new Object[] { oldContents, newContents }, armorStand.getLocation(), false);
-        }
+
+        ItemStack[] oldContents = ItemUtils.getArmorStandContents(armorStand.getEquipment());
+        ItemStack[] newContents = oldContents.clone();
+        oldContents[slot] = previous.clone();
+        newContents[slot] = placed;
+        PlayerInteractEntityListener.queueContainerSpecifiedItems(player.getName(), Material.ARMOR_STAND, new Object[] { oldContents, newContents }, armorStand.getLocation(), false);
     }
 }

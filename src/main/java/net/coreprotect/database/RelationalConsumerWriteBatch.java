@@ -35,6 +35,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     private static final int ENTITY_MAP_BATCH = 13;
     private static final int BLOCK_DATA_BATCH = 14;
     private static final int ENTITY_KILL_LINK_BATCH = 15;
+    private static final int BATCH_SIZE = 1000;
     private static final int INITIAL_DUCKDB_BLOCK_ID_RESERVATION = 256;
     private static final int MAXIMUM_DUCKDB_BLOCK_ID_RESERVATION = 65536;
     private static final long[] EMPTY_ROW_IDS = new long[0];
@@ -43,6 +44,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     private final DatabaseType databaseType;
     private final Statement transactionStatement;
     private final PreparedStatement[] batchStatements = new PreparedStatement[16];
+    private final int[] pendingBatchCounts = new int[batchStatements.length];
     private final List<PreparedStatement> statements = new ArrayList<>();
 
     private PreparedStatement blockReturningStatement;
@@ -68,6 +70,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     private int duckDBBlockIdReservationSize = INITIAL_DUCKDB_BLOCK_ID_RESERVATION;
     private DuckDBSpatialIndex.Transaction duckDBSpatialIndex;
     private EntitySpawnStatement.Updates entitySpawnUpdates;
+    private SQLException batchFailure;
     private boolean commitAttempted;
     private Throwable commitFailure;
 
@@ -92,14 +95,16 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         clearProcessedEntityRemovals();
         commitAttempted = false;
         commitFailure = null;
+        boolean writesCommitted = false;
         try {
             finishDuckDBBlockAppender();
+            if (batchFailure != null) {
+                throw batchFailure;
+            }
             boolean acknowledgedRollback = Database.isRollbackOnlyTransactionAcknowledged();
             if (!Database.isTransactionRollbackOnly()) {
-                for (PreparedStatement statement : batchStatements) {
-                    if (statement != null) {
-                        statement.executeBatch();
-                    }
+                for (int index = 0; index < batchStatements.length; index++) {
+                    flushPendingBatch(index);
                 }
                 if (duckDBSpatialIndex != null) {
                     duckDBSpatialIndex.flush(connection);
@@ -120,6 +125,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
                 duckDBSpatialIndex = null;
                 return true;
             }
+            writesCommitted = true;
             if (duckDBSpatialIndex != null) {
                 duckDBSpatialIndex.publish();
                 duckDBSpatialIndex = null;
@@ -138,6 +144,11 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
             }
             return false;
         }
+        finally {
+            if (!writesCommitted) {
+                clearPendingBatches();
+            }
+        }
     }
 
     @Override
@@ -154,17 +165,21 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     public void rollback() {
         clearProcessedEntityRemovals();
         try {
-            finishDuckDBBlockAppender();
+            try {
+                finishDuckDBBlockAppender();
+            }
+            catch (Exception exception) {
+                Database.reportDatabaseFailure(exception);
+            }
+            if (Database.rollbackTransaction(transactionStatement, databaseType)) {
+                duckDBSpatialIndex = null;
+            }
+            else {
+                abandonDuckDBSpatialIndex();
+            }
         }
-        catch (Exception exception) {
-            Database.reportDatabaseFailure(exception);
-        }
-        boolean rolledBack = Database.rollbackTransaction(transactionStatement, databaseType);
-        if (!rolledBack) {
-            abandonDuckDBSpatialIndex();
-        }
-        else {
-            duckDBSpatialIndex = null;
+        finally {
+            clearPendingBatches();
         }
     }
 
@@ -281,29 +296,32 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
 
     @Override
     public void addReference(ReferenceKind kind, int batchCount, int id, String value) throws Exception {
-        PreparedStatement statement;
         switch (kind) {
             case ART:
-                statement = batchStatement(Database.ART, ART_BATCH);
+                addReference(Database.ART, ART_BATCH, id, value);
                 break;
             case BLOCK_DATA:
-                statement = batchStatement(Database.BLOCKDATA, BLOCK_DATA_BATCH);
+                addReference(Database.BLOCKDATA, BLOCK_DATA_BATCH, id, value);
                 break;
             case ENTITY:
-                statement = batchStatement(Database.ENTITY_MAP, ENTITY_MAP_BATCH);
+                addReference(Database.ENTITY_MAP, ENTITY_MAP_BATCH, id, value);
                 break;
             case MATERIAL:
-                statement = batchStatement(Database.MATERIAL, MATERIAL_BATCH);
+                addReference(Database.MATERIAL, MATERIAL_BATCH, id, value);
                 break;
             case WORLD:
-                statement = batchStatement(Database.WORLD, WORLD_BATCH);
+                addReference(Database.WORLD, WORLD_BATCH, id, value);
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported reference kind " + kind);
         }
+    }
+
+    private void addReference(int type, int index, int id, String value) throws SQLException {
+        PreparedStatement statement = batchStatement(type, index);
         statement.setInt(1, id);
         statement.setString(2, value);
-        addBatch(statement, batchCount);
+        addBatch(index);
     }
 
     @Override
@@ -314,7 +332,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         }
         PreparedStatement statement = batchStatement(Database.BLOCK, BLOCK_BATCH);
         setBlock(statement, time, userId, worldId, x, y, z, type, data, meta, blockData, action, rolledBack);
-        addBatch(statement, batchCount);
+        addBatch(BLOCK_BATCH);
     }
 
     @Override
@@ -358,7 +376,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         statement.setObject(10, metadata);
         statement.setInt(11, action);
         statement.setInt(12, rolledBack);
-        addBatch(statement, batchCount);
+        addBatch(CONTAINER_BATCH);
         trackDuckDBGenerated("container", worldId, x, z);
     }
 
@@ -378,7 +396,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         statement.setObject(11, metadata);
         statement.setInt(12, action);
         statement.setInt(13, rolledBack);
-        addBatch(statement, batchCount);
+        addBatch(ENTITY_CONTAINER_BATCH);
         trackDuckDBGenerated("entity_container", worldId, x, z, entitySpawnRowId);
     }
 
@@ -396,7 +414,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         statement.setInt(9, amount);
         statement.setInt(10, action);
         statement.setInt(11, rolledBack);
-        addBatch(statement, batchCount);
+        addBatch(ITEM_BATCH);
         trackDuckDBGenerated("item", worldId, x, z);
     }
 
@@ -404,7 +422,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     public void addChat(int batchCount, long time, int userId, int worldId, int x, int y, int z, String message) throws Exception {
         PreparedStatement statement = batchStatement(Database.CHAT, CHAT_BATCH);
         setMessage(statement, time, userId, worldId, x, y, z, message);
-        addBatch(statement, batchCount);
+        addBatch(CHAT_BATCH);
         trackDuckDBGenerated("chat", worldId, x, z);
     }
 
@@ -412,7 +430,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
     public void addCommand(int batchCount, long time, int userId, int worldId, int x, int y, int z, String message) throws Exception {
         PreparedStatement statement = batchStatement(Database.COMMAND, COMMAND_BATCH);
         setMessage(statement, time, userId, worldId, x, y, z, message);
-        addBatch(statement, batchCount);
+        addBatch(COMMAND_BATCH);
         trackDuckDBGenerated("command", worldId, x, z);
     }
 
@@ -426,7 +444,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         statement.setInt(5, y);
         statement.setInt(6, z);
         statement.setInt(7, action);
-        addBatch(statement, batchCount);
+        addBatch(SESSION_BATCH);
         trackDuckDBGenerated("session", worldId, x, z);
     }
 
@@ -451,7 +469,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         for (int index = 0; index < lines.length; index++) {
             statement.setString(13 + index, lines[index]);
         }
-        addBatch(statement, batchCount);
+        addBatch(SIGN_BATCH);
         trackDuckDBGenerated("sign", worldId, x, z);
     }
 
@@ -521,7 +539,7 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         }
         statement.setInt(1, killRowId);
         statement.setString(2, uuid.toString());
-        statement.addBatch();
+        addBatch(ENTITY_KILL_LINK_BATCH);
     }
 
     @Override
@@ -882,10 +900,51 @@ public final class RelationalConsumerWriteBatch implements ConsumerWriteBatch {
         return statement;
     }
 
-    private static void addBatch(PreparedStatement statement, int batchCount) throws SQLException {
-        statement.addBatch();
-        if (batchCount > 0 && batchCount % 1000 == 0) {
-            statement.executeBatch();
+    private void addBatch(int index) throws SQLException {
+        if (batchFailure != null) {
+            throw batchFailure;
+        }
+        try {
+            batchStatements[index].addBatch();
+            if (++pendingBatchCounts[index] == BATCH_SIZE) {
+                flushPendingBatch(index);
+            }
+        }
+        catch (SQLException exception) {
+            batchFailure = exception;
+            throw exception;
+        }
+    }
+
+    private void flushPendingBatch(int index) throws SQLException {
+        if (pendingBatchCounts[index] > 0) {
+            batchStatements[index].executeBatch();
+            pendingBatchCounts[index] = 0;
+        }
+    }
+
+    private void clearPendingBatches() {
+        batchFailure = null;
+        for (int index = 0; index < batchStatements.length; index++) {
+            pendingBatchCounts[index] = 0;
+            PreparedStatement statement = batchStatements[index];
+            if (statement == null) {
+                continue;
+            }
+            try {
+                statement.clearBatch();
+            }
+            catch (SQLException exception) {
+                batchStatements[index] = null;
+                try {
+                    statement.close();
+                    statements.remove(statement);
+                }
+                catch (SQLException closeException) {
+                    exception.addSuppressed(closeException);
+                }
+                Database.reportDatabaseFailure(exception);
+            }
         }
     }
 

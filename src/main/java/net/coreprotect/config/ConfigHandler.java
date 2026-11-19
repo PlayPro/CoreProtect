@@ -20,6 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
@@ -736,6 +737,19 @@ public class ConfigHandler {
         }
     }
 
+    public static String mysqlJdbcUrl() {
+        return "jdbc:mysql://" + host + ":" + port + "/" + database;
+    }
+
+    public static Properties mysqlConnectionProperties() {
+        Properties properties = new Properties();
+        properties.setProperty("characterEncoding", "UTF-8");
+        properties.setProperty("connectTimeout", "10000");
+        properties.setProperty("allowPublicKeyRetrieval", "true");
+        properties.setProperty("useSSL", Boolean.toString(Config.getGlobal().ENABLE_SSL));
+        return properties;
+    }
+
     private static void initializeDatabase() {
         if (ConfigHandler.databaseType.isClickHouse()) {
             try {
@@ -787,7 +801,7 @@ public class ConfigHandler {
                 config.setDriverClassName("com.mysql.jdbc.Driver");
             }
 
-            config.setJdbcUrl("jdbc:mysql://" + ConfigHandler.host + ":" + ConfigHandler.port + "/" + ConfigHandler.database);
+            config.setJdbcUrl(mysqlJdbcUrl());
             config.setUsername(ConfigHandler.username);
             config.setPassword(ConfigHandler.password);
             config.setMaximumPoolSize(ConfigHandler.maximumPoolSize);
@@ -795,8 +809,7 @@ public class ConfigHandler {
             // Keep connection age below short limits used by some managed MySQL hosts.
             config.setMaxLifetime(60000);
             config.setKeepaliveTime(0);
-            config.addDataSourceProperty("characterEncoding", "UTF-8");
-            config.addDataSourceProperty("connectTimeout", "10000");
+            config.setDataSourceProperties(mysqlConnectionProperties());
             /* https://github.com/brettwooldridge/HikariCP/wiki/MySQL-Configuration */
             /*
              * https://cdn.oreillystatic.com/en/assets/1/event/21/Connector_J%20Performance%
@@ -810,10 +823,6 @@ public class ConfigHandler {
             config.addDataSourceProperty("rewriteBatchedStatements", "true");
             config.addDataSourceProperty("cacheServerConfiguration", "true");
             config.addDataSourceProperty("maintainTimeStats", "false");
-            /* Disable SSL to suppress the unverified server identity warning */
-            config.addDataSourceProperty("allowPublicKeyRetrieval", "true");
-            config.addDataSourceProperty("useSSL", Config.getGlobal().ENABLE_SSL);
-
             ConfigHandler.hikariDataSource = new HikariDataSource(config);
         }
 

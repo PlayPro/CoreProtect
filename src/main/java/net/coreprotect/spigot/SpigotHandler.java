@@ -66,52 +66,13 @@ public class SpigotHandler extends SpigotAdapter implements SpigotInterface {
             return;
         }
         try {
+            TextComponent component = new TextComponent(TextComponent.fromLegacyText(processComponent(data[2])));
             if (Config.getGlobal().HOVER_EVENTS) {
-                String tooltipText = processComponent(data[1]); // text displayed inside tooltip
-                TextComponent component = new TextComponent(TextComponent.fromLegacyText(processComponent(data[2])));
-                // BaseComponent[] displayComponent = TextComponent.fromLegacyText(processComponent(tooltipText));
-
-                if (tooltipText.contains(Color.MAGIC)) {
-                    tooltipText = tooltipText.replace(Color.MAGIC, "");
-
-                    // to-do
-                    /*
-                    ComponentBuilder formattedComponent = new ComponentBuilder();
-                    StringBuilder messageTest = new StringBuilder();
-                    String colorChar = String.valueOf(ChatColor.COLOR_CHAR);
-                    boolean isObfuscated = false;
-
-                    String[] tooltip = tooltipText.split(colorChar);
-                    for (String splitText : tooltip) {
-                        boolean setObfuscated = splitText.startsWith("k");
-                        splitText = setObfuscated ? splitText.substring(1) : (splitText.length() > 0 ? colorChar : "") + splitText;
-                        if ((setObfuscated && !isObfuscated) || (!setObfuscated && isObfuscated)) {
-                            formattedComponent.append(TextComponent.fromLegacyText(processComponent(messageTest.toString())));
-                            formattedComponent.obfuscated(false); // setObfuscated
-                            formattedComponent.append(TextComponent.fromLegacyText(processComponent(splitText)));
-                            messageTest.setLength(0);
-                            isObfuscated = !isObfuscated;
-                        }
-                        else {
-                            messageTest.append(splitText);
-                        }
-                    }
-
-                    if (messageTest.length() > 0) {
-                        formattedComponent.append(TextComponent.fromLegacyText(processComponent(messageTest.toString())));
-                    }
-
-                    displayComponent = formattedComponent.create();
-                    */
-                }
-
+                String tooltipText = processComponent(data[1]).replace(Color.MAGIC, "");
                 BaseComponent[] displayComponent = TextComponent.fromLegacyText(tooltipText);
                 component.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new Text(displayComponent)));
-                ((TextComponent) message).addExtra(component);
             }
-            else {
-                super.addHoverComponent(message, data);
-            }
+            ((TextComponent) message).addExtra(component);
         }
         catch (Exception e) {
             ErrorReporter.report(e);

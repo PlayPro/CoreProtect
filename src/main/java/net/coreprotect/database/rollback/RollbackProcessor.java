@@ -16,10 +16,8 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
-import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Powerable;
-import org.bukkit.block.data.type.Jukebox;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.ItemFrame;
@@ -321,15 +319,9 @@ public class RollbackProcessor {
                             Block block = bukkitRollbackWorld.getBlockAt(rowX, rowY, rowZ);
 
                             if (BlockGroup.CONTAINERS.contains(block.getType())) {
-                                BlockState blockState = block.getState();
-                                if (blockState instanceof Jukebox) {
-                                    container = blockState;
-                                }
-                                else {
-                                    container = BlockUtils.getContainerInventory(blockState, false);
-                                    if (container instanceof Inventory) {
-                                        InventoryChangeListener.flushPendingContainer((Inventory) container, block.getLocation());
-                                    }
+                                container = RollbackUtil.resolveBlockContainer(block);
+                                if (container instanceof Inventory) {
+                                    InventoryChangeListener.flushPendingContainer((Inventory) container, block.getLocation());
                                 }
 
                                 containerType = block.getType();

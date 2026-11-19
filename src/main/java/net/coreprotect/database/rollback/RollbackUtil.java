@@ -8,6 +8,7 @@ import org.bukkit.FireworkEffect.Builder;
 import org.bukkit.Material;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
+import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Jukebox;
 import org.bukkit.block.ShulkerBox;
@@ -38,10 +39,16 @@ import net.coreprotect.database.Lookup;
 import net.coreprotect.database.statement.BlockStatement;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.AttributeUtils;
+import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.ErrorReporter;
 
 public class RollbackUtil extends Lookup {
+
+    public static Object resolveBlockContainer(Block block) {
+        BlockState state = block.getState();
+        return state instanceof Jukebox ? state : BlockUtils.getContainerInventory(state, false);
+    }
 
     protected static int modifyContainerItems(Material type, Object container, int slot, ItemStack itemstack, int action) {
         int modifiedArmor = -1;
@@ -106,15 +113,16 @@ public class RollbackUtil extends Lookup {
                     }
                 }
                 if (jukebox != null) {
-                    if (action == 1 && itemstack.getType().name().startsWith("MUSIC_DISC")) {
-                        itemstack.setAmount(1);
-                    }
-                    else {
-                        itemstack.setType(Material.AIR);
-                        itemstack.setAmount(0);
+                    ItemStack record = null;
+                    if (action == 1) {
+                        if (BlockUtils.isAir(itemstack.getType())) {
+                            return modifiedArmor;
+                        }
+                        record = itemstack.clone();
+                        record.setAmount(1);
                     }
 
-                    jukebox.setRecord(itemstack);
+                    jukebox.setRecord(record);
                     jukebox.update();
                 }
             }

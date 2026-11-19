@@ -29,7 +29,6 @@ import net.coreprotect.database.rollback.RollbackComplete;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.thread.Scheduler;
-import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
@@ -98,7 +97,7 @@ public class ContainerRollback extends Rollback {
                         List<ItemFrame> matchingFrames = new ArrayList<>();
 
                         if (BlockGroup.CONTAINERS.contains(type)) {
-                            container = BlockUtils.getContainerInventory(block.getState(), false);
+                            container = Rollback.resolveBlockContainer(block);
                         }
                         else {
                             for (Entity entity : block.getChunk().getEntities()) {

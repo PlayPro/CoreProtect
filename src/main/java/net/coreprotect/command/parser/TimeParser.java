@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -75,11 +76,7 @@ public class TimeParser {
         }
 
         long toSeconds() {
-            double total = 0.0;
-            for (UnitEntry entry : entries) {
-                total += entry.amount.doubleValue() * entry.unit.seconds;
-            }
-            return (long) total;
+            return durationSeconds(entries);
         }
 
         void appendFormatted(StringBuilder builder, boolean compactRange) {
@@ -158,6 +155,22 @@ public class TimeParser {
         return parseDurationSpec(spec, new ParsedTime());
     }
 
+    public static long parseDurationSeconds(String value) {
+        if (value == null) {
+            return 0L;
+        }
+        List<UnitEntry> entries = parseSide(value.trim().toLowerCase(Locale.ROOT).replace(" ", ""), false);
+        return entries == null ? 0L : durationSeconds(entries);
+    }
+
+    private static long durationSeconds(List<UnitEntry> entries) {
+        double total = 0.0;
+        for (UnitEntry entry : entries) {
+            total += entry.amount.doubleValue() * entry.unit.seconds;
+        }
+        return (long) total;
+    }
+
     /**
      * Parse time string from command arguments for display
      * 
@@ -200,15 +213,15 @@ public class TimeParser {
     private static boolean parseDurationSpec(String spec, ParsedTime parsed) {
         int dashIndex = spec.indexOf('-');
         if (dashIndex < 0) {
-            List<UnitEntry> entries = parseSide(spec);
+            List<UnitEntry> entries = parseSide(spec, true);
             if (entries == null) {
                 return false;
             }
             (parsed.range ? parsed.second : parsed.first).merge(entries);
         }
         else {
-            List<UnitEntry> startEntries = parseSide(spec.substring(0, dashIndex));
-            List<UnitEntry> endEntries = parseSide(spec.substring(dashIndex + 1));
+            List<UnitEntry> startEntries = parseSide(spec.substring(0, dashIndex), true);
+            List<UnitEntry> endEntries = parseSide(spec.substring(dashIndex + 1), true);
             if (startEntries == null || endEntries == null) {
                 return false;
             }
@@ -219,7 +232,7 @@ public class TimeParser {
         return true;
     }
 
-    private static List<UnitEntry> parseSide(String spec) {
+    private static List<UnitEntry> parseSide(String spec, boolean allowCommandSyntax) {
         if (spec.isEmpty()) {
             return null;
         }
@@ -227,12 +240,13 @@ public class TimeParser {
         Matcher matcher = DURATION_TOKEN.matcher(spec);
         int position = 0;
         while (position < spec.length()) {
-            if (spec.charAt(position) == ',') {
+            char first = spec.charAt(position);
+            if (allowCommandSyntax && first == ',') {
                 position++;
                 continue;
             }
             matcher.region(position, spec.length());
-            if (!matcher.lookingAt()) {
+            if ((!allowCommandSyntax && first == '.') || !matcher.lookingAt()) {
                 return null;
             }
             String numberText = matcher.group(1);

@@ -34,6 +34,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.model.SignState;
 import net.coreprotect.model.action.SignActions;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.CacheHandler;
@@ -113,6 +114,10 @@ public final class BlockBreakListener extends Queue implements Listener {
         return true;
     }
 
+    private static boolean isPiston(Material type) {
+        return type == Material.PISTON || type == Material.STICKY_PISTON;
+    }
+
     protected static void processBlockBreak(Player player, String user, Block block, boolean logBreak, int skipScan) {
         processBlockBreak(player, user, block, logBreak, skipScan, null);
     }
@@ -123,7 +128,6 @@ public final class BlockBreakListener extends Queue implements Listener {
         int x = block.getX();
         int y = block.getY();
         int z = block.getZ();
-        int physics = 0;
 
         Location[] locationMap = new Location[6];
         locationMap[0] = new Location(world, x + 1, y, z);
@@ -143,7 +147,6 @@ public final class BlockBreakListener extends Queue implements Listener {
         }
         while (scanMin < scanMax) {
             Block blockLog = block;
-            boolean scanDown = false;
             boolean log = true;
 
             if (scanMin == skipScan) {
@@ -166,172 +169,65 @@ public final class BlockBreakListener extends Queue implements Listener {
                     scanMin++;
                     continue;
                 }
-                if (scanMin == 5 && (scanType.hasGravity() || BukkitAdapter.ADAPTER.isSuspiciousBlock(scanType)) && Config.getConfig(world).BLOCK_MOVEMENT) {
+                if (scanMin == BlockUtil.TOP && (scanType.hasGravity() || BukkitAdapter.ADAPTER.isSuspiciousBlock(scanType)) && Config.getConfig(world).BLOCK_MOVEMENT) {
                     // FallingBlock listeners read lookupCache to attribute the chain reaction; overwrite the cache up the gravity stack so falls record under whoever broke this block instead of #gravity or the original placer.
                     seedGravityFallAttribution(user, world, x, z, y + 1, scanType);
                 }
-                if (!BlockGroup.TRACK_ANY.contains(scanType)) {
-                    if (scanMin != 5 && scanMin != 6 && !scanDown) { // side block
-                        if (!BlockGroup.TRACK_SIDE.contains(scanType)) {
-                            log = false;
-
-                            /*
-                            if (physics == 0 && scanBlock.getBlockData() instanceof MultipleFacing) {
-                                physics = 1;
-                            }
-                            */
-                        }
-                        else {
-                            // determine if side block is attached
-                            if (scanType.equals(Material.RAIL) || scanType.equals(Material.POWERED_RAIL) || scanType.equals(Material.DETECTOR_RAIL) || scanType.equals(Material.ACTIVATOR_RAIL)) {
-                                BlockData blockData = scanBlock.getBlockData();
-                                Rail rail = (Rail) blockData;
-                                Shape shape = rail.getShape();
-
-                                if (scanMin == 1 && shape != Shape.ASCENDING_WEST) {
-                                    log = false;
-                                }
-                                else if (scanMin == 2 && shape != Shape.ASCENDING_EAST) {
-                                    log = false;
-                                }
-                                else if (scanMin == 3 && shape != Shape.ASCENDING_NORTH) {
-                                    log = false;
-                                }
-                                else if (scanMin == 4 && shape != Shape.ASCENDING_SOUTH) {
-                                    log = false;
-                                }
-                            }
-                            else if (scanType.name().endsWith("_BED") && !type.name().endsWith("_BED")) {
-                                log = false;
-                            }
-                            else if (!isAttached(block, scanBlock, scanMin)) {
-                                log = false;
-                            }
-                        }
-                    }
-                    else { // top/bottom block
-                        if (BlockUtil.verticalBreakScan(player, user, block, scanBlock, scanType, scanMin, recordedBlocks)) {
-                            log = false;
-                        }
-                        else if (scanMin == 5 && (!BlockGroup.TRACK_TOP.contains(scanType) && !BlockGroup.TRACK_TOP_BOTTOM.contains(scanType))) {
-                            // top
-                            log = false;
-                        }
-                        else if (scanMin == 6 && (!BlockGroup.TRACK_BOTTOM.contains(scanType) && !BlockGroup.TRACK_TOP_BOTTOM.contains(scanType))) {
-                            // bottom
-                            log = false;
-                        }
-                        else if (scanMin == 4 && !BlockGroup.TRACK_TOP.contains(scanType)) {
-                            // checking block below for door
-                            log = false;
-                        }
-                        else if (!isAttached(block, scanBlock, scanMin)) {
-                            log = false;
-                        }
-                    }
-                    if (!log) {
-                        if (type.equals(Material.PISTON_HEAD)) {// broke a piston extension
-                            if (scanType.equals(Material.STICKY_PISTON) || scanType.equals(Material.PISTON)) { // adjacent piston
-                                log = true;
-                            }
-                        }
-                    }
+                if (BlockGroup.TRACK_ANY.contains(scanType)) {
+                    log = scanType == Material.PISTON_HEAD ? isPiston(type) : isAttached(block, scanBlock, scanMin);
+                }
+                else if (scanMin < BlockUtil.TOP) {
+                    log = BlockGroup.TRACK_SIDE.contains(scanType) && isAttached(block, scanBlock, scanMin);
+                }
+                else if (BlockUtil.verticalBreakScan(player, user, block, scanBlock, scanType, scanMin, recordedBlocks)) {
+                    log = false;
                 }
                 else {
-                    // determine if side block is attached
-                    if (scanType.equals(Material.PISTON_HEAD)) {
-                        if (!type.equals(Material.STICKY_PISTON) && !type.equals(Material.PISTON)) {
-                            log = false;
-                        }
-                    }
-                    else if (scanType.equals(Material.BELL)) {
-                        boolean scanBell = false;
-                        BlockData blockData = scanBlock.getBlockData();
-                        Bell bell = (Bell) blockData;
-                        switch (bell.getAttachment()) {
-                            case SINGLE_WALL:
-                                scanBell = (scanMin < 5 && scanBlock.getRelative(bell.getFacing()).getLocation().equals(block.getLocation()));
-                                break;
-                            case FLOOR:
-                                scanBell = (scanMin == 5);
-                                break;
-                            case CEILING:
-                                scanBell = (scanMin == 6);
-                                break;
-                            default:
-                                break;
-                        }
-                        if (!scanBell) {
-                            log = false;
-                        }
-                    }
-                    else if (BlockGroup.BUTTONS.contains(scanType) || scanType == Material.LEVER) {
-                        boolean scanButton = BukkitAdapter.ADAPTER.isAttached(block, scanBlock, scanBlock.getBlockData(), scanMin);
-                        if (!scanButton) {
-                            log = false;
-                        }
-                    }
-                    else if (!isAttached(block, scanBlock, scanMin)) {
-                        log = false;
-                    }
+                    Set<Material> tracked = scanMin == BlockUtil.TOP ? BlockGroup.TRACK_TOP : BlockGroup.TRACK_BOTTOM;
+                    log = (tracked.contains(scanType) || BlockGroup.TRACK_TOP_BOTTOM.contains(scanType)) && isAttached(block, scanBlock, scanMin);
+                }
+                if (!log && type == Material.PISTON_HEAD && isPiston(scanType)) {
+                    log = true;
                 }
                 if (log) {
-                    blockLog = world.getBlockAt(scanLocation);
+                    blockLog = scanBlock;
                     if (recordedBlocks != null) {
                         recordedBlocks.add(blockLog);
                     }
                 }
             }
 
-            int blockNumber = scanMin;
+            if (!log) {
+                scanMin++;
+                continue;
+            }
+
             Material blockType = blockLog.getType();
             BlockState blockState = blockLog.getState();
-
-            if (log && BukkitAdapter.ADAPTER.isSign(blockType)) {
-                if (Config.getConfig(world).SIGN_TEXT) {
-                    try {
-                        Location location = blockState.getLocation();
-                        Sign sign = (Sign) blockLog.getState();
-                        String line1 = PaperAdapter.ADAPTER.getLine(sign, 0);
-                        String line2 = PaperAdapter.ADAPTER.getLine(sign, 1);
-                        String line3 = PaperAdapter.ADAPTER.getLine(sign, 2);
-                        String line4 = PaperAdapter.ADAPTER.getLine(sign, 3);
-                        String line5 = PaperAdapter.ADAPTER.getLine(sign, 4);
-                        String line6 = PaperAdapter.ADAPTER.getLine(sign, 5);
-                        String line7 = PaperAdapter.ADAPTER.getLine(sign, 6);
-                        String line8 = PaperAdapter.ADAPTER.getLine(sign, 7);
-
-                        boolean isFront = true;
-                        int color = BukkitAdapter.ADAPTER.getColor(sign, isFront);
-                        int colorSecondary = BukkitAdapter.ADAPTER.getColor(sign, !isFront);
-                        boolean frontGlowing = BukkitAdapter.ADAPTER.isGlowing(sign, isFront);
-                        boolean backGlowing = BukkitAdapter.ADAPTER.isGlowing(sign, !isFront);
-                        boolean isWaxed = BukkitAdapter.ADAPTER.isWaxed(sign);
-
-                        Queue.queueSignText(user, location, SignActions.BREAK, color, colorSecondary, frontGlowing, backGlowing, isWaxed, isFront, line1, line2, line3, line4, line5, line6, line7, line8, 5);
-                    }
-                    catch (Exception e) {
-                        ErrorReporter.report(e);
-                    }
+            if (blockState instanceof Sign && Config.getConfig(world).SIGN_TEXT) {
+                try {
+                    Queue.queueSignText(user, blockState.getLocation(), SignActions.BREAK, SignState.capture((Sign) blockState), true, 5);
+                }
+                catch (Exception e) {
+                    ErrorReporter.report(e);
                 }
             }
-            if (log) {
-                Database.containerBreakCheck(user, blockType, blockLog, null, blockLog.getLocation());
-                Queue.queueBlockBreak(user, blockState, blockType, blockState.getBlockData().getAsString(), type, physics, blockNumber);
 
-                if (player != null && BlockUtils.iceBreakCheck(blockState, user, blockType)) {
-                    ItemStack handItem = player.getInventory().getItemInMainHand();
-                    if (!(player.getGameMode().equals(GameMode.CREATIVE)) && !(handItem != null && handItem.containsEnchantment(Enchantment.SILK_TOUCH))) {
-                        Queue.queueBlockPlaceValidate(user, blockState, blockLog, null, Material.WATER, -1, 0, null, 0);
-                    }
+            Database.containerBreakCheck(user, blockType, blockLog, null, blockLog.getLocation());
+            Queue.queueBlockBreak(user, blockState, blockType, blockState.getBlockData().getAsString(), type, 0, scanMin);
+
+            if (player != null && BlockUtils.iceBreakCheck(blockState, user, blockType)) {
+                ItemStack handItem = player.getInventory().getItemInMainHand();
+                if (!(player.getGameMode().equals(GameMode.CREATIVE)) && !(handItem != null && handItem.containsEnchantment(Enchantment.SILK_TOUCH))) {
+                    Queue.queueBlockPlaceValidate(user, blockState, blockLog, null, Material.WATER, -1, 0, null, 0);
                 }
+            }
 
-                BlockData blockDataB1 = blockState.getBlockData();
-                if (blockDataB1 instanceof Waterlogged) {
-                    Waterlogged waterlogged = (Waterlogged) blockDataB1;
-                    if (waterlogged.isWaterlogged()) {
-                        Queue.queueBlockPlace(user, blockState, blockLog.getType(), null, Material.WATER, -1, 0, null);
-                    }
+            BlockData blockDataB1 = blockState.getBlockData();
+            if (blockDataB1 instanceof Waterlogged) {
+                Waterlogged waterlogged = (Waterlogged) blockDataB1;
+                if (waterlogged.isWaterlogged()) {
+                    Queue.queueBlockPlace(user, blockState, blockLog.getType(), null, Material.WATER, -1, 0, null);
                 }
             }
 

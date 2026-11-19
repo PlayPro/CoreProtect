@@ -4,8 +4,6 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
-import org.bukkit.block.data.BlockData;
-import org.bukkit.block.data.type.Scaffolding;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -74,13 +72,8 @@ public final class BlockFadeListener extends Queue implements Listener {
                 return;
             }
 
-            BlockData blockData = block.getBlockData();
-            if (blockData instanceof Scaffolding) {
-                Scaffolding scaffolding = (Scaffolding) blockData;
-                int maxDistance = scaffolding.getMaximumDistance();
-                if (maxDistance > 0 && scaffolding.getDistance() >= maxDistance) {
-                    return;
-                }
+            if (BlockUtil.isFloatingScaffolding(block.getBlockData())) {
+                return;
             }
 
             if (!Config.getConfig(world).NATURAL_BREAK) {

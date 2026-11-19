@@ -51,6 +51,7 @@ import net.coreprotect.listener.player.inspector.ContainerInspector;
 import net.coreprotect.listener.player.inspector.InteractionInspector;
 import net.coreprotect.listener.player.inspector.SignInspector;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.model.SignState;
 import net.coreprotect.model.action.SignActions;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.CacheHandler;
@@ -331,57 +332,40 @@ public final class PlayerInteractListener extends Queue implements Listener {
                         if (handType != null && (dyeSet.contains(handType) || handType.name().endsWith("INK_SAC") || handType == Material.HONEYCOMB) && Config.getConfig(block.getWorld()).SIGN_TEXT) {
                             BlockState blockState = block.getState();
                             Sign sign = (Sign) blockState;
-                            String line1 = PaperAdapter.ADAPTER.getLine(sign, 0);
-                            String line2 = PaperAdapter.ADAPTER.getLine(sign, 1);
-                            String line3 = PaperAdapter.ADAPTER.getLine(sign, 2);
-                            String line4 = PaperAdapter.ADAPTER.getLine(sign, 3);
-                            String line5 = PaperAdapter.ADAPTER.getLine(sign, 4);
-                            String line6 = PaperAdapter.ADAPTER.getLine(sign, 5);
-                            String line7 = PaperAdapter.ADAPTER.getLine(sign, 6);
-                            String line8 = PaperAdapter.ADAPTER.getLine(sign, 7);
-
+                            SignState oldSign = SignState.capture(sign);
                             boolean changingColor = dyeSet.contains(handType);
                             boolean changingGlow = handType.name().endsWith("INK_SAC");
                             Boolean interactionFront = PaperAdapter.ADAPTER.getSignInteractionSide(sign, player);
-                            boolean isFront = true;
-                            int oldColor = BukkitAdapter.ADAPTER.getColor(sign, isFront);
-                            int oldColorSecondary = BukkitAdapter.ADAPTER.getColor(sign, !isFront);
-                            boolean oldFrontGlowing = BukkitAdapter.ADAPTER.isGlowing(sign, isFront);
-                            boolean oldBackGlowing = BukkitAdapter.ADAPTER.isGlowing(sign, !isFront);
-                            boolean oldIsWaxed = BukkitAdapter.ADAPTER.isWaxed(sign);
 
-                            if (!oldIsWaxed) {
+                            if (!oldSign.isWaxed()) {
                                 Scheduler.runTask(CoreProtect.getInstance(), () -> {
                                     BlockState newState = block.getState();
-                                    if (newState instanceof Sign) {
-                                        Sign newSign = (Sign) newState;
-                                        int newColor = BukkitAdapter.ADAPTER.getColor(newSign, isFront);
-                                        int newColorSecondary = BukkitAdapter.ADAPTER.getColor(newSign, !isFront);
-                                        boolean newFrontGlowing = BukkitAdapter.ADAPTER.isGlowing(newSign, isFront);
-                                        boolean newBackGlowing = BukkitAdapter.ADAPTER.isGlowing(newSign, !isFront);
-                                        boolean newIsWaxed = BukkitAdapter.ADAPTER.isWaxed(newSign);
-
-                                        boolean frontChanged = changingColor ? oldColor != newColor : changingGlow && oldFrontGlowing != newFrontGlowing;
-                                        boolean backChanged = changingColor ? oldColorSecondary != newColorSecondary : changingGlow && oldBackGlowing != newBackGlowing;
-                                        if (interactionFront == null && (changingColor || changingGlow) && frontChanged == backChanged) {
-                                            return;
-                                        }
-                                        boolean modifyingFront = interactionFront != null ? interactionFront : !backChanged;
-                                        boolean propertyChanged = changingColor || changingGlow ? (modifyingFront ? frontChanged : backChanged) : oldIsWaxed != newIsWaxed;
-                                        if (propertyChanged) {
-                                            int beforeColor = changingColor && modifyingFront ? oldColor : newColor;
-                                            int beforeColorSecondary = changingColor && !modifyingFront ? oldColorSecondary : newColorSecondary;
-                                            boolean beforeFrontGlowing = changingGlow && modifyingFront ? oldFrontGlowing : newFrontGlowing;
-                                            boolean beforeBackGlowing = changingGlow && !modifyingFront ? oldBackGlowing : newBackGlowing;
-                                            boolean beforeIsWaxed = changingColor || changingGlow ? newIsWaxed : oldIsWaxed;
-                                            Location location = blockState.getLocation();
-                                            Queue.queueSignText(player.getName(), location, SignActions.BEFORE, beforeColor, beforeColorSecondary, beforeFrontGlowing, beforeBackGlowing, beforeIsWaxed, modifyingFront, line1, line2, line3, line4, line5, line6, line7, line8, 1);
-                                            Queue.queueBlockPlace(player.getName(), blockState, block.getType(), blockState, block.getType(), -1, 0, blockState.getBlockData().getAsString());
-                                            Queue.queueSignText(player.getName(), location, SignActions.EDIT, newColor, newColorSecondary, newFrontGlowing, newBackGlowing, newIsWaxed, modifyingFront, line1, line2, line3, line4, line5, line6, line7, line8, 0);
-                                        }
-
+                                    if (!(newState instanceof Sign)) {
+                                        return;
                                     }
 
+                                    Sign newSign = (Sign) newState;
+                                    SignState after = oldSign.withDecoration(BukkitAdapter.ADAPTER.getColor(newSign, true), BukkitAdapter.ADAPTER.getColor(newSign, false),
+                                            BukkitAdapter.ADAPTER.isGlowing(newSign, true), BukkitAdapter.ADAPTER.isGlowing(newSign, false), BukkitAdapter.ADAPTER.isWaxed(newSign));
+                                    boolean frontChanged = changingColor ? oldSign.getColor(true) != after.getColor(true) : changingGlow && oldSign.isGlowing(true) != after.isGlowing(true);
+                                    boolean backChanged = changingColor ? oldSign.getColor(false) != after.getColor(false) : changingGlow && oldSign.isGlowing(false) != after.isGlowing(false);
+                                    if (interactionFront == null && (changingColor || changingGlow) && frontChanged == backChanged) {
+                                        return;
+                                    }
+                                    boolean modifyingFront = interactionFront != null ? interactionFront : !backChanged;
+                                    boolean propertyChanged = changingColor || changingGlow ? (modifyingFront ? frontChanged : backChanged) : oldSign.isWaxed() != after.isWaxed();
+                                    if (propertyChanged) {
+                                        SignState before = oldSign.withDecoration(
+                                                changingColor && modifyingFront ? oldSign.getColor(true) : after.getColor(true),
+                                                changingColor && !modifyingFront ? oldSign.getColor(false) : after.getColor(false),
+                                                changingGlow && modifyingFront ? oldSign.isGlowing(true) : after.isGlowing(true),
+                                                changingGlow && !modifyingFront ? oldSign.isGlowing(false) : after.isGlowing(false),
+                                                changingColor || changingGlow ? after.isWaxed() : oldSign.isWaxed());
+                                        Location location = blockState.getLocation();
+                                        Queue.queueSignText(player.getName(), location, SignActions.BEFORE, before, modifyingFront, 1);
+                                        Queue.queueBlockPlace(player.getName(), blockState, block.getType(), blockState, block.getType(), -1, 0, blockState.getBlockData().getAsString());
+                                        Queue.queueSignText(player.getName(), location, SignActions.EDIT, after, modifyingFront, 0);
+                                    }
                                 }, block.getLocation());
                             }
                         }

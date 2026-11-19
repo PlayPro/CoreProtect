@@ -52,6 +52,19 @@ public final class SignState {
         return lines[index] == null ? "" : lines[index];
     }
 
+    public boolean hasText() {
+        for (int index = 0; index < lines.length; index++) {
+            if (!getLine(index).isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public SignState withDecoration(int frontColor, int backColor, boolean frontGlow, boolean backGlow, boolean isWaxed) {
+        return new SignState(lines, frontColor, backColor, frontGlow, backGlow, isWaxed);
+    }
+
     public int getColor(boolean front) {
         return front ? color : colorSecondary;
     }

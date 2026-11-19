@@ -63,27 +63,13 @@ public final class BlockFormListener extends Queue implements Listener {
             }
             if (player.length() > 0) {
                 log = true;
-                /*
-                if (newState.getType().equals(Material.COBBLESTONE)) {
-                    log = false;
-                    int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
-                    int x = block.getX();
-                    int y = block.getY();
-                    int z = block.getZ();
-                    String cords = "" + x + "." + y + "." + z + "." + wid + "." + newState.getType().name() + "";
-                    if (ConfigHandler.cobble_cache.get(cords) == null) {
-                        log = true;
-                    }
-                    ConfigHandler.cobble_cache.put(cords, new Object[] { unixtimestamp });
-                }
-                */
-                if (log) {
-                    Queue.queueBlockPlace(player, block.getLocation().getBlock().getState(), block.getType(), block.getState(), newState.getType(), -1, 0, newState.getBlockData().getAsString());
-                }
+                BlockState before = block.getState();
+                Queue.queueBlockPlace(player, before, block.getType(), before, newState.getType(), -1, 0, newState.getBlockData().getAsString());
             }
         }
         if (!log && Config.getConfig(world).UNKNOWN_LOGGING && Lookup.whoPlacedCache(block).length() == 0) {
-            Queue.queueBlockPlace("#unknown", block.getLocation().getBlock().getState(), block.getType(), block.getState(), newState.getType(), -1, 0, newState.getBlockData().getAsString());
+            BlockState before = block.getState();
+            Queue.queueBlockPlace("#unknown", before, block.getType(), before, newState.getType(), -1, 0, newState.getBlockData().getAsString());
         }
     }
 

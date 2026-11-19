@@ -1,8 +1,5 @@
 package net.coreprotect.listener.block;
 
-import java.util.Locale;
-
-import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -13,7 +10,6 @@ import org.bukkit.block.data.Bisected.Half;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Lightable;
 import org.bukkit.block.data.Waterlogged;
-import org.bukkit.block.data.type.Scaffolding;
 import org.bukkit.block.data.type.Stairs;
 import org.bukkit.block.data.type.TrapDoor;
 import org.bukkit.entity.Player;
@@ -28,11 +24,10 @@ import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.model.SignState;
 import net.coreprotect.model.action.SignActions;
-import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.utility.BlockUtils;
-import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.ErrorReporter;
 
@@ -53,7 +48,7 @@ public final class BlockPlaceListener extends Queue implements Listener {
                 // Logged by PlayerInteractListener; prevent a false lectern block-place record.
                 abort = true;
             }
-            else if (MaterialUtils.listContains(BlockGroup.CONTAINERS, blockType) || MaterialUtils.listContains(BlockGroup.DIRECTIONAL_BLOCKS, blockType) || blockType.name().toUpperCase(Locale.ROOT).endsWith("_STAIRS")) {
+            else if (BlockGroup.CONTAINERS.contains(blockType) || BlockGroup.DIRECTIONAL_BLOCKS.contains(blockType) || blockType.name().endsWith("_STAIRS")) {
                 BlockData blockData = blockPlaced.getBlockData();
                 Waterlogged waterlogged = BlockUtils.checkWaterlogged(blockData, blockReplaced);
                 if (waterlogged != null) {
@@ -108,7 +103,7 @@ public final class BlockPlaceListener extends Queue implements Listener {
                     blockReplaced = null;
                 }
 
-                if (blockType.hasGravity() || isFloatingScaffolding(blockState)) {
+                if (blockType.hasGravity() || BlockUtil.isFloatingScaffolding(blockData)) {
                     // FallingBlock listeners read lookupCache before the async consumer can populate it; record the placer synchronously so the fall and landing get attributed to the player instead of #gravity.
                     int worldId = WorldUtils.getWorldId(world.getName());
                     int timestamp = (int) (System.currentTimeMillis() / 1000L);
@@ -118,48 +113,19 @@ public final class BlockPlaceListener extends Queue implements Listener {
 
                 Queue.queueBlockPlace(player.getName(), blockState, blockPlaced.getType(), blockReplaced, null, -1, 0, bBlockData);
 
-                if (BukkitAdapter.ADAPTER.isSign(blockType)) {
-                    if (Config.getConfig(world).SIGN_TEXT) {
-                        try {
-                            Location location = blockState.getLocation();
-                            Sign sign = (Sign) blockState;
-                            String line1 = PaperAdapter.ADAPTER.getLine(sign, 0);
-                            String line2 = PaperAdapter.ADAPTER.getLine(sign, 1);
-                            String line3 = PaperAdapter.ADAPTER.getLine(sign, 2);
-                            String line4 = PaperAdapter.ADAPTER.getLine(sign, 3);
-                            String line5 = PaperAdapter.ADAPTER.getLine(sign, 4);
-                            String line6 = PaperAdapter.ADAPTER.getLine(sign, 5);
-                            String line7 = PaperAdapter.ADAPTER.getLine(sign, 6);
-                            String line8 = PaperAdapter.ADAPTER.getLine(sign, 7);
-
-                            boolean isFront = true;
-                            int color = BukkitAdapter.ADAPTER.getColor(sign, isFront);
-                            int colorSecondary = BukkitAdapter.ADAPTER.getColor(sign, !isFront);
-                            boolean frontGlowing = BukkitAdapter.ADAPTER.isGlowing(sign, isFront);
-                            boolean backGlowing = BukkitAdapter.ADAPTER.isGlowing(sign, !isFront);
-                            boolean isWaxed = BukkitAdapter.ADAPTER.isWaxed(sign);
-
-                            if (line1.length() > 0 || line2.length() > 0 || line3.length() > 0 || line4.length() > 0 || line5.length() > 0 || line6.length() > 0 || line7.length() > 0 || line8.length() > 0) {
-                                Queue.queueSignText(player.getName(), location, SignActions.PLACE, color, colorSecondary, frontGlowing, backGlowing, isWaxed, isFront, line1, line2, line3, line4, line5, line6, line7, line8, 0);
-                            }
+                if (blockState instanceof Sign && Config.getConfig(world).SIGN_TEXT) {
+                    try {
+                        SignState sign = SignState.capture((Sign) blockState);
+                        if (sign.hasText()) {
+                            Queue.queueSignText(player.getName(), blockState.getLocation(), SignActions.PLACE, sign, true, 0);
                         }
-                        catch (Exception e) {
-                            ErrorReporter.report(e);
-                        }
+                    }
+                    catch (Exception e) {
+                        ErrorReporter.report(e);
                     }
                 }
             }
         }
-    }
-
-    private static boolean isFloatingScaffolding(BlockState blockState) {
-        BlockData blockData = blockState.getBlockData();
-        if (blockData instanceof Scaffolding) {
-            Scaffolding scaffolding = (Scaffolding) blockData;
-            int maxDistance = scaffolding.getMaximumDistance();
-            return maxDistance > 0 && scaffolding.getDistance() >= maxDistance;
-        }
-        return false;
     }
 
 }

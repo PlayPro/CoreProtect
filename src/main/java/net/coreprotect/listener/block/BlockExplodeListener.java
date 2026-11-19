@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -27,8 +26,8 @@ import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.Database;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.model.SignState;
 import net.coreprotect.model.action.SignActions;
-import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.BlockUtils;
 
@@ -115,27 +114,9 @@ public final class BlockExplodeListener extends Queue implements Listener {
             Block block = entry.getValue();
             Material blockType = block.getType();
             BlockState blockState = block.getState();
-            if (BukkitAdapter.ADAPTER.isSign(blockType) && Config.getConfig(world).SIGN_TEXT) {
+            if (blockState instanceof Sign && Config.getConfig(world).SIGN_TEXT) {
                 try {
-                    Location location = blockState.getLocation();
-                    Sign sign = (Sign) blockState;
-                    String line1 = PaperAdapter.ADAPTER.getLine(sign, 0);
-                    String line2 = PaperAdapter.ADAPTER.getLine(sign, 1);
-                    String line3 = PaperAdapter.ADAPTER.getLine(sign, 2);
-                    String line4 = PaperAdapter.ADAPTER.getLine(sign, 3);
-                    String line5 = PaperAdapter.ADAPTER.getLine(sign, 4);
-                    String line6 = PaperAdapter.ADAPTER.getLine(sign, 5);
-                    String line7 = PaperAdapter.ADAPTER.getLine(sign, 6);
-                    String line8 = PaperAdapter.ADAPTER.getLine(sign, 7);
-
-                    boolean isFront = true;
-                    int color = BukkitAdapter.ADAPTER.getColor(sign, isFront);
-                    int colorSecondary = BukkitAdapter.ADAPTER.getColor(sign, !isFront);
-                    boolean frontGlowing = BukkitAdapter.ADAPTER.isGlowing(sign, isFront);
-                    boolean backGlowing = BukkitAdapter.ADAPTER.isGlowing(sign, !isFront);
-                    boolean isWaxed = BukkitAdapter.ADAPTER.isWaxed(sign);
-
-                    Queue.queueSignText(user, location, SignActions.BREAK, color, colorSecondary, frontGlowing, backGlowing, isWaxed, isFront, line1, line2, line3, line4, line5, line6, line7, line8, 5);
+                    Queue.queueSignText(user, blockState.getLocation(), SignActions.BREAK, SignState.capture((Sign) blockState), true, 5);
                 }
                 catch (Exception e) {
                     ErrorReporter.report(e);

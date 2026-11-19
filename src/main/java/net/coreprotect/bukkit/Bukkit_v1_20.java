@@ -66,7 +66,7 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
         initializeBlockGroups();
         initializeTaggedBlocks();
         BlockGroup.TRACK_TOP.addAll(Set.of(Material.TORCHFLOWER_CROP, Material.PITCHER_CROP));
-        BlockGroup.LOGGED_BY_LOWER_HALF.add(Material.PITCHER_CROP);
+        BlockGroup.LOGGED_BY_LOWER_HALF.addAll(Set.of(Material.PITCHER_CROP, Material.PITCHER_PLANT));
         BlockGroup.DIRECTIONAL_BLOCKS.addAll(Set.of(Material.PIGLIN_HEAD, Material.PIGLIN_WALL_HEAD));
         BlockGroup.SCULK.add(Material.CALIBRATED_SCULK_SENSOR);
     }
@@ -113,9 +113,12 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
         BlockGroup.TRACK_TOP.addAll(Tag.SAPLINGS.getValues());
         BlockGroup.NON_ATTACHABLE.addAll(Tag.SAPLINGS.getValues());
 
-        // Add flowers to top-tracked and non-attachable blocks
-        BlockGroup.TRACK_TOP.addAll(Tag.FLOWERS.getValues());
-        BlockGroup.NON_ATTACHABLE.addAll(Tag.FLOWERS.getValues());
+        for (Material flower : Tag.FLOWERS.getValues()) {
+            if (!Tag.LEAVES.isTagged(flower) && flower != Material.SPORE_BLOSSOM && flower != Material.CHORUS_FLOWER && flower != Material.MANGROVE_PROPAGULE) {
+                BlockGroup.TRACK_TOP.add(flower);
+                BlockGroup.NON_ATTACHABLE.add(flower);
+            }
+        }
 
         // Add signs (except wall signs) to top-tracked blocks
         for (Material value : Tag.SIGNS.getValues()) {

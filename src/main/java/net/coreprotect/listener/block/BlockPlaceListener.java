@@ -20,6 +20,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockMultiPlaceEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.inventory.ItemStack;
 
@@ -80,28 +81,38 @@ public final class BlockPlaceListener extends Queue implements Listener {
             }
 
             if (!abort) {
-                BlockData blockData = blockPlaced.getBlockData();
-                Waterlogged waterlogged = BlockUtils.checkWaterlogged(blockData, blockReplaced);
+                BlockState blockState = blockPlaced.getState();
+                BlockData blockData = blockState.getBlockData();
+                if (blockData instanceof Bisected && !(blockData instanceof Stairs || blockData instanceof TrapDoor)
+                        && ((Bisected) blockData).getHalf() == Half.TOP && blockPlaced.getY() > BukkitAdapter.ADAPTER.getMinHeight(world)) {
+                    BlockState lower = world.getBlockAt(blockPlaced.getX(), blockPlaced.getY() - 1, blockPlaced.getZ()).getState();
+                    BlockData lowerData = lower.getBlockData();
+                    if (lower.getType() == blockType && lowerData instanceof Bisected && ((Bisected) lowerData).getHalf() == Half.BOTTOM) {
+                        blockState = lower;
+                        blockData = lowerData;
+                        blockReplaced = null;
+                        if (event instanceof BlockMultiPlaceEvent) {
+                            for (BlockState replaced : ((BlockMultiPlaceEvent) event).getReplacedBlockStates()) {
+                                if (replaced.getX() == lower.getX() && replaced.getY() == lower.getY() && replaced.getZ() == lower.getZ()) {
+                                    blockReplaced = replaced;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Waterlogged waterlogged = blockReplaced == null ? null : BlockUtils.checkWaterlogged(blockData, blockReplaced);
                 if (waterlogged != null) {
                     bBlockData = waterlogged.getAsString();
                     blockReplaced = null;
-                }
-
-                // fix for placed bisected blocks randomly returning the top or bottom of the block in this event
-                BlockState blockState = blockPlaced.getState();
-                if (blockState.getBlockData() instanceof Bisected && !(blockState.getBlockData() instanceof Stairs || blockState.getBlockData() instanceof TrapDoor)) {
-                    if (((Bisected) blockState.getBlockData()).getHalf().equals(Half.TOP)) {
-                        if (blockPlaced.getY() > BukkitAdapter.ADAPTER.getMinHeight(world)) {
-                            blockState = blockPlaced.getWorld().getBlockAt(blockPlaced.getX(), blockPlaced.getY() - 1, blockPlaced.getZ()).getState();
-                        }
-                    }
                 }
 
                 if (blockType.hasGravity() || isFloatingScaffolding(blockState)) {
                     // FallingBlock listeners read lookupCache before the async consumer can populate it; record the placer synchronously so the fall and landing get attributed to the player instead of #gravity.
                     int worldId = WorldUtils.getWorldId(world.getName());
                     int timestamp = (int) (System.currentTimeMillis() / 1000L);
-                    String coordKey = blockPlaced.getX() + "." + blockPlaced.getY() + "." + blockPlaced.getZ() + "." + worldId;
+                    String coordKey = blockState.getX() + "." + blockState.getY() + "." + blockState.getZ() + "." + worldId;
                     CacheHandler.lookupCache.put(coordKey, new Object[] { timestamp, player.getName(), blockType });
                 }
 

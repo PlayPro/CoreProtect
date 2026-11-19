@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.Locale;
 
 import org.bukkit.Material;
+import org.bukkit.block.Block;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.type.MangrovePropagule;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Frog;
 import org.bukkit.entity.Goat;
@@ -69,6 +72,15 @@ public class Bukkit_v1_19 extends Bukkit_v1_18 {
      */
     private void initializeTrackTopBlocks() {
         BlockGroup.TRACK_TOP.addAll(List.of(Material.MANGROVE_PROPAGULE, Material.MANGROVE_SIGN));
+        BlockGroup.TRACK_BOTTOM.add(Material.MANGROVE_PROPAGULE);
+    }
+
+    @Override
+    public boolean isAttached(Block block, Block scanBlock, BlockData blockData, int scanMin) {
+        if (blockData instanceof MangrovePropagule) {
+            return scanMin == (((MangrovePropagule) blockData).isHanging() ? 6 : 5);
+        }
+        return super.isAttached(block, scanBlock, blockData, scanMin);
     }
 
     /**

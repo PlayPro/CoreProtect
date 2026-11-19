@@ -62,7 +62,7 @@ public class Bukkit_v1_17 extends BukkitAdapter {
 
         BlockGroup.TRACK_TOP_BOTTOM.addAll(List.of(Material.POINTED_DRIPSTONE, Material.BIG_DRIPLEAF_STEM));
 
-        BlockGroup.TRACK_BOTTOM.addAll(List.of(Material.CAVE_VINES, Material.CAVE_VINES_PLANT, Material.HANGING_ROOTS));
+        BlockGroup.TRACK_BOTTOM.addAll(List.of(Material.CAVE_VINES, Material.CAVE_VINES_PLANT, Material.HANGING_ROOTS, Material.SPORE_BLOSSOM));
 
         BlockGroup.VINES.add(Material.CAVE_VINES);
 

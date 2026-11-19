@@ -150,7 +150,7 @@ public final class BlockIgniteListener extends Queue implements Listener {
                 Queue.queueBlockPlace(player.getName(), block.getState(), block.getType(), replacedBlock, blockIgnited, -1, 0, blockDataString);
                 int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
                 int world_id = WorldUtils.getWorldId(block.getWorld().getName());
-                CacheHandler.lookupCache.put("" + block.getX() + "." + block.getY() + "." + block.getZ() + "." + world_id + "", new Object[] { unixtimestamp, player.getName(), block.getType() });
+                CacheHandler.lookupCache.put(block.getX() + "." + block.getY() + "." + block.getZ() + "." + world_id, new Object[] { unixtimestamp, player.getName(), blockIgnited });
             }
         }
     }

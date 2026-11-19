@@ -1,18 +1,15 @@
 package net.coreprotect.listener.block;
 
-import java.util.Locale;
 import java.util.Set;
 
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.block.Banner;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Sign;
-import org.bukkit.block.Skull;
 import org.bukkit.block.data.Bisected;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Directional;
@@ -290,17 +287,6 @@ public final class BlockBreakListener extends Queue implements Listener {
             Material blockType = blockLog.getType();
             BlockState blockState = blockLog.getState();
 
-            if (log && (blockType.name().toUpperCase(Locale.ROOT).endsWith("_BANNER") || blockType.equals(Material.SKELETON_SKULL) || blockType.equals(Material.SKELETON_WALL_SKULL) || blockType.equals(Material.WITHER_SKELETON_SKULL) || blockType.equals(Material.WITHER_SKELETON_WALL_SKULL) || blockType.equals(Material.ZOMBIE_HEAD) || blockType.equals(Material.ZOMBIE_WALL_HEAD) || blockType.equals(Material.PLAYER_HEAD) || blockType.equals(Material.PLAYER_WALL_HEAD) || blockType.equals(Material.CREEPER_HEAD) || blockType.equals(Material.CREEPER_WALL_HEAD) || blockType.equals(Material.DRAGON_HEAD) || blockType.equals(Material.DRAGON_WALL_HEAD))) {
-                try {
-                    if (blockState instanceof Banner || blockState instanceof Skull) {
-                        Queue.queueAdvancedBreak(user, blockState, blockType, blockState.getBlockData().getAsString(), 0, type, blockNumber);
-                    }
-                    log = false;
-                }
-                catch (Exception e) {
-                    ErrorReporter.report(e);
-                }
-            }
             if (log && BukkitAdapter.ADAPTER.isSign(blockType)) {
                 if (Config.getConfig(world).SIGN_TEXT) {
                     try {

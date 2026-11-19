@@ -152,7 +152,7 @@ public class WorldParser {
         return lower.equals("#worldedit") || lower.equals("#we");
     }
 
-    private static boolean isGlobalKeyword(String lower) {
+    public static boolean isGlobalKeyword(String lower) {
         return lower.equals("#global") || lower.equals("global") || lower.equals("off") || lower.equals("-1") || lower.equals("none") || lower.equals("false");
     }
 

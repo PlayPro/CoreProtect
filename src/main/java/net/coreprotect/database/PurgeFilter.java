@@ -76,7 +76,7 @@ public final class PurgeFilter {
      * Returns whether the purge is limited to selected co_block rows, which leaves the other tables untouched.
      */
     private boolean restrictsTables() {
-        return radius != null || !blockTypes.isEmpty() || !entityTypes.isEmpty() || killsOnly;
+        return radius != null || !blockTypes.isEmpty() || !entityTypes.isEmpty() || !excludedEntityTypes.isEmpty() || killsOnly;
     }
 
     /**
@@ -91,7 +91,7 @@ public final class PurgeFilter {
      * is purged, because a co_entity row always has the same time as its kill row.
      */
     public boolean purgesEntitiesByTime() {
-        return worldId <= 0 && !restrictsTables() && excludedEntityTypes.isEmpty();
+        return worldId <= 0 && !restrictsTables();
     }
 
     /**

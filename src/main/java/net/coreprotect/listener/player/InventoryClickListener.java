@@ -42,8 +42,7 @@ public final class InventoryClickListener implements Listener {
             capture = InventoryResultClick.capture(event, player, inventory, () -> new ItemStack[] { inventory.getItem(0), inventory.getItem(1) }, false, false);
         }
         else {
-            CraftItemListener.playerCraftItem(event, true);
-            return;
+            capture = CraftItemListener.captureCraftOrTrade(event, player, inventory);
         }
         CoreProtect plugin = CoreProtect.getInstance();
         if (capture == null || plugin == null) {

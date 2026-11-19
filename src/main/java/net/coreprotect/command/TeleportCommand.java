@@ -40,57 +40,45 @@ public class TeleportCommand {
             }
         }
 
-        if (resultc < 3) {
-            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co teleport <world> <x> <y> <z>"));
+        if (resultc < 3 || resultc > 5) {
+            sendUsage(player);
             return;
         }
 
-        String worldName = args[1];
-        int wid = WorldUtils.matchWorld(worldName);
-        boolean hasWorldArg = (resultc >= 5)
-                || (wid > -1 && resultc >= 4)
-                || (wid == -1 && resultc == 4 && !isCoordinateCharactersOnly(worldName.trim()) && isValidCoordinate(args[2]) && isValidCoordinate(args[3]));
-        if (wid == -1 && hasWorldArg) {
-            Chat.sendMessage(player, new ChatMessage(Phrase.build(Phrase.WORLD_NOT_FOUND, worldName)).build());
-            return;
-        }
-        if (wid > -1 && resultc == 3 && !isValidCoordinate(worldName)) {
-            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co teleport <world> <x> <y> <z>"));
+        String firstArgument = args[1].trim();
+        boolean coordinateFirst = resultc == 4 && isCoordinateCharactersOnly(firstArgument);
+        World exactWorld = coordinateFirst ? Bukkit.getServer().getWorld(firstArgument) : null;
+        boolean hasWorldArg = resultc == 5 || (resultc == 4 && (!coordinateFirst || exactWorld != null));
+        int coordStart = hasWorldArg ? 2 : 1;
+        boolean hasY = resultc - coordStart == 3;
+        double x = parseCoordinate(args[coordStart]);
+        double y = hasY ? parseCoordinate(args[coordStart + 1]) : 0.0;
+        double z = parseCoordinate(args[resultc - 1]);
+        if (Double.isNaN(x) || Double.isNaN(y) || Double.isNaN(z)) {
+            sendUsage(player);
             return;
         }
 
         Location location = ((Player) player).getLocation().clone();
         World world = location.getWorld();
-        if (hasWorldArg) {
-            world = Bukkit.getServer().getWorld(WorldUtils.getWorldName(wid));
+        if (exactWorld != null) {
+            world = exactWorld;
+        }
+        else if (hasWorldArg) {
+            int wid = WorldUtils.matchWorld(firstArgument);
+            world = wid == -1 ? null : Bukkit.getServer().getWorld(WorldUtils.getWorldName(wid));
         }
         if (world == null) {
-            Chat.sendMessage(player, new ChatMessage(Phrase.build(Phrase.WORLD_NOT_FOUND, worldName)).build());
+            Chat.sendMessage(player, new ChatMessage(Phrase.build(Phrase.WORLD_NOT_FOUND, firstArgument)).build());
             return;
         }
 
-        int coordStart = hasWorldArg ? 2 : 1;
-        int coordCount = args.length - coordStart;
-        if (coordCount < 2) {
-            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co teleport <world> <x> <y> <z>"));
-            return;
-        }
-
-        String x = args[coordStart].trim();
-        String y = (coordCount >= 3) ? args[coordStart + 1].trim() : null;
-        String z = (coordCount >= 3) ? args[coordStart + 2].trim() : args[coordStart + 1].trim();
-
-        if (!isValidCoordinate(x) || (y != null && !isValidCoordinate(y)) || !isValidCoordinate(z)) {
-            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co teleport <world> <x> <y> <z>"));
-            return;
-        }
-
-        double targetY = (y != null) ? Double.parseDouble(y) : (location.getBlockY() > 63 ? 63.0 : location.getY());
+        double targetY = hasY ? y : (location.getBlockY() > 63 ? 63.0 : location.getY());
 
         location.setWorld(world);
-        location.setX(Double.parseDouble(x));
+        location.setX(x);
         location.setY(targetY);
-        location.setZ(Double.parseDouble(z));
+        location.setZ(z);
 
         int chunkX = location.getBlockX() >> 4;
         int chunkZ = location.getBlockZ() >> 4;
@@ -105,20 +93,17 @@ public class TeleportCommand {
         ConfigHandler.teleportThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
     }
 
-    private static boolean isValidCoordinate(String value) {
-        if (value == null) {
-            return false;
-        }
+    private static void sendUsage(CommandSender player) {
+        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co teleport <world> <x> <y> <z>"));
+    }
+
+    private static double parseCoordinate(String value) {
         String trimmed = value.trim();
-        if (trimmed.isEmpty() || trimmed.length() >= 12 || !ParserUtils.isSignedDecimal(trimmed)) {
-            return false;
+        if (!ParserUtils.isSignedDecimal(trimmed)) {
+            return Double.NaN;
         }
-        try {
-            return Double.isFinite(Double.parseDouble(trimmed));
-        }
-        catch (NumberFormatException e) {
-            return false;
-        }
+        double coordinate = Double.parseDouble(trimmed);
+        return coordinate >= Integer.MIN_VALUE && coordinate < (double) Integer.MAX_VALUE + 1.0 ? coordinate : Double.NaN;
     }
 
     private static boolean isCoordinateCharactersOnly(String value) {

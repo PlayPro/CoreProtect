@@ -7,7 +7,6 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityRemoveEvent;
 
-import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.player.EntityInteractionListener;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.utility.EntitySpawnTracking;
@@ -59,8 +58,7 @@ public final class TrackedEntityRemoveListener implements Listener {
         if (EntitySpawnTracking.isTrackedOrPendingIdentity(entity)) {
             InventoryChangeListener.flushEntityContainer(entity);
             EntityInteractionListener.flushPendingInteractions(entity);
-            Queue.queueEntitySpawnRemoved(entity);
-            EntitySpawnTracking.clearTracking(entity.getUniqueId());
+            EntitySpawnTracking.recordRemoval(entity);
         }
     }
 }

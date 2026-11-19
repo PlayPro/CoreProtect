@@ -514,8 +514,8 @@ public class Queue {
         queueEntitySpawnUpdate(EntitySpawnData.revived(previousUuid, uuid, location));
     }
 
-    public static void queueEntitySpawnUpdate(EntitySpawnData update) {
-        queueStandardData(new Object[] { null, Process.ENTITY_SPAWN_UPDATE, null, 0, null, 0, 0, null }, new String[] { null, null }, update, false, Consumer.reserveConsumer());
+    public static boolean queueEntitySpawnUpdate(EntitySpawnData update) {
+        return queueStandardData(new Object[] { null, Process.ENTITY_SPAWN_UPDATE, null, 0, null, 0, 0, null }, new String[] { null, null }, update, false, Consumer.reserveConsumer());
     }
 
     public static void queueEntitySpawnUpdateFirst(EntitySpawnData update) {

@@ -39,9 +39,6 @@ public final class CushionBreakListener extends Queue implements Listener {
             Queue.queueEntityKill(user, entity.getLocation(), EntitySpawnTracking.serializeKillData(entity), entity.getType());
         }
 
-        if (EntitySpawnTracking.isTrackedOrPendingIdentity(entity)) {
-            Queue.queueEntitySpawnRemoved(entity);
-            EntitySpawnTracking.clearTracking(entity.getUniqueId());
-        }
+        EntitySpawnTracking.recordRemoval(entity);
     }
 }

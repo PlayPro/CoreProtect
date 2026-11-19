@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
@@ -128,6 +129,7 @@ public final class EntitySpawnTracking {
             return false;
         }
 
+        scheduleCleanup();
         UUID uuid = entity.getUniqueId();
         return runIdentityUpdate(uuid, false, () -> {
             boolean tracked = isTracked(entity);
@@ -412,12 +414,18 @@ public final class EntitySpawnTracking {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(ENTITY_SCAN_TIMEOUT_SECONDS);
 
         long[] chunks = chunksToScan(world, minChunkX, maxChunkX, minChunkZ, maxChunkZ, deadline);
+        BiConsumer<UUID, Entity> collectCandidate = (uuid, entity) -> {
+            loadedCandidates.add(uuid);
+            if (isTracked(entity) && isWithinRadius(entity.getLocation(), world, radius)) {
+                inside.add(uuid);
+            }
+        };
         if (ConfigHandler.isFolia) {
             scanFoliaChunks(world, chunks, radius, inside, deadline);
-            scanFoliaCandidates(world, radius, databaseCandidates, inside, loadedCandidates, deadline);
+            scanLoadedEntities(databaseCandidates, collectCandidate, deadline);
         }
         else {
-            scanBukkitCandidates(world, radius, databaseCandidates, inside, loadedCandidates, deadline);
+            scanLoadedEntities(databaseCandidates, collectCandidate, deadline);
             scanBukkitChunks(world, chunks, radius, inside, deadline);
         }
 
@@ -534,42 +542,47 @@ public final class EntitySpawnTracking {
         await(completion, deadline);
     }
 
-    private static void scanFoliaCandidates(World world, Integer[] radius, Set<UUID> databaseCandidates, Set<UUID> inside, Set<UUID> loadedCandidates, long deadline) throws Exception {
+    private static void scanLoadedEntities(Collection<UUID> uuids, BiConsumer<UUID, Entity> visitor, long deadline) throws Exception {
+        if (uuids.isEmpty()) {
+            return;
+        }
         UUID[] batch = new UUID[ENTITY_SCAN_BATCH_SIZE];
         int batchSize = 0;
-        for (UUID uuid : databaseCandidates) {
+        for (UUID uuid : uuids) {
             batch[batchSize++] = uuid;
             if (batchSize == ENTITY_SCAN_BATCH_SIZE) {
-                scanFoliaCandidateBatch(world, radius, inside, loadedCandidates, batch, batchSize, deadline);
+                scanLoadedEntityBatch(batch, batchSize, visitor, deadline);
                 batchSize = 0;
             }
         }
         if (batchSize > 0) {
-            scanFoliaCandidateBatch(world, radius, inside, loadedCandidates, batch, batchSize, deadline);
+            scanLoadedEntityBatch(batch, batchSize, visitor, deadline);
         }
     }
 
-    private static void scanFoliaCandidateBatch(World world, Integer[] radius, Set<UUID> inside, Set<UUID> loadedCandidates, UUID[] batch, int batchSize, long deadline) throws Exception {
+    private static void scanLoadedEntityBatch(UUID[] batch, int batchSize, BiConsumer<UUID, Entity> visitor, long deadline) throws Exception {
         CompletableFuture<Void> completion = new CompletableFuture<>();
         try {
-            Scheduler.runTask(CoreProtect.getInstance(), () -> {
+            CoreProtect plugin = CoreProtect.getInstance();
+            Scheduler.runTask(plugin, () -> {
                 try {
-                    List<CompletableFuture<Void>> entityTasks = new ArrayList<>(batchSize);
+                    List<CompletableFuture<Void>> entityTasks = ConfigHandler.isFolia ? new ArrayList<>(batchSize) : List.of();
                     for (int index = 0; index < batchSize; index++) {
                         UUID uuid = batch[index];
                         Entity entity = Bukkit.getEntity(uuid);
                         if (entity == null) {
                             continue;
                         }
+                        if (!ConfigHandler.isFolia) {
+                            visitor.accept(uuid, entity);
+                            continue;
+                        }
 
                         CompletableFuture<Void> entityCompletion = new CompletableFuture<>();
                         entityTasks.add(entityCompletion);
-                        boolean scheduled = PaperAdapter.ADAPTER.executeEntityTask(CoreProtect.getInstance(), entity, () -> {
+                        boolean scheduled = PaperAdapter.ADAPTER.executeEntityTask(plugin, entity, () -> {
                             try {
-                                loadedCandidates.add(uuid);
-                                if (isTracked(entity) && isWithinRadius(entity.getLocation(), world, radius)) {
-                                    inside.add(uuid);
-                                }
+                                visitor.accept(uuid, entity);
                                 entityCompletion.complete(null);
                             }
                             catch (Exception e) {
@@ -581,49 +594,6 @@ public final class EntitySpawnTracking {
                         }
                     }
                     completeWhenAll(entityTasks, completion);
-                }
-                catch (Exception e) {
-                    completion.completeExceptionally(e);
-                }
-            });
-        }
-        catch (Exception e) {
-            completion.completeExceptionally(e);
-        }
-        await(completion, deadline);
-    }
-
-    private static void scanBukkitCandidates(World world, Integer[] radius, Set<UUID> databaseCandidates, Set<UUID> inside, Set<UUID> loadedCandidates, long deadline) throws Exception {
-        UUID[] batch = new UUID[ENTITY_SCAN_BATCH_SIZE];
-        int batchSize = 0;
-        for (UUID uuid : databaseCandidates) {
-            batch[batchSize++] = uuid;
-            if (batchSize == ENTITY_SCAN_BATCH_SIZE) {
-                scanBukkitCandidateBatch(world, radius, inside, loadedCandidates, batch, batchSize, deadline);
-                batchSize = 0;
-            }
-        }
-        if (batchSize > 0) {
-            scanBukkitCandidateBatch(world, radius, inside, loadedCandidates, batch, batchSize, deadline);
-        }
-    }
-
-    private static void scanBukkitCandidateBatch(World world, Integer[] radius, Set<UUID> inside, Set<UUID> loadedCandidates, UUID[] batch, int batchSize, long deadline) throws Exception {
-        CompletableFuture<Void> completion = new CompletableFuture<>();
-        try {
-            Scheduler.runTask(CoreProtect.getInstance(), () -> {
-                try {
-                    for (int index = 0; index < batchSize; index++) {
-                        UUID uuid = batch[index];
-                        Entity entity = Bukkit.getEntity(uuid);
-                        if (entity != null) {
-                            loadedCandidates.add(uuid);
-                            if (isTracked(entity) && isWithinRadius(entity.getLocation(), world, radius)) {
-                                inside.add(uuid);
-                            }
-                        }
-                    }
-                    completion.complete(null);
                 }
                 catch (Exception e) {
                     completion.completeExceptionally(e);
@@ -663,70 +633,12 @@ public final class EntitySpawnTracking {
 
     public static Map<UUID, Location> findLoadedLocations(Collection<UUID> uuids) throws Exception {
         Map<UUID, Location> locations = new ConcurrentHashMap<>();
-        if (uuids.isEmpty()) {
-            return locations;
-        }
-
-        CompletableFuture<Void> completion = new CompletableFuture<>();
-        if (ConfigHandler.isFolia) {
-            Scheduler.runTask(CoreProtect.getInstance(), () -> {
-                try {
-                    List<CompletableFuture<Void>> pending = new ArrayList<>();
-                    for (UUID uuid : uuids) {
-                        Entity entity = Bukkit.getEntity(uuid);
-                        if (entity == null) {
-                            continue;
-                        }
-
-                        CompletableFuture<Void> entityCompletion = new CompletableFuture<>();
-                        pending.add(entityCompletion);
-                        boolean scheduled = PaperAdapter.ADAPTER.executeEntityTask(CoreProtect.getInstance(), entity, () -> {
-                            try {
-                                if (isTracked(entity)) {
-                                    locations.put(uuid, entity.getLocation());
-                                }
-                                entityCompletion.complete(null);
-                            }
-                            catch (Exception e) {
-                                entityCompletion.completeExceptionally(e);
-                            }
-                        }, () -> entityCompletion.complete(null));
-                        if (!scheduled) {
-                            entityCompletion.complete(null);
-                        }
-                    }
-                    CompletableFuture.allOf(pending.toArray(new CompletableFuture<?>[0])).whenComplete((ignored, throwable) -> {
-                        if (throwable == null) {
-                            completion.complete(null);
-                        }
-                        else {
-                            completion.completeExceptionally(throwable);
-                        }
-                    });
-                }
-                catch (Exception e) {
-                    completion.completeExceptionally(e);
-                }
-            });
-        }
-        else {
-            Scheduler.runTask(CoreProtect.getInstance(), () -> {
-                try {
-                    for (UUID uuid : uuids) {
-                        Entity entity = Bukkit.getEntity(uuid);
-                        if (isTracked(entity)) {
-                            locations.put(uuid, entity.getLocation());
-                        }
-                    }
-                    completion.complete(null);
-                }
-                catch (Exception e) {
-                    completion.completeExceptionally(e);
-                }
-            });
-        }
-
-        completion.get(30, TimeUnit.SECONDS);
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(ENTITY_SCAN_TIMEOUT_SECONDS);
+        scanLoadedEntities(uuids, (uuid, entity) -> {
+            if (isTracked(entity)) {
+                locations.put(uuid, entity.getLocation());
+            }
+        }, deadline);
         return locations;
     }
 
@@ -764,8 +676,25 @@ public final class EntitySpawnTracking {
 
     public static void clearTracking(UUID uuid) {
         scheduleCleanup();
-        PendingClear request = installTerminalClear(uuid);
+        PendingClear request = installTerminalClear(uuid, true);
         schedulePendingClear(uuid, request);
+    }
+
+    public static void recordRemoval(Entity entity) {
+        if (!isTrackedOrPendingIdentity(entity)) {
+            return;
+        }
+        scheduleCleanup();
+        UUID uuid = entity.getUniqueId();
+        PendingClear request = installTerminalClear(uuid, false);
+        if (request != null) {
+            try {
+                Queue.queueEntitySpawnRemoved(entity);
+            }
+            finally {
+                schedulePendingClear(uuid, request);
+            }
+        }
     }
 
     private static void schedulePendingClear(UUID uuid, PendingClear request) {
@@ -946,8 +875,11 @@ public final class EntitySpawnTracking {
             return;
         }
 
-        PendingIdentityVerification verification = new PendingIdentityVerification(location, verificationEpoch.get());
-        if (pendingIdentityVerifications.putIfAbsent(uuid, verification) != null) {
+        scheduleCleanup();
+        long now = System.currentTimeMillis();
+        PendingIdentityVerification verification = new PendingIdentityVerification(location, verificationEpoch.get(), now + PENDING_CLEAR_TTL_MILLIS);
+        PendingIdentityVerification registered = pendingIdentityVerifications.compute(uuid, (key, current) -> current == null || current.expiry < now ? verification : current);
+        if (registered != verification) {
             return;
         }
         queuePendingDatabaseIdentityVerification(uuid, verification);
@@ -955,7 +887,9 @@ public final class EntitySpawnTracking {
 
     private static void queuePendingDatabaseIdentityVerification(UUID uuid, PendingIdentityVerification verification) {
         try {
-            Queue.queueEntitySpawnUpdate(EntitySpawnData.verify(uuid, verification.epoch));
+            if (!Queue.queueEntitySpawnUpdate(EntitySpawnData.verify(uuid, verification.epoch))) {
+                pendingIdentityVerifications.remove(uuid, verification);
+            }
         }
         catch (RuntimeException exception) {
             pendingIdentityVerifications.remove(uuid, verification);
@@ -985,7 +919,7 @@ public final class EntitySpawnTracking {
         if (verification == null) {
             return false;
         }
-        PendingIdentityVerification retry = new PendingIdentityVerification(verification.location, verificationEpoch.get());
+        PendingIdentityVerification retry = new PendingIdentityVerification(verification.location, verificationEpoch.get(), System.currentTimeMillis() + PENDING_CLEAR_TTL_MILLIS);
         EntitySpawnData retryData = data == null ? EntitySpawnData.verify(uuid, retry.epoch) : data.retryVerification(retry.epoch);
         if (retryData == null) {
             return false;
@@ -994,7 +928,10 @@ public final class EntitySpawnTracking {
             return false;
         }
         try {
-            Queue.queueEntitySpawnUpdate(retryData);
+            if (!Queue.queueEntitySpawnUpdate(retryData)) {
+                pendingIdentityVerifications.remove(uuid, retry);
+                return false;
+            }
         }
         catch (RuntimeException exception) {
             pendingIdentityVerifications.replace(uuid, retry, verification);
@@ -1409,15 +1346,19 @@ public final class EntitySpawnTracking {
         }
     }
 
-    private static PendingClear installTerminalClear(UUID uuid) {
-        PendingClear request = new PendingClear(PendingClearReason.TERMINAL, System.currentTimeMillis() + PENDING_CLEAR_TTL_MILLIS);
-        pendingClear.compute(uuid, (key, current) -> {
+    private static PendingClear installTerminalClear(UUID uuid, boolean replaceExisting) {
+        long now = System.currentTimeMillis();
+        PendingClear request = new PendingClear(PendingClearReason.TERMINAL, now + PENDING_CLEAR_TTL_MILLIS);
+        PendingClear installed = pendingClear.compute(uuid, (key, current) -> {
+            if (!replaceExisting && current != null && current.reason == PendingClearReason.TERMINAL && current.expiry >= now) {
+                return current;
+            }
             pendingIdentityConfirmations.remove(uuid);
             pendingIdentityVerifications.remove(uuid);
             pendingIdentityPromotions.remove(uuid);
             return request;
         });
-        return request;
+        return installed == request ? request : null;
     }
 
     private static PendingClear installRecoveryClear(UUID uuid, long epoch) {
@@ -1621,7 +1562,7 @@ public final class EntitySpawnTracking {
 
         long next = now + CLEANUP_INTERVAL_MILLIS;
         try {
-            Scheduler.runTaskAsynchronously(plugin, EntitySpawnTracking::cleanupExpiredEntries);
+            Scheduler.runTaskAsynchronously(plugin, () -> cleanupExpiredEntries(System.currentTimeMillis()));
         }
         catch (Exception e) {
             nextCleanup.compareAndSet(next, 0L);
@@ -1629,8 +1570,7 @@ public final class EntitySpawnTracking {
         }
     }
 
-    private static void cleanupExpiredEntries() {
-        long now = System.currentTimeMillis();
+    static void cleanupExpiredEntries(long now) {
         for (Map.Entry<UUID, PendingClear> entry : pendingClear.entrySet()) {
             expirePendingClear(entry.getKey(), entry.getValue(), now);
         }
@@ -1644,6 +1584,8 @@ public final class EntitySpawnTracking {
                 pendingIdentityConfirmations.remove(entry.getKey(), entry.getValue());
             }
         }
+        pendingIdentityVerifications.entrySet().removeIf(entry -> entry.getValue().expiry < now);
+        pendingIdentityPromotions.entrySet().removeIf(entry -> entry.getValue().expiry < now);
     }
 
     private static final class PendingIdentityConfirmation {
@@ -1665,10 +1607,12 @@ public final class EntitySpawnTracking {
 
         private final Location location;
         private final long epoch;
+        private final long expiry;
 
-        private PendingIdentityVerification(Location location, long epoch) {
+        private PendingIdentityVerification(Location location, long epoch, long expiry) {
             this.location = location.clone();
             this.epoch = epoch;
+            this.expiry = expiry;
         }
     }
 
@@ -1676,10 +1620,12 @@ public final class EntitySpawnTracking {
 
         private final int count;
         private final boolean clearMarkerOnCancel;
+        private final long expiry;
 
         private PendingIdentityPromotion(int count, boolean clearMarkerOnCancel) {
             this.count = count;
             this.clearMarkerOnCancel = clearMarkerOnCancel;
+            this.expiry = System.currentTimeMillis() + PENDING_CLEAR_TTL_MILLIS;
         }
 
         private PendingIdentityPromotion increment() {

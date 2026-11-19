@@ -227,6 +227,10 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         }
     }
 
+    public static boolean isPauseAcknowledged() {
+        return pausedSuccess;
+    }
+
     public static void lockDatabaseAccess() {
         databaseLifecycle.readLock().lock();
     }

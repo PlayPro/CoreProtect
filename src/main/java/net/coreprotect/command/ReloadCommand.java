@@ -36,9 +36,8 @@ public class ReloadCommand {
                 return;
             }
 
-            class BasicThread implements Runnable {
-                @Override
-                public void run() {
+            try {
+                new Thread(() -> {
                     try {
                         performReload(player);
                     }
@@ -48,12 +47,7 @@ public class ReloadCommand {
                     finally {
                         LookupThrottle.release(player.getName());
                     }
-                }
-            }
-            try {
-                Runnable runnable = new BasicThread();
-                Thread thread = new Thread(runnable);
-                thread.start();
+                }).start();
             }
             catch (RuntimeException | Error e) {
                 LookupThrottle.release(player.getName());

@@ -56,6 +56,22 @@ public final class PurgeFilter {
         this.killsOnly = killsOnly;
     }
 
+    public long startTime() {
+        return timeStart;
+    }
+
+    public long endTime() {
+        return timeEnd;
+    }
+
+    public int worldId() {
+        return worldId;
+    }
+
+    public List<Integer> blockTypes() {
+        return blockTypes;
+    }
+
     /**
      * Returns whether the purge is limited to selected co_block rows, which leaves the other tables untouched.
      */

@@ -12,7 +12,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.text.NumberFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -50,7 +49,7 @@ import net.coreprotect.utility.VersionUtils;
 import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.ErrorReporter;
 
-public class PurgeCommand extends Consumer {
+public class PurgeCommand {
 
     private static final long CONNECTION_DRAIN_TIMEOUT_MILLIS = 60000L;
     private static volatile Thread activePurgeThread;
@@ -303,7 +302,7 @@ public class PurgeCommand extends Consumer {
         final List<String> argExcludeUsers = CommandParser.parseExcludedUsers(player, args);
         final long[] argTime = TimeParser.parsePurgeTime(args);
         final int argWid = CommandParser.parseWorld(args, false, false);
-        final List<Integer> supportedActions = Arrays.asList(LookupActions.ENTITY_KILL);
+        final List<Integer> supportedActions = List.of(LookupActions.ENTITY_KILL);
         long startTime = argTime[0];
         long endTime = argTime[1];
 
@@ -356,7 +355,6 @@ public class PurgeCommand extends Consumer {
         List<Integer> includeBlockIds = new ArrayList<>();
         List<Integer> includeEntityIds = new ArrayList<>();
         boolean hasBlock = false;
-        boolean item = false;
         boolean entity = false;
         int restrictCount = 0;
 
@@ -376,7 +374,6 @@ public class PurgeCommand extends Consumer {
                     }
 
                     targetName = ((Material) restrictTarget).name().toLowerCase(Locale.ROOT);
-                    item = (!item ? !(((Material) restrictTarget).isBlock()) : item);
                     hasBlock = true;
                 }
                 else if (restrictTarget instanceof EntityType) {
@@ -393,7 +390,7 @@ public class PurgeCommand extends Consumer {
                 }
 
                 if (restrictCount == 0) {
-                    restrict = restrict.append("" + targetName + "");
+                    restrict.append(targetName);
                 }
                 else {
                     restrict.append(", ").append(targetName);
@@ -462,500 +459,541 @@ public class PurgeCommand extends Consumer {
         }
         final String restrictKind = restrictSelector;
 
-        class BasicThread implements Runnable {
+        long now = System.currentTimeMillis() / 1000L;
+        PurgeFilter filter = new PurgeFilter(startTime > 0 ? now - startTime : 0, now - endTime, purgeWorldId,
+                argRadius, includeBlockIdsFinal, includeEntityIdsFinal, excludeEntityIdsFinal, killsOnlyFinal);
+        String worldName = argRadius != null ? location.getWorld().getName()
+                : argWid > 0 ? CommandParser.parseWorldName(args, false) : "#global";
+        Runnable announce = () -> announcePurge(player, worldName, argRadius, restrictCountFinal, restrictTargets.toString(),
+                restrictKind, excludeEntityIdsFinal, excludeTargets.toString());
+        new Thread(() -> runPurge(player, filter, optimize, announce)).start();
+    }
 
-            @Override
-            public void run() {
-                boolean purgeClaimed = false;
-                boolean consumerPaused = false;
-                boolean duckTransaction = false;
-                boolean duckPurgeStarted = false;
-                AtomicBoolean duckCommitAttempted = new AtomicBoolean();
-                boolean duckRollbackSucceeded = false;
-                boolean maintenanceLocked = false;
-                boolean resumePersistence = true;
-                boolean handoffStarted = false;
-                Connection connection = null;
-                Statement transactionStatement = null;
-                Path sqliteTemporary = null;
-                try {
-                    requirePurgeNotCancelled();
-                    if (Consumer.isPersistenceHalted()) {
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.DATABASE_BUSY));
-                        return;
-                    }
-                    long timestamp = (System.currentTimeMillis() / 1000L);
-                    long timeStart = startTime > 0 ? (timestamp - startTime) : 0;
-                    long timeEnd = timestamp - endTime;
-                    long removed = 0;
-                    PurgeFilter purgeFilter = new PurgeFilter(timeStart, timeEnd, purgeWorldId, argRadius, includeBlockIdsFinal, includeEntityIdsFinal, excludeEntityIdsFinal, killsOnlyFinal);
+    private static void runPurge(CommandSender player, PurgeFilter filter, boolean optimize, Runnable announce) {
+        boolean purgeClaimed = false;
+        boolean consumerPaused = false;
+        boolean duckTransaction = false;
+        boolean duckPurgeStarted = false;
+        AtomicBoolean duckCommitAttempted = new AtomicBoolean();
+        boolean duckRollbackSucceeded = false;
+        boolean maintenanceLocked = false;
+        boolean resumePersistence = true;
+        boolean handoffStarted = false;
+        Connection connection = null;
+        Statement transactionStatement = null;
+        Path sqliteTemporary = null;
+        try {
+            requirePurgeNotCancelled();
+            if (Consumer.isPersistenceHalted()) {
+                Chat.sendGlobalMessage(player, Phrase.build(Phrase.DATABASE_BUSY));
+                return;
+            }
+            long removed;
 
-                    for (int i = 0; i <= 5; i++) {
-                        requirePurgeNotCancelled();
-                        connection = Database.getConnection(false, 500);
-                        if (connection != null) {
-                            break;
-                        }
-                        Thread.sleep(1000);
-                    }
-
-                    if (connection == null) {
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.DATABASE_BUSY));
-                        return;
-                    }
-
-                    requirePurgeNotCancelled();
-                    Consumer.OperationStartResult startResult = Consumer.claimPurge();
-                    if (startResult != Consumer.OperationStartResult.STARTED) {
-                        Phrase phrase = startResult == Consumer.OperationStartResult.PURGE_RUNNING ? Phrase.PURGE_IN_PROGRESS
-                                : startResult == Consumer.OperationStartResult.RELOAD_RUNNING ? Phrase.DATABASE_BUSY
-                                        : startResult == Consumer.OperationStartResult.PERSISTENCE_HALTED ? Phrase.DATABASE_PERSISTENCE_HALTED : Phrase.ROLLBACK_IN_PROGRESS;
-                        Chat.sendGlobalMessage(player, Phrase.build(phrase));
-                        return;
-                    }
-                    purgeClaimed = true;
-                    activePurgeThread = Thread.currentThread();
-                    requirePurgeNotCancelled();
-
-                    if (argRadius != null) {
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_STARTED, location.getWorld().getName()));
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.ROLLBACK_RADIUS, argRadius[0].toString(), (argRadius[0] == 1 ? Selector.FIRST : Selector.SECOND)));
-                    }
-                    else if (argWid > 0) {
-                        String worldName = CommandParser.parseWorldName(args, false);
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_STARTED, worldName));
-                    }
-                    else {
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_STARTED, "#global"));
-                    }
-
-                    if (restrictCountFinal > 0) {
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.ROLLBACK_INCLUDE, restrictTargets.toString(), Selector.FIRST, restrictKind, (restrictCountFinal == 1 ? Selector.FIRST : Selector.SECOND))); // include
-                    }
-                    if (excludeEntityIdsFinal.size() > 0) {
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.ROLLBACK_INCLUDE, excludeTargets.toString(), Selector.SECOND, Selector.SECOND, (excludeEntityIdsFinal.size() == 1 ? Selector.FIRST : Selector.SECOND))); // exclude
-                    }
-
-                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_NOTICE_1));
-                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_NOTICE_2));
-
-                    while (!Consumer.pausedSuccess && !Consumer.isPersistenceHalted()) {
-                        Thread.sleep(1);
-                    }
-                    if (Consumer.isPersistenceHalted()) {
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.DATABASE_BUSY));
-                        return;
-                    }
-                    Consumer.setMaintenancePaused(true);
-                    consumerPaused = true;
-                    requirePurgeNotCancelled();
-
-                    if (ConfigHandler.databaseType.isClickHouse()) {
-                        connection.close();
-                        connection = null;
-                        if (optimize) {
-                            Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_OPTIMIZING));
-                        }
-                        requirePurgeNotCancelled();
-                        removed = Database.purgeClickHouse(timeStart, timeEnd, argWid, includeBlockIdsFinal, optimize);
-                        EntitySpawnTracking.invalidateDatabaseVerification();
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_SUCCESS));
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_ROWS, NumberFormat.getInstance().format(removed), (removed == 1 ? Selector.FIRST : Selector.SECOND)));
-                        return;
-                    }
-
-                    String query = "";
-                    boolean abort = false;
-                    String purgePrefix = "tmp_" + ConfigHandler.prefix;
-
-                    if (ConfigHandler.databaseType.isSQLite()) {
-                        sqliteTemporary = sqliteTempDatabase();
-                        attachSQLitePurgeDatabase(connection, sqliteTemporary);
-                        purgePrefix = "tmp_db." + ConfigHandler.prefix;
-                    }
-
-                    Integer[] lastVersion = Patch.getDatabaseVersion(connection, true);
-                    boolean newVersion = VersionUtils.newVersion(lastVersion, VersionUtils.getInternalPluginVersion());
-                    if (newVersion && !ConfigHandler.EDITION_BRANCH.contains("-dev")) {
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_FAILED));
-                        return;
-                    }
-
-                    if (ConfigHandler.databaseType.isDuckDB()) {
-                        transactionStatement = createPurgeStatement(connection);
-                        Database.beginTransaction(transactionStatement, ConfigHandler.databaseType);
-                        duckPurgeStarted = true;
-                        duckTransaction = true;
-                    }
-
-                    if (ConfigHandler.databaseType.isSQLite()) {
-                        for (String table : ConfigHandler.databaseTables) {
-                            requirePurgeNotCancelled();
-                            try {
-                                query = "DROP TABLE IF EXISTS " + purgePrefix + table + "";
-                                executePurgeStatement(connection, query);
-                            }
-                            catch (Exception e) {
-                                reportPurgeFailure(e);
-                            }
-                        }
-
-                        Database.createDatabaseTables(purgePrefix, false, null, ConfigHandler.databaseType, true);
-                    }
-
-                    List<String> excludeTables = Arrays.asList("database_lock"); // don't insert data into these tables
-                    for (String table : ConfigHandler.databaseTables) {
-                        requirePurgeNotCancelled();
-                        String tableName = table.replaceAll("_", " ");
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_PROCESSING, tableName));
-
-                        if (ConfigHandler.databaseType.isSQLite()) {
-                            String columns = "";
-                            try (Statement columnStatement = createPurgeStatement(connection);
-                                    ResultSet results = columnStatement.executeQuery("SELECT * FROM " + purgePrefix + table)) {
-                                ResultSetMetaData metadata = results.getMetaData();
-                                for (int i = 1; i <= metadata.getColumnCount(); i++) {
-                                    if (!columns.isEmpty()) {
-                                        columns += ",";
-                                    }
-                                    columns += metadata.getColumnName(i);
-                                }
-                            }
-                            String insertColumns = "";
-                            String selectColumns = columns;
-                            if (table.equals("block")) {
-                                insertColumns = "(rowid," + columns + ")";
-                                selectColumns = "rowid," + columns;
-                            }
-
-                            boolean error = false;
-                            if (!excludeTables.contains(table)) {
-                                try {
-                                    String timeLimit = "";
-                                    if (table.equals("entity_spawn")) {
-                                        timeLimit = " WHERE removed=0 OR block_rowid IN(SELECT rowid FROM " + purgePrefix + "block) OR kill_rowid IN(SELECT rowid FROM " + purgePrefix + "entity) OR rowid IN(SELECT entity_spawn_rowid FROM " + purgePrefix + "entity_container) OR rowid IN(SELECT entity_spawn_rowid FROM " + purgePrefix + "entity_interaction)";
-                                    }
-                                    else if (table.equals("entity")) {
-                                        timeLimit = " WHERE " + purgeFilter.entityRetainCondition(purgePrefix + "block");
-                                    }
-                                    else {
-                                        String purgeCondition = purgeFilter.deleteCondition(table, ConfigHandler.prefix);
-                                        if (purgeCondition != null) {
-                                            timeLimit = " WHERE NOT (" + purgeCondition + ")";
-                                        }
-                                    }
-                                    query = "INSERT INTO " + purgePrefix + table + insertColumns + " SELECT " + selectColumns + " FROM " + ConfigHandler.prefix + table + timeLimit;
-                                    executePurgeStatement(connection, query);
-                                }
-                                catch (Exception e) {
-                                    error = true;
-                                    reportPurgeFailure(e);
-                                }
-                            }
-
-                            if (error) {
-                                requirePurgeNotCancelled();
-                                Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_ERROR, tableName));
-                                Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_REPAIRING));
-
-                                try {
-                                    query = "DELETE FROM " + purgePrefix + table;
-                                    executePurgeStatement(connection, query);
-                                }
-                                catch (Exception e) {
-                                    reportPurgeFailure(e);
-                                }
-
-                                try {
-                                    query = "REINDEX " + ConfigHandler.prefix + table;
-                                    executePurgeStatement(connection, query);
-                                }
-                                catch (Exception e) {
-                                    reportPurgeFailure(e);
-                                }
-
-                                try {
-                                    String index = " NOT INDEXED";
-                                    query = "INSERT INTO " + purgePrefix + table + insertColumns + " SELECT " + selectColumns + " FROM " + ConfigHandler.prefix + table + index;
-                                    executePurgeStatement(connection, query);
-                                }
-                                catch (Exception e) {
-                                    reportPurgeFailure(e);
-                                    abort = true;
-                                    break;
-                                }
-
-                                try {
-                                    if (table.equals("entity")) {
-                                        query = purgeFilter.deleteUnreferencedEntities(purgePrefix + "entity", purgePrefix + "block");
-                                        executePurgeStatement(connection, query);
-                                    }
-                                    else {
-                                        String purgeCondition = purgeFilter.deleteCondition(table, ConfigHandler.prefix);
-                                        if (purgeCondition != null) {
-                                            query = "DELETE FROM " + purgePrefix + table + " WHERE " + purgeCondition;
-                                            executePurgeStatement(connection, query);
-                                        }
-                                    }
-                                }
-                                catch (Exception e) {
-                                    reportPurgeFailure(e);
-                                }
-                            }
-
-                            if (PurgePolicy.isPurgeable(table) || table.equals("entity_spawn")) {
-                                try {
-                                    removed += countPurgeRows(connection, ConfigHandler.prefix + table) - countPurgeRows(connection, purgePrefix + table);
-                                }
-                                catch (Exception e) {
-                                    reportPurgeFailure(e);
-                                }
-                            }
-                        }
-
-                        if (!ConfigHandler.databaseType.isSQLite()) {
-                            try {
-                                String purgeCondition = purgeFilter.deleteCondition(table, ConfigHandler.prefix);
-                                boolean deleteEntities = purgeCondition != null && table.equals("block") && purgeFilter.removesKills() && !purgeFilter.purgesEntitiesByTime();
-                                // Kill rows and their entity data go together, or the kept kills lose their rollback data
-                                boolean atomic = deleteEntities && ConfigHandler.databaseType.isMySQL();
-                                if (atomic) {
-                                    connection.setAutoCommit(false);
-                                }
-                                try {
-                                    long deleted = 0;
-                                    if (deleteEntities) {
-                                        query = purgeFilter.deleteEntitiesOfPurgedKills(ConfigHandler.databaseType, ConfigHandler.prefix);
-                                        deleted = deleted + executePurgeUpdate(connection, query);
-                                    }
-
-                                    if (purgeCondition != null) {
-                                        query = "DELETE FROM " + ConfigHandler.prefix + table + " WHERE " + purgeCondition;
-                                        deleted = deleted + executePurgeUpdate(connection, query);
-                                    }
-
-                                    if (atomic) {
-                                        connection.commit();
-                                        connection.setAutoCommit(true);
-                                    }
-                                    removed = removed + deleted;
-                                }
-                                catch (Exception e) {
-                                    if (atomic) {
-                                        try {
-                                            connection.rollback();
-                                            connection.setAutoCommit(true);
-                                        }
-                                        catch (SQLException rollbackException) {
-                                            e.addSuppressed(rollbackException);
-                                        }
-                                    }
-                                    throw e;
-                                }
-                            }
-                            catch (Exception e) {
-                                if (ConfigHandler.databaseType.isDuckDB()) {
-                                    throw e;
-                                }
-                                if (!ConfigHandler.serverRunning) {
-                                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_FAILED));
-                                    return;
-                                }
-
-                                reportPurgeFailure(e);
-                            }
-                        }
-                    }
-
-                    if (ConfigHandler.databaseType.isMySQL() && optimize) {
-                        try {
-                            for (String sweepQuery : PurgeFilter.mysqlOrphanSweepSetup(ConfigHandler.prefix)) {
-                                executePurgeStatement(connection, sweepQuery);
-                            }
-                            removed = removed + executePurgeUpdate(connection, purgeFilter.mysqlOrphanSweepDelete(ConfigHandler.prefix));
-                        }
-                        catch (Exception e) {
-                            reportPurgeFailure(e);
-                        }
-                        finally {
-                            try {
-                                executePurgeStatement(connection, PurgeFilter.mysqlOrphanSweepTeardown(ConfigHandler.prefix));
-                            }
-                            catch (Exception e) {
-                                reportPurgeFailure(e);
-                            }
-                        }
-                    }
-
-                    requirePurgeNotCancelled();
-                    String retainedPrefix = ConfigHandler.databaseType.isSQLite() ? purgePrefix : ConfigHandler.prefix;
-                    query = "UPDATE " + retainedPrefix + "entity_spawn SET kill_rowid=NULL WHERE kill_rowid IS NOT NULL AND NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity WHERE " + retainedPrefix + "entity.rowid=" + retainedPrefix + "entity_spawn.kill_rowid)";
-                    executePurgeUpdate(connection, query);
-
-                    requirePurgeNotCancelled();
-                    query = "UPDATE " + retainedPrefix + "entity_spawn SET block_rowid=NULL WHERE block_rowid IS NOT NULL AND NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "block WHERE " + retainedPrefix + "block.rowid=" + retainedPrefix + "entity_spawn.block_rowid)";
-                    executePurgeUpdate(connection, query);
-
-                    requirePurgeNotCancelled();
-                    query = "DELETE FROM " + retainedPrefix + "entity_interaction WHERE NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity_spawn WHERE " + retainedPrefix + "entity_spawn.rowid=" + retainedPrefix + "entity_interaction.entity_spawn_rowid)";
-                    removed = removed + executePurgeUpdate(connection, query);
-
-                    requirePurgeNotCancelled();
-                    query = "DELETE FROM " + retainedPrefix + "entity_container WHERE NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity_spawn WHERE " + retainedPrefix + "entity_spawn.rowid=" + retainedPrefix + "entity_container.entity_spawn_rowid)";
-                    removed = removed + executePurgeUpdate(connection, query);
-
-                    requirePurgeNotCancelled();
-                    query = "DELETE FROM " + retainedPrefix + "entity_spawn WHERE removed=1 AND block_rowid IS NULL AND kill_rowid IS NULL AND NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity_container WHERE " + retainedPrefix + "entity_container.entity_spawn_rowid=" + retainedPrefix + "entity_spawn.rowid) AND NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity_interaction WHERE " + retainedPrefix + "entity_interaction.entity_spawn_rowid=" + retainedPrefix + "entity_spawn.rowid)";
-                    removed = removed + executePurgeUpdate(connection, query);
-
-                    if (ConfigHandler.databaseType.isMySQL() && optimize) {
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_OPTIMIZING));
-                        for (String table : ConfigHandler.databaseTables) {
-                            requirePurgeNotCancelled();
-                            query = "OPTIMIZE LOCAL TABLE " + ConfigHandler.prefix + table + "";
-                            executePurgeStatement(connection, query);
-                        }
-                    }
-
-                    if (duckTransaction) {
-                        activePurgeStatement = transactionStatement;
-                        requirePurgeNotCancelled();
-                        if (!Database.commitTransactionChecked(transactionStatement, ConfigHandler.databaseType, () -> duckCommitAttempted.set(true))) {
-                            throw new SQLException("Unable to commit DuckDB purge transaction");
-                        }
-                        duckTransaction = false;
-                        duckPurgeStarted = false;
-                        duckCommitAttempted.set(false);
-                        requirePurgeNotCancelled();
-                        try {
-                            transactionStatement.execute("CHECKPOINT");
-                        }
-                        catch (SQLException e) {
-                            if (!shutdownCancellationRequested) {
-                                ErrorReporter.report(e);
-                            }
-                        }
-                        transactionStatement.close();
-                        transactionStatement = null;
-                    }
-
-                    connection.close();
-                    connection = null;
-                    requirePurgeNotCancelled();
-
-                    try {
-                        Consumer.lockDatabaseMaintenanceInterruptibly();
-                        maintenanceLocked = true;
-                        if (!Database.awaitConnectionDrain(CONNECTION_DRAIN_TIMEOUT_MILLIS)) {
-                            throw new SQLException("Timed out waiting for active database connections before purge handoff");
-                        }
-                        requirePurgeNotCancelled();
-                    }
-                    catch (InterruptedException exception) {
-                        Thread.currentThread().interrupt();
-                        throw exception;
-                    }
-
-                    if (abort) {
-                        resumePersistence = false;
-                        handoffStarted = true;
-                        ConfigHandler.loadDatabase();
-                        handoffStarted = false;
-                        resumePersistence = true;
-                        Chat.sendGlobalMessage(player, Color.RED + Phrase.build(Phrase.PURGE_ABORTED));
-                        return;
-                    }
-
-                    resumePersistence = false;
-                    handoffStarted = true;
-                    if (ConfigHandler.databaseType.isSQLite()) {
-                        replaceSQLiteDatabase(sqliteTemporary);
-                        sqliteTemporary = null;
-                    }
-
-                    ConfigHandler.loadDatabase();
-                    handoffStarted = false;
-                    resumePersistence = true;
-                    EntitySpawnTracking.invalidateDatabaseVerification();
-
-                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_SUCCESS));
-                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_ROWS, NumberFormat.getInstance().format(removed), (removed == 1 ? Selector.FIRST : Selector.SECOND)));
+            for (int i = 0; i <= 5; i++) {
+                requirePurgeNotCancelled();
+                connection = Database.getConnection(false, 500);
+                if (connection != null) {
+                    break;
                 }
-                catch (Exception e) {
-                    boolean shutdownCancelled = shutdownCancellationRequested || e instanceof InterruptedException;
-                    boolean reloadRequired = false;
-                    if (duckTransaction && transactionStatement != null) {
-                        duckRollbackSucceeded = Database.rollbackTransaction(transactionStatement, ConfigHandler.databaseType);
-                    }
-                    if (ConfigHandler.databaseType.isDuckDB() && requiresDuckDatabaseReload(duckPurgeStarted, duckCommitAttempted.get(), duckRollbackSucceeded)) {
-                        Consumer.requireDatabaseReload();
-                        ConfigHandler.databaseReachable = false;
-                        resumePersistence = false;
-                        reloadRequired = true;
-                    }
-                    if (handoffStarted) {
-                        Consumer.requireDatabaseReload();
-                        ConfigHandler.databaseReachable = false;
-                        reloadRequired = true;
-                    }
-                    if (shutdownCancelled) {
-                        Thread.currentThread().interrupt();
-                    }
-                    else {
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_FAILED));
-                        if (reloadRequired) {
-                            Chat.sendGlobalMessage(player, Phrase.build(Phrase.RELOAD_FAILED));
-                        }
+                Thread.sleep(1000);
+            }
+
+            if (connection == null) {
+                Chat.sendGlobalMessage(player, Phrase.build(Phrase.DATABASE_BUSY));
+                return;
+            }
+
+            requirePurgeNotCancelled();
+            Consumer.OperationStartResult startResult = Consumer.claimPurge();
+            if (startResult != Consumer.OperationStartResult.STARTED) {
+                Phrase phrase = startResult == Consumer.OperationStartResult.PURGE_RUNNING ? Phrase.PURGE_IN_PROGRESS
+                        : startResult == Consumer.OperationStartResult.RELOAD_RUNNING ? Phrase.DATABASE_BUSY
+                                : startResult == Consumer.OperationStartResult.PERSISTENCE_HALTED ? Phrase.DATABASE_PERSISTENCE_HALTED : Phrase.ROLLBACK_IN_PROGRESS;
+                Chat.sendGlobalMessage(player, Phrase.build(phrase));
+                return;
+            }
+            purgeClaimed = true;
+            activePurgeThread = Thread.currentThread();
+            requirePurgeNotCancelled();
+
+            announce.run();
+
+            while (!Consumer.isPauseAcknowledged() && !Consumer.isPersistenceHalted()) {
+                Thread.sleep(1);
+            }
+            if (Consumer.isPersistenceHalted()) {
+                Chat.sendGlobalMessage(player, Phrase.build(Phrase.DATABASE_BUSY));
+                return;
+            }
+            Consumer.setMaintenancePaused(true);
+            consumerPaused = true;
+            requirePurgeNotCancelled();
+
+            if (ConfigHandler.databaseType.isClickHouse()) {
+                connection.close();
+                connection = null;
+                removed = purgeClickHouse(player, filter, optimize);
+                EntitySpawnTracking.invalidateDatabaseVerification();
+                Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_SUCCESS));
+                Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_ROWS, NumberFormat.getInstance().format(removed), (removed == 1 ? Selector.FIRST : Selector.SECOND)));
+                return;
+            }
+
+            boolean abort = false;
+            String retainedPrefix = ConfigHandler.prefix;
+
+            if (ConfigHandler.databaseType.isSQLite()) {
+                sqliteTemporary = sqliteTempDatabase();
+                attachSQLitePurgeDatabase(connection, sqliteTemporary);
+                retainedPrefix = "tmp_db." + ConfigHandler.prefix;
+            }
+
+            Integer[] lastVersion = Patch.getDatabaseVersion(connection, true);
+            boolean newVersion = VersionUtils.newVersion(lastVersion, VersionUtils.getInternalPluginVersion());
+            if (newVersion && !ConfigHandler.EDITION_BRANCH.contains("-dev")) {
+                Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_FAILED));
+                return;
+            }
+
+            if (ConfigHandler.databaseType.isDuckDB()) {
+                transactionStatement = createPurgeStatement(connection);
+                Database.beginTransaction(transactionStatement, ConfigHandler.databaseType);
+                duckPurgeStarted = true;
+                duckTransaction = true;
+            }
+
+            if (ConfigHandler.databaseType.isSQLite()) {
+                SQLiteRebuild rebuild = rebuildSQLiteTables(connection, player, filter, retainedPrefix);
+                removed = rebuild.removed;
+                abort = rebuild.aborted;
+            }
+            else {
+                Long deleted = deleteRelationalRows(connection, player, filter);
+                if (deleted == null) {
+                    return;
+                }
+                removed = deleted;
+            }
+
+            if (ConfigHandler.databaseType.isMySQL() && optimize) {
+                removed += sweepMySqlOrphans(connection, filter);
+            }
+            removed += deleteOrphanedEntityRows(connection, retainedPrefix);
+            if (ConfigHandler.databaseType.isMySQL() && optimize) {
+                optimizeMySqlTables(connection, player);
+            }
+
+            if (duckTransaction) {
+                activePurgeStatement = transactionStatement;
+                requirePurgeNotCancelled();
+                if (!Database.commitTransactionChecked(transactionStatement, ConfigHandler.databaseType, () -> duckCommitAttempted.set(true))) {
+                    throw new SQLException("Unable to commit DuckDB purge transaction");
+                }
+                duckTransaction = false;
+                duckPurgeStarted = false;
+                duckCommitAttempted.set(false);
+                requirePurgeNotCancelled();
+                try {
+                    transactionStatement.execute("CHECKPOINT");
+                }
+                catch (SQLException e) {
+                    if (!shutdownCancellationRequested) {
                         ErrorReporter.report(e);
                     }
                 }
-                finally {
-                    if (transactionStatement != null) {
-                        try {
-                            transactionStatement.close();
-                        }
-                        catch (Exception e) {
-                            ErrorReporter.report(e);
-                        }
-                    }
-                    boolean connectionClosed = connection == null;
-                    if (!connectionClosed) {
-                        try {
-                            connection.close();
-                            connectionClosed = true;
-                        }
-                        catch (Exception e) {
-                            ErrorReporter.report(e);
-                        }
-                    }
-                    if (sqliteTemporary != null && connectionClosed) {
-                        try {
-                            Files.deleteIfExists(sqliteTemporary);
-                        }
-                        catch (IOException e) {
-                            ErrorReporter.report(e);
-                        }
-                    }
-                    if (maintenanceLocked) {
-                        Consumer.unlockDatabaseMaintenance();
-                    }
-                    if (consumerPaused && resumePersistence && !Consumer.isPersistenceHalted()) {
-                        Consumer.setMaintenancePaused(false);
-                    }
-                    if (purgeClaimed) {
-                        Consumer.releasePurge();
-                    }
-                    if (activePurgeThread == Thread.currentThread()) {
-                        activePurgeStatement = null;
-                        activePurgeThread = null;
-                    }
+                transactionStatement.close();
+                transactionStatement = null;
+            }
+
+            connection.close();
+            connection = null;
+            requirePurgeNotCancelled();
+
+            try {
+                Consumer.lockDatabaseMaintenanceInterruptibly();
+                maintenanceLocked = true;
+                if (!Database.awaitConnectionDrain(CONNECTION_DRAIN_TIMEOUT_MILLIS)) {
+                    throw new SQLException("Timed out waiting for active database connections before purge handoff");
                 }
+                requirePurgeNotCancelled();
+            }
+            catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                throw exception;
+            }
+
+            if (abort) {
+                resumePersistence = false;
+                handoffStarted = true;
+                ConfigHandler.loadDatabase();
+                handoffStarted = false;
+                resumePersistence = true;
+                Chat.sendGlobalMessage(player, Color.RED + Phrase.build(Phrase.PURGE_ABORTED));
+                return;
+            }
+
+            resumePersistence = false;
+            handoffStarted = true;
+            if (ConfigHandler.databaseType.isSQLite()) {
+                replaceSQLiteDatabase(sqliteTemporary);
+                sqliteTemporary = null;
+            }
+
+            ConfigHandler.loadDatabase();
+            handoffStarted = false;
+            resumePersistence = true;
+            EntitySpawnTracking.invalidateDatabaseVerification();
+
+            Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_SUCCESS));
+            Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_ROWS, NumberFormat.getInstance().format(removed), (removed == 1 ? Selector.FIRST : Selector.SECOND)));
+        }
+        catch (Exception e) {
+            boolean shutdownCancelled = shutdownCancellationRequested || e instanceof InterruptedException;
+            boolean reloadRequired = false;
+            if (duckTransaction && transactionStatement != null) {
+                duckRollbackSucceeded = Database.rollbackTransaction(transactionStatement, ConfigHandler.databaseType);
+            }
+            if (ConfigHandler.databaseType.isDuckDB() && requiresDuckDatabaseReload(duckPurgeStarted, duckCommitAttempted.get(), duckRollbackSucceeded)) {
+                Consumer.requireDatabaseReload();
+                ConfigHandler.databaseReachable = false;
+                resumePersistence = false;
+                reloadRequired = true;
+            }
+            if (handoffStarted) {
+                Consumer.requireDatabaseReload();
+                ConfigHandler.databaseReachable = false;
+                reloadRequired = true;
+            }
+            if (shutdownCancelled) {
+                Thread.currentThread().interrupt();
+            }
+            else {
+                Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_FAILED));
+                if (reloadRequired) {
+                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.RELOAD_FAILED));
+                }
+                ErrorReporter.report(e);
+            }
+        }
+        finally {
+            if (transactionStatement != null) {
+                try {
+                    transactionStatement.close();
+                }
+                catch (Exception e) {
+                    ErrorReporter.report(e);
+                }
+            }
+            boolean connectionClosed = connection == null;
+            if (!connectionClosed) {
+                try {
+                    connection.close();
+                    connectionClosed = true;
+                }
+                catch (Exception e) {
+                    ErrorReporter.report(e);
+                }
+            }
+            if (sqliteTemporary != null && connectionClosed) {
+                try {
+                    Files.deleteIfExists(sqliteTemporary);
+                }
+                catch (IOException e) {
+                    ErrorReporter.report(e);
+                }
+            }
+            if (maintenanceLocked) {
+                Consumer.unlockDatabaseMaintenance();
+            }
+            if (consumerPaused && resumePersistence && !Consumer.isPersistenceHalted()) {
+                Consumer.setMaintenancePaused(false);
+            }
+            if (purgeClaimed) {
+                Consumer.releasePurge();
+            }
+            if (activePurgeThread == Thread.currentThread()) {
+                activePurgeStatement = null;
+                activePurgeThread = null;
+            }
+        }
+    }
+
+    private static void announcePurge(CommandSender player, String worldName, Integer[] radius, int restrictCount,
+            String restrictTargets, String restrictKind, List<Integer> excludeEntityIds, String excludeTargets) {
+        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_STARTED, worldName));
+        if (radius != null) {
+            Chat.sendGlobalMessage(player, Phrase.build(Phrase.ROLLBACK_RADIUS, radius[0].toString(), radius[0] == 1 ? Selector.FIRST : Selector.SECOND));
+        }
+        if (restrictCount > 0) {
+            Chat.sendGlobalMessage(player, Phrase.build(Phrase.ROLLBACK_INCLUDE, restrictTargets, Selector.FIRST, restrictKind,
+                    restrictCount == 1 ? Selector.FIRST : Selector.SECOND));
+        }
+        if (!excludeEntityIds.isEmpty()) {
+            Chat.sendGlobalMessage(player, Phrase.build(Phrase.ROLLBACK_INCLUDE, excludeTargets, Selector.SECOND, Selector.SECOND,
+                    excludeEntityIds.size() == 1 ? Selector.FIRST : Selector.SECOND));
+        }
+        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_NOTICE_1));
+        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_NOTICE_2));
+    }
+
+    private static long purgeClickHouse(CommandSender player, PurgeFilter filter, boolean optimize) throws Exception {
+        if (optimize) {
+            Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_OPTIMIZING));
+        }
+        requirePurgeNotCancelled();
+        return Database.purgeClickHouse(filter.startTime(), filter.endTime(), filter.worldId(), filter.blockTypes(), optimize);
+    }
+
+    private static SQLiteRebuild rebuildSQLiteTables(Connection connection, CommandSender player, PurgeFilter purgeFilter, String purgePrefix) throws Exception {
+        String query;
+        for (String table : ConfigHandler.databaseTables) {
+            requirePurgeNotCancelled();
+            try {
+                query = "DROP TABLE IF EXISTS " + purgePrefix + table;
+                executePurgeStatement(connection, query);
+            }
+            catch (Exception e) {
+                reportPurgeFailure(e);
             }
         }
 
-        Runnable runnable = new BasicThread();
-        Thread thread = new Thread(runnable);
-        thread.start();
+        Database.createDatabaseTables(purgePrefix, false, null, ConfigHandler.databaseType, true);
+
+        long removed = 0;
+        for (String table : ConfigHandler.databaseTables) {
+            requirePurgeNotCancelled();
+            String tableName = table.replace('_', ' ');
+            Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_PROCESSING, tableName));
+            String columns = "";
+            try (Statement columnStatement = createPurgeStatement(connection);
+                    ResultSet results = columnStatement.executeQuery("SELECT * FROM " + purgePrefix + table)) {
+                ResultSetMetaData metadata = results.getMetaData();
+                for (int i = 1; i <= metadata.getColumnCount(); i++) {
+                    if (!columns.isEmpty()) {
+                        columns += ",";
+                    }
+                    columns += metadata.getColumnName(i);
+                }
+            }
+            String insertColumns = "";
+            String selectColumns = columns;
+            if (table.equals("block")) {
+                insertColumns = "(rowid," + columns + ")";
+                selectColumns = "rowid," + columns;
+            }
+
+            boolean error = false;
+            if (!table.equals("database_lock")) {
+                try {
+                    String timeLimit = "";
+                    if (table.equals("entity_spawn")) {
+                        timeLimit = " WHERE removed=0 OR block_rowid IN(SELECT rowid FROM " + purgePrefix + "block) OR kill_rowid IN(SELECT rowid FROM " + purgePrefix + "entity) OR rowid IN(SELECT entity_spawn_rowid FROM " + purgePrefix + "entity_container) OR rowid IN(SELECT entity_spawn_rowid FROM " + purgePrefix + "entity_interaction)";
+                    }
+                    else if (table.equals("entity")) {
+                        timeLimit = " WHERE " + purgeFilter.entityRetainCondition(purgePrefix + "block");
+                    }
+                    else {
+                        String purgeCondition = purgeFilter.deleteCondition(table, ConfigHandler.prefix);
+                        if (purgeCondition != null) {
+                            timeLimit = " WHERE NOT (" + purgeCondition + ")";
+                        }
+                    }
+                    query = "INSERT INTO " + purgePrefix + table + insertColumns + " SELECT " + selectColumns + " FROM " + ConfigHandler.prefix + table + timeLimit;
+                    executePurgeStatement(connection, query);
+                }
+                catch (Exception e) {
+                    error = true;
+                    reportPurgeFailure(e);
+                }
+            }
+
+            if (error) {
+                requirePurgeNotCancelled();
+                Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_ERROR, tableName));
+                Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_REPAIRING));
+
+                try {
+                    query = "DELETE FROM " + purgePrefix + table;
+                    executePurgeStatement(connection, query);
+                }
+                catch (Exception e) {
+                    reportPurgeFailure(e);
+                }
+
+                try {
+                    query = "REINDEX " + ConfigHandler.prefix + table;
+                    executePurgeStatement(connection, query);
+                }
+                catch (Exception e) {
+                    reportPurgeFailure(e);
+                }
+
+                try {
+                    String index = " NOT INDEXED";
+                    query = "INSERT INTO " + purgePrefix + table + insertColumns + " SELECT " + selectColumns + " FROM " + ConfigHandler.prefix + table + index;
+                    executePurgeStatement(connection, query);
+                }
+                catch (Exception e) {
+                    reportPurgeFailure(e);
+                    return new SQLiteRebuild(removed, true);
+                }
+
+                try {
+                    if (table.equals("entity")) {
+                        query = purgeFilter.deleteUnreferencedEntities(purgePrefix + "entity", purgePrefix + "block");
+                        executePurgeStatement(connection, query);
+                    }
+                    else {
+                        String purgeCondition = purgeFilter.deleteCondition(table, ConfigHandler.prefix);
+                        if (purgeCondition != null) {
+                            query = "DELETE FROM " + purgePrefix + table + " WHERE " + purgeCondition;
+                            executePurgeStatement(connection, query);
+                        }
+                    }
+                }
+                catch (Exception e) {
+                    reportPurgeFailure(e);
+                }
+            }
+
+            if (PurgePolicy.isPurgeable(table) || table.equals("entity_spawn")) {
+                try {
+                    removed += countPurgeRows(connection, ConfigHandler.prefix + table) - countPurgeRows(connection, purgePrefix + table);
+                }
+                catch (Exception e) {
+                    reportPurgeFailure(e);
+                }
+            }
+        }
+        return new SQLiteRebuild(removed, false);
+    }
+
+    private static Long deleteRelationalRows(Connection connection, CommandSender player, PurgeFilter purgeFilter) throws Exception {
+        long removed = 0;
+        String query;
+        for (String table : ConfigHandler.databaseTables) {
+            requirePurgeNotCancelled();
+            Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_PROCESSING, table.replace('_', ' ')));
+            try {
+                String purgeCondition = purgeFilter.deleteCondition(table, ConfigHandler.prefix);
+                boolean deleteEntities = purgeCondition != null && table.equals("block") && purgeFilter.removesKills() && !purgeFilter.purgesEntitiesByTime();
+                // Kill rows and their entity data go together, or the kept kills lose their rollback data
+                boolean atomic = deleteEntities && ConfigHandler.databaseType.isMySQL();
+                if (atomic) {
+                    connection.setAutoCommit(false);
+                }
+                try {
+                    long deleted = 0;
+                    if (deleteEntities) {
+                        query = purgeFilter.deleteEntitiesOfPurgedKills(ConfigHandler.databaseType, ConfigHandler.prefix);
+                        deleted = deleted + executePurgeUpdate(connection, query);
+                    }
+
+                    if (purgeCondition != null) {
+                        query = "DELETE FROM " + ConfigHandler.prefix + table + " WHERE " + purgeCondition;
+                        deleted = deleted + executePurgeUpdate(connection, query);
+                    }
+
+                    if (atomic) {
+                        connection.commit();
+                        connection.setAutoCommit(true);
+                    }
+                    removed = removed + deleted;
+                }
+                catch (Exception e) {
+                    if (atomic) {
+                        try {
+                            connection.rollback();
+                            connection.setAutoCommit(true);
+                        }
+                        catch (SQLException rollbackException) {
+                            e.addSuppressed(rollbackException);
+                        }
+                    }
+                    throw e;
+                }
+            }
+            catch (Exception e) {
+                if (ConfigHandler.databaseType.isDuckDB()) {
+                    throw e;
+                }
+                if (!ConfigHandler.serverRunning) {
+                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_FAILED));
+                    return null;
+                }
+
+                reportPurgeFailure(e);
+            }
+        }
+        return removed;
+    }
+
+    private static long sweepMySqlOrphans(Connection connection, PurgeFilter purgeFilter) throws Exception {
+        long removed = 0;
+        try {
+            for (String sweepQuery : PurgeFilter.mysqlOrphanSweepSetup(ConfigHandler.prefix)) {
+                executePurgeStatement(connection, sweepQuery);
+            }
+            removed = removed + executePurgeUpdate(connection, purgeFilter.mysqlOrphanSweepDelete(ConfigHandler.prefix));
+        }
+        catch (Exception e) {
+            reportPurgeFailure(e);
+        }
+        finally {
+            try {
+                executePurgeStatement(connection, PurgeFilter.mysqlOrphanSweepTeardown(ConfigHandler.prefix));
+            }
+            catch (Exception e) {
+                reportPurgeFailure(e);
+            }
+        }
+        return removed;
+    }
+
+    private static long deleteOrphanedEntityRows(Connection connection, String retainedPrefix) throws Exception {
+        long removed = 0;
+        String query;
+        requirePurgeNotCancelled();
+        query = "UPDATE " + retainedPrefix + "entity_spawn SET kill_rowid=NULL WHERE kill_rowid IS NOT NULL AND NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity WHERE " + retainedPrefix + "entity.rowid=" + retainedPrefix + "entity_spawn.kill_rowid)";
+        executePurgeUpdate(connection, query);
+
+        requirePurgeNotCancelled();
+        query = "UPDATE " + retainedPrefix + "entity_spawn SET block_rowid=NULL WHERE block_rowid IS NOT NULL AND NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "block WHERE " + retainedPrefix + "block.rowid=" + retainedPrefix + "entity_spawn.block_rowid)";
+        executePurgeUpdate(connection, query);
+
+        requirePurgeNotCancelled();
+        query = "DELETE FROM " + retainedPrefix + "entity_interaction WHERE NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity_spawn WHERE " + retainedPrefix + "entity_spawn.rowid=" + retainedPrefix + "entity_interaction.entity_spawn_rowid)";
+        removed = removed + executePurgeUpdate(connection, query);
+
+        requirePurgeNotCancelled();
+        query = "DELETE FROM " + retainedPrefix + "entity_container WHERE NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity_spawn WHERE " + retainedPrefix + "entity_spawn.rowid=" + retainedPrefix + "entity_container.entity_spawn_rowid)";
+        removed = removed + executePurgeUpdate(connection, query);
+
+        requirePurgeNotCancelled();
+        query = "DELETE FROM " + retainedPrefix + "entity_spawn WHERE removed=1 AND block_rowid IS NULL AND kill_rowid IS NULL AND NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity_container WHERE " + retainedPrefix + "entity_container.entity_spawn_rowid=" + retainedPrefix + "entity_spawn.rowid) AND NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity_interaction WHERE " + retainedPrefix + "entity_interaction.entity_spawn_rowid=" + retainedPrefix + "entity_spawn.rowid)";
+        removed = removed + executePurgeUpdate(connection, query);
+
+        return removed;
+    }
+
+    private static void optimizeMySqlTables(Connection connection, CommandSender player) throws Exception {
+        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_OPTIMIZING));
+        for (String table : ConfigHandler.databaseTables) {
+            requirePurgeNotCancelled();
+            String query = "OPTIMIZE LOCAL TABLE " + ConfigHandler.prefix + table;
+            executePurgeStatement(connection, query);
+        }
+    }
+
+    private static final class SQLiteRebuild {
+        private final long removed;
+        private final boolean aborted;
+
+        private SQLiteRebuild(long removed, boolean aborted) {
+            this.removed = removed;
+            this.aborted = aborted;
+        }
     }
 
     private static Path sqliteTempDatabase() {

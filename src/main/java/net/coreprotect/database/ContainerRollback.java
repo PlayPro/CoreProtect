@@ -74,6 +74,10 @@ public class ContainerRollback extends Rollback {
                 catch (Exception e) {
                     completion.completeExceptionally(e);
                 }
+                catch (Error e) {
+                    completion.completeExceptionally(e);
+                    throw e;
+                }
             }, location, 0);
 
             int itemCount;

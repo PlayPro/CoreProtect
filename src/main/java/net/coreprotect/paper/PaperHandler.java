@@ -1,6 +1,5 @@
 package net.coreprotect.paper;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -18,12 +17,19 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.MerchantRecipe;
 
+import com.destroystokyo.paper.entity.villager.Reputation;
+import com.destroystokyo.paper.entity.villager.ReputationType;
+
+import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.model.entity.VillagerReputationData;
 
 public class PaperHandler extends PaperAdapter {
     private volatile boolean supportsSnapshotHolderLookup = true;
     private volatile boolean supportsSnapshotStateLookup = true;
     private volatile boolean supportsAverageTickTime = true;
+    private volatile boolean supportsVillagerReputations = true;
+    private volatile boolean supportsVillagerRestocks = true;
+    private volatile boolean supportsTradeDiscounts = true;
 
     @Override
     public boolean isStopping(Server server) {
@@ -87,40 +93,28 @@ public class PaperHandler extends PaperAdapter {
     @Override
     public List<Object> getVillagerReputations(Villager villager) {
         List<Object> reputations = new ArrayList<>();
-        try {
-            Method getReputations = villager.getClass().getMethod("getReputations");
-            Object reputationMap = getReputations.invoke(villager);
-            if (!(reputationMap instanceof Map<?, ?>)) {
-                return reputations;
-            }
+        if (!supportsVillagerReputations) {
+            return reputations;
+        }
 
-            Class<?> reputationTypeClass = Class.forName("com.destroystokyo.paper.entity.villager.ReputationType");
-            Method hasReputationSet = Class.forName("com.destroystokyo.paper.entity.villager.Reputation").getMethod("hasReputationSet", reputationTypeClass);
-            Method getReputation = Class.forName("com.destroystokyo.paper.entity.villager.Reputation").getMethod("getReputation", reputationTypeClass);
-            for (Map.Entry<?, ?> entry : ((Map<?, ?>) reputationMap).entrySet()) {
-                if (!(entry.getKey() instanceof UUID) || entry.getValue() == null) {
+        try {
+            for (Map.Entry<UUID, Reputation> entry : villager.getReputations().entrySet()) {
+                if (entry.getKey() == null || entry.getValue() == null) {
                     continue;
                 }
-
-                List<Object> reputationData = new ArrayList<>();
                 List<Object> values = new ArrayList<>();
-                for (Object type : reputationTypeClass.getEnumConstants()) {
-                    if ((Boolean) hasReputationSet.invoke(entry.getValue(), type)) {
-                        List<Object> value = new ArrayList<>();
-                        value.add(((Enum<?>) type).name());
-                        value.add(getReputation.invoke(entry.getValue(), type));
-                        values.add(value);
+                for (ReputationType type : ReputationType.values()) {
+                    if (entry.getValue().hasReputationSet(type)) {
+                        values.add(List.of(type.name(), entry.getValue().getReputation(type)));
                     }
                 }
-
                 if (!values.isEmpty()) {
-                    reputationData.add(entry.getKey().toString());
-                    reputationData.add(values);
-                    reputations.add(reputationData);
+                    reputations.add(List.of(entry.getKey().toString(), values));
                 }
             }
         }
-        catch (Exception e) {
+        catch (LinkageError e) {
+            supportsVillagerReputations = false;
         }
 
         return reputations;
@@ -128,102 +122,88 @@ public class PaperHandler extends PaperAdapter {
 
     @Override
     public boolean setVillagerReputations(Villager villager, List<?> reputations) {
-        try {
-            Class<?> reputationClass = Class.forName("com.destroystokyo.paper.entity.villager.Reputation");
-            Class<?> reputationTypeClass = Class.forName("com.destroystokyo.paper.entity.villager.ReputationType");
-            Method setReputation = reputationClass.getMethod("setReputation", reputationTypeClass, int.class);
-            Map<UUID, Object> result = new HashMap<>();
+        if (!supportsVillagerReputations) {
+            return false;
+        }
 
+        try {
+            Map<UUID, Reputation> result = new HashMap<>();
             for (Object reputationObject : reputations) {
                 VillagerReputationData data = VillagerReputationData.parse(reputationObject);
                 if (data == null) {
                     continue;
                 }
 
-                Object reputation = reputationClass.getConstructor().newInstance();
+                Reputation reputation = new Reputation();
                 for (VillagerReputationData.Value value : data.values()) {
-                    Object type = parseEnumValue(reputationTypeClass, value.type());
+                    ReputationType type = (ReputationType) BukkitAdapter.getLegacyEnumValue(ReputationType.class, value.type());
                     if (type != null) {
-                        setReputation.invoke(reputation, type, value.amount());
+                        reputation.setReputation(type, value.amount());
                     }
                 }
-
                 result.put(data.uuid(), reputation);
             }
 
-            villager.getClass().getMethod("setReputations", Map.class).invoke(villager, result);
+            villager.setReputations(result);
             return true;
         }
-        catch (Exception e) {
+        catch (LinkageError e) {
+            supportsVillagerReputations = false;
             return false;
         }
     }
 
     @Override
     public Object getVillagerRestocksToday(Villager villager) {
-        return invokeNoArgumentMethod(villager, "getRestocksToday");
+        if (supportsVillagerRestocks) {
+            try {
+                return villager.getRestocksToday();
+            }
+            catch (LinkageError e) {
+                supportsVillagerRestocks = false;
+            }
+        }
+        return null;
     }
 
     @Override
     public void setVillagerRestocksToday(Villager villager, Object value) {
-        invokeIntSetter(villager, "setRestocksToday", value);
+        if (supportsVillagerRestocks && value instanceof Number) {
+            try {
+                villager.setRestocksToday(((Number) value).intValue());
+            }
+            catch (LinkageError e) {
+                supportsVillagerRestocks = false;
+            }
+        }
     }
 
     @Override
     public void addMerchantRecipeMeta(MerchantRecipe recipe, List<Object> recipeData) {
-        Object ignoreDiscounts = invokeNoArgumentMethod(recipe, "shouldIgnoreDiscounts");
-        if (ignoreDiscounts instanceof Boolean) {
-            recipeData.add(ignoreDiscounts);
+        if (supportsTradeDiscounts) {
+            try {
+                recipeData.add(recipe.shouldIgnoreDiscounts());
+            }
+            catch (LinkageError e) {
+                supportsTradeDiscounts = false;
+            }
         }
     }
 
     @Override
     public void setMerchantRecipeMeta(MerchantRecipe recipe, List<?> recipeData) {
-        if (recipeData.size() > 8 && recipeData.get(8) instanceof Boolean) {
-            invokeBooleanSetter(recipe, "setIgnoreDiscounts", recipeData.get(8));
+        if (!supportsTradeDiscounts || recipeData.size() <= 7) {
+            return;
         }
-        else if (recipeData.size() > 7 && recipeData.get(7) instanceof Boolean) {
-            invokeBooleanSetter(recipe, "setIgnoreDiscounts", recipeData.get(7));
-        }
-    }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    private static Object parseEnumValue(Class<?> enumClass, String value) {
-        try {
-            return Enum.valueOf((Class<? extends Enum>) enumClass.asSubclass(Enum.class), value);
-        }
-        catch (Exception e) {
-            return null;
-        }
-    }
-
-    private static Object invokeNoArgumentMethod(Object target, String methodName) {
-        try {
-            return target.getClass().getMethod(methodName).invoke(target);
-        }
-        catch (Exception e) {
-            return null;
-        }
-    }
-
-    private static void invokeIntSetter(Object target, String methodName, Object value) {
-        if (value instanceof Number) {
-            try {
-                target.getClass().getMethod(methodName, int.class).invoke(target, ((Number) value).intValue());
-            }
-            catch (Exception e) {
-            }
-        }
-    }
-
-    private static void invokeBooleanSetter(Object target, String methodName, Object value) {
+        Object value = recipeData.size() > 8 && recipeData.get(8) instanceof Boolean ? recipeData.get(8) : recipeData.get(7);
         if (value instanceof Boolean) {
             try {
-                target.getClass().getMethod(methodName, boolean.class).invoke(target, value);
+                recipe.setIgnoreDiscounts((Boolean) value);
             }
-            catch (Exception e) {
+            catch (LinkageError e) {
+                supportsTradeDiscounts = false;
             }
         }
     }
-
 }

@@ -1,6 +1,5 @@
 package net.coreprotect.bukkit;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -22,6 +21,8 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockType;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.Directional;
+import org.bukkit.block.data.SideChaining;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Painting;
 import org.bukkit.event.Event;
@@ -34,6 +35,7 @@ import org.bukkit.inventory.ItemStack;
 
 
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.utility.AdapterMethods;
 import net.coreprotect.utility.BlockTypeUtils;
 
 /**
@@ -450,23 +452,21 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
     }
 
     private static BlockFace getShelfFacing(BlockData blockData) {
-        Object facing = invokeNoArgumentMethod(blockData, "getFacing");
-        return facing instanceof BlockFace ? (BlockFace) facing : null;
+        return blockData instanceof Directional ? ((Directional) blockData).getFacing() : null;
     }
 
     private static String getShelfSideChain(BlockData blockData) {
-        Object sideChain = invokeNoArgumentMethod(blockData, "getSideChain");
-        return sideChain == null ? null : sideChain.toString();
-    }
-
-    private static Object invokeNoArgumentMethod(Object target, String methodName) {
-        if (target == null) {
-            return null;
-        }
-
         try {
-            Method method = target.getClass().getMethod(methodName);
-            return method.invoke(target);
+            if (blockData instanceof SideChaining) {
+                SideChaining.ChainPart part = ((SideChaining) blockData).getSideChain();
+                return part == null ? null : part.name();
+            }
+        }
+        catch (LinkageError e) {
+        }
+        try {
+            Object part = AdapterMethods.invokeNoArguments(blockData, "getSideChain");
+            return part instanceof Enum<?> ? ((Enum<?>) part).name() : null;
         }
         catch (ReflectiveOperationException | LinkageError e) {
             return null;

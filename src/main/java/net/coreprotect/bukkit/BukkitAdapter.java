@@ -48,6 +48,7 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionType;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.utility.AdapterMethods;
 import net.coreprotect.utility.BlockUtils;
 
 /**
@@ -177,7 +178,7 @@ public class BukkitAdapter implements BukkitInterface {
      */
     public static boolean getRegistryVariant(BukkitInterface adapter, Entity entity, List<Object> info, String getterName) {
         try {
-            Object variant = entity.getClass().getMethod(getterName).invoke(entity);
+            Object variant = AdapterMethods.invokeNoArguments(entity, getterName);
             if (variant == null) {
                 return false;
             }
@@ -196,13 +197,21 @@ public class BukkitAdapter implements BukkitInterface {
      */
     public static boolean setRegistryVariant(BukkitInterface adapter, Entity entity, Object value, String getterName, String setterName) {
         try {
-            Class<?> variantClass = entity.getClass().getMethod(getterName).getReturnType();
+            Method getter = AdapterMethods.find(entity.getClass(), getterName);
+            if (getter == null) {
+                return false;
+            }
+            Class<?> variantClass = getter.getReturnType();
             Object variant = value instanceof String ? adapter.getRegistryValue((String) value, variantClass) : value;
             if (!variantClass.isInstance(variant)) {
                 return false;
             }
 
-            entity.getClass().getMethod(setterName, variantClass).invoke(entity, variant);
+            Method setter = AdapterMethods.find(entity.getClass(), setterName, variantClass);
+            if (setter == null) {
+                return false;
+            }
+            setter.invoke(entity, variant);
             return true;
         }
         catch (ReflectiveOperationException | LinkageError e) {
@@ -235,11 +244,16 @@ public class BukkitAdapter implements BukkitInterface {
     @Override
     public void refreshVillagerBrain(Villager villager) {
         try {
-            Object handle = villager.getClass().getMethod("getHandle").invoke(villager);
-            Object level = villager.getWorld().getClass().getMethod("getHandle").invoke(villager.getWorld());
-            invokeSingleArgumentMethod(handle, "refreshBrain", level);
+            Object handle = AdapterMethods.invokeNoArguments(villager, "getHandle");
+            Object level = AdapterMethods.invokeNoArguments(villager.getWorld(), "getHandle");
+            if (handle != null && level != null) {
+                Method refresh = AdapterMethods.findAssignableSingleArgument(handle.getClass(), "refreshBrain", level.getClass());
+                if (refresh != null) {
+                    refresh.invoke(handle, level);
+                }
+            }
         }
-        catch (Exception e) {
+        catch (ReflectiveOperationException | LinkageError e) {
         }
     }
 
@@ -333,24 +347,6 @@ public class BukkitAdapter implements BukkitInterface {
         return itemStack;
     }
 
-    private static void invokeSingleArgumentMethod(Object target, String methodName, Object argument) {
-        if (target == null || argument == null) {
-            return;
-        }
-
-        for (Method method : target.getClass().getMethods()) {
-            Class<?>[] parameterTypes = method.getParameterTypes();
-            if (method.getName().equals(methodName) && parameterTypes.length == 1 && parameterTypes[0].isInstance(argument)) {
-                try {
-                    method.invoke(target, argument);
-                }
-                catch (Exception e) {
-                }
-                return;
-            }
-        }
-    }
-
     // -------------------- Block methods --------------------
 
     @Override
@@ -435,8 +431,11 @@ public class BukkitAdapter implements BukkitInterface {
     @Override
     public <T extends Entity> T spawn(World world, Location location, Class<T> entityClass, Consumer<? super T> function) {
         // Bukkit 1.20.1 and earlier only have World#spawn(Location, Class, org.bukkit.util.Consumer), which is deprecated for removal in the current API
+        Class<?> consumerClass = LegacySpawn.CONSUMER_CLASS;
+        if (LegacySpawn.METHOD == null) {
+            throw new IllegalStateException("Legacy Bukkit spawn method is unavailable");
+        }
         try {
-            Class<?> consumerClass = Class.forName("org.bukkit.util.Consumer");
             Object consumer = Proxy.newProxyInstance(consumerClass.getClassLoader(), new Class<?>[] { consumerClass }, (proxy, method, args) -> {
                 if (method.getDeclaringClass() == Object.class) {
                     switch (method.getName()) {
@@ -451,8 +450,7 @@ public class BukkitAdapter implements BukkitInterface {
                 function.accept(entityClass.cast(args[0]));
                 return null;
             });
-            Method spawnMethod = World.class.getMethod("spawn", Location.class, Class.class, consumerClass);
-            return entityClass.cast(spawnMethod.invoke(world, location, entityClass, consumer));
+            return entityClass.cast(LegacySpawn.METHOD.invoke(world, location, entityClass, consumer));
         }
         catch (InvocationTargetException e) {
             Throwable cause = e.getCause();
@@ -467,6 +465,11 @@ public class BukkitAdapter implements BukkitInterface {
         catch (ReflectiveOperationException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    private static final class LegacySpawn {
+        private static final Class<?> CONSUMER_CLASS = AdapterMethods.findType("org.bukkit.util.Consumer");
+        private static final Method METHOD = CONSUMER_CLASS == null ? null : AdapterMethods.find(World.class, "spawn", Location.class, Class.class, CONSUMER_CLASS);
     }
 
     @Override

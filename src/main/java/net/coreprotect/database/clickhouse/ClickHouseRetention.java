@@ -5,6 +5,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.YearMonth;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -229,7 +231,7 @@ final class ClickHouseRetention {
         execute(connection, "TRUNCATE TABLE " + targetTable);
     }
 
-    private void selectPrimaryTargets(Connection connection, String targetTable, long startTime, long endTime, int worldId, List<Integer> blockTypes) throws SQLException {
+    void selectPrimaryTargets(Connection connection, String targetTable, long startTime, long endTime, int worldId, List<Integer> blockTypes) throws SQLException {
         for (ClickHouseFamily family : ClickHouseFamily.values()) {
             requirePurgeNotCancelled();
             if (!family.isPurgeable()) {
@@ -271,6 +273,16 @@ final class ClickHouseRetention {
                 statement.execute();
             }
         }
+
+        if (!blockTypes.isEmpty()) {
+            return;
+        }
+        String blockTargets = "SELECT rowid FROM " + targetTable + " WHERE family='block'";
+        String killReferences = "SELECT assumeNotNull(data) FROM " + table("block")
+                + " WHERE action=" + LookupActions.ENTITY_KILL + " AND type>0 AND data>0 AND rowid";
+        execute(connection, "INSERT INTO " + targetTable + " SELECT 'entity',rowid FROM " + table("entity")
+                + " WHERE rowid IN(" + killReferences + " IN(" + blockTargets + "))"
+                + " AND rowid NOT IN(" + killReferences + " NOT IN(" + blockTargets + "))");
     }
 
     private long countPrimaryRows(Connection connection, long startTime, long endTime) throws SQLException {
@@ -343,16 +355,16 @@ final class ClickHouseRetention {
     }
 
     private void dropCoveredPartitions(Connection connection, long startTime, long endTime) throws SQLException {
-        String sql = "SELECT _partition_id,min(time),max(time) FROM " + eventTable
-                + " WHERE family IN(" + PURGEABLE_FAMILIES + ") GROUP BY _partition_id";
+        String sql = "SELECT DISTINCT _partition_id FROM " + eventTable
+                + " WHERE family IN(" + PURGEABLE_FAMILIES + ") AND time>=? AND time<?";
         List<String> partitions = new ArrayList<>();
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setLong(1, startTime);
+            statement.setLong(2, endTime);
             try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {
                     String partition = resultSet.getString(1);
-                    long minimum = resultSet.getLong(2);
-                    long maximum = resultSet.getLong(3);
-                    if (!"0".equals(partition) && partition != null && partition.matches("[0-9]+") && minimum >= startTime && maximum < endTime) {
+                    if (coversPartitionMonth(partition, startTime, endTime)) {
                         partitions.add(partition);
                     }
                 }
@@ -361,6 +373,21 @@ final class ClickHouseRetention {
         for (String partition : partitions) {
             execute(connection, "ALTER TABLE " + eventTable + " DROP PARTITION ID '" + partition + "'");
         }
+    }
+
+    static boolean coversPartitionMonth(String partitionId, long startTime, long endTime) {
+        if (partitionId == null || !partitionId.matches("[0-9]{6}")) {
+            return false;
+        }
+        int year = Integer.parseInt(partitionId.substring(0, 4));
+        int month = Integer.parseInt(partitionId.substring(4));
+        if (year < 1970 || month < 1 || month > 12) {
+            return false;
+        }
+        YearMonth partitionMonth = YearMonth.of(year, month);
+        long monthStart = partitionMonth.atDay(1).atStartOfDay().toEpochSecond(ZoneOffset.UTC);
+        long nextMonthStart = partitionMonth.plusMonths(1).atDay(1).atStartOfDay().toEpochSecond(ZoneOffset.UTC);
+        return monthStart >= startTime && nextMonthStart <= endTime;
     }
 
     private void execute(Connection connection, String sql) throws SQLException {

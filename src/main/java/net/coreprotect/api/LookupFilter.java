@@ -19,6 +19,7 @@ import org.bukkit.World;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.DatabaseType;
 import net.coreprotect.database.DuckDBLookupQuery;
 import net.coreprotect.database.DuckDBSpatialIndex;
 import net.coreprotect.database.LocationQuery;
@@ -118,8 +119,12 @@ final class LookupFilter {
         synchronized (cached) {
             materialNames = new HashMap<>(cached);
         }
-        if (materialNames.isEmpty()) {
-            try (PreparedStatement statement = connection.prepareStatement("SELECT id, material FROM " + ConfigHandler.prefix + "material_map");
+        materialNames.keySet().removeIf(id -> id < 0);
+        boolean shared = (ConfigHandler.databaseType == DatabaseType.MYSQL || ConfigHandler.databaseType.isClickHouse()) && !Config.getGlobal().DATABASE_LOCK;
+        if (materialNames.isEmpty() || shared) {
+            String uncached = materialNames.isEmpty() ? "" : materialNames.keySet().stream().map(String::valueOf)
+                    .collect(Collectors.joining(",", " WHERE id NOT IN (", ")"));
+            try (PreparedStatement statement = connection.prepareStatement("SELECT id, material FROM " + ConfigHandler.prefix + "material_map" + uncached);
                     ResultSet results = statement.executeQuery()) {
                 while (results.next()) {
                     materialNames.put(results.getInt("id"), results.getString("material"));

@@ -1,9 +1,8 @@
 package net.coreprotect.database.logger;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Bukkit;
@@ -13,6 +12,7 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.CoreProtect;
+import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
@@ -51,7 +51,7 @@ public class ContainerLogger extends Queue {
             ItemStack[] contents = null;
             String faceData = null;
 
-            if (type == Material.ITEM_FRAME) {
+            if (BukkitAdapter.ADAPTER.isItemFrame(type)) {
                 contents = (ItemStack[]) ((Object[]) container)[1];
                 faceData = ((BlockFace) ((Object[]) container)[2]).name();
             }
@@ -92,23 +92,10 @@ public class ContainerLogger extends Queue {
                 return;
             }
 
-            // If we reach here, the dispenser event resulted in changes
-            // Remove any pending event for this dispenser
             if (duplicateSuppression && "#dispenser".equals(player)) {
-                String[] parts = loggingContainerId.split("\\.");
-                if (parts.length >= 4) {
-                    int x = Integer.parseInt(parts[1]);
-                    int y = Integer.parseInt(parts[2]);
-                    int z = Integer.parseInt(parts[3]);
-
-                    String locationKey = location.getWorld().getUID().toString() + "." + x + "." + y + "." + z;
-
-                    // Remove the pending event since it resulted in changes
-                    ConfigHandler.dispenserPending.remove(locationKey);
-
-                    // Clear any existing dispenserNoChange entries for this location
-                    ConfigHandler.dispenserNoChange.remove(locationKey);
-                }
+                String locationKey = HopperTransactionUtils.getTransactionId(location);
+                ConfigHandler.dispenserPending.remove(locationKey);
+                ConfigHandler.dispenserNoChange.remove(locationKey);
             }
 
             ItemStack[] forceState = peekForceContainer(loggingContainerId);
@@ -357,20 +344,17 @@ public class ContainerLogger extends Queue {
             return false;
         }
 
-        String oldSignature = getContainerStateSignature(oldInventory);
-        String newSignature = getContainerStateSignature(newInventory);
-        String transitionSignature = oldSignature + ">" + newSignature;
-        if ("#dispenser".equals(user)) {
-            if (oldSignature.compareTo(newSignature) <= 0) {
-                transitionSignature = oldSignature + "<>" + newSignature;
-            }
-            else {
-                transitionSignature = newSignature + "<>" + oldSignature;
-            }
+        long oldSignature = getContainerStateSignature(oldInventory);
+        long newSignature = getContainerStateSignature(newInventory);
+        if ("#dispenser".equals(user) && Long.compareUnsigned(oldSignature, newSignature) > 0) {
+            long swap = oldSignature;
+            oldSignature = newSignature;
+            newSignature = swap;
         }
 
         int threshold = getContainerDuplicateThreshold(user);
-        String signature = location.getWorld().getUID().toString() + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ() + "." + user + "." + transitionSignature;
+        String signature = HopperTransactionUtils.getTransactionId(location) + "." + user + "."
+                + Long.toUnsignedString(oldSignature, 16) + ">" + Long.toUnsignedString(newSignature, 16);
         return CacheHandler.shouldSuppressRepeat(CacheHandler.containerDuplicateCache, signature, threshold, CONTAINER_DUPLICATE_WINDOW_SECONDS);
     }
 
@@ -381,36 +365,28 @@ public class ContainerLogger extends Queue {
         return CONTAINER_DUPLICATE_THRESHOLD_DROPPER;
     }
 
-    private static String getContainerStateSignature(ItemStack[] inventory) {
-        if (inventory == null || inventory.length == 0) {
-            return "-";
+    static long getContainerStateSignature(ItemStack[] inventory) {
+        if (inventory == null) {
+            return 0L;
         }
 
-        Map<String, Integer> itemCounts = new HashMap<>();
-        for (ItemStack itemStack : inventory) {
-            if (itemStack == null || itemStack.getAmount() <= 0 || BlockUtils.isAir(itemStack.getType())) {
+        long signature = 0L;
+        for (ItemStack item : inventory) {
+            if (item == null || item.getAmount() <= 0 || BlockUtils.isAir(item.getType())) {
                 continue;
             }
 
-            ItemStack normalized = itemStack.clone();
-            normalized.setAmount(1);
-            String key = normalized.toString();
-            itemCounts.merge(key, itemStack.getAmount(), Integer::sum);
+            int metadataHash = item.hasItemMeta() ? Objects.hashCode(item.getItemMeta()) : 0;
+            long identity = (long) item.getType().ordinal() << Integer.SIZE | Integer.toUnsignedLong(metadataHash);
+            signature += mixItemIdentity(identity) * item.getAmount();
         }
+        return signature;
+    }
 
-        if (itemCounts.isEmpty()) {
-            return "-";
-        }
-
-        StringBuilder builder = new StringBuilder();
-        for (Map.Entry<String, Integer> entry : new TreeMap<>(itemCounts).entrySet()) {
-            if (builder.length() > 0) {
-                builder.append('|');
-            }
-            builder.append(entry.getKey()).append('*').append(entry.getValue());
-        }
-
-        return Integer.toHexString(builder.toString().hashCode());
+    private static long mixItemIdentity(long value) {
+        value = (value ^ (value >>> 33)) * 0xff51afd7ed558ccdL;
+        value = (value ^ (value >>> 33)) * 0xc4ceb9fe1a85ec53L;
+        return value ^ (value >>> 33);
     }
 
 }

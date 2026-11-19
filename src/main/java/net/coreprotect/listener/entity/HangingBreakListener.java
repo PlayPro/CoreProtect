@@ -10,6 +10,7 @@ import org.bukkit.entity.Painting;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.hanging.HangingBreakByEntityEvent;
 import org.bukkit.event.hanging.HangingBreakEvent;
 import org.bukkit.inventory.ItemStack;
 
@@ -24,6 +25,9 @@ public final class HangingBreakListener extends Queue implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onHangingBreak(HangingBreakEvent event) {
+        if (event instanceof HangingBreakByEntityEvent) {
+            return;
+        }
         HangingBreakEvent.RemoveCause cause = event.getCause();
         Entity entity = event.getEntity();
         Block blockEvent = event.getEntity().getLocation().getBlock();

@@ -176,7 +176,6 @@ public class Process {
         boolean processingStarted = false;
         Object[] preparingEvent = null;
         boolean consumerDataCleared = false;
-        boolean preflightCommitted = false;
         boolean batchedDuckDBEntityEvent = false;
         int previousLockUpdate = lastLockUpdate;
         boolean lockUpdatePending = false;
@@ -328,14 +327,11 @@ public class Process {
                 updateLockTable(writeBatch, (lastRun ? 0 : 1));
                 lockUpdatePending = lastLockUpdate != previousLockUpdate;
                 if (commit(writeBatch) != TransactionOutcome.COMMITTED) {
-                    invalidateUserCaches(users);
                     failConsumerBatch(consumerData, users, consumerObject, 0, 0);
                     return;
                 }
                 lockUpdatePending = false;
             }
-            preflightCommitted = true;
-
             if (hasEntityContainerTransactions || hasEntityInteractions || hasEntitySpawnLogs || !entityIdentityUuids.isEmpty() || !entityIdentityRowIds.isEmpty()) {
                 entitySpawnIdentities.putAll(EntitySpawnStatement.loadIdentities(connection, entityIdentityUuids));
                 Map<Integer, EntitySpawnIdentity> identitiesByRowId = EntitySpawnStatement.loadIdentitiesByRowIds(connection, entityIdentityRowIds);
@@ -709,9 +705,6 @@ public class Process {
             if (writeBatch != null && Consumer.transacting) {
                 writeBatch.rollback();
             }
-            if (!preflightCommitted && users != null) {
-                invalidateUserCaches(users);
-            }
             if (processingStarted && !consumerDataCleared && consumerData != null && users != null && consumerObject != null) {
                 try {
                     completeTransactionState(entitySpawnUpdates, pendingEntityContainerTransactions, pendingEntityContainerRollbacks, pendingEntityInteractions, pendingEntityIdentityConfirmations, invalidatedEntityIdentityConfirmations, promotedEntityIdentities, entitySpawnIdentities, pendingEntitySpawnLogs, TransactionOutcome.RETAINED);
@@ -1046,23 +1039,6 @@ public class Process {
         }
         else {
             failConsumerBatch(consumerData, users, consumerObject, processedThrough, attemptedThrough);
-        }
-    }
-
-    private static void invalidateUserCaches(Map<Integer, String[]> users) {
-        for (String[] data : users.values()) {
-            if (data == null || data.length == 0 || data[0] == null) {
-                continue;
-            }
-            String user = StringUtils.normalizeUsername(data[0]).toLowerCase(Locale.ROOT);
-            Integer userId = ConfigHandler.playerIdCache.remove(user);
-            if (userId != null) {
-                ConfigHandler.playerIdCacheReversed.remove(userId);
-            }
-            String uuid = ConfigHandler.uuidCache.remove(user);
-            if (uuid != null) {
-                ConfigHandler.uuidCacheReversed.remove(uuid);
-            }
         }
     }
 

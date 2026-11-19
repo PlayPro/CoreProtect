@@ -17,103 +17,134 @@ import net.coreprotect.utility.StringUtils;
 
 public class UserStatement {
 
+    private static final String RELATIONAL_NAME_ORDER = "(COALESCE(uuid,'')<>'') DESC,"
+            + "CASE WHEN COALESCE(uuid,'')<>'' THEN time END DESC,"
+            + "CASE WHEN COALESCE(uuid,'')<>'' THEN -rowid ELSE rowid END";
+
     private UserStatement() {
         throw new IllegalStateException("Database class");
     }
 
     public static int insert(Connection connection, String user) {
-        user = StringUtils.normalizeUsername(user);
-        int id = -1;
-
         try {
-            int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
-
-            PreparedStatement preparedStmt = null;
-            if (Database.hasReturningKeys()) {
-                preparedStmt = connection.prepareStatement("INSERT INTO " + ConfigHandler.prefix + "user (time, " + ConfigHandler.databaseType.getUserColumn() + ") VALUES (?, ?) RETURNING rowid");
-            }
-            else {
-                preparedStmt = connection.prepareStatement("INSERT INTO " + ConfigHandler.prefix + "user (time, " + ConfigHandler.databaseType.getUserColumn() + ") VALUES (?, ?)", Statement.RETURN_GENERATED_KEYS);
-            }
-
-            preparedStmt.setInt(1, unixtimestamp);
-            preparedStmt.setString(2, user);
-
-            if (Database.hasReturningKeys()) {
-                ResultSet resultSet = preparedStmt.executeQuery();
-                resultSet.next();
-                id = resultSet.getInt(1);
-                resultSet.close();
-            }
-            else {
-                preparedStmt.executeUpdate();
-                ResultSet keys = preparedStmt.getGeneratedKeys();
-                keys.next();
-                id = keys.getInt(1);
-                keys.close();
-            }
-
-            preparedStmt.close();
+            return storeIdentity(connection, null, StringUtils.normalizeUsername(user), null, currentTime()).getId();
         }
         catch (Exception e) {
             Database.handleWriteFailure(e);
+            return -1;
         }
-        return id;
     }
 
     public static int getId(ConsumerWriteBatch batch, String user, boolean load) throws Exception {
         user = StringUtils.normalizeUsername(user);
-        if (load && ConfigHandler.databaseType.isClickHouse()) {
-            return batch.resolveUserId(user, null);
-        }
-        String cacheKey = user.toLowerCase(Locale.ROOT);
-        Integer id = ConfigHandler.playerIdCache.get(cacheKey);
-        if (load && id == null) {
-            id = batch.resolveUserId(user, null);
-        }
-
-        if (id == null) {
+        Integer id = load ? Integer.valueOf(batch.resolveUserId(user, null)) : ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT));
+        if (id == null || id < 1) {
             throw new SQLException("Unable to resolve database user " + user);
         }
         return id;
     }
 
     public static int findId(Connection connection, String user) throws SQLException {
+        return findId(connection, user, true);
+    }
+
+    public static int findId(Connection connection, String user, boolean useCache) throws SQLException {
         user = StringUtils.normalizeUsername(user);
-        String lowerUser = user.toLowerCase(Locale.ROOT);
-        Integer cachedId = ConfigHandler.playerIdCache.get(lowerUser);
-        if (cachedId != null) {
-            return cachedId;
+        if (useCache) {
+            Integer cachedId = ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT));
+            if (cachedId != null && cachedId > 0) {
+                return cachedId;
+            }
         }
 
+        Identity identity = findByName(connection, user);
+        if (identity == null) {
+            return -1;
+        }
+        if (useCache) {
+            publishIdentity(identity);
+        }
+        return identity.getId();
+    }
+
+    private static Identity findByName(Connection connection, String user) throws SQLException {
         String userMatch = DatabaseUtils.caseInsensitiveEquals(ConfigHandler.databaseType.getUserColumn());
-        String order = ConfigHandler.databaseType.isClickHouse() ? ClickHouseDatabase.USER_NAME_ORDER : "rowid ASC";
-        String query = "SELECT rowid AS id," + ConfigHandler.databaseType.getUserColumn() + " AS username,uuid FROM " + ConfigHandler.prefix + "user WHERE " + userMatch + " ORDER BY " + order + " LIMIT 1 OFFSET 0";
+        String order = ConfigHandler.databaseType.isClickHouse() ? ClickHouseDatabase.USER_NAME_ORDER : RELATIONAL_NAME_ORDER;
+        return findIdentity(connection, userMatch, user, order);
+    }
+
+    public static Identity findIdentity(Connection connection, String user, String uuid) throws SQLException {
+        if (uuid != null) {
+            Identity identity = findIdentity(connection, "uuid=?", uuid, "rowid ASC");
+            if (identity != null) {
+                return identity;
+            }
+        }
+        Identity identity = findByName(connection, user);
+        return identity == null || uuid == null || identity.getUuid() == null || uuid.equals(identity.getUuid()) ? identity : null;
+    }
+
+    private static Identity findIdentity(Connection connection, String condition, String value, String order) throws SQLException {
+        String query = "SELECT rowid AS id," + ConfigHandler.databaseType.getUserColumn() + " AS username,uuid FROM " + ConfigHandler.prefix
+                + "user WHERE " + condition + " ORDER BY " + order + " LIMIT 1";
         try (PreparedStatement statement = connection.prepareStatement(query)) {
-            statement.setString(1, user);
+            statement.setString(1, value);
             try (ResultSet results = statement.executeQuery()) {
-                if (!results.next()) {
-                    return -1;
+                return results.next() ? new Identity(results.getInt("id"), results.getString("username"), normalizeUuid(results.getString("uuid"))) : null;
+            }
+        }
+    }
+
+    public static Identity storeIdentity(Connection connection, Identity previous, String user, String uuid, int time) throws SQLException {
+        if (user == null || user.isEmpty() || (previous != null && previous.getUuid() != null && !previous.getUuid().equals(uuid))) {
+            throw new SQLException("Invalid database user assignment for " + user);
+        }
+        String column = ConfigHandler.databaseType.getUserColumn();
+        String table = ConfigHandler.prefix + "user";
+        if (previous != null) {
+            String condition = previous.getUuid() == null ? "(uuid IS NULL OR uuid='')" : "uuid=?";
+            String query = "UPDATE " + table + " SET time=?," + column + "=?,uuid=? WHERE rowid=? AND " + condition;
+            try (PreparedStatement statement = connection.prepareStatement(query)) {
+                statement.setInt(1, time);
+                statement.setString(2, user);
+                statement.setString(3, uuid);
+                statement.setInt(4, previous.getId());
+                if (previous.getUuid() != null) {
+                    statement.setString(5, previous.getUuid());
                 }
-                int id = results.getInt("id");
-                String username = results.getString("username");
-                String uuid = results.getString("uuid");
-                String canonicalLowerUser = username.toLowerCase(Locale.ROOT);
-                ConfigHandler.playerIdCache.put(canonicalLowerUser, id);
-                ConfigHandler.playerIdCacheReversed.put(id, username);
-                if (uuid != null && !uuid.isEmpty()) {
-                    ConfigHandler.uuidCache.put(canonicalLowerUser, uuid);
-                    ConfigHandler.uuidCacheReversed.put(uuid, username);
+                if (statement.executeUpdate() != 1) {
+                    throw new SQLException("Database user identity changed while assigning " + user);
                 }
-                return id;
+            }
+            return new Identity(previous.getId(), user, uuid);
+        }
+
+        String query = "INSERT INTO " + table + " (time," + column + ",uuid) VALUES (?,?,?)";
+        boolean returning = Database.hasReturningKeys();
+        try (PreparedStatement statement = returning ? connection.prepareStatement(query + " RETURNING rowid")
+                : connection.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
+            statement.setInt(1, time);
+            statement.setString(2, user);
+            statement.setString(3, uuid);
+            if (!returning && statement.executeUpdate() != 1) {
+                throw new SQLException("Unable to insert database user " + user);
+            }
+            try (ResultSet keys = returning ? statement.executeQuery() : statement.getGeneratedKeys()) {
+                if (!keys.next()) {
+                    throw new SQLException("No identifier returned for database user " + user);
+                }
+                long id = keys.getLong(1);
+                if (id < 1 || id > Integer.MAX_VALUE) {
+                    throw new SQLException("Invalid identifier returned for database user " + user);
+                }
+                return new Identity((int) id, user, uuid);
             }
         }
     }
 
     public static int loadId(Connection connection, String user, String uuid) {
-        // generate if doesn't exist
         user = StringUtils.normalizeUsername(user);
-        int id = -1;
+        uuid = normalizeUuid(uuid);
 
         try {
             if (ConfigHandler.databaseType.isClickHouse()) {
@@ -126,43 +157,84 @@ public class UserStatement {
                     return resolvedId;
                 }
             }
-            String where = DatabaseUtils.caseInsensitiveEquals(ConfigHandler.databaseType.getUserColumn());
-            if (uuid != null) {
-                where = where + " OR uuid = ?";
+            Identity previous = findIdentity(connection, user, uuid);
+            Identity identity = previous;
+            if (previous == null || (uuid != null && (previous.getUuid() == null || !previous.getName().equalsIgnoreCase(user)))) {
+                identity = storeIdentity(connection, previous, user, uuid, currentTime());
             }
-
-            String query = "SELECT rowid as id, uuid FROM " + ConfigHandler.prefix + "user WHERE " + where + " ORDER BY rowid ASC LIMIT 1 OFFSET 0";
-            PreparedStatement preparedStmt = connection.prepareStatement(query);
-            preparedStmt.setString(1, user);
-
-            if (uuid != null) {
-                preparedStmt.setString(2, uuid);
+            if (connection.getAutoCommit()) {
+                evictPreviousName(previous, identity);
+                publishIdentity(identity);
             }
-
-            ResultSet resultSet = preparedStmt.executeQuery();
-            while (resultSet.next()) {
-                id = resultSet.getInt("id");
-                uuid = resultSet.getString("uuid");
-            }
-            resultSet.close();
-            preparedStmt.close();
-
-            if (id == -1) {
-                id = insert(connection, user);
-            }
-
-            ConfigHandler.playerIdCache.put(user.toLowerCase(Locale.ROOT), id);
-            ConfigHandler.playerIdCacheReversed.put(id, user);
-            if (uuid != null) {
-                ConfigHandler.uuidCache.put(user.toLowerCase(Locale.ROOT), uuid);
-                ConfigHandler.uuidCacheReversed.put(uuid, user);
-            }
+            return identity.getId();
         }
         catch (Exception e) {
             Database.handleWriteFailure(e);
+            return -1;
+        }
+    }
+
+    public static void publishIdentity(Identity identity) {
+        String key = identity.getName().toLowerCase(Locale.ROOT);
+        synchronized (ConfigHandler.playerIdCache) {
+            ConfigHandler.playerIdCacheReversed.put(identity.getId(), identity.getName());
+            if (identity.getUuid() != null) {
+                ConfigHandler.uuidCache.put(key, identity.getUuid());
+                ConfigHandler.uuidCacheReversed.put(identity.getUuid(), identity.getName());
+            }
+            else {
+                ConfigHandler.uuidCache.remove(key);
+            }
+            ConfigHandler.playerIdCache.put(key, identity.getId());
+        }
+    }
+
+    public static void evictPreviousName(Identity previous, Identity identity) {
+        if (previous != null && !previous.getName().equalsIgnoreCase(identity.getName())) {
+            String key = previous.getName().toLowerCase(Locale.ROOT);
+            synchronized (ConfigHandler.playerIdCache) {
+                ConfigHandler.playerIdCache.remove(key, previous.getId());
+                if (previous.getUuid() != null) {
+                    ConfigHandler.uuidCache.remove(key, previous.getUuid());
+                }
+            }
+        }
+    }
+
+    public static String normalizeUuid(String uuid) {
+        return uuid == null || uuid.isBlank() ? null : uuid;
+    }
+
+    private static int currentTime() {
+        return (int) (System.currentTimeMillis() / 1000L);
+    }
+
+    public static final class Identity {
+
+        private final int id;
+        private final String name;
+        private final String uuid;
+
+        private Identity(int id, String name, String uuid) throws SQLException {
+            if (id < 1 || name == null || name.isEmpty()) {
+                throw new SQLException("Invalid database user identity " + id);
+            }
+            this.id = id;
+            this.name = name;
+            this.uuid = uuid;
         }
 
-        return id;
+        public int getId() {
+            return id;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public String getUuid() {
+            return uuid;
+        }
     }
 
     public static String loadName(Connection connection, int id) {
@@ -186,13 +258,7 @@ public class UserStatement {
             }
 
             ConfigHandler.playerIdCacheReversed.put(id, user);
-            if (!ConfigHandler.databaseType.isClickHouse()) {
-                ConfigHandler.playerIdCache.put(user.toLowerCase(Locale.ROOT), id);
-            }
             if (uuid != null && !uuid.isEmpty()) {
-                if (!ConfigHandler.databaseType.isClickHouse()) {
-                    ConfigHandler.uuidCache.put(user.toLowerCase(Locale.ROOT), uuid);
-                }
                 ConfigHandler.uuidCacheReversed.put(uuid, user);
             }
         }

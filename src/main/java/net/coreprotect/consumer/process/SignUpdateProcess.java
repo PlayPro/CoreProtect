@@ -18,7 +18,7 @@ class SignUpdateProcess {
             return;
         }
         Sign sign = (Sign) object;
-        int userId = UserStatement.findId(connection, user);
+        int userId = UserStatement.findId(connection, user, false);
         if (userId <= 0) {
             return;
         }

@@ -71,18 +71,19 @@ public final class AttributeUtils {
         if (value instanceof Attribute) {
             return (Attribute) value;
         }
-        Attribute exact = Registry.ATTRIBUTE.get(key(value));
-        if (exact != null) {
-            return exact;
-        }
-        return resolve(value, Registry.ATTRIBUTE);
+        NamespacedKey key = key(value);
+        Attribute exact = Registry.ATTRIBUTE.get(key);
+        return exact != null ? exact : resolveKey(key, Registry.ATTRIBUTE);
     }
 
     static Attribute resolve(Object value, Iterable<Attribute> attributes) {
         if (value instanceof Attribute) {
             return (Attribute) value;
         }
-        NamespacedKey key = key(value);
+        return resolveKey(key(value), attributes);
+    }
+
+    private static Attribute resolveKey(NamespacedKey key, Iterable<Attribute> attributes) {
         String normalized = normalize(key.getKey());
         Attribute alias = null;
         for (Attribute candidate : attributes) {
@@ -99,10 +100,16 @@ public final class AttributeUtils {
         if (alias != null) {
             return alias;
         }
-        throw new IllegalArgumentException("Unknown attribute key " + value);
+        throw new IllegalArgumentException("Unknown attribute key " + key);
     }
 
     private static NamespacedKey key(Object value) {
+        if (value instanceof NamespacedKey) {
+            return (NamespacedKey) value;
+        }
+        if (value instanceof Keyed) {
+            return ((Keyed) value).getKey();
+        }
         if (!(value instanceof String)) {
             throw new IllegalArgumentException("Invalid attribute key " + value);
         }
@@ -177,11 +184,8 @@ public final class AttributeUtils {
                 continue;
             }
             BaselineAttribute baseline = BASELINE.get(bit);
-            Attribute attribute;
-            try {
-                attribute = resolve(NamespacedKey.MINECRAFT + ":" + baseline.key);
-            }
-            catch (IllegalArgumentException exception) {
+            Attribute attribute = ResolvedBaseline.ATTRIBUTES[bit];
+            if (attribute == null) {
                 continue;
             }
 
@@ -193,6 +197,22 @@ public final class AttributeUtils {
             for (AttributeModifier modifier : new ArrayList<>(attributeInstance.getModifiers())) {
                 attributeInstance.removeModifier(modifier);
             }
+        }
+    }
+
+    private static final class ResolvedBaseline {
+        private static final Attribute[] ATTRIBUTES = load();
+
+        private static Attribute[] load() {
+            Attribute[] attributes = new Attribute[BASELINE.size()];
+            for (int bit = 0; bit < BASELINE.size(); bit++) {
+                try {
+                    attributes[bit] = resolve(NamespacedKey.minecraft(BASELINE.get(bit).key));
+                }
+                catch (IllegalArgumentException ignored) {
+                }
+            }
+            return attributes;
         }
     }
 

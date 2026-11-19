@@ -43,13 +43,16 @@ public final class LivingEntityDetails {
     }
 
     public static void restore(LivingEntity entity, List<?> details) {
-        if (details.size() > 0) {
+        if (details == null) {
+            return;
+        }
+        if (details.size() > 0 && details.get(0) instanceof Boolean) {
             entity.setRemoveWhenFarAway((Boolean) details.get(0));
         }
-        if (details.size() > 1) {
+        if (details.size() > 1 && details.get(1) instanceof Boolean) {
             entity.setCanPickupItems((Boolean) details.get(1));
         }
-        if (details.size() > 2 && entity instanceof Mob) {
+        if (details.size() > 2 && details.get(2) instanceof Boolean && entity instanceof Mob) {
             ((Mob) entity).setAware((Boolean) details.get(2));
         }
         if (details.size() > 3) {

@@ -754,9 +754,17 @@ public class EntityUtil {
     }
 
     static void restoreAttributes(Attributable attributable, List<Object> attributes) {
+        if (attributes == null) {
+            return;
+        }
         for (Object value : attributes) {
-            @SuppressWarnings("unchecked")
-            List<Object> attributeData = (List<Object>) value;
+            if (!(value instanceof List<?>)) {
+                continue;
+            }
+            List<?> attributeData = (List<?>) value;
+            if (attributeData.size() < 2 || !(attributeData.get(1) instanceof Number)) {
+                continue;
+            }
             Attribute attribute;
             try {
                 attribute = AttributeUtils.resolve(attributeData.get(0));
@@ -770,12 +778,15 @@ public class EntityUtil {
                 continue;
             }
 
-            entityAttribute.setBaseValue((Double) attributeData.get(1));
-            for (AttributeModifier modifier : entityAttribute.getModifiers()) {
+            entityAttribute.setBaseValue(((Number) attributeData.get(1)).doubleValue());
+            for (AttributeModifier modifier : new ArrayList<>(entityAttribute.getModifiers())) {
                 entityAttribute.removeModifier(modifier);
             }
             if (attributeData.size() > 2 && attributeData.get(2) instanceof List<?>) {
                 for (Object modifier : (List<?>) attributeData.get(2)) {
+                    if (!(modifier instanceof Map<?, ?>)) {
+                        continue;
+                    }
                     @SuppressWarnings("unchecked")
                     Map<String, Object> serializedModifier = (Map<String, Object>) modifier;
                     entityAttribute.addModifier(AttributeModifier.deserialize(serializedModifier));

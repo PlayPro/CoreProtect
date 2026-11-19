@@ -14,6 +14,8 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.ChiseledBookshelf;
 import org.bukkit.block.Sign;
 import org.bukkit.block.TileState;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.type.PitcherCrop;
 import org.bukkit.block.sign.Side;
 import org.bukkit.block.sign.SignSide;
 import org.bukkit.entity.Arrow;
@@ -44,6 +46,7 @@ import net.coreprotect.utility.MaterialUtils;
  */
 public class Bukkit_v1_20 extends Bukkit_v1_19 {
 
+    private static final int PITCHER_CROP_DOUBLE_AGE = 3;
     private static final boolean HAS_SIGN_TILE_UPDATE = hasPublicMethod(Player.class, "sendBlockUpdate", Location.class, TileState.class);
     private static final boolean HAS_CLICKED_POSITION = hasPublicMethod(PlayerInteractEvent.class, "getClickedPosition")
             && hasPublicMethod(ChiseledBookshelf.class, "getSlot", Vector.class);
@@ -222,6 +225,11 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
             default:
                 return super.getPlantSeeds(material);
         }
+    }
+
+    @Override
+    public boolean isSingleBlockPitcherCrop(BlockData blockData) {
+        return blockData instanceof PitcherCrop && ((PitcherCrop) blockData).getAge() < PITCHER_CROP_DOUBLE_AGE;
     }
 
     @Override

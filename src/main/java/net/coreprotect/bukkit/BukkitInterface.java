@@ -227,6 +227,8 @@ public interface BukkitInterface {
      */
     Material getPlantSeeds(Material material);
 
+    boolean isSingleBlockPitcherCrop(BlockData blockData);
+
     // --------------------------------------------------------------------------
     // Item and inventory methods
     // --------------------------------------------------------------------------

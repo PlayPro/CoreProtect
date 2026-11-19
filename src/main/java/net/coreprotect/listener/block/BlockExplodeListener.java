@@ -73,7 +73,7 @@ public final class BlockExplodeListener extends Queue implements Listener {
 
                             // Properly log double blocks, such as doors
                             BlockData blockData = scanBlock.getBlockData();
-                            if (blockData instanceof Bisected) {
+                            if (blockData instanceof Bisected && !BukkitAdapter.ADAPTER.isSingleBlockPitcherCrop(blockData)) {
                                 int bisectY = ((Bisected) blockData).getHalf() == Half.TOP ? scanY - 1 : scanY + 1;
                                 long bisectKey = positionKey(scanX, bisectY, scanZ);
                                 if (bisectY >= worldMinHeight && bisectY < worldMaxHeight && blockMap.get(bisectKey) == null) {

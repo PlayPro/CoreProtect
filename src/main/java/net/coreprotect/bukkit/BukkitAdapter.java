@@ -332,6 +332,11 @@ public class BukkitAdapter implements BukkitInterface {
     }
 
     @Override
+    public boolean isSingleBlockPitcherCrop(BlockData blockData) {
+        return false;
+    }
+
+    @Override
     public ItemStack adjustIngredient(MerchantRecipe recipe, ItemStack itemStack) {
         return null;
     }

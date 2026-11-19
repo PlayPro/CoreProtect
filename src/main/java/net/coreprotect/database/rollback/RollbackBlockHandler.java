@@ -218,7 +218,8 @@ public class RollbackBlockHandler extends Queue {
                         if ((changeType == Material.NETHER_PORTAL) || removeBlockData instanceof MultipleFacing || removeBlockData instanceof Snow || removeBlockData instanceof Stairs || removeBlockData instanceof RedstoneWire || removeBlockData instanceof Chest) {
                             physics = true;
                         }
-                        else if (removeBlockData instanceof Bisected && !(removeBlockData instanceof TrapDoor)) {
+                        else if (removeBlockData instanceof Bisected && !(removeBlockData instanceof TrapDoor)
+                                && !BukkitAdapter.ADAPTER.isSingleBlockPitcherCrop(removeBlockData)) {
                             Bisected bisected = (Bisected) removeBlockData;
                             Location bisectLocation = block.getLocation().clone();
                             if (bisected.getHalf() == Half.TOP) {
@@ -443,7 +444,8 @@ public class RollbackBlockHandler extends Queue {
                     ChestTool.updateDoubleChest(block, blockData, true);
                     return countBlock;
                 }
-                else if (rowType != Material.AIR && rawBlockData instanceof Bisected && !(rawBlockData instanceof Stairs || rawBlockData instanceof TrapDoor)) {
+                else if (rowType != Material.AIR && rawBlockData instanceof Bisected && !(rawBlockData instanceof Stairs || rawBlockData instanceof TrapDoor)
+                        && !BukkitAdapter.ADAPTER.isSingleBlockPitcherCrop(rawBlockData)) {
                     Bisected bisected = (Bisected) rawBlockData;
                     Bisected bisectData = (Bisected) rawBlockData.clone();
                     Location bisectLocation = block.getLocation().clone();

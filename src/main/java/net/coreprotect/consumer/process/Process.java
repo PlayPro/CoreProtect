@@ -28,6 +28,7 @@ import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.database.ConsumerEntitySpawnUpdates;
 import net.coreprotect.database.ConsumerWriteBatch;
+import net.coreprotect.database.ConsumerWriteBatch.ReferenceKind;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.DuckDBRecovery;
 import net.coreprotect.database.logger.EntityInteractionLogger;
@@ -503,7 +504,7 @@ public class Process {
                                     entitySpawnUpdates.applyCombined(containerUpdate, () -> RollbackUpdateProcess.processChecked(batch, containerUpdate.getRows(), containerUpdate.getRollbackType(), RollbackUpdateTargets.ENTITY_CONTAINER, containerUpdate.isInventoryRollback()));
                                     break;
                                 case Process.WORLD_INSERT:
-                                    WorldInsertProcess.process(writeBatch, i, statement, object, forceData);
+                                    ConfigHandler.insertQueuedIdentifier(writeBatch, statement, ReferenceKind.WORLD, i, object, forceData);
                                     break;
                                 case Process.SIGN_UPDATE:
                                     SignUpdateProcess.process(connection, object, user, blockData, forceData);
@@ -533,19 +534,19 @@ public class Process {
                                     NaturalBlockBreakProcess.process(statement, writeBatch, i, processId, id, user, object, blockType, blockData, (String) data[7]);
                                     break;
                                 case Process.MATERIAL_INSERT:
-                                    MaterialInsertProcess.process(writeBatch, statement, i, object, forceData);
+                                    ConfigHandler.insertQueuedIdentifier(writeBatch, statement, ReferenceKind.MATERIAL, i, object, forceData);
                                     break;
                                 case Process.ART_INSERT:
-                                    ArtInsertProcess.process(writeBatch, statement, i, object, forceData);
+                                    ConfigHandler.insertQueuedIdentifier(writeBatch, statement, ReferenceKind.ART, i, object, forceData);
                                     break;
                                 case Process.ENTITY_INSERT:
-                                    EntityInsertProcess.process(writeBatch, statement, i, object, forceData);
+                                    ConfigHandler.insertQueuedIdentifier(writeBatch, statement, ReferenceKind.ENTITY, i, object, forceData);
                                     break;
                                 case Process.PLAYER_KILL:
                                     PlayerKillProcess.process(writeBatch, i, id, object, user);
                                     break;
                                 case Process.BLOCKDATA_INSERT:
-                                    BlockDataInsertProcess.process(writeBatch, statement, i, object, forceData);
+                                    ConfigHandler.insertQueuedIdentifier(writeBatch, statement, ReferenceKind.BLOCK_DATA, i, object, forceData);
                                     break;
                                 case Process.ENTITY_SPAWN_LOG:
                                     if (!(object instanceof EntitySpawnData)) {

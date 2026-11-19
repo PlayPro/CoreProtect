@@ -58,6 +58,7 @@ import net.coreprotect.database.clickhouse.ClickHouseDatabase;
 import net.coreprotect.database.clickhouse.ClickHouseJdbcConfig;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
+import net.coreprotect.language.Selector;
 import net.coreprotect.listener.ListenerHandler;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.paper.PaperAdapter;
@@ -948,6 +949,33 @@ public class ConfigHandler {
         store.reversed.get().remove(Integer.valueOf(id), value);
     }
 
+    public static void insertQueuedIdentifier(ConsumerWriteBatch batch, Statement statement, ReferenceKind kind, int index, Object candidate, int id) throws Exception {
+        if (!(candidate instanceof String)) {
+            return;
+        }
+        String value = (String) candidate;
+        IdentifierStore store = identifierStore(kind);
+        if (!databaseType.isClickHouse()) {
+            boolean exists;
+            try (ResultSet rows = statement.executeQuery("SELECT id FROM " + prefix + store.table + " WHERE id=" + id + " LIMIT 1")) {
+                exists = rows.next();
+            }
+            if (exists) {
+                Chat.console(Phrase.build(Phrase.CACHE_ERROR, kind == ReferenceKind.BLOCK_DATA ? "blockdata" : store.valueColumn));
+                Chat.console(Phrase.build(Phrase.CACHE_RELOAD, kind == ReferenceKind.WORLD ? Selector.SECOND : Selector.FIRST));
+                loadIdentifierCache(statement, kind, true);
+                return;
+            }
+        }
+        synchronized (ConfigHandler.class) {
+            if (!store.canStore(id, value)) {
+                throw new SQLException("Identifier mapping changed for " + store.table + " row " + id);
+            }
+            batch.addReference(kind, index, id, value);
+            store.store(id, value);
+        }
+    }
+
     public static String getIdentifierValue(CacheType type, int id) {
         IdentifierStore store = identifierStore(type.kind);
         String value = store.reversed.get().get(id);
@@ -1007,9 +1035,25 @@ public class ConfigHandler {
     }
 
     private static boolean loadIdentifierCache(Statement statement, ReferenceKind kind) {
+        return loadIdentifierCache(statement, kind, false);
+    }
+
+    private static synchronized boolean loadIdentifierCache(Statement statement, ReferenceKind kind, boolean preserveQueued) {
         IdentifierStore store = identifierStore(kind);
         try {
             IdentifierCache cache = loadIdentifierCache(statement, store.table, store.valueColumn);
+            if (preserveQueued) {
+                Map<Integer, String> existing = store.reversed.get();
+                synchronized (existing) {
+                    existing.forEach((id, value) -> {
+                        if (!cache.reversed.containsKey(id) && !cache.values.containsKey(value)) {
+                            cache.reversed.put(id, value);
+                            cache.values.put(value, id);
+                        }
+                    });
+                }
+                cache.maximumId = Math.max(cache.maximumId, store.maximum.getAsInt());
+            }
             store.valuesSetter.accept(syncMap(cache.values));
             store.reversedSetter.accept(syncMap(cache.reversed));
             store.maximumSetter.accept(cache.maximumId);
@@ -1027,7 +1071,7 @@ public class ConfigHandler {
                 return false;
             }
             try (Statement statement = connection.createStatement()) {
-                return loadIdentifierCache(statement, kind);
+                return loadIdentifierCache(statement, kind, true);
             }
         }
         catch (Exception e) {
@@ -1047,7 +1091,7 @@ public class ConfigHandler {
         return loadWorldsFromDatabase(statement);
     }
 
-    private static boolean loadWorlds(Statement statement, List<String> worldNames) {
+    private static synchronized boolean loadWorlds(Statement statement, List<String> worldNames) {
         try {
             IdentifierCache cache = loadIdentifierCache(statement, "world", "world");
             Map<Integer, String> queuedWorlds = new HashMap<>();

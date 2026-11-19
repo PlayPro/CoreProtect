@@ -98,7 +98,6 @@ public class BlockLookup {
             }
             boolean combinedDuckDBPage = ConfigHandler.databaseType.isDuckDB();
             String query;
-            ResultSet results;
             if (combinedDuckDBPage) {
                 String sourceTable = entitySpawnRowId == null ? DuckDBLookupQuery.spatialTable(statement.getConnection(), "block", worldId, x, x, z, z, "spatial_rows") : ConfigHandler.prefix + "block";
                 String columns = "data_rows.time,data_rows." + ConfigHandler.databaseType.getUserColumn() + ",data_rows.action,data_rows.type,data_rows.data,data_rows.rolled_back";
@@ -106,108 +105,105 @@ public class BlockLookup {
                     columns += ",data_rows.wid,data_rows.x,data_rows.y,data_rows.z";
                 }
                 query = DuckDBLookupQuery.pageQuery(sourceTable, ConfigHandler.prefix + "block", where, columns, false, limit, page_start);
-                results = statement.executeQuery(query);
             }
             else {
                 query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "block " + index + "WHERE " + where + " LIMIT 1 OFFSET 0";
-                results = statement.executeQuery(query);
-                while (results.next()) {
-                    count = results.getLong("count");
+                try (ResultSet counts = statement.executeQuery(query)) {
+                    count = counts.next() ? counts.getLong("count") : 0L;
                 }
-                results.close();
                 String columns = "time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,rolled_back" + (entitySpawnRowId == null ? "" : ",wid,x,y,z");
                 query = "SELECT " + columns + " FROM " + ConfigHandler.prefix + "block " + index + "WHERE " + where + " ORDER BY " + ConfigHandler.getDescendingEventOrder() + " LIMIT " + limit + " OFFSET " + page_start;
-                results = statement.executeQuery(query);
             }
 
             StringBuilder resultTextBuilder = new StringBuilder();
 
-            while (results.next()) {
-                if (combinedDuckDBPage) {
-                    count = results.getLong("count");
-                    if (results.getObject("result_id") == null) {
-                        continue;
+            try (ResultSet results = statement.executeQuery(query)) {
+                while (results.next()) {
+                    if (combinedDuckDBPage) {
+                        count = results.getLong("count");
+                        if (results.getObject("result_id") == null) {
+                            continue;
+                        }
                     }
-                }
-                int resultUserId = results.getInt("user");
-                int resultAction = results.getInt("action");
-                int resultType = results.getInt("type");
-                int resultData = results.getInt("data");
-                long resultTime = results.getLong("time");
-                int resultRolledBack = results.getInt("rolled_back");
+                    int resultUserId = results.getInt("user");
+                    int resultAction = results.getInt("action");
+                    int resultType = results.getInt("type");
+                    int resultData = results.getInt("data");
+                    long resultTime = results.getLong("time");
+                    int resultRolledBack = results.getInt("rolled_back");
 
-                String resultUser = UserStatement.getName(statement.getConnection(), resultUserId);
-                String timeAgo = ChatUtils.getTimeSince(resultTime, time, true);
+                    String resultUser = UserStatement.getName(statement.getConnection(), resultUserId);
+                    String timeAgo = ChatUtils.getTimeSince(resultTime, time, true);
 
-                if (!found) {
-                    resultTextBuilder = new StringBuilder(Color.WHITE + "----- " + Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "----- " + ChatUtils.getCoordinates(command, worldId, x, y, z, false, false) + "\n");
-                }
-                found = true;
-
-                Phrase phrase = Phrase.LOOKUP_BLOCK;
-                String selector = Selector.FIRST;
-                String tag = Color.WHITE + "-";
-                if (resultAction == LookupActions.ENTITY_SPAWN) {
-                    phrase = EntitySpawnTracking.isPlacedEntityType(EntityUtils.getEntityType(resultType)) ? Phrase.LOOKUP_BLOCK : Phrase.LOOKUP_ENTITY_SPAWN;
-                    selector = Selector.FIRST;
-                    tag = Color.GREEN + "+";
-                }
-                else if (resultAction == LookupActions.ENTITY_KILL && EntitySpawnTracking.isPlacedEntityType(EntityUtils.getEntityType(resultType))) {
-                    phrase = Phrase.LOOKUP_BLOCK;
-                    selector = Selector.SECOND;
-                    tag = Color.RED + "-";
-                }
-                else if (resultAction == 2 || resultAction == 3) {
-                    phrase = Phrase.LOOKUP_INTERACTION; // {clicked|killed}
-                    selector = (resultAction != 3 ? Selector.FIRST : Selector.SECOND);
-                    tag = (resultAction != 3 ? Color.WHITE + "-" : Color.RED + "-");
-                }
-                else {
-                    phrase = Phrase.LOOKUP_BLOCK; // {placed|broke}
-                    selector = (resultAction != 0 ? Selector.FIRST : Selector.SECOND);
-                    tag = (resultAction != 0 ? Color.GREEN + "+" : Color.RED + "-");
-                }
-
-                String rbFormat = "";
-                if (resultRolledBack == 1 || resultRolledBack == 3) {
-                    rbFormat = Color.STRIKETHROUGH;
-                }
-
-                String target;
-                if (resultAction == 3 || resultAction == LookupActions.ENTITY_SPAWN) {
-                    target = EntityUtils.getEntityType(resultType).name().toLowerCase(Locale.ROOT);
-                }
-                else {
-                    target = MaterialUtils.getBlockDisplayName(resultType, resultData);
-                    if (target.length() > 0 && !target.contains(":")) {
-                        target = "minecraft:" + target.toLowerCase(Locale.ROOT);
+                    if (!found) {
+                        resultTextBuilder = new StringBuilder(Color.WHITE + "----- " + Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "----- " + ChatUtils.getCoordinates(command, worldId, x, y, z, false, false) + "\n");
                     }
-                }
-                if (target.length() > 0) {
-                    target = "" + target + "";
-                }
+                    found = true;
 
-                // Hide "minecraft:" for now.
-                if (target.startsWith("minecraft:")) {
-                    target = target.substring("minecraft:".length());
-                }
-
-                String coordinateInfo = "";
-                if (entitySpawnRowId != null) {
-                    int originWorldId = results.getInt("wid");
-                    int originX = results.getInt("x");
-                    int originY = results.getInt("y");
-                    int originZ = results.getInt("z");
-                    if (originWorldId != worldId || originX != x || originY != y || originZ != z) {
-                        coordinateInfo = ChatUtils.getCoordinateTooltip(originWorldId, originX, originY, originZ, Phrase.build(Phrase.LOOKUP_ENTITY_ORIGIN), true);
+                    Phrase phrase = Phrase.LOOKUP_BLOCK;
+                    String selector = Selector.FIRST;
+                    String tag = Color.WHITE + "-";
+                    if (resultAction == LookupActions.ENTITY_SPAWN) {
+                        phrase = EntitySpawnTracking.isPlacedEntityType(EntityUtils.getEntityType(resultType)) ? Phrase.LOOKUP_BLOCK : Phrase.LOOKUP_ENTITY_SPAWN;
+                        selector = Selector.FIRST;
+                        tag = Color.GREEN + "+";
                     }
+                    else if (resultAction == LookupActions.ENTITY_KILL && EntitySpawnTracking.isPlacedEntityType(EntityUtils.getEntityType(resultType))) {
+                        phrase = Phrase.LOOKUP_BLOCK;
+                        selector = Selector.SECOND;
+                        tag = Color.RED + "-";
+                    }
+                    else if (resultAction == 2 || resultAction == 3) {
+                        phrase = Phrase.LOOKUP_INTERACTION; // {clicked|killed}
+                        selector = (resultAction != 3 ? Selector.FIRST : Selector.SECOND);
+                        tag = (resultAction != 3 ? Color.WHITE + "-" : Color.RED + "-");
+                    }
+                    else {
+                        phrase = Phrase.LOOKUP_BLOCK; // {placed|broke}
+                        selector = (resultAction != 0 ? Selector.FIRST : Selector.SECOND);
+                        tag = (resultAction != 0 ? Color.GREEN + "+" : Color.RED + "-");
+                    }
+
+                    String rbFormat = "";
+                    if (resultRolledBack == 1 || resultRolledBack == 3) {
+                        rbFormat = Color.STRIKETHROUGH;
+                    }
+
+                    String target;
+                    if (resultAction == 3 || resultAction == LookupActions.ENTITY_SPAWN) {
+                        target = EntityInteractionLookup.entityName(resultType);
+                    }
+                    else {
+                        target = MaterialUtils.getBlockDisplayName(resultType, resultData);
+                        if (target.length() > 0 && !target.contains(":")) {
+                            target = "minecraft:" + target.toLowerCase(Locale.ROOT);
+                        }
+                    }
+                    if (target.length() > 0) {
+                        target = "" + target + "";
+                    }
+
+                    // Hide "minecraft:" for now.
+                    if (target.startsWith("minecraft:")) {
+                        target = target.substring("minecraft:".length());
+                    }
+
+                    String coordinateInfo = "";
+                    if (entitySpawnRowId != null) {
+                        int originWorldId = results.getInt("wid");
+                        int originX = results.getInt("x");
+                        int originY = results.getInt("y");
+                        int originZ = results.getInt("z");
+                        if (originWorldId != worldId || originX != x || originY != y || originZ != z) {
+                            coordinateInfo = ChatUtils.getCoordinateTooltip(originWorldId, originX, originY, originZ, Phrase.build(Phrase.LOOKUP_ENTITY_ORIGIN), true);
+                        }
+                    }
+                    resultTextBuilder.append(timeAgo + " " + tag + " ").append(Phrase.build(phrase, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, Color.DARK_AQUA + rbFormat + target + Color.WHITE + coordinateInfo, selector)).append("\n");
+                    PluginChannelListener.getInstance().sendData(commandSender, resultTime, phrase, selector, resultUser, target, -1, x, y, z, worldId, rbFormat, false, tag.contains("+"));
                 }
-                resultTextBuilder.append(timeAgo + " " + tag + " ").append(Phrase.build(phrase, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, Color.DARK_AQUA + rbFormat + target + Color.WHITE + coordinateInfo, selector)).append("\n");
-                PluginChannelListener.getInstance().sendData(commandSender, resultTime, phrase, selector, resultUser, target, -1, x, y, z, worldId, rbFormat, false, tag.contains("+"));
             }
 
             resultText = resultTextBuilder.toString();
-            results.close();
             int totalPages = count == 0 ? 0 : (int) Math.min(Integer.MAX_VALUE, 1 + (count - 1) / limit);
 
             if (found) {
@@ -224,7 +220,7 @@ public class BlockLookup {
                 else {
                     // resultText = Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Color.WHITE + "No block data found at " + Color.ITALIC + "x" + x + "/y" + y + "/z" + z + ".";
                     resultText = Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_DATA_LOCATION, Selector.FIRST);
-                    if (entitySpawnRowId == null && !blockName.equals("air") && !blockName.equals("cave_air")) {
+                    if (entitySpawnRowId == null && !BlockTypeUtils.isAir(blockName)) {
                         resultText = Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_DATA, Color.ITALIC + block.getType().name().toLowerCase(Locale.ROOT) + Color.WHITE) + "\n";
                     }
                 }

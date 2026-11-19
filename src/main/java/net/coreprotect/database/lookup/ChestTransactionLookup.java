@@ -116,7 +116,6 @@ public class ChestTransactionLookup {
 
             boolean combinedDuckDBPage = ConfigHandler.databaseType.isDuckDB();
             String query;
-            ResultSet results;
             if (combinedDuckDBPage) {
                 String sourceTable;
                 if (entitySpawnRowId != null) {
@@ -131,72 +130,69 @@ public class ChestTransactionLookup {
                 }
                 String columns = "data_rows.time,data_rows." + ConfigHandler.databaseType.getUserColumn() + ",data_rows.wid,data_rows.x,data_rows.y,data_rows.z,data_rows.action,data_rows.type,data_rows.data,data_rows.amount,data_rows.metadata,data_rows.rolled_back";
                 query = DuckDBLookupQuery.pageQuery(sourceTable, table, where, columns, entitySpawnRowId != null, limit, pageStart);
-                results = statement.executeQuery(query);
             }
             else {
                 query = "SELECT COUNT(*) as count FROM " + table + " " + index + "WHERE " + where + " LIMIT 1 OFFSET 0";
-                results = statement.executeQuery(query);
-                while (results.next()) {
-                    count = results.getLong("count");
+                try (ResultSet counts = statement.executeQuery(query)) {
+                    count = counts.next() ? counts.getLong("count") : 0L;
                 }
-                results.close();
                 query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,action,type,data,amount,metadata,rolled_back FROM " + table + " " + index + "WHERE " + where + " ORDER BY " + order + " LIMIT " + limit + " OFFSET " + pageStart;
-                results = statement.executeQuery(query);
             }
-            while (results.next()) {
-                if (combinedDuckDBPage) {
-                    count = results.getLong("count");
-                    if (results.getObject("result_id") == null) {
-                        continue;
+            try (ResultSet results = statement.executeQuery(query)) {
+                while (results.next()) {
+                    if (combinedDuckDBPage) {
+                        count = results.getLong("count");
+                        if (results.getObject("result_id") == null) {
+                            continue;
+                        }
                     }
-                }
-                int resultUserId = results.getInt("user");
-                int resultAction = results.getInt("action");
-                int resultType = results.getInt("type");
-                int resultData = results.getInt("data");
-                long resultTime = results.getLong("time");
-                int resultAmount = results.getInt("amount");
-                int resultRolledBack = results.getInt("rolled_back");
-                int resultWorldId = results.getInt("wid");
-                int resultX = results.getInt("x");
-                int resultY = results.getInt("y");
-                int resultZ = results.getInt("z");
-                byte[] resultMetadata = DatabaseUtils.getBytes(results, "metadata");
-                String tooltip = ItemUtils.getEnchantments(resultMetadata, resultType, resultAmount);
+                    int resultUserId = results.getInt("user");
+                    int resultAction = results.getInt("action");
+                    int resultType = results.getInt("type");
+                    int resultData = results.getInt("data");
+                    long resultTime = results.getLong("time");
+                    int resultAmount = results.getInt("amount");
+                    int resultRolledBack = results.getInt("rolled_back");
+                    int resultWorldId = results.getInt("wid");
+                    int resultX = results.getInt("x");
+                    int resultY = results.getInt("y");
+                    int resultZ = results.getInt("z");
+                    byte[] resultMetadata = DatabaseUtils.getBytes(results, "metadata");
+                    String tooltip = ItemUtils.getEnchantments(resultMetadata, resultType, resultAmount);
 
-                String resultUser = UserStatement.getName(statement.getConnection(), resultUserId);
-                String timeAgo = ChatUtils.getTimeSince(resultTime, time, true);
+                    String resultUser = UserStatement.getName(statement.getConnection(), resultUserId);
+                    String timeAgo = ChatUtils.getTimeSince(resultTime, time, true);
 
-                if (!found) {
-                    result.add(Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.CONTAINER_HEADER) + Color.WHITE + " ----- " + ChatUtils.getCoordinates(command, displayWorldId, displayX, displayY, displayZ, false, false));
-                }
-                found = true;
+                    if (!found) {
+                        result.add(Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.CONTAINER_HEADER) + Color.WHITE + " ----- " + ChatUtils.getCoordinates(command, displayWorldId, displayX, displayY, displayZ, false, false));
+                    }
+                    found = true;
 
-                String selector = (resultAction != 0 ? Selector.FIRST : Selector.SECOND);
-                String tag = (resultAction != 0 ? Color.GREEN + "+" : Color.RED + "-");
-                String rbFormat = "";
-                if (resultRolledBack == 1 || resultRolledBack == 3) {
-                    rbFormat = Color.STRIKETHROUGH;
-                }
+                    String selector = (resultAction != 0 ? Selector.FIRST : Selector.SECOND);
+                    String tag = (resultAction != 0 ? Color.GREEN + "+" : Color.RED + "-");
+                    String rbFormat = "";
+                    if (resultRolledBack == 1 || resultRolledBack == 3) {
+                        rbFormat = Color.STRIKETHROUGH;
+                    }
 
-                String target = MaterialUtils.getBlockDisplayName(resultType, resultData);
-                if (target.length() > 0 && !target.contains(":")) {
-                    target = "minecraft:" + target.toLowerCase(Locale.ROOT) + "";
-                }
+                    String target = MaterialUtils.getBlockDisplayName(resultType, resultData);
+                    if (target.length() > 0 && !target.contains(":")) {
+                        target = "minecraft:" + target.toLowerCase(Locale.ROOT) + "";
+                    }
 
-                // Hide "minecraft:" for now.
-                if (target.startsWith("minecraft:")) {
-                    target = target.substring("minecraft:".length());
-                }
+                    // Hide "minecraft:" for now.
+                    if (target.startsWith("minecraft:")) {
+                        target = target.substring("minecraft:".length());
+                    }
 
-                String coordinateInfo = "";
-                if (entitySpawnRowId != null && (displayWorldId != resultWorldId || displayX != resultX || displayY != resultY || displayZ != resultZ)) {
-                    coordinateInfo = ChatUtils.getCoordinateTooltip(resultWorldId, resultX, resultY, resultZ, Phrase.build(Phrase.LOOKUP_ENTITY_ORIGIN), true);
+                    String coordinateInfo = "";
+                    if (entitySpawnRowId != null && (displayWorldId != resultWorldId || displayX != resultX || displayY != resultY || displayZ != resultZ)) {
+                        coordinateInfo = ChatUtils.getCoordinateTooltip(resultWorldId, resultX, resultY, resultZ, Phrase.build(Phrase.LOOKUP_ENTITY_ORIGIN), true);
+                    }
+                    result.add(timeAgo + " " + tag + " " + Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, "x" + resultAmount, ChatUtils.createTooltip(Color.DARK_AQUA + rbFormat + target, tooltip) + coordinateInfo + Color.WHITE, selector));
+                    PluginChannelListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_CONTAINER, selector, resultUser, target, resultAmount, displayX, displayY, displayZ, displayWorldId, rbFormat, true, tag.contains("+"));
                 }
-                result.add(timeAgo + " " + tag + " " + Phrase.build(Phrase.LOOKUP_CONTAINER, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, "x" + resultAmount, ChatUtils.createTooltip(Color.DARK_AQUA + rbFormat + target, tooltip) + coordinateInfo + Color.WHITE, selector));
-                PluginChannelListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_CONTAINER, selector, resultUser, target, resultAmount, displayX, displayY, displayZ, displayWorldId, rbFormat, true, tag.contains("+"));
             }
-            results.close();
             int totalPages = count == 0 ? 0 : (int) Math.min(Integer.MAX_VALUE, 1 + (count - 1) / limit);
 
             if (found) {

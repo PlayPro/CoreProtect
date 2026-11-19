@@ -33,18 +33,18 @@ public class BlockLookup {
             String index = ConfigHandler.databaseType.isDuckDB() ? "" : WorldUtils.getWidIndex("block");
             String query = "SELECT " + ConfigHandler.databaseType.getUserColumn() + ",type FROM " + table + " " + index + "WHERE " + LocationQuery.predicate("wid", " = " + worldId) + " AND " + LocationQuery.predicate("x", " = " + x) + " AND " + LocationQuery.predicate("z", " = " + z) + " AND y = " + y + " AND rolled_back IN(0,2) AND action=1 ORDER BY " + ConfigHandler.getDescendingEventOrder() + " LIMIT 1 OFFSET 0";
 
-            ResultSet results = statement.executeQuery(query);
-            while (results.next()) {
-                int resultUserId = results.getInt("user");
-                int resultType = results.getInt("type");
+            try (ResultSet results = statement.executeQuery(query)) {
+                while (results.next()) {
+                    int resultUserId = results.getInt("user");
+                    int resultType = results.getInt("type");
 
-                result = UserStatement.getName(statement.getConnection(), resultUserId);
-                if (result.length() > 0) {
-                    Material resultMaterial = MaterialUtils.getType(resultType);
-                    CacheHandler.lookupCache.put("" + x + "." + y + "." + z + "." + worldId + "", new Object[] { time, result, resultMaterial });
+                    result = UserStatement.getName(statement.getConnection(), resultUserId);
+                    if (result.length() > 0) {
+                        Material resultMaterial = MaterialUtils.getType(resultType);
+                        CacheHandler.lookupCache.put("" + x + "." + y + "." + z + "." + worldId + "", new Object[] { time, result, resultMaterial });
+                    }
                 }
             }
-            results.close();
         }
         catch (Exception e) {
             Database.reportDatabaseFailure(e);

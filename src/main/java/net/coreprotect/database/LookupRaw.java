@@ -955,7 +955,7 @@ public class LookupRaw extends Queue {
             String blockSourceQuery = queryBlock + blockTypePredicate(restrictTypes, includeBlock, includeEntity, excludeBlock, excludeEntity);
             if (!summary && !selectPageRows && limitOffset > -1 && limitCount > -1) {
                 queryLimit = " LIMIT " + limitCount + " OFFSET " + limitOffset;
-                unionLimit = " ORDER BY time DESC, id DESC LIMIT " + (limitOffset + limitCount) + "";
+                unionLimit = " ORDER BY time DESC, id DESC LIMIT " + ((long) limitOffset + limitCount);
             }
 
             String rows = summary ? "rowid as id,time," + userColumn + ",wid,x,y,z,type,meta as metadata,data,-1 as amount,action,rolled_back,0 as entity_spawn_rowid" : "rowid as id,time," + userColumn + ",wid,x,y,z,action,type,data,meta,blockdata,rolled_back";
@@ -1022,7 +1022,7 @@ public class LookupRaw extends Queue {
             String unionSelect = "SELECT * FROM (";
             if (ConfigHandler.databaseType.isMySQL()) {
                 if (queryTable.equals("block")) {
-                    if (!entitySpawnRadius && radius != null && (radius[2] - radius[1]) <= 50 && (radius[6] - radius[5]) <= 50) {
+                    if (!entitySpawnRadius && radius != null && ((long) radius[2] - radius[1]) <= 50 && ((long) radius[6] - radius[5]) <= 50) {
                         index = "USE INDEX(wid) ";
                     }
                     else if (users.length() > 0) {
@@ -1046,7 +1046,7 @@ public class LookupRaw extends Queue {
                     if (users.length() > 0) {
                         index = "INDEXED BY block_user_index ";
                     }
-                    if (!entitySpawnRadius && radius != null && (radius[2] - radius[1]) <= 50 && (radius[6] - radius[5]) <= 50) {
+                    if (!entitySpawnRadius && radius != null && ((long) radius[2] - radius[1]) <= 50 && ((long) radius[6] - radius[5]) <= 50) {
                         index = "INDEXED BY block_index ";
                     }
                     if ((restrictWorld && (users.length() > 0 || includeBlock.length() > 0 || includeEntity.length() > 0))) {

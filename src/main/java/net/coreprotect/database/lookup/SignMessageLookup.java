@@ -64,112 +64,108 @@ public class SignMessageLookup {
             String where = LocationQuery.predicate("wid", " = " + worldId) + " AND " + LocationQuery.predicate("x", " = " + x) + " AND " + LocationQuery.predicate("z", " = " + z) + " AND y = " + y + " AND action = " + SignActions.PLACE + " AND (LENGTH(line_1) > 0 OR LENGTH(line_2) > 0 OR LENGTH(line_3) > 0 OR LENGTH(line_4) > 0 OR LENGTH(line_5) > 0 OR LENGTH(line_6) > 0 OR LENGTH(line_7) > 0 OR LENGTH(line_8) > 0)";
             boolean combinedDuckDBPage = ConfigHandler.databaseType.isDuckDB();
             String query;
-            ResultSet results;
             if (combinedDuckDBPage) {
                 String sourceTable = DuckDBLookupQuery.spatialTable(statement.getConnection(), "sign", worldId, x, x, z, z, "spatial_rows");
                 String columns = "data_rows.time,data_rows." + ConfigHandler.databaseType.getUserColumn() + ",data_rows.face,data_rows.line_1,data_rows.line_2,data_rows.line_3,data_rows.line_4,data_rows.line_5,data_rows.line_6,data_rows.line_7,data_rows.line_8";
                 query = DuckDBLookupQuery.pageQuery(sourceTable, ConfigHandler.prefix + "sign", where, columns, false, limit, pageStart);
-                results = statement.executeQuery(query);
             }
             else {
                 query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "sign " + WorldUtils.getWidIndex("sign") + "WHERE " + where + " LIMIT 1 OFFSET 0";
-                results = statement.executeQuery(query);
-                while (results.next()) {
-                    count = results.getLong("count");
+                try (ResultSet counts = statement.executeQuery(query)) {
+                    count = counts.next() ? counts.getLong("count") : 0L;
                 }
-                results.close();
                 query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",face,line_1,line_2,line_3,line_4,line_5,line_6,line_7,line_8 FROM " + ConfigHandler.prefix + "sign " + WorldUtils.getWidIndex("sign") + "WHERE " + where + " ORDER BY " + ConfigHandler.getDescendingEventOrder() + " LIMIT " + limit + " OFFSET " + pageStart;
-                results = statement.executeQuery(query);
             }
 
-            while (results.next()) {
-                if (combinedDuckDBPage) {
-                    count = results.getLong("count");
-                    if (results.getObject("result_id") == null) {
-                        continue;
+            try (ResultSet results = statement.executeQuery(query)) {
+                while (results.next()) {
+                    if (combinedDuckDBPage) {
+                        count = results.getLong("count");
+                        if (results.getObject("result_id") == null) {
+                            continue;
+                        }
                     }
-                }
-                long resultTime = results.getLong("time");
-                int resultUserId = results.getInt("user");
-                String line1 = results.getString("line_1");
-                String line2 = results.getString("line_2");
-                String line3 = results.getString("line_3");
-                String line4 = results.getString("line_4");
-                String line5 = results.getString("line_5");
-                String line6 = results.getString("line_6");
-                String line7 = results.getString("line_7");
-                String line8 = results.getString("line_8");
-                boolean isFront = results.getInt("face") == 0;
+                    long resultTime = results.getLong("time");
+                    int resultUserId = results.getInt("user");
+                    String line1 = results.getString("line_1");
+                    String line2 = results.getString("line_2");
+                    String line3 = results.getString("line_3");
+                    String line4 = results.getString("line_4");
+                    String line5 = results.getString("line_5");
+                    String line6 = results.getString("line_6");
+                    String line7 = results.getString("line_7");
+                    String line8 = results.getString("line_8");
+                    boolean isFront = results.getInt("face") == 0;
 
-                StringBuilder message = new StringBuilder();
-                if (isFront && line1 != null && line1.length() > 0) {
-                    message.append(line1);
-                    if (!line1.endsWith(" ")) {
-                        message.append(" ");
+                    StringBuilder message = new StringBuilder();
+                    if (isFront && line1 != null && line1.length() > 0) {
+                        message.append(line1);
+                        if (!line1.endsWith(" ")) {
+                            message.append(" ");
+                        }
                     }
-                }
-                if (isFront && line2 != null && line2.length() > 0) {
-                    message.append(line2);
-                    if (!line2.endsWith(" ")) {
-                        message.append(" ");
+                    if (isFront && line2 != null && line2.length() > 0) {
+                        message.append(line2);
+                        if (!line2.endsWith(" ")) {
+                            message.append(" ");
+                        }
                     }
-                }
-                if (isFront && line3 != null && line3.length() > 0) {
-                    message.append(line3);
-                    if (!line3.endsWith(" ")) {
-                        message.append(" ");
+                    if (isFront && line3 != null && line3.length() > 0) {
+                        message.append(line3);
+                        if (!line3.endsWith(" ")) {
+                            message.append(" ");
+                        }
                     }
-                }
-                if (isFront && line4 != null && line4.length() > 0) {
-                    message.append(line4);
-                    if (!line4.endsWith(" ")) {
-                        message.append(" ");
+                    if (isFront && line4 != null && line4.length() > 0) {
+                        message.append(line4);
+                        if (!line4.endsWith(" ")) {
+                            message.append(" ");
+                        }
                     }
-                }
-                if (!isFront && line5 != null && line5.length() > 0) {
-                    message.append(line5);
-                    if (!line5.endsWith(" ")) {
-                        message.append(" ");
+                    if (!isFront && line5 != null && line5.length() > 0) {
+                        message.append(line5);
+                        if (!line5.endsWith(" ")) {
+                            message.append(" ");
+                        }
                     }
-                }
-                if (!isFront && line6 != null && line6.length() > 0) {
-                    message.append(line6);
-                    if (!line6.endsWith(" ")) {
-                        message.append(" ");
+                    if (!isFront && line6 != null && line6.length() > 0) {
+                        message.append(line6);
+                        if (!line6.endsWith(" ")) {
+                            message.append(" ");
+                        }
                     }
-                }
-                if (!isFront && line7 != null && line7.length() > 0) {
-                    message.append(line7);
-                    if (!line7.endsWith(" ")) {
-                        message.append(" ");
+                    if (!isFront && line7 != null && line7.length() > 0) {
+                        message.append(line7);
+                        if (!line7.endsWith(" ")) {
+                            message.append(" ");
+                        }
                     }
-                }
-                if (!isFront && line8 != null && line8.length() > 0) {
-                    message.append(line8);
-                    if (!line8.endsWith(" ")) {
-                        message.append(" ");
+                    if (!isFront && line8 != null && line8.length() > 0) {
+                        message.append(line8);
+                        if (!line8.endsWith(" ")) {
+                            message.append(" ");
+                        }
                     }
-                }
 
-                String parsedMessage = message.toString();
-                if (parsedMessage.contains("§x")) {
-                    for (Matcher matcher = pattern.matcher(parsedMessage); matcher.find(); matcher = pattern.matcher(parsedMessage)) {
-                        String color = parsedMessage.substring(matcher.start(), matcher.end());
-                        parsedMessage = parsedMessage.replace(color, "");
+                    String parsedMessage = message.toString();
+                    if (parsedMessage.contains("§x")) {
+                        for (Matcher matcher = pattern.matcher(parsedMessage); matcher.find(); matcher = pattern.matcher(parsedMessage)) {
+                            String color = parsedMessage.substring(matcher.start(), matcher.end());
+                            parsedMessage = parsedMessage.replace(color, "");
+                        }
                     }
-                }
 
-                String resultUser = UserStatement.getName(statement.getConnection(), resultUserId);
-                String timeAgo = ChatUtils.getTimeSince(resultTime, time, true);
+                    String resultUser = UserStatement.getName(statement.getConnection(), resultUserId);
+                    String timeAgo = ChatUtils.getTimeSince(resultTime, time, true);
 
-                if (!found) {
-                    result.add(new StringBuilder(Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.SIGN_HEADER) + Color.WHITE + " ----- " + ChatUtils.getCoordinates(command, worldId, x, y, z, false, false) + "").toString());
+                    if (!found) {
+                        result.add(new StringBuilder(Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.SIGN_HEADER) + Color.WHITE + " ----- " + ChatUtils.getCoordinates(command, worldId, x, y, z, false, false) + "").toString());
+                    }
+                    found = true;
+                    result.add(timeAgo + Color.WHITE + " - " + Color.DARK_AQUA + resultUser + ": " + Color.WHITE + "\n" + parsedMessage + Color.WHITE);
+                    PluginChannelListener.getInstance().sendMessageData(commandSender, resultTime, resultUser, message.toString(), true, x, y, z, worldId);
                 }
-                found = true;
-                result.add(timeAgo + Color.WHITE + " - " + Color.DARK_AQUA + resultUser + ": " + Color.WHITE + "\n" + parsedMessage + Color.WHITE);
-                PluginChannelListener.getInstance().sendMessageData(commandSender, resultTime, resultUser, message.toString(), true, x, y, z, worldId);
             }
-            results.close();
             int totalPages = count == 0 ? 0 : (int) Math.min(Integer.MAX_VALUE, 1 + (count - 1) / limit);
 
             if (found) {

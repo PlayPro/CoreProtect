@@ -236,7 +236,7 @@ public class RollbackProcessor extends Queue {
                         }
                     }
 
-                    if (RollbackBlockHandler.processBlockChange(bukkitRollbackWorld, block, row, rollbackType, clearInventories, chunkChanges, countBlock, oldTypeMaterial, pendingChangeType, pendingChangeData, counters, rawBlockData, changeType, changeBlock, changeBlockData, meta != null ? new ArrayList<>(meta) : null, blockData, rowUser, rowType, rowX, rowY, rowZ, rowTypeRaw, rowData, rowAction, rowWorldId, blockDataString) && countBlock) {
+                    if (RollbackBlockHandler.processBlockChange(bukkitRollbackWorld, block, row, rollbackType, clearInventories, chunkChanges, countBlock, oldTypeMaterial, pendingChangeType, pendingChangeData, counters, rawBlockData, changeType, changeBlock, changeBlockData, meta != null ? new ArrayList<>(meta) : null, blockData, rowUser, rowType, rowX, rowY, rowZ, rowTypeRaw, rowData, rowAction, rowWorldId, blockDataString, inventoryContext) && countBlock) {
                         counters.addBlocks(1);
                     }
                     if (oldTypeMaterial != null && rowType != null && rowRolledBack == rollbackType) {
@@ -265,31 +265,23 @@ public class RollbackProcessor extends Queue {
             }
             itemData.clear();
 
-            // Teleport players out of danger if they're within this chunk
-            if (preview == 0) {
-                for (Player player : Bukkit.getOnlinePlayers()) {
+            if (!inventoryRollback) {
+                for (Entity entity : bukkitRollbackWorld.getChunkAt(finalChunkX, finalChunkZ).getEntities()) {
+                    if (!(entity instanceof Player)) {
+                        continue;
+                    }
+                    Player player = (Player) entity;
                     if (PaperAdapter.ADAPTER != null && !PaperAdapter.ADAPTER.isOwnedByCurrentRegion(player)) {
                         continue;
                     }
-                    Location playerLocation = player.getLocation();
-                    World playerWorld = playerLocation.getWorld();
-                    if (playerWorld == null) {
-                        continue;
-                    }
-                    int chunkX = playerLocation.getBlockX() >> 4;
-                    int chunkZ = playerLocation.getBlockZ() >> 4;
-
-                    if (bukkitRollbackWorld.getName().equals(playerWorld.getName()) && chunkX == finalChunkX && chunkZ == finalChunkZ) {
-                        Scheduler.runTask(CoreProtect.getInstance(), () -> {
-                            Location currentLocation = player.getLocation();
-                            World currentWorld = currentLocation.getWorld();
-                            if (currentWorld != null && bukkitRollbackWorld.getName().equals(currentWorld.getName())
-                                    && (currentLocation.getBlockX() >> 4) == finalChunkX
-                                    && (currentLocation.getBlockZ() >> 4) == finalChunkZ) {
-                                Teleport.performSafeTeleport(player, currentLocation, false);
-                            }
-                        }, player);
-                    }
+                    Scheduler.runTask(CoreProtect.getInstance(), () -> {
+                        Location currentLocation = player.getLocation();
+                        if (bukkitRollbackWorld.equals(currentLocation.getWorld())
+                                && (currentLocation.getBlockX() >> 4) == finalChunkX
+                                && (currentLocation.getBlockZ() >> 4) == finalChunkZ) {
+                            Teleport.performSafeTeleport(player, currentLocation, false);
+                        }
+                    }, player);
                 }
             }
 

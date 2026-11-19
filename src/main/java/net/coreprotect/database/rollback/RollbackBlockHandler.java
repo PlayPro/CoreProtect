@@ -3,6 +3,8 @@ package net.coreprotect.database.rollback;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 import org.bukkit.DyeColor;
 import org.bukkit.Location;
@@ -40,6 +42,7 @@ import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
+import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.player.InventoryChangeListener;
@@ -47,6 +50,7 @@ import net.coreprotect.model.BlockGroup;
 import net.coreprotect.model.PendingBlockChange;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.ChestTool;
 import net.coreprotect.utility.EntityUtils;
@@ -58,6 +62,11 @@ import net.coreprotect.utility.ErrorReporter;
 public class RollbackBlockHandler extends Queue {
 
     public static boolean processBlockChange(World bukkitWorld, Block block, Object[] row, int rollbackType, boolean clearInventories, Map<Block, PendingBlockChange> chunkChanges, boolean countBlock, Material oldTypeMaterial, Material pendingChangeType, BlockData pendingChangeData, RollbackCounters counters, BlockData rawBlockData, Material changeType, boolean changeBlock, BlockData changeBlockData, ArrayList<Object> meta, BlockData blockData, String rowUser, Material rowType, int rowX, int rowY, int rowZ, int rowTypeRaw, int rowData, int rowAction, int rowWorldId, String blockDataString) {
+        return processBlockChange(bukkitWorld, block, row, rollbackType, clearInventories, chunkChanges, countBlock, oldTypeMaterial, pendingChangeType, pendingChangeData, counters, rawBlockData,
+                changeType, changeBlock, changeBlockData, meta, blockData, rowUser, rowType, rowX, rowY, rowZ, rowTypeRaw, rowData, rowAction, rowWorldId, blockDataString, null);
+    }
+
+    static boolean processBlockChange(World bukkitWorld, Block block, Object[] row, int rollbackType, boolean clearInventories, Map<Block, PendingBlockChange> chunkChanges, boolean countBlock, Material oldTypeMaterial, Material pendingChangeType, BlockData pendingChangeData, RollbackCounters counters, BlockData rawBlockData, Material changeType, boolean changeBlock, BlockData changeBlockData, ArrayList<Object> meta, BlockData blockData, String rowUser, Material rowType, int rowX, int rowY, int rowZ, int rowTypeRaw, int rowData, int rowAction, int rowWorldId, String blockDataString, EntitySpawnRollbackHandler.Context context) {
         int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
 
         try {
@@ -84,15 +93,13 @@ public class RollbackBlockHandler extends Queue {
                 }
 
                 /* If modifying the head of a piston, update the base piston block to prevent it from being destroyed */
-                if (changeBlockData instanceof PistonHead) {
-                    PistonHead pistonHead = (PistonHead) changeBlockData;
-                    Block pistonBlock = block.getRelative(pistonHead.getFacing().getOppositeFace());
-                    BlockData pistonData = pistonBlock.getBlockData();
-                    if (pistonData instanceof Piston) {
-                        Piston piston = (Piston) pistonData;
-                        piston.setExtended(false);
-                        pistonBlock.setBlockData(piston, false);
-                    }
+                BlockData effectiveSourceData = pendingChangeData != null ? pendingChangeData : changeBlockData;
+                if (effectiveSourceData instanceof PistonHead) {
+                    PistonHead pistonHead = (PistonHead) effectiveSourceData;
+                    BlockFace facing = pistonHead.getFacing();
+                    Material pistonType = pistonHead.getType() == TechnicalPiston.Type.STICKY ? Material.STICKY_PISTON : Material.PISTON;
+                    updatePartner(bukkitWorld, rowX, rowY, rowZ, facing.getOppositeFace(), chunkChanges,
+                            current -> retractMatchingPiston(current, pistonType, facing), false, counters, context);
                 }
                 else if (rowType == Material.MOVING_PISTON && blockData instanceof TechnicalPiston && !(blockData instanceof PistonHead)) {
                     TechnicalPiston technicalPiston = (TechnicalPiston) blockData;
@@ -215,38 +222,28 @@ public class RollbackBlockHandler extends Queue {
                     }
 
                     if (remove) {
-                        BlockData removeBlockData = pendingChangeData != null ? pendingChangeData : changeBlockData;
-                        boolean physics = requiresPhysics(changeType) || requiresPhysics(removeBlockData);
+                        BlockData removeBlockData = effectiveSourceData;
+                        boolean physics = requiresPhysics(removeBlockData) || requiresPhysics(changeType);
                         if ((changeType == Material.NETHER_PORTAL) || removeBlockData instanceof MultipleFacing || removeBlockData instanceof Snow || removeBlockData instanceof Stairs || removeBlockData instanceof RedstoneWire || removeBlockData instanceof Chest) {
                             physics = true;
                         }
-                        else if (removeBlockData instanceof Bisected && !(removeBlockData instanceof TrapDoor)
+                        else if (rowType == Material.AIR && removeBlockData instanceof Bisected && !(removeBlockData instanceof TrapDoor)
                                 && !BukkitAdapter.ADAPTER.isSingleBlockPitcherCrop(removeBlockData)) {
                             Bisected bisected = (Bisected) removeBlockData;
-                            Location bisectLocation = block.getLocation().clone();
-                            if (bisected.getHalf() == Half.TOP) {
-                                bisectLocation.setY(bisectLocation.getY() - 1);
-                            }
-                            else {
-                                bisectLocation.setY(bisectLocation.getY() + 1);
-                            }
-
-                            int worldMaxHeight = bukkitWorld.getMaxHeight();
-                            int worldMinHeight = BukkitAdapter.ADAPTER.getMinHeight(bukkitWorld);
-                            if (bisectLocation.getBlockY() >= worldMinHeight && bisectLocation.getBlockY() < worldMaxHeight) {
-                                Block bisectBlock = block.getWorld().getBlockAt(bisectLocation);
-                                BlockUtils.prepareTypeAndData(chunkChanges, bisectBlock, rowType, null, false);
-
-                                if (countBlock) {
-                                    counters.addBlocks(1);
-                                }
-                            }
+                            Material type = bisected.getMaterial();
+                            Half half = bisected.getHalf();
+                            updatePartner(bukkitWorld, rowX, rowY, rowZ, half == Half.TOP ? BlockFace.DOWN : BlockFace.UP, chunkChanges,
+                                    current -> current instanceof Bisected && current.getMaterial() == type && ((Bisected) current).getHalf() != half
+                                            ? BlockUtils.createBlockData(Material.AIR) : null, countBlock, counters, context);
                         }
-                        else if (removeBlockData instanceof Bed) {
+                        else if (rowType == Material.AIR && removeBlockData instanceof Bed) {
                             Bed bed = (Bed) removeBlockData;
                             if (bed.getPart() == Part.FOOT) {
-                                Block adjacentBlock = block.getRelative(bed.getFacing());
-                                BlockUtils.prepareTypeAndData(chunkChanges, adjacentBlock, rowType, null, false);
+                                Material type = bed.getMaterial();
+                                BlockFace facing = bed.getFacing();
+                                updatePartner(bukkitWorld, rowX, rowY, rowZ, facing, chunkChanges,
+                                        current -> isMatchingBedHead(current, type, facing) ? BlockUtils.createBlockData(Material.AIR) : null,
+                                        false, counters, context);
                             }
                         }
 
@@ -374,6 +371,7 @@ public class RollbackBlockHandler extends Queue {
                     door.setFacing(face);
                     door.setOpen(false);
                     block.setBlockData(door, false);
+                    chunkChanges.remove(block);
                     return false;
                 }
                 else if (blockData == null && rowData > 0 && (rowType.name().endsWith("_BED"))) {
@@ -404,6 +402,7 @@ public class RollbackBlockHandler extends Queue {
 
                     bed.setFacing(face);
                     block.setBlockData(bed, false);
+                    chunkChanges.remove(block);
                     return false;
                 }
                 else if (rowType.name().endsWith("_BANNER")) {
@@ -476,13 +475,11 @@ public class RollbackBlockHandler extends Queue {
                 else if (rowType != Material.AIR && rawBlockData instanceof Bed) {
                     Bed bed = (Bed) rawBlockData;
                     if (bed.getPart() == Part.FOOT) {
-                        Block adjacentBlock = block.getRelative(bed.getFacing());
                         Bed bedData = (Bed) rawBlockData.clone();
                         bedData.setPart(Part.HEAD);
-                        BlockUtils.prepareTypeAndData(chunkChanges, adjacentBlock, rowType, bedData, false);
-                        if (countBlock) {
-                            counters.addBlocks(1);
-                        }
+                        updatePartner(bukkitWorld, rowX, rowY, rowZ, bed.getFacing(), chunkChanges,
+                                current -> current != null && BlockUtils.isAir(current.getMaterial()) ? bedData : null,
+                                countBlock, counters, context);
                     }
 
                     BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, true);
@@ -590,6 +587,90 @@ public class RollbackBlockHandler extends Queue {
                 BlockUtils.setTypeAndData(chunkChange.getKey(), null, change.blockData(), !changeToAir && applyPhysics);
             }
         }
+    }
+
+    private static BlockData retractMatchingPiston(BlockData current, Material type, BlockFace facing) {
+        if (!(current instanceof Piston) || current.getMaterial() != type || ((Piston) current).getFacing() != facing || !((Piston) current).isExtended()) {
+            return null;
+        }
+        Piston retracted = (Piston) current.clone();
+        retracted.setExtended(false);
+        return retracted;
+    }
+
+    private static boolean isMatchingBedHead(BlockData current, Material type, BlockFace facing) {
+        return current instanceof Bed && current.getMaterial() == type && ((Bed) current).getPart() == Part.HEAD && ((Bed) current).getFacing() == facing;
+    }
+
+    private static void updatePartner(World world, int x, int y, int z, BlockFace offset, Map<Block, PendingBlockChange> chunkChanges,
+            Function<BlockData, BlockData> transition, boolean countBlock, RollbackCounters counters, EntitySpawnRollbackHandler.Context context) {
+        Location location = new Location(world, x + offset.getModX(), y + offset.getModY(), z + offset.getModZ());
+        int chunkX = location.getBlockX() >> 4;
+        int chunkZ = location.getBlockZ() >> 4;
+        if (location.getBlockY() < BukkitAdapter.ADAPTER.getMinHeight(world) || location.getBlockY() >= world.getMaxHeight()) {
+            return;
+        }
+        if (ownsPartner(world, chunkX, chunkZ)) {
+            Block partner = world.getBlockAt(location);
+            PendingBlockChange pending = chunkChanges.get(partner);
+            BlockData current = pending != null ? pending.blockData() : partner.getBlockData();
+            BlockData updated = transition.apply(current);
+            if (updated != null) {
+                BlockUtils.prepareTypeAndData(chunkChanges, partner, null, updated, false);
+                if (countBlock) {
+                    counters.addBlocks(1);
+                }
+            }
+            return;
+        }
+        if (context == null || !world.isChunkLoaded(chunkX, chunkZ)) {
+            return;
+        }
+
+        CompletableFuture<Boolean> completion = new CompletableFuture<>();
+        context.addPending(completion);
+        try {
+            Scheduler.runTask(CoreProtect.getInstance(), () -> {
+                if (!context.beginMutation()) {
+                    completion.complete(false);
+                    return;
+                }
+                try {
+                    if (!ownsPartner(world, chunkX, chunkZ)) {
+                        completion.complete(false);
+                        return;
+                    }
+                    if (world.isChunkLoaded(chunkX, chunkZ)) {
+                        Block partner = world.getBlockAt(location);
+                        BlockData updated = transition.apply(partner.getBlockData());
+                        if (updated != null) {
+                            BlockUtils.setTypeAndData(partner, null, updated, false);
+                            if (countBlock) {
+                                RollbackCounters completed = new RollbackCounters();
+                                completed.addBlocks(1);
+                                context.addChunkCounts(completed);
+                            }
+                        }
+                    }
+                    completion.complete(true);
+                }
+                catch (RuntimeException e) {
+                    ErrorReporter.report(e);
+                    completion.complete(false);
+                }
+                finally {
+                    context.endMutation();
+                }
+            }, location);
+        }
+        catch (RuntimeException e) {
+            ErrorReporter.report(e);
+            completion.complete(false);
+        }
+    }
+
+    private static boolean ownsPartner(World world, int chunkX, int chunkZ) {
+        return PaperAdapter.ADAPTER == null || PaperAdapter.ADAPTER.isOwnedByCurrentRegion(world, chunkX, chunkZ);
     }
 
     private static boolean isAirChange(PendingBlockChange change) {

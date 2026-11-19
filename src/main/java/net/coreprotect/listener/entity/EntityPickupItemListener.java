@@ -33,7 +33,22 @@ public final class EntityPickupItemListener implements Listener {
 
         Player player = (Player) event.getEntity();
         Item item = event.getItem();
-        onItemPickup(player, item.getLocation(), item.getItemStack());
+        ItemStack itemStack = item.getItemStack();
+        if (itemStack == null) {
+            return;
+        }
+
+        int remaining = event.getRemaining();
+        int pickedUp = itemStack.getAmount() - remaining;
+        if (pickedUp <= 0) {
+            return;
+        }
+        if (remaining != 0) {
+            itemStack = itemStack.clone();
+            itemStack.setAmount(pickedUp);
+        }
+
+        onItemPickup(player, item.getLocation(), itemStack);
     }
 
 }

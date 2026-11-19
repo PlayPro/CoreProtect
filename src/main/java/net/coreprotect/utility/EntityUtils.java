@@ -1,6 +1,10 @@
 package net.coreprotect.utility;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import org.bukkit.Material;
 import org.bukkit.entity.Entity;
@@ -18,7 +22,8 @@ import net.coreprotect.config.ConfigHandler;
 
 public class EntityUtils {
 
-    private static final String NAMESPACE = "minecraft:";
+    private static final String MINECRAFT_NAMESPACE = "minecraft:";
+    private static final Map<String, EntityType> ENTITY_TYPES = entityTypes();
 
     private EntityUtils() {
         throw new IllegalStateException("Utility class");
@@ -148,39 +153,83 @@ public class EntityUtils {
     }
 
     public static EntityType getEntityType(int id) {
-        String name = getStoredEntityTypeName(id);
-        return name.isEmpty() ? EntityType.UNKNOWN : EntityType.valueOf(name);
+        return getEntityType(id, null);
     }
 
     public static EntityType getEntityType(int id, String boatVariant) {
-        String name = getStoredEntityTypeName(id);
-        switch (name) {
-            case "": return EntityType.UNKNOWN;
-            case "BOAT": return BukkitAdapter.ADAPTER.resolveStoredBoatType(false, boatVariant);
-            case "CHEST_BOAT": return BukkitAdapter.ADAPTER.resolveStoredBoatType(true, boatVariant);
-            default: return EntityType.valueOf(name);
+        String name = entityKey(getEntityName(id));
+        if (BukkitAdapter.ADAPTER != null && ("boat".equals(name) || "chest_boat".equals(name))) {
+            return BukkitAdapter.ADAPTER.resolveStoredBoatType("chest_boat".equals(name), boatVariant);
         }
-    }
-
-    private static String getStoredEntityTypeName(int id) {
-        String name = getEntityName(id);
-        return (name.startsWith(NAMESPACE) ? name.substring(NAMESPACE.length()) : name).toUpperCase(Locale.ROOT);
+        return ENTITY_TYPES.getOrDefault(name, EntityType.UNKNOWN);
     }
 
     public static EntityType getEntityType(String name) {
-        // Name entered by user
-        if (name == null) {
-            return null;
-        }
-        name = name.toLowerCase(Locale.ROOT).trim();
-        if (name.startsWith(NAMESPACE)) {
-            name = name.substring(NAMESPACE.length());
-        }
-        if (name.isEmpty() || name.indexOf(':') >= 0 || getEntityId(name, false) == -1) {
-            return null;
-        }
+        return ENTITY_TYPES.get(entityKey(name));
+    }
 
-        return EntityType.valueOf(name.toUpperCase(Locale.ROOT));
+    public static List<Integer> getEntityIds(EntityType type) {
+        if (type == null) {
+            return List.of();
+        }
+        List<Integer> ids = new ArrayList<>();
+        Map<String, Integer> entities = ConfigHandler.entities;
+        synchronized (entities) {
+            for (Map.Entry<String, Integer> entry : entities.entrySet()) {
+                if (getEntityType(entry.getKey()) == type) {
+                    ids.add(entry.getValue());
+                }
+            }
+        }
+        return ids;
+    }
+
+    private static String entityKey(String name) {
+        String key = name == null ? "" : name.trim().toLowerCase(Locale.ROOT);
+        return key.startsWith(MINECRAFT_NAMESPACE) ? key.substring(MINECRAFT_NAMESPACE.length()) : key;
+    }
+
+    private static Map<String, EntityType> entityTypes() {
+        Map<String, EntityType> types = new HashMap<>();
+        for (EntityType type : EntityType.values()) {
+            if (type != EntityType.UNKNOWN) {
+                types.put(entityKey(type.name()), type);
+                types.put(entityKey(type.getKey().toString()), type);
+            }
+        }
+        String[][] aliases = {
+            { "mooshroom", "mushroom_cow" },
+            { "snow_golem", "snowman" },
+            { "end_crystal", "ender_crystal" },
+            { "tnt", "primed_tnt" },
+            { "leash_knot", "leash_hitch" },
+            { "item", "dropped_item" },
+            { "firework_rocket", "firework" },
+            { "experience_bottle", "thrown_exp_bottle" },
+            { "splash_potion", "potion" },
+            { "fishing_bobber", "fishing_hook" },
+            { "lightning_bolt", "lightning" },
+            { "eye_of_ender", "ender_signal" },
+            { "zombified_piglin", "zombie_pigman", "pig_zombie" },
+            { "chest_minecart", "minecart_chest" },
+            { "hopper_minecart", "minecart_hopper" },
+            { "furnace_minecart", "minecart_furnace" },
+            { "tnt_minecart", "minecart_tnt" },
+            { "spawner_minecart", "minecart_mob_spawner" },
+            { "command_block_minecart", "minecart_command" }
+        };
+        for (String[] names : aliases) {
+            for (String name : names) {
+                EntityType type = types.get(name);
+                if (type != null) {
+                    for (String alias : names) {
+                        types.putIfAbsent(alias, type);
+                    }
+                    break;
+                }
+            }
+        }
+        return Map.copyOf(types);
     }
 
     public static int getSpawnerType(EntityType type) {
@@ -194,10 +243,6 @@ public class EntityUtils {
 
     public static EntityType getSpawnerType(int type) {
         EntityType result = getEntityType(type);
-        if (result == null) {
-            result = EntityType.PIG;
-        }
-
-        return result;
+        return result == null || result == EntityType.UNKNOWN ? EntityType.PIG : result;
     }
 }

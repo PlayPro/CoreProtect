@@ -148,27 +148,6 @@ public class PurgeCommand {
         ErrorReporter.report(exception);
     }
 
-    /**
-     * Returns the entity_map ids of every name that resolves to an entity type. A renamed type keeps the kills logged
-     * under its old name, such as zombie_pigman for zombified_piglin.
-     */
-    private static List<Integer> killTypeIds(EntityType entityType) {
-        List<Integer> ids = new ArrayList<>();
-        synchronized (ConfigHandler.entities) {
-            for (Map.Entry<String, Integer> entry : ConfigHandler.entities.entrySet()) {
-                try {
-                    if (EntityUtils.getEntityType(entry.getKey()) == entityType) {
-                        ids.add(entry.getValue());
-                    }
-                }
-                catch (IllegalArgumentException e) {
-                    // An entity that no longer exists in this version
-                }
-            }
-        }
-        return ids;
-    }
-
     static String findUnsupportedPurgeArgument(String[] args) {
         boolean listContinuation = false;
         String emptyList = null; // an include or exclude argument that has no value yet
@@ -380,7 +359,7 @@ public class PurgeCommand {
                     hasBlock = true;
                 }
                 else if (restrictTarget instanceof EntityType) {
-                    includeEntityIds.addAll(killTypeIds((EntityType) restrictTarget));
+                    includeEntityIds.addAll(EntityUtils.getEntityIds((EntityType) restrictTarget));
                     targetName = ((EntityType) restrictTarget).name().toLowerCase(Locale.ROOT);
                     entity = true;
                 }
@@ -411,7 +390,7 @@ public class PurgeCommand {
                 Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, "e:" + excludeTarget.toString().toLowerCase(Locale.ROOT)));
                 return;
             }
-            excludeEntityIds.addAll(killTypeIds((EntityType) excludeTarget));
+            excludeEntityIds.addAll(EntityUtils.getEntityIds((EntityType) excludeTarget));
             exclude.append(exclude.length() == 0 ? "" : ", ").append(((EntityType) excludeTarget).name().toLowerCase(Locale.ROOT));
         }
         if (!argExcludeUsers.isEmpty()) {

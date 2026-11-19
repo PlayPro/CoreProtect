@@ -634,7 +634,7 @@ public class LookupRaw extends Queue {
 
             if (restrictList.size() > 0) {
                 StringBuilder includeListMaterial = new StringBuilder();
-                StringBuilder includeListEntity = new StringBuilder();
+                StringJoiner includeListEntity = new StringJoiner(",");
 
                 for (Object restrictTarget : restrictList) {
                     String targetName = "";
@@ -655,13 +655,7 @@ public class LookupRaw extends Queue {
                         }
                     }
                     else if (restrictTarget instanceof EntityType) {
-                        targetName = ((EntityType) restrictTarget).name();
-                        if (includeListEntity.length() == 0) {
-                            includeListEntity = includeListEntity.append(EntityUtils.getEntityId(targetName, false));
-                        }
-                        else {
-                            includeListEntity.append(",").append(EntityUtils.getEntityId(targetName, false));
-                        }
+                        addEntityTypeIds(includeListEntity, (EntityType) restrictTarget);
                     }
                     else if (restrictTarget instanceof String) {
                         int blockId = MaterialUtils.getBlockId((String) restrictTarget, false);
@@ -680,7 +674,7 @@ public class LookupRaw extends Queue {
 
             if (excludeList.size() > 0) {
                 StringBuilder excludeListMaterial = new StringBuilder();
-                StringBuilder excludeListEntity = new StringBuilder();
+                StringJoiner excludeListEntity = new StringJoiner(",");
 
                 for (Object restrictTarget : excludeList.keySet()) {
                     String targetName = "";
@@ -701,13 +695,7 @@ public class LookupRaw extends Queue {
                         }
                     }
                     else if (restrictTarget instanceof EntityType) {
-                        targetName = ((EntityType) restrictTarget).name();
-                        if (excludeListEntity.length() == 0) {
-                            excludeListEntity = excludeListEntity.append(EntityUtils.getEntityId(targetName, false));
-                        }
-                        else {
-                            excludeListEntity.append(",").append(EntityUtils.getEntityId(targetName, false));
-                        }
+                        addEntityTypeIds(excludeListEntity, (EntityType) restrictTarget);
                     }
                     else if (restrictTarget instanceof String) {
                         int blockId = MaterialUtils.getBlockId((String) restrictTarget, false);
@@ -1602,6 +1590,16 @@ public class LookupRaw extends Queue {
                     ? negation + "list_contains([" + placedEntityTypes + "],type)"
                     : "type " + negation + "IN(" + placedEntityTypes + ")";
             predicates.add("(action=" + action + " AND " + typePredicate + ")");
+        }
+    }
+
+    private static void addEntityTypeIds(StringJoiner filter, EntityType type) {
+        List<Integer> ids = EntityUtils.getEntityIds(type);
+        if (ids.isEmpty()) {
+            filter.add("-1");
+        }
+        else {
+            ids.forEach(id -> filter.add(id.toString()));
         }
     }
 

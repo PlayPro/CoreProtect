@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.bukkit.Bukkit;
@@ -47,6 +48,7 @@ import net.coreprotect.database.rollback.Rollback;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.action.LookupActions;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.ErrorReporter;
@@ -90,12 +92,11 @@ public class CoreProtectAPI extends Queue {
 
         if (list != null) {
             for (Object value : list) {
+                if (value instanceof Integer) {
+                    value = MaterialUtils.getType((Integer) value);
+                }
                 if (value instanceof Material || value instanceof EntityType || value instanceof String) {
                     result.put(value, false);
-                }
-                else if (value instanceof Integer) {
-                    Material material = MaterialUtils.getType((Integer) value);
-                    result.put(material, false);
                 }
             }
         }
@@ -849,8 +850,27 @@ public class CoreProtectAPI extends Queue {
      *            Time in seconds for the purge operation
      */
     public void performPurge(int time) {
+        if (time <= 0 || !isEnabled()) {
+            return;
+        }
         Server server = Bukkit.getServer();
-        server.dispatchCommand(server.getConsoleSender(), "co purge t:" + time + "s");
+        if (server == null) {
+            return;
+        }
+        Runnable purge = () -> {
+            if (isEnabled()) {
+                server.dispatchCommand(server.getConsoleSender(), "co purge t:" + time + "s");
+            }
+        };
+        if (!ConfigHandler.isFolia && server.isPrimaryThread()) {
+            purge.run();
+        }
+        else {
+            CoreProtect plugin = CoreProtect.getInstance();
+            if (plugin != null) {
+                Scheduler.runTask(plugin, purge);
+            }
+        }
     }
 
     /**
@@ -997,11 +1017,18 @@ public class CoreProtectAPI extends Queue {
      * @return List of results or null if the parameters are invalid
      */
     private List<String[]> processData(int time, int radius, Location location, Map<Object, Boolean> restrictBlocksMap, Map<Object, Boolean> excludeBlocks, List<String> restrictUsers, List<String> excludeUsers, List<Integer> actionList, int action, int lookup, int offset, int rowCount, boolean useLimit) {
+        boolean restrictWorld = location != null;
+        if ((restrictWorld && !location.isWorldLoaded()) || (!restrictWorld && radius > 0)) {
+            return null;
+        }
         List<String[]> result = new ArrayList<>();
         List<String> uuids = new ArrayList<>();
 
         restrictUsers = restrictUsers == null ? new ArrayList<>() : new ArrayList<>(restrictUsers);
+        restrictUsers.removeIf(Objects::isNull);
+        restrictUsers.replaceAll(user -> "#global".equalsIgnoreCase(user) ? "#global" : user);
         excludeUsers = excludeUsers == null ? new ArrayList<>() : new ArrayList<>(excludeUsers);
+        excludeUsers.removeIf(Objects::isNull);
         boolean explicitActions = actionList != null && !actionList.isEmpty();
         actionList = actionList == null ? new ArrayList<>() : new ArrayList<>(actionList);
         if (explicitActions) {
@@ -1042,15 +1069,7 @@ public class CoreProtectAPI extends Queue {
         long startTime = timestamp - time;
         long endTime = 0;
 
-        if (radius < 1) {
-            radius = -1;
-        }
-
-        if (restrictUsers.contains("#global") && radius == -1) {
-            return null;
-        }
-
-        if (radius > -1 && location == null) {
+        if (radius < 1 && restrictUsers.contains("#global")) {
             return null;
         }
 
@@ -1059,33 +1078,23 @@ public class CoreProtectAPI extends Queue {
             return result;
         }
 
+        Integer[] argRadius = null;
+        if (radius > 0) {
+            int x = location.getBlockX();
+            int z = location.getBlockZ();
+            int xMin = (int) Math.max(Integer.MIN_VALUE, (long) x - radius);
+            int xMax = (int) Math.min(Integer.MAX_VALUE, (long) x + radius);
+            int zMin = (int) Math.max(Integer.MIN_VALUE, (long) z - radius);
+            int zMax = (int) Math.min(Integer.MAX_VALUE, (long) z + radius);
+            argRadius = new Integer[] { radius, xMin, xMax, null, null, zMin, zMax, 0 };
+        }
+
         try (Connection connection = Database.getConnection(false, 1000)) {
-            if (connection != null) {
-                Statement statement = connection.createStatement();
-                boolean restrictWorld = false;
-
-                if (radius > 0) {
-                    restrictWorld = true;
-                }
-
-                if (location == null) {
-                    restrictWorld = false;
-                }
-
-                Integer[] argRadius = null;
-                if (location != null && radius > 0) {
-                    int xMin = location.getBlockX() - radius;
-                    int xMax = location.getBlockX() + radius;
-                    int zMin = location.getBlockZ() - radius;
-                    int zMax = location.getBlockZ() + radius;
-                    argRadius = new Integer[] { radius, xMin, xMax, null, null, zMin, zMax, 0 };
-                }
-
+            if (connection == null) {
+                return result;
+            }
+            try (Statement statement = connection.createStatement()) {
                 if (lookup == 1) {
-                    if (location != null) {
-                        restrictWorld = true;
-                    }
-
                     if (useLimit) {
                         result = Lookup.performPartialLookup(statement, null, uuids, restrictUsers, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, null, startTime, endTime, offset, rowCount, restrictWorld, true);
                     }
@@ -1108,8 +1117,6 @@ public class CoreProtectAPI extends Queue {
                         ErrorReporter.report(new IllegalStateException("API rollback skipped: another database operation is active or persistence is halted"), ConfigHandler.EDITION_BRANCH.contains("-dev"));
                     }
                 }
-
-                statement.close();
             }
         }
         catch (Exception e) {

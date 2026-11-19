@@ -518,7 +518,6 @@ public class StandardLookupThread implements Runnable {
                                     }
 
                                     Chat.sendComponent(player, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, "x" + amount, ChatUtils.createTooltip(Color.DARK_AQUA + rbd + dname, tooltip) + ChatUtils.filterComponent(player.hasPermission("coreprotect.give"), ChatUtils.createGiveItemComponent(Color.GREY + "(↓)", command.getName(), itemId)) + Color.WHITE, selector));
-                                    PluginChannelListener.getInstance().sendData(player, time, phrase, selector, dplayer, dname, amount, dataX, dataY, dataZ, wid, rbd, action.contains("container"), tag.contains("+"));
                                 }
                                 else {
                                     if (entityInteraction) {
@@ -553,9 +552,11 @@ public class StandardLookupThread implements Runnable {
                                     }
 
                                     Chat.sendComponent(player, timeago + " " + tag + " " + Phrase.build(phrase, Color.DARK_AQUA + rbd + dplayer + Color.WHITE + rbd, Color.DARK_AQUA + rbd + dname + Color.WHITE, selector));
-                                    PluginChannelListener.getInstance().sendData(player, time, phrase, selector, dplayer, dname, amount, dataX, dataY, dataZ, wid, rbd, false, tag.contains("+"));
                                 }
 
+                                boolean added = tag.contains("+");
+                                int packetAmount = amount >= 0 ? amount : (added ? 1 : -1);
+                                PluginChannelListener.getInstance().sendData(player, time, phrase, selector, dplayer, dname, packetAmount, dataX, dataY, dataZ, wid, rbd, action.equals("a:container"), added);
                                 action = (actions.size() == 0 ? " (" + action + ")" : "");
                                 String coordinates = ChatUtils.getCoordinates(command.getName(), wid, dataX, dataY, dataZ, true, true);
                                 String coordinateInfo = entityLocation == null ? "" : entityLocation.getOriginTooltip();

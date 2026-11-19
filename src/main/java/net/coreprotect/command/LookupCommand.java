@@ -70,7 +70,6 @@ public class LookupCommand {
         List<Object> argBlocks = CommandParser.parseRestricted(player, args, argAction);
         Map<Object, Boolean> argExclude = CommandParser.parseExcluded(player, args, argAction);
         List<String> argExcludeUsers = CommandParser.parseExcludedUsers(player, args);
-        String ts = CommandParser.parseTimeString(args);
         long[] argTime = CommandParser.parseTime(args);
         long startTime = argTime[0];
         long endTime = argTime[1];
@@ -478,7 +477,7 @@ public class LookupCommand {
                     long timeStart = startTime > 0 ? now - startTime : 0;
                     long timeEnd = endTime > 0 ? now - endTime : 0;
                     StandardLookupRequest.Filters filters = new StandardLookupRequest.Filters(rollbackusers, argBlocks, argExclude, argExcludeUsers, argAction, argEntityActionFilter, argFilters);
-                    StandardLookupRequest.Scope scope = new StandardLookupRequest.Scope(lo, x, y, z, wid, argWid, pendingWorldName, timeStart, timeEnd, argRadius, ts);
+                    StandardLookupRequest.Scope scope = new StandardLookupRequest.Scope(lo, x, y, z, wid, argWid, pendingWorldName, timeStart, timeEnd, argRadius);
                     startStandardLookup(player, command, new StandardLookupRequest(filters, scope, pa, re, outputMode, rollbackState), null);
                 }
                 catch (Exception e) {
@@ -534,7 +533,7 @@ public class LookupCommand {
             return null;
         }
         return new StandardLookupRequest.Scope(null, Integer.parseInt(coordinates[0]), Integer.parseInt(coordinates[1]),
-                Integer.parseInt(coordinates[2]), Integer.parseInt(coordinates[3]), 0, null, 0, 0, null, "");
+                Integer.parseInt(coordinates[2]), Integer.parseInt(coordinates[3]), 0, null, 0, 0, null);
     }
 
     private static void startStandardLookup(CommandSender player, Command command, StandardLookupRequest request, LookupSession session) {

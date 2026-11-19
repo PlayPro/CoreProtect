@@ -30,7 +30,7 @@ public final class StandardLookupRequest {
 
     public StandardLookupRequest forSession(int resolvedWorldId) {
         Scope resolvedScope = new Scope(scope.location, scope.x, scope.y, scope.z, scope.worldId, resolvedWorldId, null,
-                scope.startTime, scope.endTime, scope.radius, scope.timeDescription);
+                scope.startTime, scope.endTime, scope.radius);
         LookupOutputMode savedMode = outputMode == LookupOutputMode.COUNT ? LookupOutputMode.DETAIL : outputMode;
         return new StandardLookupRequest(filters, resolvedScope, page, pageSize, savedMode, rollbackState);
     }
@@ -67,10 +67,8 @@ public final class StandardLookupRequest {
         public final long startTime;
         public final long endTime;
         private final Integer[] radius;
-        public final String timeDescription;
-
         public Scope(Location location, int x, int y, int z, int worldId, int explicitWorldId, String pendingWorldName,
-                long startTime, long endTime, Integer[] radius, String timeDescription) {
+                long startTime, long endTime, Integer[] radius) {
             this.location = location == null ? null : location.clone();
             this.x = x;
             this.y = y;
@@ -81,7 +79,6 @@ public final class StandardLookupRequest {
             this.startTime = startTime;
             this.endTime = endTime;
             this.radius = radius == null ? null : radius.clone();
-            this.timeDescription = timeDescription;
         }
 
         public Location location() {

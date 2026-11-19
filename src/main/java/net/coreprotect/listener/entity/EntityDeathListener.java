@@ -1,7 +1,6 @@
 package net.coreprotect.listener.entity;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -19,7 +18,6 @@ import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.block.Block;
-import org.bukkit.entity.AbstractArrow;
 import org.bukkit.entity.AbstractHorse;
 import org.bukkit.entity.AbstractVillager;
 import org.bukkit.entity.Ageable;
@@ -49,7 +47,6 @@ import org.bukkit.entity.Skeleton;
 import org.bukkit.entity.Slime;
 import org.bukkit.entity.Spellcaster;
 import org.bukkit.entity.Tameable;
-import org.bukkit.entity.ThrownPotion;
 import org.bukkit.entity.TropicalFish;
 import org.bukkit.entity.Villager;
 import org.bukkit.entity.Wolf;
@@ -69,7 +66,6 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
-import org.bukkit.projectiles.ProjectileSource;
 
 import com.google.common.collect.Lists;
 
@@ -184,144 +180,32 @@ public final class EntityDeathListener extends Queue implements Listener {
         }
     }
 
-    protected static void logEntityDeath(LivingEntity entity, String e) {
+    protected static void logEntityDeath(LivingEntity entity, String user) {
+        Config config = Config.getConfig(entity.getWorld());
         if (entity instanceof ArmorStand) {
-            logArmorStandBreak((ArmorStand) entity, e, Config.getConfig(entity.getWorld()));
+            logArmorStandBreak((ArmorStand) entity, user, config);
             return;
         }
-        if (!Config.getConfig(entity.getWorld()).ENTITY_KILLS) {
+        if (!config.ENTITY_KILLS) {
             return;
         }
-
-        EntityDamageEvent damage = entity.getLastDamageCause();
-        if (damage == null && e == null) {
-            return;
-        }
-
-        EntityDamageEvent.DamageCause cause = damage == null ? null : damage.getCause();
-        boolean isCommand = (cause == DamageCause.VOID && entity.getLocation().getBlockY() >= BukkitAdapter.ADAPTER.getMinHeight(entity.getWorld()));
-        if (e == null) {
-            e = isCommand ? "#command" : "";
-        }
-
-        if (entity.getType().name().equals("GLOW_SQUID") && cause == DamageCause.DROWNING) {
-            return;
-        }
-
-        List<DamageCause> validDamageCauses = Arrays.asList(DamageCause.SUICIDE, DamageCause.POISON, DamageCause.THORNS, DamageCause.MAGIC, DamageCause.WITHER);
-
-        boolean skip = true;
-        if (cause != null && (!Config.getConfig(entity.getWorld()).SKIP_GENERIC_DATA || (!(entity instanceof Zombie) && !(entity instanceof Skeleton)) || (validDamageCauses.contains(cause) || cause.name().equals("KILL")))) {
-            skip = false;
-        }
-
-        if (damage instanceof EntityDamageByEntityEvent) {
-            EntityDamageByEntityEvent attack = (EntityDamageByEntityEvent) damage;
-            Entity attacker = attack.getDamager();
-
-            if (attacker instanceof Player) {
-                Player player = (Player) attacker;
-                e = player.getName();
-            }
-            else if (attacker instanceof AbstractArrow) {
-                AbstractArrow arrow = (AbstractArrow) attacker;
-                ProjectileSource shooter = arrow.getShooter();
-
-                if (shooter instanceof Player) {
-                    Player player = (Player) shooter;
-                    e = player.getName();
-                }
-                else if (shooter instanceof LivingEntity) {
-                    EntityType entityType = ((LivingEntity) shooter).getType();
-                    if (entityType != null) { // Check for MyPet plugin
-                        String name = entityType.name().toLowerCase(Locale.ROOT);
-                        e = "#" + name;
-                    }
-                }
-            }
-            else if (attacker instanceof ThrownPotion) {
-                ThrownPotion potion = (ThrownPotion) attacker;
-                ProjectileSource shooter = potion.getShooter();
-
-                if (shooter instanceof Player) {
-                    Player player = (Player) shooter;
-                    e = player.getName();
-                }
-                else if (shooter instanceof LivingEntity) {
-                    EntityType entityType = ((LivingEntity) shooter).getType();
-                    if (entityType != null) { // Check for MyPet plugin
-                        String name = entityType.name().toLowerCase(Locale.ROOT);
-                        e = "#" + name;
-                    }
-                }
-            }
-            else if (attacker.getType().name() != null) {
-                e = "#" + attacker.getType().name().toLowerCase(Locale.ROOT);
-            }
-        }
-        else if (cause != null) {
-            if (cause.equals(EntityDamageEvent.DamageCause.FIRE)) {
-                e = "#fire";
-            }
-            else if (cause.equals(EntityDamageEvent.DamageCause.FIRE_TICK)) {
-                if (!skip) {
-                    e = "#fire";
-                }
-            }
-            else if (cause.equals(EntityDamageEvent.DamageCause.LAVA)) {
-                e = "#lava";
-            }
-            else if (cause.equals(EntityDamageEvent.DamageCause.BLOCK_EXPLOSION)) {
-                e = "#explosion";
-            }
-            else if (cause.equals(EntityDamageEvent.DamageCause.MAGIC)) {
-                e = "#magic";
-            }
-            else if (cause.equals(EntityDamageEvent.DamageCause.WITHER)) {
-                e = "#wither_effect";
-            }
-            else if (!cause.name().contains("_")) {
-                e = "#" + cause.name().toLowerCase(Locale.ROOT);
-            }
-        }
-
 
         EntityType entity_type = entity.getType();
-        if (e.length() == 0) {
-            // assume killed self
-            if (!skip) {
-                if (!(entity instanceof Player) && entity_type.name() != null) {
-                    // Player player = (Player)entity;
-                    // e = player.getName();
-                    e = "#" + entity_type.name().toLowerCase(Locale.ROOT);
-                }
-                else if (entity instanceof Player) {
-                    e = entity.getName();
-                }
+        DamageCause cause = null;
+        if (user == null) {
+            EntityDamageEvent damage = entity.getLastDamageCause();
+            cause = damage == null ? null : damage.getCause();
+            if (cause == DamageCause.DROWNING && entity_type.name().equals("GLOW_SQUID")) {
+                return;
             }
+            user = getDamageUser(entity, damage, config);
         }
 
-        if (e.startsWith("#wither") && !e.equals("#wither_effect")) {
-            e = "#wither";
-        }
-
-        if (e.startsWith("#enderdragon")) {
-            e = "#enderdragon";
-        }
-
-        if (e.startsWith("#primedtnt") || e.startsWith("#tnt")) {
-            e = "#tnt";
-        }
-
-        if (e.startsWith("#lightning")) {
-            e = "#lightning";
-        }
-
-        if (Config.getConfig(entity.getWorld()).DUPLICATE_SUPPRESSION && shouldSuppressEntityKill(e, entity, cause)) {
+        if (user == null || (config.DUPLICATE_SUPPRESSION && shouldSuppressEntityKill(user, entity, cause))) {
             return;
         }
 
-        if (e.length() > 0) {
+        if (!user.isEmpty()) {
             List<Object> data = new ArrayList<>();
             List<Object> age = new ArrayList<>();
             List<Object> tame = new ArrayList<>();
@@ -638,17 +522,11 @@ public final class EntityDeathListener extends Queue implements Listener {
             data.add(baselineBits);
 
             if (!(entity instanceof Player)) {
-                Queue.queueEntityKill(e, entity.getLocation(), data, type);
+                Queue.queueEntityKill(user, entity.getLocation(), data, type);
             }
             else {
-                Queue.queuePlayerKill(e, entity.getLocation(), entity.getName());
+                Queue.queuePlayerKill(user, entity.getLocation(), entity.getName());
             }
-        }
-    }
-
-    private static void trimTrailingNulls(List<Object> values) {
-        while (!values.isEmpty() && values.get(values.size() - 1) == null) {
-            values.remove(values.size() - 1);
         }
     }
 
@@ -680,6 +558,12 @@ public final class EntityDeathListener extends Queue implements Listener {
             default:
                 String causeName = cause.name();
                 return skipGeneric && causeName.contains("_") ? null : "#" + causeName.toLowerCase(Locale.ROOT);
+        }
+    }
+
+    private static void trimTrailingNulls(List<Object> values) {
+        while (!values.isEmpty() && values.get(values.size() - 1) == null) {
+            values.remove(values.size() - 1);
         }
     }
 
@@ -733,6 +617,10 @@ public final class EntityDeathListener extends Queue implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEntityDeath(EntityDeathEvent event) {
+        if (event instanceof Cancellable && ((Cancellable) event).isCancelled()) {
+            return;
+        }
+
         /*
         System.out.println("ENTITY DEATH - " + event.getEntity().getName());
         if (event.getEntity().getKiller() != null) {
@@ -754,8 +642,6 @@ public final class EntityDeathListener extends Queue implements Listener {
             EntitySpawnTracking.clearTracking(entity.getUniqueId());
         }
 
-        if (!(entity instanceof ArmorStand) || !(event instanceof Cancellable && ((Cancellable) event).isCancelled())) {
-            logEntityDeath(entity, null);
-        }
+        logEntityDeath(entity, null);
     }
 }

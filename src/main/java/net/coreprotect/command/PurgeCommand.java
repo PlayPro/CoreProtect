@@ -129,6 +129,9 @@ public class PurgeCommand {
         try (PreparedStatement statement = preparePurgeStatement(connection, query)) {
             return statement.executeUpdate();
         }
+        finally {
+            activePurgeStatement = null;
+        }
     }
 
     static long countPurgeRows(Connection connection, String table) throws SQLException, InterruptedException {
@@ -869,7 +872,7 @@ public class PurgeCommand {
         return new SQLiteRebuild(removed, false);
     }
 
-    private static Long deleteRelationalRows(Connection connection, CommandSender player, PurgeFilter purgeFilter) throws Exception {
+    static Long deleteRelationalRows(Connection connection, CommandSender player, PurgeFilter purgeFilter) throws Exception {
         long removed = 0;
         String query;
         for (String table : ConfigHandler.databaseTables) {
@@ -896,6 +899,7 @@ public class PurgeCommand {
                     }
 
                     if (atomic) {
+                        requirePurgeNotCancelled();
                         connection.commit();
                         connection.setAutoCommit(true);
                     }
@@ -915,7 +919,7 @@ public class PurgeCommand {
                 }
             }
             catch (Exception e) {
-                if (ConfigHandler.databaseType.isDuckDB()) {
+                if (e instanceof InterruptedException || ConfigHandler.databaseType.isDuckDB()) {
                     throw e;
                 }
                 if (!ConfigHandler.serverRunning) {

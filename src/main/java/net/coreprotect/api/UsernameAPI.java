@@ -60,8 +60,6 @@ public class UsernameAPI {
             if (excludedUuids == null) {
                 return result;
             }
-            // A NULL in NOT IN would also exclude unrelated users.
-            excludedUuids.remove(null);
 
             int checkTime = 0;
             if (options.getTime() > 0) {
@@ -130,20 +128,16 @@ public class UsernameAPI {
 
         String normalizedUser = StringUtils.normalizeUsername(user);
         String userMatch = DatabaseUtils.caseInsensitiveEquals(ConfigHandler.databaseType.getUserColumn());
-        try (PreparedStatement statement = connection.prepareStatement("SELECT uuid FROM " + ConfigHandler.prefix + "user WHERE " + userMatch)) {
-            statement.setString(1, normalizedUser);
-            try (ResultSet results = statement.executeQuery()) {
-                while (results.next()) {
-                    result.add(results.getString("uuid"));
-                }
-            }
-        }
-
-        try (PreparedStatement statement = connection.prepareStatement("SELECT uuid FROM " + ConfigHandler.prefix + "username_log WHERE " + userMatch)) {
-            statement.setString(1, normalizedUser);
-            try (ResultSet results = statement.executeQuery()) {
-                while (results.next()) {
-                    result.add(results.getString("uuid"));
+        for (String table : List.of("user", "username_log")) {
+            try (PreparedStatement statement = connection.prepareStatement("SELECT uuid FROM " + ConfigHandler.prefix + table + " WHERE " + userMatch)) {
+                statement.setString(1, normalizedUser);
+                try (ResultSet results = statement.executeQuery()) {
+                    while (results.next()) {
+                        String uuid = UserStatement.normalizeUuid(results.getString("uuid"));
+                        if (uuid != null) {
+                            result.add(uuid);
+                        }
+                    }
                 }
             }
         }

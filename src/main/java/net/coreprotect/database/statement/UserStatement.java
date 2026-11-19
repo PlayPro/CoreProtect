@@ -281,11 +281,11 @@ public class UserStatement {
     }
 
     public static String getNameByUuid(Connection connection, String uuid) {
-        if (uuid == null || uuid.isEmpty()) {
+        if (normalizeUuid(uuid) == null) {
             return null;
         }
         String user = ConfigHandler.uuidCacheReversed.get(uuid);
-        if (!ConfigHandler.databaseType.isClickHouse() || user != null) {
+        if (user != null) {
             return user;
         }
 
@@ -302,14 +302,14 @@ public class UserStatement {
                     if (resolvedUser == null || resolvedUser.isEmpty()) {
                         return null;
                     }
-                    ConfigHandler.playerIdCacheReversed.put(id, resolvedUser);
-                    ConfigHandler.uuidCacheReversed.put(uuid, resolvedUser);
-                    return resolvedUser;
+                    ConfigHandler.playerIdCacheReversed.putIfAbsent(id, resolvedUser);
+                    String cachedUser = ConfigHandler.uuidCacheReversed.putIfAbsent(uuid, resolvedUser);
+                    return cachedUser == null ? resolvedUser : cachedUser;
                 }
             }
         }
         catch (SQLException e) {
-            throw new IllegalStateException("Unable to resolve ClickHouse user UUID " + uuid, e);
+            throw new IllegalStateException("Unable to resolve user UUID " + uuid, e);
         }
     }
 

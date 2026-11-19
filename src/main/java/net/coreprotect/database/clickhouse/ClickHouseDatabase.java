@@ -164,6 +164,15 @@ public final class ClickHouseDatabase implements AutoCloseable {
         return publisher.publish(batch);
     }
 
+    public void publishIdentifiers(ReferenceKind kind, Map<Integer, String> identifiers) throws SQLException {
+        try (ClickHouseWriteBatch batch = newWriteBatch()) {
+            for (Map.Entry<Integer, String> entry : identifiers.entrySet()) {
+                batch.events().addReference(kind, entry.getKey(), entry.getValue());
+            }
+            publish(batch);
+        }
+    }
+
     public int nextIdentifierId(ReferenceKind kind, String value, int currentMaximum) throws SQLException {
         ensureOpen();
         Objects.requireNonNull(kind, "kind");

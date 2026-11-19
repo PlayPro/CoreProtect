@@ -914,9 +914,7 @@ public class ConfigHandler {
                 return -1;
             }
             if (clickHouse) {
-                if (!queueIdentifier(store.kind, id, value)) {
-                    throw new IllegalStateException("Database persistence halted before the ClickHouse identifier could be queued");
-                }
+                publishClickHouseIdentifiers(store.kind, Map.of(id, value));
             }
             store.store(id, value);
         }
@@ -924,6 +922,21 @@ public class ConfigHandler {
             queueIdentifier(store.kind, id, value);
         }
         return id;
+    }
+
+    private static void publishClickHouseIdentifiers(ReferenceKind kind, Map<Integer, String> identifiers) {
+        if (identifiers.isEmpty()) {
+            return;
+        }
+        if (Consumer.isPersistenceHalted()) {
+            throw new IllegalStateException("Database persistence halted before the ClickHouse identifiers could be published");
+        }
+        try {
+            Database.publishClickHouseIdentifiers(kind, identifiers);
+        }
+        catch (SQLException exception) {
+            throw new IllegalStateException("Unable to publish ClickHouse " + kind.name().toLowerCase(Locale.ROOT) + " identifiers", exception);
+        }
     }
 
     private static boolean queueIdentifier(ReferenceKind kind, int id, String value) {
@@ -943,10 +956,11 @@ public class ConfigHandler {
         }
     }
 
-    public static synchronized void uncacheIdentifier(ReferenceKind kind, int id, String value) {
+    public static synchronized void cachePublishedIdentifier(ReferenceKind kind, int id, String value) {
         IdentifierStore store = identifierStore(kind);
-        store.values.get().remove(value, Integer.valueOf(id));
-        store.reversed.get().remove(Integer.valueOf(id), value);
+        if (store.canStore(id, value)) {
+            store.store(id, value);
+        }
     }
 
     public static void insertQueuedIdentifier(ConsumerWriteBatch batch, Statement statement, ReferenceKind kind, int index, Object candidate, int id) throws Exception {
@@ -972,7 +986,9 @@ public class ConfigHandler {
                 throw new SQLException("Identifier mapping changed for " + store.table + " row " + id);
             }
             batch.addReference(kind, index, id, value);
-            store.store(id, value);
+            if (!databaseType.isClickHouse()) {
+                store.store(id, value);
+            }
         }
     }
 
@@ -1109,9 +1125,7 @@ public class ConfigHandler {
             }
             boolean clickHouse = databaseType.isClickHouse();
             if (clickHouse) {
-                if (!queueIdentifiers(ReferenceKind.WORLD, queuedWorlds)) {
-                    throw new IllegalStateException("Database persistence halted before the ClickHouse world identifiers could be queued");
-                }
+                publishClickHouseIdentifiers(ReferenceKind.WORLD, queuedWorlds);
             }
             ConfigHandler.worlds = syncMap(cache.values);
             ConfigHandler.worldsReversed = syncMap(cache.reversed);

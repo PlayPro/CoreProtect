@@ -632,6 +632,10 @@ public class Database extends Queue {
         return new RelationalConsumerWriteBatch(connection, ConfigHandler.databaseType);
     }
 
+    public static void publishClickHouseIdentifiers(ConsumerWriteBatch.ReferenceKind kind, Map<Integer, String> identifiers) throws SQLException {
+        requireClickHouseDatabase().publishIdentifiers(kind, identifiers);
+    }
+
     public static int nextClickHouseIdentifierId(ConsumerWriteBatch.ReferenceKind kind, String value, int currentMaximum) throws SQLException {
         return requireClickHouseDatabase().nextIdentifierId(kind, value, currentMaximum);
     }

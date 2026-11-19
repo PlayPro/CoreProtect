@@ -74,6 +74,7 @@ import net.coreprotect.paper.listener.BlockPreDispenseListener;
 import net.coreprotect.paper.listener.CopperGolemChestListener;
 import net.coreprotect.paper.listener.CushionListener;
 import net.coreprotect.paper.listener.FlowerPotManipulateListener;
+import net.coreprotect.listener.player.FlowerPotListener;
 import net.coreprotect.paper.listener.LegacyTNTPrimeListener;
 import net.coreprotect.paper.listener.PaperChatListener;
 import net.coreprotect.paper.listener.LegacyVehicleRemoveListener;
@@ -198,7 +199,7 @@ public final class ListenerHandler {
             pluginManager.registerEvents(new FlowerPotManipulateListener(), plugin);
         }
         catch (Exception | LinkageError e) {
-            // Ignore registration failures to remain compatible with older servers.
+            pluginManager.registerEvents(new FlowerPotListener(), plugin);
         }
 
         // Player Listeners

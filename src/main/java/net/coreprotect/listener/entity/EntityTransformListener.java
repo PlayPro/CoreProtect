@@ -8,11 +8,17 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityTransformEvent;
 import org.bukkit.event.entity.EntityTransformEvent.TransformReason;
 
+import net.coreprotect.utility.EntitySpawnTracking;
+
 public final class EntityTransformListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     protected void onEntityTransform(EntityTransformEvent event) {
+        if (event.isCancelled()) {
+            return;
+        }
         Entity entity = event.getEntity();
+        EntitySpawnTracking.handleTransformation(entity, event.getTransformedEntities());
         if (event.getTransformReason() != TransformReason.LIGHTNING || !(entity instanceof LivingEntity)) {
             return;
         }

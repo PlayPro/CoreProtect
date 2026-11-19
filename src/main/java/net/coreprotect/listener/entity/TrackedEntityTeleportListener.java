@@ -1,12 +1,12 @@
 package net.coreprotect.listener.entity;
 
 import org.bukkit.Location;
-import org.bukkit.entity.minecart.ExplosiveMinecart;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityTeleportEvent;
 import org.bukkit.event.entity.EntityPortalEvent;
+import org.bukkit.event.entity.EntityPortalExitEvent;
+import org.bukkit.event.entity.EntityTeleportEvent;
 
 import net.coreprotect.utility.EntitySpawnTracking;
 
@@ -14,7 +14,7 @@ public final class TrackedEntityTeleportListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onEntityTeleport(EntityTeleportEvent event) {
-        if (!changesWorld(event)) {
+        if (event.isCancelled() || !changesWorld(event)) {
             return;
         }
 
@@ -24,14 +24,17 @@ public final class TrackedEntityTeleportListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onEntityPortal(EntityPortalEvent event) {
-        if (event.getEntity() instanceof ExplosiveMinecart && changesWorld(event)) {
-            VehicleDestroyListener.cancelTntRemoval(event.getEntity());
-        }
+        onEntityTeleport(event);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onEntityPortalExit(EntityPortalExitEvent event) {
+        onEntityTeleport(event);
     }
 
     private static boolean changesWorld(EntityTeleportEvent event) {
         Location from = event.getFrom();
         Location to = event.getTo();
-        return from.getWorld() != null && to != null && to.getWorld() != null && !from.getWorld().getUID().equals(to.getWorld().getUID());
+        return from != null && from.getWorld() != null && to != null && to.getWorld() != null && !from.getWorld().getUID().equals(to.getWorld().getUID());
     }
 }

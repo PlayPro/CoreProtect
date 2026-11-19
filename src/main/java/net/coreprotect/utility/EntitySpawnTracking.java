@@ -41,6 +41,7 @@ import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.entity.VehicleDestroyListener;
+import net.coreprotect.listener.player.EntityInteractionListener;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.entity.EntityInteractionOrigin;
 import net.coreprotect.model.entity.EntitySpawnData;
@@ -298,6 +299,47 @@ public final class EntitySpawnTracking {
     public static void trackRevivedEntity(Entity entity, UUID previousUuid) {
         track(entity);
         Queue.queueEntitySpawnRevived(previousUuid, entity.getUniqueId(), entity.getLocation());
+    }
+
+    public static void handleTransformation(Entity source, List<Entity> replacements) {
+        if (replacements.isEmpty() || !isTrackedOrPendingIdentity(source)) {
+            return;
+        }
+
+        EntityInteractionListener.flushPendingInteractions(source);
+        UUID sourceUuid = source.getUniqueId();
+        Entity primary = replacements.get(0);
+        for (Entity replacement : replacements) {
+            if (replacement != source && !sourceUuid.equals(replacement.getUniqueId())) {
+                replacement.getPersistentDataContainer().remove(getKey());
+                replacement.getPersistentDataContainer().remove(getPendingIdentityKey());
+                replacement.getPersistentDataContainer().remove(getOriginSeedKey());
+            }
+        }
+
+        CoreProtect plugin = CoreProtect.getInstance();
+        if (plugin == null || !plugin.isEnabled()) {
+            return;
+        }
+        Runnable confirm = () -> {
+            if (primary != source && primary.isValid() && !primary.isDead()) {
+                trackRevivedEntity(primary, sourceUuid);
+                if (!sourceUuid.equals(primary.getUniqueId())) {
+                    clearTracking(sourceUuid);
+                }
+            }
+        };
+        try {
+            if (ConfigHandler.isFolia) {
+                PaperAdapter.ADAPTER.executeEntityTask(plugin, primary, confirm, null, 1L);
+            }
+            else {
+                Scheduler.scheduleSyncDelayedTask(plugin, confirm, primary, 1);
+            }
+        }
+        catch (RuntimeException e) {
+            ErrorReporter.report(e);
+        }
     }
 
     public static void handleLoad(Entity entity) {

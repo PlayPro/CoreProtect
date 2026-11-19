@@ -35,6 +35,10 @@ public final class TrackedEntityRemoveListener implements Listener {
             }
         }
         switch (event.getCause()) {
+            case ENTER_BLOCK:
+                EntitySpawnTracking.handleUnload(entity);
+                return;
+            case TRANSFORMATION:
             case UNLOAD:
                 return;
             case DEATH:

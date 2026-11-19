@@ -2,7 +2,6 @@ package net.coreprotect.listener.entity;
 
 import java.sql.Connection;
 import java.sql.Statement;
-import java.util.Locale;
 import java.util.UUID;
 
 import org.bukkit.GameMode;
@@ -33,6 +32,7 @@ import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.LookupThrottle;
 import net.coreprotect.utility.EntitySpawnTracking;
+import net.coreprotect.utility.EntityUtils;
 
 public final class HangingBreakByEntityListener extends Queue implements Listener {
 
@@ -66,19 +66,17 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
             public void run() {
                 try (Connection connection = Database.getConnection(true)) {
                     if (connection != null) {
-                        Statement statement = connection.createStatement();
-                        String blockData = entityUuid == null ? BlockLookup.performLookup(null, statement, block, player, 0, 1, 7) : BlockLookup.performEntityLookup(null, statement, block, player, 1, 7, entityUuid);
-
-                        if (blockData.contains("\n")) {
-                            for (String b : blockData.split("\n")) {
-                                Chat.sendComponent(player, b);
+                        try (Statement statement = connection.createStatement()) {
+                            String blockData = entityUuid == null ? BlockLookup.performLookup(null, statement, block, player, 0, 1, 7) : BlockLookup.performEntityLookup(null, statement, block, player, 1, 7, entityUuid);
+                            if (blockData.contains("\n")) {
+                                for (String b : blockData.split("\n")) {
+                                    Chat.sendComponent(player, b);
+                                }
+                            }
+                            else if (!blockData.isEmpty()) {
+                                Chat.sendComponent(player, blockData);
                             }
                         }
-                        else if (blockData.length() > 0) {
-                            Chat.sendComponent(player, blockData);
-                        }
-
-                        statement.close();
                     }
                     else {
                         Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
@@ -93,38 +91,29 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
-    protected void onHangingBreakByEntity(HangingBreakByEntityEvent event) {
-        Entity entity = event.getEntity();
-        Entity remover = event.getRemover();
-        BlockState blockEvent = event.getEntity().getLocation().getBlock().getState();
-        boolean logDrops = true;
-
-        boolean inspecting = false;
+    protected void onInspectHangingBreak(HangingBreakByEntityEvent event) {
         if (event.getRemover() instanceof Player) {
             Player player = (Player) event.getRemover();
-
-            if (ConfigHandler.inspecting.get(player.getName()) != null) {
-                if (ConfigHandler.inspecting.get(player.getName())) {
-                    // block check
-                    inspectEntity(blockEvent, player, EntitySpawnTracking.isCushion(entity) ? entity.getUniqueId() : null);
-                    event.setCancelled(true);
-                    inspecting = true;
-                }
+            if (Boolean.TRUE.equals(ConfigHandler.inspecting.get(player.getName()))) {
+                Entity entity = event.getEntity();
+                event.setCancelled(true);
+                inspectEntity(entity.getLocation().getBlock().getState(), player, EntitySpawnTracking.isCushion(entity) ? entity.getUniqueId() : null);
             }
         }
+    }
 
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    protected void onHangingBreakByEntity(HangingBreakByEntityEvent event) {
+        if (event.isCancelled()) {
+            return;
+        }
+        Entity entity = event.getEntity();
         if (entity instanceof ItemFrame || entity instanceof Painting) {
-            String culprit = "#entity";
-            if (remover != null) {
-                if (remover instanceof Player) {
-                    Player player = (Player) remover;
-                    culprit = player.getName();
-                    logDrops = player.getGameMode() != GameMode.CREATIVE;
-                }
-                else if (remover.getType() != null) {
-                    culprit = "#" + remover.getType().name().toLowerCase(Locale.ROOT);
-                }
-            }
+            Entity remover = event.getRemover();
+            Entity attacker = EntityUtils.getEntitySource(remover);
+            boolean logDrops = !(attacker instanceof Player) || ((Player) attacker).getGameMode() != GameMode.CREATIVE;
+            String culprit = EntityUtils.getBreakUser(remover, "#entity");
+            BlockState blockEvent = entity.getLocation().getBlock().getState();
 
             String blockData = null;
             Material material;
@@ -134,7 +123,7 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
                 ItemFrame itemframe = (ItemFrame) entity;
                 blockData = "FACING=" + itemframe.getFacing().name();
 
-                if (!event.isCancelled() && Config.getConfig(entity.getWorld()).ITEM_TRANSACTIONS && !inspecting) {
+                if (Config.getConfig(entity.getWorld()).ITEM_TRANSACTIONS) {
                     if (itemframe.getItem().getType() != Material.AIR) {
                         ItemStack[] oldState = new ItemStack[] { itemframe.getItem().clone() };
                         ItemStack[] newState = new ItemStack[] { new ItemStack(Material.AIR) };
@@ -154,7 +143,7 @@ public final class HangingBreakByEntityListener extends Queue implements Listene
                 }
             }
 
-            if (!event.isCancelled() && Config.getConfig(blockEvent.getWorld()).BLOCK_BREAK && !inspecting) {
+            if (Config.getConfig(blockEvent.getWorld()).BLOCK_BREAK) {
                 Queue.queueBlockBreak(culprit, blockEvent, material, blockData, itemData);
             }
         }

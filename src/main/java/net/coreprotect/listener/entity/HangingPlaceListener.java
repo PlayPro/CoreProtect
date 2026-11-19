@@ -17,10 +17,22 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.utility.MaterialUtils;
 
-public final class HangingPlaceListener extends Queue implements Listener {
+public final class HangingPlaceListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
+    protected void onInspectHangingPlace(HangingPlaceEvent event) {
+        Player player = event.getPlayer();
+        if (player != null && (event.getEntity() instanceof ItemFrame || event.getEntity() instanceof Painting)
+                && Boolean.TRUE.equals(ConfigHandler.inspecting.get(player.getName()))) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     protected void onHangingPlace(HangingPlaceEvent event) {
+        if (event.isCancelled() || event.getPlayer() == null) {
+            return;
+        }
         Entity entity = event.getEntity();
         Player player = event.getPlayer();
 
@@ -49,15 +61,7 @@ public final class HangingPlaceListener extends Queue implements Listener {
                 }
             }
 
-            int inspect = 0;
-            if (ConfigHandler.inspecting.get(player.getName()) != null) {
-                if (ConfigHandler.inspecting.get(player.getName())) {
-                    inspect = 1;
-                    event.setCancelled(true);
-                }
-            }
-
-            if (!event.isCancelled() && Config.getConfig(blockEvent.getWorld()).BLOCK_PLACE && inspect == 0) {
+            if (Config.getConfig(blockEvent.getWorld()).BLOCK_PLACE) {
                 Queue.queueBlockPlace(player.getName(), blockEvent.getState(), blockEvent.getType(), null, material, artId, 1, blockData);
             }
         }

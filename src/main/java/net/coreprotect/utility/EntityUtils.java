@@ -22,12 +22,7 @@ public class EntityUtils {
     }
 
     public static String getEntityUser(Entity entity) {
-        if (entity instanceof Projectile) {
-            ProjectileSource shooter = ((Projectile) entity).getShooter();
-            if (shooter instanceof Entity) {
-                entity = (Entity) shooter;
-            }
-        }
+        entity = getEntitySource(entity);
         if (entity instanceof Player) {
             return entity.getName();
         }
@@ -37,6 +32,36 @@ public class EntityUtils {
 
         EntityType type = entity.getType();
         return type == null ? null : "#" + type.name().toLowerCase(Locale.ROOT);
+    }
+
+    public static Entity getEntitySource(Entity entity) {
+        if (entity instanceof Projectile) {
+            ProjectileSource shooter = ((Projectile) entity).getShooter();
+            if (shooter instanceof Entity) {
+                return (Entity) shooter;
+            }
+        }
+        return entity;
+    }
+
+    public static String getBreakUser(Entity entity, String fallback) {
+        String user = getEntityUser(entity);
+        if (user == null) {
+            return fallback;
+        }
+        switch (user) {
+            case "#primed_tnt":
+            case "#tnt_minecart":
+            case "#minecart_tnt":
+                return "#tnt";
+            case "#ender_dragon":
+            case "#ender_dragon_part":
+                return "#enderdragon";
+            case "#wither_skull":
+                return "#wither";
+            default:
+                return user;
+        }
     }
 
     public static int getEntityId(EntityType type) {

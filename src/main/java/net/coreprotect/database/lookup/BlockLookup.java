@@ -93,7 +93,7 @@ public class BlockLookup {
                 index = WorldUtils.getWidIndex("block");
             }
             else {
-                where = "rowid IN(" + entityBlockRowIds(statement, entitySpawnRowId) + ") AND action IN(" + LookupActions.ENTITY_SPAWN + "," + LookupActions.ENTITY_KILL + ") AND time >= " + checkTime;
+                where = "rowid IN(" + entityBlockRowIds(statement, entitySpawnRowId, checkTime) + ") AND action IN(" + LookupActions.ENTITY_SPAWN + "," + LookupActions.ENTITY_KILL + ") AND time >= " + checkTime;
                 index = "";
             }
             boolean combinedDuckDBPage = ConfigHandler.databaseType.isDuckDB();
@@ -244,26 +244,43 @@ public class BlockLookup {
         return resultText;
     }
 
-    private static String entityBlockRowIds(Statement statement, int entitySpawnRowId) throws SQLException {
+    private static String entityBlockRowIds(Statement statement, int entitySpawnRowId, long minimumTime) throws SQLException {
         StringJoiner ids = new StringJoiner(",");
+        long blockRowId = 0L;
         long killRowId = 0L;
-        try (ResultSet results = statement.executeQuery("SELECT block_rowid,kill_rowid FROM " + ConfigHandler.prefix + "entity_spawn WHERE rowid=" + entitySpawnRowId)) {
+        long spawnTime = 0L;
+        try (ResultSet results = statement.executeQuery("SELECT block_rowid,kill_rowid,time FROM " + ConfigHandler.prefix + "entity_spawn WHERE rowid=" + entitySpawnRowId)) {
             if (results.next()) {
-                long blockRowId = results.getLong("block_rowid");
+                blockRowId = results.getLong("block_rowid");
                 killRowId = results.getLong("kill_rowid");
+                spawnTime = results.getLong("time");
                 if (blockRowId > 0L) {
                     ids.add(Long.toString(blockRowId));
                 }
             }
         }
         if (killRowId > 0L) {
-            try (ResultSet results = statement.executeQuery("SELECT rowid AS id FROM " + ConfigHandler.prefix + "block WHERE action=" + LookupActions.ENTITY_KILL + " AND data=" + killRowId)) {
-                while (results.next()) {
-                    ids.add(Long.toString(results.getLong("id")));
-                }
+            String query = "SELECT rowid AS id FROM " + ConfigHandler.prefix + "block WHERE action=" + LookupActions.ENTITY_KILL + " AND data=" + killRowId;
+            long candidateTime = Math.max(minimumTime, spawnTime);
+            String candidate = query + " AND time >= " + candidateTime + (blockRowId > 0L ? " AND rowid > " + blockRowId : "");
+            if (!appendBlockRowIds(statement, candidate, ids) && (blockRowId > 0L || candidateTime > minimumTime)) {
+                appendBlockRowIds(statement, query + " AND time >= " + minimumTime, ids);
             }
         }
         return ids.length() == 0 ? "0" : ids.toString();
+    }
+
+    private static boolean appendBlockRowIds(Statement statement, String query, StringJoiner ids) throws SQLException {
+        try (ResultSet results = statement.executeQuery(query)) {
+            boolean found = results.next();
+            if (found) {
+                do {
+                    ids.add(Long.toString(results.getLong("id")));
+                }
+                while (results.next());
+            }
+            return found;
+        }
     }
 
     private static String placedEntityTypeIds() {

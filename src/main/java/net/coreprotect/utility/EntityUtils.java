@@ -5,13 +5,16 @@ import java.util.Locale;
 import org.bukkit.Material;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
+import org.bukkit.entity.ThrowableProjectile;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.projectiles.ProjectileSource;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
-import org.bukkit.entity.ThrowableProjectile;
 
 public class EntityUtils {
 
@@ -22,16 +25,32 @@ public class EntityUtils {
     }
 
     public static String getEntityUser(Entity entity) {
-        entity = getEntitySource(entity);
+        return getDirectEntityUser(getEntitySource(entity));
+    }
+
+    public static String getDirectEntityUser(Entity entity) {
         if (entity instanceof Player) {
             return entity.getName();
         }
+        return getEntityTypeUser(entity);
+    }
+
+    public static String getEntityTypeUser(Entity entity) {
         if (entity == null) {
             return null;
         }
 
         EntityType type = entity.getType();
         return type == null ? null : "#" + type.name().toLowerCase(Locale.ROOT);
+    }
+
+    public static String getLivingProjectileShooterUser(Projectile projectile) {
+        ProjectileSource shooter = projectile.getShooter();
+        return shooter instanceof LivingEntity ? getDirectEntityUser((LivingEntity) shooter) : null;
+    }
+
+    public static Entity getDamager(EntityDamageEvent damage) {
+        return damage instanceof EntityDamageByEntityEvent ? ((EntityDamageByEntityEvent) damage).getDamager() : null;
     }
 
     public static Entity getEntitySource(Entity entity) {

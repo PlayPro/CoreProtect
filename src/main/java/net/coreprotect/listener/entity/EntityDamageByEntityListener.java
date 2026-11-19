@@ -17,10 +17,9 @@ import org.bukkit.inventory.ItemStack;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
-import net.coreprotect.listener.player.PlayerInteractEntityListener;
-import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.entity.HangingUtil;
 
 public final class EntityDamageByEntityListener implements Listener {
 
@@ -31,7 +30,7 @@ public final class EntityDamageByEntityListener implements Listener {
             Player player = (Player) event.getDamager();
             if (Boolean.TRUE.equals(ConfigHandler.inspecting.get(player.getName()))) {
                 event.setCancelled(true);
-                HangingBreakByEntityListener.inspectItemFrame(entity.getLocation().getBlock().getState(), player);
+                HangingBreakByEntityListener.inspectEntity(entity.getLocation().getBlock().getState(), player, null);
             }
         }
     }
@@ -54,8 +53,8 @@ public final class EntityDamageByEntityListener implements Listener {
         String user = EntityUtils.getBreakUser(damager, "#entity");
         if (entity instanceof ItemFrame && config.ITEM_TRANSACTIONS) {
             ItemFrame frame = (ItemFrame) entity;
-            if (event.getCause() != DamageCause.ENTITY_EXPLOSION && event.getCause() != DamageCause.BLOCK_EXPLOSION) {
-                logFrameItemRemoval(frame, user, !creative);
+            if (!frame.isFixed() && event.getCause() != DamageCause.ENTITY_EXPLOSION && event.getCause() != DamageCause.BLOCK_EXPLOSION) {
+                HangingUtil.logFrameItemRemoval(frame, user, !creative);
             }
         }
         else if (entity instanceof EnderCrystal && config.BLOCK_BREAK) {
@@ -65,18 +64,6 @@ public final class EntityDamageByEntityListener implements Listener {
         else if (entity instanceof ArmorStand && config.ITEM_TRANSACTIONS) {
             ItemStack[] contents = ItemUtils.getContainerContents(Material.ARMOR_STAND, entity, entity.getLocation().getBlock().getLocation());
             EntityDeathListener.trackArmorStandBreak(entity, event, user, contents);
-        }
-    }
-
-    static void logFrameItemRemoval(ItemFrame frame, String user, boolean logDrops) {
-        if (frame.isFixed()) {
-            return;
-        }
-        ItemStack item = frame.getItem();
-        if (item != null && !BlockUtils.isAir(item.getType()) && item.getAmount() > 0) {
-            ItemStack[] before = { item.clone() };
-            ItemStack[] after = new ItemStack[0];
-            PlayerInteractEntityListener.queueContainerSpecifiedItems(user, Material.ITEM_FRAME, new Object[] { before, after, frame.getFacing() }, frame.getLocation(), logDrops);
         }
     }
 }

@@ -24,7 +24,7 @@ import net.coreprotect.listener.player.SpawnEggUseListener;
 import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.EntityUtils;
 
-public final class CreatureSpawnListener extends Queue implements Listener {
+public final class CreatureSpawnListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onCreatureSpawn(CreatureSpawnEvent event) {

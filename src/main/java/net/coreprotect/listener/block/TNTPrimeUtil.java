@@ -1,17 +1,15 @@
 package net.coreprotect.listener.block;
 
-import java.util.Locale;
-
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
-import org.bukkit.projectiles.ProjectileSource;
 
+import net.coreprotect.config.Config;
+import net.coreprotect.consumer.Queue;
 import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.WorldUtils;
 
 public final class TNTPrimeUtil {
@@ -19,6 +17,18 @@ public final class TNTPrimeUtil {
     public static volatile boolean useTNTPrimeEvent = false;
 
     private TNTPrimeUtil() {
+    }
+
+    public static void logPrime(Block block, Entity primer, boolean fire) {
+        if (block.getType() != Material.TNT || !Config.getConfig(block.getWorld()).EXPLOSIONS) {
+            return;
+        }
+
+        String user = getUser(primer);
+        if (fire) {
+            user = getFireUser(block, user);
+        }
+        Queue.queueBlockBreak(user, block.getState(), Material.TNT, block.getBlockData().getAsString(), 0);
     }
 
     public static String getFireUser(Block block, String fallback) {
@@ -47,23 +57,8 @@ public final class TNTPrimeUtil {
     }
 
     public static String getUser(Entity entity) {
-        if (entity instanceof Player) {
-            return ((Player) entity).getName();
-        }
-        else if (entity instanceof Projectile) {
-            ProjectileSource source = ((Projectile) entity).getShooter();
-            if (source instanceof Player) {
-                return ((Player) source).getName();
-            }
-            else if (source instanceof LivingEntity && ((LivingEntity) source).getType() != null) {
-                return "#" + ((LivingEntity) source).getType().name().toLowerCase(Locale.ROOT);
-            }
-        }
-        else if (entity != null && entity.getType() != null) {
-            return "#" + entity.getType().name().toLowerCase(Locale.ROOT);
-        }
-
-        return "#tnt";
+        String user = entity instanceof Projectile ? EntityUtils.getLivingProjectileShooterUser((Projectile) entity) : EntityUtils.getDirectEntityUser(entity);
+        return user == null ? "#tnt" : user;
     }
 
 }

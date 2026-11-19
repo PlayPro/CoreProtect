@@ -1025,7 +1025,7 @@ public final class EntitySpawnTracking {
                 equipmentData.add(serializeItem(equipment.getLeggings()));
                 equipmentData.add(serializeItem(equipment.getChestplate()));
                 equipmentData.add(serializeItem(equipment.getHelmet()));
-                trimTrailingNulls(equipmentData);
+                LivingEntityDetails.trimTrailingNulls(equipmentData);
                 bodyEquipment = LivingEntityDetails.serializeBody(equipment);
             }
         }
@@ -1037,7 +1037,7 @@ public final class EntitySpawnTracking {
         else if (bodyEquipment != null) {
             state.add(bodyEquipment);
         }
-        trimTrailingNulls(state);
+        LivingEntityDetails.trimTrailingNulls(state);
         return state;
     }
 
@@ -1170,12 +1170,6 @@ public final class EntitySpawnTracking {
 
     private static Object serializeItem(ItemStack item) {
         return item == null || BlockUtils.isAir(item.getType()) ? null : item.serialize();
-    }
-
-    private static void trimTrailingNulls(List<Object> values) {
-        while (!values.isEmpty() && values.get(values.size() - 1) == null) {
-            values.remove(values.size() - 1);
-        }
     }
 
     private static ItemStack getItem(List<?> items, int index) {

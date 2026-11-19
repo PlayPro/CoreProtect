@@ -449,7 +449,7 @@ public class Queue {
         queueStandardData(new Object[] { null, Process.ENTITY_INSERT, null, 0, null, 0, id, null }, new String[] { null, null }, name, false, Consumer.reserveConsumer());
     }
 
-    protected static void queueEntityKill(String user, Location location, List<Object> data, EntityType type) {
+    public static void queueEntityKill(String user, Location location, List<Object> data, EntityType type) {
         queueStandardData(new Object[] { null, Process.ENTITY_KILL, null, 0, null, 0, 0 }, new String[] { user, null }, new Object[] { getBlockLocation(location), type, null }, false, Consumer.consumerObjectList, data, Consumer.reserveConsumer());
     }
 
@@ -530,7 +530,7 @@ public class Queue {
         queueStandardData(new Object[] { null, Process.BLOCKDATA_INSERT, null, 0, null, 0, id, null }, new String[] { null, null }, data, false, Consumer.reserveConsumer());
     }
 
-    protected static void queueNaturalBlockBreak(String user, BlockState block, Block relative, Material type, String blockData, int data) {
+    public static void queueNaturalBlockBreak(String user, BlockState block, Block relative, Material type, String blockData, int data) {
         List<BlockState> blockStates = new ArrayList<>();
         if (relative != null) {
             blockStates.add(relative.getState());
@@ -583,7 +583,7 @@ public class Queue {
         queueStandardData(new Object[] { null, Process.PLAYER_INTERACTION, type, 0, null, 0, 0, blockData }, new String[] { user, null }, getBlockLocation(location), false, Consumer.reserveConsumer());
     }
 
-    protected static void queuePlayerKill(String user, Location location, String player) {
+    public static void queuePlayerKill(String user, Location location, String player) {
         queueStandardData(new Object[] { null, Process.PLAYER_KILL, null, 0, null, 0, 0, null }, new String[] { user, null }, new Object[] { getBlockLocation(location), player }, false, Consumer.reserveConsumer());
     }
 

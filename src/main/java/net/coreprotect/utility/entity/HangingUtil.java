@@ -16,6 +16,7 @@ import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.listener.player.PlayerInteractEntityListener;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.MaterialUtils;
@@ -25,6 +26,40 @@ public class HangingUtil {
 
     private HangingUtil() {
         throw new IllegalStateException("Utility class");
+    }
+
+    public static boolean isSupportedDecoration(Hanging entity) {
+        return entity instanceof ItemFrame || entity instanceof Painting;
+    }
+
+    public static Material getMaterial(Hanging entity) {
+        return entity instanceof ItemFrame ? BukkitAdapter.ADAPTER.getFrameType(entity) : Material.PAINTING;
+    }
+
+    public static String getFacingData(Hanging entity) {
+        return "FACING=" + entity.getFacing().name();
+    }
+
+    public static int getArtId(Hanging entity) {
+        if (entity instanceof Painting) {
+            try {
+                return MaterialUtils.getArtId(MaterialUtils.getPaintingArtName((Painting) entity), true);
+            }
+            catch (IncompatibleClassChangeError ignored) {
+                return 0;
+            }
+        }
+        return 0;
+    }
+
+    public static void logFrameItemRemoval(ItemFrame frame, String user, boolean logDrops) {
+        ItemStack item = frame.getItem();
+        if (item == null || BlockUtils.isAir(item.getType()) || item.getAmount() <= 0) {
+            return;
+        }
+
+        ItemStack[] before = { item.clone() };
+        PlayerInteractEntityListener.queueContainerSpecifiedItems(user, Material.ITEM_FRAME, new Object[] { before, new ItemStack[0], frame.getFacing() }, frame.getLocation(), logDrops);
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })

@@ -18,6 +18,7 @@ import org.bukkit.inventory.ItemStack;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.entity.HangingUtil;
 
 public final class EntityDamageByBlockListener implements Listener {
 
@@ -44,8 +45,9 @@ public final class EntityDamageByBlockListener implements Listener {
         }
 
         if (entity instanceof ItemFrame && Config.getConfig(entity.getWorld()).ITEM_TRANSACTIONS) {
-            if (event.getCause() != DamageCause.BLOCK_EXPLOSION && event.getCause() != DamageCause.ENTITY_EXPLOSION) {
-                EntityDamageByEntityListener.logFrameItemRemoval((ItemFrame) entity, user, false);
+            ItemFrame frame = (ItemFrame) entity;
+            if (!frame.isFixed() && event.getCause() != DamageCause.BLOCK_EXPLOSION && event.getCause() != DamageCause.ENTITY_EXPLOSION) {
+                HangingUtil.logFrameItemRemoval(frame, user, false);
             }
         }
         else if (entity instanceof ArmorStand && Config.getConfig(entity.getWorld()).ITEM_TRANSACTIONS) {

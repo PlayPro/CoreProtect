@@ -1,5 +1,7 @@
 package net.coreprotect.model.entity;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -42,7 +44,7 @@ public final class EntitySpawnRecord {
         this.yaw = yaw;
         this.pitch = pitch;
         this.removed = removed;
-        this.state = state;
+        this.state = state == null ? null : Collections.unmodifiableList(new ArrayList<>(state));
     }
 
     public int getRowId() {
@@ -98,12 +100,17 @@ public final class EntitySpawnRecord {
     }
 
     public Location getLocation() {
-        World world = Bukkit.getWorld(WorldUtils.getWorldName(worldId));
+        World world = getWorld(worldId);
         return world == null ? null : new Location(world, x, y, z, yaw, pitch);
     }
 
     public Location getOriginalLocation() {
-        World world = Bukkit.getWorld(WorldUtils.getWorldName(originalWorldId));
+        World world = getWorld(originalWorldId);
         return world == null ? null : new Location(world, originalX, originalY, originalZ);
+    }
+
+    private static World getWorld(int id) {
+        String worldName = WorldUtils.getWorldName(id);
+        return worldName.isEmpty() ? null : Bukkit.getWorld(worldName);
     }
 }

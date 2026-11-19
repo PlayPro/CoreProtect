@@ -13,7 +13,7 @@ import org.bukkit.event.block.EntityBlockFormEvent;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 
-public final class EntityBlockFormListener extends Queue implements Listener {
+public final class EntityBlockFormListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onEntityBlockForm(EntityBlockFormEvent event) {

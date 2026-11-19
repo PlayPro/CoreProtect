@@ -11,7 +11,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.utility.EntitySpawnTracking;
 
-public final class EntityPlaceListener extends Queue implements Listener {
+public final class EntityPlaceListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onEntityPlace(EntityPlaceEvent event) {

@@ -11,7 +11,6 @@ import org.bukkit.entity.minecart.ExplosiveMinecart;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.vehicle.VehicleDestroyEvent;
 
@@ -25,7 +24,7 @@ import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.EntityUtils;
 
-public final class VehicleDestroyListener extends Queue implements Listener {
+public final class VehicleDestroyListener implements Listener {
 
     private static final Map<UUID, PendingTntRemoval> pendingTntRemovals = new ConcurrentHashMap<>();
 
@@ -133,11 +132,7 @@ public final class VehicleDestroyListener extends Queue implements Listener {
     private static String getUser(VehicleDestroyEvent event) {
         Entity attacker = event.getAttacker();
         EntityDamageEvent damage = event.getVehicle().getLastDamageCause();
-        if (attacker == null && damage instanceof EntityDamageByEntityEvent) {
-            attacker = ((EntityDamageByEntityEvent) damage).getDamager();
-        }
-
-        String user = EntityUtils.getEntityUser(attacker);
+        String user = EntityUtils.getEntityUser(attacker == null ? EntityUtils.getDamager(damage) : attacker);
         if (user != null || damage == null) {
             return user;
         }

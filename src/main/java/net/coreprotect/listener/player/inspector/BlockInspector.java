@@ -1,5 +1,7 @@
 package net.coreprotect.listener.player.inspector;
 
+import java.util.UUID;
+
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -18,17 +20,22 @@ public class BlockInspector extends BaseInspector {
 
     public void performBlockLookup(Player player, BlockState blockState) {
         Location signLocation = blockState instanceof Sign && player.getGameMode() != GameMode.CREATIVE ? blockState.getLocation() : null;
-        inspectBlock(player, blockState, signLocation);
+        inspectHistory(player, blockState, signLocation, null);
     }
 
     public void performAirBlockLookup(Player player, BlockState blockState) {
-        inspectBlock(player, blockState, null);
+        inspectHistory(player, blockState, null, null);
     }
 
-    private void inspectBlock(Player player, BlockState blockState, Location signLocation) {
+    public void performEntityLookup(Player player, BlockState blockState, UUID entityUuid) {
+        inspectHistory(player, blockState, null, entityUuid);
+    }
+
+    private void inspectHistory(Player player, BlockState blockState, Location signLocation, UUID entityUuid) {
         startInspection(player, () -> {
             withStatement(player, (connection, statement) -> {
-                String result = BlockLookup.performLookup(null, statement, blockState, player, 0, 1, 7);
+                String result = entityUuid == null ? BlockLookup.performLookup(null, statement, blockState, player, 0, 1, 7)
+                        : BlockLookup.performEntityLookup(null, statement, blockState, player, 1, 7, entityUuid);
                 Chat.sendLookupComponents(player, result);
             });
             if (signLocation != null) {

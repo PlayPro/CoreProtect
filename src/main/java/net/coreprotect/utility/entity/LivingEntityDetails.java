@@ -19,6 +19,12 @@ public final class LivingEntityDetails {
         throw new IllegalStateException("Utility class");
     }
 
+    public static void trimTrailingNulls(List<?> values) {
+        while (!values.isEmpty() && values.get(values.size() - 1) == null) {
+            values.remove(values.size() - 1);
+        }
+    }
+
     public static List<Object> serialize(LivingEntity entity) {
         List<Object> details = new ArrayList<>();
         details.add(entity.getRemoveWhenFarAway());

@@ -240,31 +240,42 @@ public class ItemUtils {
         return Math.max(1, stackLimit);
     }
 
-    private static boolean isEmptyContainerSlot(ItemStack item) {
+    public static boolean isEmptyContainerSlot(ItemStack item) {
         return item == null || BlockUtils.isAir(item.getType()) || item.getAmount() <= 0;
     }
 
-    public static int setPlayerArmor(PlayerInventory inventory, ItemStack itemStack) {
-        Material type = itemStack.getType();
+    public static int getPlayerArmorSlot(Material type) {
         String itemName = type.name();
-        boolean isHelmet = (itemName.endsWith("_HELMET") || itemName.endsWith("_HEAD") || itemName.endsWith("_SKULL") || itemName.endsWith("_PUMPKIN"));
-        boolean isChestplate = type == Material.ELYTRA || itemName.endsWith("_CHESTPLATE");
-        boolean isLeggings = (itemName.endsWith("_LEGGINGS"));
-        boolean isBoots = (itemName.endsWith("_BOOTS"));
+        if (itemName.endsWith("_HELMET") || itemName.endsWith("_HEAD") || itemName.endsWith("_SKULL") || itemName.endsWith("_PUMPKIN")) {
+            return 3;
+        }
+        if (type == Material.ELYTRA || itemName.endsWith("_CHESTPLATE")) {
+            return 2;
+        }
+        if (itemName.endsWith("_LEGGINGS")) {
+            return 1;
+        }
+        if (itemName.endsWith("_BOOTS")) {
+            return 0;
+        }
+        return -1;
+    }
 
-        if (isHelmet && isEmptyContainerSlot(inventory.getHelmet())) {
+    public static int setPlayerArmor(PlayerInventory inventory, ItemStack itemStack) {
+        int slot = getPlayerArmorSlot(itemStack.getType());
+        if (slot == 3 && isEmptyContainerSlot(inventory.getHelmet())) {
             inventory.setHelmet(itemStack);
             return 3;
         }
-        else if (isChestplate && isEmptyContainerSlot(inventory.getChestplate())) {
+        else if (slot == 2 && isEmptyContainerSlot(inventory.getChestplate())) {
             inventory.setChestplate(itemStack);
             return 2;
         }
-        else if (isLeggings && isEmptyContainerSlot(inventory.getLeggings())) {
+        else if (slot == 1 && isEmptyContainerSlot(inventory.getLeggings())) {
             inventory.setLeggings(itemStack);
             return 1;
         }
-        else if (isBoots && isEmptyContainerSlot(inventory.getBoots())) {
+        else if (slot == 0 && isEmptyContainerSlot(inventory.getBoots())) {
             inventory.setBoots(itemStack);
             return 0;
         }

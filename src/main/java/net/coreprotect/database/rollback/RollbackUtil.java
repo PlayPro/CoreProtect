@@ -2,6 +2,7 @@ package net.coreprotect.database.rollback;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 import org.bukkit.FireworkEffect;
 import org.bukkit.FireworkEffect.Builder;
@@ -21,7 +22,6 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.BannerMeta;
@@ -152,199 +152,198 @@ public class RollbackUtil extends Lookup {
         }
     }
 
-    protected static int modifyContainerItems(Material type, Object container, int slot, ItemStack itemstack, int action) {
-        int modifiedArmor = -1;
+    protected static int modifyContainerItems(Material type, Object container, int slot, ItemStack item, int action) {
+        return replayContainerItems(type, container, slot, item, action).modifiedArmorSlot();
+    }
+
+    public static ContainerReplayResult replayContainerItems(Material type, Object container, int slot, ItemStack item, int action) {
+        if (container == null || ItemUtils.isEmptyContainerSlot(item) || action < 0 || action > 1) {
+            return ContainerReplayResult.REJECTED;
+        }
         try {
-            ItemStack[] contents = null;
-
-            if (type != null && type.equals(Material.ARMOR_STAND)) {
-                EntityEquipment equipment = (EntityEquipment) container;
-                if (equipment != null) {
-                    if (action == 1) {
-                        itemstack.setAmount(1);
-                    }
-                    else {
-                        itemstack.setType(Material.AIR);
-                        itemstack.setAmount(0);
-                    }
-
-                    if (slot < 4) {
-                        contents = equipment.getArmorContents();
-                        if (slot >= 0) {
-                            contents[slot] = itemstack;
-                        }
-                        equipment.setArmorContents(contents);
-                    }
-                    else {
-                        ArmorStand armorStand = (ArmorStand) equipment.getHolder();
-                        armorStand.setArms(true);
-                        switch (slot) {
-                            case 4:
-                                equipment.setItemInMainHand(itemstack);
-                                break;
-                            case 5:
-                                equipment.setItemInOffHand(itemstack);
-                                break;
-                        }
-                    }
-                }
+            if (container instanceof EntityEquipment && type == Material.ARMOR_STAND) {
+                return replayEquipment((EntityEquipment) container, slot, item, action);
             }
-            else if (type != null && type.equals(Material.ITEM_FRAME)) {
+            if (container instanceof ItemFrame) {
                 ItemFrame frame = (ItemFrame) container;
-                if (frame != null) {
-                    if (action == 1) {
-                        itemstack.setAmount(1);
-                    }
-                    else {
-                        itemstack.setType(Material.AIR);
-                        itemstack.setAmount(0);
-                    }
-
-                    frame.setItem(itemstack);
-                }
+                return replaySingleSlot(frame.getItem(), item, action, replacement -> {
+                    frame.setItem(replacement);
+                    return true;
+                });
             }
-            else if (type != null && type.equals(Material.JUKEBOX)) {
-                Jukebox jukebox = null;
-                if (container instanceof Jukebox) {
-                    jukebox = (Jukebox) container;
+            if (type == Material.JUKEBOX) {
+                Object state = container instanceof Inventory ? ((Inventory) container).getHolder() : container;
+                if (state instanceof Jukebox) {
+                    Jukebox jukebox = (Jukebox) state;
+                    return replaySingleSlot(jukebox.getRecord(), item, action, replacement -> {
+                        jukebox.setRecord(replacement);
+                        return jukebox.update();
+                    });
                 }
-                else if (container instanceof Inventory) {
-                    InventoryHolder holder = ((Inventory) container).getHolder();
-                    if (holder instanceof Jukebox) {
-                        jukebox = (Jukebox) holder;
-                    }
-                }
-                if (jukebox != null) {
-                    ItemStack record = null;
-                    if (action == 1) {
-                        if (BlockUtils.isAir(itemstack.getType())) {
-                            return modifiedArmor;
-                        }
-                        record = itemstack.clone();
-                        record.setAmount(1);
-                    }
-
-                    jukebox.setRecord(record);
-                    jukebox.update();
-                }
+                return ContainerReplayResult.REJECTED;
             }
-            else {
+            if (container instanceof Inventory) {
                 Inventory inventory = (Inventory) container;
-                if (inventory != null) {
-                    boolean isPlayerInventory = (inventory instanceof PlayerInventory);
-                    if (action == 1) {
-                        int count = 0;
-                        int amount = itemstack.getAmount();
-                        itemstack.setAmount(1);
-
-                        while (count < amount) {
-                            boolean addedItem = false;
-                            if (isPlayerInventory) {
-                                int setArmor = ItemUtils.setPlayerArmor((PlayerInventory) inventory, itemstack);
-                                addedItem = (setArmor > -1);
-                                modifiedArmor = addedItem ? setArmor : modifiedArmor;
-                            }
-                            if (!addedItem) {
-                                if (BukkitAdapter.ADAPTER.isChiseledBookshelf(type)) {
-                                    ItemStack[] inventoryContents = inventory.getStorageContents();
-                                    int i = 0;
-                                    for (ItemStack stack : inventoryContents) {
-                                        if (stack == null) {
-                                            inventoryContents[i] = itemstack;
-                                            addedItem = true;
-                                            break;
-                                        }
-                                        i++;
-                                    }
-                                    if (addedItem) {
-                                        inventory.setStorageContents(inventoryContents);
-                                    }
-                                    else {
-                                        addedItem = (inventory.addItem(itemstack).size() == 0);
-                                    }
-                                }
-                                else {
-                                    addedItem = (inventory.addItem(itemstack).size() == 0);
-                                }
-                            }
-                            if (!addedItem && isPlayerInventory) {
-                                PlayerInventory playerInventory = (PlayerInventory) inventory;
-                                ItemStack offhand = playerInventory.getItemInOffHand();
-                                if (offhand == null || offhand.getType() == Material.AIR || (itemstack.isSimilar(offhand) && offhand.getAmount() < offhand.getMaxStackSize())) {
-                                    ItemStack setOffhand = itemstack.clone();
-                                    if (itemstack.isSimilar(offhand)) {
-                                        setOffhand.setAmount(offhand.getAmount() + 1);
-                                    }
-
-                                    playerInventory.setItemInOffHand(setOffhand);
-                                }
-                            }
-                            count++;
-                        }
-                    }
-                    else {
-                        int removeAmount = itemstack.getAmount();
-                        ItemStack removeMatch = itemstack.clone();
-                        removeMatch.setAmount(1);
-
-                        ItemStack[] inventoryContents = (isPlayerInventory ? inventory.getContents() : inventory.getStorageContents()).clone();
-                        for (int i = inventoryContents.length - 1; i >= 0; i--) {
-                            if (inventoryContents[i] != null) {
-                                ItemStack itemStack = inventoryContents[i].clone();
-                                int maxAmount = itemStack.getAmount();
-                                int currentAmount = maxAmount;
-                                itemStack.setAmount(1);
-
-                                if (itemStack.toString().equals(removeMatch.toString())) {
-                                    for (int scan = 0; scan < maxAmount; scan++) {
-                                        if (removeAmount > 0) {
-                                            currentAmount--;
-                                            itemStack.setAmount(currentAmount);
-                                            removeAmount--;
-                                        }
-                                        else {
-                                            break;
-                                        }
-                                    }
-                                }
-                                else {
-                                    itemStack.setAmount(maxAmount);
-                                }
-
-                                if (itemStack.getAmount() == 0) {
-                                    inventoryContents[i] = null;
-                                }
-                                else {
-                                    inventoryContents[i] = itemStack;
-                                }
-                            }
-
-                            if (removeAmount == 0) {
-                                break;
-                            }
-                        }
-
-                        if (isPlayerInventory) {
-                            inventory.setContents(inventoryContents);
-                        }
-                        else {
-                            inventory.setStorageContents(inventoryContents);
-                        }
-
-                        int count = 0;
-                        while (count < removeAmount) {
-                            inventory.removeItem(removeMatch);
-                            count++;
-                        }
-                    }
-                }
+                return action == 1 ? restoreInventoryItems(type, inventory, item) : removeInventoryItems(inventory, item);
             }
         }
-        catch (Exception e) {
+        catch (RuntimeException e) {
             ErrorReporter.report(e);
         }
+        return ContainerReplayResult.REJECTED;
+    }
 
-        return modifiedArmor;
+    private static ContainerReplayResult replayEquipment(EntityEquipment equipment, int slot, ItemStack item, int action) {
+        if (slot >= 0 && slot < 4) {
+            ItemStack[] armor = equipment.getArmorContents().clone();
+            return replaySingleSlot(armor[slot], item, action, replacement -> {
+                armor[slot] = replacement;
+                equipment.setArmorContents(armor);
+                return true;
+            });
+        }
+        if (slot == 4 || slot == 5) {
+            ItemStack current = slot == 4 ? equipment.getItemInMainHand() : equipment.getItemInOffHand();
+            return replaySingleSlot(current, item, action, replacement -> {
+                if (replacement != null && equipment.getHolder() instanceof ArmorStand) {
+                    ((ArmorStand) equipment.getHolder()).setArms(true);
+                }
+                if (slot == 4) {
+                    equipment.setItemInMainHand(replacement);
+                }
+                else {
+                    equipment.setItemInOffHand(replacement);
+                }
+                return true;
+            });
+        }
+        return ContainerReplayResult.REJECTED;
+    }
+
+    private static ContainerReplayResult replaySingleSlot(ItemStack current, ItemStack item, int action, Predicate<ItemStack> update) {
+        boolean empty = ItemUtils.isEmptyContainerSlot(current);
+        if (item.getAmount() != 1 || (!empty && (current.getAmount() != 1 || !current.isSimilar(item)))) {
+            return ContainerReplayResult.REJECTED;
+        }
+        if ((action == 0 && empty) || (action == 1 && !empty)) {
+            return ContainerReplayResult.UNCHANGED;
+        }
+        ItemStack replacement = action == 1 ? copyWithAmount(item, 1) : null;
+        return update.test(replacement) ? new ContainerReplayResult(true, 1, -1) : ContainerReplayResult.REJECTED;
+    }
+
+    private static ContainerReplayResult restoreInventoryItems(Material type, Inventory inventory, ItemStack item) {
+        ItemStack[] storage = inventory.getStorageContents().clone();
+        PlayerInventory playerInventory = inventory instanceof PlayerInventory ? (PlayerInventory) inventory : null;
+        int remaining = item.getAmount();
+        int armorSlot = playerInventory == null ? -1 : ItemUtils.getPlayerArmorSlot(item.getType());
+        ItemStack[] armor = armorSlot < 0 ? null : playerInventory.getArmorContents().clone();
+        if (armor != null && ItemUtils.isEmptyContainerSlot(armor[armorSlot])) {
+            armor[armorSlot] = copyWithAmount(item, 1);
+            remaining--;
+        }
+        else {
+            armorSlot = -1;
+        }
+
+        int beforeStorage = remaining;
+        if (type != null && BukkitAdapter.ADAPTER.isChiseledBookshelf(type)) {
+            for (int index = 0; index < storage.length && remaining > 0; index++) {
+                if (ItemUtils.isEmptyContainerSlot(storage[index])) {
+                    storage[index] = copyWithAmount(item, 1);
+                    remaining--;
+                }
+            }
+        }
+        else {
+            remaining = (int) ItemUtils.insertIntoContainerSnapshot(storage, item, remaining, inventory.getMaxStackSize());
+        }
+        boolean storageChanged = beforeStorage != remaining;
+        ItemStack offhand = null;
+        if (remaining > 0 && playerInventory != null) {
+            ItemStack current = playerInventory.getItemInOffHand();
+            boolean empty = ItemUtils.isEmptyContainerSlot(current);
+            int existing = empty ? 0 : current.getAmount();
+            if ((empty || current.isSimilar(item)) && remaining <= ItemUtils.getContainerStackLimit(item, inventory.getMaxStackSize()) - existing) {
+                offhand = copyWithAmount(item, existing + remaining);
+                remaining = 0;
+            }
+        }
+        if (remaining > 0) {
+            return ContainerReplayResult.REJECTED;
+        }
+
+        if (storageChanged) {
+            inventory.setStorageContents(storage);
+        }
+        if (armorSlot >= 0) {
+            playerInventory.setArmorContents(armor);
+        }
+        if (offhand != null) {
+            playerInventory.setItemInOffHand(offhand);
+        }
+        return new ContainerReplayResult(true, item.getAmount(), armorSlot);
+    }
+
+    private static ContainerReplayResult removeInventoryItems(Inventory inventory, ItemStack item) {
+        boolean playerInventory = inventory instanceof PlayerInventory;
+        ItemStack[] contents = (playerInventory ? inventory.getContents() : inventory.getStorageContents()).clone();
+        int remaining = item.getAmount();
+        for (int index = contents.length - 1; index >= 0 && remaining > 0; index--) {
+            ItemStack current = contents[index];
+            if (ItemUtils.isEmptyContainerSlot(current) || !current.isSimilar(item)) {
+                continue;
+            }
+            int removed = Math.min(remaining, current.getAmount());
+            int left = current.getAmount() - removed;
+            contents[index] = left == 0 ? null : copyWithAmount(current, left);
+            remaining -= removed;
+        }
+        if (remaining == item.getAmount()) {
+            return ContainerReplayResult.UNCHANGED;
+        }
+        if (remaining > 0) {
+            return ContainerReplayResult.REJECTED;
+        }
+        if (playerInventory) {
+            inventory.setContents(contents);
+        }
+        else {
+            inventory.setStorageContents(contents);
+        }
+        return new ContainerReplayResult(true, item.getAmount(), -1);
+    }
+
+    private static ItemStack copyWithAmount(ItemStack item, int amount) {
+        ItemStack copy = item.clone();
+        copy.setAmount(amount);
+        return copy;
+    }
+
+    public static final class ContainerReplayResult {
+        private static final ContainerReplayResult REJECTED = new ContainerReplayResult(false, 0, -1);
+        private static final ContainerReplayResult UNCHANGED = new ContainerReplayResult(true, 0, -1);
+        private final boolean applied;
+        private final int modifiedAmount;
+        private final int modifiedArmorSlot;
+
+        private ContainerReplayResult(boolean applied, int modifiedAmount, int modifiedArmorSlot) {
+            this.applied = applied;
+            this.modifiedAmount = modifiedAmount;
+            this.modifiedArmorSlot = modifiedArmorSlot;
+        }
+
+        public boolean applied() {
+            return applied;
+        }
+
+        public int modifiedAmount() {
+            return modifiedAmount;
+        }
+
+        public int modifiedArmorSlot() {
+            return modifiedArmorSlot;
+        }
     }
 
     public static void sortContainerItems(PlayerInventory inventory, List<Integer> modifiedArmorSlots) {

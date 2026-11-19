@@ -178,6 +178,10 @@ public class Patch {
                 int patchMinor = Integer.parseInt(thePatch[1]);
                 int patchRevision = Integer.parseInt(thePatch[2]);
                 Integer[] patchVersion = new Integer[] { patchMajor, patchMinor, patchRevision };
+                if ((ConfigHandler.databaseType.isDuckDB() || ConfigHandler.databaseType.isClickHouse())
+                        && VersionUtils.newVersion(patchVersion, new Integer[] { 2, 24, 0 })) {
+                    continue;
+                }
 
                 boolean performPatch = VersionUtils.newVersion(newVersion, patchVersion);
                 if (performPatch) {

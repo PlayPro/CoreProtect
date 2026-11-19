@@ -73,7 +73,7 @@ public final class SignChangeListener extends Queue implements Listener {
             }
             else {
                 Queue.queueSignText(player, location, SignActions.BEFORE, color, colorSecondary, frontGlowing, backGlowing, isWaxed, isFront, line1, line2, line3, line4, line5, line6, line7, line8, 1);
-                if (line1.length() > 0 || line2.length() > 0 || line3.length() > 0 || line4.length() > 0 || line5.length() > 0 || line6.length() > 0 || line7.length() > 0 || line8.length() > 0) {
+                if (Config.getConfig(block.getWorld()).BLOCK_PLACE && (line1.length() > 0 || line2.length() > 0 || line3.length() > 0 || line4.length() > 0 || line5.length() > 0 || line6.length() > 0 || line7.length() > 0 || line8.length() > 0)) {
                     Queue.queueBlockPlace(player, blockState, block.getType(), blockState, block.getType(), -1, 0, blockState.getBlockData().getAsString());
                 }
             }

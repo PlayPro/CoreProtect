@@ -5,15 +5,19 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.config.Config;
@@ -25,25 +29,39 @@ public final class SpawnEggUseListener implements Listener {
     private static final Map<String, ConcurrentLinkedDeque<PendingUse>> useCache = new ConcurrentHashMap<>();
     private static final AtomicLong nextCleanup = new AtomicLong();
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerInteract(PlayerInteractEvent event) {
-        if (event.getAction() != Action.RIGHT_CLICK_BLOCK || event.getClickedBlock() == null || event.getClickedBlock().getType() == Material.SPAWNER) {
+        ItemStack item = event.getItem();
+        if (!isSpawnEgg(item) || event.useItemInHand() == Event.Result.DENY) {
             return;
         }
-
-        ItemStack item = event.getItem();
-        Location location = event.getClickedBlock().getRelative(event.getBlockFace()).getLocation();
-        cacheUse(location, item, event.getPlayer().getName());
+        Block hit = event.getClickedBlock();
+        if (event.getAction() == Action.RIGHT_CLICK_BLOCK && hit != null && hit.getType() != Material.SPAWNER) {
+            cacheUse(hit.getRelative(event.getBlockFace()).getLocation(), item, event.getPlayer().getName());
+        }
+        else if (event.getAction() == Action.RIGHT_CLICK_AIR) {
+            Block fluid = event.getPlayer().getTargetBlockExact(5, FluidCollisionMode.SOURCE_ONLY);
+            if (fluid != null && (fluid.getType() == Material.WATER || fluid.getType() == Material.LAVA)) {
+                cacheUse(fluid.getLocation(), item, event.getPlayer().getName());
+            }
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
-        ItemStack item = event.getPlayer().getInventory().getItem(event.getHand());
-        cacheUse(event.getRightClicked().getLocation(), item, event.getPlayer().getName());
+        EquipmentSlot hand = event.getHand();
+        if (hand == EquipmentSlot.HAND || hand == EquipmentSlot.OFF_HAND) {
+            ItemStack item = event.getPlayer().getInventory().getItem(hand);
+            cacheUse(event.getRightClicked().getLocation(), item, event.getPlayer().getName());
+        }
+    }
+
+    private static boolean isSpawnEgg(ItemStack item) {
+        return item != null && item.getType().name().endsWith("_SPAWN_EGG");
     }
 
     private static void cacheUse(Location location, ItemStack item, String user) {
-        if (item == null || !item.getType().name().endsWith("_SPAWN_EGG") || !Config.getConfig(location.getWorld()).ENTITY_SPAWNS) {
+        if (!isSpawnEgg(item) || !Config.getConfig(location.getWorld()).ENTITY_SPAWNS) {
             return;
         }
 

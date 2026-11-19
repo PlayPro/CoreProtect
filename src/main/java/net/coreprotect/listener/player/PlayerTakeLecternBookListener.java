@@ -7,11 +7,10 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerTakeLecternBookEvent;
 
 import net.coreprotect.config.Config;
-import net.coreprotect.consumer.Queue;
 
-public final class PlayerTakeLecternBookListener extends Queue implements Listener {
+public final class PlayerTakeLecternBookListener implements Listener {
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerTakeLecternBook(PlayerTakeLecternBookEvent event) {
         Player player = event.getPlayer();
         if (Config.getConfig(player.getWorld()).ITEM_TRANSACTIONS) {

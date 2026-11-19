@@ -7,7 +7,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Registry;
@@ -17,9 +16,11 @@ import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.block.Block;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.AbstractHorse;
 import org.bukkit.entity.AbstractVillager;
 import org.bukkit.entity.Ageable;
+import org.bukkit.entity.AnimalTamer;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Bee;
 import org.bukkit.entity.Cat;
@@ -61,8 +62,6 @@ import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.inventory.meta.LeatherArmorMeta;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
@@ -79,6 +78,7 @@ import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.EntityUtils;
 import net.coreprotect.utility.entity.EntityUtil;
 import net.coreprotect.utility.entity.LivingEntityDetails;
+import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 
 public final class EntityDeathListener implements Listener {
@@ -189,9 +189,12 @@ public final class EntityDeathListener implements Listener {
             if (entity instanceof Tameable) {
                 Tameable tameable = (Tameable) entity;
                 tame.add(tameable.isTamed());
-                if (tameable.isTamed()) {
-                    if (tameable.getOwner() != null) {
-                        tame.add(tameable.getOwner().getName());
+                AnimalTamer owner = tameable.isTamed() ? tameable.getOwner() : null;
+                if (owner != null) {
+                    tame.add(owner.getName());
+                    UUID ownerId = owner.getUniqueId();
+                    if (ownerId != null) {
+                        tame.add(ownerId.toString());
                     }
                 }
             }
@@ -234,10 +237,9 @@ public final class EntityDeathListener implements Listener {
                 Enderman enderman = (Enderman) entity;
                 info.add(null);
 
-                try {
-                    info.add(enderman.getCarriedBlock().getAsString());
-                }
-                catch (Exception endermanException) {
+                BlockData carried = enderman.getCarriedBlock();
+                if (carried != null) {
+                    info.add(carried.getAsString());
                 }
             }
             else if (entity instanceof IronGolem) {
@@ -395,46 +397,17 @@ public final class EntityDeathListener implements Listener {
                 info.add(abstractHorse.getJumpStrength());
                 info.add(abstractHorse.getMaxDomestication());
                 info.add(null);
-                info.add(null);
+                Map<String, Object> saddle = ItemUtils.serializeItemStack(abstractHorse.getInventory().getSaddle(), null, 0);
+                info.add(entity instanceof Horse || saddle.isEmpty() ? null : saddle);
 
                 if (entity instanceof Horse) {
                     Horse horse = (Horse) entity;
                     info.add(null);
-
-                    ItemStack saddle = horse.getInventory().getSaddle();
-                    if (saddle != null) {
-                        info.add(saddle.serialize());
-                    }
-                    else {
-                        info.add(null);
-                    }
-
+                    info.add(saddle.isEmpty() ? null : saddle);
                     info.add(horse.getColor());
                     info.add(horse.getStyle());
-
-                    ItemStack horseArmor = horse.getInventory().getArmor();
-                    if (horseArmor != null) {
-                        ItemStack armor = horseArmor.clone();
-                        ItemMeta itemMeta = armor.getItemMeta();
-                        Color color = null;
-                        if (itemMeta instanceof LeatherArmorMeta) {
-                            LeatherArmorMeta meta = (LeatherArmorMeta) itemMeta;
-                            color = meta.getColor();
-                            meta.setColor(null);
-                            armor.setItemMeta(meta);
-                        }
-                        info.add(armor.serialize());
-                        if (color != null) {
-                            info.add(color.serialize());
-                        }
-                        else {
-                            info.add(null);
-                        }
-                    }
-                    else {
-                        info.add(null);
-                        info.add(null);
-                    }
+                    Map<String, Object> armor = ItemUtils.serializeItemStack(horse.getInventory().getArmor(), null, 0);
+                    info.add(armor.isEmpty() ? null : armor);
                 }
                 else if (entity instanceof ChestedHorse) {
                     ChestedHorse chestedHorse = (ChestedHorse) entity;
@@ -442,13 +415,8 @@ public final class EntityDeathListener implements Listener {
 
                     if (entity instanceof Llama) {
                         Llama llama = (Llama) entity;
-                        ItemStack decor = llama.getInventory().getDecor();
-                        if (decor != null) {
-                            info.add(decor.serialize());
-                        }
-                        else {
-                            info.add(null);
-                        }
+                        Map<String, Object> decor = ItemUtils.serializeItemStack(llama.getInventory().getDecor(), null, 0);
+                        info.add(decor.isEmpty() ? null : decor);
                         info.add(llama.getColor());
                     }
                 }

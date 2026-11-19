@@ -33,20 +33,39 @@ final class ClickHouseWriterRegistration implements AutoCloseable {
         }
         try {
             Files.createDirectories(writerFile.toAbsolutePath().getParent());
-            writerChannel = FileChannel.open(writerFile, StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
+            FileChannel channel = FileChannel.open(writerFile, StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
             try {
-                writerLock = writerChannel.tryLock();
+                FileLock lock = tryLock(channel);
+                writerChannel = channel;
+                writerLock = lock;
             }
-            catch (OverlappingFileLockException exception) {
-                throw new SQLException("This CoreProtect installation already has an active ClickHouse writer", exception);
-            }
-            if (writerLock == null) {
-                throw new SQLException("This CoreProtect installation already has an active ClickHouse writer");
+            catch (IOException | SQLException | RuntimeException | Error failure) {
+                try {
+                    channel.close();
+                }
+                catch (IOException closeFailure) {
+                    failure.addSuppressed(closeFailure);
+                }
+                throw failure;
             }
         }
         catch (IOException exception) {
             throw new SQLException("Failed to open the local ClickHouse writer registration", exception);
         }
+    }
+
+    private static FileLock tryLock(FileChannel channel) throws IOException, SQLException {
+        FileLock lock;
+        try {
+            lock = channel.tryLock();
+        }
+        catch (OverlappingFileLockException exception) {
+            throw new SQLException("This CoreProtect installation already has an active ClickHouse writer", exception);
+        }
+        if (lock == null) {
+            throw new SQLException("This CoreProtect installation already has an active ClickHouse writer");
+        }
+        return lock;
     }
 
     synchronized UUID schemaOwner() throws SQLException {

@@ -1,5 +1,6 @@
 package net.coreprotect.command.lookup;
 
+import java.sql.Statement;
 import java.util.List;
 
 import org.bukkit.command.Command;
@@ -9,15 +10,14 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.lookup.EntityInteractionLookup;
 import net.coreprotect.utility.Chat;
 
-public final class EntityInteractionLookupThread implements Runnable {
-    private final CommandSender player;
+public final class EntityInteractionLookupThread extends LookupWorker {
     private final Command command;
     private final int page;
     private final int limit;
     private final Integer entitySpawnRowId;
 
     public EntityInteractionLookupThread(CommandSender player, Command command, int page, int limit) {
-        this.player = player;
+        super(player);
         this.command = command;
         this.page = page;
         this.limit = limit;
@@ -25,10 +25,8 @@ public final class EntityInteractionLookupThread implements Runnable {
     }
 
     @Override
-    public void run() {
-        LookupWorker.run(player, statement -> {
-            List<String> results = EntityInteractionLookup.performLookup(command.getName(), statement, player, page, limit, entitySpawnRowId);
-            Chat.sendLookupComponents(player, results);
-        });
+    protected void query(Statement statement) {
+        List<String> results = EntityInteractionLookup.performLookup(command.getName(), statement, player, page, limit, entitySpawnRowId);
+        Chat.sendLookupComponents(player, results);
     }
 }

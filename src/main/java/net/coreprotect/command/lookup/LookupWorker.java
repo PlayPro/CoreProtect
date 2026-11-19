@@ -12,31 +12,46 @@ import net.coreprotect.utility.Color;
 import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.LookupThrottle;
 
-final class LookupWorker {
+public abstract class LookupWorker implements Runnable {
+    protected final CommandSender player;
+    private final LookupThrottle.Claim claim;
 
-    private LookupWorker() {
+    protected LookupWorker(CommandSender player) {
+        this.player = player;
+        this.claim = LookupThrottle.acquire(player.getName(), 50);
     }
 
-    static void run(CommandSender sender, Query query) {
-        String name = sender.getName();
-        LookupThrottle.Claim claim = LookupThrottle.acquire(name, 50);
+    public final void start() {
+        try {
+            new Thread(this).start();
+        }
+        catch (RuntimeException | Error e) {
+            if (claim != null) {
+                claim.close();
+            }
+            throw e;
+        }
+    }
+
+    @Override
+    public final void run() {
         if (claim == null) {
-            sendBusy(sender);
+            sendBusy();
             return;
         }
 
-        claim.runLookup(() -> execute(sender, query));
+        claim.runLookup(this::execute);
     }
 
-    private static void execute(CommandSender sender, Query query) {
+    private void execute() {
         try (Connection connection = Database.getConnection(true)) {
             if (connection == null) {
-                sendBusy(sender);
+                sendBusy();
                 return;
             }
 
             try (Statement statement = connection.createStatement()) {
-                query.run(statement);
+                query(statement);
             }
         }
         catch (Exception e) {
@@ -44,12 +59,9 @@ final class LookupWorker {
         }
     }
 
-    private static void sendBusy(CommandSender sender) {
-        Chat.sendMessage(sender, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
+    private void sendBusy() {
+        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
     }
 
-    @FunctionalInterface
-    interface Query {
-        void run(Statement statement);
-    }
+    protected abstract void query(Statement statement);
 }

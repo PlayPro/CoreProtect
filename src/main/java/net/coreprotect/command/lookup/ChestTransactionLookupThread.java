@@ -1,5 +1,6 @@
 package net.coreprotect.command.lookup;
 
+import java.sql.Statement;
 import java.util.List;
 
 import org.bukkit.Location;
@@ -10,8 +11,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.lookup.ChestTransactionLookup;
 import net.coreprotect.utility.Chat;
 
-public class ChestTransactionLookupThread implements Runnable {
-    private final CommandSender player;
+public class ChestTransactionLookupThread extends LookupWorker {
     private final Command command;
     private final Location location;
     private final int page;
@@ -19,7 +19,7 @@ public class ChestTransactionLookupThread implements Runnable {
     private final Integer entitySpawnRowId;
 
     public ChestTransactionLookupThread(CommandSender player, Command command, Location location, int page, int limit) {
-        this.player = player;
+        super(player);
         this.command = command;
         this.location = location;
         this.page = page;
@@ -28,10 +28,8 @@ public class ChestTransactionLookupThread implements Runnable {
     }
 
     @Override
-    public void run() {
-        LookupWorker.run(player, statement -> {
-            List<String> results = ChestTransactionLookup.performLookup(command.getName(), statement, location, player, page, limit, false, entitySpawnRowId);
-            Chat.sendLookupComponents(player, results);
-        });
+    protected void query(Statement statement) {
+        List<String> results = ChestTransactionLookup.performLookup(command.getName(), statement, location, player, page, limit, false, entitySpawnRowId);
+        Chat.sendLookupComponents(player, results);
     }
 }

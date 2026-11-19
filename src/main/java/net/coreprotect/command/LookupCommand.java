@@ -2,6 +2,7 @@ package net.coreprotect.command;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -17,6 +18,7 @@ import org.bukkit.entity.Player;
 import net.coreprotect.command.lookup.BlockLookupThread;
 import net.coreprotect.command.lookup.ChestTransactionLookupThread;
 import net.coreprotect.command.lookup.EntityInteractionLookupThread;
+import net.coreprotect.command.lookup.LookupWorker;
 import net.coreprotect.command.lookup.StandardLookupThread;
 import net.coreprotect.command.parser.ActionParser;
 import net.coreprotect.command.parser.LocationParser;
@@ -424,13 +426,21 @@ public class LookupCommand {
             }
         }
         else if (type == 9) {
-            if (!ConfigHandler.lookupEntityInteraction.containsKey(name)) {
+            Integer entity = ConfigHandler.lookupEntityInteraction.get(name);
+            if (entity == null) {
                 sendNoSavedLookup(player);
                 return;
             }
             int rows = pageRows(player, page, 7);
             if (rows > 0) {
-                new Thread(new EntityInteractionLookupThread(player, command, page.page, rows)).start();
+                LookupWorker lookup;
+                synchronized (ConfigHandler.lookupThrottle) {
+                    if (!entity.equals(ConfigHandler.lookupEntityInteraction.get(name))) {
+                        return;
+                    }
+                    lookup = new EntityInteractionLookupThread(player, command, page.page, rows);
+                }
+                lookup.start();
             }
         }
         else if (type == 1 || type == 2 || type == 3 || type == 7 || type == 8) {
@@ -471,24 +481,31 @@ public class LookupCommand {
                 return;
             }
 
-            Runnable lookup;
+            Supplier<LookupWorker> worker;
             if (type == 1) {
                 double dx = 0.5 * (x + (long) Integer.parseInt(data[4]));
                 double dy = 0.5 * (y + (long) Integer.parseInt(data[5]));
                 double dz = 0.5 * (z + (long) Integer.parseInt(data[6]));
                 Location location = new Location(world, dx, dy, dz);
-                lookup = new ChestTransactionLookupThread(player, command, location, page.page, rows);
+                worker = () -> new ChestTransactionLookupThread(player, command, location, page.page, rows);
             }
             else {
                 Integer entitySpawnRowId = type == 2 && data.length > 6 ? Integer.valueOf(data[6]) : null;
                 Block block = world.getBlockAt(x, y, z);
                 BlockState blockState = block.getState();
-                lookup = new BlockLookupThread(player, command, block, blockState, page.page, rows, type, entitySpawnRowId);
+                worker = () -> new BlockLookupThread(player, command, block, blockState, page.page, rows, type, entitySpawnRowId);
             }
 
-            data[rowIndex] = Integer.toString(rows);
-            ConfigHandler.lookupCommand.put(name, String.join(".", data));
-            new Thread(lookup).start();
+            LookupWorker lookup;
+            synchronized (ConfigHandler.lookupThrottle) {
+                if (!history.equals(ConfigHandler.lookupCommand.get(name))) {
+                    return;
+                }
+                lookup = worker.get();
+                data[rowIndex] = Integer.toString(rows);
+                ConfigHandler.lookupCommand.put(name, String.join(".", data));
+            }
+            lookup.start();
         }
         catch (NumberFormatException e) {
             sendNoSavedLookup(player);

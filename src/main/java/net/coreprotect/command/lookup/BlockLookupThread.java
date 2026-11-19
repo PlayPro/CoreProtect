@@ -1,5 +1,6 @@
 package net.coreprotect.command.lookup;
 
+import java.sql.Statement;
 import java.util.List;
 
 import org.bukkit.block.Block;
@@ -12,8 +13,7 @@ import net.coreprotect.database.lookup.InteractionLookup;
 import net.coreprotect.database.lookup.SignMessageLookup;
 import net.coreprotect.utility.Chat;
 
-public class BlockLookupThread implements Runnable {
-    private final CommandSender player;
+public class BlockLookupThread extends LookupWorker {
     private final Command command;
     private final Block block;
     private final BlockState blockState;
@@ -23,7 +23,7 @@ public class BlockLookupThread implements Runnable {
     private final Integer entitySpawnRowId;
 
     public BlockLookupThread(CommandSender player, Command command, Block block, BlockState blockState, int page, int limit, int type, Integer entitySpawnRowId) {
-        this.player = player;
+        super(player);
         this.command = command;
         this.block = block;
         this.blockState = blockState;
@@ -34,18 +34,16 @@ public class BlockLookupThread implements Runnable {
     }
 
     @Override
-    public void run() {
-        LookupWorker.run(player, statement -> {
-            if (type == 8) {
-                List<String> results = SignMessageLookup.performLookup(command.getName(), statement, blockState.getLocation(), player, page, limit);
-                Chat.sendSignLookupComponents(player, results);
-            }
-            else {
-                String result = type == 7
-                        ? InteractionLookup.performLookup(command.getName(), statement, block, player, 0, page, limit)
-                        : BlockLookup.performLookup(command.getName(), statement, blockState, player, 0, page, limit, entitySpawnRowId);
-                Chat.sendLookupComponents(player, result);
-            }
-        });
+    protected void query(Statement statement) {
+        if (type == 8) {
+            List<String> results = SignMessageLookup.performLookup(command.getName(), statement, blockState.getLocation(), player, page, limit);
+            Chat.sendSignLookupComponents(player, results);
+        }
+        else {
+            String result = type == 7
+                    ? InteractionLookup.performLookup(command.getName(), statement, block, player, 0, page, limit)
+                    : BlockLookup.performLookup(command.getName(), statement, blockState, player, 0, page, limit, entitySpawnRowId);
+            Chat.sendLookupComponents(player, result);
+        }
     }
 }

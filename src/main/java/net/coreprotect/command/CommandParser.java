@@ -347,10 +347,10 @@ public class CommandParser {
         return GivableItemIdParser.parseGivableItemId(inputArguments);
     }
 
-    protected static boolean validateTargetCombination(CommandSender player, Iterable<Object> restricted, Iterable<Object> excluded, List<Integer> argAction, EntityActionFilter entityActionFilter, boolean allowInteraction) {
+    protected static boolean validateTargetCombination(CommandSender player, Iterable<Object> restricted, Iterable<Object> excluded, List<Integer> argAction, EntityActionFilter entityActionFilter, boolean lookup) {
         boolean[] flags = new boolean[2];
-        if (!scanTargets(player, restricted, argAction, entityActionFilter, allowInteraction, flags)
-                || !scanTargets(player, excluded, argAction, entityActionFilter, allowInteraction, flags)) {
+        if (!scanTargets(player, restricted, argAction, entityActionFilter, lookup, true, flags)
+                || !scanTargets(player, excluded, argAction, entityActionFilter, lookup, !lookup, flags)) {
             return false;
         }
         if (flags[0] && flags[1]) {
@@ -360,7 +360,7 @@ public class CommandParser {
         return true;
     }
 
-    private static boolean scanTargets(CommandSender player, Iterable<Object> targets, List<Integer> argAction, EntityActionFilter entityActionFilter, boolean allowInteraction, boolean[] flags) {
+    private static boolean scanTargets(CommandSender player, Iterable<Object> targets, List<Integer> argAction, EntityActionFilter entityActionFilter, boolean allowInteraction, boolean inferEntityActions, boolean[] flags) {
         for (Object arg : targets) {
             if (arg instanceof Material || arg instanceof String) {
                 flags[0] = true;
@@ -368,8 +368,10 @@ public class CommandParser {
             else if (arg instanceof EntityType) {
                 flags[1] = true;
                 if (argAction.isEmpty()) {
-                    argAction.add(LookupActions.ENTITY_KILL);
-                    argAction.add(LookupActions.ENTITY_SPAWN);
+                    if (inferEntityActions) {
+                        argAction.add(LookupActions.ENTITY_KILL);
+                        argAction.add(LookupActions.ENTITY_SPAWN);
+                    }
                 }
                 else if (!entityActionFilter.includesAnyEntity(argAction, true) && (!allowInteraction || !argAction.contains(LookupActions.INTERACTION))) {
                     Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE_COMBO));

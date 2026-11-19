@@ -484,17 +484,7 @@ public class CoreProtectAPI extends Queue {
      * @return True if the message was logged
      */
     public boolean logChat(Player player, String message) {
-        if (!isEnabledForPlayer(player) || !Config.getConfig(player.getWorld()).PLAYER_MESSAGES) {
-            return false;
-        }
-
-        if (message == null || message.isEmpty() || message.startsWith("/")) {
-            return false;
-        }
-
-        long timestamp = System.currentTimeMillis() / 1000L;
-        Queue.queuePlayerChat(player, message, timestamp);
-        return true;
+        return isEnabledForPlayer(player) && Queue.queuePlayerChat(player, message, System.currentTimeMillis() / 1000L, false);
     }
 
     /**

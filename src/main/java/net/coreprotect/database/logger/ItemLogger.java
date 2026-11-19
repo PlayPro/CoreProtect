@@ -3,9 +3,11 @@ package net.coreprotect.database.logger;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.CoreProtect;
@@ -20,6 +22,7 @@ import net.coreprotect.model.item.ItemTransactionActions;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.utility.StringUtils;
 import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 
@@ -57,7 +60,7 @@ public class ItemLogger {
     }
 
     public static PreparedTransaction prepare(Location location, int offset, String user) {
-        String key = user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+        String key = getLoggingId(user, location);
         ItemStack[][] items = {
                 take(ConfigHandler.itemsPickup, key), take(ConfigHandler.itemsDrop, key),
                 take(ConfigHandler.itemsThrown, key), take(ConfigHandler.itemsShot, key),
@@ -65,6 +68,28 @@ public class ItemLogger {
                 take(ConfigHandler.itemsCreate, key), take(ConfigHandler.itemsSell, key), take(ConfigHandler.itemsBuy, key)
         };
         return new PreparedTransaction(location, (int) (System.currentTimeMillis() / 1000L) - offset, items);
+    }
+
+    public static String getLoggingId(String user, Location location) {
+        World world = location.getWorld();
+        UUID worldId = world == null ? null : world.getUID();
+        String worldKey = worldId == null ? (world == null ? "" : world.getName()) : worldId.toString();
+        return StringUtils.normalizeUsername(user).toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ() + "." + worldKey;
+    }
+
+    public static Map<String, List<ItemStack>> pendingItems(int action) {
+        switch (action) {
+            case ITEM_PICKUP: return ConfigHandler.itemsPickup;
+            case ITEM_DROP: return ConfigHandler.itemsDrop;
+            case ITEM_THROW: return ConfigHandler.itemsThrown;
+            case ITEM_SHOOT: return ConfigHandler.itemsShot;
+            case ITEM_BREAK: return ConfigHandler.itemsBreak;
+            case ITEM_DESTROY: return ConfigHandler.itemsDestroy;
+            case ITEM_CREATE: return ConfigHandler.itemsCreate;
+            case ITEM_SELL: return ConfigHandler.itemsSell;
+            case ITEM_BUY: return ConfigHandler.itemsBuy;
+            default: throw new IllegalArgumentException("Unsupported pending item action " + action);
+        }
     }
 
     // Removing the whole list means an item appended after this point starts a new list for the next transaction.

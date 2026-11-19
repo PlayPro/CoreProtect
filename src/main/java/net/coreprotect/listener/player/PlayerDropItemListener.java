@@ -1,6 +1,5 @@
 package net.coreprotect.listener.player;
 
-import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -15,10 +14,10 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.config.Config;
-import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.logger.ItemLogger;
 
-public final class PlayerDropItemListener extends Queue implements Listener {
+public final class PlayerDropItemListener implements Listener {
 
     private static final long ITEM_DROP_ATTRIBUTION_MS = TimeUnit.MINUTES.toMillis(5);
     private static final Map<UUID, DropAttribution> itemDropAttributions = new ConcurrentHashMap<>();
@@ -38,11 +37,8 @@ public final class PlayerDropItemListener extends Queue implements Listener {
             return;
         }
 
-        String loggingItemId = user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
-        int itemId = addPendingItems(ConfigHandler.itemsDrop, loggingItemId, itemStack.clone());
-
         int time = (int) (System.currentTimeMillis() / 1000L) + 1;
-        Queue.queueItemTransaction(user, location.clone(), time, 0, itemId);
+        Queue.queuePendingItems(user, location, time, 0, ItemLogger.ITEM_DROP, itemStack);
     }
 
     public static String getDroppedItemUser(UUID itemId) {

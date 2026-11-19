@@ -1,7 +1,9 @@
 package net.coreprotect.consumer;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -29,6 +31,7 @@ import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.process.Process;
+import net.coreprotect.database.logger.ItemLogger;
 import net.coreprotect.listener.block.BlockUtil;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.model.SignState;
@@ -38,6 +41,7 @@ import net.coreprotect.model.entity.EntityInteraction;
 import net.coreprotect.model.entity.EntityInteractionAction;
 import net.coreprotect.model.entity.EntityInteractionOrigin;
 import net.coreprotect.model.entity.EntitySpawnData;
+import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.BlockUtils;
@@ -409,8 +413,41 @@ public class Queue {
         }
     }
 
-    protected static void queueItemTransaction(String user, Location location, int time, int offset, int itemId) {
-        queueStandardData(new Object[] { null, Process.ITEM_TRANSACTION, null, offset, null, time, itemId, null }, new String[] { user, null }, location, false, Consumer.reserveConsumer());
+    public static void queuePendingItems(String user, Location location, int time, int offset, int action, ItemStack... items) {
+        queuePendingItems(user, location, time, offset, Map.of(action, Arrays.asList(items)));
+    }
+
+    public static void queuePendingItems(String user, Location location, int time, int offset, Map<Integer, List<ItemStack>> groups) {
+        Map<Integer, List<ItemStack>> snapshots = new HashMap<>();
+        for (Map.Entry<Integer, List<ItemStack>> entry : groups.entrySet()) {
+            List<ItemStack> items = new ArrayList<>();
+            for (ItemStack item : entry.getValue()) {
+                if (item != null && !BlockUtils.isAir(item.getType()) && item.getAmount() > 0) {
+                    items.add(item.clone());
+                }
+            }
+            if (!items.isEmpty()) {
+                ItemLogger.pendingItems(entry.getKey());
+                snapshots.put(entry.getKey(), items);
+            }
+        }
+        if (snapshots.isEmpty()) {
+            return;
+        }
+
+        Location position = location.clone();
+        String key = ItemLogger.getLoggingId(user, position);
+        synchronized (Queue.class) {
+            int generation = ConfigHandler.loggingItem.getOrDefault(key, -1) + 1;
+            if (queueItemTransaction(user, position, time, offset, generation)) {
+                snapshots.forEach((action, items) -> ItemLogger.pendingItems(action).computeIfAbsent(key, ignored -> new ArrayList<>()).addAll(items));
+                ConfigHandler.loggingItem.put(key, generation);
+            }
+        }
+    }
+
+    protected static boolean queueItemTransaction(String user, Location location, int time, int offset, int itemId) {
+        return queueStandardData(new Object[] { null, Process.ITEM_TRANSACTION, null, offset, null, time, itemId, null }, new String[] { user, null }, location, false, Consumer.reserveConsumer());
     }
 
     protected static void queueEntityInsert(int id, String name) {
@@ -499,8 +536,36 @@ public class Queue {
         queueStandardData(new Object[] { null, Process.NATURAL_BLOCK_BREAK, type, data, null, 0, 0, blockData }, new String[] { user, null }, block, false, Consumer.consumerBlockList, blockStates, Consumer.reserveConsumer());
     }
 
-    protected static void queuePlayerChat(Player player, String message, long timestamp) {
-        queueStandardData(new Object[] { null, Process.PLAYER_CHAT, null, 0, null, 0, 0, null }, new String[] { player.getName(), null }, new Object[] { timestamp, player.getLocation().clone() }, false, Consumer.consumerStrings, message, Consumer.reserveConsumer());
+    public static boolean queuePlayerChat(Player player, String message, long timestamp, boolean cancelled) {
+        if (message == null || message.isEmpty() || message.startsWith("/")) {
+            return false;
+        }
+        boolean folia = ConfigHandler.isFolia;
+        if (folia ? PaperAdapter.ADAPTER.isOwnedByCurrentRegion(player) : Bukkit.isPrimaryThread()) {
+            return capturePlayerChat(player, message, timestamp, cancelled);
+        }
+        CoreProtect plugin = CoreProtect.getInstance();
+        if (plugin == null) {
+            return false;
+        }
+        Runnable capture = () -> capturePlayerChat(player, message, timestamp, cancelled);
+        if (folia) {
+            return PaperAdapter.ADAPTER.executeEntityTask(plugin, player, capture, null);
+        }
+        Scheduler.runTask(plugin, capture, player);
+        return true;
+    }
+
+    private static boolean capturePlayerChat(Player player, String message, long timestamp, boolean cancelled) {
+        Location location = player.getLocation();
+        if (location.getWorld() == null) {
+            return false;
+        }
+        Config config = Config.getConfig(location.getWorld());
+        if (!config.PLAYER_MESSAGES || (cancelled && !config.LOG_CANCELLED_CHAT)) {
+            return false;
+        }
+        return queueStandardData(new Object[] { null, Process.PLAYER_CHAT, null, 0, null, 0, 0, null }, new String[] { player.getName(), null }, new Object[] { timestamp, location.clone() }, false, Consumer.consumerStrings, message, Consumer.reserveConsumer());
     }
 
     protected static void queuePlayerCommand(Player player, String message, long timestamp) {

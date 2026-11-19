@@ -1,7 +1,5 @@
 package net.coreprotect.listener.entity;
 
-import java.util.Locale;
-
 import org.bukkit.Location;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Item;
@@ -13,21 +11,18 @@ import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.config.Config;
-import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.logger.ItemLogger;
 
-public final class EntityPickupItemListener extends Queue implements Listener {
+public final class EntityPickupItemListener implements Listener {
 
     public static void onItemPickup(Player player, Location location, ItemStack itemStack) {
         if (itemStack == null || location == null || !Config.getConfig(location.getWorld()).ITEM_PICKUPS) {
             return;
         }
 
-        String loggingItemId = player.getName().toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
-        int itemId = addPendingItems(ConfigHandler.itemsPickup, loggingItemId, itemStack.clone());
-
         int time = (int) (System.currentTimeMillis() / 1000L) + 1;
-        Queue.queueItemTransaction(player.getName(), location.clone(), time, 0, itemId);
+        Queue.queuePendingItems(player.getName(), location, time, 0, ItemLogger.ITEM_PICKUP, itemStack);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

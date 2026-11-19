@@ -1,7 +1,6 @@
 package net.coreprotect.consumer.process;
 
 import java.util.ArrayList;
-import java.util.Locale;
 import java.util.Map;
 
 import org.bukkit.Location;
@@ -22,32 +21,27 @@ class ItemTransactionProcess extends Queue {
         if (object instanceof Location) {
             Location location = (Location) object;
             String loggingItemId = getLoggingId(user, location);
-
-            if (ConfigHandler.loggingItem.get(loggingItemId) != null) {
-                int current_chest = ConfigHandler.loggingItem.get(loggingItemId);
-                if (ConfigHandler.itemsPickup.get(loggingItemId) == null && ConfigHandler.itemsDrop.get(loggingItemId) == null && ConfigHandler.itemsThrown.get(loggingItemId) == null && ConfigHandler.itemsShot.get(loggingItemId) == null && ConfigHandler.itemsBreak.get(loggingItemId) == null && ConfigHandler.itemsDestroy.get(loggingItemId) == null && ConfigHandler.itemsCreate.get(loggingItemId) == null && ConfigHandler.itemsSell.get(loggingItemId) == null && ConfigHandler.itemsBuy.get(loggingItemId) == null) {
-                    ConfigHandler.loggingItem.remove(loggingItemId, forceData);
+            ItemLogger.PreparedTransaction prepared;
+            synchronized (Queue.class) {
+                Integer generation = ConfigHandler.loggingItem.get(loggingItemId);
+                if (generation == null || generation != forceData) {
                     return;
                 }
-                if (current_chest == forceData) {
-                    int currentTime = (int) (System.currentTimeMillis() / 1000L);
-                    if (currentTime > time) {
-                        // prepare takes the pending lists, so a retried batch has to log from the stored copy
-                        ItemLogger.PreparedTransaction prepared = ItemLogger.prepare(location, offset, user);
-                        Consumer.consumerObjects.get(processId).put(id, prepared);
-                        ConfigHandler.loggingItem.remove(loggingItemId, forceData);
-                        prepared.log(preparedStmt, batchCount, user);
-                    }
-                    else {
-                        Queue.queueItemTransaction(user, location, time, offset, forceData);
-                    }
+                int currentTime = (int) (System.currentTimeMillis() / 1000L);
+                if (currentTime <= time) {
+                    Queue.queueItemTransaction(user, location, time, offset, forceData);
+                    return;
                 }
+                prepared = ItemLogger.prepare(location, offset, user);
+                Consumer.consumerObjects.get(processId).put(id, prepared);
+                ConfigHandler.loggingItem.remove(loggingItemId, forceData);
             }
+            prepared.log(preparedStmt, batchCount, user);
         }
     }
 
     static String getLoggingId(String user, Location location) {
-        return user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
+        return ItemLogger.getLoggingId(user, location);
     }
 
     static void discard(int forceData, String user, Location location) {

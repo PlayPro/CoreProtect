@@ -1,6 +1,5 @@
 package net.coreprotect.listener.player;
 
-import java.util.Locale;
 import java.util.Objects;
 
 import org.bukkit.Location;
@@ -28,30 +27,20 @@ import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.EntityUtils;
 
-public final class ProjectileLaunchListener extends Queue implements Listener {
+public final class ProjectileLaunchListener implements Listener {
 
     public static void playerLaunchProjectile(Location location, String user, ItemStack itemStack, int amount, int delay, int offset, int action) {
         if (!Config.getConfig(location.getWorld()).ITEM_DROPS || itemStack == null) {
             return;
         }
 
-        String loggingItemId = user.toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
-
         itemStack = itemStack.clone();
         if (amount > 0) {
             itemStack.setAmount(amount);
         }
 
-        int itemId;
-        if (action == ItemLogger.ITEM_SHOOT) {
-            itemId = addPendingItems(ConfigHandler.itemsShot, loggingItemId, itemStack);
-        }
-        else {
-            itemId = addPendingItems(ConfigHandler.itemsThrown, loggingItemId, itemStack);
-        }
-
         int time = (int) (System.currentTimeMillis() / 1000L) + delay;
-        Queue.queueItemTransaction(user, location.clone(), time, offset, itemId);
+        Queue.queuePendingItems(user, location, time, offset, action == ItemLogger.ITEM_SHOOT ? ItemLogger.ITEM_SHOOT : ItemLogger.ITEM_THROW, itemStack);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

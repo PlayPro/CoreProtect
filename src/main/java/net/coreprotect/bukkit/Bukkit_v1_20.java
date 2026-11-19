@@ -15,6 +15,7 @@ import org.bukkit.World;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.ChiseledBookshelf;
 import org.bukkit.block.Sign;
+import org.bukkit.block.TileState;
 import org.bukkit.block.sign.Side;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
@@ -41,6 +42,8 @@ import net.coreprotect.model.BlockGroup;
  * - Arrow potion handling
  */
 public class Bukkit_v1_20 extends Bukkit_v1_19 {
+
+    private static final boolean HAS_SIGN_TILE_UPDATE = hasSignTileUpdate();
 
     private Boolean hasClickedPosition;
     private Boolean hasSignTargetSide;
@@ -124,6 +127,26 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
             if (!targetGroup.contains(value)) {
                 targetGroup.add(value);
             }
+        }
+    }
+
+    @Override
+    public void sendSignUpdate(Player player, Location location, Sign sign) {
+        if (HAS_SIGN_TILE_UPDATE) {
+            player.sendBlockUpdate(location, sign);
+        }
+        else {
+            super.sendSignUpdate(player, location, sign);
+        }
+    }
+
+    private static boolean hasSignTileUpdate() {
+        try {
+            Player.class.getMethod("sendBlockUpdate", Location.class, TileState.class);
+            return true;
+        }
+        catch (NoSuchMethodException e) {
+            return false;
         }
     }
 

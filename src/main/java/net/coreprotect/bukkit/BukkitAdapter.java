@@ -504,6 +504,11 @@ public class BukkitAdapter implements BukkitInterface {
     // -------------------- Sign handling methods --------------------
 
     @Override
+    public void sendSignUpdate(Player player, Location location, Sign sign) {
+        player.sendSignChange(location, sign.getLines(), sign.getColor());
+    }
+
+    @Override
     public String getLine(Sign sign, int line) {
         if (line < 4) {
             return sign.getLine(line);

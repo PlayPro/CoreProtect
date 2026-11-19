@@ -405,6 +405,8 @@ public interface BukkitInterface {
     // Sign methods
     // --------------------------------------------------------------------------
 
+    void sendSignUpdate(Player player, Location location, Sign sign);
+
     /**
      * Checks if a sign is glowing.
      * 

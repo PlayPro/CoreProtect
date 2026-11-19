@@ -6,8 +6,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
-import org.bukkit.Material;
 import org.bukkit.Chunk;
+import org.bukkit.DyeColor;
+import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -21,6 +23,7 @@ import org.bukkit.entity.GlowItemFrame;
 import org.bukkit.entity.Goat;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BundleMeta;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -35,6 +38,8 @@ import net.coreprotect.utility.MaterialUtils;
  * to handle features introduced in the 1.17 update.
  */
 public class Bukkit_v1_17 extends BukkitAdapter {
+
+    private static final boolean HAS_GLOWING_SIGN_UPDATE = hasGlowingSignUpdate();
 
     /**
      * Initializes the Bukkit_v1_17 adapter with 1.17-specific block groups.
@@ -231,6 +236,26 @@ public class Bukkit_v1_17 extends BukkitAdapter {
     @Override
     public Class<?> getFrameClass(Material material) {
         return (material == Material.GLOW_ITEM_FRAME) ? GlowItemFrame.class : ItemFrame.class;
+    }
+
+    @Override
+    public void sendSignUpdate(Player player, Location location, Sign sign) {
+        if (HAS_GLOWING_SIGN_UPDATE) {
+            player.sendSignChange(location, sign.getLines(), sign.getColor(), sign.isGlowingText());
+        }
+        else {
+            super.sendSignUpdate(player, location, sign);
+        }
+    }
+
+    private static boolean hasGlowingSignUpdate() {
+        try {
+            Player.class.getMethod("sendSignChange", Location.class, String[].class, DyeColor.class, boolean.class);
+            return true;
+        }
+        catch (NoSuchMethodException e) {
+            return false;
+        }
     }
 
     @Override

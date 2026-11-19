@@ -10,6 +10,7 @@ import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.statement.SkullStatement;
 import net.coreprotect.paper.PaperAdapter;
 import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.worldedit.WorldEditBlockState;
 
 public class SkullBreakLogger {
 
@@ -24,12 +25,19 @@ public class SkullBreakLogger {
             }
             int time = (int) (System.currentTimeMillis() / 1000L);
             int type = MaterialUtils.getBlockId(block.getType().name(), true);
-            Skull skull = (Skull) block;
-            String skullOwner = "";
+            String skullOwner = null;
             String skullSkin = null;
             int skullKey = 0;
-            skullOwner = PaperAdapter.ADAPTER.getSkullOwner(skull);
-            skullSkin = PaperAdapter.ADAPTER.getSkullSkin(skull);
+            if (block instanceof Skull) {
+                Skull skull = (Skull) block;
+                skullOwner = PaperAdapter.ADAPTER.getSkullOwner(skull);
+                skullSkin = PaperAdapter.ADAPTER.getSkullSkin(skull);
+            }
+            else if (block instanceof WorldEditBlockState) {
+                WorldEditBlockState snapshot = (WorldEditBlockState) block;
+                skullOwner = snapshot.getSkullOwner();
+                skullSkin = snapshot.getSkullSkin();
+            }
             if ((skullOwner != null && skullOwner.length() > 0) || (skullSkin != null && skullSkin.length() > 0)) {
                 skullKey = SkullStatement.insert(preparedStmt2, time, skullOwner, skullSkin);
             }

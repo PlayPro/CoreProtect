@@ -31,6 +31,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.process.Process;
 import net.coreprotect.listener.block.BlockUtil;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.model.SignState;
 import net.coreprotect.model.entity.EntityContainerRollbackUpdate;
 import net.coreprotect.model.entity.EntityContainerTransaction;
 import net.coreprotect.model.entity.EntityInteraction;
@@ -663,12 +664,12 @@ public class Queue {
         }
     }
 
+    protected static void queueSignText(String user, Location location, int action, SignState state, boolean isFront, int offset) {
+        queueSignText(user, location, action, state.getColor(true), state.getColor(false), state.isGlowing(true), state.isGlowing(false), state.isWaxed(), isFront,
+                state.getLine(0), state.getLine(1), state.getLine(2), state.getLine(3), state.getLine(4), state.getLine(5), state.getLine(6), state.getLine(7), offset);
+    }
+
     protected static void queueSignText(String user, Location location, int action, int color, int colorSecondary, boolean frontGlowing, boolean backGlowing, boolean isWaxed, boolean isFront, String line1, String line2, String line3, String line4, String line5, String line6, String line7, String line8, int offset) {
-        /*
-        if (line1.length() == 0 && line2.length() == 0 && line3.length() == 0 && line4.length() == 0) {
-            return;
-        }
-        */
         Object[] signData = new Object[] { colorSecondary, BlockUtils.getSignData(frontGlowing, backGlowing), isWaxed, isFront, line1, line2, line3, line4, line5, line6, line7, line8 };
         queueStandardData(new Object[] { null, Process.SIGN_TEXT, null, color, null, action, offset, null }, new String[] { user, null }, location, false, Consumer.consumerSigns, signData, Consumer.reserveConsumer());
     }

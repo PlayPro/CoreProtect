@@ -11,6 +11,7 @@ import net.coreprotect.database.logger.BlockBreakLogger;
 import net.coreprotect.database.logger.SkullBreakLogger;
 import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.worldedit.WorldEditBlockState;
 
 class BlockBreakProcess {
 
@@ -18,7 +19,8 @@ class BlockBreakProcess {
         if (object instanceof BlockState) {
             BlockState block = (BlockState) object;
             List<Object> meta = BlockUtils.processMeta(block);
-            if (block instanceof Skull && blockType != null && blockType.equals(block.getType())) {
+            if (blockType != null && blockType.equals(block.getType())
+                    && (block instanceof Skull || (block instanceof WorldEditBlockState && BlockUtils.isSkull(blockType)))) {
                 SkullBreakLogger.log(preparedStmt, preparedStmtSkulls, batchCount, user, block);
             }
             else {

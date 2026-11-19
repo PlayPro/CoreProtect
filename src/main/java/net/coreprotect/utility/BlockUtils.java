@@ -27,6 +27,7 @@ import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.model.PendingBlockChange;
 import net.coreprotect.thread.Scheduler;
+import net.coreprotect.worldedit.WorldEditBlockState;
 
 public class BlockUtils {
 
@@ -325,6 +326,31 @@ public class BlockUtils {
         return (type == Material.AIR || type == Material.CAVE_AIR || type == Material.VOID_AIR);
     }
 
+    public static boolean isSkull(Material type) {
+        if (type == null) {
+            return false;
+        }
+        switch (type.name()) {
+            case "SKELETON_SKULL":
+            case "SKELETON_WALL_SKULL":
+            case "WITHER_SKELETON_SKULL":
+            case "WITHER_SKELETON_WALL_SKULL":
+            case "ZOMBIE_HEAD":
+            case "ZOMBIE_WALL_HEAD":
+            case "PLAYER_HEAD":
+            case "PLAYER_WALL_HEAD":
+            case "CREEPER_HEAD":
+            case "CREEPER_WALL_HEAD":
+            case "DRAGON_HEAD":
+            case "DRAGON_WALL_HEAD":
+            case "PIGLIN_HEAD":
+            case "PIGLIN_WALL_HEAD":
+                return true;
+            default:
+                return false;
+        }
+    }
+
     public static boolean solidBlock(Material type) {
         return type.isSolid();
     }
@@ -452,6 +478,10 @@ public class BlockUtils {
     }
 
     public static List<Object> processMeta(BlockState block) {
+        if (block instanceof WorldEditBlockState) {
+            return ((WorldEditBlockState) block).getCapturedMetadata();
+        }
+
         List<Object> meta = new ArrayList<>();
         try {
             if (block instanceof CommandBlock) {

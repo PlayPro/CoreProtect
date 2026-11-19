@@ -6,8 +6,8 @@ import java.util.Set;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.data.BlockData;
-import org.bukkit.inventory.ItemStack;
 
+import com.sk89q.jnbt.CompoundTag;
 import com.sk89q.worldedit.MaxChangedBlocksException;
 import com.sk89q.worldedit.WorldEditException;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
@@ -29,8 +29,6 @@ import com.sk89q.worldedit.world.block.BlockStateHolder;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.model.BlockGroup;
-import net.coreprotect.utility.ItemUtils;
 
 public class CoreProtectLogger extends AbstractDelegateExtent {
     private final Actor eventActor;
@@ -51,26 +49,23 @@ public class CoreProtectLogger extends AbstractDelegateExtent {
         }
 
         BlockState oldBlock = eventExtent.getBlock(position);
-        if (oldBlock == block.toImmutableState()) {
+        BlockState newBlock = block.toImmutableState();
+        CompoundTag newTile = block instanceof BaseBlock ? WorldEditTileData.read((BaseBlock) block) : null;
+        if (oldBlock == newBlock && newTile == null) {
             return eventExtent.setBlock(position, block);
         }
 
         BlockStateConversion oldConversion = BlockStateConversion.of(oldBlock);
+        BlockStateConversion newConversion = BlockStateConversion.of(newBlock);
         Material oldType = oldConversion.getMaterial();
         BlockData oldBlockData = oldConversion.getBlockData();
         Location location = new Location(world, position.getBlockX(), position.getBlockY(), position.getBlockZ());
-        BaseBlock baseBlock = WorldEditLogger.needsBaseBlock(oldType, config) ? eventExtent.getFullBlock(position) : null;
-        // Reads below this stage reach the live world, so capture the other half before setBlock or its physics can change it
-        org.bukkit.block.BlockState otherHalf = WorldEditLogger.getOtherHalf(eventExtent, position, location, oldBlockData);
-
-        // No clear way to get container content data from within the WorldEdit API
-        // Data may be available by converting oldBlock.toBaseBlock().getNbtData()
-        // e.g. BaseBlock block = eventWorld.getBlock(position);
-        ItemStack[] containerData = !CoreProtectEditSessionEvent.isFAWE() && config.ITEM_TRANSACTIONS && BlockGroup.CONTAINERS.contains(oldType) ? ItemUtils.getContainerContents(oldType, null, location) : null;
+        CompoundTag oldTile = newTile != null || WorldEditLogger.needsBaseBlock(oldType, config) ? WorldEditTileData.read(eventExtent.getFullBlock(position)) : null;
+        org.bukkit.block.BlockState otherHalf = oldType != newConversion.getMaterial() || WorldEditLogger.isLoggedTopHalf(oldType, oldBlockData)
+                ? WorldEditLogger.getOtherHalf(eventExtent, position, location, oldBlockData) : null;
 
         if (eventExtent.setBlock(position, block)) {
-            BlockStateConversion newConversion = BlockStateConversion.of(block.toImmutableState());
-            WorldEditLogger.postProcess(eventActor, location, baseBlock, oldType, oldBlockData, oldConversion.getDataString(), newConversion.getMaterial(), newConversion.getBlockData(), newConversion.getDataString(), containerData, true, otherHalf);
+            WorldEditLogger.postProcess(eventActor, location, oldConversion, oldTile, newConversion, newTile, config, true, otherHalf);
             return true;
         }
 

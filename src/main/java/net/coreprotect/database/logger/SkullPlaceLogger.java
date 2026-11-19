@@ -10,6 +10,7 @@ import net.coreprotect.database.Database;
 import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.statement.SkullStatement;
 import net.coreprotect.paper.PaperAdapter;
+import net.coreprotect.worldedit.WorldEditBlockState;
 
 public class SkullPlaceLogger {
 
@@ -25,16 +26,21 @@ public class SkullPlaceLogger {
             int time = (int) (System.currentTimeMillis() / 1000L);
             Material type = block.getType();
             int skullKey = 0;
+            String skullOwner = null;
+            String skullSkin = null;
 
             if (block instanceof Skull) {
                 Skull skull = (Skull) block;
-                String skullOwner = "";
-                String skullSkin = null;
                 skullOwner = PaperAdapter.ADAPTER.getSkullOwner(skull);
                 skullSkin = PaperAdapter.ADAPTER.getSkullSkin(skull);
-                if ((skullOwner != null && skullOwner.length() > 0) || (skullSkin != null && skullSkin.length() > 0)) {
-                    skullKey = SkullStatement.insert(preparedStmt2, time, skullOwner, skullSkin);
-                }
+            }
+            else if (block instanceof WorldEditBlockState) {
+                WorldEditBlockState snapshot = (WorldEditBlockState) block;
+                skullOwner = snapshot.getSkullOwner();
+                skullSkin = snapshot.getSkullSkin();
+            }
+            if ((skullOwner != null && !skullOwner.isEmpty()) || (skullSkin != null && !skullSkin.isEmpty())) {
+                skullKey = SkullStatement.insert(preparedStmt2, time, skullOwner, skullSkin);
             }
 
             BlockPlaceLogger.log(preparedStmt, batchCount, user, block, replaceType, replaceData, type, skullKey, true, null, null, null);

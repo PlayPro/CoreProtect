@@ -1,8 +1,5 @@
 package net.coreprotect.worldedit;
 
-import java.util.Locale;
-
-import org.bukkit.DyeColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Server;
@@ -13,28 +10,21 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Waterlogged;
 import org.bukkit.block.data.type.Stairs;
 import org.bukkit.block.data.type.TrapDoor;
-import org.bukkit.entity.EntityType;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
 
 import com.sk89q.jnbt.CompoundTag;
-import com.sk89q.jnbt.NBTUtils;
 import com.sk89q.worldedit.bukkit.WorldEditPlugin;
 import com.sk89q.worldedit.extension.platform.Actor;
 import com.sk89q.worldedit.extent.Extent;
 import com.sk89q.worldedit.math.BlockVector3;
-import com.sk89q.worldedit.world.block.BaseBlock;
 
+import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
-import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.model.action.SignActions;
 import net.coreprotect.utility.BlockUtils;
-import net.coreprotect.utility.EntityUtils;
-import net.coreprotect.utility.ErrorReporter;
 
 public class WorldEditLogger extends Queue {
 
@@ -48,7 +38,9 @@ public class WorldEditLogger extends Queue {
     }
 
     protected static boolean needsBaseBlock(Material type, Config config) {
-        return type == Material.SPAWNER || (config.SIGN_TEXT && net.coreprotect.bukkit.BukkitAdapter.ADAPTER.isSign(type));
+        return type == Material.SPAWNER || BlockUtils.isSkull(type) || WorldEditTileData.isBanner(type) || WorldEditTileData.isCommandBlock(type)
+                || BlockGroup.SHULKER_BOXES.contains(type) || (config.ITEM_TRANSACTIONS && BlockGroup.CONTAINERS.contains(type))
+                || (config.SIGN_TEXT && BukkitAdapter.ADAPTER.isSign(type));
     }
 
     protected static boolean isLoggedTopHalf(Material type, BlockData blockData) {
@@ -67,13 +59,13 @@ public class WorldEditLogger extends Queue {
      * Null when the neighbouring block is not the matching opposite half.
      */
     protected static BlockState getOtherHalf(Extent extent, BlockVector3 position, Location location, BlockData blockData) {
-        if (!(blockData instanceof Bisected) || blockData instanceof Stairs || blockData instanceof TrapDoor) {
+        if (!(blockData instanceof Bisected) || blockData instanceof Stairs || blockData instanceof TrapDoor || BukkitAdapter.ADAPTER.isSingleBlockPitcherCrop(blockData)) {
             return null;
         }
 
         int offset = ((Bisected) blockData).getHalf() == Half.TOP ? -1 : 1;
         int otherY = location.getBlockY() + offset;
-        if (otherY < net.coreprotect.bukkit.BukkitAdapter.ADAPTER.getMinHeight(location.getWorld()) || otherY >= location.getWorld().getMaxHeight()) {
+        if (otherY < BukkitAdapter.ADAPTER.getMinHeight(location.getWorld()) || otherY >= location.getWorld().getMaxHeight()) {
             return null;
         }
 
@@ -90,129 +82,65 @@ public class WorldEditLogger extends Queue {
     /**
      * @param otherHalf The matching other half of a double block as it was before this edit changed it, or null. Callers that do not log block physics only supply the lower half of a top half.
      */
-    protected static void postProcess(Actor actor, Location location, BaseBlock baseBlock, Material oldType, BlockData oldBlockData, String oldBlockDataString, Material newType, BlockData newBlockData, String newBlockDataString, ItemStack[] containerContents, boolean logBlockPhysics, BlockState otherHalf) {
-        if (!oldType.equals(newType) || !oldBlockDataString.equals(newBlockDataString)) {
-            BlockState oldBlock = new WorldEditBlockState(location, oldType, oldBlockData);
-            BlockState newBlock = new WorldEditBlockState(location, newType, newBlockData);
-            if (isLoggedTopHalf(oldType, oldBlockData)) {
-                // Queue logs a double block by its lower half, which was captured before this edit could change it
-                ((WorldEditBlockState) oldBlock).setLowerHalf(otherHalf);
-            }
-            int oldBlockExtraData = 0;
-            int newBlockExtraData = -1;
+    protected static void postProcess(Actor actor, Location location, BlockStateConversion oldState, CompoundTag oldTile, BlockStateConversion newState, CompoundTag newTile, Config config, boolean logBlockPhysics, BlockState otherHalf) {
+        Material oldType = oldState.getMaterial();
+        Material newType = newState.getMaterial();
+        if (oldType == newType && oldState.getDataString().equals(newState.getDataString()) && !WorldEditTileData.changed(oldTile, newTile)) {
+            return;
+        }
 
-            try {
-                if (baseBlock != null && baseBlock.hasNbtData()) {
-                    if (Config.getConfig(location.getWorld()).SIGN_TEXT && net.coreprotect.bukkit.BukkitAdapter.ADAPTER.isSign(oldType)) {
-                        CompoundTag compoundTag = baseBlock.getNbtData();
-                        if (!compoundTag.containsKey("front_text")) {
-                            String line1 = getSignText(compoundTag.getString("Text1"));
-                            String line2 = getSignText(compoundTag.getString("Text2"));
-                            String line3 = getSignText(compoundTag.getString("Text3"));
-                            String line4 = getSignText(compoundTag.getString("Text4"));
-                            int color = DyeColor.valueOf(baseBlock.getNbtData().getString("Color").toUpperCase()).getColor().asRGB();
-                            int colorSecondary = 0;
-                            boolean frontGlowing = (compoundTag.getInt("GlowingText") == 1 ? true : false);
-                            boolean backGlowing = false;
-                            boolean isWaxed = false;
-                            boolean isFront = true;
+        BlockData oldData = oldState.getBlockData();
+        BlockData newData = newState.getBlockData();
+        WorldEditBlockState oldBlock = new WorldEditBlockState(location, oldType, oldData);
+        if (isLoggedTopHalf(oldType, oldData)) {
+            oldBlock.setLowerHalf(otherHalf);
+        }
+        String newDataString = newState.getDataString();
+        boolean newAir = BlockUtils.isAir(newType);
+        boolean logBreak = !BlockUtils.isAir(oldType);
+        if (logBlockPhysics && oldType == Material.WATER && newData instanceof Waterlogged) {
+            Waterlogged waterlogged = BlockUtils.checkWaterlogged(newData.clone(), oldBlock);
+            if (waterlogged != null) {
+                newData = waterlogged;
+                newDataString = waterlogged.getAsString();
+                logBreak = false;
+            }
+        }
 
-                            Queue.queueSignText(actor.getName(), location, SignActions.BREAK, color, colorSecondary, frontGlowing, backGlowing, isWaxed, isFront, line1, line2, line3, line4, "", "", "", "", 5);
-                        }
-                    }
-                    if (oldType == Material.SPAWNER) {
-                        String mobType = getMobType(baseBlock);
-                        if (mobType != null) {
-                            try {
-                                EntityType entityType = EntityType.valueOf(mobType);
-                                oldBlockExtraData = EntityUtils.getSpawnerType(entityType);
-                            }
-                            catch (IllegalArgumentException exception) {
-                                // mobType isn't a valid enum (EntityType.class)
-                            }
-                        }
-                    }
-                }
-                if (containerContents != null) {
-                    InventoryChangeListener.queueContainerBreak(actor.getName(), location, oldType, containerContents);
-                }
+        String user = actor.getName();
+        if (logBreak) {
+            ItemStack[] items = capturedInventory(oldType, oldTile, config.ITEM_TRANSACTIONS);
+            WorldEditTileData.captureBlockMetadata(oldBlock, oldTile, items);
+            if (config.ITEM_TRANSACTIONS && items != null && BlockGroup.CONTAINERS.contains(oldType)) {
+                Queue.queueContainerBreak(user, location, oldType, items);
             }
-            catch (Exception e) {
-                ErrorReporter.report(e);
+            logSign(user, location, oldType, oldTile, config, SignActions.BREAK, 5);
+            int extraData = oldType == Material.SPAWNER ? WorldEditTileData.readSpawner(oldTile, 0) : 0;
+            Queue.queueBlockBreak(user, oldBlock, oldType, oldState.getDataString(), null, extraData, 0);
+            if (logBlockPhysics && oldType != newType && otherHalf != null && !BlockGroup.LOGGED_BY_LOWER_HALF.contains(oldType)) {
+                Queue.queueBlockBreak(user, otherHalf, otherHalf.getType(), otherHalf.getBlockData().getAsString(), null, 0, 0);
             }
+        }
 
-            if (newType.equals(Material.SKELETON_SKULL) || newType.equals(Material.SKELETON_WALL_SKULL) || newType.equals(Material.WITHER_SKELETON_SKULL) || newType.equals(Material.WITHER_SKELETON_WALL_SKULL) || newType.equals(Material.ZOMBIE_HEAD) || newType.equals(Material.ZOMBIE_WALL_HEAD) || newType.equals(Material.PLAYER_HEAD) || newType.equals(Material.PLAYER_WALL_HEAD) || newType.equals(Material.CREEPER_HEAD) || newType.equals(Material.CREEPER_WALL_HEAD) || newType.equals(Material.DRAGON_HEAD) || newType.equals(Material.DRAGON_WALL_HEAD)) {
-                // skull
-                Queue.queueBlockPlaceDelayed(actor.getName(), location, newType, newBlockDataString, oldBlock, 0);
-            }
-            else if ((oldType.equals(Material.AIR) || oldType.equals(Material.CAVE_AIR)) && (!newType.equals(Material.AIR) && !newType.equals(Material.CAVE_AIR))) {
-                // placed a block
-                Queue.queueBlockPlace(actor.getName(), newBlock, newType, null, newType, newBlockExtraData, 0, newBlockDataString);
-            }
-            else if ((!oldType.equals(Material.AIR) && !oldType.equals(Material.CAVE_AIR)) && (!newType.equals(Material.AIR) && !newType.equals(Material.CAVE_AIR))) {
-                // replaced a block
-                Waterlogged waterlogged = logBlockPhysics && oldType == Material.WATER && newBlockData instanceof Waterlogged ? BlockUtils.checkWaterlogged(newBlockData.clone(), oldBlock) : null;
-                if (waterlogged != null) {
-                    newBlock = new WorldEditBlockState(location, newType, waterlogged);
-                    newBlockDataString = waterlogged.getAsString();
-                    oldBlock = null;
-                }
-                if (oldBlock != null) {
-                    Queue.queueBlockBreak(actor.getName(), oldBlock, oldBlock.getType(), oldBlockDataString, null, oldBlockExtraData, 0);
-                }
-                Queue.queueBlockPlace(actor.getName(), newBlock, newType, null, newType, newBlockExtraData, 0, newBlockDataString);
-            }
-            else if ((!oldType.equals(Material.AIR) && !oldType.equals(Material.CAVE_AIR)) && (newType.equals(Material.AIR) || newType.equals(Material.CAVE_AIR))) {
-                // removed a block
-                Queue.queueBlockBreak(actor.getName(), oldBlock, oldBlock.getType(), oldBlockDataString, null, oldBlockExtraData, 0);
-
-                if (logBlockPhysics && oldBlockData instanceof Waterlogged) {
-                    Waterlogged waterlogged = (Waterlogged) oldBlockData;
-                    if (waterlogged.isWaterlogged()) {
-                        Queue.queueBlockPlace(actor.getName(), newBlock, newType, null, Material.WATER, -1, 0, null);
-                    }
-                }
-                else if (logBlockPhysics && otherHalf != null && !BlockGroup.LOGGED_BY_LOWER_HALF.contains(oldType)) {
-                    // A double block logged by its lower half is already covered by this block's own row
-                    Queue.queueBlockBreak(actor.getName(), otherHalf, otherHalf.getType(), otherHalf.getBlockData().getAsString(), null, 0, 0);
-                }
-
-            }
+        WorldEditBlockState newBlock = new WorldEditBlockState(location, newType, newData);
+        if (!newAir) {
+            WorldEditTileData.captureBlockMetadata(newBlock, newTile, capturedInventory(newType, newTile, false));
+            int extraData = newType == Material.SPAWNER ? WorldEditTileData.readSpawner(newTile, -1) : -1;
+            Queue.queueBlockPlace(user, newBlock, newType, null, newType, extraData, 0, newDataString);
+            logSign(user, location, newType, newTile, config, SignActions.PLACE, 0);
+        }
+        else if (logBlockPhysics && oldData instanceof Waterlogged && ((Waterlogged) oldData).isWaterlogged()) {
+            Queue.queueBlockPlace(user, newBlock, newType, null, Material.WATER, -1, 0, null);
         }
     }
 
-    private static String getMobType(BaseBlock fullBlock) {
-        String mobType = null;
-        try {
-            CompoundTag compoundTag = NBTUtils.getChildTag(fullBlock.getNbtData().getValue(), "SpawnData", CompoundTag.class);
-            mobType = compoundTag.getString("id").toUpperCase(Locale.ROOT);
-            if (mobType.contains("MINECRAFT:")) {
-                String[] mobTypeSplit = mobType.split(":");
-                mobType = mobTypeSplit[1];
-            }
-        }
-        catch (Exception e) {
-            ErrorReporter.report(e);
-        }
-
-        return mobType;
+    private static ItemStack[] capturedInventory(Material type, CompoundTag tag, boolean itemTransactions) {
+        return BlockGroup.SHULKER_BOXES.contains(type) || (itemTransactions && BlockGroup.CONTAINERS.contains(type)) ? WorldEditTileData.readInventory(tag) : null;
     }
 
-    private static String getSignText(String line) {
-        String result = "";
-
-        if (!line.startsWith("{\"text\":\"")) {
-            return line;
+    private static void logSign(String user, Location location, Material type, CompoundTag tile, Config config, int action, int offset) {
+        if (tile != null && config.SIGN_TEXT && BukkitAdapter.ADAPTER.isSign(type)) {
+            Queue.queueSignText(user, location, action, WorldEditTileData.readSign(tile), true, offset);
         }
-
-        try {
-            JSONObject json = (JSONObject) new JSONParser().parse(line);
-            return (String) json.get("text");
-        }
-        catch (Exception e) {
-            ErrorReporter.report(e);
-        }
-
-        return result;
     }
 }

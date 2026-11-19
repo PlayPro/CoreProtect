@@ -1,5 +1,7 @@
 package net.coreprotect.worldedit;
 
+import java.util.Map;
+
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.data.BlockData;
@@ -9,11 +11,12 @@ import com.fastasyncworldedit.core.queue.IBatchProcessor;
 import com.fastasyncworldedit.core.queue.IChunk;
 import com.fastasyncworldedit.core.queue.IChunkGet;
 import com.fastasyncworldedit.core.queue.IChunkSet;
+import com.sk89q.jnbt.CompoundTag;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.extension.platform.Actor;
 import com.sk89q.worldedit.extent.Extent;
+import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.world.World;
-import com.sk89q.worldedit.world.block.BaseBlock;
 import com.sk89q.worldedit.world.block.BlockState;
 import com.sk89q.worldedit.world.block.BlockTypesCache;
 
@@ -46,6 +49,7 @@ final class FastAsyncWorldEditLogger implements IBatchProcessor {
         }
 
         BlockStateConversion[] cached = conversions();
+        Map<BlockVector3, CompoundTag> tiles = set.getTiles();
         int chunkX = chunk.getX() << 4;
         int chunkZ = chunk.getZ() << 4;
         for (int layer = get.getMinSectionPosition(); layer <= get.getMaxSectionPosition(); layer++) {
@@ -61,10 +65,7 @@ final class FastAsyncWorldEditLogger implements IBatchProcessor {
                     continue;
                 }
 
-                int oldOrdinal = original == null ? BlockTypesCache.ReservedIDs.AIR : original[index];
-                if (oldOrdinal == BlockTypesCache.ReservedIDs.__RESERVED__) {
-                    oldOrdinal = BlockTypesCache.ReservedIDs.AIR;
-                }
+                int oldOrdinal = originalOrdinal(original, index);
                 if (oldOrdinal == newOrdinal) {
                     continue;
                 }
@@ -72,17 +73,44 @@ final class FastAsyncWorldEditLogger implements IBatchProcessor {
                 int x = index & 15;
                 int y = (layer << 4) + (index >> 8);
                 int z = (index >> 4) & 15;
-                BlockStateConversion oldConversion = conversion(cached, oldOrdinal);
-                BlockStateConversion newConversion = conversion(cached, newOrdinal);
-                Material oldType = oldConversion.getMaterial();
-                BlockData oldBlockData = oldConversion.getBlockData();
-                Location location = new Location(world, chunkX + x, y, chunkZ + z);
-                BaseBlock baseBlock = WorldEditLogger.needsBaseBlock(oldType, config) ? get.getFullBlock(x, y, z) : null;
-                org.bukkit.block.BlockState lowerHalf = WorldEditLogger.isLoggedTopHalf(oldType, oldBlockData) ? getLowerHalf(get, set, cached, x, y, z, chunkX + x, chunkZ + z, oldBlockData) : null;
-                WorldEditLogger.postProcess(actor, location, baseBlock, oldType, oldBlockData, oldConversion.getDataString(), newConversion.getMaterial(), newConversion.getBlockData(), newConversion.getDataString(), null, false, lowerHalf);
+                CompoundTag tile = tiles.isEmpty() ? null : tiles.get(BlockVector3.at(x, y, z));
+                logChange(get, set, cached, chunkX, chunkZ, x, y, z, oldOrdinal, newOrdinal, tile, config);
+            }
+        }
+        for (Map.Entry<BlockVector3, CompoundTag> entry : tiles.entrySet()) {
+            BlockVector3 position = entry.getKey();
+            int x = position.getBlockX();
+            int y = position.getBlockY();
+            int z = position.getBlockZ();
+            int layer = y >> 4;
+            if (layer < get.getMinSectionPosition() || layer > get.getMaxSectionPosition() || entry.getValue() == null) {
+                continue;
+            }
+            int index = ((y & 15) << 8) | (z << 4) | x;
+            int oldOrdinal = originalOrdinal(get.load(layer), index);
+            char[] changed = set.loadIfPresent(layer);
+            if ((changed == null || changed[index] == BlockTypesCache.ReservedIDs.__RESERVED__ || changed[index] == oldOrdinal)
+                    && WorldEditLogger.needsBaseBlock(conversion(cached, oldOrdinal).getMaterial(), config)) {
+                logChange(get, set, cached, chunkX, chunkZ, x, y, z, oldOrdinal, oldOrdinal, entry.getValue(), config);
             }
         }
         return set;
+    }
+
+    private void logChange(IChunkGet get, IChunkSet set, BlockStateConversion[] cached, int chunkX, int chunkZ, int x, int y, int z, int oldOrdinal, int newOrdinal, CompoundTag newTile, Config config) {
+        BlockStateConversion oldConversion = conversion(cached, oldOrdinal);
+        BlockStateConversion newConversion = conversion(cached, newOrdinal);
+        Material oldType = oldConversion.getMaterial();
+        BlockData oldBlockData = oldConversion.getBlockData();
+        Location location = new Location(world, chunkX + x, y, chunkZ + z);
+        CompoundTag oldTile = WorldEditLogger.needsBaseBlock(oldType, config) ? WorldEditTileData.read(get.getFullBlock(x, y, z)) : null;
+        org.bukkit.block.BlockState lowerHalf = WorldEditLogger.isLoggedTopHalf(oldType, oldBlockData) ? getLowerHalf(get, set, cached, x, y, z, chunkX + x, chunkZ + z, oldBlockData) : null;
+        WorldEditLogger.postProcess(actor, location, oldConversion, oldTile, newConversion, newTile, config, false, lowerHalf);
+    }
+
+    private static int originalOrdinal(char[] original, int index) {
+        int ordinal = original == null ? BlockTypesCache.ReservedIDs.AIR : original[index];
+        return ordinal == BlockTypesCache.ReservedIDs.__RESERVED__ ? BlockTypesCache.ReservedIDs.AIR : ordinal;
     }
 
     /**
@@ -97,11 +125,7 @@ final class FastAsyncWorldEditLogger implements IBatchProcessor {
         }
 
         int index = ((lowerY & 15) << 8) | (z << 4) | x;
-        char[] original = get.load(layer);
-        int ordinal = original == null ? BlockTypesCache.ReservedIDs.AIR : original[index];
-        if (ordinal == BlockTypesCache.ReservedIDs.__RESERVED__) {
-            ordinal = BlockTypesCache.ReservedIDs.AIR;
-        }
+        int ordinal = originalOrdinal(get.load(layer), index);
         char[] changed = set.loadIfPresent(layer);
         if (changed != null && changed[index] != BlockTypesCache.ReservedIDs.__RESERVED__ && changed[index] != ordinal) {
             return null;

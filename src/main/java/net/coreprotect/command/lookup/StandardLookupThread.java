@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -215,7 +216,13 @@ public class StandardLookupThread implements Runnable {
                         finalLocation = new Location(Bukkit.getServer().getWorld(worldName), request.scope.x, request.scope.y, request.scope.z);
                     }
                     else if (finalLocation != null) {
-                        finalLocation = new Location(Bukkit.getServer().getWorld(WorldUtils.getWorldName(request.scope.worldId)), request.scope.x, request.scope.y, request.scope.z);
+                        World world = Bukkit.getServer().getWorld(WorldUtils.getWorldName(request.scope.worldId));
+                        if (actions.contains(LookupActions.INSPECT_CONTAINER)) {
+                            finalLocation.setWorld(world);
+                        }
+                        else {
+                            finalLocation = new Location(world, request.scope.x, request.scope.y, request.scope.z);
+                        }
                     }
 
                     EntityLookupContext entityContext = EntityLookupContext.legacy(Collections.emptySet(), Collections.emptySet());

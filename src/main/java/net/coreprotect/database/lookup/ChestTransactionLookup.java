@@ -183,7 +183,7 @@ public class ChestTransactionLookup {
                 }
             }
 
-            String history = entitySpawnRowId == null
+            String history = entitySpawnRowId == null && !exact
                     ? x + "." + y + "." + z + "." + worldId + "." + x2 + "." + y2 + "." + z2 + "." + limit
                     : displayX + "." + displayY + "." + displayZ + "." + displayWorldId + "." + displayX + "." + displayY + "." + displayZ + "." + limit;
             LookupThrottle.publish(name, () -> {

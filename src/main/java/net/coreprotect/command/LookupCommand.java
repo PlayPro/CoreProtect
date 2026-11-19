@@ -333,6 +333,10 @@ public class LookupCommand {
                     y = container.y;
                     z = container.z;
                     wid = container.worldId;
+                    lo = container.location();
+                    if (lo == null) {
+                        lo = new Location(null, x, y, z);
+                    }
                     argAction.add(LookupActions.INSPECT_CONTAINER);
                     argRadius = null;
                     argWid = 0;
@@ -488,10 +492,7 @@ public class LookupCommand {
 
             Supplier<LookupWorker> worker;
             if (type == 1) {
-                double dx = 0.5 * (x + (long) Integer.parseInt(data[4]));
-                double dy = 0.5 * (y + (long) Integer.parseInt(data[5]));
-                double dz = 0.5 * (z + (long) Integer.parseInt(data[6]));
-                Location location = new Location(world, dx, dy, dz);
+                Location location = containerHistoryLocation(world, x, y, z, data);
                 worker = () -> new ChestTransactionLookupThread(player, command, location, page.page, rows);
             }
             else {
@@ -574,8 +575,21 @@ public class LookupCommand {
         if (coordinates.length < 4) {
             return null;
         }
-        return new StandardLookupRequest.Scope(null, Integer.parseInt(coordinates[0]), Integer.parseInt(coordinates[1]),
-                Integer.parseInt(coordinates[2]), Integer.parseInt(coordinates[3]), 0, null, 0, 0, null);
+        int x = Integer.parseInt(coordinates[0]);
+        int y = Integer.parseInt(coordinates[1]);
+        int z = Integer.parseInt(coordinates[2]);
+        Location location = containerHistoryLocation(null, x, y, z, coordinates);
+        return new StandardLookupRequest.Scope(location, x, y, z, Integer.parseInt(coordinates[3]), 0, null, 0, 0, null);
+    }
+
+    private static Location containerHistoryLocation(World world, int x, int y, int z, String[] coordinates) {
+        if (coordinates.length < 7) {
+            return new Location(world, x, y, z);
+        }
+        double centerX = (x + (long) Integer.parseInt(coordinates[4])) / 2.0;
+        double centerY = (y + (long) Integer.parseInt(coordinates[5])) / 2.0;
+        double centerZ = (z + (long) Integer.parseInt(coordinates[6])) / 2.0;
+        return new Location(world, centerX, centerY, centerZ);
     }
 
     private static void startStandardLookup(CommandSender player, Command command, StandardLookupRequest request, LookupSession session) {

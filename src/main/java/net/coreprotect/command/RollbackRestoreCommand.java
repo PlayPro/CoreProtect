@@ -12,9 +12,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
-import org.bukkit.block.Chest;
 import org.bukkit.command.BlockCommandSender;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -239,10 +236,6 @@ public class RollbackRestoreCommand {
                     }
                 }
 
-                int wid = 0;
-                int x = 0;
-                int y = 0;
-                int z = 0;
                 if (rollbackusers.contains("#container")) {
                     if (argAction.contains(LookupActions.ITEM)) {
                         Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_USERNAME, "#container"));
@@ -256,11 +249,7 @@ public class RollbackRestoreCommand {
                             return;
                         }
                         else {
-                            x = container.x;
-                            y = container.y;
-                            z = container.z;
-                            wid = container.worldId;
-                            String containerWorldName = WorldUtils.getWorldName(wid);
+                            String containerWorldName = WorldUtils.getWorldName(container.worldId);
                             World containerWorld = Bukkit.getServer().getWorld(containerWorldName);
                             if (containerWorld == null) {
                                 Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.WORLD_NOT_FOUND, containerWorldName));
@@ -269,24 +258,12 @@ public class RollbackRestoreCommand {
                             argAction.add(LookupActions.INSPECT_CONTAINER);
                             argRadius = null;
                             argWid = 0;
-                            lo = new Location(containerWorld, x, y, z);
-                            if (!exactEntityContainer) {
-                                Block block = lo.getBlock();
-                                if (block.getState() instanceof Chest) {
-                                    BlockFace[] blockFaces = new BlockFace[] { BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST };
-                                    for (BlockFace face : blockFaces) {
-                                        if (block.getRelative(face, 1).getState() instanceof Chest) {
-                                            Block relative = block.getRelative(face, 1);
-                                            int x2 = relative.getX();
-                                            int z2 = relative.getZ();
-                                            double newX = (x + x2) / 2.0;
-                                            double newZ = (z + z2) / 2.0;
-                                            lo.setX(newX);
-                                            lo.setZ(newZ);
-                                            break;
-                                        }
-                                    }
-                                }
+                            lo = container.location();
+                            if (lo == null) {
+                                lo = new Location(containerWorld, container.x, container.y, container.z);
+                            }
+                            else {
+                                lo.setWorld(containerWorld);
                             }
                         }
                     }

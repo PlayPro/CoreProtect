@@ -21,8 +21,8 @@ public class EntityResult implements CoreProtectResult {
 
     public EntityResult(long time, String username, String world, int x, int y, int z, int type, int actionId, int rolledBack) {
         this.time = time;
-        this.username = username;
-        this.world = world;
+        this.username = username == null ? "" : username;
+        this.world = world == null ? "" : world;
         this.x = x;
         this.y = y;
         this.z = z;

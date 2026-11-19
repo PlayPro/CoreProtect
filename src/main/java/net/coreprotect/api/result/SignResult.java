@@ -23,8 +23,8 @@ public class SignResult implements CoreProtectResult {
 
     public SignResult(long time, String username, String world, int x, int y, int z, int actionId, int color, int colorSecondary, int data, boolean waxed, boolean front, String[] lines) {
         this.time = time;
-        this.username = username;
-        this.world = world;
+        this.username = username == null ? "" : username;
+        this.world = world == null ? "" : world;
         this.x = x;
         this.y = y;
         this.z = z;
@@ -34,7 +34,10 @@ public class SignResult implements CoreProtectResult {
         this.data = data;
         this.waxed = waxed;
         this.front = front;
-        this.lines = lines.clone();
+        this.lines = new String[8];
+        for (int index = 0; index < this.lines.length; index++) {
+            this.lines[index] = lines == null || index >= lines.length || lines[index] == null ? "" : lines[index];
+        }
     }
 
     public int getActionId() {
@@ -76,7 +79,7 @@ public class SignResult implements CoreProtectResult {
 
         for (int index = startLine; index < endLine; index++) {
             String line = lines[index];
-            if (line != null && !line.isEmpty()) {
+            if (!line.isEmpty()) {
                 message.append(line);
                 if (!line.endsWith(" ")) {
                     message.append(" ");

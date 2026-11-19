@@ -28,8 +28,8 @@ public class InventoryResult implements CoreProtectResult {
 
     public InventoryResult(long time, String username, String world, int x, int y, int z, int type, int data, int amount, byte[] metadata, int transactionActionId, int rolledBack, int sourceId) {
         this.time = time;
-        this.username = username;
-        this.world = world;
+        this.username = username == null ? "" : username;
+        this.world = world == null ? "" : world;
         this.x = x;
         this.y = y;
         this.z = z;

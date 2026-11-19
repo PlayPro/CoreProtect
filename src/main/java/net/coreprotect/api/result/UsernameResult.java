@@ -13,9 +13,9 @@ public class UsernameResult implements CoreProtectResult {
 
     public UsernameResult(long time, String uuid, String username, String player) {
         this.time = time;
-        this.uuid = uuid;
-        this.username = username;
-        this.player = player;
+        this.uuid = uuid == null ? "" : uuid;
+        this.username = username == null ? "" : username;
+        this.player = player == null ? "" : player;
     }
 
     public int getActionId() {

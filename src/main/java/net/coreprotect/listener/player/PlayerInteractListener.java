@@ -445,7 +445,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                 int y = location.getBlockY();
                                 int z = location.getBlockZ();
                                 String coordinates = x + "." + y + "." + z + "." + wid + "." + type.name();
-                                CacheHandler.interactCache.put(coordinates, new Object[] { time, handItem, player.getName() });
+                                CacheHandler.interactCache.put(coordinates, new Object[] { time, handItem.clone(), player.getName() });
                             }
                         }
 

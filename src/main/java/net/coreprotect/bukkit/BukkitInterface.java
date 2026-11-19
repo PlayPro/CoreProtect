@@ -68,6 +68,8 @@ public interface BukkitInterface {
      */
     int getMinHeight(World world);
 
+    boolean isUltraWarm(World world);
+
     /**
      * Gets the legacy block ID for a material.
      * 

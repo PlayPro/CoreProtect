@@ -397,6 +397,11 @@ public class BukkitAdapter implements BukkitInterface {
     }
 
     @Override
+    public boolean isUltraWarm(World world) {
+        return world.getEnvironment() == World.Environment.NETHER;
+    }
+
+    @Override
     public Material getBucketContents(Material material) {
         return Material.AIR;
     }

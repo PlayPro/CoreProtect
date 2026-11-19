@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import org.bukkit.Bukkit;
 import org.bukkit.block.Skull;
+import org.bukkit.World;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.profile.PlayerProfile;
@@ -18,6 +19,11 @@ import net.coreprotect.utility.SkullProfileUtils;
  * to handle features introduced in the 1.18 update.
  */
 public class Bukkit_v1_18 extends Bukkit_v1_17 {
+
+    @Override
+    public boolean isUltraWarm(World world) {
+        return world.isUltraWarm();
+    }
 
     private static final boolean HAS_RECIPE_ADJUST = hasPublicMethod(MerchantRecipe.class, "adjust", ItemStack.class);
     private static final boolean HAS_SKULL_PROFILES = hasPublicMethod(Skull.class, "getOwnerProfile");

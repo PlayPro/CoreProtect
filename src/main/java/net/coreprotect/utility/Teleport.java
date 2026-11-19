@@ -87,37 +87,35 @@ public class Teleport {
             Location targetLocation = location.clone();
             World world = targetLocation.getWorld();
             int minHeight = BukkitAdapter.ADAPTER != null ? BukkitAdapter.ADAPTER.getMinHeight(world) : 0;
-            int worldHeight = world.getMaxHeight();
+            int maxFeetY = world.getMaxHeight() - 2;
             int playerX = targetLocation.getBlockX();
             int playerY = targetLocation.getBlockY();
             int playerZ = targetLocation.getBlockZ();
-            int checkY = Math.max(minHeight, Math.min(playerY - 1, worldHeight));
+            if (!enforceTeleport && playerY > maxFeetY) {
+                return;
+            }
+
+            int targetY = Math.min(playerY, maxFeetY);
+            int checkY = targetY > minHeight ? targetY - 1 : minHeight;
             boolean safeBlock = false;
             boolean alert = false;
 
-            while (!safeBlock) {
-                int above = Math.min(checkY + 1, worldHeight);
-
+            while (!safeBlock && checkY <= maxFeetY) {
                 Block block1 = world.getBlockAt(playerX, checkY, playerZ);
-                Block block2 = world.getBlockAt(playerX, above, playerZ);
+                Block block2 = world.getBlockAt(playerX, checkY + 1, playerZ);
                 Material type1 = block1.getType();
                 Material type2 = block2.getType();
 
                 if (BlockUtils.passableBlock(block1) && BlockUtils.passableBlock(block2) && !isUnsafeBlock(type1) && !isUnsafeBlock(type2)) {
-                    int below = checkY - 1;
-                    Block blockBelow = below >= minHeight ? world.getBlockAt(playerX, below, playerZ) : null;
+                    Block blockBelow = checkY > minHeight ? world.getBlockAt(playerX, checkY - 1, playerZ) : null;
                     boolean belowHazardous = blockBelow == null
                             || isUnsafeBlock(blockBelow.getType())
                             || (enforceTeleport && BlockUtils.passableBlock(blockBelow) && !isSafeLiquid(blockBelow.getType()));
 
                     if (belowHazardous && isVulnerablePlayer(player)) {
-                        if (checkY < worldHeight) {
-                            boolean headClear = checkY + 2 >= worldHeight;
-                            if (!headClear) {
-                                Block blockAboveHead = world.getBlockAt(playerX, checkY + 2, playerZ);
-                                headClear = BlockUtils.passableBlock(blockAboveHead) && !isUnsafeBlock(blockAboveHead.getType());
-                            }
-                            if (headClear) {
+                        if (checkY < maxFeetY) {
+                            Block blockAboveHead = world.getBlockAt(playerX, checkY + 2, playerZ);
+                            if (BlockUtils.passableBlock(blockAboveHead) && !isUnsafeBlock(blockAboveHead.getType())) {
                                 Material safetyMaterial = defaultSafetyMaterial();
                                 Location revertLocation = block1.getLocation();
                                 BlockData originalBlockData = block1.getBlockData().clone();
@@ -141,19 +139,12 @@ public class Teleport {
                     }
                 }
 
-                if (!safeBlock && (checkY >= worldHeight || player.getGameMode() == GameMode.SPECTATOR)) {
+                if (!safeBlock && player.getGameMode() == GameMode.SPECTATOR) {
+                    checkY = Math.min(checkY + 1, maxFeetY);
                     safeBlock = true;
-
-                    if (checkY < worldHeight) {
-                        checkY++;
-                    }
                 }
 
                 if (safeBlock && (checkY > playerY || enforceTeleport || alert)) {
-                    if (checkY > worldHeight) {
-                        checkY = worldHeight;
-                    }
-
                     if (checkY != playerY || enforceTeleport) {
                         double oldY = targetLocation.getY();
                         targetLocation.setY(checkY);
@@ -180,6 +171,9 @@ public class Teleport {
                 }
 
                 checkY++;
+            }
+            if (!safeBlock && enforceTeleport) {
+                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.TELEPORT_UNSAFE));
             }
         }
         catch (Exception e) {

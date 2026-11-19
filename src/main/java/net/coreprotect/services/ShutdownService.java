@@ -1,5 +1,6 @@
 package net.coreprotect.services;
 
+import org.bukkit.Server;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
@@ -57,14 +58,16 @@ public class ShutdownService {
                 PluginInitializationService.disableMetrics();
 
                 // Log disconnections of online players if server is stopping
-                if (ConfigHandler.serverRunning && plugin.getServer() != null && PaperAdapter.ADAPTER != null && PaperAdapter.ADAPTER.isStopping(plugin.getServer())) {
-                    for (Player player : plugin.getServer().getOnlinePlayers()) {
+                Server server = plugin.getServer();
+                boolean serverStopping = server != null && PaperAdapter.ADAPTER != null && PaperAdapter.ADAPTER.isStopping(server);
+                if (ConfigHandler.serverRunning && serverStopping) {
+                    for (Player player : server.getOnlinePlayers()) {
                         PlayerQuitListener.queuePlayerQuit(player);
                     }
                 }
 
                 // Revert any temporary teleport blocks
-                revertTeleportBlocks();
+                revertTeleportBlocks(plugin, serverStopping);
 
                 if (ConfigHandler.serverRunning) {
                     EntitySpawnTracking.queueLoadedLocationsForShutdown();
@@ -186,7 +189,19 @@ public class ShutdownService {
     /**
      * Reverts any blocks that were temporarily changed during player teleports
      */
-    private static void revertTeleportBlocks() {
-        Teleport.revertAllBlocks();
+    private static void revertTeleportBlocks(Plugin plugin, boolean serverStopping) {
+        if (Teleport.revertBlocks.isEmpty()) {
+            return;
+        }
+        try {
+            if (ConfigHandler.isFolia && serverStopping) {
+                plugin.getLogger().warning("Folia region shutdown prevented cleanup of temporary teleport blocks.");
+                return;
+            }
+            Teleport.revertAllBlocks();
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+        }
     }
 }

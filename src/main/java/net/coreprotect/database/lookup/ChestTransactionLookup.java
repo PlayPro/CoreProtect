@@ -49,20 +49,7 @@ public class ChestTransactionLookup {
                 return result;
             }
 
-            if (command == null) {
-                if (commandSender.hasPermission("coreprotect.co")) {
-                    command = "co";
-                }
-                else if (commandSender.hasPermission("coreprotect.core")) {
-                    command = "core";
-                }
-                else if (commandSender.hasPermission("coreprotect.coreprotect")) {
-                    command = "coreprotect";
-                }
-                else {
-                    command = "co";
-                }
-            }
+            command = InspectorLookup.resolveCommand(command, commandSender);
 
             boolean found = false;
             int x = (int) Math.floor(l.getX());
@@ -77,9 +64,6 @@ public class ChestTransactionLookup {
             int displayX = l.getBlockX();
             int displayY = l.getBlockY();
             int displayZ = l.getBlockZ();
-            long count = 0;
-            long rowMax = (long) page * limit;
-            long pageStart = rowMax - limit;
 
             String table = ConfigHandler.prefix + "container";
             String tableName = "container";
@@ -113,33 +97,26 @@ public class ChestTransactionLookup {
                 where = LocationQuery.predicate("wid", " = " + worldId) + " AND " + LocationQuery.predicate("x", " = " + l.getBlockX()) + " AND " + LocationQuery.predicate("z", " = " + l.getBlockZ()) + " AND y = " + y;
             }
 
-            boolean combinedDuckDBPage = ConfigHandler.databaseType.isDuckDB();
-            String query;
-            if (combinedDuckDBPage) {
-                String sourceTable;
+            String spatialTable = null;
+            if (ConfigHandler.databaseType.isDuckDB()) {
                 if (entitySpawnRowId != null) {
-                    sourceTable = DuckDBLookupQuery.entityTable(statement.getConnection(), tableName, Collections.singleton(entitySpawnRowId), "spatial_rows");
+                    spatialTable = DuckDBLookupQuery.entityTable(statement.getConnection(), tableName, Collections.singleton(entitySpawnRowId), "spatial_rows");
                 }
                 else {
                     int minimumX = exact ? l.getBlockX() : Math.min(x, x2);
                     int maximumX = exact ? l.getBlockX() : Math.max(x, x2);
                     int minimumZ = exact ? l.getBlockZ() : Math.min(z, z2);
                     int maximumZ = exact ? l.getBlockZ() : Math.max(z, z2);
-                    sourceTable = DuckDBLookupQuery.spatialTable(statement.getConnection(), tableName, worldId, minimumX, maximumX, minimumZ, maximumZ, "spatial_rows");
+                    spatialTable = DuckDBLookupQuery.spatialTable(statement.getConnection(), tableName, worldId, minimumX, maximumX, minimumZ, maximumZ, "spatial_rows");
                 }
-                String columns = "data_rows.time,data_rows." + ConfigHandler.databaseType.getUserColumn() + ",data_rows.wid,data_rows.x,data_rows.y,data_rows.z,data_rows.action,data_rows.type,data_rows.data,data_rows.amount,data_rows.metadata,data_rows.rolled_back";
-                query = DuckDBLookupQuery.pageQuery(sourceTable, table, where, columns, entitySpawnRowId != null, limit, pageStart);
             }
-            else {
-                query = "SELECT COUNT(*) as count FROM " + table + " " + index + "WHERE " + where + " LIMIT 1 OFFSET 0";
-                try (ResultSet counts = statement.executeQuery(query)) {
-                    count = counts.next() ? counts.getLong("count") : 0L;
-                }
-                query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,action,type,data,amount,metadata,rolled_back FROM " + table + " " + index + "WHERE " + where + " ORDER BY " + order + " LIMIT " + limit + " OFFSET " + pageStart;
-            }
-            try (ResultSet results = statement.executeQuery(query)) {
+            String columns = "time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,action,type,data,amount,metadata,rolled_back";
+            InspectorLookup.Page pageQuery = InspectorLookup.queryPage(statement, table, spatialTable, index, where, columns, order, entitySpawnRowId != null, page, limit);
+            long count = pageQuery.count;
+
+            try (ResultSet results = statement.executeQuery(pageQuery.query)) {
                 while (results.next()) {
-                    if (combinedDuckDBPage) {
+                    if (pageQuery.combinedCount) {
                         count = results.getLong("count");
                         if (results.getObject("result_id") == null) {
                             continue;
@@ -179,10 +156,7 @@ public class ChestTransactionLookup {
                         target = "minecraft:" + target.toLowerCase(Locale.ROOT) + "";
                     }
 
-                    // Hide "minecraft:" for now.
-                    if (target.startsWith("minecraft:")) {
-                        target = target.substring("minecraft:".length());
-                    }
+                    target = InspectorLookup.displayTarget(target);
 
                     String coordinateInfo = "";
                     if (entitySpawnRowId != null && (displayWorldId != resultWorldId || displayX != resultX || displayY != resultY || displayZ != resultZ)) {
@@ -192,7 +166,7 @@ public class ChestTransactionLookup {
                     PluginChannelListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_CONTAINER, selector, resultUser, target, resultAmount, displayX, displayY, displayZ, displayWorldId, rbFormat, true, tag.contains("+"));
                 }
             }
-            int totalPages = count == 0 ? 0 : (int) Math.min(Integer.MAX_VALUE, 1 + (count - 1) / limit);
+            int totalPages = InspectorLookup.totalPages(count, limit);
 
             if (found) {
                 if (count > limit) {
@@ -201,7 +175,7 @@ public class ChestTransactionLookup {
                 }
             }
             else {
-                if (rowMax > count && count > 0) {
+                if (pageQuery.end > count && count > 0) {
                     result.add(Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS_PAGE, Selector.SECOND));
                 }
                 else {

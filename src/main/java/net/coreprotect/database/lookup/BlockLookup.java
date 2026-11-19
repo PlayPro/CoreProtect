@@ -51,20 +51,7 @@ public class BlockLookup {
                 return resultText;
             }
 
-            if (command == null) {
-                if (commandSender.hasPermission("coreprotect.co")) {
-                    command = "co";
-                }
-                else if (commandSender.hasPermission("coreprotect.core")) {
-                    command = "core";
-                }
-                else if (commandSender.hasPermission("coreprotect.coreprotect")) {
-                    command = "coreprotect";
-                }
-                else {
-                    command = "co";
-                }
-            }
+            command = InspectorLookup.resolveCommand(command, commandSender);
 
             boolean found = false;
             int x = block.getX();
@@ -73,9 +60,6 @@ public class BlockLookup {
             long time = (System.currentTimeMillis() / 1000L);
             int worldId = WorldUtils.getWorldId(block.getWorld().getName());
             long checkTime = 0;
-            long count = 0;
-            long rowMax = (long) page * limit;
-            long page_start = rowMax - limit;
             if (offset > 0) {
                 checkTime = time - offset;
             }
@@ -96,30 +80,20 @@ public class BlockLookup {
                 where = "rowid IN(" + entityBlockRowIds(statement, entitySpawnRowId, checkTime) + ") AND action IN(" + LookupActions.ENTITY_SPAWN + "," + LookupActions.ENTITY_KILL + ") AND time >= " + checkTime;
                 index = "";
             }
-            boolean combinedDuckDBPage = ConfigHandler.databaseType.isDuckDB();
-            String query;
-            if (combinedDuckDBPage) {
-                String sourceTable = entitySpawnRowId == null ? DuckDBLookupQuery.spatialTable(statement.getConnection(), "block", worldId, x, x, z, z, "spatial_rows") : ConfigHandler.prefix + "block";
-                String columns = "data_rows.time,data_rows." + ConfigHandler.databaseType.getUserColumn() + ",data_rows.action,data_rows.type,data_rows.data,data_rows.rolled_back";
-                if (entitySpawnRowId != null) {
-                    columns += ",data_rows.wid,data_rows.x,data_rows.y,data_rows.z";
-                }
-                query = DuckDBLookupQuery.pageQuery(sourceTable, ConfigHandler.prefix + "block", where, columns, false, limit, page_start);
+            String table = ConfigHandler.prefix + "block";
+            String spatialTable = null;
+            if (ConfigHandler.databaseType.isDuckDB()) {
+                spatialTable = entitySpawnRowId == null ? DuckDBLookupQuery.spatialTable(statement.getConnection(), "block", worldId, x, x, z, z, "spatial_rows") : table;
             }
-            else {
-                query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "block " + index + "WHERE " + where + " LIMIT 1 OFFSET 0";
-                try (ResultSet counts = statement.executeQuery(query)) {
-                    count = counts.next() ? counts.getLong("count") : 0L;
-                }
-                String columns = "time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,rolled_back" + (entitySpawnRowId == null ? "" : ",wid,x,y,z");
-                query = "SELECT " + columns + " FROM " + ConfigHandler.prefix + "block " + index + "WHERE " + where + " ORDER BY " + ConfigHandler.getDescendingEventOrder() + " LIMIT " + limit + " OFFSET " + page_start;
-            }
+            String columns = "time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,rolled_back" + (entitySpawnRowId == null ? "" : ",wid,x,y,z");
+            InspectorLookup.Page pageQuery = InspectorLookup.queryPage(statement, table, spatialTable, index, where, columns, ConfigHandler.getDescendingEventOrder(), false, page, limit);
+            long count = pageQuery.count;
 
             StringBuilder resultTextBuilder = new StringBuilder();
 
-            try (ResultSet results = statement.executeQuery(query)) {
+            try (ResultSet results = statement.executeQuery(pageQuery.query)) {
                 while (results.next()) {
-                    if (combinedDuckDBPage) {
+                    if (pageQuery.combinedCount) {
                         count = results.getLong("count");
                         if (results.getObject("result_id") == null) {
                             continue;
@@ -183,10 +157,7 @@ public class BlockLookup {
                         target = "" + target + "";
                     }
 
-                    // Hide "minecraft:" for now.
-                    if (target.startsWith("minecraft:")) {
-                        target = target.substring("minecraft:".length());
-                    }
+                    target = InspectorLookup.displayTarget(target);
 
                     String coordinateInfo = "";
                     if (entitySpawnRowId != null) {
@@ -204,7 +175,7 @@ public class BlockLookup {
             }
 
             resultText = resultTextBuilder.toString();
-            int totalPages = count == 0 ? 0 : (int) Math.min(Integer.MAX_VALUE, 1 + (count - 1) / limit);
+            int totalPages = InspectorLookup.totalPages(count, limit);
 
             if (found) {
                 if (count > limit) {
@@ -214,7 +185,7 @@ public class BlockLookup {
                 }
             }
             else {
-                if (rowMax > count && count > 0) {
+                if (pageQuery.end > count && count > 0) {
                     resultText = Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS_PAGE, Selector.SECOND);
                 }
                 else {

@@ -31,20 +31,7 @@ public class InteractionLookup {
                 return result;
             }
 
-            if (command == null) {
-                if (commandSender.hasPermission("coreprotect.co")) {
-                    command = "co";
-                }
-                else if (commandSender.hasPermission("coreprotect.core")) {
-                    command = "core";
-                }
-                else if (commandSender.hasPermission("coreprotect.coreprotect")) {
-                    command = "coreprotect";
-                }
-                else {
-                    command = "co";
-                }
-            }
+            command = InspectorLookup.resolveCommand(command, commandSender);
 
             boolean found = false;
             int x = block.getX();
@@ -53,33 +40,22 @@ public class InteractionLookup {
             long time = System.currentTimeMillis() / 1000L;
             int worldId = WorldUtils.getWorldId(block.getWorld().getName());
             long checkTime = 0L;
-            long count = 0;
-            long rowMax = (long) page * limit;
-            long pageStart = rowMax - limit;
             if (offset > 0) {
                 checkTime = time - offset;
             }
 
             String where = LocationQuery.predicate("wid", " = " + worldId) + " AND " + LocationQuery.predicate("x", " = " + x) + " AND " + LocationQuery.predicate("z", " = " + z) + " AND y = " + y + " AND action=2 AND time >= " + checkTime;
-            boolean combinedDuckDBPage = ConfigHandler.databaseType.isDuckDB();
-            String query;
-            if (combinedDuckDBPage) {
-                String sourceTable = DuckDBLookupQuery.spatialTable(statement.getConnection(), "block", worldId, x, x, z, z, "spatial_rows");
-                String columns = "data_rows.time,data_rows." + ConfigHandler.databaseType.getUserColumn() + ",data_rows.action,data_rows.type,data_rows.data,data_rows.rolled_back";
-                query = DuckDBLookupQuery.pageQuery(sourceTable, ConfigHandler.prefix + "block", where, columns, false, limit, pageStart);
-            }
-            else {
-                query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE " + where + " LIMIT 1 OFFSET 0";
-                try (ResultSet counts = statement.executeQuery(query)) {
-                    count = counts.next() ? counts.getLong("count") : 0L;
-                }
-                query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,rolled_back FROM " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE " + where + " ORDER BY " + ConfigHandler.getDescendingEventOrder() + " LIMIT " + limit + " OFFSET " + pageStart;
-            }
+            String spatialTable = ConfigHandler.databaseType.isDuckDB()
+                    ? DuckDBLookupQuery.spatialTable(statement.getConnection(), "block", worldId, x, x, z, z, "spatial_rows") : null;
+            String columns = "time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,rolled_back";
+            InspectorLookup.Page pageQuery = InspectorLookup.queryPage(statement, ConfigHandler.prefix + "block", spatialTable, WorldUtils.getWidIndex("block"), where, columns,
+                    ConfigHandler.getDescendingEventOrder(), false, page, limit);
+            long count = pageQuery.count;
 
             StringBuilder resultBuilder = new StringBuilder();
-            try (ResultSet results = statement.executeQuery(query)) {
+            try (ResultSet results = statement.executeQuery(pageQuery.query)) {
                 while (results.next()) {
-                    if (combinedDuckDBPage) {
+                    if (pageQuery.combinedCount) {
                         count = results.getLong("count");
                         if (results.getObject("result_id") == null) {
                             continue;
@@ -110,17 +86,14 @@ public class InteractionLookup {
                         target = "minecraft:" + target.toLowerCase(Locale.ROOT) + "";
                     }
 
-                    // Hide "minecraft:" for now.
-                    if (target.startsWith("minecraft:")) {
-                        target = target.substring("minecraft:".length());
-                    }
+                    target = InspectorLookup.displayTarget(target);
 
                     resultBuilder.append(timeAgo + " " + Color.WHITE + "- ").append(Phrase.build(Phrase.LOOKUP_INTERACTION, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, Color.DARK_AQUA + rbFormat + target + Color.WHITE, Selector.FIRST)).append("\n");
                     PluginChannelListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_INTERACTION, Selector.FIRST, resultUser, target, -1, x, y, z, worldId, rbFormat, false, false);
                 }
             }
             result = resultBuilder.toString();
-            int totalPages = count == 0 ? 0 : (int) Math.min(Integer.MAX_VALUE, 1 + (count - 1) / limit);
+            int totalPages = InspectorLookup.totalPages(count, limit);
 
             if (found) {
                 if (count > limit) {
@@ -130,7 +103,7 @@ public class InteractionLookup {
                 }
             }
             else {
-                if (rowMax > count && count > 0) {
+                if (pageQuery.end > count && count > 0) {
                     result = Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS_PAGE, Selector.SECOND);
                 }
                 else {

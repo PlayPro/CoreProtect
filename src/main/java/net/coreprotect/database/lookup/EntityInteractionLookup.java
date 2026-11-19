@@ -49,32 +49,23 @@ public final class EntityInteractionLookup {
         }
 
         try {
-            String resolvedCommand = resolveCommand(command, commandSender);
+            String resolvedCommand = InspectorLookup.resolveCommand(command, commandSender);
             long currentTime = System.currentTimeMillis() / 1000L;
-            long rowMax = (long) page * limit;
-            long pageStart = rowMax - limit;
-            long count = 0;
             String where = "entity_spawn_rowid=" + entitySpawnRowId;
 
             EntitySpawnRecord record = EntitySpawnStatement.loadLocationRecords(statement.getConnection(), Collections.singleton(entitySpawnRowId)).get(entitySpawnRowId);
             DisplayLocation displayLocation = resolveDisplayLocation(record, liveLocation);
             boolean found = false;
-            boolean combinedDuckDBPage = ConfigHandler.databaseType.isDuckDB();
-            String query;
-            if (combinedDuckDBPage) {
-                String sourceTable = DuckDBLookupQuery.entityTable(statement.getConnection(), "entity_interaction", Collections.singleton(entitySpawnRowId), "spatial_rows");
-                String columns = "data_rows.time,data_rows." + ConfigHandler.databaseType.getUserColumn() + ",data_rows.wid,data_rows.x,data_rows.y,data_rows.z,data_rows.type,data_rows.action,data_rows.rolled_back";
-                query = DuckDBLookupQuery.pageQuery(sourceTable, ConfigHandler.prefix + "entity_interaction", where, columns, true, limit, pageStart);
-            }
-            else {
-                try (ResultSet results = statement.executeQuery("SELECT COUNT(*) AS count FROM " + ConfigHandler.prefix + "entity_interaction WHERE " + where)) {
-                    count = results.next() ? results.getLong("count") : 0;
-                }
-                query = "SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,type,action,rolled_back FROM " + ConfigHandler.prefix + "entity_interaction WHERE " + where + " ORDER BY time DESC,rowid DESC LIMIT " + limit + " OFFSET " + pageStart;
-            }
-            try (ResultSet results = statement.executeQuery(query)) {
+            String spatialTable = ConfigHandler.databaseType.isDuckDB()
+                    ? DuckDBLookupQuery.entityTable(statement.getConnection(), "entity_interaction", Collections.singleton(entitySpawnRowId), "spatial_rows") : null;
+            String columns = "time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,type,action,rolled_back";
+            InspectorLookup.Page pageQuery = InspectorLookup.queryPage(statement, ConfigHandler.prefix + "entity_interaction", spatialTable, "", where, columns,
+                    "time DESC,rowid DESC", true, page, limit);
+            long count = pageQuery.count;
+
+            try (ResultSet results = statement.executeQuery(pageQuery.query)) {
                 while (results.next()) {
-                    if (combinedDuckDBPage) {
+                    if (pageQuery.combinedCount) {
                         count = results.getLong("count");
                         if (results.getObject("result_id") == null) {
                             continue;
@@ -111,12 +102,12 @@ public final class EntityInteractionLookup {
             }
 
             if (found && count > limit) {
-                int totalPages = count == 0 ? 0 : (int) Math.min(Integer.MAX_VALUE, 1 + (count - 1) / limit);
+                int totalPages = InspectorLookup.totalPages(count, limit);
                 result.add(Color.WHITE + "-----");
                 result.add(ChatUtils.getPageNavigation(resolvedCommand, page, totalPages));
             }
             else if (!found) {
-                result.add(rowMax > count && count > 0 ? Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS_PAGE, Selector.SECOND) : noData());
+                result.add(pageQuery.end > count && count > 0 ? Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS_PAGE, Selector.SECOND) : noData());
             }
 
             String name = commandSender.getName();
@@ -174,19 +165,6 @@ public final class EntityInteractionLookup {
             z = loaded.getBlockZ();
         }
         return new DisplayLocation(worldId, x, y, z);
-    }
-
-    private static String resolveCommand(String command, CommandSender commandSender) {
-        if (command != null) {
-            return command;
-        }
-        if (commandSender.hasPermission("coreprotect.co")) {
-            return "co";
-        }
-        if (commandSender.hasPermission("coreprotect.core")) {
-            return "core";
-        }
-        return commandSender.hasPermission("coreprotect.coreprotect") ? "coreprotect" : "co";
     }
 
     private static String noData() {

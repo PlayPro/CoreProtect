@@ -92,18 +92,51 @@ public class PurgeCommand extends Consumer {
 
     private static PreparedStatement preparePurgeStatement(Connection connection, String query) throws SQLException, InterruptedException {
         requirePurgeNotCancelled();
-        PreparedStatement statement = connection.prepareStatement(query);
-        activePurgeStatement = statement;
-        requirePurgeNotCancelled();
-        return statement;
+        return registerPurgeStatement(connection.prepareStatement(query));
     }
 
     private static Statement createPurgeStatement(Connection connection) throws SQLException, InterruptedException {
         requirePurgeNotCancelled();
-        Statement statement = connection.createStatement();
+        return registerPurgeStatement(connection.createStatement());
+    }
+
+    private static <T extends Statement> T registerPurgeStatement(T statement) throws InterruptedException {
         activePurgeStatement = statement;
-        requirePurgeNotCancelled();
-        return statement;
+        try {
+            requirePurgeNotCancelled();
+            return statement;
+        }
+        catch (InterruptedException interrupted) {
+            try {
+                statement.close();
+            }
+            catch (SQLException closeFailure) {
+                interrupted.addSuppressed(closeFailure);
+            }
+            finally {
+                activePurgeStatement = null;
+            }
+            throw interrupted;
+        }
+    }
+
+    private static void executePurgeStatement(Connection connection, String query) throws SQLException, InterruptedException {
+        try (PreparedStatement statement = preparePurgeStatement(connection, query)) {
+            statement.execute();
+        }
+    }
+
+    private static long executePurgeUpdate(Connection connection, String query) throws SQLException, InterruptedException {
+        try (PreparedStatement statement = preparePurgeStatement(connection, query)) {
+            return statement.executeUpdate();
+        }
+    }
+
+    static long countPurgeRows(Connection connection, String table) throws SQLException, InterruptedException {
+        try (PreparedStatement statement = preparePurgeStatement(connection, "SELECT COUNT(*) AS count FROM " + table);
+                ResultSet results = statement.executeQuery()) {
+            return results.next() ? results.getLong("count") : 0;
+        }
     }
 
     private static void reportPurgeFailure(Exception exception) throws Exception {
@@ -444,6 +477,7 @@ public class PurgeCommand extends Consumer {
                 boolean handoffStarted = false;
                 Connection connection = null;
                 Statement transactionStatement = null;
+                Path sqliteTemporary = null;
                 try {
                     requirePurgeNotCancelled();
                     if (Consumer.isPersistenceHalted()) {
@@ -477,12 +511,6 @@ public class PurgeCommand extends Consumer {
                                 : startResult == Consumer.OperationStartResult.RELOAD_RUNNING ? Phrase.DATABASE_BUSY
                                         : startResult == Consumer.OperationStartResult.PERSISTENCE_HALTED ? Phrase.DATABASE_PERSISTENCE_HALTED : Phrase.ROLLBACK_IN_PROGRESS;
                         Chat.sendGlobalMessage(player, Phrase.build(phrase));
-                        try {
-                            connection.close();
-                        }
-                        catch (Exception e) {
-                            ErrorReporter.report(e);
-                        }
                         return;
                     }
                     purgeClaimed = true;
@@ -537,16 +565,12 @@ public class PurgeCommand extends Consumer {
                     }
 
                     String query = "";
-                    PreparedStatement preparedStmt = null;
                     boolean abort = false;
                     String purgePrefix = "tmp_" + ConfigHandler.prefix;
 
                     if (ConfigHandler.databaseType.isSQLite()) {
-                        query = "ATTACH DATABASE ? AS tmp_db";
-                        preparedStmt = preparePurgeStatement(connection, query);
-                        preparedStmt.setString(1, ConfigHandler.path + ConfigHandler.sqlite + ".tmp");
-                        preparedStmt.execute();
-                        preparedStmt.close();
+                        sqliteTemporary = sqliteTempDatabase();
+                        attachSQLitePurgeDatabase(connection, sqliteTemporary);
                         purgePrefix = "tmp_db." + ConfigHandler.prefix;
                     }
 
@@ -569,9 +593,7 @@ public class PurgeCommand extends Consumer {
                             requirePurgeNotCancelled();
                             try {
                                 query = "DROP TABLE IF EXISTS " + purgePrefix + table + "";
-                                preparedStmt = preparePurgeStatement(connection, query);
-                                preparedStmt.execute();
-                                preparedStmt.close();
+                                executePurgeStatement(connection, query);
                             }
                             catch (Exception e) {
                                 reportPurgeFailure(e);
@@ -589,21 +611,16 @@ public class PurgeCommand extends Consumer {
 
                         if (ConfigHandler.databaseType.isSQLite()) {
                             String columns = "";
-                            Statement columnStatement = createPurgeStatement(connection);
-                            ResultSet rs = columnStatement.executeQuery("SELECT * FROM " + purgePrefix + table);
-                            ResultSetMetaData resultSetMetaData = rs.getMetaData();
-                            int columnCount = resultSetMetaData.getColumnCount();
-                            for (int i = 1; i <= columnCount; i++) {
-                                String name = resultSetMetaData.getColumnName(i);
-                                if (columns.length() == 0) {
-                                    columns = name;
-                                }
-                                else {
-                                    columns = columns + "," + name;
+                            try (Statement columnStatement = createPurgeStatement(connection);
+                                    ResultSet results = columnStatement.executeQuery("SELECT * FROM " + purgePrefix + table)) {
+                                ResultSetMetaData metadata = results.getMetaData();
+                                for (int i = 1; i <= metadata.getColumnCount(); i++) {
+                                    if (!columns.isEmpty()) {
+                                        columns += ",";
+                                    }
+                                    columns += metadata.getColumnName(i);
                                 }
                             }
-                            rs.close();
-                            columnStatement.close();
                             String insertColumns = "";
                             String selectColumns = columns;
                             if (table.equals("block")) {
@@ -628,9 +645,7 @@ public class PurgeCommand extends Consumer {
                                         }
                                     }
                                     query = "INSERT INTO " + purgePrefix + table + insertColumns + " SELECT " + selectColumns + " FROM " + ConfigHandler.prefix + table + timeLimit;
-                                    preparedStmt = preparePurgeStatement(connection, query);
-                                    preparedStmt.execute();
-                                    preparedStmt.close();
+                                    executePurgeStatement(connection, query);
                                 }
                                 catch (Exception e) {
                                     error = true;
@@ -645,9 +660,7 @@ public class PurgeCommand extends Consumer {
 
                                 try {
                                     query = "DELETE FROM " + purgePrefix + table;
-                                    preparedStmt = preparePurgeStatement(connection, query);
-                                    preparedStmt.execute();
-                                    preparedStmt.close();
+                                    executePurgeStatement(connection, query);
                                 }
                                 catch (Exception e) {
                                     reportPurgeFailure(e);
@@ -655,9 +668,7 @@ public class PurgeCommand extends Consumer {
 
                                 try {
                                     query = "REINDEX " + ConfigHandler.prefix + table;
-                                    preparedStmt = preparePurgeStatement(connection, query);
-                                    preparedStmt.execute();
-                                    preparedStmt.close();
+                                    executePurgeStatement(connection, query);
                                 }
                                 catch (Exception e) {
                                     reportPurgeFailure(e);
@@ -666,9 +677,7 @@ public class PurgeCommand extends Consumer {
                                 try {
                                     String index = " NOT INDEXED";
                                     query = "INSERT INTO " + purgePrefix + table + insertColumns + " SELECT " + selectColumns + " FROM " + ConfigHandler.prefix + table + index;
-                                    preparedStmt = preparePurgeStatement(connection, query);
-                                    preparedStmt.execute();
-                                    preparedStmt.close();
+                                    executePurgeStatement(connection, query);
                                 }
                                 catch (Exception e) {
                                     reportPurgeFailure(e);
@@ -679,17 +688,13 @@ public class PurgeCommand extends Consumer {
                                 try {
                                     if (table.equals("entity")) {
                                         query = purgeFilter.deleteUnreferencedEntities(purgePrefix + "entity", purgePrefix + "block");
-                                        preparedStmt = preparePurgeStatement(connection, query);
-                                        preparedStmt.execute();
-                                        preparedStmt.close();
+                                        executePurgeStatement(connection, query);
                                     }
                                     else {
                                         String purgeCondition = purgeFilter.deleteCondition(table, ConfigHandler.prefix);
                                         if (purgeCondition != null) {
                                             query = "DELETE FROM " + purgePrefix + table + " WHERE " + purgeCondition;
-                                            preparedStmt = preparePurgeStatement(connection, query);
-                                            preparedStmt.execute();
-                                            preparedStmt.close();
+                                            executePurgeStatement(connection, query);
                                         }
                                     }
                                 }
@@ -699,37 +704,12 @@ public class PurgeCommand extends Consumer {
                             }
 
                             if (PurgePolicy.isPurgeable(table) || table.equals("entity_spawn")) {
-                                int oldCount = 0;
                                 try {
-                                    query = "SELECT COUNT(*) as count FROM " + ConfigHandler.prefix + table + " LIMIT 1 OFFSET 0";
-                                    preparedStmt = preparePurgeStatement(connection, query);
-                                    ResultSet resultSet = preparedStmt.executeQuery();
-                                    while (resultSet.next()) {
-                                        oldCount = resultSet.getInt("count");
-                                    }
-                                    resultSet.close();
-                                    preparedStmt.close();
+                                    removed += countPurgeRows(connection, ConfigHandler.prefix + table) - countPurgeRows(connection, purgePrefix + table);
                                 }
                                 catch (Exception e) {
                                     reportPurgeFailure(e);
                                 }
-
-                                int new_count = 0;
-                                try {
-                                    query = "SELECT COUNT(*) as count FROM " + purgePrefix + table + " LIMIT 1 OFFSET 0";
-                                    preparedStmt = preparePurgeStatement(connection, query);
-                                    ResultSet resultSet = preparedStmt.executeQuery();
-                                    while (resultSet.next()) {
-                                        new_count = resultSet.getInt("count");
-                                    }
-                                    resultSet.close();
-                                    preparedStmt.close();
-                                }
-                                catch (Exception e) {
-                                    reportPurgeFailure(e);
-                                }
-
-                                removed = removed + (oldCount - new_count);
                             }
                         }
 
@@ -746,16 +726,12 @@ public class PurgeCommand extends Consumer {
                                     long deleted = 0;
                                     if (deleteEntities) {
                                         query = purgeFilter.deleteEntitiesOfPurgedKills(ConfigHandler.databaseType, ConfigHandler.prefix);
-                                        preparedStmt = preparePurgeStatement(connection, query);
-                                        deleted = deleted + preparedStmt.executeUpdate();
-                                        preparedStmt.close();
+                                        deleted = deleted + executePurgeUpdate(connection, query);
                                     }
 
                                     if (purgeCondition != null) {
                                         query = "DELETE FROM " + ConfigHandler.prefix + table + " WHERE " + purgeCondition;
-                                        preparedStmt = preparePurgeStatement(connection, query);
-                                        deleted = deleted + preparedStmt.executeUpdate();
-                                        preparedStmt.close();
+                                        deleted = deleted + executePurgeUpdate(connection, query);
                                     }
 
                                     if (atomic) {
@@ -794,22 +770,16 @@ public class PurgeCommand extends Consumer {
                     if (ConfigHandler.databaseType.isMySQL() && optimize) {
                         try {
                             for (String sweepQuery : PurgeFilter.mysqlOrphanSweepSetup(ConfigHandler.prefix)) {
-                                preparedStmt = preparePurgeStatement(connection, sweepQuery);
-                                preparedStmt.execute();
-                                preparedStmt.close();
+                                executePurgeStatement(connection, sweepQuery);
                             }
-                            preparedStmt = preparePurgeStatement(connection, purgeFilter.mysqlOrphanSweepDelete(ConfigHandler.prefix));
-                            removed = removed + preparedStmt.executeUpdate();
-                            preparedStmt.close();
+                            removed = removed + executePurgeUpdate(connection, purgeFilter.mysqlOrphanSweepDelete(ConfigHandler.prefix));
                         }
                         catch (Exception e) {
                             reportPurgeFailure(e);
                         }
                         finally {
                             try {
-                                preparedStmt = preparePurgeStatement(connection, PurgeFilter.mysqlOrphanSweepTeardown(ConfigHandler.prefix));
-                                preparedStmt.execute();
-                                preparedStmt.close();
+                                executePurgeStatement(connection, PurgeFilter.mysqlOrphanSweepTeardown(ConfigHandler.prefix));
                             }
                             catch (Exception e) {
                                 reportPurgeFailure(e);
@@ -820,42 +790,30 @@ public class PurgeCommand extends Consumer {
                     requirePurgeNotCancelled();
                     String retainedPrefix = ConfigHandler.databaseType.isSQLite() ? purgePrefix : ConfigHandler.prefix;
                     query = "UPDATE " + retainedPrefix + "entity_spawn SET kill_rowid=NULL WHERE kill_rowid IS NOT NULL AND NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity WHERE " + retainedPrefix + "entity.rowid=" + retainedPrefix + "entity_spawn.kill_rowid)";
-                    preparedStmt = preparePurgeStatement(connection, query);
-                    preparedStmt.executeUpdate();
-                    preparedStmt.close();
+                    executePurgeUpdate(connection, query);
 
                     requirePurgeNotCancelled();
                     query = "UPDATE " + retainedPrefix + "entity_spawn SET block_rowid=NULL WHERE block_rowid IS NOT NULL AND NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "block WHERE " + retainedPrefix + "block.rowid=" + retainedPrefix + "entity_spawn.block_rowid)";
-                    preparedStmt = preparePurgeStatement(connection, query);
-                    preparedStmt.executeUpdate();
-                    preparedStmt.close();
+                    executePurgeUpdate(connection, query);
 
                     requirePurgeNotCancelled();
                     query = "DELETE FROM " + retainedPrefix + "entity_interaction WHERE NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity_spawn WHERE " + retainedPrefix + "entity_spawn.rowid=" + retainedPrefix + "entity_interaction.entity_spawn_rowid)";
-                    preparedStmt = preparePurgeStatement(connection, query);
-                    removed = removed + preparedStmt.executeUpdate();
-                    preparedStmt.close();
+                    removed = removed + executePurgeUpdate(connection, query);
 
                     requirePurgeNotCancelled();
                     query = "DELETE FROM " + retainedPrefix + "entity_container WHERE NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity_spawn WHERE " + retainedPrefix + "entity_spawn.rowid=" + retainedPrefix + "entity_container.entity_spawn_rowid)";
-                    preparedStmt = preparePurgeStatement(connection, query);
-                    removed = removed + preparedStmt.executeUpdate();
-                    preparedStmt.close();
+                    removed = removed + executePurgeUpdate(connection, query);
 
                     requirePurgeNotCancelled();
                     query = "DELETE FROM " + retainedPrefix + "entity_spawn WHERE removed=1 AND block_rowid IS NULL AND kill_rowid IS NULL AND NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity_container WHERE " + retainedPrefix + "entity_container.entity_spawn_rowid=" + retainedPrefix + "entity_spawn.rowid) AND NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity_interaction WHERE " + retainedPrefix + "entity_interaction.entity_spawn_rowid=" + retainedPrefix + "entity_spawn.rowid)";
-                    preparedStmt = preparePurgeStatement(connection, query);
-                    removed = removed + preparedStmt.executeUpdate();
-                    preparedStmt.close();
+                    removed = removed + executePurgeUpdate(connection, query);
 
                     if (ConfigHandler.databaseType.isMySQL() && optimize) {
                         Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_OPTIMIZING));
                         for (String table : ConfigHandler.databaseTables) {
                             requirePurgeNotCancelled();
                             query = "OPTIMIZE LOCAL TABLE " + ConfigHandler.prefix + table + "";
-                            preparedStmt = preparePurgeStatement(connection, query);
-                            preparedStmt.execute();
-                            preparedStmt.close();
+                            executePurgeStatement(connection, query);
                         }
                     }
 
@@ -899,9 +857,6 @@ public class PurgeCommand extends Consumer {
                     }
 
                     if (abort) {
-                        if (ConfigHandler.databaseType.isSQLite()) {
-                            Files.deleteIfExists(sqliteTempDatabase());
-                        }
                         resumePersistence = false;
                         handoffStarted = true;
                         ConfigHandler.loadDatabase();
@@ -914,7 +869,8 @@ public class PurgeCommand extends Consumer {
                     resumePersistence = false;
                     handoffStarted = true;
                     if (ConfigHandler.databaseType.isSQLite()) {
-                        replaceSQLiteDatabase();
+                        replaceSQLiteDatabase(sqliteTemporary);
+                        sqliteTemporary = null;
                     }
 
                     ConfigHandler.loadDatabase();
@@ -962,11 +918,21 @@ public class PurgeCommand extends Consumer {
                             ErrorReporter.report(e);
                         }
                     }
-                    if (connection != null) {
+                    boolean connectionClosed = connection == null;
+                    if (!connectionClosed) {
                         try {
                             connection.close();
+                            connectionClosed = true;
                         }
                         catch (Exception e) {
+                            ErrorReporter.report(e);
+                        }
+                    }
+                    if (sqliteTemporary != null && connectionClosed) {
+                        try {
+                            Files.deleteIfExists(sqliteTemporary);
+                        }
+                        catch (IOException e) {
                             ErrorReporter.report(e);
                         }
                     }
@@ -996,13 +962,20 @@ public class PurgeCommand extends Consumer {
         return Path.of(ConfigHandler.path + ConfigHandler.sqlite + ".tmp");
     }
 
+    static void attachSQLitePurgeDatabase(Connection connection, Path temporary) throws IOException, SQLException, InterruptedException {
+        Files.deleteIfExists(temporary);
+        try (PreparedStatement statement = preparePurgeStatement(connection, "ATTACH DATABASE ? AS tmp_db")) {
+            statement.setString(1, temporary.toString());
+            statement.execute();
+        }
+    }
+
     static boolean requiresDuckDatabaseReload(boolean purgeStarted, boolean commitAttempted, boolean rollbackSucceeded) {
         return purgeStarted && (commitAttempted || !rollbackSucceeded);
     }
 
-    private static void replaceSQLiteDatabase() throws IOException {
+    private static void replaceSQLiteDatabase(Path temporary) throws IOException {
         Path database = Path.of(ConfigHandler.path + ConfigHandler.sqlite);
-        Path temporary = sqliteTempDatabase();
         Files.move(temporary, database, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
     }
 }

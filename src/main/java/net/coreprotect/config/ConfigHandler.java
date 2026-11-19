@@ -1241,6 +1241,31 @@ public class ConfigHandler {
         }
 
         boolean initialized = false;
+        try {
+            if (!prepareDatabaseInitialization(startup)) {
+                return false;
+            }
+            if (startup) {
+                ConfigHandler.serverRunning = true;
+            }
+            initialized = Patch.versionCheck(startup);
+            return initialized;
+        }
+        catch (CancellationException e) {
+            throw e;
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+            return false;
+        }
+        finally {
+            if (!initialized) {
+                cleanupFailedInitialization(startup);
+            }
+        }
+    }
+
+    private static boolean prepareDatabaseInitialization(boolean startup) throws SQLException {
         try (Connection connection = Database.getConnection(true, 0)) {
             if (connection == null) {
                 return false;
@@ -1269,27 +1294,7 @@ public class ConfigHandler {
                     }
                 });
 
-                if (startup && !ConfigHandler.checkDatabaseLock(statement)) {
-                    return false;
-                }
-
-                if (startup) {
-                    ConfigHandler.serverRunning = true; // Set as running before patching
-                }
-                initialized = Patch.versionCheck(statement); // Minor upgrades & version check
-                return initialized;
-            }
-        }
-        catch (CancellationException e) {
-            throw e;
-        }
-        catch (Exception e) {
-            ErrorReporter.report(e);
-            return false;
-        }
-        finally {
-            if (!initialized) {
-                cleanupFailedInitialization(startup);
+                return !startup || checkDatabaseLock(statement);
             }
         }
     }

@@ -55,6 +55,9 @@ public final class EntitySpawnUpdateCoordinator {
     public void applied(EntitySpawnData data) {
         if (isLifecycle(data)) {
             appliedLifecycleData.add(data);
+            if (data.getOperation() == EntitySpawnData.Operation.REMOVED) {
+                clearActiveConfirmations(data.getUuid());
+            }
         }
     }
 
@@ -112,9 +115,7 @@ public final class EntitySpawnUpdateCoordinator {
     }
 
     public void verificationMissing(EntitySpawnData data) {
-        UUID uuid = data.getUuid();
-        verificationConfirmations.remove(uuid);
-        missingRows.put(uuid, data.getVerificationEpoch());
+        entityMissing(data.getUuid(), data.getVerificationEpoch());
     }
 
     public void locationFound(EntitySpawnData data) {
@@ -124,9 +125,7 @@ public final class EntitySpawnUpdateCoordinator {
     }
 
     public void locationMissing(EntitySpawnData data) {
-        UUID uuid = data.getUuid();
-        locationConfirmations.remove(uuid);
-        missingRows.put(uuid, data.getVerificationEpoch());
+        entityMissing(data.getUuid(), data.getVerificationEpoch());
     }
 
     public void entityFound(UUID uuid) {
@@ -134,7 +133,17 @@ public final class EntitySpawnUpdateCoordinator {
     }
 
     public void entityMissing(UUID uuid) {
-        missingRows.put(uuid, Long.MIN_VALUE);
+        entityMissing(uuid, Long.MIN_VALUE);
+    }
+
+    private void entityMissing(UUID uuid, long epoch) {
+        clearActiveConfirmations(uuid);
+        missingRows.put(uuid, epoch);
+    }
+
+    private void clearActiveConfirmations(UUID uuid) {
+        locationConfirmations.remove(uuid);
+        verificationConfirmations.remove(uuid);
     }
 
     public void afterCommit(boolean committed) {

@@ -166,17 +166,17 @@ public final class EntitySpawnStatement {
         if (endTime > 0) {
             query.append(" AND time<=?");
         }
-        int minX = Math.floorDiv(radius[1], 16) << 4;
-        int maxX = (Math.floorDiv(radius[2], 16) << 4) + 16;
-        int minZ = Math.floorDiv(radius[5], 16) << 4;
-        int maxZ = (Math.floorDiv(radius[6], 16) << 4) + 16;
+        long minX = Math.floorDiv(radius[1].longValue(), 16L) * 16L;
+        long maxX = (Math.floorDiv(radius[2].longValue(), 16L) + 1L) * 16L;
+        long minZ = Math.floorDiv(radius[5].longValue(), 16L) * 16L;
+        long maxZ = (Math.floorDiv(radius[6].longValue(), 16L) + 1L) * 16L;
 
         try (PreparedStatement statement = connection.prepareStatement(query.toString())) {
             statement.setInt(1, WorldUtils.getWorldId(location.getWorld().getName()));
-            statement.setInt(2, minX);
-            statement.setInt(3, maxX);
-            statement.setInt(4, minZ);
-            statement.setInt(5, maxZ);
+            statement.setLong(2, minX);
+            statement.setLong(3, maxX);
+            statement.setLong(4, minZ);
+            statement.setLong(5, maxZ);
             int parameterIndex = 6;
             if (startTime > 0) {
                 statement.setLong(parameterIndex++, startTime);
@@ -214,16 +214,16 @@ public final class EntitySpawnStatement {
             query.append(" AND time<=?");
         }
 
-        int minimumX = Math.floorDiv(radius[1], 16) << 4;
-        int maximumX = (Math.floorDiv(radius[2], 16) << 4) + 16;
-        int minimumZ = Math.floorDiv(radius[5], 16) << 4;
-        int maximumZ = (Math.floorDiv(radius[6], 16) << 4) + 16;
+        long minimumX = Math.floorDiv(radius[1].longValue(), 16L) * 16L;
+        long maximumX = (Math.floorDiv(radius[2].longValue(), 16L) + 1L) * 16L;
+        long minimumZ = Math.floorDiv(radius[5].longValue(), 16L) * 16L;
+        long maximumZ = (Math.floorDiv(radius[6].longValue(), 16L) + 1L) * 16L;
         try (PreparedStatement statement = connection.prepareStatement(query.toString())) {
             statement.setInt(1, WorldUtils.getWorldId(location.getWorld().getName()));
-            statement.setInt(2, minimumX);
-            statement.setInt(3, maximumX);
-            statement.setInt(4, minimumZ);
-            statement.setInt(5, maximumZ);
+            statement.setLong(2, minimumX);
+            statement.setLong(3, maximumX);
+            statement.setLong(4, minimumZ);
+            statement.setLong(5, maximumZ);
             int parameterIndex = 6;
             if (startTime > 0L) {
                 statement.setLong(parameterIndex++, startTime);
@@ -377,6 +377,7 @@ public final class EntitySpawnStatement {
         }
 
         private final ConsumerWriteBatch batch;
+        private final List<Statement> statements = new ArrayList<>();
         private final PreparedStatement location;
         private final PreparedStatement currentLocation;
         private final PreparedStatement removed;
@@ -409,23 +410,34 @@ public final class EntitySpawnStatement {
         public Updates(Connection connection, ConsumerWriteBatch batch, DatabaseType databaseType) throws Exception {
             this.batch = batch;
             this.databaseType = databaseType;
-            location = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=? WHERE uuid=? AND removed=0");
-            currentLocation = connection.prepareStatement("SELECT current_wid,x,y,z FROM " + ConfigHandler.prefix + "entity_spawn WHERE uuid=? AND removed=0 LIMIT 2");
-            removed = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,removed=1 WHERE uuid=? AND removed=0");
-            revived = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET uuid=?,current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,removed=0 WHERE uuid=? AND removed=1");
-            rollback = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=?,kill_rowid=NULL,removed=1 WHERE rowid=?");
-            restore = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET uuid=?,current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,kill_rowid=NULL,removed=0 WHERE rowid=?");
-            killRollback = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET uuid=?,current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,removed=0 WHERE rowid=? AND kill_rowid=?");
-            killRestore = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,removed=1 WHERE rowid=? AND kill_rowid=?");
-            compositeRollback = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=?,removed=1 WHERE rowid=? AND kill_rowid=?");
-            compositeRestore = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET data=NULL,removed=1 WHERE rowid=? AND kill_rowid=?");
-            blockState = connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "block SET rolled_back=? WHERE rowid=? AND action=?");
-            exists = connection.prepareStatement("SELECT 1 FROM " + ConfigHandler.prefix + "entity_spawn WHERE uuid=? AND removed=0 LIMIT 1");
-            identity = connection.prepareStatement("SELECT rowid AS id,wid,origin_x,origin_y,origin_z,block_rowid FROM " + ConfigHandler.prefix + "entity_spawn WHERE uuid=? LIMIT 2");
-            trackingRowExists = connection.prepareStatement("SELECT 1 FROM " + ConfigHandler.prefix + "entity_spawn WHERE rowid=? LIMIT 1");
-            trackingKillStateMatches = connection.prepareStatement("SELECT uuid,removed FROM " + ConfigHandler.prefix + "entity_spawn WHERE rowid=? AND kill_rowid=? LIMIT 1");
-            blockStateMatches = connection.prepareStatement("SELECT 1 FROM " + ConfigHandler.prefix + "block WHERE rowid=? AND action=? AND rolled_back=? LIMIT 1");
-            transitionStatement = connection.createStatement();
+            try {
+                location = own(connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=? WHERE uuid=? AND removed=0"));
+                currentLocation = own(connection.prepareStatement("SELECT current_wid,x,y,z FROM " + ConfigHandler.prefix + "entity_spawn WHERE uuid=? AND removed=0 LIMIT 2"));
+                removed = own(connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,removed=1 WHERE uuid=? AND removed=0"));
+                revived = own(connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET uuid=?,current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,removed=0 WHERE uuid=? AND removed=1"));
+                rollback = own(connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=?,kill_rowid=NULL,removed=1 WHERE rowid=?"));
+                restore = own(connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET uuid=?,current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,kill_rowid=NULL,removed=0 WHERE rowid=?"));
+                killRollback = own(connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET uuid=?,current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,removed=0 WHERE rowid=? AND kill_rowid=?"));
+                killRestore = own(connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,removed=1 WHERE rowid=? AND kill_rowid=?"));
+                compositeRollback = own(connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=?,removed=1 WHERE rowid=? AND kill_rowid=?"));
+                compositeRestore = own(connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET data=NULL,removed=1 WHERE rowid=? AND kill_rowid=?"));
+                blockState = own(connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "block SET rolled_back=? WHERE rowid=? AND action=?"));
+                exists = own(connection.prepareStatement("SELECT 1 FROM " + ConfigHandler.prefix + "entity_spawn WHERE uuid=? AND removed=0 LIMIT 1"));
+                identity = own(connection.prepareStatement("SELECT rowid AS id,wid,origin_x,origin_y,origin_z,block_rowid FROM " + ConfigHandler.prefix + "entity_spawn WHERE uuid=? LIMIT 2"));
+                trackingRowExists = own(connection.prepareStatement("SELECT 1 FROM " + ConfigHandler.prefix + "entity_spawn WHERE rowid=? LIMIT 1"));
+                trackingKillStateMatches = own(connection.prepareStatement("SELECT uuid,removed FROM " + ConfigHandler.prefix + "entity_spawn WHERE rowid=? AND kill_rowid=? LIMIT 1"));
+                blockStateMatches = own(connection.prepareStatement("SELECT 1 FROM " + ConfigHandler.prefix + "block WHERE rowid=? AND action=? AND rolled_back=? LIMIT 1"));
+                transitionStatement = own(connection.createStatement());
+            }
+            catch (Exception exception) {
+                closeStatements(exception);
+                throw exception;
+            }
+        }
+
+        private <T extends Statement> T own(T statement) {
+            statements.add(statement);
+            return statement;
         }
 
         public EntitySpawnIdentity apply(EntitySpawnData data) {
@@ -816,25 +828,38 @@ public final class EntitySpawnStatement {
 
         @Override
         public void close() throws Exception {
-            afterCommit(false);
-            coordinator.clearDeferred();
-            location.close();
-            currentLocation.close();
-            removed.close();
-            revived.close();
-            rollback.close();
-            restore.close();
-            killRollback.close();
-            killRestore.close();
-            compositeRollback.close();
-            compositeRestore.close();
-            blockState.close();
-            exists.close();
-            identity.close();
-            trackingRowExists.close();
-            trackingKillStateMatches.close();
-            blockStateMatches.close();
-            transitionStatement.close();
+            Exception failure = null;
+            try {
+                afterCommit(false);
+            }
+            catch (Exception exception) {
+                failure = exception;
+            }
+            finally {
+                coordinator.clearDeferred();
+                failure = closeStatements(failure);
+            }
+            if (failure != null) {
+                throw failure;
+            }
+        }
+
+        private Exception closeStatements(Exception failure) {
+            for (int index = statements.size() - 1; index >= 0; index--) {
+                try {
+                    statements.get(index).close();
+                }
+                catch (Exception exception) {
+                    if (failure == null) {
+                        failure = exception;
+                    }
+                    else if (failure != exception) {
+                        failure.addSuppressed(exception);
+                    }
+                }
+            }
+            statements.clear();
+            return failure;
         }
 
         private static final class PermanentTransitionException extends SQLException {

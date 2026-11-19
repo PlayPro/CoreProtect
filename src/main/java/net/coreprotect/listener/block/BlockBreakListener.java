@@ -45,7 +45,10 @@ import net.coreprotect.utility.ErrorReporter;
 public final class BlockBreakListener extends Queue implements Listener {
 
     static boolean isAttached(Block block, Block scanBlock, int scanMin) {
-        BlockData blockData = scanBlock.getBlockData();
+        return isAttached(block, scanBlock, scanBlock.getBlockData(), scanMin);
+    }
+
+    static boolean isAttached(Block block, Block scanBlock, BlockData blockData, int scanMin) {
         if (blockData instanceof Directional && !(blockData instanceof Bisected) && scanMin != BlockUtil.BOTTOM && scanMin != BlockUtil.TOP) {
             Directional directional = (Directional) blockData;
             BlockFace blockFace = directional.getFacing();

@@ -31,8 +31,8 @@ import net.coreprotect.utility.ErrorReporter;
 
 public final class BlockExplodeListener extends Queue implements Listener {
 
-    // (dx, dy, dz) for the five scanned neighbours: +x, -x, +z, -z, +y
-    private static final int[] SCAN_OFFSETS = { 1, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, -1, 0, 1, 0 };
+    // (dx, dy, dz) in BlockBreakListener's scan order.
+    private static final int[] SCAN_OFFSETS = { 1, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, -1, 0, 1, 0, 0, -1, 0 };
 
     // Packs block coordinates into one long, so the scan keys its map without a Location per block
     private static long positionKey(int x, int y, int z) {
@@ -54,31 +54,47 @@ public final class BlockExplodeListener extends Queue implements Listener {
                 int y = block.getY();
                 int z = block.getZ();
 
-                for (int scan = 0; scan < 5; scan++) {
-                    int scanX = x + SCAN_OFFSETS[scan * 3];
-                    int scanY = y + SCAN_OFFSETS[scan * 3 + 1];
-                    int scanZ = z + SCAN_OFFSETS[scan * 3 + 2];
-                    long key = positionKey(scanX, scanY, scanZ);
-                    if (blockMap.get(key) == null) {
-                        Block scanBlock = world.getBlockAt(scanX, scanY, scanZ);
-                        Material scanType = scanBlock.getType();
-                        if (scanType == Material.SCAFFOLDING) {
-                            if (scan == 4 || block.getType() == Material.SCAFFOLDING) {
-                                BlockFadeListener.trackScaffoldingBreak(user, world, scanX, scanY, scanZ);
-                            }
-                            continue;
-                        }
-                        if (BlockGroup.TRACK_ANY.contains(scanType) || BlockGroup.TRACK_TOP.contains(scanType) || BlockGroup.TRACK_TOP_BOTTOM.contains(scanType) || BlockGroup.TRACK_BOTTOM.contains(scanType) || BlockGroup.TRACK_SIDE.contains(scanType)) {
-                            blockMap.put(key, scanBlock);
+                for (int offset = 0; offset < SCAN_OFFSETS.length; offset += 3) {
+                    int scan = offset / 3 + 1;
+                    int scanY = y + SCAN_OFFSETS[offset + 1];
+                    if (scanY < worldMinHeight || scanY >= worldMaxHeight) {
+                        continue;
+                    }
 
-                            // Properly log double blocks, such as doors
-                            BlockData blockData = scanBlock.getBlockData();
-                            if (blockData instanceof Bisected && !BukkitAdapter.ADAPTER.isSingleBlockPitcherCrop(blockData)) {
-                                int bisectY = ((Bisected) blockData).getHalf() == Half.TOP ? scanY - 1 : scanY + 1;
-                                long bisectKey = positionKey(scanX, bisectY, scanZ);
-                                if (bisectY >= worldMinHeight && bisectY < worldMaxHeight && blockMap.get(bisectKey) == null) {
-                                    blockMap.put(bisectKey, world.getBlockAt(scanX, bisectY, scanZ));
-                                }
+                    int scanX = x + SCAN_OFFSETS[offset];
+                    int scanZ = z + SCAN_OFFSETS[offset + 2];
+                    long key = positionKey(scanX, scanY, scanZ);
+                    if (blockMap.containsKey(key)) {
+                        continue;
+                    }
+
+                    Block scanBlock = world.getBlockAt(scanX, scanY, scanZ);
+                    Material scanType = scanBlock.getType();
+                    if (scanType == Material.SCAFFOLDING) {
+                        if (scan == BlockUtil.TOP || (scan < BlockUtil.TOP && block.getType() == Material.SCAFFOLDING)) {
+                            BlockFadeListener.trackScaffoldingBreak(user, world, scanX, scanY, scanZ);
+                        }
+                        continue;
+                    }
+                    if (!tracksAttachment(scanType, scan)) {
+                        continue;
+                    }
+
+                    BlockData blockData = scanBlock.getBlockData();
+                    if (!BlockBreakListener.isAttached(block, scanBlock, blockData, scan)) {
+                        continue;
+                    }
+                    blockMap.put(key, scanBlock);
+
+                    if (blockData instanceof Bisected && !BukkitAdapter.ADAPTER.isSingleBlockPitcherCrop(blockData)) {
+                        Half half = ((Bisected) blockData).getHalf();
+                        int bisectY = half == Half.TOP ? scanY - 1 : scanY + 1;
+                        long bisectKey = positionKey(scanX, bisectY, scanZ);
+                        if (bisectY >= worldMinHeight && bisectY < worldMaxHeight && !blockMap.containsKey(bisectKey)) {
+                            Block partner = world.getBlockAt(scanX, bisectY, scanZ);
+                            BlockData partnerData = partner.getType() == scanType ? partner.getBlockData() : null;
+                            if (partnerData instanceof Bisected && ((Bisected) partnerData).getHalf() != half) {
+                                blockMap.put(bisectKey, partner);
                             }
                         }
                     }
@@ -119,6 +135,20 @@ public final class BlockExplodeListener extends Queue implements Listener {
 
             Database.containerBreakCheck(user, blockType, block, null, block.getLocation());
             Queue.queueBlockBreak(user, blockState, blockType, blockState.getBlockData().getAsString(), 0);
+        }
+    }
+
+    private static boolean tracksAttachment(Material type, int scan) {
+        if (BlockGroup.TRACK_ANY.contains(type)) {
+            return true;
+        }
+        switch (scan) {
+            case BlockUtil.TOP:
+                return BlockGroup.TRACK_TOP.contains(type) || BlockGroup.TRACK_TOP_BOTTOM.contains(type);
+            case BlockUtil.BOTTOM:
+                return BlockGroup.TRACK_BOTTOM.contains(type) || BlockGroup.TRACK_TOP_BOTTOM.contains(type);
+            default:
+                return BlockGroup.TRACK_SIDE.contains(type);
         }
     }
 

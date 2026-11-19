@@ -5,13 +5,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.BlockFace;
 import org.bukkit.inventory.ItemStack;
 
-import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
@@ -244,19 +242,15 @@ public class ContainerLogger extends Queue {
                     continue;
                 }
 
+                CoreProtectPreLogEvent event = LoggerPreLog.fire(user, location, CoreProtectPreLogEvent.Action.CONTAINER_TRANSACTION, action, item.getType(), null, null);
+                if (event == null || ConfigHandler.isFilterBlacklisted(event.getUser(), item.getType().getKey().toString())) {
+                    continue;
+                }
+
                 List<List<Map<String, Object>>> metadata = ItemMetaHandler.serialize(item, type, faceData, slot);
                 if (metadata.isEmpty()) {
                     metadata = null;
                 }
-
-                CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.CONTAINER_TRANSACTION, action, item.getType(), null, null);
-                if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
-                    CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
-                }
-                if (event.isCancelled()) {
-                    continue;
-                }
-
                 int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
                 Location eventLocation = event.getLocation();
                 int wid = WorldUtils.getWorldId(eventLocation.getWorld().getName());
@@ -287,26 +281,21 @@ public class ContainerLogger extends Queue {
                 continue;
             }
 
+            CoreProtectPreLogEvent event = LoggerPreLog.fire(user, currentLocation, CoreProtectPreLogEvent.Action.CONTAINER_TRANSACTION, action, item.getType(), null, null);
+            if (event == null || ConfigHandler.isFilterBlacklisted(event.getUser(), item.getType().getKey().toString())) {
+                continue;
+            }
+
             List<List<Map<String, Object>>> metadata = ItemMetaHandler.serialize(item, Material.CHEST, null, slot);
             if (metadata.isEmpty()) {
                 metadata = null;
             }
-
-            Location initialEventLocation = currentLocation.clone();
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, initialEventLocation.clone(), CoreProtectPreLogEvent.Action.CONTAINER_TRANSACTION, action, item.getType(), null, null);
-            if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
-                CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
-            }
-            if (event.isCancelled()) {
-                continue;
-            }
-
             int wid = identity.getOriginalWorldId();
             int x = identity.getOriginalX();
             int y = identity.getOriginalY();
             int z = identity.getOriginalZ();
             Location loggedLocation = event.getLocation();
-            if (!samePosition(initialEventLocation, loggedLocation)) {
+            if (!LoggerPreLog.samePosition(currentLocation, loggedLocation)) {
                 wid = WorldUtils.getWorldId(loggedLocation.getWorld().getName());
                 x = loggedLocation.getBlockX();
                 y = loggedLocation.getBlockY();
@@ -317,12 +306,7 @@ public class ContainerLogger extends Queue {
             int time = (int) (System.currentTimeMillis() / 1000L);
             int typeId = MaterialUtils.getBlockId(item.getType().name(), true);
             ContainerStatement.insertEntity(preparedStmt, batchCount, time, userId, identity.getRowId(), wid, x, y, z, typeId, 0, item.getAmount(), metadata, action, 0);
-            slot++;
         }
-    }
-
-    private static boolean samePosition(Location first, Location second) {
-        return first != null && second != null && first.getWorld() != null && second.getWorld() != null && first.getWorld().getUID().equals(second.getWorld().getUID()) && Double.compare(first.getX(), second.getX()) == 0 && Double.compare(first.getY(), second.getY()) == 0 && Double.compare(first.getZ(), second.getZ()) == 0;
     }
 
     private static void subtractSharedItems(ItemStack[] oldInventory, ItemStack[] newInventory) {

@@ -1,11 +1,7 @@
 package net.coreprotect.database.logger;
 
-
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 
-import net.coreprotect.CoreProtect;
-import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.statement.EntityInteractionStatement;
@@ -14,6 +10,7 @@ import net.coreprotect.event.CoreProtectPreLogEvent;
 import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.model.entity.EntityInteraction;
 import net.coreprotect.model.entity.EntitySpawnIdentity;
+import net.coreprotect.utility.WorldUtils;
 
 public final class EntityInteractionLogger {
 
@@ -27,33 +24,39 @@ public final class EntityInteractionLogger {
         }
 
         Location currentLocation = interaction.getCurrentLocation();
-        CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, currentLocation.clone(), CoreProtectPreLogEvent.Action.ENTITY_INTERACTION, LookupActions.INTERACTION, null, interaction.getEntityType(), interaction.getAction().name());
-        if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
-            CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+        CoreProtectPreLogEvent event = LoggerPreLog.fire(user, currentLocation, CoreProtectPreLogEvent.Action.ENTITY_INTERACTION, LookupActions.INTERACTION, null, interaction.getEntityType(), interaction.getAction().name());
+        if (event == null || ConfigHandler.isFilterBlacklisted(event.getUser(), interaction.getEntityType().getKey().toString())) {
+            return null;
         }
-        return event.isCancelled() ? null : new LogContext(event);
+
+        Location eventLocation = event.getLocation();
+        Location locationOverride = LoggerPreLog.samePosition(currentLocation, eventLocation) ? null : eventLocation.clone();
+        return new LogContext(event.getUser(), locationOverride);
     }
 
     public static boolean log(ConsumerWriteBatch batch, EntitySpawnIdentity identity, EntityInteraction interaction, LogContext context) throws Exception {
         Location currentLocation = interaction.getCurrentLocation();
         boolean identityActive = EntityInteractionStatement.checkpoint(batch, identity, currentLocation);
 
-        int worldId = identity.getOriginalWorldId();
-        int x = identity.getOriginalX();
-        int y = identity.getOriginalY();
-        int z = identity.getOriginalZ();
+        Location override = context.locationOverride;
+        int worldId = override == null ? identity.getOriginalWorldId() : WorldUtils.getWorldId(override.getWorld().getName());
+        int x = override == null ? identity.getOriginalX() : override.getBlockX();
+        int y = override == null ? identity.getOriginalY() : override.getBlockY();
+        int z = override == null ? identity.getOriginalZ() : override.getBlockZ();
 
-        int userId = UserStatement.getId(batch, context.event.getUser(), true);
+        int userId = UserStatement.getId(batch, context.user, true);
         EntityInteractionStatement.insert(batch, interaction.getTime(), userId, identity, worldId, x, y, z, interaction);
         return identityActive;
     }
 
     public static final class LogContext {
 
-        private final CoreProtectPreLogEvent event;
+        private final String user;
+        private final Location locationOverride;
 
-        private LogContext(CoreProtectPreLogEvent event) {
-            this.event = event;
+        private LogContext(String user, Location locationOverride) {
+            this.user = user;
+            this.locationOverride = locationOverride;
         }
     }
 }

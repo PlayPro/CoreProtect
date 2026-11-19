@@ -1,17 +1,13 @@
 package net.coreprotect.database.logger;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.Location;
 import org.bukkit.block.BlockState;
 
-import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
-import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.ConsumerWriteBatch;
@@ -80,34 +76,34 @@ public class BlockPlaceLogger {
                 return;
             }
 
-            int x = block.getX();
-            int y = block.getY();
-            int z = block.getZ();
-            long chunkKey = (x >> 4) & 0xffffffffL | ((z >> 4) & 0xffffffffL) << 32;
+            long chunkKey = (block.getX() >> 4) & 0xffffffffL | ((block.getZ() >> 4) & 0xffffffffL) << 32;
             Map<Long, Long> populatedChunks = ConfigHandler.populatedChunks.get(block.getWorld().getUID());
-            if (populatedChunks != null && populatedChunks.get(chunkKey) != null) {
+            Long populatedAt = populatedChunks == null ? null : populatedChunks.get(chunkKey);
+            boolean clearPopulation = false;
+            if (populatedAt != null) {
                 boolean isWater = user.equals("#water");
                 boolean isLava = user.equals("#lava");
                 boolean isVine = user.equals("#vine");
                 if (isWater || isLava || isVine) {
                     int timeDelay = isWater ? 60 : 240;
-                    long timeSincePopulation = ((System.currentTimeMillis() / 1000L) - populatedChunks.getOrDefault(chunkKey, 0L));
+                    long timeSincePopulation = (System.currentTimeMillis() / 1000L) - populatedAt;
                     if (timeSincePopulation <= timeDelay) {
                         return;
                     }
 
-                    if (timeSincePopulation > 240) {
-                        populatedChunks.remove(chunkKey);
-                    }
+                    clearPopulation = timeSincePopulation > 240;
                 }
-                else if (type == Material.WATER || type == Material.LAVA) {
-                    populatedChunks.remove(chunkKey);
+                else {
+                    clearPopulation = type == Material.WATER || type == Material.LAVA;
                 }
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, block.getLocation(), CoreProtectPreLogEvent.Action.BLOCK_PLACE, LookupActions.BLOCK_PLACE, type, null, null);
-            if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
-                CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+            CoreProtectPreLogEvent event = LoggerPreLog.fire(user, block.getLocation(), CoreProtectPreLogEvent.Action.BLOCK_PLACE, LookupActions.BLOCK_PLACE, type, null, null);
+            if (event == null || ConfigHandler.isFilterBlacklisted(event.getUser(), blockKey)) {
+                return;
+            }
+            if (clearPopulation) {
+                populatedChunks.remove(chunkKey, populatedAt);
             }
 
             int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
@@ -115,18 +111,10 @@ public class BlockPlaceLogger {
             int wid = WorldUtils.getWorldId(eventLocation.getWorld().getName());
             int time = (int) (System.currentTimeMillis() / 1000L);
 
-            // Use event location for subsequent logging
-            x = eventLocation.getBlockX();
-            y = eventLocation.getBlockY();
-            z = eventLocation.getBlockZ();
-
-            if (event.getUser().length() > 0) {
-                CacheHandler.lookupCache.put("" + x + "." + y + "." + z + "." + wid + "", new Object[] { time, event.getUser(), type });
-            }
-
-            if (event.isCancelled()) {
-                return;
-            }
+            int x = eventLocation.getBlockX();
+            int y = eventLocation.getBlockY();
+            int z = eventLocation.getBlockZ();
+            CacheHandler.lookupCache.put(x + "." + y + "." + z + "." + wid, new Object[] { time, event.getUser(), type });
 
             int internalType = MaterialUtils.getBlockId(blockKey, true);
             int replacedInternalType = MaterialUtils.getBlockId(replaceBlockData, MaterialUtils.getType(replacedType), true);

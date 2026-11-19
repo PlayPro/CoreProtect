@@ -1,12 +1,7 @@
 package net.coreprotect.database.logger;
 
-import java.util.Locale;
-
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 
-import net.coreprotect.CoreProtect;
-import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.ConsumerWriteBatch;
@@ -27,12 +22,8 @@ public class SignTextLogger {
                 return;
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.SIGN_TEXT, action, null, null, null);
-            if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
-                CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
-            }
-
-            if (event.isCancelled()) {
+            CoreProtectPreLogEvent event = LoggerPreLog.fire(user, location, CoreProtectPreLogEvent.Action.SIGN_TEXT, action, null, null, null);
+            if (event == null) {
                 return;
             }
 

@@ -1,11 +1,8 @@
 package net.coreprotect.database.logger;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.Location;
 
-import net.coreprotect.CoreProtect;
-import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.ConsumerWriteBatch;
@@ -40,20 +37,16 @@ public class PlayerInteractLogger {
                 return;
             }
 
-            int type = MaterialUtils.getBlockId(blockKey, true);
             if (ConfigHandler.isBlacklisted(user) || BlockTypeUtils.isAir(blockKey)) {
                 return;
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location.clone(), CoreProtectPreLogEvent.Action.PLAYER_INTERACTION, LookupActions.INTERACTION, blockType, null, null);
-            if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
-                CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
-            }
-
-            if (event.isCancelled()) {
+            CoreProtectPreLogEvent event = LoggerPreLog.fire(user, location, CoreProtectPreLogEvent.Action.PLAYER_INTERACTION, LookupActions.INTERACTION, blockType, null, null);
+            if (event == null) {
                 return;
             }
 
+            int type = MaterialUtils.getBlockId(blockKey, true);
             int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
             Location eventLocation = event.getLocation();
             int wid = WorldUtils.getWorldId(eventLocation.getWorld().getName());

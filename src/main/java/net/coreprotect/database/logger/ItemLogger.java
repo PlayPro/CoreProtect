@@ -5,13 +5,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.inventory.ItemStack;
 
-import net.coreprotect.CoreProtect;
-import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.ConsumerWriteBatch;
@@ -137,20 +134,16 @@ public class ItemLogger {
                         continue;
                     }
 
+                    CoreProtectPreLogEvent event = LoggerPreLog.fire(user, location, CoreProtectPreLogEvent.Action.ITEM_TRANSACTION, action, item.getType(), null, null);
+                    if (event == null || ConfigHandler.isFilterBlacklisted(event.getUser(), item.getType().getKey().toString())) {
+                        continue;
+                    }
+
                     List<List<Map<String, Object>>> data = ItemMetaHandler.serialize(item, null, null, 0);
-                    if (data.size() == 0) {
+                    if (data.isEmpty()) {
                         data = null;
                     }
 
-                    CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.ITEM_TRANSACTION, action, item.getType(), null, null);
-                    if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
-                        CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
-                    }
-
-                    if (event.isCancelled()) {
-                        continue;
-                    }
-                    
                     int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
                     Location eventLocation = event.getLocation();
                     int wid = WorldUtils.getWorldId(eventLocation.getWorld().getName());

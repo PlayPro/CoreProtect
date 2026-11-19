@@ -1,12 +1,9 @@
 package net.coreprotect.database.logger;
 
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.EntityType;
 
-import net.coreprotect.CoreProtect;
-import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.statement.BlockStatement;
@@ -39,11 +36,8 @@ public final class EntitySpawnLogger {
         }
 
         Location initialLocation = data.getLocation();
-        CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, initialLocation.clone(), CoreProtectPreLogEvent.Action.ENTITY_SPAWN, LookupActions.ENTITY_SPAWN, null, type, null);
-        if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
-            CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
-        }
-        if (event.isCancelled()) {
+        CoreProtectPreLogEvent event = LoggerPreLog.fire(user, initialLocation, CoreProtectPreLogEvent.Action.ENTITY_SPAWN, LookupActions.ENTITY_SPAWN, null, type, null);
+        if (event == null || ConfigHandler.isFilterBlacklisted(event.getUser(), type.getKey().toString())) {
             return null;
         }
 

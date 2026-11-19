@@ -2,12 +2,9 @@ package net.coreprotect.database.logger;
 
 import java.util.List;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.EntityType;
 
-import net.coreprotect.CoreProtect;
-import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.ConsumerWriteBatch;
@@ -37,18 +34,14 @@ public class EntityKillLogger {
             }
             // Ignore blacklist if the entity has a custom name
             // data[4] contains custom name data
-            if (ConfigHandler.isBlacklisted(user, checkType.getKey().toString()) &&
-                !(data.size() > 4 && data.get(4) != null)){
+            boolean hasCustomName = data.size() > 4 && data.get(4) != null;
+            String entityKey = checkType.getKey().toString();
+            if (!hasCustomName && ConfigHandler.isBlacklisted(user, entityKey)) {
                 return;
             }
 
-            Location initialLocation = location.clone();
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, initialLocation, CoreProtectPreLogEvent.Action.ENTITY_KILL, LookupActions.ENTITY_KILL, null, checkType, null);
-            if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
-                CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
-            }
-
-            if (event.isCancelled()) {
+            CoreProtectPreLogEvent event = LoggerPreLog.fire(user, location, CoreProtectPreLogEvent.Action.ENTITY_KILL, LookupActions.ENTITY_KILL, null, checkType, null);
+            if (event == null || (!hasCustomName && ConfigHandler.isFilterBlacklisted(event.getUser(), entityKey))) {
                 return;
             }
 

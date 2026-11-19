@@ -1,11 +1,8 @@
 package net.coreprotect.database.logger;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.EntityType;
 
-import net.coreprotect.CoreProtect;
-import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.ConsumerWriteBatch;
@@ -27,18 +24,12 @@ public class PlayerKillLogger {
                 return;
             }
 
-            int playerId = UserStatement.getId(preparedStmt, player, true);
-
-            Location initialLocation = location.clone();
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, initialLocation, CoreProtectPreLogEvent.Action.PLAYER_KILL, LookupActions.ENTITY_KILL, null, EntityType.PLAYER, null);
-            if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
-                CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
-            }
-
-            if (event.isCancelled()) {
+            CoreProtectPreLogEvent event = LoggerPreLog.fire(user, location, CoreProtectPreLogEvent.Action.PLAYER_KILL, LookupActions.ENTITY_KILL, null, EntityType.PLAYER, null);
+            if (event == null) {
                 return;
             }
 
+            int playerId = UserStatement.getId(preparedStmt, player, true);
             int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
             Location eventLocation = event.getLocation();
             int wid = WorldUtils.getWorldId(eventLocation.getWorld().getName());

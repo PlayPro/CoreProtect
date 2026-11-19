@@ -970,8 +970,37 @@ public class Process {
         }
         String user = StringUtils.normalizeUsername(userData[0]);
         String uuid = userData[1];
-        return user != null && ((ConfigHandler.databaseType.isClickHouse() && uuid != null && !uuid.isEmpty())
+        boolean hasUuid = uuid != null && !uuid.isEmpty();
+        if (!hasUuid && data.length > 1 && data[1] instanceof Integer && Config.getGlobal().API_ENABLED && resolvesUserAfterPreLog((Integer) data[1])) {
+            return false;
+        }
+        return user != null && ((ConfigHandler.databaseType.isClickHouse() && hasUuid)
                 || ConfigHandler.playerIdCache.get(user.toLowerCase(Locale.ROOT)) == null);
+    }
+
+    private static boolean resolvesUserAfterPreLog(int action) {
+        switch (action) {
+            case BLOCK_BREAK:
+            case BLOCK_PLACE:
+            case SIGN_TEXT:
+            case CONTAINER_BREAK:
+            case PLAYER_INTERACTION:
+            case CONTAINER_TRANSACTION:
+            case STRUCTURE_GROWTH:
+            case PLAYER_CHAT:
+            case PLAYER_COMMAND:
+            case PLAYER_LOGOUT:
+            case ENTITY_KILL:
+            case NATURAL_BLOCK_BREAK:
+            case PLAYER_KILL:
+            case ITEM_TRANSACTION:
+            case ENTITY_SPAWN_LOG:
+            case ENTITY_CONTAINER_TRANSACTION:
+            case ENTITY_INTERACTION:
+                return true;
+            default:
+                return false;
+        }
     }
 
     static void preflightUser(ConsumerWriteBatch batch, Object[] data,

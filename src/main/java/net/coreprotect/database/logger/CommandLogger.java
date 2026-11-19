@@ -1,10 +1,7 @@
 package net.coreprotect.database.logger;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 
-import net.coreprotect.CoreProtect;
-import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.ConsumerWriteBatch;
@@ -28,12 +25,8 @@ public class CommandLogger {
                 return;
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.PLAYER_COMMAND, -1, null, null, message);
-            if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
-                CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
-            }
-
-            if (event.isCancelled()) {
+            CoreProtectPreLogEvent event = LoggerPreLog.fire(user, location, CoreProtectPreLogEvent.Action.PLAYER_COMMAND, -1, null, null, message);
+            if (event == null || ConfigHandler.isCommandBlacklisted(event.getUser(), message)) {
                 return;
             }
 

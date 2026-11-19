@@ -22,6 +22,7 @@ import net.coreprotect.consumer.process.Process;
 import net.coreprotect.database.Database;
 import net.coreprotect.database.DuckDBRecovery;
 import net.coreprotect.language.Phrase;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.ErrorReporter;
@@ -114,20 +115,24 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
     }
 
     public static int getConsumerSize(int id) {
-        if (id == 0 || id == 1) {
-            return Consumer.consumer.get(id).size();
+        if (id != 0 && id != 1) {
+            return 0;
         }
-
-        return 0;
+        synchronized (Queue.class) {
+            ArrayList<Object[]> records = consumer.get(id);
+            return records == null ? 0 : records.size();
+        }
     }
 
     public static boolean hasPendingConsumerData() {
-        synchronized (consumer_id) {
-            for (int id = 0; id < 2; id++) {
-                Integer[] state = consumer_id.get(id);
-                ArrayList<Object[]> data = consumer.get(id);
-                if ((state != null && state[1] > 0) || (data != null && !data.isEmpty())) {
-                    return true;
+        synchronized (Queue.class) {
+            synchronized (consumer_id) {
+                for (int id = 0; id < 2; id++) {
+                    Integer[] state = consumer_id.get(id);
+                    ArrayList<Object[]> data = consumer.get(id);
+                    if ((state != null && state[1] > 0) || (data != null && !data.isEmpty())) {
+                        return true;
+                    }
                 }
             }
             return false;
@@ -633,8 +638,12 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
 
     @Override
     public void uncaughtException(Thread thread, Throwable e) {
+        haltPersistence();
         ErrorReporter.report(e);
-        Bukkit.getPluginManager().disablePlugin(CoreProtect.getInstance());
+        CoreProtect plugin = CoreProtect.getInstance();
+        if (plugin != null) {
+            Scheduler.runTask(plugin, () -> Bukkit.getPluginManager().disablePlugin(plugin));
+        }
     }
 
     public static void startConsumer() {

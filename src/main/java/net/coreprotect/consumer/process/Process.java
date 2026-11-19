@@ -169,6 +169,7 @@ public class Process {
         Map<Integer, Object> consumerObject = null;
         ConsumerWriteBatch writeBatch = null;
         Connection connection = null;
+        Statement statement = null;
         boolean pauseClaimed = false;
         boolean processingStarted = false;
         Object[] preparingEvent = null;
@@ -199,7 +200,7 @@ public class Process {
                 return;
             }
 
-            Statement statement = connection.createStatement();
+            statement = connection.createStatement();
             Database.performCheckpoint(statement, ConfigHandler.databaseType);
 
             users = Consumer.consumerUsers.get(processId);
@@ -211,7 +212,6 @@ public class Process {
                 if (!ConfigHandler.databaseType.isDuckDB() || isLockUpdateDue(lastRun)) {
                     writeBatch = Database.openConsumerWriteBatch(connection);
                     if (!beginConsumerTransaction(writeBatch)) {
-                        statement.close();
                         deferConsumerRetry();
                         return;
                     }
@@ -219,13 +219,11 @@ public class Process {
                     updateLockTable(writeBatch, (lastRun ? 0 : 1));
                     lockUpdatePending = lastLockUpdate != previousLockUpdate;
                     if (commit(writeBatch) != TransactionOutcome.COMMITTED) {
-                        statement.close();
                         deferConsumerRetry();
                         return;
                     }
                     lockUpdatePending = false;
                 }
-                statement.close();
                 Consumer.consumer_id.put(processId, new Integer[] { 0, 0 });
                 if (!Consumer.hasPendingConsumerData()) {
                     DuckDBRecovery.markHealthy();
@@ -702,8 +700,6 @@ public class Process {
             }
             clearConsumerData(processId, consumerData, users, consumerObject);
             consumerDataCleared = true;
-
-            statement.close();
         }
         catch (Exception e) {
             boolean recoveryRequested = DuckDBRecovery.request(e);
@@ -742,6 +738,14 @@ public class Process {
         finally {
             if (lockUpdatePending) {
                 lastLockUpdate = previousLockUpdate;
+            }
+            if (statement != null) {
+                try {
+                    statement.close();
+                }
+                catch (Exception e) {
+                    Database.reportDatabaseFailure(e);
+                }
             }
             if (writeBatch != null) {
                 try {
@@ -1033,7 +1037,9 @@ public class Process {
     private static void discardProcessedConsumerData(int processId, ArrayList<Object[]> consumerData, Map<Integer, String[]> users, Map<Integer, Object> consumerObject, int count) {
         int processed = Math.min(count, consumerData.size());
         releaseProcessedConsumerData(processId, consumerData, users, consumerObject, 0, processed);
-        consumerData.subList(0, processed).clear();
+        synchronized (Queue.class) {
+            consumerData.subList(0, processed).clear();
+        }
     }
 
     private static void releaseProcessedConsumerData(int processId, ArrayList<Object[]> consumerData, Map<Integer, String[]> users, Map<Integer, Object> consumerObject, int fromIndex, int toIndex) {
@@ -1056,7 +1062,9 @@ public class Process {
         if (failedIndex == -1) {
             return;
         }
-        consumerData.remove(failedIndex);
+        synchronized (Queue.class) {
+            consumerData.remove(failedIndex);
+        }
         eventFailures.remove(failedEvent);
         transactionFailures.remove(failedEvent);
         Set<Integer> failedIds;

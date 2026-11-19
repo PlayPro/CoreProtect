@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BooleanSupplier;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -37,6 +38,10 @@ import net.coreprotect.utility.ErrorReporter;
 public class ContainerRollback extends Rollback {
 
     public static boolean performContainerRollbackRestore(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, String timeString, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, final Location location, Integer[] radius, long startTime, long endTime, boolean restrictWorld, boolean lookup, boolean verbose, final int rollbackType) {
+        return performContainerRollbackRestore(statement, user, checkUuids, checkUsers, timeString, restrictList, excludeList, excludeUserList, actionList, location, radius, startTime, endTime, restrictWorld, lookup, verbose, rollbackType, null);
+    }
+
+    public static boolean performContainerRollbackRestore(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, String timeString, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, final Location location, Integer[] radius, long startTime, long endTime, boolean restrictWorld, boolean lookup, boolean verbose, final int rollbackType, BooleanSupplier admission) {
         try {
             long timeStart = System.currentTimeMillis();
 
@@ -58,6 +63,9 @@ public class ContainerRollback extends Rollback {
                 userString = user.getName();
             }
 
+            if (admission != null && !admission.getAsBoolean()) {
+                return false;
+            }
             Queue.queueRollbackUpdate(userString, location, lookupList, Process.CONTAINER_ROLLBACK_UPDATE, rollbackType); // Perform update transaction in consumer
             if (Consumer.isPersistenceHalted()) {
                 sendAborted(user, "Database persistence halted while queuing container rollback updates.");

@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BooleanSupplier;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -67,6 +68,10 @@ public class Rollback extends RollbackUtil {
     }
 
     public static List<String[]> performRollbackRestore(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, String timeString, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, Location location, Integer[] radius, long startTime, long endTime, boolean restrictWorld, boolean lookup, boolean verbose, final int rollbackType, final int preview) {
+        return performRollbackRestore(statement, user, checkUuids, checkUsers, timeString, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, location, radius, startTime, endTime, restrictWorld, lookup, verbose, rollbackType, preview, null);
+    }
+
+    public static List<String[]> performRollbackRestore(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, String timeString, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, Location location, Integer[] radius, long startTime, long endTime, boolean restrictWorld, boolean lookup, boolean verbose, final int rollbackType, final int preview, BooleanSupplier admission) {
         List<String[]> list = new ArrayList<>();
         EntitySpawnRollbackHandler.Context entitySpawnContext = null;
 
@@ -320,14 +325,17 @@ public class Rollback extends RollbackUtil {
                 sendAborted(user);
                 return null;
             }
+            if (preview == 0 && Consumer.isPersistenceHalted()) {
+                entitySpawnContext.reportFailure("Database persistence halted before rollback updates could be queued.", null);
+                entitySpawnContext.cancel();
+                sendAborted(user);
+                return null;
+            }
+            if (admission != null && !admission.getAsBoolean()) {
+                return null;
+            }
             // Perform update transaction(s) in consumer
             if (preview == 0) {
-                if (Consumer.isPersistenceHalted()) {
-                    entitySpawnContext.reportFailure("Database persistence halted before rollback updates could be queued.", null);
-                    entitySpawnContext.cancel();
-                    sendAborted(user);
-                    return null;
-                }
                 if (actionList.contains(LookupActions.ITEM)) {
                     List<Object[]> blockList = new ArrayList<>();
                     List<Object[]> inventoryList = new ArrayList<>();

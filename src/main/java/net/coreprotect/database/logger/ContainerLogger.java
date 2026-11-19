@@ -251,45 +251,35 @@ public class ContainerLogger extends Queue {
                 return;
             }
             boolean success = false;
-            int slot = 0;
-            for (ItemStack item : items) {
-                if (item != null) {
-                    if (item.getAmount() > 0 && !BlockUtils.isAir(item.getType())) {
-                        // Object[] metadata = new Object[] { slot, item.getItemMeta() };
-                        if (ConfigHandler.isFilterBlacklisted(user, item.getType().getKey().toString())){
-                            continue;
-                        }
-
-                        List<List<Map<String, Object>>> metadata = ItemMetaHandler.serialize(item, type, faceData, slot);
-                        if (metadata.size() == 0) {
-                            metadata = null;
-                        }
-
-                        CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.CONTAINER_TRANSACTION, action, item.getType(), null, null);
-                        if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
-                            CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
-                        }
-
-                        if (event.isCancelled()) {
-                            return;
-                        }  
-
-
-                        int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
-                        Location eventLocation = event.getLocation();
-                        int wid = WorldUtils.getWorldId(eventLocation.getWorld().getName());
-                        int time = preparedTime == null ? (int) (System.currentTimeMillis() / 1000L) : preparedTime;
-                        int x = eventLocation.getBlockX();
-                        int y = eventLocation.getBlockY();
-                        int z = eventLocation.getBlockZ();
-                        int typeId = MaterialUtils.getBlockId(item.getType().name(), true);
-                        int data = 0;
-                        int amount = item.getAmount();
-                        ContainerStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, typeId, data, amount, metadata, action, 0);
-                        success = true;
-                    }
+            for (int slot = 0; slot < items.length; slot++) {
+                ItemStack item = items[slot];
+                if (item == null || item.getAmount() <= 0 || BlockUtils.isAir(item.getType()) || ConfigHandler.isFilterBlacklisted(user, item.getType().getKey().toString())) {
+                    continue;
                 }
-                slot++;
+
+                List<List<Map<String, Object>>> metadata = ItemMetaHandler.serialize(item, type, faceData, slot);
+                if (metadata.isEmpty()) {
+                    metadata = null;
+                }
+
+                CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, location, CoreProtectPreLogEvent.Action.CONTAINER_TRANSACTION, action, item.getType(), null, null);
+                if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
+                    CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
+                }
+                if (event.isCancelled()) {
+                    continue;
+                }
+
+                int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
+                Location eventLocation = event.getLocation();
+                int wid = WorldUtils.getWorldId(eventLocation.getWorld().getName());
+                int time = preparedTime == null ? (int) (System.currentTimeMillis() / 1000L) : preparedTime;
+                int x = eventLocation.getBlockX();
+                int y = eventLocation.getBlockY();
+                int z = eventLocation.getBlockZ();
+                int typeId = MaterialUtils.getBlockId(item.getType().name(), true);
+                ContainerStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, typeId, 0, item.getAmount(), metadata, action, 0);
+                success = true;
             }
 
             if (clearHopper && success && user.equals("#hopper")) {
@@ -304,14 +294,9 @@ public class ContainerLogger extends Queue {
     }
 
     private static void logEntityTransaction(ConsumerWriteBatch preparedStmt, int batchCount, String user, EntitySpawnIdentity identity, Location currentLocation, ItemStack[] items, int action) throws Exception {
-        int slot = 0;
-        for (ItemStack item : items) {
-            if (item == null || item.getAmount() <= 0 || BlockUtils.isAir(item.getType())) {
-                slot++;
-                continue;
-            }
-            if (ConfigHandler.isFilterBlacklisted(user, item.getType().getKey().toString())) {
-                slot++;
+        for (int slot = 0; slot < items.length; slot++) {
+            ItemStack item = items[slot];
+            if (item == null || item.getAmount() <= 0 || BlockUtils.isAir(item.getType()) || ConfigHandler.isFilterBlacklisted(user, item.getType().getKey().toString())) {
                 continue;
             }
 
@@ -326,7 +311,7 @@ public class ContainerLogger extends Queue {
                 CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
             }
             if (event.isCancelled()) {
-                return;
+                continue;
             }
 
             int wid = identity.getOriginalWorldId();

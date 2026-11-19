@@ -148,7 +148,7 @@ public class ItemLogger {
                     }
 
                     if (event.isCancelled()) {
-                        return;
+                        continue;
                     }
                     
                     int userId = UserStatement.getId(preparedStmt, event.getUser(), true);

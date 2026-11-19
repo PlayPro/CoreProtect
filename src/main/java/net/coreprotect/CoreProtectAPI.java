@@ -1075,6 +1075,11 @@ public class CoreProtectAPI extends Queue {
             return null;
         }
 
+        if (lookup != 1 && Bukkit.isPrimaryThread()) {
+            Chat.console(Phrase.build(Phrase.PRIMARY_THREAD_ERROR));
+            return result;
+        }
+
         try (Connection connection = Database.getConnection(false, 1000)) {
             if (connection != null) {
                 Statement statement = connection.createStatement();
@@ -1110,23 +1115,18 @@ public class CoreProtectAPI extends Queue {
                     }
                 }
                 else {
-                    if (!Bukkit.isPrimaryThread()) {
-                        String rollbackKey = "#api-" + API_ROLLBACK_SEQUENCE.incrementAndGet();
-                        if (Consumer.claimRollback(rollbackKey) == Consumer.OperationStartResult.STARTED) {
-                            try {
-                                boolean verbose = false;
-                                result = Rollback.performRollbackRestore(statement, null, uuids, restrictUsers, null, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, startTime, endTime, restrictWorld, false, verbose, action, 0);
-                            }
-                            finally {
-                                Consumer.releaseRollback(rollbackKey);
-                            }
+                    String rollbackKey = "#api-" + API_ROLLBACK_SEQUENCE.incrementAndGet();
+                    if (Consumer.claimRollback(rollbackKey) == Consumer.OperationStartResult.STARTED) {
+                        try {
+                            boolean verbose = false;
+                            result = Rollback.performRollbackRestore(statement, null, uuids, restrictUsers, null, restrictBlocks, excludeBlocks, excludeUsers, actionList, location, argRadius, startTime, endTime, restrictWorld, false, verbose, action, 0);
                         }
-                        else { // only print exception on development branch
-                            ErrorReporter.report(new IllegalStateException("API rollback skipped: another database operation is active or persistence is halted"), ConfigHandler.EDITION_BRANCH.contains("-dev"));
+                        finally {
+                            Consumer.releaseRollback(rollbackKey);
                         }
                     }
-                    else {
-                        Chat.console(Phrase.build(Phrase.PRIMARY_THREAD_ERROR));
+                    else { // only print exception on development branch
+                        ErrorReporter.report(new IllegalStateException("API rollback skipped: another database operation is active or persistence is halted"), ConfigHandler.EDITION_BRANCH.contains("-dev"));
                     }
                 }
 

@@ -14,6 +14,7 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.DoubleChest;
 import org.bukkit.block.Hopper;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -24,7 +25,6 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryPickupItemEvent;
-import org.bukkit.inventory.BlockInventoryHolder;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -45,7 +45,7 @@ import net.coreprotect.utility.Validate;
 import us.lynuxcraft.deadsilenceiv.advancedchests.AdvancedChestsAPI;
 import us.lynuxcraft.deadsilenceiv.advancedchests.chest.AdvancedChest;
 
-public final class InventoryChangeListener extends Queue implements Listener {
+public final class InventoryChangeListener implements Listener {
 
     private static final Map<UUID, PendingEntityContainerTransaction> pendingEntityTransactions = new HashMap<>();
 
@@ -214,18 +214,18 @@ public final class InventoryChangeListener extends Queue implements Listener {
             List<ItemStack[]> baselines = ConfigHandler.oldContainer.computeIfAbsent(loggingId, key -> new ArrayList<>());
             boolean first = baselines.isEmpty();
             if (first) {
-                removeForceContainer(loggingId);
+                Queue.removeForceContainer(loggingId);
                 ConfigHandler.addOldContainerViewer(viewerGroupId, loggingId);
             }
             ItemStack[] previous = first ? null : baselines.get(baselines.size() - 1);
             ItemStack[] oldSnapshot = ItemUtils.getSharedContainerState(before, previous);
             ItemStack[] afterSnapshot = ItemUtils.getSharedContainerState(after, oldSnapshot);
             baselines.add(oldSnapshot);
-            addForceContainer(loggingId, afterSnapshot);
+            Queue.addForceContainer(loggingId, afterSnapshot);
             if (type != Material.ENDER_CHEST) {
                 HopperTransactionUtils.registerSnapshot(transactionId, loggingId, first);
             }
-            Queue.queueContainerTransaction(user, location, type, afterSnapshot, getChestId(loggingId));
+            Queue.queueContainerTransaction(user, location, type, afterSnapshot, Queue.getChestId(loggingId));
         });
     }
 
@@ -435,7 +435,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
     }
 
     private static boolean isSupportedContainer(InventoryHolder holder) {
-        return holder instanceof BlockInventoryHolder || holder instanceof DoubleChest || getTrackedEntityContainer(holder) != null;
+        return Validate.isContainer(holder) || getTrackedEntityContainer(holder) != null;
     }
 
     private static final class PendingEntityContainerTransaction {
@@ -479,11 +479,11 @@ public final class InventoryChangeListener extends Queue implements Listener {
             return;
         }
 
-        boolean enderChest = false;
-        boolean advancedChest;
-        if (inventoryAction != InventoryAction.MOVE_TO_OTHER_INVENTORY && inventoryAction != InventoryAction.COLLECT_TO_CURSOR && inventoryAction != InventoryAction.UNKNOWN) {
-            // Perform this check to prevent triggering onInventoryInteractAsync when a user is just clicking items in their own inventory
-            Inventory inventory = null;
+        Inventory inventory;
+        if (inventoryAction == InventoryAction.MOVE_TO_OTHER_INVENTORY || inventoryAction == InventoryAction.COLLECT_TO_CURSOR || inventoryAction == InventoryAction.UNKNOWN) {
+            inventory = event.getInventory();
+        }
+        else {
             try {
                 try {
                     inventory = event.getView().getInventory(event.getRawSlot());
@@ -495,47 +495,28 @@ public final class InventoryChangeListener extends Queue implements Listener {
             catch (Exception e) {
                 return;
             }
-            if (inventory == null) {
-                return;
-            }
-
-            InventoryHolder inventoryHolder = PaperAdapter.ADAPTER.getHolder(inventory, false);
-            enderChest = inventory.equals(event.getWhoClicked().getEnderChest());
-            advancedChest = isAdvancedChest(inventory);
-            if (!isSupportedContainer(inventoryHolder) && !enderChest && !advancedChest) {
-                return;
-            }
-            if (advancedChest && event.getSlot() > inventory.getSize() - 10) {
-                return;
-            }
-        }
-        else {
-            // Perform standard inventory holder check on primary inventory
-            Inventory inventory = event.getInventory();
-            if (inventory == null) {
-                return;
-            }
-
-            InventoryHolder inventoryHolder = PaperAdapter.ADAPTER.getHolder(inventory, false);
-            enderChest = inventory.equals(event.getWhoClicked().getEnderChest());
-            advancedChest = isAdvancedChest(inventory);
-            if (!isSupportedContainer(inventoryHolder) && !enderChest && !advancedChest) {
-                return;
-            }
-            if (advancedChest && event.getSlot() > inventory.getSize() - 10) {
-                return;
-            }
         }
 
-        Player player = (Player) event.getWhoClicked();
+        HumanEntity viewer = event.getWhoClicked();
+        if (inventory == null || !(viewer instanceof Player)) {
+            return;
+        }
+
+        Player player = (Player) viewer;
+        InventoryHolder inventoryHolder = PaperAdapter.ADAPTER.getHolder(inventory, false);
+        boolean enderChest = inventory.equals(player.getEnderChest());
+        boolean advancedChest = isAdvancedChest(inventory);
+        if (!isSupportedContainer(inventoryHolder) && !enderChest && !advancedChest) {
+            return;
+        }
+        if (advancedChest && event.getSlot() > inventory.getSize() - 10) {
+            return;
+        }
         onInventoryInteractAsync(player, event.getInventory(), enderChest);
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
     protected void onInventoryDragEvent(InventoryDragEvent event) {
-        boolean movedItem = false;
-        boolean enderChest = false;
-
         Inventory inventory = event.getInventory();
         if (inventory == null) {
             return;
@@ -544,22 +525,21 @@ public final class InventoryChangeListener extends Queue implements Listener {
         if (event.getRawSlots().stream().noneMatch(slot -> slot >= 0 && slot < topSize)) {
             return;
         }
+        HumanEntity viewer = event.getWhoClicked();
+        if (!(viewer instanceof Player)) {
+            return;
+        }
+
+        Player player = (Player) viewer;
         InventoryHolder inventoryHolder = PaperAdapter.ADAPTER.getHolder(inventory, false);
-        if (inventoryHolder != null && inventoryHolder.equals(event.getWhoClicked())) {
+        if (inventoryHolder != null && inventoryHolder.equals(player)) {
             return;
         }
 
-        enderChest = inventory.equals(event.getWhoClicked().getEnderChest());
+        boolean enderChest = inventory.equals(player.getEnderChest());
         if (isSupportedContainer(inventoryHolder) || enderChest || isAdvancedChest(inventory)) {
-            movedItem = true;
+            onInventoryInteractAsync(player, inventory, enderChest);
         }
-
-        if (!movedItem) {
-            return;
-        }
-
-        Player player = (Player) event.getWhoClicked();
-        onInventoryInteractAsync(player, event.getInventory(), enderChest);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -646,7 +626,7 @@ public final class InventoryChangeListener extends Queue implements Listener {
         int amount = 0;
         for (ItemStack item : contents) {
             if (item != null && item.getType() != Material.AIR) {
-                amount += item.getAmount();
+                amount += Math.max(0, item.getAmount());
             }
         }
         return amount;
@@ -790,61 +770,13 @@ public final class InventoryChangeListener extends Queue implements Listener {
             return null;
         }
 
-        ItemStack[] result = ItemUtils.getContainerState(contents);
-        ItemStack pickedItem = itemStack.clone();
-        int remaining = pickedItem.getAmount();
-
-        for (ItemStack item : result) {
-            if (remaining <= 0) {
-                break;
-            }
-
-            if (item == null || item.getType() == Material.AIR || !item.isSimilar(pickedItem)) {
-                continue;
-            }
-
-            int maxStackSize = getMaxStackSize(item, inventoryMaxStackSize);
-            int accepted = Math.min(remaining, maxStackSize - item.getAmount());
-            if (accepted > 0) {
-                item.setAmount(item.getAmount() + accepted);
-                remaining -= accepted;
-            }
-        }
-
-        for (int i = 0; i < result.length && remaining > 0; i++) {
-            ItemStack item = result[i];
-            if (item != null && item.getType() != Material.AIR) {
-                continue;
-            }
-
-            int accepted = Math.min(remaining, getMaxStackSize(pickedItem, inventoryMaxStackSize));
-            ItemStack addedItem = pickedItem.clone();
-            addedItem.setAmount(accepted);
-            result[i] = addedItem;
-            remaining -= accepted;
-        }
-
-        if (remaining == pickedItem.getAmount()) {
-            return null;
-        }
-
-        return result;
+        ItemStack[] result = contents.clone();
+        int amount = itemStack.getAmount();
+        long remaining = ItemUtils.insertIntoContainerSnapshot(result, itemStack, amount, inventoryMaxStackSize);
+        return remaining == amount ? null : result;
     }
 
-    private static int getMaxStackSize(ItemStack itemStack, int inventoryMaxStackSize) {
-        int maxStackSize = itemStack.getMaxStackSize();
-        if (inventoryMaxStackSize > 0 && (inventoryMaxStackSize < maxStackSize || maxStackSize == -1)) {
-            maxStackSize = inventoryMaxStackSize;
-        }
-
-        if (maxStackSize == -1) {
-            return 1;
-        }
-
-        return maxStackSize;
-    }
-
-    private boolean isAdvancedChest(Inventory inventory) {
+    private static boolean isAdvancedChest(Inventory inventory) {
         return CoreProtect.getInstance().isAdvancedChestsEnabled() && AdvancedChestsAPI.getInventoryManager().getAdvancedChest(inventory) != null;
     }
 

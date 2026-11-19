@@ -17,7 +17,7 @@ import net.coreprotect.consumer.Queue;
 import net.coreprotect.model.action.SignActions;
 import net.coreprotect.paper.PaperAdapter;
 
-public final class SignChangeListener extends Queue implements Listener {
+public final class SignChangeListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onSignChange(SignChangeEvent event) {

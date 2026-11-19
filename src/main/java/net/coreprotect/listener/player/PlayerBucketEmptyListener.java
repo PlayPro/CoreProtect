@@ -13,7 +13,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 
-public final class PlayerBucketEmptyListener extends Queue implements Listener {
+public final class PlayerBucketEmptyListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST)
     protected void inspectBucketEmpty(PlayerBucketEmptyEvent event) {
@@ -31,7 +31,7 @@ public final class PlayerBucketEmptyListener extends Queue implements Listener {
                 type = Material.WATER;
             }
             BlockState blockState = block.getState();
-            queueBlockPlaceValidate(event.getPlayer().getName(), blockState, block, blockState, type, 1, 1, null, 0, true);
+            Queue.queueBlockPlaceValidate(event.getPlayer().getName(), blockState, block, blockState, type, 1, 1, null, 0, true);
         }
     }
 }

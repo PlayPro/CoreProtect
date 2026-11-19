@@ -2,12 +2,10 @@ package net.coreprotect.consumer;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -108,23 +106,10 @@ public class Queue {
         ConfigHandler.forceContainer.remove(id);
     }
 
-    protected static synchronized int getChestId(String id) {
+    public static synchronized int getChestId(String id) {
         int chestId = ConfigHandler.loggingChest.getOrDefault(id, -1) + 1;
         ConfigHandler.loggingChest.put(id, chestId);
         return chestId;
-    }
-
-    // The Queue lock keeps ItemTransactionProcess.discard from clearing an item before its generation is registered,
-    // and compute keeps the append atomic with the consumer's take in ItemLogger
-    protected static synchronized int addPendingItems(ConcurrentHashMap<String, List<ItemStack>> pendingItems, String id, ItemStack... items) {
-        pendingItems.compute(id, (key, list) -> {
-            List<ItemStack> result = list == null ? new ArrayList<>(items.length) : list;
-            Collections.addAll(result, items);
-            return result;
-        });
-        int itemId = ConfigHandler.loggingItem.getOrDefault(id, -1) + 1;
-        ConfigHandler.loggingItem.put(id, itemId);
-        return itemId;
     }
 
     private static boolean queueStandardData(Object[] data, String[] user, Object object, boolean first, long reservation) {
@@ -193,7 +178,7 @@ public class Queue {
         queueStandardData(new Object[] { null, Process.ART_INSERT, null, 0, null, 0, id, null }, new String[] { null, null }, name, false, Consumer.reserveConsumer());
     }
 
-    protected static void queueBlockBreak(String user, BlockState block, Material type, String blockData, int extraData) {
+    public static void queueBlockBreak(String user, BlockState block, Material type, String blockData, int extraData) {
         queueBlockBreak(user, block, type, blockData, null, extraData, 0);
     }
 
@@ -210,7 +195,7 @@ public class Queue {
         }, block.getLocation(), ticks);
     }
 
-    protected static void queueBlockBreak(String user, BlockState block, Material type, String blockData, Material breakType, int extraData, int blockNumber) {
+    public static void queueBlockBreak(String user, BlockState block, Material type, String blockData, Material breakType, int extraData, int blockNumber) {
         if (type == Material.SPAWNER && block instanceof CreatureSpawner) { // Mob spawner
             CreatureSpawner mobSpawner = (CreatureSpawner) block;
             extraData = EntityUtils.getSpawnerType(mobSpawner.getSpawnedType());
@@ -242,7 +227,7 @@ public class Queue {
         queueStandardData(new Object[] { null, Process.BLOCK_BREAK, type, extraData, breakType, 0, blockNumber, blockData }, new String[] { user, null }, block, false, Consumer.reserveConsumer());
     }
 
-    protected static void queueBlockPlace(String user, BlockState blockLocation, Material blockType, BlockState blockReplaced, Material forceType, int forceD, int forceData, String blockData) {
+    public static void queueBlockPlace(String user, BlockState blockLocation, Material blockType, BlockState blockReplaced, Material forceType, int forceD, int forceData, String blockData) {
         // If force_data equals "1", current block data will be used in consumer.
         Material type = blockType;
         int data = 0;
@@ -295,11 +280,11 @@ public class Queue {
         }, placed, ticks);
     }
 
-    protected static void queueBlockPlaceValidate(final String user, final BlockState blockLocation, final Block block, final BlockState blockReplaced, final Material forceT, final int forceD, final int forceData, final String blockData, int ticks) {
+    public static void queueBlockPlaceValidate(final String user, final BlockState blockLocation, final Block block, final BlockState blockReplaced, final Material forceT, final int forceD, final int forceData, final String blockData, int ticks) {
         queueBlockPlaceValidate(user, blockLocation, block, blockReplaced, forceT, forceD, forceData, blockData, ticks, false);
     }
 
-    protected static void queueBlockPlaceValidate(final String user, final BlockState blockLocation, final Block block, final BlockState blockReplaced, final Material forceT, final int forceD, final int forceData, final String blockData, int ticks, boolean cacheLookup) {
+    public static void queueBlockPlaceValidate(final String user, final BlockState blockLocation, final Block block, final BlockState blockReplaced, final Material forceT, final int forceD, final int forceData, final String blockData, int ticks, boolean cacheLookup) {
         Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), () -> {
             try {
                 Material blockType = block.getType();
@@ -348,11 +333,11 @@ public class Queue {
         }, blockLocation.getLocation(), ticks);
     }
 
-    protected static void queueContainerBreak(String user, Location location, Material type, ItemStack[] oldInventory) {
+    public static void queueContainerBreak(String user, Location location, Material type, ItemStack[] oldInventory) {
         queueStandardData(new Object[] { null, Process.CONTAINER_BREAK, type, 0, null, 0, 0, null }, new String[] { user, null }, location, false, Consumer.consumerContainers, oldInventory, Consumer.reserveConsumer());
     }
 
-    protected static synchronized void queueContainerTransaction(String user, Location location, Material type, Object inventory, int chestId) {
+    public static synchronized void queueContainerTransaction(String user, Location location, Material type, Object inventory, int chestId) {
         queueStandardData(new Object[] { null, Process.CONTAINER_TRANSACTION, type, 0, null, 0, chestId, null }, new String[] { user, null }, location, false, Consumer.consumerInventories, inventory, Consumer.reserveConsumer());
     }
 
@@ -403,11 +388,11 @@ public class Queue {
         queueReservedEntityInteraction(user, interaction, reserveEntityInteractionQueue());
     }
 
-    protected static long reserveEntityInteractionQueue() {
+    public static long reserveEntityInteractionQueue() {
         return Consumer.reserveConsumer();
     }
 
-    protected static void queueReservedEntityInteraction(String user, EntityInteraction interaction, long reservation) {
+    public static void queueReservedEntityInteraction(String user, EntityInteraction interaction, long reservation) {
         boolean queued = false;
         try {
             if (user == null || user.trim().isEmpty() || interaction == null) {
@@ -578,15 +563,15 @@ public class Queue {
         return queueStandardData(new Object[] { null, Process.PLAYER_CHAT, null, 0, null, 0, 0, null }, new String[] { player.getName(), null }, new Object[] { timestamp, location.clone() }, false, Consumer.consumerStrings, message, Consumer.reserveConsumer());
     }
 
-    protected static void queuePlayerCommand(Player player, String message, long timestamp) {
+    public static void queuePlayerCommand(Player player, String message, long timestamp) {
         queueStandardData(new Object[] { null, Process.PLAYER_COMMAND, null, 0, null, 0, 0, null }, new String[] { player.getName(), null }, new Object[] { timestamp, player.getLocation().clone() }, false, Consumer.consumerStrings, message, Consumer.reserveConsumer());
     }
 
-    protected static void queuePlayerInteraction(String user, BlockState block, Material type) {
+    public static void queuePlayerInteraction(String user, BlockState block, Material type) {
         queuePlayerInteraction(user, block.getLocation(), type, block.getBlockData().getAsString());
     }
 
-    protected static void queuePlayerInteraction(String user, Location location, Material type, String blockData) {
+    public static void queuePlayerInteraction(String user, Location location, Material type, String blockData) {
         queueStandardData(new Object[] { null, Process.PLAYER_INTERACTION, type, 0, null, 0, 0, blockData }, new String[] { user, null }, getBlockLocation(location), false, Consumer.reserveConsumer());
     }
 
@@ -594,12 +579,12 @@ public class Queue {
         queueStandardData(new Object[] { null, Process.PLAYER_KILL, null, 0, null, 0, 0, null }, new String[] { user, null }, new Object[] { getBlockLocation(location), player }, false, Consumer.reserveConsumer());
     }
 
-    protected static void queuePlayerLogin(Player player, int time, int configSessions, int configUsernames) {
+    public static void queuePlayerLogin(Player player, int time, int configSessions, int configUsernames) {
         String uuid = player.getUniqueId().toString();
         queueStandardData(new Object[] { null, Process.PLAYER_LOGIN, null, configSessions, null, configUsernames, time, null }, new String[] { player.getName(), uuid }, player.getLocation().clone(), false, Consumer.consumerStrings, uuid, Consumer.reserveConsumer());
     }
 
-    protected static void queuePlayerQuit(Player player, int time) {
+    public static void queuePlayerQuit(Player player, int time) {
         queueStandardData(new Object[] { null, Process.PLAYER_LOGOUT, null, 0, null, 0, time, null }, new String[] { player.getName(), null }, player.getLocation().clone(), false, Consumer.reserveConsumer());
     }
 
@@ -735,12 +720,12 @@ public class Queue {
         }
     }
 
-    protected static void queueSignText(String user, Location location, int action, SignState state, boolean isFront, int offset) {
+    public static void queueSignText(String user, Location location, int action, SignState state, boolean isFront, int offset) {
         queueSignText(user, location, action, state.getColor(true), state.getColor(false), state.isGlowing(true), state.isGlowing(false), state.isWaxed(), isFront,
                 state.getLine(0), state.getLine(1), state.getLine(2), state.getLine(3), state.getLine(4), state.getLine(5), state.getLine(6), state.getLine(7), offset);
     }
 
-    protected static void queueSignText(String user, Location location, int action, int color, int colorSecondary, boolean frontGlowing, boolean backGlowing, boolean isWaxed, boolean isFront, String line1, String line2, String line3, String line4, String line5, String line6, String line7, String line8, int offset) {
+    public static void queueSignText(String user, Location location, int action, int color, int colorSecondary, boolean frontGlowing, boolean backGlowing, boolean isWaxed, boolean isFront, String line1, String line2, String line3, String line4, String line5, String line6, String line7, String line8, int offset) {
         Object[] signData = new Object[] { colorSecondary, BlockUtils.getSignData(frontGlowing, backGlowing), isWaxed, isFront, line1, line2, line3, line4, line5, line6, line7, line8 };
         queueStandardData(new Object[] { null, Process.SIGN_TEXT, null, color, null, action, offset, null }, new String[] { user, null }, location, false, Consumer.consumerSigns, signData, Consumer.reserveConsumer());
     }

@@ -16,7 +16,7 @@ import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.thread.Scheduler;
 
-public final class PlayerBucketFillListener extends Queue implements Listener {
+public final class PlayerBucketFillListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST)
     protected void inspectBucketFill(PlayerBucketFillEvent event) {

@@ -11,7 +11,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 
-public final class PlayerQuitListener extends Queue implements Listener {
+public final class PlayerQuitListener implements Listener {
 
     public static void queuePlayerQuit(Player player) {
         if (Config.getConfig(player.getWorld()).PLAYER_SESSIONS) {

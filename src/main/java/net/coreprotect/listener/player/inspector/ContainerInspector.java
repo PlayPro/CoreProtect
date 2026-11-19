@@ -18,11 +18,19 @@ import net.coreprotect.utility.LookupThrottle;
 public class ContainerInspector extends BaseInspector {
 
     public void performContainerLookup(Player player, Location location) {
+        performLocationLookup(player, location, false);
+    }
+
+    public void performHangingLookup(Player player, Location location) {
+        performLocationLookup(player, location, true);
+    }
+
+    private void performLocationLookup(Player player, Location location, boolean hanging) {
         startInspection(player, () -> {
             String name = player.getName();
             LookupThrottle.publish(name, () -> ConfigHandler.lookupEntityContainer.remove(name));
             withStatement(player, (connection, statement) -> {
-                List<String> results = ChestTransactionLookup.performLookup(null, statement, location, player, 1, 7, false);
+                List<String> results = ChestTransactionLookup.performLookup(null, statement, location, player, 1, 7, hanging);
                 Chat.sendLookupComponents(player, results);
             });
         });

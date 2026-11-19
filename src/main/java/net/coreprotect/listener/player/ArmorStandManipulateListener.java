@@ -1,10 +1,5 @@
 package net.coreprotect.listener.player;
 
-import java.sql.Connection;
-import java.sql.Statement;
-import java.util.List;
-
-import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Player;
@@ -16,80 +11,25 @@ import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.Queue;
-import net.coreprotect.database.Database;
-import net.coreprotect.database.lookup.ChestTransactionLookup;
-import net.coreprotect.language.Phrase;
-import net.coreprotect.listener.player.inspector.BaseInspector;
+import net.coreprotect.listener.player.inspector.ContainerInspector;
 import net.coreprotect.model.BlockGroup;
-import net.coreprotect.utility.Chat;
-import net.coreprotect.utility.Color;
 import net.coreprotect.utility.ItemUtils;
-import net.coreprotect.utility.ErrorReporter;
-import net.coreprotect.utility.LookupThrottle;
 
-public final class ArmorStandManipulateListener extends Queue implements Listener {
+public final class ArmorStandManipulateListener implements Listener {
 
-    public static void inspectHangingTransactions(final Location location, final Player finalPlayer) {
-        if (!finalPlayer.hasPermission("coreprotect.inspect")) {
-            Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
-            ConfigHandler.inspecting.put(finalPlayer.getName(), false);
-            return;
-        }
-        if (ConfigHandler.converterRunning) {
-            Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
-            return;
-        }
-        if (ConfigHandler.purgeRunning) {
-            Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
-            return;
-        }
-        LookupThrottle.Claim claim = LookupThrottle.acquire(finalPlayer.getName(), 100);
-        if (claim == null) {
-            Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-            return;
-        }
-
-        class BasicThread implements Runnable {
-            @Override
-            public void run() {
-                try (Connection connection = Database.getConnection(true)) {
-                    if (connection != null) {
-                        Statement statement = connection.createStatement();
-                        List<String> blockData = ChestTransactionLookup.performLookup(null, statement, location, finalPlayer, 1, 7, true);
-                        for (String data : blockData) {
-                            Chat.sendComponent(finalPlayer, data);
-                        }
-                        statement.close();
-                    }
-                    else {
-                        Chat.sendMessage(finalPlayer, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
-                    }
-                }
-                catch (Exception e) {
-                    ErrorReporter.report(e);
-                }
-            }
-        }
-        BaseInspector.runLookup(finalPlayer, claim, new BasicThread());
-    }
+    private final ContainerInspector inspector = new ContainerInspector();
 
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onPlayerArmorStandManipulateEvent(PlayerArmorStandManipulateEvent event) {
         Player player = event.getPlayer();
         final ArmorStand armorStand = event.getRightClicked();
 
-        if (ConfigHandler.inspecting.get(player.getName()) != null) {
-            if (ConfigHandler.inspecting.get(player.getName())) {
-                if (BlockGroup.CONTAINERS.contains(Material.ARMOR_STAND)) {
-                    // logged armor stand items
-                    inspectHangingTransactions(armorStand.getLocation(), player);
-                }
-
-                event.setCancelled(true);
+        if (Boolean.TRUE.equals(ConfigHandler.inspecting.get(player.getName()))) {
+            event.setCancelled(true);
+            if (BlockGroup.CONTAINERS.contains(Material.ARMOR_STAND) && PlayerInteractListener.hasInspectPermission(player)) {
+                inspector.performHangingLookup(player, armorStand.getLocation());
             }
         }
-
         if (event.isCancelled()) {
             return;
         }

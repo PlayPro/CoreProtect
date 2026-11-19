@@ -227,25 +227,58 @@ public class ItemUtils {
     /* return true if item can be added to container */
     public static boolean canAddContainer(ItemStack[] container, ItemStack item, int forceMaxStack) {
         for (ItemStack containerItem : container) {
-            if (containerItem == null || containerItem.getType() == Material.AIR) {
-                return true;
-            }
-
-            int maxStackSize = containerItem.getMaxStackSize();
-            if (forceMaxStack > 0 && (forceMaxStack < maxStackSize || maxStackSize == -1)) {
-                maxStackSize = forceMaxStack;
-            }
-
-            if (maxStackSize == -1) {
-                maxStackSize = 1;
-            }
-
-            if (containerItem.isSimilar(item) && containerItem.getAmount() < maxStackSize) {
+            if (isEmptyContainerSlot(containerItem) || containerItem.isSimilar(item) && containerItem.getAmount() < getContainerStackLimit(containerItem, forceMaxStack)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    public static long insertIntoContainerSnapshot(ItemStack[] contents, ItemStack item, long remaining, int inventoryMaxStackSize) {
+        for (int slot = 0; slot < contents.length && remaining > 0; slot++) {
+            ItemStack existing = contents[slot];
+            if (isEmptyContainerSlot(existing) || !existing.isSimilar(item)) {
+                continue;
+            }
+
+            int amount = existing.getAmount();
+            int capacity = getContainerStackLimit(existing, inventoryMaxStackSize) - amount;
+            if (capacity > 0) {
+                int added = (int) Math.min(remaining, capacity);
+                ItemStack updated = existing.clone();
+                updated.setAmount(amount + added);
+                contents[slot] = updated;
+                remaining -= added;
+            }
+        }
+        if (remaining <= 0) {
+            return remaining;
+        }
+
+        int stackLimit = getContainerStackLimit(item, inventoryMaxStackSize);
+        for (int slot = 0; slot < contents.length && remaining > 0; slot++) {
+            if (isEmptyContainerSlot(contents[slot])) {
+                int added = (int) Math.min(remaining, stackLimit);
+                ItemStack inserted = item.clone();
+                inserted.setAmount(added);
+                contents[slot] = inserted;
+                remaining -= added;
+            }
+        }
+        return remaining;
+    }
+
+    public static int getContainerStackLimit(ItemStack item, int inventoryMaxStackSize) {
+        int stackLimit = item.getMaxStackSize();
+        if (inventoryMaxStackSize > 0 && (inventoryMaxStackSize < stackLimit || stackLimit <= 0)) {
+            return inventoryMaxStackSize;
+        }
+        return Math.max(1, stackLimit);
+    }
+
+    private static boolean isEmptyContainerSlot(ItemStack item) {
+        return item == null || item.getType() == Material.AIR || item.getAmount() <= 0;
     }
 
     public static int setPlayerArmor(PlayerInventory inventory, ItemStack itemStack) {

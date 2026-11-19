@@ -62,7 +62,7 @@ import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.WorldUtils;
 import net.coreprotect.utility.ErrorReporter;
 
-public final class PlayerInteractListener extends Queue implements Listener {
+public final class PlayerInteractListener implements Listener {
 
     private static final Set<Material> SIGN_DYES = EnumSet.of(Material.BLACK_DYE, Material.BLUE_DYE, Material.BROWN_DYE, Material.CYAN_DYE,
             Material.GRAY_DYE, Material.GREEN_DYE, Material.LIGHT_BLUE_DYE, Material.LIGHT_GRAY_DYE, Material.LIME_DYE,
@@ -79,7 +79,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
         }
     }
 
-    public static ConcurrentHashMap<String, Object[]> lastInspectorEvent = new ConcurrentHashMap<>();
+    public static final ConcurrentHashMap<String, Object[]> lastInspectorEvent = new ConcurrentHashMap<>();
 
     private final BlockInspector blockInspector = new BlockInspector();
     private final SignInspector signInspector = new SignInspector();
@@ -92,6 +92,26 @@ public final class PlayerInteractListener extends Queue implements Listener {
 
     public static void clearExpiredInspectorEvents(long now) {
         lastInspectorEvent.values().removeIf(event -> now - (long) event[0] > 1000L);
+    }
+
+    static boolean hasInspectPermission(Player player) {
+        if (player.hasPermission("coreprotect.inspect")) {
+            return true;
+        }
+        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
+        ConfigHandler.inspecting.put(player.getName(), false);
+        return false;
+    }
+
+    static boolean beginEntityInspection(Player player, EquipmentSlot hand) {
+        String id = player.getUniqueId().toString();
+        long now = System.currentTimeMillis();
+        Object[] previous = lastInspectorEvent.get(id);
+        if (previous != null && now - (long) previous[0] < 100L) {
+            return false;
+        }
+        lastInspectorEvent.put(id, new Object[] { now, hand });
+        return hasInspectPermission(player);
     }
 
     private static boolean shouldInspect(PlayerInteractEvent event) {
@@ -113,11 +133,11 @@ public final class PlayerInteractListener extends Queue implements Listener {
         return true;
     }
 
-    private static boolean containsItem(ItemStack itemStack) {
+    static boolean containsItem(ItemStack itemStack) {
         return itemStack != null && itemStack.getType() != Material.AIR;
     }
 
-    private static ItemStack getHandItem(Player player, EquipmentSlot hand) {
+    static ItemStack getHandItem(Player player, EquipmentSlot hand) {
         if (hand == EquipmentSlot.HAND) {
             return player.getInventory().getItemInMainHand();
         }
@@ -163,17 +183,13 @@ public final class PlayerInteractListener extends Queue implements Listener {
             return;
         }
 
-        if (!player.hasPermission("coreprotect.inspect")) {
-            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
-            ConfigHandler.inspecting.put(player.getName(), false);
+        if (!hasInspectPermission(player)) {
             return;
         }
 
         if (event.getAction().equals(Action.LEFT_CLICK_BLOCK)) {
             BlockState checkBlock = event.getClickedBlock().getState();
-            int x = checkBlock.getX();
             int y = checkBlock.getY();
-            int z = checkBlock.getZ();
 
             /* Check if clicking top half of double plant */
             BlockData checkBlockData = checkBlock.getBlockData();
@@ -196,19 +212,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                 PlayerInteractUtils.handleBisectedBlockVisualization(player, event.getClickedBlock(), world);
             }
             else {
-                Block block = event.getClickedBlock();
-                int blockX = block.getX();
-                int blockY = block.getY();
-                int blockZ = block.getZ();
-
-                Block x1 = world.getBlockAt(blockX + 1, blockY, blockZ);
-                Block x2 = world.getBlockAt(blockX - 1, blockY, blockZ);
-                Block z1 = world.getBlockAt(blockX, blockY, blockZ + 1);
-                Block z2 = world.getBlockAt(blockX, blockY, blockZ - 1);
-                player.sendBlockChange(x1.getLocation(), x1.getBlockData());
-                player.sendBlockChange(x2.getLocation(), x2.getBlockData());
-                player.sendBlockChange(z1.getLocation(), z1.getBlockData());
-                player.sendBlockChange(z2.getLocation(), z2.getBlockData());
+                PlayerInteractUtils.refreshHorizontalNeighbors(player, event.getClickedBlock(), world);
             }
 
             event.setCancelled(true);
@@ -390,7 +394,7 @@ public final class PlayerInteractListener extends Queue implements Listener {
                         }
                     }
                     else if (BlockGroup.INTERACT_BLOCKS.contains(type)) {
-                        if (event.getHand().equals(EquipmentSlot.HAND) && Config.getConfig(world).PLAYER_INTERACTIONS) {
+                        if (event.getHand() == EquipmentSlot.HAND && Config.getConfig(world).PLAYER_INTERACTIONS) {
                             Block interactBlock = event.getClickedBlock();
                             if (BlockGroup.DOORS.contains(type)) {
                                 int y = interactBlock.getY() - 1;
@@ -482,17 +486,8 @@ public final class PlayerInteractListener extends Queue implements Listener {
                                 ItemStack newItemState = new ItemStack(Material.AIR);
 
                                 if (book.getType() == Material.AIR) {
-                                    ItemStack handItem = null;
-                                    ItemStack mainHand = player.getInventory().getItemInMainHand();
-                                    ItemStack offHand = player.getInventory().getItemInOffHand();
-
-                                    if (event.getHand().equals(EquipmentSlot.HAND) && mainHand != null && BukkitAdapter.ADAPTER.isBookshelfBook(mainHand.getType())) {
-                                        handItem = mainHand;
-                                    }
-                                    else if (event.getHand().equals(EquipmentSlot.OFF_HAND) && offHand != null && BukkitAdapter.ADAPTER.isBookshelfBook(offHand.getType())) {
-                                        handItem = offHand;
-                                    }
-                                    else {
+                                    ItemStack handItem = getHandItem(player, event.getHand());
+                                    if (!containsItem(handItem) || !BukkitAdapter.ADAPTER.isBookshelfBook(handItem.getType())) {
                                         return;
                                     }
 

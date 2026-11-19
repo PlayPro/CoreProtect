@@ -32,7 +32,7 @@ import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.ErrorReporter;
 
-public final class EntityInteractionListener extends Queue implements Listener {
+public final class EntityInteractionListener implements Listener {
 
     private static final int MAX_PENDING_INTERACTIONS = 4096;
     private static final long STALE_INTERACTION_NANOS = 1_000_000_000L;
@@ -303,7 +303,7 @@ public final class EntityInteractionListener extends Queue implements Listener {
                     resolvedAction = EntityInteractionAction.UNLEASH;
                 }
                 EntityInteraction queuedInteraction = interaction.withAction(resolvedAction);
-                return new PendingFlush(user, queuedInteraction, reserveEntityInteractionQueue());
+                return new PendingFlush(user, queuedInteraction, Queue.reserveEntityInteractionQueue());
             }
             catch (RuntimeException e) {
                 ErrorReporter.report(e);
@@ -332,7 +332,7 @@ public final class EntityInteractionListener extends Queue implements Listener {
 
         private void publish() {
             try {
-                queueReservedEntityInteraction(user, interaction, reservation);
+                Queue.queueReservedEntityInteraction(user, interaction, reservation);
             }
             catch (RuntimeException e) {
                 ErrorReporter.report(e);

@@ -16,7 +16,7 @@ import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.thread.Scheduler;
 
-public final class FlowerPotListener extends Queue implements Listener {
+public final class FlowerPotListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerInteract(PlayerInteractEvent event) {
@@ -69,7 +69,7 @@ public final class FlowerPotListener extends Queue implements Listener {
     public static void logTransition(String player, BlockState before, Material newType) {
         Material oldType = before.getType();
         if (newType != null && oldType != newType) {
-            queueBlockPlace(player, before, oldType, before, newType, -1, 0, null);
+            Queue.queueBlockPlace(player, before, oldType, before, newType, -1, 0, null);
         }
     }
 }

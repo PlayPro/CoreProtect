@@ -18,7 +18,7 @@ import net.coreprotect.thread.CacheHandler;
 import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.BlockUtils;
 
-public final class FoodLevelChangeListener extends Queue implements Listener {
+public final class FoodLevelChangeListener implements Listener {
 
     static void recordCakeUse(Player player, BlockState before) {
         CacheHandler.interactCache.put(cakeUseKey(player), new Object[] { System.currentTimeMillis(), Material.CAKE, before });

@@ -34,6 +34,10 @@ import net.coreprotect.utility.StringUtils;
 
 public class ItemMetaHandler {
 
+    private ItemMetaHandler() {
+        throw new IllegalStateException("Utility class");
+    }
+
     public static String getEnchantmentName(Enchantment enchantment, int level) {
         String name = enchantment.getKey().getKey();
 
@@ -83,23 +87,14 @@ public class ItemMetaHandler {
         }
     }
 
-    private static Map<Enchantment, Integer> getEnchantments(ItemMeta itemMeta) {
-        if (itemMeta instanceof EnchantmentStorageMeta) {
-            EnchantmentStorageMeta enchantmentStorageEngine = (EnchantmentStorageMeta) itemMeta;
-            return enchantmentStorageEngine.getStoredEnchants();
-        }
-
-        return itemMeta.getEnchants();
-    }
-
-    public static List<String> getEnchantments(ItemStack item, String displayName) {
-        ItemMeta itemMeta = item.getItemMeta();
+    public static List<String> getEnchantments(ItemMeta itemMeta) {
         if (itemMeta == null) {
             return Collections.emptyList();
         }
 
         List<String> result = new ArrayList<>();
-        Map<Enchantment, Integer> enchantments = getEnchantments(itemMeta);
+        Map<Enchantment, Integer> enchantments = itemMeta instanceof EnchantmentStorageMeta
+                ? ((EnchantmentStorageMeta) itemMeta).getStoredEnchants() : itemMeta.getEnchants();
 
         for (Entry<Enchantment, Integer> entry : enchantments.entrySet()) {
             Enchantment enchantment = entry.getKey();
@@ -178,7 +173,7 @@ public class ItemMetaHandler {
 
                 if (subMeta.hasEffects()) {
                     for (FireworkEffect effect : subMeta.getEffects()) {
-                        deserializeFireworkEffect(effect, metadata);
+                        serializeFireworkEffect(effect, metadata);
                     }
                 }
             }
@@ -191,7 +186,7 @@ public class ItemMetaHandler {
 
                 if (subMeta.hasEffect()) {
                     FireworkEffect effect = subMeta.getEffect();
-                    deserializeFireworkEffect(effect, metadata);
+                    serializeFireworkEffect(effect, metadata);
                 }
             }
             else if (itemMeta instanceof BannerMeta) {
@@ -288,7 +283,7 @@ public class ItemMetaHandler {
         return metadata;
     }
 
-    private static void deserializeFireworkEffect(FireworkEffect effect, List<List<Map<String, Object>>> metadata) {
+    private static void serializeFireworkEffect(FireworkEffect effect, List<List<Map<String, Object>>> metadata) {
         List<Map<String, Object>> colorList = new ArrayList<>();
         List<Map<String, Object>> fadeList = new ArrayList<>();
         List<Map<String, Object>> list = new ArrayList<>();

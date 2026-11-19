@@ -165,33 +165,6 @@ public class ItemUtils {
         return unchanged ? previousState : result;
     }
 
-    public static ItemStack[] sortContainerState(ItemStack[] array) {
-        if (array == null) {
-            return null;
-        }
-
-        ItemStack[] sorted = new ItemStack[array.length];
-        Map<String, ItemStack> map = new HashMap<>();
-        for (ItemStack itemStack : array) {
-            if (itemStack == null) {
-                continue;
-            }
-
-            map.put(itemStack.toString(), itemStack);
-        }
-
-        ArrayList<String> sortedKeys = new ArrayList<>(map.keySet());
-        Collections.sort(sortedKeys);
-
-        int i = 0;
-        for (String key : sortedKeys) {
-            sorted[i] = map.get(key);
-            i++;
-        }
-
-        return sorted;
-    }
-
     /* return true if ItemStack[] contents are identical */
     public static boolean compareContainers(ItemStack[] oldContainer, ItemStack[] newContainer) {
         if (oldContainer.length != newContainer.length) {
@@ -212,36 +185,6 @@ public class ItemUtils {
         }
 
         return true;
-    }
-
-    /* return true if newContainer contains new items */
-    public static boolean addedContainer(ItemStack[] oldContainer, ItemStack[] newContainer) {
-        if (oldContainer.length != newContainer.length) {
-            return false;
-        }
-
-        for (int i = 0; i < oldContainer.length; i++) {
-            ItemStack oldItem = oldContainer[i];
-            ItemStack newItem = newContainer[i];
-
-            if (oldItem == null && newItem == null) {
-                continue;
-            }
-
-            if (oldItem != null && newItem == null) {
-                return false;
-            }
-
-            if (oldItem == null) {
-                return true;
-            }
-
-            if (!newItem.equals(oldItem)) {
-                return (newItem.isSimilar(oldItem) && newItem.getAmount() > oldItem.getAmount());
-            }
-        }
-
-        return false;
     }
 
     /* return true if item can be added to container */
@@ -424,15 +367,6 @@ public class ItemUtils {
         return contents;
     }
 
-    public static int getItemStackHashCode(ItemStack item) {
-        try {
-            return item.hashCode();
-        }
-        catch (Exception exception) {
-            return -1;
-        }
-    }
-
     public static Material itemFilter(Material material, boolean blockTable) {
         if (material == null || (!blockTable && material.isItem())) {
             return material;
@@ -468,10 +402,6 @@ public class ItemUtils {
         }
 
         return material.isItem() ? material : null;
-    }
-
-    public static ItemStack newItemStack(Material type, int amount) {
-        return new ItemStack(type, amount);
     }
 
     public static void updateInventory(org.bukkit.entity.Player player) {
@@ -784,7 +714,7 @@ public class ItemUtils {
 
         boolean customName = itemMeta.hasDisplayName();
         String displayName = customName ? itemMeta.getDisplayName() : BukkitAdapter.ADAPTER.getItemName(itemMeta);
-        List<String> enchantments = ItemMetaHandler.getEnchantments(item, displayName);
+        List<String> enchantments = ItemMetaHandler.getEnchantments(itemMeta);
         if (displayName.isEmpty() && enchantments.isEmpty()) {
             return "";
         }

@@ -28,14 +28,14 @@ final class FastAsyncWorldEditLogger implements IBatchProcessor {
     private final World eventWorld;
     private final org.bukkit.World world;
 
-    FastAsyncWorldEditLogger(Actor actor, World world, Extent extent) {
+    FastAsyncWorldEditLogger(Actor actor, World world) {
         this.actor = actor;
         this.eventWorld = world;
         this.world = BukkitAdapter.adapt(world);
     }
 
     static Extent wrap(Actor actor, World world, Extent extent) {
-        return extent.addProcessor(new FastAsyncWorldEditLogger(actor, world, extent));
+        return extent.addProcessor(new FastAsyncWorldEditLogger(actor, world));
     }
 
     @Override

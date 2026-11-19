@@ -45,6 +45,7 @@ final class BlockStateConversion {
         return material;
     }
 
+    /** Shared by conversions of the same state. Clone before mutating. */
     BlockData getBlockData() {
         return blockData;
     }

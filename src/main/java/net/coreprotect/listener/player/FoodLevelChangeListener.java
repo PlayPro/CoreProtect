@@ -38,9 +38,9 @@ public final class FoodLevelChangeListener implements Listener {
         return "cake." + player.getUniqueId();
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.MONITOR)
     protected void onFoodLevelChangeEvent(FoodLevelChangeEvent event) {
-        if (event.isCancelled() || event.getEntityType() != EntityType.PLAYER || event.getItem() != null) {
+        if (event.getEntityType() != EntityType.PLAYER || event.getItem() != null) {
             return;
         }
         Player player = (Player) event.getEntity();

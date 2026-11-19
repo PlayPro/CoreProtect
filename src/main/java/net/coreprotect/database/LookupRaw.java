@@ -87,6 +87,10 @@ public class LookupRaw extends Queue {
     }
 
     static RawLookupPage performLookupPage(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, List<String> messageFilters, EntityLookupContext entityContext, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, long knownTotalRows, LookupCursor cursor, boolean restrictWorld, boolean lookup, Integer entityContainerId, LookupRollbackState rollbackState, int explicitWorldId) {
+        return performLookupPage(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime, limitOffset, limitCount, knownTotalRows, cursor, restrictWorld, lookup, entityContainerId, rollbackState, explicitWorldId, false);
+    }
+
+    static RawLookupPage performLookupPage(Statement statement, CommandSender user, List<String> checkUuids, List<String> checkUsers, List<Object> restrictList, Map<Object, Boolean> excludeList, List<String> excludeUserList, List<Integer> actionList, EntityActionFilter entityActionFilter, List<String> messageFilters, EntityLookupContext entityContext, Location location, Integer[] radius, Long[] rowData, long startTime, long endTime, int limitOffset, int limitCount, long knownTotalRows, LookupCursor cursor, boolean restrictWorld, boolean lookup, Integer entityContainerId, LookupRollbackState rollbackState, int explicitWorldId, boolean failOnError) {
         if (!ConfigHandler.databaseType.isColumnar()) {
             throw new IllegalStateException("Lookup pages require a columnar database");
         }
@@ -114,6 +118,7 @@ public class LookupRaw extends Queue {
             boolean orderByTime = false;
             boolean foundPageRow = false;
             try (ResultSet results = rawLookupResultSet(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime, 0, limitCount, restrictWorld, lookup, false, entityContainerId, false, false, false, rollbackState, null, true, limitOffset, knownTotalRows, cursor, explicitWorldId)) {
+                Lookup.requireQueryResult(results, failOnError);
                 boolean first = true;
                 while (results.next()) {
                     if (first) {
@@ -146,6 +151,7 @@ public class LookupRaw extends Queue {
                 return new RawLookupPage(totalRows, Collections.emptyList(), null);
             }
             List<Object[]> rows = performLookupRaw(statement, user, checkUuids, checkUsers, restrictList, excludeList, excludeUserList, actionList, entityActionFilter, messageFilters, entityContext, location, radius, rowData, startTime, endTime, -1, -1, restrictWorld, lookup, entityContainerId, rollbackState, pageRows, false, explicitWorldId);
+            Lookup.requireQueryResult(rows, failOnError);
             if (rows == null || rows.isEmpty()) {
                 return new RawLookupPage(totalRows, Collections.emptyList(), null);
             }
@@ -153,6 +159,12 @@ public class LookupRaw extends Queue {
             return new RawLookupPage(totalRows, rows, nextCursor);
         }
         catch (Exception exception) {
+            if (exception instanceof Lookup.QueryFailure) {
+                throw (Lookup.QueryFailure) exception;
+            }
+            if (failOnError) {
+                throw new Lookup.QueryFailure(exception);
+            }
             Database.reportDatabaseFailure(exception);
             return new RawLookupPage(knownTotalRows > 0L ? knownTotalRows : 0L, Collections.emptyList(), null);
         }

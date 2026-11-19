@@ -1,14 +1,12 @@
 package net.coreprotect.config;
 
-import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -543,46 +541,35 @@ public class Config {
 
     public void addMissingOptions(final File file) throws IOException {
         final boolean writeHeader = !file.exists() || file.length() == 0;
-        try (final FileOutputStream fout = new FileOutputStream(file, true)) {
-            OutputStreamWriter out = new OutputStreamWriter(new BufferedOutputStream(fout), StandardCharsets.UTF_8);
-            if (writeHeader) {
-                out.append(DEFAULT_FILE_HEADER);
-                out.append(LINE_SEPARATOR);
+        StringBuilder additions = new StringBuilder();
+        if (writeHeader) {
+            additions.append(DEFAULT_FILE_HEADER).append(LINE_SEPARATOR);
+        }
+
+        for (Map.Entry<String, String> entry : DEFAULT_VALUES.entrySet()) {
+            String key = entry.getKey();
+            if (this.config.get(key) != null || key.equals("auto-purge") && VersionUtils.isCommunityEdition()) {
+                continue;
             }
 
-            for (final Map.Entry<String, String> entry : DEFAULT_VALUES.entrySet()) {
-                final String key = entry.getKey();
-                String defaultValue = entry.getValue();
-
-                final String configuredValue = this.config.get(key);
-
-                if (configuredValue != null) {
-                    continue;
-                }
-                if (key.equals("auto-purge") && VersionUtils.isCommunityEdition()) {
-                    continue;
-                }
-                if (key.equals("database-type") && !writeHeader) {
-                    defaultValue = this.getBoolean("use-mysql") ? "mysql" : "sqlite";
-                }
-
-                final String[] header = HEADERS.get(key);
-
-                if (header != null) {
-                    out.append(LINE_SEPARATOR);
-                    for (final String headerLine : header) {
-                        out.append(headerLine);
-                        out.append(LINE_SEPARATOR);
-                    }
-                }
-
-                out.append(key);
-                out.append(": ");
-                out.append(defaultValue);
-                out.append(LINE_SEPARATOR);
+            String defaultValue = entry.getValue();
+            if (key.equals("database-type") && !writeHeader) {
+                defaultValue = this.getBoolean("use-mysql") ? "mysql" : "sqlite";
             }
 
-            out.close();
+            String[] header = HEADERS.get(key);
+            if (header != null) {
+                additions.append(LINE_SEPARATOR);
+                for (String headerLine : header) {
+                    additions.append(headerLine).append(LINE_SEPARATOR);
+                }
+            }
+
+            additions.append(key).append(": ").append(defaultValue).append(LINE_SEPARATOR);
+        }
+
+        if (additions.length() > 0) {
+            Files.writeString(file.toPath(), additions, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         }
     }
 }

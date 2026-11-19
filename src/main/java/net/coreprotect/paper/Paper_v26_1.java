@@ -44,7 +44,7 @@ public class Paper_v26_1 extends Paper_26_0 {
     @Override
     public boolean setEntityMeta(Entity entity, Object value, int count) {
         if (entity instanceof Chicken && count == 1) {
-            Chicken.SoundVariant variant = getChickenSoundVariant(value);
+            Chicken.SoundVariant variant = BukkitAdapter.resolveRegistryValue(BukkitAdapter.ADAPTER, value, Chicken.SoundVariant.class);
             if (variant == null) {
                 return false;
             }
@@ -56,7 +56,7 @@ public class Paper_v26_1 extends Paper_26_0 {
             return BukkitAdapter.setRegistryVariant(BukkitAdapter.ADAPTER, entity, value, "getSoundVariant", "setSoundVariant");
         }
         else if (entity instanceof Pig && count == 2) {
-            Pig.SoundVariant variant = getPigSoundVariant(value);
+            Pig.SoundVariant variant = BukkitAdapter.resolveRegistryValue(BukkitAdapter.ADAPTER, value, Pig.SoundVariant.class);
             if (variant == null) {
                 return false;
             }
@@ -66,16 +66,6 @@ public class Paper_v26_1 extends Paper_26_0 {
         }
 
         return super.setEntityMeta(entity, value, count);
-    }
-
-    private Chicken.SoundVariant getChickenSoundVariant(Object value) {
-        Object variant = value instanceof String ? BukkitAdapter.ADAPTER.getRegistryValue((String) value, Chicken.SoundVariant.class) : value;
-        return variant instanceof Chicken.SoundVariant ? (Chicken.SoundVariant) variant : null;
-    }
-
-    private Pig.SoundVariant getPigSoundVariant(Object value) {
-        Object variant = value instanceof String ? BukkitAdapter.ADAPTER.getRegistryValue((String) value, Pig.SoundVariant.class) : value;
-        return variant instanceof Pig.SoundVariant ? (Pig.SoundVariant) variant : null;
     }
 
 }

@@ -1,7 +1,5 @@
 package net.coreprotect.bukkit;
 
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -74,9 +72,9 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
      * Initializes the block groups specific to Minecraft 1.20.
      */
     private void initializeBlockGroups() {
-        BlockGroup.CONTAINERS = new HashSet<>(Arrays.asList(Material.JUKEBOX, Material.DISPENSER, Material.CHEST, Material.FURNACE, Material.BREWING_STAND, Material.TRAPPED_CHEST, Material.HOPPER, Material.DROPPER, Material.ARMOR_STAND, Material.ITEM_FRAME, Material.SHULKER_BOX, Material.BLACK_SHULKER_BOX, Material.BLUE_SHULKER_BOX, Material.BROWN_SHULKER_BOX, Material.CYAN_SHULKER_BOX, Material.GRAY_SHULKER_BOX, Material.GREEN_SHULKER_BOX, Material.LIGHT_BLUE_SHULKER_BOX, Material.LIME_SHULKER_BOX, Material.MAGENTA_SHULKER_BOX, Material.ORANGE_SHULKER_BOX, Material.PINK_SHULKER_BOX, Material.PURPLE_SHULKER_BOX, Material.RED_SHULKER_BOX, Material.LIGHT_GRAY_SHULKER_BOX, Material.WHITE_SHULKER_BOX, Material.YELLOW_SHULKER_BOX, Material.BARREL, Material.BLAST_FURNACE, Material.SMOKER, Material.LECTERN, Material.CHISELED_BOOKSHELF, Material.DECORATED_POT));
+        BlockGroup.CONTAINERS.addAll(List.of(Material.CHISELED_BOOKSHELF, Material.DECORATED_POT));
 
-        BlockGroup.UPDATE_STATE = new HashSet<>(Arrays.asList(Material.TORCH, Material.WALL_TORCH, Material.REDSTONE_WIRE, Material.RAIL, Material.POWERED_RAIL, Material.DETECTOR_RAIL, Material.FURNACE, Material.BLAST_FURNACE, Material.SMOKER, Material.LEVER, Material.REDSTONE_TORCH, Material.REDSTONE_WALL_TORCH, Material.GLOWSTONE, Material.JACK_O_LANTERN, Material.REPEATER, Material.REDSTONE_LAMP, Material.BEACON, Material.COMPARATOR, Material.DAYLIGHT_DETECTOR, Material.REDSTONE_BLOCK, Material.HOPPER, Material.CHEST, Material.TRAPPED_CHEST, Material.ACTIVATOR_RAIL, Material.SOUL_TORCH, Material.SOUL_WALL_TORCH, Material.SHROOMLIGHT, Material.RESPAWN_ANCHOR, Material.CRYING_OBSIDIAN, Material.TARGET, Material.SMALL_AMETHYST_BUD, Material.MEDIUM_AMETHYST_BUD, Material.LARGE_AMETHYST_BUD, Material.AMETHYST_CLUSTER, Material.CAVE_VINES, Material.CAVE_VINES_PLANT, Material.GLOW_LICHEN, Material.LIGHT, Material.LAVA_CAULDRON, Material.CHISELED_BOOKSHELF));
+        BlockGroup.UPDATE_STATE.add(Material.CHISELED_BOOKSHELF);
     }
 
     /**
@@ -92,50 +90,34 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
         BlockGroup.PRESSURE_PLATES.addAll(Tag.PRESSURE_PLATES.getValues());
 
         // Add all doors from tag
-        addMissingTaggedBlocks(Tag.DOORS.getValues(), BlockGroup.DOORS);
+        BlockGroup.DOORS.addAll(Tag.DOORS.getValues());
 
         // Add all fence gates to interaction blocks
-        addMissingTaggedBlocks(Tag.FENCE_GATES.getValues(), BlockGroup.INTERACT_BLOCKS);
-        addMissingTaggedBlocks(Tag.FENCE_GATES.getValues(), BlockGroup.SAFE_INTERACT_BLOCKS);
+        BlockGroup.INTERACT_BLOCKS.addAll(Tag.FENCE_GATES.getValues());
+        BlockGroup.SAFE_INTERACT_BLOCKS.addAll(Tag.FENCE_GATES.getValues());
 
         // Add all wooden trapdoors to interaction blocks
-        addMissingTaggedBlocks(Tag.WOODEN_TRAPDOORS.getValues(), BlockGroup.INTERACT_BLOCKS);
-        addMissingTaggedBlocks(Tag.WOODEN_TRAPDOORS.getValues(), BlockGroup.SAFE_INTERACT_BLOCKS);
+        BlockGroup.INTERACT_BLOCKS.addAll(Tag.WOODEN_TRAPDOORS.getValues());
+        BlockGroup.SAFE_INTERACT_BLOCKS.addAll(Tag.WOODEN_TRAPDOORS.getValues());
 
         // Add hanging signs to bottom-tracked blocks
-        addMissingTaggedBlocks(Tag.CEILING_HANGING_SIGNS.getValues(), BlockGroup.TRACK_BOTTOM);
+        BlockGroup.TRACK_BOTTOM.addAll(Tag.CEILING_HANGING_SIGNS.getValues());
 
         // Add wall signs to side-tracked blocks
-        addMissingTaggedBlocks(Tag.WALL_SIGNS.getValues(), BlockGroup.TRACK_SIDE);
+        BlockGroup.TRACK_SIDE.addAll(Tag.WALL_SIGNS.getValues());
 
         // Add saplings to top-tracked and non-attachable blocks
-        addMissingTaggedBlocks(Tag.SAPLINGS.getValues(), BlockGroup.TRACK_TOP);
-        addMissingTaggedBlocks(Tag.SAPLINGS.getValues(), BlockGroup.NON_ATTACHABLE);
+        BlockGroup.TRACK_TOP.addAll(Tag.SAPLINGS.getValues());
+        BlockGroup.NON_ATTACHABLE.addAll(Tag.SAPLINGS.getValues());
 
         // Add flowers to top-tracked and non-attachable blocks
-        addMissingTaggedBlocks(Tag.FLOWERS.getValues(), BlockGroup.TRACK_TOP);
-        addMissingTaggedBlocks(Tag.FLOWERS.getValues(), BlockGroup.NON_ATTACHABLE);
+        BlockGroup.TRACK_TOP.addAll(Tag.FLOWERS.getValues());
+        BlockGroup.NON_ATTACHABLE.addAll(Tag.FLOWERS.getValues());
 
         // Add signs (except wall signs) to top-tracked blocks
         for (Material value : Tag.SIGNS.getValues()) {
-            if (!Tag.WALL_SIGNS.isTagged(value) && !BlockGroup.TRACK_TOP.contains(value)) {
+            if (!Tag.WALL_SIGNS.isTagged(value)) {
                 BlockGroup.TRACK_TOP.add(value);
-            }
-        }
-    }
-
-    /**
-     * Helper method to add missing blocks from a tag to a block group.
-     * 
-     * @param taggedBlocks
-     *            The collection of blocks from a tag
-     * @param targetGroup
-     *            The block group to add missing blocks to
-     */
-    private void addMissingTaggedBlocks(Iterable<Material> taggedBlocks, Set<Material> targetGroup) {
-        for (Material value : taggedBlocks) {
-            if (!targetGroup.contains(value)) {
-                targetGroup.add(value);
             }
         }
     }

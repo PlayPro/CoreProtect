@@ -25,7 +25,7 @@ public class Bukkit_v1_21_11 extends Bukkit_v1_21_5 {
     @Override
     public boolean setEntityMeta(Entity entity, Object value, int count) {
         if (entity instanceof ZombieNautilus && count == 0) {
-            ZombieNautilus.Variant variant = getZombieNautilusVariant(value);
+            ZombieNautilus.Variant variant = resolveRegistryValue(this, value, ZombieNautilus.Variant.class);
             if (variant == null) {
                 return false;
             }
@@ -35,16 +35,6 @@ public class Bukkit_v1_21_11 extends Bukkit_v1_21_5 {
         }
 
         return super.setEntityMeta(entity, value, count);
-    }
-
-    private ZombieNautilus.Variant getZombieNautilusVariant(Object value) {
-        try {
-            Object variant = value instanceof String ? getRegistryValue((String) value, ZombieNautilus.Variant.class) : value;
-            return variant instanceof ZombieNautilus.Variant ? (ZombieNautilus.Variant) variant : null;
-        }
-        catch (IllegalArgumentException exception) {
-            return null;
-        }
     }
 
 }

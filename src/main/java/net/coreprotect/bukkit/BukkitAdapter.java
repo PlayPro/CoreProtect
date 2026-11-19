@@ -202,8 +202,8 @@ public class BukkitAdapter implements BukkitInterface {
                 return false;
             }
             Class<?> variantClass = getter.getReturnType();
-            Object variant = value instanceof String ? adapter.getRegistryValue((String) value, variantClass) : value;
-            if (!variantClass.isInstance(variant)) {
+            Object variant = resolveRegistryValue(adapter, value, variantClass);
+            if (variant == null) {
                 return false;
             }
 
@@ -220,7 +220,7 @@ public class BukkitAdapter implements BukkitInterface {
     }
 
     public static Object getLegacyEnumValue(Class<?> type, String name) {
-        if (!type.isEnum()) {
+        if (name == null || !type.isEnum()) {
             return null;
         }
         try {
@@ -231,6 +231,11 @@ public class BukkitAdapter implements BukkitInterface {
         catch (IllegalArgumentException | LinkageError exception) {
             return null;
         }
+    }
+
+    public static <T> T resolveRegistryValue(BukkitInterface adapter, Object value, Class<T> type) {
+        Object resolved = adapter != null && value instanceof String ? adapter.getRegistryValue((String) value, type) : value;
+        return type.isInstance(resolved) ? type.cast(resolved) : null;
     }
 
     @Override

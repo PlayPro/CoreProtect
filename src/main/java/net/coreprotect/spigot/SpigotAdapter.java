@@ -3,6 +3,7 @@ package net.coreprotect.spigot;
 import java.util.List;
 import java.util.regex.Matcher;
 
+import org.bukkit.ChatColor;
 import org.bukkit.DyeColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
@@ -11,6 +12,7 @@ import org.bukkit.entity.Villager;
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
 
 public class SpigotAdapter implements SpigotInterface {
@@ -35,6 +37,7 @@ public class SpigotAdapter implements SpigotInterface {
 
     public static void loadAdapter() {
         if (!ConfigHandler.isSpigot || ConfigHandler.SERVER_VERSION == SPIGOT_UNAVAILABLE) {
+            Color.DARK_AQUA = ChatColor.DARK_AQUA.toString();
             SpigotAdapter.ADAPTER = new SpigotAdapter();
             return;
         }

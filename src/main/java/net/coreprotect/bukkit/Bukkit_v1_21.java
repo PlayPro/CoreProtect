@@ -1,7 +1,6 @@
 package net.coreprotect.bukkit;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -50,7 +49,6 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
 
     private final Set<Material> copperChests = blockMaterials("copper_chests", "COPPER_CHEST");
     private final Set<Material> shelves = blockMaterials("wooden_shelves", "_SHELF");
-    public static Set<Material> BUNDLES = new HashSet<>(Arrays.asList());
 
     @Override
     public boolean hasBodyItemSlot() {
@@ -74,7 +72,6 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
     public Bukkit_v1_21() {
         initializeBlockGroups();
         initializeTrapdoorBlocks();
-        initializeBundles();
         BlockGroup.INTERACT_BLOCKS.addAll(copperChestMaterials());
         BlockGroup.CONTAINERS.addAll(copperChestMaterials());
         BlockGroup.UPDATE_STATE.addAll(copperChestMaterials());
@@ -86,15 +83,15 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
      * Updates container, interaction, and update state blocks with new 1.21 blocks.
      */
     private void initializeBlockGroups() {
-        addToBlockGroupIfMissing(Material.CRAFTER, BlockGroup.CONTAINERS);
-        addToBlockGroupIfMissing(Material.CRAFTER, BlockGroup.INTERACT_BLOCKS);
-        addToBlockGroupIfMissing(Material.CRAFTER, BlockGroup.UPDATE_STATE);
+        BlockGroup.CONTAINERS.add(Material.CRAFTER);
+        BlockGroup.INTERACT_BLOCKS.add(Material.CRAFTER);
+        BlockGroup.UPDATE_STATE.add(Material.CRAFTER);
 
         Material paleHangingMoss = Material.getMaterial("PALE_HANGING_MOSS");
         if (paleHangingMoss != null) {
-            addToBlockGroupIfMissing(paleHangingMoss, BlockGroup.TRACK_BOTTOM);
-            addToBlockGroupIfMissing(paleHangingMoss, BlockGroup.VERTICAL_BOTTOM);
-            addToBlockGroupIfMissing(paleHangingMoss, BlockGroup.NON_ATTACHABLE);
+            BlockGroup.TRACK_BOTTOM.add(paleHangingMoss);
+            BlockGroup.VERTICAL_BOTTOM.add(paleHangingMoss);
+            BlockGroup.NON_ATTACHABLE.add(paleHangingMoss);
         }
 
         Material resinClump = Material.getMaterial("RESIN_CLUMP");
@@ -130,40 +127,8 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
             }
 
             // Add to interaction blocks if not already present
-            addToBlockGroupIfMissing(value, BlockGroup.INTERACT_BLOCKS);
-            addToBlockGroupIfMissing(value, BlockGroup.SAFE_INTERACT_BLOCKS);
-        }
-    }
-
-    /**
-     * Initializes the bundles group to enable the ability to roll back dyed bundles correctly.
-     * It needs to check whether dyed bundles exist because they were added in 1.21.2.
-     */
-    public void initializeBundles(){
-        if (BUNDLES.isEmpty()) {
-            Tag<Material> bundleTag = getMaterialTag(Tag.REGISTRY_ITEMS, "bundles");
-            if (bundleTag != null) {
-                BUNDLES.addAll(bundleTag.getValues());
-            }
-
-            if (BUNDLES.isEmpty()) {
-                addMaterialsEndingWith(BUNDLES, "_BUNDLE");
-            }
-            BUNDLES.add(Material.BUNDLE);
-        }
-    }
-
-    /**
-     * Helper method to add a block to a block group if it's not already present.
-     * 
-     * @param block
-     *            The block to add
-     * @param group
-     *            The group to add the block to
-     */
-    private void addToBlockGroupIfMissing(Material block, Set<Material> group) {
-        if (!group.contains(block)) {
-            group.add(block);
+            BlockGroup.INTERACT_BLOCKS.add(value);
+            BlockGroup.SAFE_INTERACT_BLOCKS.add(value);
         }
     }
 
@@ -340,11 +305,9 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
      */
     @Override
     public void setWolfVariant(org.bukkit.entity.Wolf wolf, Object value) {
-        if (value instanceof String) {
-            value = getRegistryValue((String) value, org.bukkit.entity.Wolf.Variant.class);
-        }
-        if (value instanceof org.bukkit.entity.Wolf.Variant) {
-            wolf.setVariant((org.bukkit.entity.Wolf.Variant) value);
+        org.bukkit.entity.Wolf.Variant variant = resolveRegistryValue(this, value, org.bukkit.entity.Wolf.Variant.class);
+        if (variant != null) {
+            wolf.setVariant(variant);
         }
     }
 
@@ -362,12 +325,6 @@ public class Bukkit_v1_21 extends Bukkit_v1_20 {
     public boolean isShelf(Material material) {
         return shelves.contains(material);
     }
-
-    @Override
-    public boolean isBundle(Material material) {
-        return BUNDLES.contains(material);
-    }
-
 
     @Override
     public Set<Material> copperChestMaterials() {

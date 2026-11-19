@@ -1,6 +1,7 @@
 package net.coreprotect.model;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -18,7 +19,7 @@ public final class BlockGroup {
     public static Set<Material> TRACK_BOTTOM = new HashSet<>(Arrays.asList(Material.WEEPING_VINES, Material.WEEPING_VINES_PLANT));
     public static Set<Material> TRACK_SIDE = new HashSet<>(Arrays.asList(Material.WALL_TORCH, Material.REDSTONE_WALL_TORCH, Material.RAIL, Material.POWERED_RAIL, Material.DETECTOR_RAIL, Material.ACTIVATOR_RAIL, Material.WHITE_BED, Material.ORANGE_BED, Material.MAGENTA_BED, Material.LIGHT_BLUE_BED, Material.YELLOW_BED, Material.LIME_BED, Material.PINK_BED, Material.GRAY_BED, Material.LIGHT_GRAY_BED, Material.CYAN_BED, Material.PURPLE_BED, Material.BLUE_BED, Material.BROWN_BED, Material.GREEN_BED, Material.RED_BED, Material.BLACK_BED, Material.LADDER, Material.ACACIA_WALL_SIGN, Material.BIRCH_WALL_SIGN, Material.DARK_OAK_WALL_SIGN, Material.JUNGLE_WALL_SIGN, Material.OAK_WALL_SIGN, Material.SPRUCE_WALL_SIGN, Material.VINE, Material.COCOA, Material.TRIPWIRE_HOOK, Material.WHITE_WALL_BANNER, Material.ORANGE_WALL_BANNER, Material.MAGENTA_WALL_BANNER, Material.LIGHT_BLUE_WALL_BANNER, Material.YELLOW_WALL_BANNER, Material.LIME_WALL_BANNER, Material.PINK_WALL_BANNER, Material.GRAY_WALL_BANNER, Material.LIGHT_GRAY_WALL_BANNER, Material.CYAN_WALL_BANNER, Material.PURPLE_WALL_BANNER, Material.BLUE_WALL_BANNER, Material.BROWN_WALL_BANNER, Material.GREEN_WALL_BANNER, Material.RED_WALL_BANNER, Material.BLACK_WALL_BANNER, Material.SOUL_WALL_TORCH, Material.CRIMSON_WALL_SIGN, Material.WARPED_WALL_SIGN));
     public static Set<Material> SHULKER_BOXES = new HashSet<>(Arrays.asList(Material.SHULKER_BOX, Material.BLACK_SHULKER_BOX, Material.BLUE_SHULKER_BOX, Material.BROWN_SHULKER_BOX, Material.CYAN_SHULKER_BOX, Material.GRAY_SHULKER_BOX, Material.GREEN_SHULKER_BOX, Material.LIGHT_BLUE_SHULKER_BOX, Material.LIME_SHULKER_BOX, Material.MAGENTA_SHULKER_BOX, Material.ORANGE_SHULKER_BOX, Material.PINK_SHULKER_BOX, Material.PURPLE_SHULKER_BOX, Material.RED_SHULKER_BOX, Material.LIGHT_GRAY_SHULKER_BOX, Material.WHITE_SHULKER_BOX, Material.YELLOW_SHULKER_BOX));
-    public static Set<Material> BUNDLES = new HashSet<>(Arrays.asList());
+    public static final Set<Material> BUNDLES = collectBundles();
     public static Set<Material> CONTAINERS = new HashSet<>(Arrays.asList(Material.JUKEBOX, Material.DISPENSER, Material.CHEST, Material.FURNACE, Material.BREWING_STAND, Material.TRAPPED_CHEST, Material.HOPPER, Material.DROPPER, Material.ARMOR_STAND, Material.ITEM_FRAME, Material.SHULKER_BOX, Material.BLACK_SHULKER_BOX, Material.BLUE_SHULKER_BOX, Material.BROWN_SHULKER_BOX, Material.CYAN_SHULKER_BOX, Material.GRAY_SHULKER_BOX, Material.GREEN_SHULKER_BOX, Material.LIGHT_BLUE_SHULKER_BOX, Material.LIME_SHULKER_BOX, Material.MAGENTA_SHULKER_BOX, Material.ORANGE_SHULKER_BOX, Material.PINK_SHULKER_BOX, Material.PURPLE_SHULKER_BOX, Material.RED_SHULKER_BOX, Material.LIGHT_GRAY_SHULKER_BOX, Material.WHITE_SHULKER_BOX, Material.YELLOW_SHULKER_BOX, Material.BARREL, Material.BLAST_FURNACE, Material.SMOKER, Material.LECTERN));
     public static Set<Material> DOORS = new HashSet<>(Arrays.asList(Material.OAK_DOOR, Material.SPRUCE_DOOR, Material.BIRCH_DOOR, Material.JUNGLE_DOOR, Material.ACACIA_DOOR, Material.DARK_OAK_DOOR, Material.CRIMSON_DOOR, Material.WARPED_DOOR));
     public static Set<Material> BUTTONS = new HashSet<>(Arrays.asList(Material.STONE_BUTTON, Material.OAK_BUTTON, Material.ACACIA_BUTTON, Material.BIRCH_BUTTON, Material.DARK_OAK_BUTTON, Material.JUNGLE_BUTTON, Material.SPRUCE_BUTTON, Material.POLISHED_BLACKSTONE_BUTTON, Material.CRIMSON_BUTTON, Material.WARPED_BUTTON));
@@ -50,19 +51,6 @@ public final class BlockGroup {
     public static Set<Material> NON_ATTACHABLE = new HashSet<>(Arrays.asList(Material.AIR, Material.CAVE_AIR, Material.BARRIER, Material.CORNFLOWER, Material.LILY_OF_THE_VALLEY, Material.WITHER_ROSE, Material.SWEET_BERRY_BUSH, Material.OAK_SAPLING, Material.SPRUCE_SAPLING, Material.BIRCH_SAPLING, Material.JUNGLE_SAPLING, Material.ACACIA_SAPLING, Material.DARK_OAK_SAPLING, Material.WATER, Material.LAVA, Material.POWERED_RAIL, Material.DETECTOR_RAIL, Material.FERN, Material.DEAD_BUSH, Material.DANDELION, Material.POPPY, Material.BLUE_ORCHID, Material.ALLIUM, Material.AZURE_BLUET, Material.RED_TULIP, Material.ORANGE_TULIP, Material.WHITE_TULIP, Material.PINK_TULIP, Material.OXEYE_DAISY, Material.BROWN_MUSHROOM, Material.RED_MUSHROOM, Material.TORCH, Material.WALL_TORCH, Material.REDSTONE_WIRE, Material.LADDER, Material.RAIL, Material.LEVER, Material.REDSTONE_TORCH, Material.REDSTONE_WALL_TORCH, Material.SNOW, Material.SUGAR_CANE, Material.NETHER_PORTAL, Material.REPEATER, Material.KELP, Material.KELP_PLANT, Material.CHORUS_FLOWER, Material.CHORUS_PLANT, Material.SOUL_TORCH, Material.SOUL_WALL_TORCH, Material.TWISTING_VINES, Material.TWISTING_VINES_PLANT, Material.WEEPING_VINES, Material.WEEPING_VINES_PLANT));
 
     public static void initialize() {
-        if (BUNDLES.isEmpty()) {
-            Material bundle = Material.getMaterial("BUNDLE");
-            if (bundle != null) {
-                BUNDLES.add(bundle);
-            }
-
-            for (Material material : Material.values()) {
-                if (material.name().endsWith("_BUNDLE")) {
-                    BUNDLES.add(material);
-                }
-            }
-        }
-
         if (SIGNS.isEmpty()) {
             for (Material material : Material.values()) {
                 if (BukkitAdapter.ADAPTER.isSign(material)) {
@@ -125,39 +113,17 @@ public final class BlockGroup {
         NATURAL_BLOCKS.addAll(SOUL_BLOCKS);
         NATURAL_BLOCKS.addAll(VINES);
 
-        /*
-        NATURAL_BLOCKS.addAll(Tag.BASE_STONE_OVERWORLD.getValues());
-        NATURAL_BLOCKS.addAll(Tag.BEACON_BASE_BLOCKS.getValues());
-        NATURAL_BLOCKS.addAll(Tag.SOUL_FIRE_BASE_BLOCKS.getValues());
-        NATURAL_BLOCKS.addAll(Tag.GEODE_INVALID_BLOCKS.getValues());
-        NATURAL_BLOCKS.addAll(Tag.GUARDED_BY_PIGLINS.getValues());
-        NATURAL_BLOCKS.addAll(Tag.INFINIBURN_END.getValues());
-        NATURAL_BLOCKS.addAll(Tag.INFINIBURN_NETHER.getValues());
-        NATURAL_BLOCKS.addAll(Tag.INFINIBURN_OVERWORLD.getValues());
-        NATURAL_BLOCKS.addAll(Tag.INSIDE_STEP_SOUND_BLOCKS.getValues());
-        NATURAL_BLOCKS.addAll(Tag.DEEPSLATE_ORE_REPLACEABLES.getValues());
-        NATURAL_BLOCKS.addAll(Tag.DIRT.getValues());
-        NATURAL_BLOCKS.addAll(Tag.STONE_ORE_REPLACEABLES.getValues());
-        NATURAL_BLOCKS.addAll(Tag.COAL_ORES.getValues());
-        NATURAL_BLOCKS.addAll(Tag.COPPER_ORES.getValues());
-        NATURAL_BLOCKS.addAll(Tag.DIAMOND_ORES.getValues());
-        NATURAL_BLOCKS.addAll(Tag.EMERALD_ORES.getValues());
-        NATURAL_BLOCKS.addAll(Tag.GOLD_ORES.getValues());
-        NATURAL_BLOCKS.addAll(Tag.IRON_ORES.getValues());
-        NATURAL_BLOCKS.addAll(Tag.LAPIS_ORES.getValues());
-        NATURAL_BLOCKS.addAll(Tag.REDSTONE_ORES.getValues());
-        NATURAL_BLOCKS.addAll(Tag.FIRE.getValues());
-        NATURAL_BLOCKS.addAll(Tag.SNOW.getValues());
-        NATURAL_BLOCKS.addAll(Tag.BEEHIVES.getValues());
-        NATURAL_BLOCKS.addAll(Tag.BEE_GROWABLES.getValues());
-        NATURAL_BLOCKS.addAll(Tag.FLOWERS.getValues());
-        NATURAL_BLOCKS.addAll(Tag.CROPS.getValues());
-        NATURAL_BLOCKS.addAll(Tag.FEATURES_CANNOT_REPLACE.getValues());
-        NATURAL_BLOCKS.addAll(Tag.LUSH_GROUND_REPLACEABLE.getValues());
-        NATURAL_BLOCKS.addAll(Tag.MUSHROOM_GROW_BLOCK.getValues());
-        NATURAL_BLOCKS.addAll(Tag.NYLIUM.getValues());
-        NATURAL_BLOCKS.addAll(Tag.PORTALS.getValues());
-        */
+    }
+
+    private static Set<Material> collectBundles() {
+        Set<Material> bundles = new HashSet<>();
+        for (Material material : Material.values()) {
+            String name = material.name();
+            if (name.equals("BUNDLE") || name.endsWith("_BUNDLE")) {
+                bundles.add(material);
+            }
+        }
+        return Collections.unmodifiableSet(bundles);
     }
 
     private static void addBlockTag(Set<Material> blockGroup, String... keys) {

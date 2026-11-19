@@ -1,16 +1,10 @@
 package net.coreprotect.api.result;
 
-import java.util.Locale;
-
 import org.bukkit.Material;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.EntityType;
 
 import net.coreprotect.model.action.LookupActions;
-import net.coreprotect.utility.BlockUtils;
-import net.coreprotect.utility.EntityUtils;
-import net.coreprotect.utility.MaterialUtils;
-import net.coreprotect.utility.StringUtils;
 
 /**
  * Represents a logged block action.
@@ -68,13 +62,7 @@ public class BlockResult implements CoreProtectResult {
             return null;
         }
 
-        Material material = MaterialUtils.getType(type);
-        if (material == null) {
-            return null;
-        }
-
-        String typeName = material.name().toLowerCase(Locale.ROOT);
-        return MaterialUtils.getType(StringUtils.nameFilter(typeName, data));
+        return BlockResultValues.material(type, data);
     }
 
     public EntityType getEntityType() {
@@ -82,11 +70,7 @@ public class BlockResult implements CoreProtectResult {
             return null;
         }
 
-        if (actionId == LookupActions.ENTITY_KILL && type == 0) {
-            return EntityType.PLAYER;
-        }
-
-        return EntityUtils.getEntityType(type);
+        return BlockResultValues.entityType(type, actionId);
     }
 
     public BlockData getBlockData() {
@@ -94,13 +78,7 @@ public class BlockResult implements CoreProtectResult {
             return null;
         }
 
-        BlockData resolved = BlockUtils.parseBlockDataFromString(blockData);
-        if (resolved != null) {
-            return resolved;
-        }
-
-        Material material = getType();
-        return material != null ? BlockUtils.createBlockData(material) : BlockUtils.createBlockData(type);
+        return BlockResultValues.blockData(type, blockData, this::getType);
     }
 
     public int getX() {
@@ -116,7 +94,7 @@ public class BlockResult implements CoreProtectResult {
     }
 
     public boolean isRolledBack() {
-        return rolledBack == 1 || rolledBack == 3;
+        return BlockResultValues.isRolledBack(rolledBack);
     }
 
     private boolean isEntityAction() {

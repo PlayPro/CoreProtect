@@ -1,6 +1,5 @@
 package net.coreprotect.api.result;
 
-import java.util.Locale;
 import java.util.UUID;
 
 import org.bukkit.Material;
@@ -11,10 +10,6 @@ import net.coreprotect.api.SessionLookup;
 import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.model.action.SessionActions;
 import net.coreprotect.model.item.InventorySources;
-import net.coreprotect.utility.BlockUtils;
-import net.coreprotect.utility.EntityUtils;
-import net.coreprotect.utility.MaterialUtils;
-import net.coreprotect.utility.StringUtils;
 import net.coreprotect.utility.WorldUtils;
 
 public class ParseResult implements CoreProtectResult {
@@ -71,15 +66,7 @@ public class ParseResult implements CoreProtectResult {
             return null;
         }
 
-        int type = getInt(5, -1);
-        Material material = MaterialUtils.getType(type);
-        if (material == null) {
-            return null;
-        }
-
-        String typeName = material.name().toLowerCase(Locale.ROOT);
-        typeName = StringUtils.nameFilter(typeName, this.getData());
-        return MaterialUtils.getType(typeName);
+        return BlockResultValues.material(getInt(5, -1), getData());
     }
 
     public BlockData getBlockData() {
@@ -91,14 +78,7 @@ public class ParseResult implements CoreProtectResult {
             return null;
         }
 
-        String blockData = parse[12];
-        BlockData resolved = BlockUtils.parseBlockDataFromString(blockData);
-        if (resolved != null) {
-            return resolved;
-        }
-
-        Material type = getType();
-        return type != null ? BlockUtils.createBlockData(type) : BlockUtils.createBlockData(getInt(5, -1));
+        return BlockResultValues.blockData(getInt(5, -1), parse[12], this::getType);
     }
 
     public EntityType getEntityType() {
@@ -106,12 +86,7 @@ public class ParseResult implements CoreProtectResult {
             return null;
         }
 
-        int type = getInt(5, -1);
-        if (this.getActionId() == LookupActions.ENTITY_KILL && type == 0) {
-            return EntityType.PLAYER;
-        }
-
-        return EntityUtils.getEntityType(type);
+        return BlockResultValues.entityType(getInt(5, -1), getActionId());
     }
 
     public int getX() {
@@ -131,8 +106,7 @@ public class ParseResult implements CoreProtectResult {
             return false;
         }
 
-        int rolledBack = getInt(8, 0);
-        return rolledBack == 1 || rolledBack == 3;
+        return BlockResultValues.isRolledBack(getInt(8, 0));
     }
 
     public String worldName() {

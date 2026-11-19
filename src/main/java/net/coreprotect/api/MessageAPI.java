@@ -7,12 +7,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import net.coreprotect.api.result.MessageResult;
-import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.database.Database;
 import net.coreprotect.database.LookupRaw;
 import net.coreprotect.database.statement.UserStatement;
-import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.WorldUtils;
 
 /**
@@ -40,22 +37,7 @@ public class MessageAPI {
     }
 
     private static List<MessageResult> performLookup(String table, CoreProtectAction action, LookupOptions options) {
-        List<MessageResult> result = new ArrayList<>();
-
-        if (!Config.getGlobal().API_ENABLED) {
-            return result;
-        }
-
-        try (Connection connection = Database.getConnection(false, 1000)) {
-            if (connection == null) {
-                return result;
-            }
-
-            LookupFilter filter = LookupFilter.fromOptions(connection, options);
-            if (filter.hasInvalidUser() || filter.hasInvalidLocation()) {
-                return result;
-            }
-
+        return LookupFilter.execute(options, (connection, filter, selected, result) -> {
             StringBuilder query = new StringBuilder("SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,message FROM ");
             query.append(filter.table(connection, table, "")).append(' ');
             if (filter.hasLocation() && !ConfigHandler.databaseType.isDuckDB()) {
@@ -64,8 +46,8 @@ public class MessageAPI {
             filter.appendWhere(query);
             List<String> messageBindings = new ArrayList<>();
             query = new StringBuilder(LookupRaw.appendMessageFilters(query.toString(),
-                    options == null ? List.of() : options.getTextStartsWithAny(),
-                    options == null ? List.of() : options.getTextStartsWithNone(), table, messageBindings));
+                    selected.getTextStartsWithAny(),
+                    selected.getTextStartsWithNone(), table, messageBindings));
             query.append(" ORDER BY ").append(ConfigHandler.getDescendingEventOrder());
             filter.appendLimit(query);
 
@@ -81,20 +63,7 @@ public class MessageAPI {
                     }
                 }
             }
-        }
-        catch (Exception e) {
-            ErrorReporter.report(e);
-        }
-
-        return result;
-    }
-
-    static Integer getUserId(Connection connection, String user) throws Exception {
-        if (user == null || user.isEmpty() || user.equalsIgnoreCase("#global")) {
-            return null;
-        }
-
-        return UserStatement.findId(connection, user);
+        });
     }
 
     private static MessageResult parseMessageResult(Connection connection, ResultSet results, int actionId) throws Exception {
@@ -108,14 +77,4 @@ public class MessageAPI {
         );
     }
 
-    static int clampToInt(long value) {
-        if (value > Integer.MAX_VALUE) {
-            return Integer.MAX_VALUE;
-        }
-        else if (value < Integer.MIN_VALUE) {
-            return Integer.MIN_VALUE;
-        }
-
-        return (int) value;
-    }
 }

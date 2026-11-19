@@ -408,25 +408,7 @@ public class CoreProtectAPI extends Queue {
      * @return True if the user has placed the block within the specified time frame
      */
     public boolean hasPlaced(String user, Block block, int time, int offset) {
-        if (!isEnabled() || user == null || user.isBlank() || block == null) {
-            return false;
-        }
-
-        long timestamp = getCurrentTimeMillis();
-        long offsetTime = timestamp - offset * 1000L;
-        List<String[]> check = blockLookup(block, time);
-        if (check == null) {
-            return false;
-        }
-
-        for (String[] value : check) {
-            ParseResult result = parseResult(value);
-            if (user.equalsIgnoreCase(result.getPlayer()) && result.getActionId() == 1 && result.getTimestamp() <= offsetTime) {
-                return true;
-            }
-        }
-
-        return false;
+        return hasBlockAction(user, block, time, offset, LookupActions.BLOCK_PLACE);
     }
 
     /**
@@ -443,6 +425,10 @@ public class CoreProtectAPI extends Queue {
      * @return True if the user has removed the block within the specified time frame
      */
     public boolean hasRemoved(String user, Block block, int time, int offset) {
+        return hasBlockAction(user, block, time, offset, LookupActions.BLOCK_BREAK);
+    }
+
+    private boolean hasBlockAction(String user, Block block, int time, int offset, int action) {
         if (!isEnabled() || user == null || user.isBlank() || block == null) {
             return false;
         }
@@ -456,7 +442,7 @@ public class CoreProtectAPI extends Queue {
 
         for (String[] value : check) {
             ParseResult result = parseResult(value);
-            if (user.equalsIgnoreCase(result.getPlayer()) && result.getActionId() == 0 && result.getTimestamp() <= offsetTime) {
+            if (user.equalsIgnoreCase(result.getPlayer()) && result.getActionId() == action && result.getTimestamp() <= offsetTime) {
                 return true;
             }
         }

@@ -71,7 +71,7 @@ public class BlockAPI {
             if (worldId < 0) {
                 return result;
             }
-            int checkTime = offset > 0 ? MessageAPI.clampToInt(Math.max(0L, System.currentTimeMillis() / 1000L - offset)) : 0;
+            int checkTime = offset > 0 ? LookupFilter.clampToInt(Math.max(0L, System.currentTimeMillis() / 1000L - offset)) : 0;
 
             try (Statement statement = connection.createStatement()) {
                 String table = DuckDBLookupQuery.spatialTable(connection, "block", worldId, x, x, z, z, "spatial_rows");
@@ -142,26 +142,7 @@ public class BlockAPI {
     }
 
     private static List<BlockResult> performLookup(LookupOptions options, boolean blocksOnly) {
-        List<BlockResult> result = new ArrayList<>();
-
-        if (!Config.getGlobal().API_ENABLED) {
-            return result;
-        }
-
-        if (options == null) {
-            options = LookupOptions.builder().build();
-        }
-
-        try (Connection connection = Database.getConnection(false, 1000)) {
-            if (connection == null) {
-                return result;
-            }
-
-            LookupFilter filter = LookupFilter.fromOptions(connection, options);
-            if (filter.hasInvalidUser() || filter.hasInvalidLocation()) {
-                return result;
-            }
-
+        return LookupFilter.execute(options, (connection, filter, selected, result) -> {
             StringBuilder query = new StringBuilder("SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,blockdata,rolled_back,wid,x,y,z FROM ");
             query.append(filter.table(connection, "block", "")).append(' ');
             if (filter.hasLocation() && !ConfigHandler.databaseType.isDuckDB()) {
@@ -169,9 +150,9 @@ public class BlockAPI {
             }
             filter.appendWhere(query);
             filter.appendBlockMaterialWhere(query);
-            int[] actions = blocksOnly && options.getBlockActions().isEmpty()
+            int[] actions = blocksOnly && selected.getBlockActions().isEmpty()
                     ? new int[] { BlockAction.BREAK.id(), BlockAction.PLACE.id(), BlockAction.INTERACTION.id() }
-                    : options.getBlockActions().stream().mapToInt(BlockAction::id).toArray();
+                    : selected.getBlockActions().stream().mapToInt(BlockAction::id).toArray();
             LookupFilter.appendActionWhere(query, "", actions);
             query.append(" ORDER BY ").append(ConfigHandler.getDescendingEventOrder());
             filter.appendLimit(query);
@@ -185,12 +166,7 @@ public class BlockAPI {
                     }
                 }
             }
-        }
-        catch (Exception e) {
-            ErrorReporter.report(e);
-        }
-
-        return result;
+        });
     }
 
     /**
@@ -219,32 +195,13 @@ public class BlockAPI {
      * @return List of results in a ContainerResult format
      */
     public static List<ContainerResult> performContainerLookup(LookupOptions options) {
-        List<ContainerResult> result = new ArrayList<>();
-
-        if (!Config.getGlobal().API_ENABLED) {
-            return result;
-        }
-
-        if (options == null) {
-            options = LookupOptions.builder().build();
-        }
-
-        try (Connection connection = Database.getConnection(false, 1000)) {
-            if (connection == null) {
-                return result;
-            }
-
-            LookupFilter filter = LookupFilter.fromOptions(connection, options);
-            if (filter.hasInvalidUser() || filter.hasInvalidLocation()) {
-                return result;
-            }
-
+        return LookupFilter.execute(options, (connection, filter, selected, result) -> {
             boolean snapshot = filter.beginDuckDBSnapshot(connection);
             try {
                 StringBuilder containerWhere = new StringBuilder();
                 filter.appendWhere(containerWhere, "container_rows");
                 filter.appendMaterialWhere(containerWhere, "container_rows");
-                int[] actions = options.getContainerActions().stream().mapToInt(ContainerAction::id).toArray();
+                int[] actions = selected.getContainerActions().stream().mapToInt(ContainerAction::id).toArray();
                 LookupFilter.appendActionWhere(containerWhere, "container_rows", actions);
                 StringBuilder entityWhere = new StringBuilder();
                 filter.appendEntityContainerWhere(entityWhere, "entity_rows", "spawn_rows");
@@ -282,12 +239,7 @@ public class BlockAPI {
             finally {
                 filter.endDuckDBSnapshot(connection, snapshot);
             }
-        }
-        catch (Exception e) {
-            ErrorReporter.report(e);
-        }
-
-        return result;
+        });
     }
 
     private static ContainerResult parseContainerResult(Connection connection, ResultSet results) throws Exception {

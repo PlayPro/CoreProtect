@@ -16,11 +16,15 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 
+import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
 import net.coreprotect.database.DuckDBLookupQuery;
 import net.coreprotect.database.DuckDBSpatialIndex;
 import net.coreprotect.database.LocationQuery;
+import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.model.action.LookupActions;
+import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.ItemUtils;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.StringUtils;
@@ -57,15 +61,41 @@ final class LookupFilter {
         this.excludeUserIds = excludeUserIds;
     }
 
+    static <R> List<R> execute(LookupOptions options, TypedReader<R> reader) {
+        List<R> result = new ArrayList<>();
+        if (!Config.getGlobal().API_ENABLED || (options != null && options.hasInvalidLocation())) {
+            return result;
+        }
+
+        LookupOptions selected = options == null ? LookupOptions.builder().build() : options;
+        try (Connection connection = Database.getConnection(false, 1000)) {
+            if (connection != null) {
+                LookupFilter filter = fromOptions(connection, selected);
+                if (!filter.hasInvalidUser() && !filter.hasInvalidLocation()) {
+                    reader.read(connection, filter, selected, result);
+                }
+            }
+        }
+        catch (Exception exception) {
+            ErrorReporter.report(exception);
+        }
+        return result;
+    }
+
+    @FunctionalInterface
+    interface TypedReader<R> {
+        void read(Connection connection, LookupFilter filter, LookupOptions options, List<R> result) throws Exception;
+    }
+
     static LookupFilter fromOptions(Connection connection, LookupOptions options) throws Exception {
         if (options == null) {
             options = LookupOptions.builder().build();
         }
 
-        Integer userId = MessageAPI.getUserId(connection, options.getUser());
+        Integer userId = getUserId(connection, options.getUser());
         int checkTime = 0;
         if (options.getTime() > 0) {
-            checkTime = MessageAPI.clampToInt(Math.max(0L, System.currentTimeMillis() / 1000L - options.getTime()));
+            checkTime = clampToInt(Math.max(0L, System.currentTimeMillis() / 1000L - options.getTime()));
         }
 
         Location location = options.getLocation();
@@ -321,10 +351,10 @@ final class LookupFilter {
 
         int x = location.getBlockX();
         int z = location.getBlockZ();
-        int minimumX = radius > 0 ? MessageAPI.clampToInt((long) x - radius) : x;
-        int maximumX = radius > 0 ? MessageAPI.clampToInt((long) x + radius) : x;
-        int minimumZ = radius > 0 ? MessageAPI.clampToInt((long) z - radius) : z;
-        int maximumZ = radius > 0 ? MessageAPI.clampToInt((long) z + radius) : z;
+        int minimumX = radius > 0 ? clampToInt((long) x - radius) : x;
+        int maximumX = radius > 0 ? clampToInt((long) x + radius) : x;
+        int minimumZ = radius > 0 ? clampToInt((long) z - radius) : z;
+        int maximumZ = radius > 0 ? clampToInt((long) z + radius) : z;
         return DuckDBLookupQuery.spatialTable(connection, table, worldId, minimumX, maximumX, minimumZ, maximumZ, alias);
     }
 
@@ -343,10 +373,10 @@ final class LookupFilter {
 
         int x = location.getBlockX();
         int z = location.getBlockZ();
-        int minimumX = radius > 0 ? MessageAPI.clampToInt((long) x - radius) : x;
-        int maximumX = radius > 0 ? MessageAPI.clampToInt((long) x + radius) : x;
-        int minimumZ = radius > 0 ? MessageAPI.clampToInt((long) z - radius) : z;
-        int maximumZ = radius > 0 ? MessageAPI.clampToInt((long) z + radius) : z;
+        int minimumX = radius > 0 ? clampToInt((long) x - radius) : x;
+        int maximumX = radius > 0 ? clampToInt((long) x + radius) : x;
+        int minimumZ = radius > 0 ? clampToInt((long) z - radius) : z;
+        int maximumZ = radius > 0 ? clampToInt((long) z + radius) : z;
         boolean block = table.equals("block");
         List<Long> rowIds = loadCurrentEntityRowIds(connection, block ? "block_rowid" : "rowid");
         if (!block && rowIds.stream().anyMatch(id -> id > Integer.MAX_VALUE)) {
@@ -383,10 +413,10 @@ final class LookupFilter {
             int z = location.getBlockZ();
             statement.setInt(parameterIndex++, worldId);
             if (radius > 0) {
-                int minimumX = MessageAPI.clampToInt((long) x - radius);
-                int maximumX = MessageAPI.clampToInt((long) x + radius);
-                int minimumZ = MessageAPI.clampToInt((long) z - radius);
-                int maximumZ = MessageAPI.clampToInt((long) z + radius);
+                int minimumX = clampToInt((long) x - radius);
+                int maximumX = clampToInt((long) x + radius);
+                int minimumZ = clampToInt((long) z - radius);
+                int maximumZ = clampToInt((long) z + radius);
                 statement.setInt(parameterIndex++, minimumX);
                 statement.setLong(parameterIndex++, (long) maximumX + 1L);
                 statement.setInt(parameterIndex++, minimumZ);
@@ -438,10 +468,10 @@ final class LookupFilter {
             int y = location.getBlockY();
             int z = location.getBlockZ();
             if (radius > 0) {
-                statement.setInt(parameterIndex++, MessageAPI.clampToInt((long) x - radius));
-                statement.setInt(parameterIndex++, MessageAPI.clampToInt((long) x + radius));
-                statement.setInt(parameterIndex++, MessageAPI.clampToInt((long) z - radius));
-                statement.setInt(parameterIndex++, MessageAPI.clampToInt((long) z + radius));
+                statement.setInt(parameterIndex++, clampToInt((long) x - radius));
+                statement.setInt(parameterIndex++, clampToInt((long) x + radius));
+                statement.setInt(parameterIndex++, clampToInt((long) z - radius));
+                statement.setInt(parameterIndex++, clampToInt((long) z + radius));
             }
             else {
                 statement.setInt(parameterIndex++, x);
@@ -477,10 +507,10 @@ final class LookupFilter {
         int z = location.getBlockZ();
         statement.setInt(parameterIndex++, worldId);
         if (radius > 0) {
-            int minimumX = MessageAPI.clampToInt((long) x - radius);
-            int maximumX = MessageAPI.clampToInt((long) x + radius);
-            int minimumZ = MessageAPI.clampToInt((long) z - radius);
-            int maximumZ = MessageAPI.clampToInt((long) z + radius);
+            int minimumX = clampToInt((long) x - radius);
+            int maximumX = clampToInt((long) x + radius);
+            int minimumZ = clampToInt((long) z - radius);
+            int maximumZ = clampToInt((long) z + radius);
             statement.setInt(parameterIndex++, minimumX);
             statement.setInt(parameterIndex++, maximumX);
             statement.setInt(parameterIndex++, minimumZ);
@@ -509,7 +539,7 @@ final class LookupFilter {
     static String userIds(Connection connection, List<String> users) throws Exception {
         StringJoiner result = new StringJoiner(",");
         for (String user : users) {
-            Integer id = MessageAPI.getUserId(connection, user);
+            Integer id = getUserId(connection, user);
             if (id == null) {
                 // An empty name or #global matches every user.
                 return null;
@@ -556,5 +586,24 @@ final class LookupFilter {
 
     private static String alias(String alias) {
         return alias == null || alias.isEmpty() ? "" : " AS " + alias;
+    }
+
+    static Integer getUserId(Connection connection, String user) throws Exception {
+        if (user == null || user.isEmpty() || user.equalsIgnoreCase("#global")) {
+            return null;
+        }
+
+        return UserStatement.findId(connection, user);
+    }
+
+    static int clampToInt(long value) {
+        if (value > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        else if (value < Integer.MIN_VALUE) {
+            return Integer.MIN_VALUE;
+        }
+
+        return (int) value;
     }
 }

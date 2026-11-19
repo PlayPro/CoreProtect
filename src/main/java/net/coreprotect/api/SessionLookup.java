@@ -65,7 +65,7 @@ public class SessionLookup {
             int time = (int) (System.currentTimeMillis() / 1000L);
             int checkTime = calculateCheckTime(time, offset);
 
-            Integer userId = MessageAPI.getUserId(connection, user);
+            Integer userId = LookupFilter.getUserId(connection, user);
             if (userId == null || userId < 0) {
                 return result;
             }
@@ -97,33 +97,14 @@ public class SessionLookup {
      * @return List of typed session results, empty list if API is disabled or no results found
      */
     public static List<SessionResult> performLookup(LookupOptions options) {
-        List<SessionResult> result = new ArrayList<>();
-
-        if (!Config.getGlobal().API_ENABLED) {
-            return result;
-        }
-
-        if (options == null) {
-            options = LookupOptions.builder().build();
-        }
-
-        try (Connection connection = Database.getConnection(false, 1000)) {
-            if (connection == null) {
-                return result;
-            }
-
-            LookupFilter filter = LookupFilter.fromOptions(connection, options);
-            if (filter.hasInvalidUser() || filter.hasInvalidLocation()) {
-                return result;
-            }
-
+        return LookupFilter.execute(options, (connection, filter, selected, result) -> {
             StringBuilder query = new StringBuilder("SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,action FROM ");
             query.append(filter.table(connection, "session", "")).append(' ');
             if (filter.hasLocation() && !ConfigHandler.databaseType.isDuckDB()) {
                 query.append(WorldUtils.getWidIndex("session"));
             }
             filter.appendWhere(query);
-            LookupFilter.appendActionWhere(query, "", options.getSessionActions().stream().mapToInt(SessionAction::id).toArray());
+            LookupFilter.appendActionWhere(query, "", selected.getSessionActions().stream().mapToInt(SessionAction::id).toArray());
             query.append(" ORDER BY ").append(ConfigHandler.getDescendingEventOrder());
             filter.appendLimit(query);
 
@@ -136,12 +117,7 @@ public class SessionLookup {
                     }
                 }
             }
-        }
-        catch (Exception e) {
-            ErrorReporter.report(e);
-        }
-
-        return result;
+        });
     }
 
     /**

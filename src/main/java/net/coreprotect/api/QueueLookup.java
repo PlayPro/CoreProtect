@@ -27,7 +27,7 @@ import net.coreprotect.utility.WorldUtils;
  * Provides API methods for looking up block-related actions in the processing queue.
  * This class allows for retrieving actions that have not yet been saved to the database.
  */
-public class QueueLookup extends Queue {
+public class QueueLookup {
 
     /**
      * Private constructor to prevent instantiation.

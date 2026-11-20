@@ -516,6 +516,8 @@ public class PurgeCommand {
         boolean resumePersistence = true;
         boolean handoffStarted = false;
         boolean mysqlPurgeStarted = false;
+        boolean mysqlDeletesCompleted = false;
+        long removed = 0;
         Connection connection = null;
         Statement transactionStatement = null;
         Path sqliteTemporary = null;
@@ -525,8 +527,6 @@ public class PurgeCommand {
                 Chat.sendGlobalMessage(player, Phrase.build(Phrase.DATABASE_BUSY));
                 return;
             }
-            long removed;
-
             for (int i = 0; i <= 5; i++) {
                 requirePurgeNotCancelled();
                 connection = Database.getConnection(false, 500);
@@ -573,7 +573,7 @@ public class PurgeCommand {
                 removed = purgeClickHouse(player, filter, optimize);
                 EntitySpawnTracking.invalidateDatabaseVerification();
                 Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_SUCCESS));
-                Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_ROWS, NumberFormat.getInstance().format(removed), (removed == 1 ? Selector.FIRST : Selector.SECOND)));
+                sendPurgeRows(player, removed);
                 return;
             }
 
@@ -616,7 +616,8 @@ public class PurgeCommand {
             if (!abort) {
                 removed += deleteOrphanedEntityRows(connection, retainedPrefix, filter);
             }
-            if (ConfigHandler.databaseType.isMySQL() && optimize) {
+            mysqlDeletesCompleted = mysqlPurgeStarted;
+            if (mysqlDeletesCompleted && optimize) {
                 optimizeMySqlTables(connection, player);
             }
 
@@ -682,7 +683,7 @@ public class PurgeCommand {
             EntitySpawnTracking.invalidateDatabaseVerification();
 
             Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_SUCCESS));
-            Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_ROWS, NumberFormat.getInstance().format(removed), (removed == 1 ? Selector.FIRST : Selector.SECOND)));
+            sendPurgeRows(player, removed);
         }
         catch (Exception e) {
             boolean shutdownCancelled = shutdownCancellationRequested || e instanceof InterruptedException;
@@ -708,7 +709,13 @@ public class PurgeCommand {
                 if (mysqlPurgeStarted) {
                     EntitySpawnTracking.invalidateDatabaseVerification();
                 }
-                Chat.sendGlobalMessage(player, Phrase.build(mysqlPurgeStarted ? Phrase.PURGE_INCOMPLETE : Phrase.PURGE_FAILED));
+                if (mysqlDeletesCompleted) {
+                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_MAINTENANCE_FAILED));
+                    sendPurgeRows(player, removed);
+                }
+                else {
+                    Chat.sendGlobalMessage(player, Phrase.build(mysqlPurgeStarted ? Phrase.PURGE_INCOMPLETE : Phrase.PURGE_FAILED));
+                }
                 if (reloadRequired) {
                     Chat.sendGlobalMessage(player, Phrase.build(Phrase.RELOAD_FAILED));
                 }
@@ -756,6 +763,10 @@ public class PurgeCommand {
                 activePurgeThread = null;
             }
         }
+    }
+
+    private static void sendPurgeRows(CommandSender player, long removed) {
+        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_ROWS, NumberFormat.getInstance().format(removed), removed == 1 ? Selector.FIRST : Selector.SECOND));
     }
 
     private static void announcePurge(CommandSender player, String worldName, Integer[] radius, int restrictCount,

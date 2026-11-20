@@ -217,6 +217,7 @@ public class Language {
         phrases.put(Phrase.PURGE_FAILED, "Purge failed. Please try again later.");
         phrases.put(Phrase.PURGE_INCOMPLETE, "Data purge incomplete. Some rows may already have been deleted.");
         phrases.put(Phrase.PURGE_IN_PROGRESS, "Purge in progress. Please try again later.");
+        phrases.put(Phrase.PURGE_MAINTENANCE_FAILED, "Data purge completed. Post-purge maintenance failed.");
         phrases.put(Phrase.PURGE_MINIMUM_TIME, "You can only purge data older than {0} {days|hours}.");
         phrases.put(Phrase.PURGE_NOTICE_1, "Please note that this may take some time.");
         phrases.put(Phrase.PURGE_NOTICE_2, "Do not restart your server until completed.");

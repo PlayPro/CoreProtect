@@ -287,6 +287,35 @@ public class RollbackUtil extends Lookup {
     private static ContainerReplayResult removeInventoryItems(Inventory inventory, ItemStack item) {
         boolean playerInventory = inventory instanceof PlayerInventory;
         ItemStack[] contents = (playerInventory ? inventory.getContents() : inventory.getStorageContents()).clone();
+        ContainerReplayResult result = removeFromStorage(contents, item);
+        if (result.modifiedAmount() > 0) {
+            if (playerInventory) {
+                inventory.setContents(contents);
+            }
+            else {
+                inventory.setStorageContents(contents);
+            }
+        }
+        return result;
+    }
+
+    static ContainerReplayResult replayStorageItems(ItemStack[] contents, ItemStack item, boolean add, int inventoryMaxStackSize) {
+        ItemStack[] staged = contents.clone();
+        ContainerReplayResult result;
+        if (add) {
+            long remaining = ItemUtils.insertIntoContainerSnapshot(staged, item, item.getAmount(), inventoryMaxStackSize);
+            result = remaining == 0 ? new ContainerReplayResult(true, item.getAmount(), -1) : ContainerReplayResult.REJECTED;
+        }
+        else {
+            result = removeFromStorage(staged, item);
+        }
+        if (result.modifiedAmount() > 0) {
+            System.arraycopy(staged, 0, contents, 0, staged.length);
+        }
+        return result;
+    }
+
+    private static ContainerReplayResult removeFromStorage(ItemStack[] contents, ItemStack item) {
         int remaining = item.getAmount();
         for (int index = contents.length - 1; index >= 0 && remaining > 0; index--) {
             ItemStack current = contents[index];
@@ -303,12 +332,6 @@ public class RollbackUtil extends Lookup {
         }
         if (remaining > 0) {
             return ContainerReplayResult.REJECTED;
-        }
-        if (playerInventory) {
-            inventory.setContents(contents);
-        }
-        else {
-            inventory.setStorageContents(contents);
         }
         return new ContainerReplayResult(true, item.getAmount(), -1);
     }

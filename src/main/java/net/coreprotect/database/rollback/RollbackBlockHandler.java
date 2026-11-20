@@ -1,6 +1,7 @@
 package net.coreprotect.database.rollback;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
@@ -15,6 +16,7 @@ import org.bukkit.World;
 import org.bukkit.block.Banner;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.CommandBlock;
 import org.bukkit.block.CreatureSpawner;
 import org.bukkit.block.banner.Pattern;
@@ -72,6 +74,9 @@ public class RollbackBlockHandler extends Queue {
         int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
 
         try {
+            if (!changeBlock && isCommandBlock(rowType)) {
+                return replayCommandMetadata(block, meta, countBlock);
+            }
             if (changeBlock) {
                 if (rowType == Material.AIR && oldTypeMaterial == Material.ARMOR_STAND) {
                     boolean clearEquipment = clearInventories && BlockGroup.CONTAINERS.contains(Material.ARMOR_STAND);
@@ -303,23 +308,9 @@ public class RollbackBlockHandler extends Queue {
                     }
                     return BlockReplayResult.APPLIED;
                 }
-                else if (rowType == Material.COMMAND_BLOCK || rowType == Material.REPEATING_COMMAND_BLOCK || rowType == Material.CHAIN_COMMAND_BLOCK) { // command block
+                else if (isCommandBlock(rowType)) {
                     BlockUtils.prepareTypeAndData(chunkChanges, block, rowType, blockData, false);
-                    if (countBlock) {
-                        counters.addBlocks(1);
-                    }
-
-                    if (meta != null) {
-                        CommandBlock commandBlock = (CommandBlock) block.getState();
-                        for (Object value : meta) {
-                            if (value instanceof String) {
-                                String string = (String) value;
-                                commandBlock.setCommand(string);
-                                commandBlock.update();
-                            }
-                        }
-                    }
-                    return BlockReplayResult.APPLIED;
+                    return replayCommandMetadata(block, meta, countBlock);
                 }
                 else if ((rowType == Material.WATER)) {
                     if (bukkitWorld.getEnvironment() == World.Environment.NETHER) {
@@ -515,6 +506,32 @@ public class RollbackBlockHandler extends Queue {
             }
         }
 
+        return BlockReplayResult.applied(countBlock);
+    }
+
+    private static boolean isCommandBlock(Material type) {
+        return type == Material.COMMAND_BLOCK || type == Material.REPEATING_COMMAND_BLOCK || type == Material.CHAIN_COMMAND_BLOCK;
+    }
+
+    private static BlockReplayResult replayCommandMetadata(Block block, List<Object> metadata, boolean countBlock) {
+        if (metadata != null) {
+            for (int index = metadata.size() - 1; index >= 0; index--) {
+                Object value = metadata.get(index);
+                if (value instanceof String) {
+                    String command = (String) value;
+                    BlockState state = block.getState();
+                    if (!(state instanceof CommandBlock)) {
+                        return BlockReplayResult.REJECTED;
+                    }
+                    CommandBlock commandBlock = (CommandBlock) state;
+                    if (!command.equals(commandBlock.getCommand())) {
+                        commandBlock.setCommand(command);
+                        return commandBlock.update() ? BlockReplayResult.COUNTED : BlockReplayResult.REJECTED;
+                    }
+                    break;
+                }
+            }
+        }
         return BlockReplayResult.applied(countBlock);
     }
 

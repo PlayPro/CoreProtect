@@ -486,7 +486,7 @@ public class BlockUtils {
             if (block instanceof CommandBlock) {
                 CommandBlock commandBlock = (CommandBlock) block;
                 String command = commandBlock.getCommand();
-                if (command.length() > 0) {
+                if (command != null) {
                     meta.add(command);
                 }
             }

@@ -505,7 +505,7 @@ public class PurgeCommand {
         new Thread(() -> runPurge(player, filter, optimize, announce)).start();
     }
 
-    private static void runPurge(CommandSender player, PurgeFilter filter, boolean optimize, Runnable announce) {
+    static void runPurge(CommandSender player, PurgeFilter filter, boolean optimize, Runnable announce) {
         boolean purgeClaimed = false;
         boolean consumerPaused = false;
         boolean duckTransaction = false;
@@ -889,6 +889,7 @@ public class PurgeCommand {
                 }
                 catch (Exception e) {
                     reportPurgeFailure(e);
+                    return new SQLiteRebuild(removed, true);
                 }
             }
 

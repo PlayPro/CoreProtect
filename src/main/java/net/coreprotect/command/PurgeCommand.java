@@ -515,6 +515,7 @@ public class PurgeCommand {
         boolean maintenanceLocked = false;
         boolean resumePersistence = true;
         boolean handoffStarted = false;
+        boolean mysqlPurgeStarted = false;
         Connection connection = null;
         Statement transactionStatement = null;
         Path sqliteTemporary = null;
@@ -605,11 +606,8 @@ public class PurgeCommand {
                 abort = rebuild.aborted;
             }
             else {
-                Long deleted = deleteRelationalRows(connection, player, filter);
-                if (deleted == null) {
-                    return;
-                }
-                removed = deleted;
+                mysqlPurgeStarted = ConfigHandler.databaseType.isMySQL();
+                removed = deleteRelationalRows(connection, player, filter);
             }
 
             if (ConfigHandler.databaseType.isMySQL() && optimize) {
@@ -707,7 +705,10 @@ public class PurgeCommand {
                 Thread.currentThread().interrupt();
             }
             else {
-                Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_FAILED));
+                if (mysqlPurgeStarted) {
+                    EntitySpawnTracking.invalidateDatabaseVerification();
+                }
+                Chat.sendGlobalMessage(player, Phrase.build(mysqlPurgeStarted ? Phrase.PURGE_INCOMPLETE : Phrase.PURGE_FAILED));
                 if (reloadRequired) {
                     Chat.sendGlobalMessage(player, Phrase.build(Phrase.RELOAD_FAILED));
                 }
@@ -905,87 +906,86 @@ public class PurgeCommand {
         return new SQLiteRebuild(removed, false);
     }
 
-    static Long deleteRelationalRows(Connection connection, CommandSender player, PurgeFilter purgeFilter) throws Exception {
+    static long deleteRelationalRows(Connection connection, CommandSender player, PurgeFilter purgeFilter) throws SQLException, InterruptedException {
         long removed = 0;
-        String query;
         for (String table : ConfigHandler.databaseTables) {
             requirePurgeNotCancelled();
             Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_PROCESSING, table.replace('_', ' ')));
-            try {
-                String purgeCondition = purgeFilter.deleteCondition(table);
-                boolean deleteEntities = purgeCondition != null && table.equals("block") && purgeFilter.removesKills() && !purgeFilter.purgesEntitiesByTime();
-                // Kill rows and their entity data go together, or the kept kills lose their rollback data
-                boolean atomic = deleteEntities && ConfigHandler.databaseType.isMySQL();
-                if (atomic) {
-                    connection.setAutoCommit(false);
-                }
-                try {
-                    long deleted = 0;
-                    if (deleteEntities) {
-                        query = purgeFilter.deleteEntitiesOfPurgedKills(ConfigHandler.databaseType, ConfigHandler.prefix);
-                        deleted = deleted + executePurgeUpdate(connection, query);
-                    }
-
-                    if (purgeCondition != null) {
-                        query = "DELETE FROM " + ConfigHandler.prefix + table + " WHERE " + purgeCondition;
-                        deleted = deleted + executePurgeUpdate(connection, query);
-                    }
-
-                    if (atomic) {
-                        requirePurgeNotCancelled();
-                        connection.commit();
-                        connection.setAutoCommit(true);
-                    }
-                    removed = removed + deleted;
-                }
-                catch (Exception e) {
-                    if (atomic) {
-                        try {
-                            connection.rollback();
-                            connection.setAutoCommit(true);
-                        }
-                        catch (SQLException rollbackException) {
-                            e.addSuppressed(rollbackException);
-                        }
-                    }
-                    throw e;
-                }
+            String purgeCondition = purgeFilter.deleteCondition(table);
+            if (purgeCondition == null) {
+                continue;
             }
-            catch (Exception e) {
-                if (e instanceof InterruptedException || ConfigHandler.databaseType.isDuckDB()) {
-                    throw e;
+            String query = "DELETE FROM " + ConfigHandler.prefix + table + " WHERE " + purgeCondition;
+            if (table.equals("block") && purgeFilter.removesKills() && !purgeFilter.purgesEntitiesByTime()) {
+                String entityQuery = purgeFilter.deleteEntitiesOfPurgedKills(ConfigHandler.databaseType, ConfigHandler.prefix);
+                if (ConfigHandler.databaseType.isMySQL()) {
+                    removed += deleteMySqlKillRows(connection, entityQuery, query);
+                    continue;
                 }
-                if (!ConfigHandler.serverRunning) {
-                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_FAILED));
-                    return null;
-                }
-
-                reportPurgeFailure(e);
+                removed += executePurgeUpdate(connection, entityQuery);
             }
+            removed += executePurgeUpdate(connection, query);
         }
         return removed;
     }
 
-    private static long sweepMySqlOrphans(Connection connection, PurgeFilter purgeFilter) throws Exception {
-        long removed = 0;
+    private static long deleteMySqlKillRows(Connection connection, String entityQuery, String blockQuery) throws SQLException, InterruptedException {
+        boolean restoredAfterRollback = false;
+        try {
+            connection.setAutoCommit(false);
+            long removed;
+            try {
+                removed = executePurgeUpdate(connection, entityQuery) + executePurgeUpdate(connection, blockQuery);
+                requirePurgeNotCancelled();
+                connection.commit();
+            }
+            catch (SQLException | InterruptedException | RuntimeException | Error failure) {
+                try {
+                    connection.rollback();
+                    connection.setAutoCommit(true);
+                    restoredAfterRollback = true;
+                }
+                catch (SQLException | RuntimeException cleanupFailure) {
+                    failure.addSuppressed(cleanupFailure);
+                }
+                throw failure;
+            }
+            connection.setAutoCommit(true);
+            return removed;
+        }
+        catch (SQLException | InterruptedException | RuntimeException | Error failure) {
+            if (!restoredAfterRollback) {
+                evictMySqlPurgeConnection(connection, failure);
+            }
+            throw failure;
+        }
+    }
+
+    private static void evictMySqlPurgeConnection(Connection connection, Throwable failure) {
+        var pool = ConfigHandler.hikariDataSource;
+        if (pool != null) {
+            try {
+                pool.evictConnection(connection);
+            }
+            catch (RuntimeException evictionFailure) {
+                failure.addSuppressed(evictionFailure);
+            }
+        }
+    }
+
+    private static long sweepMySqlOrphans(Connection connection, PurgeFilter purgeFilter) throws SQLException, InterruptedException {
         try {
             for (String sweepQuery : PurgeFilter.mysqlOrphanSweepSetup(ConfigHandler.prefix)) {
                 executePurgeStatement(connection, sweepQuery);
             }
-            removed = removed + executePurgeUpdate(connection, purgeFilter.mysqlOrphanSweepDelete(ConfigHandler.prefix));
+            long removed = executePurgeUpdate(connection, purgeFilter.mysqlOrphanSweepDelete(ConfigHandler.prefix));
+            executePurgeStatement(connection, PurgeFilter.mysqlOrphanSweepTeardown(ConfigHandler.prefix));
+            return removed;
         }
-        catch (Exception e) {
-            reportPurgeFailure(e);
+        catch (SQLException | InterruptedException | RuntimeException | Error failure) {
+            evictMySqlPurgeConnection(connection, failure);
+            throw failure;
         }
-        finally {
-            try {
-                executePurgeStatement(connection, PurgeFilter.mysqlOrphanSweepTeardown(ConfigHandler.prefix));
-            }
-            catch (Exception e) {
-                reportPurgeFailure(e);
-            }
-        }
-        return removed;
     }
 
     static long deleteOrphanedEntityRows(Connection connection, String retainedPrefix, PurgeFilter filter) throws Exception {

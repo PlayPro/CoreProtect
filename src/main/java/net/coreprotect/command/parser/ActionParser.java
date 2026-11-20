@@ -85,10 +85,14 @@ public class ActionParser {
                     for (String action : actionSpec.split(",", -1)) {
                         if (!action.isEmpty()) {
                             ParseResult parsedAction = parseActions(new String[] { "lookup", "a:" + action }, false);
-                            if (parsedAction.getActions().contains(-1)) {
+                            List<Integer> selectedActions = parsedAction.getActions();
+                            if (selectedActions.contains(-1)) {
                                 return invalidAction();
                             }
-                            result.addAll(parsedAction.getActions());
+                            if (!result.isEmpty() && lookupFamily(result.get(0)) != lookupFamily(selectedActions.get(0))) {
+                                return new ParseResult(List.of(-1), EntityActionFilter.NONE, action);
+                            }
+                            result.addAll(selectedActions);
                             entityActionFilter = entityActionFilter.merge(parsedAction.getEntityActionFilter());
                         }
                     }
@@ -113,6 +117,22 @@ public class ActionParser {
 
     private static ParseResult invalidAction() {
         return new ParseResult(List.of(-1), EntityActionFilter.NONE);
+    }
+
+    private static int lookupFamily(int action) {
+        switch (action) {
+            case LookupActions.BLOCK_PLACE:
+            case LookupActions.INTERACTION:
+            case LookupActions.ENTITY_KILL:
+            case LookupActions.ENTITY_SPAWN:
+                return LookupActions.BLOCK_BREAK;
+            case LookupActions.ITEM:
+                return LookupActions.CONTAINER;
+            case LookupActions.COMMAND:
+                return LookupActions.CHAT;
+            default:
+                return action;
+        }
     }
 
     private static EntityActionFilter applySingleAction(String argument, List<Integer> result) {
@@ -208,10 +228,16 @@ public class ActionParser {
 
         private final List<Integer> actions;
         private final EntityActionFilter entityActionFilter;
+        private final String incompatibleAction;
 
         private ParseResult(List<Integer> actions, EntityActionFilter entityActionFilter) {
+            this(actions, entityActionFilter, null);
+        }
+
+        private ParseResult(List<Integer> actions, EntityActionFilter entityActionFilter, String incompatibleAction) {
             this.actions = actions;
             this.entityActionFilter = entityActionFilter;
+            this.incompatibleAction = incompatibleAction;
         }
 
         public List<Integer> getActions() {
@@ -220,6 +246,10 @@ public class ActionParser {
 
         public EntityActionFilter getEntityActionFilter() {
             return entityActionFilter;
+        }
+
+        public String getIncompatibleAction() {
+            return incompatibleAction;
         }
     }
 

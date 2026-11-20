@@ -91,6 +91,11 @@ public class LookupCommand {
         List<String> argUsers = CommandParser.parseUsers(args);
         Integer[] argRadius = CommandParser.parseRadius(args, player, lo);
         ActionParser.ParseResult actionResult = CommandParser.parseActions(args, true);
+        String incompatibleAction = actionResult.getIncompatibleAction();
+        if (incompatibleAction != null) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INCOMPATIBLE_ACTION, "a:" + incompatibleAction));
+            return;
+        }
         List<Integer> argAction = actionResult.getActions();
         EntityActionFilter argEntityActionFilter = actionResult.getEntityActionFilter();
         List<Object> argBlocks = CommandParser.parseRestricted(player, args, argAction);

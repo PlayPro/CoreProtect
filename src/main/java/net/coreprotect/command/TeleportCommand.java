@@ -33,12 +33,10 @@ public class TeleportCommand {
             return;
         }
 
-        if (ConfigHandler.teleportThrottle.get(player.getName()) != null) {
-            Object[] lookupThrottle = ConfigHandler.teleportThrottle.get(player.getName());
-            if ((boolean) lookupThrottle[0] || ((System.currentTimeMillis() - (long) lookupThrottle[1])) < 500) {
-                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.COMMAND_THROTTLED));
-                return;
-            }
+        Object[] teleportThrottle = ConfigHandler.teleportThrottle.get(player.getName());
+        if (teleportThrottle != null && ((boolean) teleportThrottle[0] || System.currentTimeMillis() - (long) teleportThrottle[1] < 500)) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.COMMAND_THROTTLED));
+            return;
         }
 
         if (resultc < 3 || resultc > 5) {

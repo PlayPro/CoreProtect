@@ -290,6 +290,7 @@ public class NetworkHandler implements Runnable {
 
     private static HttpResult executeHttpRequest(String initialUrl, String method, String userAgent, String contentType, byte[] postBody, boolean readFullBody) throws IOException {
         String currentUrl = initialUrl;
+        String requestMethod = method;
         for (int redirectCount = 0; redirectCount <= MAX_HTTP_REDIRECTS; redirectCount++) {
             URL url = URI.create(currentUrl).toURL();
             String currentScheme = url.getProtocol() == null ? "" : url.getProtocol().toLowerCase(Locale.ROOT);
@@ -299,14 +300,14 @@ public class NetworkHandler implements Runnable {
 
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             try {
-                connection.setRequestMethod(method);
+                connection.setRequestMethod(requestMethod);
                 connection.setRequestProperty("Accept-Charset", "UTF-8");
                 connection.setRequestProperty("User-Agent", userAgent);
                 connection.setInstanceFollowRedirects(false);
                 connection.setUseCaches(false);
                 connection.setConnectTimeout(HTTP_TIMEOUT_MILLIS);
                 connection.setReadTimeout(HTTP_TIMEOUT_MILLIS);
-                if (postBody != null && "POST".equals(method)) {
+                if (postBody != null && "POST".equals(requestMethod)) {
                     connection.setRequestProperty("Content-Type", contentType);
                     connection.setRequestProperty("Content-Length", Integer.toString(postBody.length));
                     connection.setDoOutput(true);
@@ -341,6 +342,9 @@ public class NetworkHandler implements Runnable {
                     }
                     if ("https".equals(currentScheme) && "http".equals(nextScheme)) {
                         throw new IOException("Refusing HTTPS to HTTP downgrade redirect");
+                    }
+                    if (status == HttpURLConnection.HTTP_SEE_OTHER && "POST".equals(requestMethod)) {
+                        requestMethod = "GET";
                     }
                     currentUrl = nextUri.toString();
                     continue;

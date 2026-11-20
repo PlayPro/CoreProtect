@@ -168,7 +168,7 @@ public class EntityUtil {
         }
         final Location entityLocation = restoreLocation;
         Runnable task = () -> {
-            if (allowed != null && completion.isDone()) {
+            if (completion.isDone()) {
                 return;
             }
             Entity entity = null;
@@ -178,12 +178,12 @@ public class EntityUtil {
                     return;
                 }
                 entity = entityLocation.getWorld().spawnEntity(entityLocation, type);
-                if (allowed != null && (entity == null || !entity.isValid())) {
+                if (entity == null || !entity.isValid()) {
                     completion.complete(null);
                     return;
                 }
 
-                if (list.isEmpty()) {
+                if (list.isEmpty() || completion.isDone()) {
                     completeEntityRestore(completion, entity, legacyTransition);
                     return;
                 }
@@ -514,7 +514,7 @@ public class EntityUtil {
                 if (entity instanceof Villager) {
                     BukkitAdapter.ADAPTER.refreshVillagerBrain((Villager) entity);
                 }
-                if (legacyTransition) {
+                if (legacyTransition && entity.isValid()) {
                     if (list.size() > 7 && list.get(7) instanceof String) {
                         EntitySpawnTracking.trackRevivedEntity(entity, UUID.fromString((String) list.get(7)));
                     }
@@ -773,8 +773,10 @@ public class EntityUtil {
     }
 
     private static void completeEntityRestore(CompletableFuture<Entity> completion, Entity entity, boolean legacyTransition) {
-        if (!completion.complete(entity) && !legacyTransition) {
+        boolean valid = entity.isValid();
+        if (!completion.complete(valid ? entity : null) && valid && !legacyTransition) {
             EntitySpawnTracking.removeWithoutRemovalLog(entity);
+            EntitySpawnTracking.forget(entity.getUniqueId());
         }
     }
 

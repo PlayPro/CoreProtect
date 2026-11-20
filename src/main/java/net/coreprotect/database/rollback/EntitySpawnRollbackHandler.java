@@ -667,7 +667,9 @@ public final class EntitySpawnRollbackHandler {
                 Entity entity = null;
                 try {
                     entity = work.location.getWorld().spawnEntity(work.location, work.type);
-                    EntitySpawnTracking.restoreState(entity, work.record.getState());
+                    if (entity != null && entity.isValid()) {
+                        EntitySpawnTracking.restoreState(entity, work.record.getState());
+                    }
                     completeFrom(completion, completeRestoredEntity(context, work, entity));
                 }
                 catch (Exception e) {
@@ -705,13 +707,6 @@ public final class EntitySpawnRollbackHandler {
                             ? "Entity restoration timed out after 30 seconds" : "Entity restoration failed", work);
                     context.cancel();
                     ErrorReporter.report(throwable);
-                    completion.complete(false);
-                    context.endMutation();
-                    return;
-                }
-                if (entity == null) {
-                    context.reportFailure("Entity restoration did not return an entity", work);
-                    context.cancel();
                     completion.complete(false);
                     context.endMutation();
                     return;
@@ -764,6 +759,12 @@ public final class EntitySpawnRollbackHandler {
         CompletableFuture<Boolean> completion = new CompletableFuture<>();
         boolean retained = false;
         try {
+            if (entity == null || !entity.isValid()) {
+                context.reportFailure("Entity restoration did not produce a valid entity", work);
+                context.cancel();
+                completion.complete(false);
+                return completion;
+            }
             if (!applyPreparedTransactions(context, work, entity) || (context.isCancelled() && !work.transactionContentsApplied)) {
                 context.cancel();
                 completion.complete(false);
@@ -808,11 +809,11 @@ public final class EntitySpawnRollbackHandler {
         finally {
             try {
                 if (!retained) {
-                    EntitySpawnTracking.forget(entity.getUniqueId());
-                    if (entity.isValid()) {
-                        EntitySpawnTracking.removeWithoutRemovalLog(entity);
-                    }
+                    discardRestoredEntity(entity);
                 }
+            }
+            catch (Exception cleanupException) {
+                ErrorReporter.report(cleanupException);
             }
             finally {
                 context.endMutation();

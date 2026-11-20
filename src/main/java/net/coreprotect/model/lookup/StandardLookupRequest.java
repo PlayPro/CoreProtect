@@ -8,31 +8,41 @@ import org.bukkit.Location;
 import net.coreprotect.model.action.EntityActionFilter;
 
 public final class StandardLookupRequest {
+    public enum Origin {
+        LOOKUP, NEAR, INSPECT
+    }
+
     public final Filters filters;
     public final Scope scope;
     public final int page;
     public final int pageSize;
     public final LookupOutputMode outputMode;
     public final LookupRollbackState rollbackState;
+    public final Origin origin;
 
     public StandardLookupRequest(Filters filters, Scope scope, int page, int pageSize, LookupOutputMode outputMode, LookupRollbackState rollbackState) {
+        this(filters, scope, page, pageSize, outputMode, rollbackState, Origin.LOOKUP);
+    }
+
+    public StandardLookupRequest(Filters filters, Scope scope, int page, int pageSize, LookupOutputMode outputMode, LookupRollbackState rollbackState, Origin origin) {
         this.filters = filters;
         this.scope = scope;
         this.page = page;
         this.pageSize = pageSize;
         this.outputMode = outputMode;
         this.rollbackState = rollbackState;
+        this.origin = origin;
     }
 
     public StandardLookupRequest forPage(int page, int pageSize) {
-        return new StandardLookupRequest(filters, scope, page, pageSize, outputMode, rollbackState);
+        return new StandardLookupRequest(filters, scope, page, pageSize, outputMode, rollbackState, origin);
     }
 
     public StandardLookupRequest forSession(int resolvedWorldId) {
         Scope resolvedScope = new Scope(scope.location, scope.x, scope.y, scope.z, scope.worldId, resolvedWorldId, null,
                 scope.startTime, scope.endTime, scope.radius);
         LookupOutputMode savedMode = outputMode == LookupOutputMode.COUNT ? LookupOutputMode.DETAIL : outputMode;
-        return new StandardLookupRequest(filters, resolvedScope, page, pageSize, savedMode, rollbackState);
+        return new StandardLookupRequest(filters, resolvedScope, page, pageSize, savedMode, rollbackState, origin);
     }
 
     public static final class Filters {

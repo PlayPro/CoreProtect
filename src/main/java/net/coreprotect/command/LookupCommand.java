@@ -117,8 +117,7 @@ public class LookupCommand {
             return;
         }
 
-        boolean pageLookup = argAction.contains(LookupActions.CHAT) || argAction.contains(LookupActions.COMMAND)
-                || argAction.contains(LookupActions.SESSION) || argAction.contains(LookupActions.USERNAME) || argAction.contains(LookupActions.SIGN);
+        boolean pageLookup = isTextOrSessionLookup(argAction);
 
         if (!permission) {
             if (!pageLookup || !player.hasPermission("coreprotect.inspect")) {
@@ -164,61 +163,12 @@ public class LookupCommand {
         if (!checkLookupThrottle(player)) {
             return;
         }
-        boolean allPermission = false;
-        if (args[0].equals("near") && player.hasPermission("coreprotect.lookup.near")) {
-            allPermission = true;
+        boolean near = args[0].equals("near") && player.hasPermission("coreprotect.lookup.near");
+        if (!near && !hasLookupActionPermissions(player, argAction)) {
+            sendNoPermission(player);
+            return;
         }
-        if (!allPermission) {
-            if (!pageLookup && (argAction.isEmpty() || argAction.contains(LookupActions.BLOCK_BREAK) || argAction.contains(LookupActions.BLOCK_PLACE)) && !player.hasPermission("coreprotect.lookup.block")) {
-                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
-                return;
-            }
-            if (argAction.contains(LookupActions.INTERACTION) && !player.hasPermission("coreprotect.lookup.click")) {
-                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
-                return;
-            }
-            if (argAction.contains(LookupActions.ENTITY_KILL) && !player.hasPermission("coreprotect.lookup.kill")) {
-                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
-                return;
-            }
-            if (argAction.contains(LookupActions.ENTITY_SPAWN) && !player.hasPermission("coreprotect.lookup.spawn")) {
-                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
-                return;
-            }
-            if (argAction.contains(LookupActions.CONTAINER) && !argAction.contains(LookupActions.ITEM) && !player.hasPermission("coreprotect.lookup.container")) {
-                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
-                return;
-            }
-            if (argAction.contains(LookupActions.CHAT) && !player.hasPermission("coreprotect.lookup.chat")) {
-                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
-                return;
-            }
-            if (argAction.contains(LookupActions.COMMAND) && !player.hasPermission("coreprotect.lookup.command")) {
-                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
-                return;
-            }
-            if (argAction.contains(LookupActions.SESSION) && !player.hasPermission("coreprotect.lookup.session")) {
-                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
-                return;
-            }
-            if (argAction.contains(LookupActions.USERNAME) && !player.hasPermission("coreprotect.lookup.username")) {
-                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
-                return;
-            }
-            if (argAction.contains(LookupActions.SIGN) && !player.hasPermission("coreprotect.lookup.sign")) {
-                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
-                return;
-            }
-            if (argAction.contains(LookupActions.ITEM) && !argAction.contains(LookupActions.CONTAINER) && !player.hasPermission("coreprotect.lookup.item")) {
-                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
-                return;
-            }
-            if (LookupActions.isInventoryLookup(argAction) && !player.hasPermission("coreprotect.lookup.inventory")) {
-                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
-                return;
-            }
-        }
-        if (argAction.contains(LookupActions.CHAT) || argAction.contains(LookupActions.COMMAND) || argAction.contains(LookupActions.SESSION) || argAction.contains(LookupActions.USERNAME) || argAction.contains(LookupActions.SIGN)) {
+        if (pageLookup) {
             if (argAction.contains(LookupActions.USERNAME) && (argRadius != null || worldFilterName != null || worldedit)) {
                 Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INCOMPATIBLE_ACTION, "r:"));
                 return;
@@ -325,8 +275,8 @@ public class LookupCommand {
 
                 StandardLookupRequest.Scope container = containerScope(player.getName());
                 if (container != null) {
-                    if (!player.hasPermission("coreprotect.lookup.container") && !allPermission) {
-                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
+                    if (!near && !player.hasPermission("coreprotect.lookup.container")) {
+                        sendNoPermission(player);
                         return;
                     }
                     x = container.x;
@@ -354,7 +304,9 @@ public class LookupCommand {
                 long timeEnd = endTime > 0 ? now - endTime : 0;
                 StandardLookupRequest.Filters filters = new StandardLookupRequest.Filters(rollbackusers, argBlocks, argExclude, argExcludeUsers, argAction, argEntityActionFilter, argFilters);
                 StandardLookupRequest.Scope scope = new StandardLookupRequest.Scope(lo, x, y, z, wid, argWid, pendingWorldName, timeStart, timeEnd, argRadius);
-                startStandardLookup(player, command, new StandardLookupRequest(filters, scope, 1, rows, outputMode, rollbackState), null);
+                StandardLookupRequest.Origin origin = near ? StandardLookupRequest.Origin.NEAR
+                        : permission ? StandardLookupRequest.Origin.LOOKUP : StandardLookupRequest.Origin.INSPECT;
+                startStandardLookup(player, command, new StandardLookupRequest(filters, scope, 1, rows, outputMode, rollbackState, origin), null);
             }
             catch (Exception e) {
                 ErrorReporter.report(e);
@@ -376,6 +328,51 @@ public class LookupCommand {
         }
     }
 
+    private static boolean isTextOrSessionLookup(List<Integer> actions) {
+        return actions.contains(LookupActions.CHAT) || actions.contains(LookupActions.COMMAND)
+                || actions.contains(LookupActions.SESSION) || actions.contains(LookupActions.USERNAME) || actions.contains(LookupActions.SIGN);
+    }
+
+    private static boolean hasLookupActionPermissions(CommandSender player, List<Integer> actions) {
+        boolean inspectedContainer = actions.contains(LookupActions.INSPECT_CONTAINER);
+        boolean container = actions.contains(LookupActions.CONTAINER);
+        boolean item = actions.contains(LookupActions.ITEM);
+        boolean blocks = !isTextOrSessionLookup(actions) && (actions.isEmpty() || (inspectedContainer && actions.size() == 1)
+                || actions.contains(LookupActions.BLOCK_BREAK) || actions.contains(LookupActions.BLOCK_PLACE));
+        return (!blocks || player.hasPermission("coreprotect.lookup.block"))
+                && (!actions.contains(LookupActions.INTERACTION) || player.hasPermission("coreprotect.lookup.click"))
+                && (!actions.contains(LookupActions.ENTITY_KILL) || player.hasPermission("coreprotect.lookup.kill"))
+                && (!actions.contains(LookupActions.ENTITY_SPAWN) || player.hasPermission("coreprotect.lookup.spawn"))
+                && (!(inspectedContainer || (container && !item)) || player.hasPermission("coreprotect.lookup.container"))
+                && (!actions.contains(LookupActions.CHAT) || player.hasPermission("coreprotect.lookup.chat"))
+                && (!actions.contains(LookupActions.COMMAND) || player.hasPermission("coreprotect.lookup.command"))
+                && (!actions.contains(LookupActions.SESSION) || player.hasPermission("coreprotect.lookup.session"))
+                && (!actions.contains(LookupActions.USERNAME) || player.hasPermission("coreprotect.lookup.username"))
+                && (!actions.contains(LookupActions.SIGN) || player.hasPermission("coreprotect.lookup.sign"))
+                && (!(item && !container) || player.hasPermission("coreprotect.lookup.item"))
+                && (!LookupActions.isInventoryLookup(actions) || player.hasPermission("coreprotect.lookup.inventory"));
+    }
+
+    private static boolean canResumeStandardLookup(CommandSender player, StandardLookupRequest request) {
+        if (request.origin == StandardLookupRequest.Origin.NEAR) {
+            return player.hasPermission("coreprotect.lookup.near");
+        }
+        String permission = request.origin == StandardLookupRequest.Origin.INSPECT ? "coreprotect.inspect" : "coreprotect.lookup";
+        return player.hasPermission(permission) && hasLookupActionPermissions(player, request.filters.actions);
+    }
+
+    private static boolean requireInspectPermission(CommandSender player) {
+        if (player.hasPermission("coreprotect.inspect")) {
+            return true;
+        }
+        sendNoPermission(player);
+        return false;
+    }
+
+    private static void sendNoPermission(CommandSender player) {
+        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
+    }
+
     private static boolean handlePagination(CommandSender player, Command command, boolean permission, String[] args) {
         String argument = args.length > 1 ? args[1].trim() : "";
         boolean explicitPage = argument.regionMatches(true, 0, PAGE_PREFIX, 0, PAGE_PREFIX.length());
@@ -383,7 +380,7 @@ public class LookupCommand {
             return false;
         }
 
-        if (!permission && !player.hasPermission("coreprotect.inspect")) {
+        if (!permission && !player.hasPermission("coreprotect.inspect") && !player.hasPermission("coreprotect.lookup.near")) {
             Chat.sendMessage(player, new ChatMessage(Phrase.build(Phrase.NO_PERMISSION)).build());
             return true;
         }
@@ -424,6 +421,10 @@ public class LookupCommand {
                 sendNoSavedLookup(player);
                 return;
             }
+            if (!canResumeStandardLookup(player, session.request)) {
+                sendNoPermission(player);
+                return;
+            }
             int rows = pageRows(player, page, session.request.pageSize);
             if (rows == 0) {
                 return;
@@ -438,6 +439,9 @@ public class LookupCommand {
             Integer entity = ConfigHandler.lookupEntityInteraction.get(name);
             if (entity == null) {
                 sendNoSavedLookup(player);
+                return;
+            }
+            if (!requireInspectPermission(player)) {
                 return;
             }
             int rows = pageRows(player, page, 7);
@@ -464,6 +468,9 @@ public class LookupCommand {
         String history = ConfigHandler.lookupCommand.get(name);
         if (history == null) {
             sendNoSavedLookup(player);
+            return;
+        }
+        if (!requireInspectPermission(player)) {
             return;
         }
 

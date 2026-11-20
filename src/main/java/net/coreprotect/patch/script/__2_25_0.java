@@ -1,7 +1,6 @@
 package net.coreprotect.patch.script;
 
 import java.sql.Connection;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -113,16 +112,7 @@ public class __2_25_0 {
 
     private static boolean widenMySQLEntityData(Statement statement, String table) {
         try {
-            try (ResultSet resultSet = statement.executeQuery("SHOW COLUMNS FROM " + table + " LIKE 'data'")) {
-                if (resultSet.next()) {
-                    String type = resultSet.getString("Type");
-                    if ("mediumblob".equalsIgnoreCase(type) || "longblob".equalsIgnoreCase(type)) {
-                        return true;
-                    }
-                }
-            }
-
-            statement.executeUpdate("ALTER TABLE " + table + " MODIFY data MEDIUMBLOB");
+            MySqlColumnPatch.widenBlob(statement, table, "data");
             return true;
         }
         catch (Exception e) {

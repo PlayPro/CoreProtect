@@ -8,7 +8,6 @@ import java.sql.Statement;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
-import java.util.StringJoiner;
 import java.util.UUID;
 
 import net.coreprotect.config.Config;
@@ -405,48 +404,16 @@ public class __2_25_1 {
         }
     }
 
-    private static void widenMySQLBlockMetadata(Statement statement) throws SQLException {
-        String table = ConfigHandler.prefix + "block";
-        String alterQuery = "ALTER TABLE " + table + " MODIFY meta MEDIUMBLOB";
-        boolean found;
-        String type;
-        try (ResultSet columns = statement.executeQuery("SHOW COLUMNS FROM " + table + " LIKE 'meta'")) {
-            found = columns.next();
-            type = found ? columns.getString("Type") : null;
-        }
-        catch (Exception ignored) {
-            statement.executeUpdate(alterQuery);
-            return;
-        }
-        if (!found) {
-            throw new SQLException("Missing MySQL column " + table + ".meta");
-        }
-        if ("mediumblob".equalsIgnoreCase(type) || "longblob".equalsIgnoreCase(type)) {
-            return;
-        }
-        if (!"blob".equalsIgnoreCase(type) && !"tinyblob".equalsIgnoreCase(type)) {
-            throw new SQLException("Unsupported MySQL " + table + ".meta type: " + type);
-        }
-        statement.executeUpdate(alterQuery);
-    }
-
     private static void widenMySQLArt(Statement statement) throws SQLException {
         String table = ConfigHandler.prefix + "art_map";
-        String type;
-        try (ResultSet columns = statement.executeQuery("SHOW COLUMNS FROM " + table + " LIKE 'art'")) {
-            if (!columns.next()) {
-                throw new SQLException("Missing MySQL column " + table + ".art");
-            }
-            type = columns.getString("Type");
-        }
-        String normalizedType = type == null ? "" : type.toLowerCase(Locale.ROOT);
-        if (normalizedType.equals("text") || normalizedType.equals("mediumtext") || normalizedType.equals("longtext")) {
+        String type = MySqlColumnPatch.type(statement, table, "art");
+        if (type.equals("text") || type.equals("mediumtext") || type.equals("longtext")) {
             return;
         }
-        if (!normalizedType.startsWith("varchar(") && !normalizedType.startsWith("char(") && !normalizedType.equals("tinytext")) {
+        if (!type.startsWith("varchar(") && !type.startsWith("char(") && !type.equals("tinytext")) {
             throw new SQLException("Unsupported MySQL " + table + ".art type: " + type);
         }
-        statement.executeUpdate("ALTER TABLE " + table + " MODIFY art TEXT");
+        MySqlColumnPatch.widen(statement, table, "art", type, "TEXT");
     }
 
     private static void widenMySQLSignText(Statement statement) throws SQLException {
@@ -457,7 +424,7 @@ public class __2_25_1 {
                 types.put(columns.getString("Field").toLowerCase(Locale.ROOT), columns.getString("Type"));
             }
         }
-        StringJoiner changes = new StringJoiner(", ");
+        Map<String, String> changes = new LinkedHashMap<>();
         for (int line = 1; line <= 8; line++) {
             String column = "line_" + line;
             String existingType = types.get(column);
@@ -471,18 +438,16 @@ public class __2_25_1 {
             if (!type.startsWith("varchar(") && !type.startsWith("char(") && !type.equals("tinytext")) {
                 throw new SQLException("Unsupported MySQL " + table + "." + column + " type: " + existingType);
             }
-            changes.add("MODIFY " + column + " TEXT");
+            changes.put(column, type);
         }
-        if (changes.length() > 0) {
-            statement.executeUpdate("ALTER TABLE " + table + " " + changes);
-        }
+        MySqlColumnPatch.widen(statement, table, changes, "TEXT");
     }
 
     protected static boolean patch(Statement statement) {
         try {
             if (Config.getGlobal().MYSQL) {
                 widenMySQLSignText(statement);
-                widenMySQLBlockMetadata(statement);
+                MySqlColumnPatch.widenBlob(statement, ConfigHandler.prefix + "block", "meta");
                 widenMySQLArt(statement);
             }
             addSignRollbackColumn(statement, Config.getGlobal().MYSQL ? DatabaseType.MYSQL : DatabaseType.SQLITE);

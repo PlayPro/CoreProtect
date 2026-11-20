@@ -1,9 +1,7 @@
 package net.coreprotect.patch.script;
 
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Locale;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
@@ -35,34 +33,25 @@ public class __2_26_0 {
     }
 
     private static void widenMySQLUsernameColumn(Statement statement, String table) throws SQLException {
-        String type;
-        try (ResultSet columns = statement.executeQuery("SHOW COLUMNS FROM " + table + " LIKE 'user'")) {
-            if (!columns.next()) {
-                throw new SQLException("Missing MySQL column " + table + ".user");
-            }
-            type = columns.getString("Type");
+        String type = MySqlColumnPatch.type(statement, table, "user");
+        if (type.equals("tinytext")) {
+            MySqlColumnPatch.widen(statement, table, "user", type, "TEXT");
         }
-        if (hasMySQLUsernameCapacity(table, type)) {
-            return;
+        else if (!hasMySQLUsernameCapacity(table, type)) {
+            MySqlColumnPatch.widen(statement, table, "user", type, "VARCHAR(" + StringUtils.MAX_USERNAME_LENGTH + ")");
         }
-        statement.executeUpdate("ALTER TABLE " + table + " MODIFY user VARCHAR(" + StringUtils.MAX_USERNAME_LENGTH + ")");
     }
 
     private static boolean hasMySQLUsernameCapacity(String table, String type) throws SQLException {
-        String normalizedType = type == null ? "" : type.trim().toLowerCase(Locale.ROOT);
-        if (normalizedType.equals("text") || normalizedType.equals("mediumtext") || normalizedType.equals("longtext")) {
+        if (type.equals("text") || type.equals("mediumtext") || type.equals("longtext")) {
             return true;
         }
-        if (normalizedType.equals("tinytext")) {
-            return false;
-        }
-        int openParen = normalizedType.indexOf('(');
-        int closeParen = normalizedType.indexOf(')', openParen + 1);
-        if ((normalizedType.startsWith("varchar(") || normalizedType.startsWith("char("))
-                && closeParen > openParen + 1 && closeParen == normalizedType.length() - 1) {
+        int openParen = type.indexOf('(');
+        int closeParen = type.indexOf(')', openParen + 1);
+        if ((type.startsWith("varchar(") || type.startsWith("char(")) && closeParen > openParen + 1 && closeParen == type.length() - 1) {
             int length;
             try {
-                length = Integer.parseInt(normalizedType.substring(openParen + 1, closeParen));
+                length = Integer.parseInt(type.substring(openParen + 1, closeParen));
             }
             catch (NumberFormatException exception) {
                 throw new SQLException("Unsupported MySQL " + table + ".user type: " + type, exception);

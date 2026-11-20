@@ -44,6 +44,15 @@ import net.coreprotect.utility.ErrorReporter;
 
 public class LookupCommand {
     private static final String PAGE_PREFIX = "page:";
+    private static final Map<Integer, String> LOOKUP_ACTION_PERMISSIONS = Map.of(
+            LookupActions.INTERACTION, "coreprotect.lookup.click",
+            LookupActions.ENTITY_KILL, "coreprotect.lookup.kill",
+            LookupActions.ENTITY_SPAWN, "coreprotect.lookup.spawn",
+            LookupActions.CHAT, "coreprotect.lookup.chat",
+            LookupActions.COMMAND, "coreprotect.lookup.command",
+            LookupActions.SESSION, "coreprotect.lookup.session",
+            LookupActions.USERNAME, "coreprotect.lookup.username",
+            LookupActions.SIGN, "coreprotect.lookup.sign");
 
     public static void runCommand(CommandSender player, Command command, boolean permission, String[] args) {
         int resultc = args.length;
@@ -335,22 +344,27 @@ public class LookupCommand {
 
     private static boolean hasLookupActionPermissions(CommandSender player, List<Integer> actions) {
         boolean inspectedContainer = actions.contains(LookupActions.INSPECT_CONTAINER);
-        boolean container = actions.contains(LookupActions.CONTAINER);
-        boolean item = actions.contains(LookupActions.ITEM);
         boolean blocks = !isTextOrSessionLookup(actions) && (actions.isEmpty() || (inspectedContainer && actions.size() == 1)
                 || actions.contains(LookupActions.BLOCK_BREAK) || actions.contains(LookupActions.BLOCK_PLACE));
-        return (!blocks || player.hasPermission("coreprotect.lookup.block"))
-                && (!actions.contains(LookupActions.INTERACTION) || player.hasPermission("coreprotect.lookup.click"))
-                && (!actions.contains(LookupActions.ENTITY_KILL) || player.hasPermission("coreprotect.lookup.kill"))
-                && (!actions.contains(LookupActions.ENTITY_SPAWN) || player.hasPermission("coreprotect.lookup.spawn"))
-                && (!(inspectedContainer || (container && !item)) || player.hasPermission("coreprotect.lookup.container"))
-                && (!actions.contains(LookupActions.CHAT) || player.hasPermission("coreprotect.lookup.chat"))
-                && (!actions.contains(LookupActions.COMMAND) || player.hasPermission("coreprotect.lookup.command"))
-                && (!actions.contains(LookupActions.SESSION) || player.hasPermission("coreprotect.lookup.session"))
-                && (!actions.contains(LookupActions.USERNAME) || player.hasPermission("coreprotect.lookup.username"))
-                && (!actions.contains(LookupActions.SIGN) || player.hasPermission("coreprotect.lookup.sign"))
-                && (!(item && !container) || player.hasPermission("coreprotect.lookup.item"))
-                && (!LookupActions.isInventoryLookup(actions) || player.hasPermission("coreprotect.lookup.inventory"));
+        if (blocks && !player.hasPermission("coreprotect.lookup.block")) {
+            return false;
+        }
+
+        boolean container = actions.contains(LookupActions.CONTAINER);
+        boolean item = actions.contains(LookupActions.ITEM);
+        if ((inspectedContainer || (container && !item)) && !player.hasPermission("coreprotect.lookup.container")) {
+            return false;
+        }
+        if (item && !player.hasPermission(container ? "coreprotect.lookup.inventory" : "coreprotect.lookup.item")) {
+            return false;
+        }
+
+        for (Map.Entry<Integer, String> permission : LOOKUP_ACTION_PERMISSIONS.entrySet()) {
+            if (actions.contains(permission.getKey()) && !player.hasPermission(permission.getValue())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean canResumeStandardLookup(CommandSender player, StandardLookupRequest request) {

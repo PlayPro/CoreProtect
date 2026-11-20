@@ -1,6 +1,7 @@
 package net.coreprotect.paper;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import org.bukkit.Location;
 import org.bukkit.Server;
@@ -40,7 +41,7 @@ public interface PaperInterface {
 
     public boolean isAttached(Block block, Block scanBlock, BlockData blockData, int scanMin);
 
-    public void teleportAsync(Entity entity, Location location);
+    public CompletableFuture<Boolean> teleportAsync(Entity entity, Location location);
 
     public void prefetchChunk(World world, int chunkX, int chunkZ);
 

@@ -148,20 +148,17 @@ public class Teleport {
                         double oldY = targetLocation.getY();
                         targetLocation.setY(checkY);
                         if (folia) {
-                            PaperAdapter.ADAPTER.teleportAsync(player, targetLocation);
+                            PaperAdapter.ADAPTER.teleportAsync(player, targetLocation).whenComplete((teleported, failure) -> {
+                                if (failure != null) {
+                                    ErrorReporter.report(failure);
+                                }
+                                else if (Boolean.TRUE.equals(teleported)) {
+                                    sendTeleportSuccess(player, targetLocation, oldY, enforceTeleport);
+                                }
+                            });
                         }
-                        else {
-                            player.teleport(targetLocation);
-                        }
-
-                        if (!enforceTeleport) {
-                            // Only send a message if the player was moved by at least 1 block
-                            if (targetLocation.getY() >= (oldY + 1.00)) {
-                                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.TELEPORTED_SAFETY));
-                            }
-                        }
-                        else {
-                            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.TELEPORTED, "x" + playerX + "/y" + checkY + "/z" + playerZ + "/" + world.getName()));
+                        else if (player.teleport(targetLocation)) {
+                            sendTeleportSuccess(player, targetLocation, oldY, enforceTeleport);
                         }
                     }
                     if (alert) {
@@ -177,6 +174,16 @@ public class Teleport {
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+        }
+    }
+
+    private static void sendTeleportSuccess(Player player, Location destination, double oldY, boolean enforceTeleport) {
+        if (enforceTeleport) {
+            String coordinates = "x" + destination.getBlockX() + "/y" + destination.getBlockY() + "/z" + destination.getBlockZ() + "/" + destination.getWorld().getName();
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.TELEPORTED, coordinates));
+        }
+        else if (destination.getY() >= oldY + 1.0D) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.TELEPORTED_SAFETY));
         }
     }
 

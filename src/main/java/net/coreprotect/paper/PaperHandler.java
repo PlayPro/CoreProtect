@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 import org.bukkit.Location;
 import org.bukkit.Server;
@@ -59,8 +60,8 @@ public class PaperHandler extends PaperAdapter {
     }
 
     @Override
-    public void teleportAsync(Entity entity, Location location) {
-        entity.teleportAsync(location);
+    public CompletableFuture<Boolean> teleportAsync(Entity entity, Location location) {
+        return entity.teleportAsync(location);
     }
 
     @Override

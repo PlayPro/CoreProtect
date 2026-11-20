@@ -2,6 +2,7 @@ package net.coreprotect.paper;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -123,8 +124,8 @@ public class PaperAdapter implements PaperInterface {
     }
 
     @Override
-    public void teleportAsync(Entity entity, Location location) {
-        entity.teleport(location);
+    public CompletableFuture<Boolean> teleportAsync(Entity entity, Location location) {
+        return CompletableFuture.completedFuture(entity.teleport(location));
     }
 
     @Override

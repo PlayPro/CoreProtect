@@ -93,9 +93,10 @@ public final class DatabaseConfigWriter {
         String lineSeparator = detectLineSeparator(content);
         boolean terminalLineSeparator = content.endsWith("\n") || content.endsWith("\r");
         boolean foundDatabaseType = false;
-        StringBuilder updated = new StringBuilder(content.length() + 32);
+        int firstLineStart = content.startsWith("\uFEFF") ? 1 : 0;
+        StringBuilder updated = new StringBuilder(content.length() + 32).append(content, 0, firstLineStart);
 
-        int offset = 0;
+        int offset = firstLineStart;
         while (offset < content.length()) {
             int lineEnd = offset;
             while (lineEnd < content.length() && content.charAt(lineEnd) != '\r' && content.charAt(lineEnd) != '\n') {
@@ -124,7 +125,7 @@ public final class DatabaseConfigWriter {
         }
 
         if (!foundDatabaseType) {
-            if (updated.length() > 0 && updated.charAt(updated.length() - 1) != '\n' && updated.charAt(updated.length() - 1) != '\r') {
+            if (updated.length() > firstLineStart && updated.charAt(updated.length() - 1) != '\n' && updated.charAt(updated.length() - 1) != '\r') {
                 updated.append(lineSeparator);
             }
             updated.append("database-type: ").append(databaseType);

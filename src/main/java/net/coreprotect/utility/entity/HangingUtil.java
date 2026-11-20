@@ -140,11 +140,15 @@ public class HangingUtil {
                 completion.complete(false);
                 return;
             }
+            Hanging restored = spawn.get();
+            if (restored == null || !restored.isValid()) {
+                completion.complete(false);
+                return;
+            }
             if (existing != null) {
                 existing.remove();
             }
-            Hanging restored = spawn.get();
-            completion.complete(restored != null && restored.isValid());
+            completion.complete(true);
         }
         catch (Exception e) {
             ErrorReporter.report(e);

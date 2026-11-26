@@ -8,6 +8,10 @@ import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.utility.LookupThrottle;
+import net.coreprotect.database.Database;
+import net.coreprotect.database.DuckDBLookupQuery;
+import net.coreprotect.database.LocationQuery;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
@@ -27,88 +31,69 @@ public class InteractionLookup {
                 return result;
             }
 
-            if (command == null) {
-                if (commandSender.hasPermission("coreprotect.co")) {
-                    command = "co";
-                }
-                else if (commandSender.hasPermission("coreprotect.core")) {
-                    command = "core";
-                }
-                else if (commandSender.hasPermission("coreprotect.coreprotect")) {
-                    command = "coreprotect";
-                }
-                else {
-                    command = "co";
-                }
-            }
+            command = InspectorLookup.resolveCommand(command, commandSender);
 
             boolean found = false;
             int x = block.getX();
             int y = block.getY();
             int z = block.getZ();
-            int time = (int) (System.currentTimeMillis() / 1000L);
+            long time = System.currentTimeMillis() / 1000L;
             int worldId = WorldUtils.getWorldId(block.getWorld().getName());
-            int checkTime = 0;
-            int count = 0;
-            int rowMax = page * limit;
-            int pageStart = rowMax - limit;
+            long checkTime = 0L;
             if (offset > 0) {
                 checkTime = time - offset;
             }
 
-            String query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action='2' AND time >= '" + checkTime + "' LIMIT 0, 1";
-            ResultSet results = statement.executeQuery(query);
-
-            while (results.next()) {
-                count = results.getInt("count");
-            }
-            results.close();
-            int totalPages = (int) Math.ceil(count / (limit + 0.0));
-
-            query = "SELECT time,user,action,type,data,rolled_back FROM " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action='2' AND time >= '" + checkTime + "' ORDER BY rowid DESC LIMIT " + pageStart + ", " + limit + "";
-            results = statement.executeQuery(query);
+            String where = LocationQuery.predicate("wid", " = " + worldId) + " AND " + LocationQuery.predicate("x", " = " + x) + " AND " + LocationQuery.predicate("z", " = " + z) + " AND y = " + y + " AND action=2 AND time >= " + checkTime;
+            String spatialTable = ConfigHandler.databaseType.isDuckDB()
+                    ? DuckDBLookupQuery.spatialTable(statement.getConnection(), "block", worldId, x, x, z, z, "spatial_rows") : null;
+            String columns = "time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,rolled_back";
+            InspectorLookup.Page pageQuery = InspectorLookup.queryPage(statement, ConfigHandler.prefix + "block", spatialTable, WorldUtils.getWidIndex("block"), where, columns,
+                    ConfigHandler.getDescendingEventOrder(), false, page, limit);
+            long count = pageQuery.count;
 
             StringBuilder resultBuilder = new StringBuilder();
-            while (results.next()) {
-                int resultUserId = results.getInt("user");
-                int resultAction = results.getInt("action");
-                int resultType = results.getInt("type");
-                int resultData = results.getInt("data");
-                long resultTime = results.getLong("time");
-                int resultRolledBack = results.getInt("rolled_back");
+            try (ResultSet results = statement.executeQuery(pageQuery.query)) {
+                while (results.next()) {
+                    if (pageQuery.combinedCount) {
+                        count = results.getLong("count");
+                        if (results.getObject("result_id") == null) {
+                            continue;
+                        }
+                    }
+                    int resultUserId = results.getInt("user");
+                    int resultAction = results.getInt("action");
+                    int resultType = results.getInt("type");
+                    int resultData = results.getInt("data");
+                    long resultTime = results.getLong("time");
+                    int resultRolledBack = results.getInt("rolled_back");
 
-                if (ConfigHandler.playerIdCacheReversed.get(resultUserId) == null) {
-                    UserStatement.loadName(statement.getConnection(), resultUserId);
+                    String resultUser = UserStatement.getName(statement.getConnection(), resultUserId);
+                    String timeAgo = ChatUtils.getTimeSince(resultTime, time, true);
+
+                    if (!found) {
+                        resultBuilder = new StringBuilder(Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.INTERACTIONS_HEADER) + Color.WHITE + " ----- " + ChatUtils.getCoordinates(command, worldId, x, y, z, false, false) + "\n");
+                    }
+                    found = true;
+
+                    String rbFormat = "";
+                    if (resultRolledBack == 1 || resultRolledBack == 3) {
+                        rbFormat = Color.STRIKETHROUGH;
+                    }
+
+                    String target = MaterialUtils.getBlockDisplayName(resultType, resultData);
+                    if (target.length() > 0 && !target.contains(":")) {
+                        target = "minecraft:" + target.toLowerCase(Locale.ROOT) + "";
+                    }
+
+                    target = InspectorLookup.displayTarget(target);
+
+                    resultBuilder.append(timeAgo + " " + Color.WHITE + "- ").append(Phrase.build(Phrase.LOOKUP_INTERACTION, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, Color.DARK_AQUA + rbFormat + target + Color.WHITE, Selector.FIRST)).append("\n");
+                    PluginChannelListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_INTERACTION, Selector.FIRST, resultUser, target, -1, x, y, z, worldId, rbFormat, false, false);
                 }
-
-                String resultUser = ConfigHandler.playerIdCacheReversed.get(resultUserId);
-                String timeAgo = ChatUtils.getTimeSince(resultTime, time, true);
-
-                if (!found) {
-                    resultBuilder = new StringBuilder(Color.WHITE + "----- " + Color.DARK_AQUA + Phrase.build(Phrase.INTERACTIONS_HEADER) + Color.WHITE + " ----- " + ChatUtils.getCoordinates(command, worldId, x, y, z, false, false) + "\n");
-                }
-                found = true;
-
-                String rbFormat = "";
-                if (resultRolledBack == 1 || resultRolledBack == 3) {
-                    rbFormat = Color.STRIKETHROUGH;
-                }
-
-                String target = MaterialUtils.getBlockDisplayName(resultType, resultData);
-                if (target.length() > 0 && !target.contains(":")) {
-                    target = "minecraft:" + target.toLowerCase(Locale.ROOT) + "";
-                }
-
-                // Hide "minecraft:" for now.
-                if (target.startsWith("minecraft:")) {
-                    target = target.split(":")[1];
-                }
-
-                resultBuilder.append(timeAgo + " " + Color.WHITE + "- ").append(Phrase.build(Phrase.LOOKUP_INTERACTION, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, Color.DARK_AQUA + rbFormat + target + Color.WHITE, Selector.FIRST)).append("\n");
-                PluginChannelListener.getInstance().sendData(commandSender, resultTime, Phrase.LOOKUP_INTERACTION, Selector.FIRST, resultUser, target, -1, x, y, z, worldId, rbFormat, false, false);
             }
             result = resultBuilder.toString();
-            results.close();
+            int totalPages = InspectorLookup.totalPages(count, limit);
 
             if (found) {
                 if (count > limit) {
@@ -118,7 +103,7 @@ public class InteractionLookup {
                 }
             }
             else {
-                if (rowMax > count && count > 0) {
+                if (pageQuery.end > count && count > 0) {
                     result = Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS_PAGE, Selector.SECOND);
                 }
                 else {
@@ -126,12 +111,16 @@ public class InteractionLookup {
                 }
             }
 
-            ConfigHandler.lookupPage.put(commandSender.getName(), page);
-            ConfigHandler.lookupType.put(commandSender.getName(), 7);
-            ConfigHandler.lookupCommand.put(commandSender.getName(), x + "." + y + "." + z + "." + worldId + ".2." + limit);
+            String name = commandSender.getName();
+            String history = x + "." + y + "." + z + "." + worldId + ".2." + limit;
+            LookupThrottle.publish(name, () -> {
+                ConfigHandler.lookupPage.put(name, page);
+                ConfigHandler.lookupType.put(name, 7);
+                ConfigHandler.lookupCommand.put(name, history);
+            });
         }
         catch (Exception e) {
-            e.printStackTrace();
+            Database.reportDatabaseFailure(e);
         }
 
         return result;

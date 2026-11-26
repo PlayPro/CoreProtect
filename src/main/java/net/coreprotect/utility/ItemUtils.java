@@ -1,17 +1,7 @@
 package net.coreprotect.utility;
 
 import java.io.ByteArrayOutputStream;
-import java.lang.reflect.Array;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -37,6 +27,10 @@ import net.coreprotect.model.BlockGroup;
 import net.coreprotect.utility.serialize.ItemMetaHandler;
 
 public class ItemUtils {
+    private static final int MAX_GIVABLE_ITEMS = 4096;
+    private static final Map<Integer, ItemStack> GIVABLE_ITEMS = new LinkedHashMap<>(16, 0.75f, true);
+    private static final Map<ItemStack, Integer> GIVABLE_ITEM_IDS = new HashMap<>();
+    private static long nextGivableItemId;
 
     private static final Object UNSERIALIZABLE_VALUE = new Object();
     private static final Logger LOGGER = Logger.getLogger("CoreProtect");
@@ -70,6 +64,37 @@ public class ItemUtils {
         throw new IllegalStateException("Utility class");
     }
 
+    public static synchronized ItemStack getGivableItem(int id) {
+        ItemStack item = GIVABLE_ITEMS.get(id);
+        return item == null ? null : item.clone();
+    }
+
+    public static synchronized Integer makeGivableItem(ItemStack item) {
+        if (item == null) {
+            return null;
+        }
+
+        ItemStack snapshot = item.clone();
+        Integer id = GIVABLE_ITEM_IDS.get(snapshot);
+        if (id != null) {
+            GIVABLE_ITEMS.get(id);
+            return id;
+        }
+        if (nextGivableItemId > Integer.MAX_VALUE) {
+            return null;
+        }
+
+        id = (int) nextGivableItemId++;
+        GIVABLE_ITEMS.put(id, snapshot);
+        GIVABLE_ITEM_IDS.put(snapshot, id);
+        if (GIVABLE_ITEMS.size() > MAX_GIVABLE_ITEMS) {
+            Iterator<Map.Entry<Integer, ItemStack>> iterator = GIVABLE_ITEMS.entrySet().iterator();
+            GIVABLE_ITEM_IDS.remove(iterator.next().getValue());
+            iterator.remove();
+        }
+        return id;
+    }
+
     public static void mergeItems(Material material, ItemStack[] items) {
         if (material != null && (material.equals(Material.ARMOR_STAND) || BukkitAdapter.ADAPTER.isItemFrame(material))) {
             return;
@@ -92,7 +117,7 @@ public class ItemUtils {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
@@ -115,31 +140,29 @@ public class ItemUtils {
         return result;
     }
 
-    public static ItemStack[] sortContainerState(ItemStack[] array) {
+    public static ItemStack[] getSharedContainerState(ItemStack[] array, ItemStack[] previousState) {
         if (array == null) {
             return null;
         }
+        if (previousState == null || previousState.length != array.length) {
+            return getContainerState(array);
+        }
 
-        ItemStack[] sorted = new ItemStack[array.length];
-        Map<String, ItemStack> map = new HashMap<>();
-        for (ItemStack itemStack : array) {
-            if (itemStack == null) {
-                continue;
+        ItemStack[] result = new ItemStack[array.length];
+        boolean unchanged = true;
+        for (int i = 0; i < array.length; i++) {
+            ItemStack itemStack = array[i];
+            ItemStack previousItem = previousState[i];
+            if (itemStack == null ? previousItem == null : itemStack.equals(previousItem)) {
+                result[i] = previousItem;
             }
-
-            map.put(itemStack.toString(), itemStack);
+            else {
+                result[i] = itemStack == null ? null : itemStack.clone();
+                unchanged = false;
+            }
         }
 
-        ArrayList<String> sortedKeys = new ArrayList<>(map.keySet());
-        Collections.sort(sortedKeys);
-
-        int i = 0;
-        for (String key : sortedKeys) {
-            sorted[i] = map.get(key);
-            i++;
-        }
-
-        return sorted;
+        return unchanged ? previousState : result;
     }
 
     /* return true if ItemStack[] contents are identical */
@@ -164,53 +187,10 @@ public class ItemUtils {
         return true;
     }
 
-    /* return true if newContainer contains new items */
-    public static boolean addedContainer(ItemStack[] oldContainer, ItemStack[] newContainer) {
-        if (oldContainer.length != newContainer.length) {
-            return false;
-        }
-
-        for (int i = 0; i < oldContainer.length; i++) {
-            ItemStack oldItem = oldContainer[i];
-            ItemStack newItem = newContainer[i];
-
-            if (oldItem == null && newItem == null) {
-                continue;
-            }
-
-            if (oldItem != null && newItem == null) {
-                return false;
-            }
-
-            if (oldItem == null) {
-                return true;
-            }
-
-            if (!newItem.equals(oldItem)) {
-                return (newItem.isSimilar(oldItem) && newItem.getAmount() > oldItem.getAmount());
-            }
-        }
-
-        return false;
-    }
-
     /* return true if item can be added to container */
     public static boolean canAddContainer(ItemStack[] container, ItemStack item, int forceMaxStack) {
         for (ItemStack containerItem : container) {
-            if (containerItem == null || containerItem.getType() == Material.AIR) {
-                return true;
-            }
-
-            int maxStackSize = containerItem.getMaxStackSize();
-            if (forceMaxStack > 0 && (forceMaxStack < maxStackSize || maxStackSize == -1)) {
-                maxStackSize = forceMaxStack;
-            }
-
-            if (maxStackSize == -1) {
-                maxStackSize = 1;
-            }
-
-            if (containerItem.isSimilar(item) && containerItem.getAmount() < maxStackSize) {
+            if (isEmptyContainerSlot(containerItem) || containerItem.isSimilar(item) && containerItem.getAmount() < getContainerStackLimit(containerItem, forceMaxStack)) {
                 return true;
             }
         }
@@ -218,26 +198,84 @@ public class ItemUtils {
         return false;
     }
 
-    public static int setPlayerArmor(PlayerInventory inventory, ItemStack itemStack) {
-        String itemName = itemStack.getType().name();
-        boolean isHelmet = (itemName.endsWith("_HELMET") || itemName.endsWith("_HEAD") || itemName.endsWith("_SKULL") || itemName.endsWith("_PUMPKIN"));
-        boolean isChestplate = (itemName.endsWith("_CHESTPLATE"));
-        boolean isLeggings = (itemName.endsWith("_LEGGINGS"));
-        boolean isBoots = (itemName.endsWith("_BOOTS"));
+    public static long insertIntoContainerSnapshot(ItemStack[] contents, ItemStack item, long remaining, int inventoryMaxStackSize) {
+        for (int slot = 0; slot < contents.length && remaining > 0; slot++) {
+            ItemStack existing = contents[slot];
+            if (isEmptyContainerSlot(existing) || !existing.isSimilar(item)) {
+                continue;
+            }
 
-        if (isHelmet && inventory.getHelmet() == null) {
+            int amount = existing.getAmount();
+            int capacity = getContainerStackLimit(existing, inventoryMaxStackSize) - amount;
+            if (capacity > 0) {
+                int added = (int) Math.min(remaining, capacity);
+                ItemStack updated = existing.clone();
+                updated.setAmount(amount + added);
+                contents[slot] = updated;
+                remaining -= added;
+            }
+        }
+        if (remaining <= 0) {
+            return remaining;
+        }
+
+        int stackLimit = getContainerStackLimit(item, inventoryMaxStackSize);
+        for (int slot = 0; slot < contents.length && remaining > 0; slot++) {
+            if (isEmptyContainerSlot(contents[slot])) {
+                int added = (int) Math.min(remaining, stackLimit);
+                ItemStack inserted = item.clone();
+                inserted.setAmount(added);
+                contents[slot] = inserted;
+                remaining -= added;
+            }
+        }
+        return remaining;
+    }
+
+    public static int getContainerStackLimit(ItemStack item, int inventoryMaxStackSize) {
+        int stackLimit = item.getMaxStackSize();
+        if (inventoryMaxStackSize > 0 && (inventoryMaxStackSize < stackLimit || stackLimit <= 0)) {
+            return inventoryMaxStackSize;
+        }
+        return Math.max(1, stackLimit);
+    }
+
+    public static boolean isEmptyContainerSlot(ItemStack item) {
+        return item == null || BlockUtils.isAir(item.getType()) || item.getAmount() <= 0;
+    }
+
+    public static int getPlayerArmorSlot(Material type) {
+        String itemName = type.name();
+        if (itemName.endsWith("_HELMET") || itemName.endsWith("_HEAD") || itemName.endsWith("_SKULL") || itemName.endsWith("_PUMPKIN")) {
+            return 3;
+        }
+        if (type == Material.ELYTRA || itemName.endsWith("_CHESTPLATE")) {
+            return 2;
+        }
+        if (itemName.endsWith("_LEGGINGS")) {
+            return 1;
+        }
+        if (itemName.endsWith("_BOOTS")) {
+            return 0;
+        }
+        return -1;
+    }
+
+    public static int setPlayerArmor(PlayerInventory inventory, ItemStack itemStack) {
+        int slot = getPlayerArmorSlot(itemStack.getType());
+        if (slot == 3 && isEmptyContainerSlot(inventory.getHelmet())) {
             inventory.setHelmet(itemStack);
             return 3;
         }
-        else if (isChestplate && inventory.getChestplate() == null) {
+        else if (slot == 2 && isEmptyContainerSlot(inventory.getChestplate())) {
             inventory.setChestplate(itemStack);
             return 2;
         }
-        else if (isLeggings && inventory.getLeggings() == null) {
+        else if (slot == 1 && isEmptyContainerSlot(inventory.getLeggings())) {
             inventory.setLeggings(itemStack);
             return 1;
         }
-        else if (isBoots && inventory.getBoots() == null) {
+        else if (slot == 0 && isEmptyContainerSlot(inventory.getBoots())) {
             inventory.setBoots(itemStack);
             return 0;
         }
@@ -262,60 +300,60 @@ public class ItemUtils {
     }
 
     public static ItemStack[] getContainerContents(Material type, Object container, Location location) {
-        ItemStack[] contents = null;
-        if (Config.getConfig(location.getWorld()).ITEM_TRANSACTIONS && BlockGroup.CONTAINERS.contains(type)) {
-            try {
-                // container may be null if called from within WorldEdit logger
-                if (container == null) {
-                    container = location.getBlock();
-                }
+        if (!Config.getConfig(location.getWorld()).ITEM_TRANSACTIONS) {
+            return null;
+        }
 
-                if (type == Material.ARMOR_STAND) {
-                    LivingEntity entity = (LivingEntity) container;
-                    EntityEquipment equipment = getEntityEquipment(entity);
+        boolean itemFrame = BukkitAdapter.ADAPTER.isItemFrame(type);
+        if (!itemFrame && !BlockGroup.CONTAINERS.contains(type)) {
+            return null;
+        }
+
+        boolean armorStand = type == Material.ARMOR_STAND;
+        ItemStack[] contents = null;
+        try {
+            if (armorStand) {
+                if (container instanceof LivingEntity) {
+                    EntityEquipment equipment = getEntityEquipment((LivingEntity) container);
                     if (equipment != null) {
                         contents = getArmorStandContents(equipment);
                     }
                 }
-                else if (type == Material.ITEM_FRAME) {
-                    ItemFrame entity = (ItemFrame) container;
-                    contents = getItemFrameItem(entity);
+            }
+            else if (itemFrame) {
+                if (container instanceof ItemFrame) {
+                    contents = getItemFrameItem((ItemFrame) container);
                 }
-                else if (type == Material.JUKEBOX) {
-                    org.bukkit.block.Jukebox blockState = (org.bukkit.block.Jukebox) ((Block) container).getState();
+            }
+            else {
+                Block block = container == null ? location.getBlock() : (Block) container;
+                if (type == Material.JUKEBOX) {
+                    org.bukkit.block.Jukebox blockState = (org.bukkit.block.Jukebox) block.getState();
                     contents = BlockUtils.getJukeboxItem(blockState);
                 }
                 else {
-                    Block block = (Block) container;
                     Inventory inventory = BlockUtils.getContainerInventory(block.getState(), true);
                     if (inventory != null) {
                         contents = inventory.getContents();
                     }
                 }
+            }
 
-                if (type == Material.ARMOR_STAND || type == Material.ITEM_FRAME) {
-                    boolean hasItem = false;
-                    for (ItemStack item : contents) {
-                        if (item != null && !item.getType().equals(Material.AIR)) {
-                            hasItem = true;
-                            break;
-                        }
-                    }
-                    if (!hasItem) {
-                        contents = null;
+            if (contents != null && (armorStand || itemFrame)) {
+                for (ItemStack item : contents) {
+                    if (!isEmptyContainerSlot(item)) {
+                        return getContainerState(contents);
                     }
                 }
+                return null;
+            }
 
-                if (contents != null) {
-                    contents = getContainerState(contents);
-                }
-            }
-            catch (Exception e) {
-                e.printStackTrace();
-            }
+            return getContainerState(contents);
         }
-
-        return contents;
+        catch (Exception e) {
+            ErrorReporter.report(e);
+            return null;
+        }
     }
 
     public static EntityEquipment getEntityEquipment(LivingEntity entity) {
@@ -324,7 +362,7 @@ public class ItemUtils {
             equipment = entity.getEquipment();
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
         return equipment;
     }
@@ -335,18 +373,9 @@ public class ItemUtils {
             contents = new ItemStack[] { entity.getItem() };
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
         return contents;
-    }
-
-    public static int getItemStackHashCode(ItemStack item) {
-        try {
-            return item.hashCode();
-        }
-        catch (Exception exception) {
-            return -1;
-        }
     }
 
     public static Material itemFilter(Material material, boolean blockTable) {
@@ -356,7 +385,10 @@ public class ItemUtils {
 
         material = BukkitAdapter.ADAPTER.getPlantSeeds(material);
         if (material.name().contains("WALL_")) {
-            material = Material.valueOf(material.name().replace("WALL_", ""));
+            Material baseMaterial = Material.getMaterial(material.name().replace("WALL_", ""));
+            if (baseMaterial != null) {
+                material = baseMaterial;
+            }
         }
 
         return material;
@@ -376,11 +408,11 @@ public class ItemUtils {
             return Material.WATER_BUCKET;
         }
 
-        return material.isItem() ? material : null;
-    }
+        if (material.name().equals("POWDER_SNOW")) {
+            return Material.getMaterial("POWDER_SNOW_BUCKET");
+        }
 
-    public static ItemStack newItemStack(Material type, int amount) {
-        return new ItemStack(type, amount);
+        return material.isItem() ? material : null;
     }
 
     public static void updateInventory(org.bukkit.entity.Player player) {
@@ -413,7 +445,8 @@ public class ItemUtils {
                     break;
                 }
 
-                SanitizationResult sanitizationResult = sanitizeByteData(workingData, problematicTypes);
+                Set<Object> active = Collections.newSetFromMap(new IdentityHashMap<>());
+                SanitizationResult sanitizationResult = sanitizeByteData(workingData, problematicTypes, active);
                 if (!sanitizationResult.modified || sanitizationResult.value == UNSERIALIZABLE_VALUE) {
                     break;
                 }
@@ -433,12 +466,10 @@ public class ItemUtils {
                 }
             }
 
-            if (ConfigHandler.EDITION_BRANCH.contains("-dev")) {
-                if (sanitized) {
-                    LOGGER.warning("CoreProtect failed to serialize metadata after targeted type sanitization.");
-                }
-                failure.printStackTrace();
+            if (sanitized && ConfigHandler.EDITION_BRANCH.contains("-dev")) {
+                LOGGER.warning("CoreProtect failed to serialize metadata after targeted type sanitization.");
             }
+            ErrorReporter.report(failure, ConfigHandler.EDITION_BRANCH.contains("-dev"));
         }
 
         return null;
@@ -454,9 +485,10 @@ public class ItemUtils {
 
     private static FailureContext parseSerializationFailure(Throwable throwable) {
         Set<String> typeTokens = new LinkedHashSet<>();
+        Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
         String registryLocation = null;
         Throwable current = throwable;
-        while (current != null) {
+        while (current != null && visited.add(current)) {
             String message = current.getMessage();
             if (message != null) {
                 Matcher typeMatcher = TYPE_TOKEN_PATTERN.matcher(message);
@@ -526,14 +558,20 @@ public class ItemUtils {
         return safeToken.toString().toLowerCase(Locale.ROOT);
     }
 
-    private static boolean isProblematicType(Class<?> valueType, Set<String> problematicTypes) {
+    private static boolean isProblematicType(Object value, Set<String> problematicTypes) {
+        Class<?> valueType = value.getClass();
+        if (value instanceof String || value instanceof Boolean || value instanceof Character || value instanceof UUID || valueType.isArray()
+                || (value instanceof Number && valueType.getModule() == Number.class.getModule())) {
+            return false;
+        }
+
         String typeToken = normalizeTypeToken(valueType.getSimpleName());
         if (typeToken == null) {
             return false;
         }
 
         for (String problematicType : problematicTypes) {
-            if (typeToken.equals(problematicType) || typeToken.startsWith(problematicType) || problematicType.startsWith(typeToken)) {
+            if (typeToken.startsWith(problematicType)) {
                 return true;
             }
         }
@@ -541,22 +579,34 @@ public class ItemUtils {
         return false;
     }
 
-    private static SanitizationResult sanitizeByteData(Object data, Set<String> problematicTypes) {
+    private static SanitizationResult sanitizeByteData(Object data, Set<String> problematicTypes, Set<Object> active) {
         if (data == null) {
             return new SanitizationResult(null, false);
         }
 
-        if (isProblematicType(data.getClass(), problematicTypes)) {
+        if (!(data instanceof Map<?, ?>) && !(data instanceof List<?>) && !(data instanceof Set<?>) && !(data instanceof Object[])) {
+            return isProblematicType(data, problematicTypes) ? new SanitizationResult(UNSERIALIZABLE_VALUE, true) : new SanitizationResult(data, false);
+        }
+        if (!active.add(data)) {
             return new SanitizationResult(UNSERIALIZABLE_VALUE, true);
         }
 
+        try {
+            return sanitizeByteDataContainer(data, problematicTypes, active);
+        }
+        finally {
+            active.remove(data);
+        }
+    }
+
+    private static SanitizationResult sanitizeByteDataContainer(Object data, Set<String> problematicTypes, Set<Object> active) {
         if (data instanceof Map<?, ?>) {
             Map<?, ?> sourceMap = (Map<?, ?>) data;
             Map<Object, Object> sanitizedMap = new LinkedHashMap<>();
             boolean modified = false;
             for (Map.Entry<?, ?> entry : sourceMap.entrySet()) {
-                SanitizationResult sanitizedKey = sanitizeByteData(entry.getKey(), problematicTypes);
-                SanitizationResult sanitizedValue = sanitizeByteData(entry.getValue(), problematicTypes);
+                SanitizationResult sanitizedKey = sanitizeByteData(entry.getKey(), problematicTypes, active);
+                SanitizationResult sanitizedValue = sanitizeByteData(entry.getValue(), problematicTypes, active);
                 if (sanitizedKey.value == UNSERIALIZABLE_VALUE || sanitizedValue.value == UNSERIALIZABLE_VALUE) {
                     modified = true;
                     continue;
@@ -578,7 +628,7 @@ public class ItemUtils {
             List<Object> sanitizedList = new ArrayList<>(sourceList.size());
             boolean modified = false;
             for (Object value : sourceList) {
-                SanitizationResult sanitizedValue = sanitizeByteData(value, problematicTypes);
+                SanitizationResult sanitizedValue = sanitizeByteData(value, problematicTypes, active);
                 if (sanitizedValue.value == UNSERIALIZABLE_VALUE) {
                     sanitizedList.add(null);
                     modified = true;
@@ -596,35 +646,34 @@ public class ItemUtils {
             return new SanitizationResult(sanitizedList, true);
         }
 
-        if (data.getClass().isArray()) {
-            Class<?> componentType = data.getClass().getComponentType();
-            if (componentType.isPrimitive()) {
-                return new SanitizationResult(data, false);
-            }
-
-            int length = Array.getLength(data);
-            Object sanitizedArray = Array.newInstance(componentType, length);
+        if (data instanceof Set<?>) {
+            Set<Object> sanitizedSet = new LinkedHashSet<>();
             boolean modified = false;
-            for (int index = 0; index < length; index++) {
-                SanitizationResult sanitizedValue = sanitizeByteData(Array.get(data, index), problematicTypes);
-                if (sanitizedValue.value == UNSERIALIZABLE_VALUE) {
-                    Array.set(sanitizedArray, index, null);
-                    modified = true;
+            for (Object value : (Set<?>) data) {
+                SanitizationResult sanitizedValue = sanitizeByteData(value, problematicTypes, active);
+                if (sanitizedValue.value != UNSERIALIZABLE_VALUE) {
+                    sanitizedSet.add(sanitizedValue.value);
                 }
-                else {
-                    Array.set(sanitizedArray, index, sanitizedValue.value);
-                    modified |= sanitizedValue.modified;
-                }
+                modified |= sanitizedValue.modified;
             }
-
-            if (!modified) {
-                return new SanitizationResult(data, false);
-            }
-
-            return new SanitizationResult(sanitizedArray, true);
+            return new SanitizationResult(modified ? sanitizedSet : data, modified);
         }
 
-        return new SanitizationResult(data, false);
+        Object[] sourceArray = (Object[]) data;
+        Object[] sanitizedArray = sourceArray.clone();
+        Class<?> componentType = sourceArray.getClass().getComponentType();
+        boolean modified = false;
+        for (int index = 0; index < sourceArray.length; index++) {
+            SanitizationResult sanitizedValue = sanitizeByteData(sourceArray[index], problematicTypes, active);
+            Object value = sanitizedValue.value == UNSERIALIZABLE_VALUE ? null : sanitizedValue.value;
+            if (value != null && !componentType.isInstance(value)) {
+                sanitizedArray = Arrays.copyOf(sanitizedArray, sanitizedArray.length, Object[].class);
+                componentType = Object.class;
+            }
+            sanitizedArray[index] = value;
+            modified |= sanitizedValue.modified;
+        }
+        return new SanitizationResult(modified ? sanitizedArray : data, modified);
     }
 
     private static void logSanitizedMetadata(Set<String> problematicTypes, String registryLocation) {
@@ -642,44 +691,60 @@ public class ItemUtils {
             org.bukkit.configuration.serialization.DelegateDeserialization delegate = itemMetaClass.getAnnotation(org.bukkit.configuration.serialization.DelegateDeserialization.class);
             return (ItemMeta) org.bukkit.configuration.serialization.ConfigurationSerialization.deserializeObject(args, delegate.value());
         }
-        catch (Exception e) { // only display exception on development branch
-            if (ConfigHandler.EDITION_BRANCH.contains("-dev")) {
-                e.printStackTrace();
-            }
+        catch (Exception e) { // only print exception on development branch
+            ErrorReporter.report(e, ConfigHandler.EDITION_BRANCH.contains("-dev"));
         }
 
         return null;
     }
-    
+
+    public static ItemStack getItemStack(byte[] metadata, int type, int amount) {
+        if (metadata == null || amount <= 0) {
+            return null;
+        }
+
+        Material material = MaterialUtils.getType(type);
+        if (material == null || BlockUtils.isAir(material) || !material.isItem()) {
+            return null;
+        }
+
+        ItemStack item = new ItemStack(material, amount);
+        return (ItemStack) net.coreprotect.database.rollback.Rollback.populateItemStack(item, metadata)[2];
+    }
+
     public static String getEnchantments(byte[] metadata, int type, int amount) {
-        if (metadata == null) {
+        ItemStack item = getItemStack(metadata, type, amount);
+        if (item == null || !item.hasItemMeta()) {
             return "";
         }
 
-        ItemStack item = new ItemStack(MaterialUtils.getType(type), amount);
-        item = (ItemStack) net.coreprotect.database.rollback.Rollback.populateItemStack(item, metadata)[2];
-        String displayName = item.hasItemMeta() && item.getItemMeta().hasDisplayName() ? item.getItemMeta().getDisplayName() : "";
-        StringBuilder message = new StringBuilder(Color.ITALIC + displayName + Color.GREY);
+        ItemMeta itemMeta = item.getItemMeta();
+        if (itemMeta == null) {
+            return "";
+        }
 
-        List<String> enchantments = ItemMetaHandler.getEnchantments(item, displayName);
+        boolean customName = itemMeta.hasDisplayName();
+        String displayName = customName ? itemMeta.getDisplayName() : BukkitAdapter.ADAPTER.getItemName(itemMeta);
+        List<String> enchantments = ItemMetaHandler.getEnchantments(itemMeta);
+        if (displayName.isEmpty() && enchantments.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder message = new StringBuilder(enchantments.isEmpty() ? Color.WHITE : Color.AQUA);
+        if (displayName.isEmpty()) {
+            displayName = StringUtils.capitalize(item.getType().name().replace("_", " "), true);
+        }
+        else if (customName) {
+            message.append(Color.ITALIC);
+        }
+        message.append(displayName).append(Color.GREY);
+
         for (String enchantment : enchantments) {
-            if (message.length() > 0) {
-                message.append("\n");
-            }
-            message.append(enchantment);
+            message.append('\n').append(enchantment);
         }
-
-        if (!displayName.isEmpty()) {
-            message.insert(0, enchantments.isEmpty() ? Color.WHITE : Color.AQUA);
-        }
-        else if (!enchantments.isEmpty()) {
-            String name = StringUtils.capitalize(item.getType().name().replace("_", " "), true);
-            message.insert(0, Color.AQUA + Color.ITALIC + name);
-        }
-
         return message.toString();
     }
-    
+
     public static Map<Integer, Object> serializeItemStackLegacy(ItemStack itemStack, String faceData, int slot) {
         Map<Integer, Object> result = new HashMap<>();
         Map<String, Object> itemMap = serializeItemStack(itemStack, faceData, slot);
@@ -719,19 +784,19 @@ public class ItemUtils {
     }
 
     public static ItemStack unserializeItemStack(Object value) {
-        ItemStack result = null;
-        if (value instanceof Map) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> itemMap = (Map<String, Object>) value;
-            @SuppressWarnings("unchecked")
-            ItemStack item = ItemStack.deserialize((Map<String, Object>) itemMap.get("0"));
-            @SuppressWarnings("unchecked")
-            List<List<Map<String, Object>>> metadata = (List<List<Map<String, Object>>>) itemMap.get("1");
-
-            Object[] populatedStack = net.coreprotect.database.rollback.Rollback.populateItemStack(item, metadata);
-            result = (ItemStack) populatedStack[2];
+        if (!(value instanceof Map)) {
+            return null;
         }
 
-        return result;
+        Map<?, ?> itemMap = (Map<?, ?>) value;
+        Object stackData = itemMap.get("0");
+        if (!(stackData instanceof Map) || ((Map<?, ?>) stackData).isEmpty()) {
+            return null;
+        }
+
+        @SuppressWarnings("unchecked")
+        ItemStack item = ItemStack.deserialize((Map<String, Object>) stackData);
+        Object metadata = itemMap.get("1");
+        return metadata instanceof List ? (ItemStack) net.coreprotect.database.rollback.Rollback.populateItemStack(item, metadata)[2] : item;
     }
-} 
+}

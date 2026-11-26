@@ -18,9 +18,38 @@ public final class Chat {
     public static final String COMPONENT_COMMAND = "COMMAND";
     public static final String COMPONENT_POPUP = "POPUP";
     public static final String COMPONENT_PIPE = "<PIPE/>";
+    public static final String COMPONENT_TAG_OPEN_ESCAPED = "<COMPONENT_OPEN/>";
+    public static final String COMPONENT_TAG_CLOSE_ESCAPED = "<COMPONENT_CLOSE/>";
 
     private Chat() {
         throw new IllegalStateException("Utility class");
+    }
+
+    public static String escapeComponentTags(String text) {
+        if (text == null || text.isEmpty()) {
+            return text == null ? "" : text;
+        }
+        return text.replace(COMPONENT_TAG_OPEN, COMPONENT_TAG_OPEN_ESCAPED)
+                .replace(COMPONENT_TAG_CLOSE, COMPONENT_TAG_CLOSE_ESCAPED);
+    }
+
+    public static String unescapeComponentTags(String text) {
+        if (text == null || text.isEmpty()) {
+            return text == null ? "" : text;
+        }
+        return text.replace(COMPONENT_TAG_OPEN_ESCAPED, COMPONENT_TAG_OPEN)
+                .replace(COMPONENT_TAG_CLOSE_ESCAPED, COMPONENT_TAG_CLOSE);
+    }
+
+    public static String escapeComponent(String text) {
+        return escapeComponentTags(text).replace("|", COMPONENT_PIPE);
+    }
+
+    public static String unescapeComponent(String text) {
+        if (text == null || text.isEmpty()) {
+            return text == null ? "" : text;
+        }
+        return unescapeComponentTags(text.replace(COMPONENT_PIPE, "|"));
     }
 
     public static String translateColorCodes(String text) {
@@ -31,7 +60,6 @@ public final class Chat {
     }
 
     public static void sendComponent(CommandSender sender, String string, String bypass) {
-        string = translateColorCodes(string);
         SpigotAdapter.ADAPTER.sendComponent(sender, string, bypass);
     }
 
@@ -39,8 +67,33 @@ public final class Chat {
         sendComponent(sender, string, null);
     }
 
+    public static void sendLookupComponents(CommandSender sender, String result) {
+        if (result.indexOf('\n') >= 0) {
+            for (String line : result.split("\n")) {
+                sendComponent(sender, line);
+            }
+        }
+        else if (!result.isEmpty()) {
+            sendComponent(sender, result);
+        }
+    }
+
+    public static void sendLookupComponents(CommandSender sender, Iterable<String> results) {
+        for (String line : results) {
+            sendComponent(sender, line);
+        }
+    }
+
+    public static void sendSignLookupComponents(CommandSender sender, Iterable<String> results) {
+        for (String row : results) {
+            String[] parts = row.split("\n", 2);
+            if (!parts[0].isEmpty()) {
+                sendComponent(sender, parts[0], parts.length == 2 ? parts[1] : null);
+            }
+        }
+    }
+
     public static void sendMessage(CommandSender sender, String message) {
-        message = translateColorCodes(message);
         if (sender instanceof ConsoleCommandSender) {
             message = message.replace(Color.DARK_AQUA, ChatColor.DARK_AQUA.toString());
         }
@@ -49,12 +102,10 @@ public final class Chat {
     }
 
     public static void sendConsoleMessage(String string) {
-        string = translateColorCodes(string);
         Bukkit.getServer().getConsoleSender().sendMessage(string);
     }
 
     public static void console(String string) {
-        string = translateColorCodes(string);
         if (string.startsWith("-") || string.startsWith("[")) {
             Bukkit.getLogger().log(Level.INFO, string);
         }
@@ -64,7 +115,6 @@ public final class Chat {
     }
 
     public static void sendGlobalMessage(CommandSender user, String string) {
-        string = translateColorCodes(string);
         if (user instanceof ConsoleCommandSender) {
             sendMessage(user, Color.DARK_AQUA + "[CoreProtect] " + Color.WHITE + string);
             return;

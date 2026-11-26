@@ -109,7 +109,7 @@ LOGGING_TIME_LIMIT: "로깅 시간 제한에 도달했습니다. 데이터를 �
 LOOKUP_BLOCK: "{0}이(가) {1}을(를) {설치|파괴}함"
 LOOKUP_CONTAINER: "{0}이(가) {2}에서 {1}을(를) {추가|제거}함"
 LOOKUP_HEADER: "{0} 조회 결과"
-LOOKUP_INTERACTION: "{0}이(가) {1}을(를) {클릭함|죽임}
+LOOKUP_INTERACTION: "{0}이(가) {1}을(를) {클릭함|죽임}"
 LOOKUP_ITEM: "{0}이(가) {2}에서 {1}을(를) {획득|드롭}함"
 LOOKUP_LOGIN: "{0}이(가) {로그인|로그아웃}함"
 LOOKUP_PAGE: "페이지 {0}"
@@ -162,7 +162,7 @@ PURGE_REPAIRING: "복구 시도 중입니다. 시간이 걸릴 수 있습니다.
 PURGE_ROWS: "{0} {열|열}의 데이터가 삭제되었습니다."
 PURGE_STARTED: "\"{0}\"에서 데이터 삭제 시작됨"
 PURGE_SUCCESS: "데이터 삭제가 성공적으로 완료되었습니다."
-RAM_STATS: "램: {0}GB / {1}GB"
+RAM_STATS: "램: {0} GiB / {1} GiB"
 RELOAD_STARTED: "구성 리로드 중 - 잠시 기다려 주세요."
 RELOAD_SUCCESS: "구성이 성공적으로 리로드되었습니다."
 ROLLBACK_ABORTED: "롤백 또는 복원이 중단되었습니다."

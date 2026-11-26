@@ -1,9 +1,5 @@
 package net.coreprotect.listener.entity;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-
 import org.bukkit.Location;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Item;
@@ -15,25 +11,18 @@ import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.config.Config;
-import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.logger.ItemLogger;
 
-public final class EntityPickupItemListener extends Queue implements Listener {
+public final class EntityPickupItemListener implements Listener {
 
     public static void onItemPickup(Player player, Location location, ItemStack itemStack) {
         if (itemStack == null || location == null || !Config.getConfig(location.getWorld()).ITEM_PICKUPS) {
             return;
         }
 
-        String loggingItemId = player.getName().toLowerCase(Locale.ROOT) + "." + location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ();
-        int itemId = getItemId(loggingItemId);
-
-        List<ItemStack> list = ConfigHandler.itemsPickup.getOrDefault(loggingItemId, new ArrayList<>());
-        list.add(itemStack.clone());
-        ConfigHandler.itemsPickup.put(loggingItemId, list);
-
         int time = (int) (System.currentTimeMillis() / 1000L) + 1;
-        Queue.queueItemTransaction(player.getName(), location.clone(), time, 0, itemId);
+        Queue.queuePendingItems(player.getName(), location, time, 0, ItemLogger.ITEM_PICKUP, itemStack);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -44,7 +33,22 @@ public final class EntityPickupItemListener extends Queue implements Listener {
 
         Player player = (Player) event.getEntity();
         Item item = event.getItem();
-        onItemPickup(player, item.getLocation(), item.getItemStack());
+        ItemStack itemStack = item.getItemStack();
+        if (itemStack == null) {
+            return;
+        }
+
+        int remaining = event.getRemaining();
+        int pickedUp = itemStack.getAmount() - remaining;
+        if (pickedUp <= 0) {
+            return;
+        }
+        if (remaining != 0) {
+            itemStack = itemStack.clone();
+            itemStack.setAmount(pickedUp);
+        }
+
+        onItemPickup(player, item.getLocation(), itemStack);
     }
 
 }

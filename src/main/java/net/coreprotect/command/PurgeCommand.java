@@ -1,15 +1,22 @@
 package net.coreprotect.command;
 
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.text.NumberFormat;
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -18,85 +25,260 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 
 import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.command.parser.LocationParser;
+import net.coreprotect.command.parser.MaterialParser;
+import net.coreprotect.command.parser.ParserUtils;
+import net.coreprotect.command.parser.TimeParser;
+import net.coreprotect.command.parser.WorldParser;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.database.Database;
+import net.coreprotect.database.PurgeFilter;
+import net.coreprotect.database.PurgePolicy;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
+import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.patch.Patch;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.ChatMessage;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.EntityUtils;
+import net.coreprotect.utility.EntitySpawnTracking;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.VersionUtils;
+import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.ErrorReporter;
 
-public class PurgeCommand extends Consumer {
+public class PurgeCommand {
 
-    public static final List<String> PURGE_TABLES = Arrays.asList("sign", "container", "item", "skull", "session", "chat", "command", "entity", "block");
+    private static final long CONNECTION_DRAIN_TIMEOUT_MILLIS = 60000L;
+    private static volatile Thread activePurgeThread;
+    private static volatile Statement activePurgeStatement;
+    private static volatile boolean shutdownCancellationRequested;
 
-    private static String findUnsupportedPurgeArgument(String[] args) {
-        boolean includeContinuation = false;
+    public static void resetShutdownCancellation() {
+        shutdownCancellationRequested = false;
+    }
+
+    public static void cancelForShutdown() {
+        shutdownCancellationRequested = true;
+        Database.cancelClickHousePurge();
+        Statement statement = activePurgeStatement;
+        if (statement != null) {
+            try {
+                statement.cancel();
+            }
+            catch (Exception ignored) {
+            }
+        }
+
+        Thread thread = activePurgeThread;
+        if (thread != null) {
+            thread.interrupt();
+        }
+    }
+
+    public static boolean isPurgeWorkerRunning() {
+        Thread thread = activePurgeThread;
+        return thread != null && thread.isAlive();
+    }
+
+    private static void requirePurgeNotCancelled() throws InterruptedException {
+        if (shutdownCancellationRequested || Thread.currentThread().isInterrupted()) {
+            throw new InterruptedException("Purge interrupted during shutdown");
+        }
+    }
+
+    private static PreparedStatement preparePurgeStatement(Connection connection, String query) throws SQLException, InterruptedException {
+        requirePurgeNotCancelled();
+        return registerPurgeStatement(connection.prepareStatement(query));
+    }
+
+    private static Statement createPurgeStatement(Connection connection) throws SQLException, InterruptedException {
+        requirePurgeNotCancelled();
+        return registerPurgeStatement(connection.createStatement());
+    }
+
+    private static <T extends Statement> T registerPurgeStatement(T statement) throws InterruptedException {
+        activePurgeStatement = statement;
+        try {
+            requirePurgeNotCancelled();
+            return statement;
+        }
+        catch (InterruptedException interrupted) {
+            try {
+                statement.close();
+            }
+            catch (SQLException closeFailure) {
+                interrupted.addSuppressed(closeFailure);
+            }
+            finally {
+                activePurgeStatement = null;
+            }
+            throw interrupted;
+        }
+    }
+
+    private static void executePurgeStatement(Connection connection, String query) throws SQLException, InterruptedException {
+        try (PreparedStatement statement = preparePurgeStatement(connection, query)) {
+            statement.execute();
+        }
+    }
+
+    private static long executePurgeUpdate(Connection connection, String query) throws SQLException, InterruptedException {
+        try (PreparedStatement statement = preparePurgeStatement(connection, query)) {
+            return statement.executeUpdate();
+        }
+        finally {
+            activePurgeStatement = null;
+        }
+    }
+
+    static long countPurgeRows(Connection connection, String table) throws SQLException, InterruptedException {
+        try (PreparedStatement statement = preparePurgeStatement(connection, "SELECT COUNT(*) AS count FROM " + table);
+                ResultSet results = statement.executeQuery()) {
+            return results.next() ? results.getLong("count") : 0;
+        }
+    }
+
+    private static void reportPurgeFailure(Exception exception) throws Exception {
+        if (shutdownCancellationRequested || Thread.currentThread().isInterrupted()) {
+            throw exception;
+        }
+        ErrorReporter.report(exception);
+    }
+
+    static String findUnsupportedPurgeArgument(String[] args) {
+        boolean listContinuation = false;
+        String emptyList = null; // an include or exclude argument that has no value yet
+        boolean hasRadius = false;
+        boolean hasWorld = false;
+        String coordinateArgument = null;
+        String timeRangeArgument = null;
         for (int i = 1; i < args.length; i++) {
             String token = args[i].trim();
             if (token.length() == 0) {
                 continue;
             }
-
             String argument = token.toLowerCase(Locale.ROOT);
-            argument = argument.replaceAll("\\\\", "");
-            argument = argument.replaceAll("'", "");
-
-            if (includeContinuation) {
-                includeContinuation = argument.endsWith(",");
-                continue;
-            }
 
             if (argument.equals("#optimize")) {
                 continue;
             }
 
-            if (argument.startsWith("i:") || argument.startsWith("include:") || argument.startsWith("item:") || argument.startsWith("items:") || argument.startsWith("b:") || argument.startsWith("block:") || argument.startsWith("blocks:")) {
-                String includeValues = argument.replaceAll("include:", "").replaceAll("i:", "").replaceAll("items:", "").replaceAll("item:", "").replaceAll("blocks:", "").replaceAll("block:", "").replaceAll("b:", "");
-                includeContinuation = includeValues.length() == 0 || includeValues.endsWith(",");
+            String materialArgument = ParserUtils.normalize(token);
+            String listValues = MaterialParser.stripIncludePrefix(materialArgument);
+            if (listValues == null) {
+                listValues = MaterialParser.stripExcludePrefix(materialArgument);
+            }
+
+            if (listValues != null) {
+                if (emptyList != null) {
+                    return emptyList;
+                }
+                listContinuation = listValues.isBlank() || listValues.endsWith(",");
+                emptyList = hasListValue(listValues) ? null : token;
                 continue;
             }
 
-            if (argument.startsWith("t:") || argument.startsWith("time:")) {
+            if (listContinuation && isListValue(materialArgument)) {
+                if (materialArgument.isBlank()) {
+                    return emptyList == null ? token : emptyList;
+                }
+                listContinuation = materialArgument.endsWith(",");
+                if (hasListValue(materialArgument)) {
+                    emptyList = null;
+                }
                 continue;
             }
-
-            if (argument.startsWith("r:") || argument.startsWith("radius:")) {
-                continue;
-            }
-
-            if (argument.contains(":")) {
+            // The radius, world and action parsers read a key such as r: or a: even inside a list
+            listContinuation = false;
+            if (hasEscapedCharacters(token)) {
                 return token;
+            }
+
+            int valueStart = argument.indexOf(':') + 1;
+            if (valueStart == 0) {
+                return token;
+            }
+
+            String prefix = argument.substring(0, valueStart);
+            String value = argument.substring(valueStart);
+            if (value.isEmpty() && i + 1 < args.length) {
+                value = args[++i].trim().toLowerCase(Locale.ROOT);
+                if (hasEscapedCharacters(value) || !value.startsWith("#") && value.indexOf(':') >= 0) {
+                    return token;
+                }
+            }
+            if (value.isEmpty()) {
+                return token;
+            }
+
+            switch (prefix) {
+                case "a:":
+                case "action:":
+                    if (!CommandParser.parseAction(new String[] { "purge", prefix + value }).equals(Collections.singletonList(LookupActions.ENTITY_KILL))) {
+                        return token;
+                    }
+                    break;
+                case "t:":
+                case "time:":
+                    if (!TimeParser.isValidDuration(value)) {
+                        return token;
+                    }
+                    if (value.indexOf('-') >= 0) {
+                        timeRangeArgument = token;
+                    }
+                    break;
+                case "r:":
+                case "radius:":
+                    boolean global = WorldParser.isGlobalKeyword(value);
+                    boolean world = global || value.startsWith("#");
+                    boolean numeric = global || !world;
+                    if (value.equals("#") || world && hasWorld || numeric && hasRadius) {
+                        return token;
+                    }
+                    hasWorld |= world;
+                    hasRadius |= numeric;
+                    break;
+                default:
+                    if (LocationParser.stripCoordinatePrefix(prefix) == null || !LocationParser.isValidBlockCoordinates(value)) {
+                        return token;
+                    }
+                    coordinateArgument = token;
+                    break;
             }
         }
 
-        return null;
+        if (coordinateArgument != null && (!hasRadius || LocationParser.parseRadius(args, null, new Location(null, 0, 0, 0)) == null)) {
+            return coordinateArgument;
+        }
+        if (timeRangeArgument != null) {
+            long[] time = TimeParser.parsePurgeTime(args);
+            if (time[0] == time[1] || time[1] >= System.currentTimeMillis() / 1000L) {
+                return timeRangeArgument;
+            }
+        }
+
+        // An empty list would silently purge without that include or exclude restriction
+        return emptyList;
+    }
+
+    private static boolean hasListValue(String values) {
+        return !values.replace(",", "").isBlank();
+    }
+
+    private static boolean hasEscapedCharacters(String value) {
+        return value.indexOf('\\') >= 0 || value.indexOf('\'') >= 0;
+    }
+
+    private static boolean isListValue(String argument) {
+        int separator = argument.indexOf(':');
+        return separator < 0 || argument.substring(0, separator).equals("minecraft");
     }
 
     protected static void runCommand(final CommandSender player, boolean permission, String[] args) {
-        int resultc = args.length;
-        Location location = CommandParser.parseLocation(player, args);
-        final Integer[] argRadius = CommandParser.parseRadius(args, player, location);
-        final List<Integer> argAction = CommandParser.parseAction(args);
-        final List<Object> argBlocks = CommandParser.parseRestricted(player, args, argAction);
-        final Map<Object, Boolean> argExclude = CommandParser.parseExcluded(player, args, argAction);
-        final List<String> argExcludeUsers = CommandParser.parseExcludedUsers(player, args);
-        final long[] argTime = CommandParser.parseTime(args);
-        final int argWid = CommandParser.parseWorld(args, false, false);
-        final List<Integer> supportedActions = Arrays.asList();
-        long startTime = argTime[1] > 0 ? argTime[0] : 0;
-        long endTime = argTime[1] > 0 ? argTime[1] : argTime[0];
-
-        if (argBlocks == null || argExclude == null || argExcludeUsers == null) {
-            return;
-        }
-
         if (ConfigHandler.converterRunning || ConfigHandler.migrationRunning) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
             return;
@@ -109,7 +291,7 @@ public class PurgeCommand extends Consumer {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
             return;
         }
-        if (resultc <= 1) {
+        if (args.length <= 1) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co purge t:<time>"));
             return;
         }
@@ -119,11 +301,48 @@ public class PurgeCommand extends Consumer {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co help purge"));
             return;
         }
-        if (endTime <= 0) {
+
+        Location location = CommandParser.parseLocation(player, args);
+        final Integer[] argRadius = LocationParser.parseRadius(args, player, location != null ? location : new Location(null, 0, 0, 0));
+        final List<Integer> argAction = CommandParser.parseAction(args);
+        final List<Object> argBlocks = CommandParser.parseRestricted(player, args, argAction);
+        final Map<Object, Boolean> argExclude = CommandParser.parseExcluded(player, args, argAction);
+        final List<String> argExcludeUsers = CommandParser.parseExcludedUsers(player, args);
+        final long[] argTime = TimeParser.parsePurgeTime(args);
+        final int argWid = CommandParser.parseWorld(args, false, false);
+        final List<Integer> supportedActions = List.of(LookupActions.ENTITY_KILL);
+        long startTime = argTime[0];
+        long endTime = argTime[1];
+
+        if (argBlocks == null || argExclude == null || argExcludeUsers == null) {
+            return;
+        }
+        for (String raw : args) {
+            String argument = ParserUtils.normalize(raw);
+            if ((argBlocks.isEmpty() && MaterialParser.stripIncludePrefix(argument) != null)
+                    || (argExclude.isEmpty() && argExcludeUsers.isEmpty() && MaterialParser.stripExcludePrefix(argument) != null)) {
+                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, raw));
+                return;
+            }
+        }
+        if (startTime == 0L && endTime == 0L) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co purge t:<time>"));
             return;
         }
-        if (argRadius != null) {
+        if (CommandParser.parseWorldEdit(args)) {
+            Chat.sendMessage(player, new ChatMessage(Phrase.build(Phrase.INVALID_WORLD)).build());
+            return;
+        }
+        if (argRadius != null && argRadius[0] == -1) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_RADIUS));
+            return;
+        }
+        int maxRadius = Config.getGlobal().MAX_RADIUS;
+        if (argRadius != null && maxRadius > 0 && argRadius[0] > maxRadius) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MAXIMUM_PURGE_RADIUS, Integer.toString(maxRadius)));
+            return;
+        }
+        if (argRadius != null && (location == null || location.getWorld() == null)) {
             Chat.sendMessage(player, new ChatMessage(Phrase.build(Phrase.INVALID_WORLD)).build());
             return;
         }
@@ -149,58 +368,42 @@ public class PurgeCommand extends Consumer {
         }
 
         StringBuilder restrict = new StringBuilder();
-        String includeBlock = "";
-        String includeEntity = "";
+        List<Integer> includeBlockIds = new ArrayList<>();
+        List<Integer> includeEntityIds = new ArrayList<>();
         boolean hasBlock = false;
-        boolean item = false;
         boolean entity = false;
         int restrictCount = 0;
 
         if (argBlocks.size() > 0) {
-            StringBuilder includeListMaterial = new StringBuilder();
-            StringBuilder includeListEntity = new StringBuilder();
-
             for (Object restrictTarget : argBlocks) {
                 String targetName = "";
 
                 if (restrictTarget instanceof Material) {
                     targetName = ((Material) restrictTarget).name();
-                    if (includeListMaterial.length() == 0) {
-                        includeListMaterial = includeListMaterial.append(MaterialUtils.getBlockId(targetName, false));
-                    }
-                    else {
-                        includeListMaterial.append(",").append(MaterialUtils.getBlockId(targetName, false));
+                    int blockId = MaterialUtils.getBlockId(targetName, false);
+                    if (blockId >= 0) {
+                        includeBlockIds.add(blockId);
                     }
 
                     /* Include legacy IDs */
                     int legacyId = BukkitAdapter.ADAPTER.getLegacyBlockId((Material) restrictTarget);
                     if (legacyId > 0) {
-                        includeListMaterial.append(",").append(legacyId);
+                        includeBlockIds.add(legacyId);
                     }
 
                     targetName = ((Material) restrictTarget).name().toLowerCase(Locale.ROOT);
-                    item = (!item ? !(((Material) restrictTarget).isBlock()) : item);
                     hasBlock = true;
                 }
                 else if (restrictTarget instanceof EntityType) {
-                    targetName = ((EntityType) restrictTarget).name();
-                    if (includeListEntity.length() == 0) {
-                        includeListEntity = includeListEntity.append(EntityUtils.getEntityId(targetName, false));
-                    }
-                    else {
-                        includeListEntity.append(",").append(EntityUtils.getEntityId(targetName, false));
-                    }
-
-                    targetName = ((EntityType) restrictTarget).name().toLowerCase(Locale.ROOT);
+                    EntityType type = (EntityType) restrictTarget;
+                    targetName = type.name().toLowerCase(Locale.ROOT);
+                    includeEntityIds.addAll(EntityUtils.getEntityIds(type));
                     entity = true;
                 }
                 else if (restrictTarget instanceof String) {
                     int blockId = MaterialUtils.getBlockId((String) restrictTarget, false);
-                    if (includeListMaterial.length() == 0) {
-                        includeListMaterial = includeListMaterial.append(blockId);
-                    }
-                    else {
-                        includeListMaterial.append(",").append(blockId);
+                    if (blockId >= 0) {
+                        includeBlockIds.add(blockId);
                     }
 
                     targetName = ((String) restrictTarget).toLowerCase(Locale.ROOT);
@@ -208,7 +411,7 @@ public class PurgeCommand extends Consumer {
                 }
 
                 if (restrictCount == 0) {
-                    restrict = restrict.append("" + targetName + "");
+                    restrict.append(targetName);
                 }
                 else {
                     restrict.append(", ").append(targetName);
@@ -216,13 +419,49 @@ public class PurgeCommand extends Consumer {
 
                 restrictCount++;
             }
-
-            includeBlock = includeListMaterial.toString();
-            includeEntity = includeListEntity.toString();
+            if (includeBlockIds.isEmpty() && includeEntityIds.isEmpty()) {
+                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, "i:" + restrict));
+                return;
+            }
         }
 
-        if (entity) {
+        List<Integer> excludeEntityIds = new ArrayList<>();
+        StringBuilder exclude = new StringBuilder();
+        for (Object excludeTarget : argExclude.keySet()) {
+            if (!(excludeTarget instanceof EntityType)) {
+                // Purge exclusions only support entity types (kills to keep).
+                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, "e:" + excludeTarget.toString().toLowerCase(Locale.ROOT)));
+                return;
+            }
+            EntityType type = (EntityType) excludeTarget;
+            String targetName = type.name().toLowerCase(Locale.ROOT);
+            List<Integer> ids = EntityUtils.getEntityIds(type);
+            if (ids.isEmpty() && ConfigHandler.databaseType.isMySQL() && !Config.getGlobal().DATABASE_LOCK) {
+                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, "e:" + targetName));
+                return;
+            }
+            excludeEntityIds.addAll(ids);
+            exclude.append(exclude.length() == 0 ? "" : ", ").append(targetName);
+        }
+        if (!argExclude.isEmpty() && excludeEntityIds.isEmpty()) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, "e:" + exclude));
+            return;
+        }
+        if (!argExcludeUsers.isEmpty()) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, "e:" + argExcludeUsers.get(0)));
+            return;
+        }
+
+        boolean killsOnly = argAction.contains(LookupActions.ENTITY_KILL);
+        boolean entityFilter = entity || killsOnly || !excludeEntityIds.isEmpty();
+        boolean excludeWithoutKills = !excludeEntityIds.isEmpty() && hasBlock && !entity; // a block restriction keeps every kill
+        if ((killsOnly && hasBlock) || (entity && !excludeEntityIds.isEmpty()) || excludeWithoutKills || ((entityFilter || argRadius != null) && ConfigHandler.databaseType.isClickHouse())) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.ACTION_NOT_SUPPORTED));
+            return;
+        }
+        if (argRadius != null && !hasBlock && !entity && !killsOnly) {
+            // A radius only limits co_block rows, so the purge must be restricted to them
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co purge t:<time> r:<radius> i:<include>"));
             return;
         }
 
@@ -235,336 +474,583 @@ public class PurgeCommand extends Consumer {
         }
 
         final StringBuilder restrictTargets = restrict;
-        final String includeBlockFinal = includeBlock;
+        final StringBuilder excludeTargets = exclude;
+        final List<Integer> includeBlockIdsFinal = List.copyOf(includeBlockIds);
+        final List<Integer> includeEntityIdsFinal = List.copyOf(includeEntityIds);
+        final List<Integer> excludeEntityIdsFinal = List.copyOf(excludeEntityIds);
+        final boolean killsOnlyFinal = killsOnly;
         final boolean optimize = optimizeCheck;
-        final boolean hasBlockRestriction = hasBlock;
         final int restrictCountFinal = restrictCount;
+        final int purgeWorldId = argWid > 0 || argRadius == null ? argWid : WorldUtils.getWorldId(location.getWorld().getName());
+        if (argRadius != null && purgeWorldId <= 0) {
+            Chat.sendMessage(player, new ChatMessage(Phrase.build(Phrase.INVALID_WORLD)).build());
+            return;
+        }
+        String restrictSelector = Selector.FIRST; // block
+        if (hasBlock && entity) {
+            restrictSelector = Selector.THIRD; // target
+        }
+        else if (entity) {
+            restrictSelector = Selector.SECOND; // entity
+        }
+        final String restrictKind = restrictSelector;
 
-        class BasicThread implements Runnable {
+        long now = System.currentTimeMillis() / 1000L;
+        PurgeFilter filter = new PurgeFilter(startTime > 0 ? now - startTime : 0, now - endTime, purgeWorldId,
+                argRadius, includeBlockIdsFinal, includeEntityIdsFinal, excludeEntityIdsFinal, killsOnlyFinal);
+        String worldName = argWid > 0 ? CommandParser.parseWorldName(args, false)
+                : argRadius != null ? location.getWorld().getName() : "#global";
+        Runnable announce = () -> announcePurge(player, worldName, argRadius, restrictCountFinal, restrictTargets.toString(),
+                restrictKind, excludeEntityIdsFinal, excludeTargets.toString());
+        new Thread(() -> runPurge(player, filter, optimize, announce)).start();
+    }
 
-            @Override
-            public void run() {
+    static void runPurge(CommandSender player, PurgeFilter filter, boolean optimize, Runnable announce) {
+        boolean purgeClaimed = false;
+        boolean consumerPaused = false;
+        boolean duckTransaction = false;
+        boolean duckPurgeStarted = false;
+        AtomicBoolean duckCommitAttempted = new AtomicBoolean();
+        boolean duckRollbackSucceeded = false;
+        boolean maintenanceLocked = false;
+        boolean resumePersistence = true;
+        boolean handoffStarted = false;
+        boolean mysqlPurgeStarted = false;
+        boolean mysqlDeletesCompleted = false;
+        long removed = 0;
+        Connection connection = null;
+        Statement transactionStatement = null;
+        Path sqliteTemporary = null;
+        try {
+            requirePurgeNotCancelled();
+            if (Consumer.isPersistenceHalted()) {
+                Chat.sendGlobalMessage(player, Phrase.build(Phrase.DATABASE_BUSY));
+                return;
+            }
+            for (int i = 0; i <= 5; i++) {
+                requirePurgeNotCancelled();
+                connection = Database.getConnection(false, 500);
+                if (connection != null) {
+                    break;
+                }
+                Thread.sleep(1000);
+            }
+
+            if (connection == null) {
+                Chat.sendGlobalMessage(player, Phrase.build(Phrase.DATABASE_BUSY));
+                return;
+            }
+
+            requirePurgeNotCancelled();
+            Consumer.OperationStartResult startResult = Consumer.claimPurge();
+            if (startResult != Consumer.OperationStartResult.STARTED) {
+                Phrase phrase = startResult == Consumer.OperationStartResult.PURGE_RUNNING ? Phrase.PURGE_IN_PROGRESS
+                        : startResult == Consumer.OperationStartResult.RELOAD_RUNNING ? Phrase.DATABASE_BUSY
+                                : startResult == Consumer.OperationStartResult.PERSISTENCE_HALTED ? Phrase.DATABASE_PERSISTENCE_HALTED : Phrase.ROLLBACK_IN_PROGRESS;
+                Chat.sendGlobalMessage(player, Phrase.build(phrase));
+                return;
+            }
+            purgeClaimed = true;
+            activePurgeThread = Thread.currentThread();
+            requirePurgeNotCancelled();
+
+            announce.run();
+
+            while (!Consumer.isPauseAcknowledged() && !Consumer.isPersistenceHalted()) {
+                Thread.sleep(1);
+            }
+            if (Consumer.isPersistenceHalted()) {
+                Chat.sendGlobalMessage(player, Phrase.build(Phrase.DATABASE_BUSY));
+                return;
+            }
+            Consumer.setMaintenancePaused(true);
+            consumerPaused = true;
+            requirePurgeNotCancelled();
+
+            if (ConfigHandler.databaseType.isClickHouse()) {
+                connection.close();
+                connection = null;
+                removed = purgeClickHouse(player, filter, optimize);
+                EntitySpawnTracking.invalidateDatabaseVerification();
+                Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_SUCCESS));
+                sendPurgeRows(player, removed);
+                return;
+            }
+
+            boolean abort = false;
+            String retainedPrefix = ConfigHandler.prefix;
+
+            if (ConfigHandler.databaseType.isSQLite()) {
+                sqliteTemporary = sqliteTempDatabase();
+                attachSQLitePurgeDatabase(connection, sqliteTemporary);
+                retainedPrefix = "tmp_db." + ConfigHandler.prefix;
+            }
+
+            Integer[] lastVersion = Patch.getDatabaseVersion(connection, true);
+            boolean newVersion = VersionUtils.newVersion(lastVersion, VersionUtils.getInternalPluginVersion());
+            if (newVersion && !ConfigHandler.EDITION_BRANCH.contains("-dev")) {
+                Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_FAILED));
+                return;
+            }
+
+            if (ConfigHandler.databaseType.isDuckDB()) {
+                transactionStatement = createPurgeStatement(connection);
+                Database.beginTransaction(transactionStatement, ConfigHandler.databaseType);
+                duckPurgeStarted = true;
+                duckTransaction = true;
+            }
+
+            if (ConfigHandler.databaseType.isSQLite()) {
+                SQLiteRebuild rebuild = rebuildSQLiteTables(connection, player, filter, retainedPrefix);
+                removed = rebuild.removed;
+                abort = rebuild.aborted;
+            }
+            else {
+                mysqlPurgeStarted = ConfigHandler.databaseType.isMySQL();
+                removed = deleteRelationalRows(connection, player, filter);
+            }
+
+            if (ConfigHandler.databaseType.isMySQL() && optimize) {
+                removed += sweepMySqlOrphans(connection, filter);
+            }
+            if (!abort) {
+                removed += deleteOrphanedEntityRows(connection, retainedPrefix, filter);
+            }
+            mysqlDeletesCompleted = mysqlPurgeStarted;
+            if (mysqlDeletesCompleted && optimize) {
+                optimizeMySqlTables(connection, player);
+            }
+
+            if (duckTransaction) {
+                activePurgeStatement = transactionStatement;
+                requirePurgeNotCancelled();
+                if (!Database.commitTransactionChecked(transactionStatement, ConfigHandler.databaseType, () -> duckCommitAttempted.set(true))) {
+                    throw new SQLException("Unable to commit DuckDB purge transaction");
+                }
+                duckTransaction = false;
+                duckPurgeStarted = false;
+                duckCommitAttempted.set(false);
+                requirePurgeNotCancelled();
                 try {
-                    long timestamp = (System.currentTimeMillis() / 1000L);
-                    long timeStart = startTime > 0 ? (timestamp - startTime) : 0;
-                    long timeEnd = timestamp - endTime;
-                    long removed = 0;
-
-                    Connection connection = null;
-                    for (int i = 0; i <= 5; i++) {
-                        connection = Database.getConnection(false, 500);
-                        if (connection != null) {
-                            break;
-                        }
-                        Thread.sleep(1000);
+                    transactionStatement.execute("CHECKPOINT");
+                }
+                catch (SQLException e) {
+                    if (!shutdownCancellationRequested) {
+                        ErrorReporter.report(e);
                     }
+                }
+                transactionStatement.close();
+                transactionStatement = null;
+            }
 
-                    if (connection == null) {
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.DATABASE_BUSY));
-                        return;
-                    }
+            connection.close();
+            connection = null;
+            requirePurgeNotCancelled();
 
-                    if (argWid > 0) {
-                        String worldName = CommandParser.parseWorldName(args, false);
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_STARTED, worldName));
-                    }
-                    else {
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_STARTED, "#global"));
-                    }
+            try {
+                Consumer.lockDatabaseMaintenanceInterruptibly();
+                maintenanceLocked = true;
+                if (!Database.awaitConnectionDrain(CONNECTION_DRAIN_TIMEOUT_MILLIS)) {
+                    throw new SQLException("Timed out waiting for active database connections before purge handoff");
+                }
+                requirePurgeNotCancelled();
+            }
+            catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                throw exception;
+            }
 
-                    if (hasBlockRestriction) {
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.ROLLBACK_INCLUDE, restrictTargets.toString(), Selector.FIRST, Selector.FIRST, (restrictCountFinal == 1 ? Selector.FIRST : Selector.SECOND))); // include
-                    }
+            if (abort) {
+                resumePersistence = false;
+                handoffStarted = true;
+                ConfigHandler.loadDatabase();
+                handoffStarted = false;
+                resumePersistence = true;
+                Chat.sendGlobalMessage(player, Color.RED + Phrase.build(Phrase.PURGE_ABORTED));
+                return;
+            }
 
-                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_NOTICE_1));
-                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_NOTICE_2));
+            resumePersistence = false;
+            handoffStarted = true;
+            if (ConfigHandler.databaseType.isSQLite()) {
+                replaceSQLiteDatabase(sqliteTemporary);
+                sqliteTemporary = null;
+            }
 
-                    ConfigHandler.purgeRunning = true;
-                    while (!Consumer.pausedSuccess) {
-                        Thread.sleep(1);
-                    }
-                    Consumer.isPaused = true;
+            ConfigHandler.loadDatabase();
+            handoffStarted = false;
+            resumePersistence = true;
+            EntitySpawnTracking.invalidateDatabaseVerification();
 
-                    String query = "";
-                    PreparedStatement preparedStmt = null;
-                    boolean abort = false;
-                    String purgePrefix = "tmp_" + ConfigHandler.prefix;
-
-                    if (!Config.getGlobal().MYSQL) {
-                        query = "ATTACH DATABASE '" + ConfigHandler.path + ConfigHandler.sqlite + ".tmp' AS tmp_db";
-                        preparedStmt = connection.prepareStatement(query);
-                        preparedStmt.execute();
-                        preparedStmt.close();
-                        purgePrefix = "tmp_db." + ConfigHandler.prefix;
-                    }
-
-                    Integer[] lastVersion = Patch.getDatabaseVersion(connection, true);
-                    boolean newVersion = VersionUtils.newVersion(lastVersion, VersionUtils.getInternalPluginVersion());
-                    if (newVersion && !ConfigHandler.EDITION_BRANCH.contains("-dev")) {
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_FAILED));
-                        Consumer.isPaused = false;
-                        ConfigHandler.purgeRunning = false;
-                        return;
-                    }
-
-                    if (!Config.getGlobal().MYSQL) {
-                        for (String table : ConfigHandler.databaseTables) {
-                            try {
-                                query = "DROP TABLE IF EXISTS " + purgePrefix + table + "";
-                                preparedStmt = connection.prepareStatement(query);
-                                preparedStmt.execute();
-                                preparedStmt.close();
-                            }
-                            catch (Exception e) {
-                                e.printStackTrace();
-                            }
-                        }
-
-                        Database.createDatabaseTables(purgePrefix, false, null, Config.getGlobal().MYSQL, true);
-                    }
-
-                    List<String> worldTables = Arrays.asList("sign", "container", "item", "session", "chat", "command", "block");
-                    List<String> restrictTables = Arrays.asList("block");
-                    List<String> excludeTables = Arrays.asList("database_lock"); // don't insert data into these tables
-                    for (String table : ConfigHandler.databaseTables) {
-                        String tableName = table.replaceAll("_", " ");
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_PROCESSING, tableName));
-
-                        if (!Config.getGlobal().MYSQL) {
-                            String columns = "";
-                            ResultSet rs = connection.createStatement().executeQuery("SELECT * FROM " + purgePrefix + table);
-                            ResultSetMetaData resultSetMetaData = rs.getMetaData();
-                            int columnCount = resultSetMetaData.getColumnCount();
-                            for (int i = 1; i <= columnCount; i++) {
-                                String name = resultSetMetaData.getColumnName(i);
-                                if (columns.length() == 0) {
-                                    columns = name;
-                                }
-                                else {
-                                    columns = columns + "," + name;
-                                }
-                            }
-                            rs.close();
-
-                            boolean error = false;
-                            if (!excludeTables.contains(table)) {
-                                try {
-                                    boolean purge = true;
-                                    String timeLimit = "";
-                                    if (PURGE_TABLES.contains(table)) {
-                                        String blockRestriction = "(";
-                                        if (hasBlockRestriction && restrictTables.contains(table)) {
-                                            blockRestriction = "type NOT IN(" + includeBlockFinal + ") OR (type IN(" + includeBlockFinal + ") AND ";
-                                        }
-                                        else if (hasBlockRestriction) {
-                                            purge = false;
-                                        }
-
-                                        if (argWid > 0 && worldTables.contains(table)) {
-                                            timeLimit = " WHERE (" + blockRestriction + "wid = '" + argWid + "' AND (time >= '" + timeEnd + "' OR time < '" + timeStart + "'))) OR (wid != '" + argWid + "')";
-                                        }
-                                        else if (argWid == 0 && purge) {
-                                            timeLimit = " WHERE " + blockRestriction + "(time >= '" + timeEnd + "' OR time < '" + timeStart + "'))";
-                                        }
-                                    }
-                                    query = "INSERT INTO " + purgePrefix + table + " SELECT " + columns + " FROM " + ConfigHandler.prefix + table + timeLimit;
-                                    preparedStmt = connection.prepareStatement(query);
-                                    preparedStmt.execute();
-                                    preparedStmt.close();
-                                }
-                                catch (Exception e) {
-                                    error = true;
-                                    e.printStackTrace();
-                                }
-                            }
-
-                            if (error) {
-                                Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_ERROR, tableName));
-                                Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_REPAIRING));
-
-                                try {
-                                    query = "DELETE FROM " + purgePrefix + table;
-                                    preparedStmt = connection.prepareStatement(query);
-                                    preparedStmt.execute();
-                                    preparedStmt.close();
-                                }
-                                catch (Exception e) {
-                                    e.printStackTrace();
-                                }
-
-                                try {
-                                    query = "REINDEX " + ConfigHandler.prefix + table;
-                                    preparedStmt = connection.prepareStatement(query);
-                                    preparedStmt.execute();
-                                    preparedStmt.close();
-                                }
-                                catch (Exception e) {
-                                    e.printStackTrace();
-                                }
-
-                                try {
-                                    String index = " NOT INDEXED";
-                                    query = "INSERT INTO " + purgePrefix + table + " SELECT " + columns + " FROM " + ConfigHandler.prefix + table + index;
-                                    preparedStmt = connection.prepareStatement(query);
-                                    preparedStmt.execute();
-                                    preparedStmt.close();
-                                }
-                                catch (Exception e) {
-                                    e.printStackTrace();
-                                    abort = true;
-                                    break;
-                                }
-
-                                try {
-                                    boolean purge = PURGE_TABLES.contains(table);
-
-                                    String blockRestriction = "";
-                                    if (hasBlockRestriction && restrictTables.contains(table)) {
-                                        blockRestriction = "type IN(" + includeBlockFinal + ") AND ";
-                                    }
-                                    else if (hasBlockRestriction) {
-                                        purge = false;
-                                    }
-
-                                    String worldRestriction = "";
-                                    if (argWid > 0 && worldTables.contains(table)) {
-                                        worldRestriction = " AND wid = '" + argWid + "'";
-                                    }
-                                    else if (argWid > 0) {
-                                        purge = false;
-                                    }
-
-                                    if (purge) {
-                                        query = "DELETE FROM " + purgePrefix + table + " WHERE " + blockRestriction + "time < '" + timeEnd + "' AND time >= '" + timeStart + "'" + worldRestriction;
-                                        preparedStmt = connection.prepareStatement(query);
-                                        preparedStmt.execute();
-                                        preparedStmt.close();
-                                    }
-                                }
-                                catch (Exception e) {
-                                    e.printStackTrace();
-                                }
-                            }
-
-                            if (PURGE_TABLES.contains(table)) {
-                                int oldCount = 0;
-                                try {
-                                    query = "SELECT COUNT(*) as count FROM " + ConfigHandler.prefix + table + " LIMIT 0, 1";
-                                    preparedStmt = connection.prepareStatement(query);
-                                    ResultSet resultSet = preparedStmt.executeQuery();
-                                    while (resultSet.next()) {
-                                        oldCount = resultSet.getInt("count");
-                                    }
-                                    resultSet.close();
-                                    preparedStmt.close();
-                                }
-                                catch (Exception e) {
-                                    e.printStackTrace();
-                                }
-
-                                int new_count = 0;
-                                try {
-                                    query = "SELECT COUNT(*) as count FROM " + purgePrefix + table + " LIMIT 0, 1";
-                                    preparedStmt = connection.prepareStatement(query);
-                                    ResultSet resultSet = preparedStmt.executeQuery();
-                                    while (resultSet.next()) {
-                                        new_count = resultSet.getInt("count");
-                                    }
-                                    resultSet.close();
-                                    preparedStmt.close();
-                                }
-                                catch (Exception e) {
-                                    e.printStackTrace();
-                                }
-
-                                removed = removed + (oldCount - new_count);
-                            }
-                        }
-
-                        if (Config.getGlobal().MYSQL) {
-                            try {
-                                boolean purge = PURGE_TABLES.contains(table);
-
-                                String blockRestriction = "";
-                                if (hasBlockRestriction && restrictTables.contains(table)) {
-                                    blockRestriction = "type IN(" + includeBlockFinal + ") AND ";
-                                }
-                                else if (hasBlockRestriction) {
-                                    purge = false;
-                                }
-
-                                String worldRestriction = "";
-                                if (argWid > 0 && worldTables.contains(table)) {
-                                    worldRestriction = " AND wid = '" + argWid + "'";
-                                }
-                                else if (argWid > 0) {
-                                    purge = false;
-                                }
-
-                                if (purge) {
-                                    query = "DELETE FROM " + ConfigHandler.prefix + table + " WHERE " + blockRestriction + "time < '" + timeEnd + "' AND time >= '" + timeStart + "'" + worldRestriction;
-                                    preparedStmt = connection.prepareStatement(query);
-                                    preparedStmt.execute();
-                                    removed = removed + preparedStmt.getUpdateCount();
-                                    preparedStmt.close();
-                                }
-                            }
-                            catch (Exception e) {
-                                if (!ConfigHandler.serverRunning) {
-                                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_FAILED));
-                                    return;
-                                }
-
-                                e.printStackTrace();
-                            }
-                        }
-                    }
-
-                    if (Config.getGlobal().MYSQL && optimize) {
-                        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_OPTIMIZING));
-                        for (String table : ConfigHandler.databaseTables) {
-                            query = "OPTIMIZE LOCAL TABLE " + ConfigHandler.prefix + table + "";
-                            preparedStmt = connection.prepareStatement(query);
-                            preparedStmt.execute();
-                            preparedStmt.close();
-                        }
-                    }
-
-                    connection.close();
-
-                    if (abort) {
-                        if (!Config.getGlobal().MYSQL) {
-                            (new File(ConfigHandler.path + ConfigHandler.sqlite + ".tmp")).delete();
-                        }
-                        ConfigHandler.loadDatabase();
-                        Chat.sendGlobalMessage(player, Color.RED + Phrase.build(Phrase.PURGE_ABORTED));
-                        Consumer.isPaused = false;
-                        ConfigHandler.purgeRunning = false;
-                        return;
-                    }
-
-                    if (!Config.getGlobal().MYSQL) {
-                        (new File(ConfigHandler.path + ConfigHandler.sqlite)).delete();
-                        (new File(ConfigHandler.path + ConfigHandler.sqlite + ".tmp")).renameTo(new File(ConfigHandler.path + ConfigHandler.sqlite));
-                    }
-
-                    ConfigHandler.loadDatabase();
-
-                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_SUCCESS));
-                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_ROWS, NumberFormat.getInstance().format(removed), (removed == 1 ? Selector.FIRST : Selector.SECOND)));
+            Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_SUCCESS));
+            sendPurgeRows(player, removed);
+        }
+        catch (Exception e) {
+            boolean shutdownCancelled = shutdownCancellationRequested || e instanceof InterruptedException;
+            boolean reloadRequired = false;
+            if (duckTransaction && transactionStatement != null) {
+                duckRollbackSucceeded = Database.rollbackTransaction(transactionStatement, ConfigHandler.databaseType);
+            }
+            if (ConfigHandler.databaseType.isDuckDB() && requiresDuckDatabaseReload(duckPurgeStarted, duckCommitAttempted.get(), duckRollbackSucceeded)) {
+                Consumer.requireDatabaseReload();
+                ConfigHandler.databaseReachable = false;
+                resumePersistence = false;
+                reloadRequired = true;
+            }
+            if (handoffStarted) {
+                Consumer.requireDatabaseReload();
+                ConfigHandler.databaseReachable = false;
+                reloadRequired = true;
+            }
+            if (shutdownCancelled) {
+                Thread.currentThread().interrupt();
+            }
+            else {
+                if (mysqlPurgeStarted) {
+                    EntitySpawnTracking.invalidateDatabaseVerification();
+                }
+                if (mysqlDeletesCompleted) {
+                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_MAINTENANCE_FAILED));
+                    sendPurgeRows(player, removed);
+                }
+                else {
+                    Chat.sendGlobalMessage(player, Phrase.build(mysqlPurgeStarted ? Phrase.PURGE_INCOMPLETE : Phrase.PURGE_FAILED));
+                }
+                if (reloadRequired) {
+                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.RELOAD_FAILED));
+                }
+                ErrorReporter.report(e);
+            }
+        }
+        finally {
+            if (transactionStatement != null) {
+                try {
+                    transactionStatement.close();
                 }
                 catch (Exception e) {
-                    Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_FAILED));
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                 }
+            }
+            boolean connectionClosed = connection == null;
+            if (!connectionClosed) {
+                try {
+                    connection.close();
+                    connectionClosed = true;
+                }
+                catch (Exception e) {
+                    ErrorReporter.report(e);
+                }
+            }
+            if (sqliteTemporary != null && connectionClosed) {
+                try {
+                    Files.deleteIfExists(sqliteTemporary);
+                }
+                catch (IOException e) {
+                    ErrorReporter.report(e);
+                }
+            }
+            if (maintenanceLocked) {
+                Consumer.unlockDatabaseMaintenance();
+            }
+            if (consumerPaused && resumePersistence && !Consumer.isPersistenceHalted()) {
+                Consumer.setMaintenancePaused(false);
+            }
+            if (purgeClaimed) {
+                Consumer.releasePurge();
+            }
+            if (activePurgeThread == Thread.currentThread()) {
+                activePurgeStatement = null;
+                activePurgeThread = null;
+            }
+        }
+    }
 
-                Consumer.isPaused = false;
-                ConfigHandler.purgeRunning = false;
+    private static void sendPurgeRows(CommandSender player, long removed) {
+        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_ROWS, NumberFormat.getInstance().format(removed), removed == 1 ? Selector.FIRST : Selector.SECOND));
+    }
+
+    private static void announcePurge(CommandSender player, String worldName, Integer[] radius, int restrictCount,
+            String restrictTargets, String restrictKind, List<Integer> excludeEntityIds, String excludeTargets) {
+        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_STARTED, worldName));
+        if (radius != null) {
+            Chat.sendGlobalMessage(player, Phrase.build(Phrase.ROLLBACK_RADIUS, radius[0].toString(), radius[0] == 1 ? Selector.FIRST : Selector.SECOND));
+        }
+        if (restrictCount > 0) {
+            Chat.sendGlobalMessage(player, Phrase.build(Phrase.ROLLBACK_INCLUDE, restrictTargets, Selector.FIRST, restrictKind,
+                    restrictCount == 1 ? Selector.FIRST : Selector.SECOND));
+        }
+        if (!excludeEntityIds.isEmpty()) {
+            Chat.sendGlobalMessage(player, Phrase.build(Phrase.ROLLBACK_INCLUDE, excludeTargets, Selector.SECOND, Selector.SECOND,
+                    excludeEntityIds.size() == 1 ? Selector.FIRST : Selector.SECOND));
+        }
+        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_NOTICE_1));
+        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_NOTICE_2));
+    }
+
+    private static long purgeClickHouse(CommandSender player, PurgeFilter filter, boolean optimize) throws Exception {
+        if (optimize) {
+            Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_OPTIMIZING));
+        }
+        requirePurgeNotCancelled();
+        return Database.purgeClickHouse(filter.startTime(), filter.endTime(), filter.worldId(), filter.blockTypes(), optimize);
+    }
+
+    private static SQLiteRebuild rebuildSQLiteTables(Connection connection, CommandSender player, PurgeFilter purgeFilter, String purgePrefix) throws Exception {
+        String query;
+        for (String table : ConfigHandler.databaseTables) {
+            requirePurgeNotCancelled();
+            try {
+                query = "DROP TABLE IF EXISTS " + purgePrefix + table;
+                executePurgeStatement(connection, query);
+            }
+            catch (Exception e) {
+                reportPurgeFailure(e);
             }
         }
 
-        Runnable runnable = new BasicThread();
-        Thread thread = new Thread(runnable);
-        thread.start();
+        Database.createDatabaseTables(purgePrefix, false, null, ConfigHandler.databaseType, true);
+
+        long removed = 0;
+        for (String table : ConfigHandler.databaseTables) {
+            requirePurgeNotCancelled();
+            String tableName = table.replace('_', ' ');
+            Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_PROCESSING, tableName));
+            String columns = "";
+            try (Statement columnStatement = createPurgeStatement(connection);
+                    ResultSet results = columnStatement.executeQuery("SELECT * FROM " + purgePrefix + table)) {
+                ResultSetMetaData metadata = results.getMetaData();
+                for (int i = 1; i <= metadata.getColumnCount(); i++) {
+                    if (!columns.isEmpty()) {
+                        columns += ",";
+                    }
+                    columns += metadata.getColumnName(i);
+                }
+            }
+            String insertColumns = "";
+            String selectColumns = columns;
+            if (table.equals("block")) {
+                insertColumns = "(rowid," + columns + ")";
+                selectColumns = "rowid," + columns;
+            }
+
+            boolean error = false;
+            if (!table.equals("database_lock")) {
+                try {
+                    String timeLimit = "";
+                    if (table.equals("entity")) {
+                        timeLimit = " WHERE " + purgeFilter.entityRetainCondition(purgePrefix + "block");
+                    }
+                    else {
+                        String purgeCondition = purgeFilter.deleteCondition(table);
+                        if (purgeCondition != null) {
+                            timeLimit = " WHERE NOT COALESCE((" + purgeCondition + "), 0)";
+                        }
+                    }
+                    query = "INSERT INTO " + purgePrefix + table + insertColumns + " SELECT " + selectColumns + " FROM " + ConfigHandler.prefix + table + timeLimit;
+                    executePurgeStatement(connection, query);
+                }
+                catch (Exception e) {
+                    error = true;
+                    reportPurgeFailure(e);
+                }
+            }
+
+            if (error) {
+                requirePurgeNotCancelled();
+                Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_ERROR, tableName));
+                Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_REPAIRING));
+
+                try {
+                    query = "DELETE FROM " + purgePrefix + table;
+                    executePurgeStatement(connection, query);
+                }
+                catch (Exception e) {
+                    reportPurgeFailure(e);
+                }
+
+                try {
+                    query = "REINDEX " + ConfigHandler.prefix + table;
+                    executePurgeStatement(connection, query);
+                }
+                catch (Exception e) {
+                    reportPurgeFailure(e);
+                }
+
+                try {
+                    String index = " NOT INDEXED";
+                    query = "INSERT INTO " + purgePrefix + table + insertColumns + " SELECT " + selectColumns + " FROM " + ConfigHandler.prefix + table + index;
+                    executePurgeStatement(connection, query);
+                }
+                catch (Exception e) {
+                    reportPurgeFailure(e);
+                    return new SQLiteRebuild(removed, true);
+                }
+
+                try {
+                    if (table.equals("entity")) {
+                        query = purgeFilter.deleteUnreferencedEntities(purgePrefix + "entity", purgePrefix + "block");
+                        executePurgeStatement(connection, query);
+                    }
+                    else {
+                        String purgeCondition = purgeFilter.deleteCondition(table);
+                        if (purgeCondition != null) {
+                            query = "DELETE FROM " + purgePrefix + table + " WHERE " + purgeCondition;
+                            executePurgeStatement(connection, query);
+                        }
+                    }
+                }
+                catch (Exception e) {
+                    reportPurgeFailure(e);
+                    return new SQLiteRebuild(removed, true);
+                }
+            }
+
+            if (PurgePolicy.isPurgeable(table) || table.equals("entity_spawn")) {
+                try {
+                    removed += countPurgeRows(connection, ConfigHandler.prefix + table) - countPurgeRows(connection, purgePrefix + table);
+                }
+                catch (Exception e) {
+                    reportPurgeFailure(e);
+                }
+            }
+        }
+        return new SQLiteRebuild(removed, false);
+    }
+
+    static long deleteRelationalRows(Connection connection, CommandSender player, PurgeFilter purgeFilter) throws SQLException, InterruptedException {
+        long removed = 0;
+        for (String table : ConfigHandler.databaseTables) {
+            requirePurgeNotCancelled();
+            Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_PROCESSING, table.replace('_', ' ')));
+            String purgeCondition = purgeFilter.deleteCondition(table);
+            if (purgeCondition == null) {
+                continue;
+            }
+            String query = "DELETE FROM " + ConfigHandler.prefix + table + " WHERE " + purgeCondition;
+            if (table.equals("block") && purgeFilter.removesKills() && !purgeFilter.purgesEntitiesByTime()) {
+                String entityQuery = purgeFilter.deleteEntitiesOfPurgedKills(ConfigHandler.databaseType, ConfigHandler.prefix);
+                if (ConfigHandler.databaseType.isMySQL()) {
+                    removed += deleteMySqlKillRows(connection, entityQuery, query);
+                    continue;
+                }
+                removed += executePurgeUpdate(connection, entityQuery);
+            }
+            removed += executePurgeUpdate(connection, query);
+        }
+        return removed;
+    }
+
+    private static long deleteMySqlKillRows(Connection connection, String entityQuery, String blockQuery) throws SQLException, InterruptedException {
+        boolean restoredAfterRollback = false;
+        try {
+            connection.setAutoCommit(false);
+            long removed;
+            try {
+                removed = executePurgeUpdate(connection, entityQuery) + executePurgeUpdate(connection, blockQuery);
+                requirePurgeNotCancelled();
+                connection.commit();
+            }
+            catch (SQLException | InterruptedException | RuntimeException | Error failure) {
+                try {
+                    connection.rollback();
+                    connection.setAutoCommit(true);
+                    restoredAfterRollback = true;
+                }
+                catch (SQLException | RuntimeException cleanupFailure) {
+                    failure.addSuppressed(cleanupFailure);
+                }
+                throw failure;
+            }
+            connection.setAutoCommit(true);
+            return removed;
+        }
+        catch (SQLException | InterruptedException | RuntimeException | Error failure) {
+            if (!restoredAfterRollback) {
+                evictMySqlPurgeConnection(connection, failure);
+            }
+            throw failure;
+        }
+    }
+
+    private static void evictMySqlPurgeConnection(Connection connection, Throwable failure) {
+        var pool = ConfigHandler.hikariDataSource;
+        if (pool != null) {
+            try {
+                pool.evictConnection(connection);
+            }
+            catch (RuntimeException evictionFailure) {
+                failure.addSuppressed(evictionFailure);
+            }
+        }
+    }
+
+    private static long sweepMySqlOrphans(Connection connection, PurgeFilter purgeFilter) throws SQLException, InterruptedException {
+        try {
+            for (String sweepQuery : PurgeFilter.mysqlOrphanSweepSetup(ConfigHandler.prefix)) {
+                executePurgeStatement(connection, sweepQuery);
+            }
+            long removed = executePurgeUpdate(connection, purgeFilter.mysqlOrphanSweepDelete(ConfigHandler.prefix));
+            executePurgeStatement(connection, PurgeFilter.mysqlOrphanSweepTeardown(ConfigHandler.prefix));
+            return removed;
+        }
+        catch (SQLException | InterruptedException | RuntimeException | Error failure) {
+            evictMySqlPurgeConnection(connection, failure);
+            throw failure;
+        }
+    }
+
+    static long deleteOrphanedEntityRows(Connection connection, String retainedPrefix, PurgeFilter filter) throws Exception {
+        String query;
+        requirePurgeNotCancelled();
+        query = "UPDATE " + retainedPrefix + "entity_spawn SET kill_rowid=NULL WHERE kill_rowid IS NOT NULL AND NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "entity WHERE " + retainedPrefix + "entity.rowid=" + retainedPrefix + "entity_spawn.kill_rowid)";
+        executePurgeUpdate(connection, query);
+
+        requirePurgeNotCancelled();
+        query = "UPDATE " + retainedPrefix + "entity_spawn SET block_rowid=NULL WHERE block_rowid IS NOT NULL AND NOT EXISTS (SELECT 1 FROM " + retainedPrefix + "block WHERE " + retainedPrefix + "block.rowid=" + retainedPrefix + "entity_spawn.block_rowid)";
+        executePurgeUpdate(connection, query);
+
+        requirePurgeNotCancelled();
+        query = "DELETE FROM " + retainedPrefix + "entity_spawn WHERE " + filter.unreferencedSpawnCondition(retainedPrefix);
+        return executePurgeUpdate(connection, query);
+    }
+
+    private static void optimizeMySqlTables(Connection connection, CommandSender player) throws Exception {
+        Chat.sendGlobalMessage(player, Phrase.build(Phrase.PURGE_OPTIMIZING));
+        for (String table : ConfigHandler.databaseTables) {
+            requirePurgeNotCancelled();
+            String query = "OPTIMIZE LOCAL TABLE " + ConfigHandler.prefix + table;
+            executePurgeStatement(connection, query);
+        }
+    }
+
+    private static final class SQLiteRebuild {
+        private final long removed;
+        private final boolean aborted;
+
+        private SQLiteRebuild(long removed, boolean aborted) {
+            this.removed = removed;
+            this.aborted = aborted;
+        }
+    }
+
+    private static Path sqliteTempDatabase() {
+        return Path.of(ConfigHandler.path + ConfigHandler.sqlite + ".tmp");
+    }
+
+    static void attachSQLitePurgeDatabase(Connection connection, Path temporary) throws IOException, SQLException, InterruptedException {
+        Files.deleteIfExists(temporary);
+        try (PreparedStatement statement = preparePurgeStatement(connection, "ATTACH DATABASE ? AS tmp_db")) {
+            statement.setString(1, temporary.toString());
+            statement.execute();
+        }
+    }
+
+    static boolean requiresDuckDatabaseReload(boolean purgeStarted, boolean commitAttempted, boolean rollbackSucceeded) {
+        return purgeStarted && (commitAttempted || !rollbackSucceeded);
+    }
+
+    private static void replaceSQLiteDatabase(Path temporary) throws IOException {
+        Path database = Path.of(ConfigHandler.path + ConfigHandler.sqlite);
+        Files.move(temporary, database, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
     }
 }

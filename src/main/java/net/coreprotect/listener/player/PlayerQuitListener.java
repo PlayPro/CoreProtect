@@ -6,10 +6,12 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 
+import net.coreprotect.command.CommandHandler;
 import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 
-public final class PlayerQuitListener extends Queue implements Listener {
+public final class PlayerQuitListener implements Listener {
 
     public static void queuePlayerQuit(Player player) {
         if (Config.getConfig(player.getWorld()).PLAYER_SESSIONS) {
@@ -20,7 +22,12 @@ public final class PlayerQuitListener extends Queue implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerQuit(PlayerQuitEvent event) {
-        queuePlayerQuit(event.getPlayer());
+        Player player = event.getPlayer();
+        queuePlayerQuit(player);
+        String playerName = player.getName();
+        ConfigHandler.clearPlayerState(playerName);
+        PlayerInteractListener.clearInspectorEvent(player.getUniqueId());
+        CommandHandler.clearVersionAlert(playerName);
     }
 
 }

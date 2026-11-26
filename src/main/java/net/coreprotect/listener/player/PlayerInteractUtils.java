@@ -43,6 +43,13 @@ public final class PlayerInteractUtils {
             player.sendBlockChange(y2.getLocation(), y2.getBlockData());
         }
 
+        refreshHorizontalNeighbors(player, block, world);
+    }
+
+    static void refreshHorizontalNeighbors(Player player, Block block, World world) {
+        int x = block.getX();
+        int y = block.getY();
+        int z = block.getZ();
         Block x1 = world.getBlockAt(x + 1, y, z);
         Block x2 = world.getBlockAt(x - 1, y, z);
         Block z1 = world.getBlockAt(x, y, z + 1);

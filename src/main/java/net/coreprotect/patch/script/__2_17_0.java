@@ -4,6 +4,7 @@ import java.sql.Statement;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.utility.ErrorReporter;
 
 public class __2_17_0 {
 
@@ -17,7 +18,7 @@ public class __2_17_0 {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return true;

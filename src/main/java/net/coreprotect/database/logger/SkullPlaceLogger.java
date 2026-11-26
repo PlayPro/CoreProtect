@@ -1,17 +1,16 @@
 package net.coreprotect.database.logger;
 
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.util.Locale;
+
+import java.util.List;
 
 import org.bukkit.Material;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Skull;
 
-import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.database.Database;
+import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.statement.SkullStatement;
 import net.coreprotect.paper.PaperAdapter;
+import net.coreprotect.worldedit.WorldEditBlockState;
 
 public class SkullPlaceLogger {
 
@@ -19,42 +18,28 @@ public class SkullPlaceLogger {
         throw new IllegalStateException("Database class");
     }
 
-    public static void log(PreparedStatement preparedStmt, PreparedStatement preparedStmt2, int batchCount, String user, BlockState block, int replaceType, int replaceData) {
-        try {
-            if (ConfigHandler.isBlacklisted(user) || block == null) {
-                return;
-            }
-            int time = (int) (System.currentTimeMillis() / 1000L);
-            Material type = block.getType();
-            int skullKey = 0;
-
-            if (block instanceof Skull) {
-                Skull skull = (Skull) block;
-                String skullOwner = "";
-                String skullSkin = null;
-                if (skull.hasOwner()) {
-                    skullOwner = PaperAdapter.ADAPTER.getSkullOwner(skull);
-                    skullSkin = PaperAdapter.ADAPTER.getSkullSkin(skull);
-                    ResultSet resultSet = SkullStatement.insert(preparedStmt2, time, skullOwner, skullSkin);
-                    if (Database.hasReturningKeys()) {
-                        resultSet.next();
-                        skullKey = resultSet.getInt(1);
-                        resultSet.close();
-                    }
-                    else {
-                        ResultSet keys = preparedStmt2.getGeneratedKeys();
-                        keys.next();
-                        skullKey = keys.getInt(1);
-                        keys.close();
-                    }
-                }
-            }
-
-            BlockPlaceLogger.log(preparedStmt, batchCount, user, block, replaceType, replaceData, type, skullKey, true, null, null, null);
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-        }
+    public static void log(ConsumerWriteBatch preparedStmt, ConsumerWriteBatch skullBatch, int batchCount, String user,
+            BlockState block, Material type, Material replaceType, int replaceData, List<Object> meta, String newBlockData, String replacedBlockData) {
+        BlockPlaceLogger.log(preparedStmt, batchCount, user, block, replaceType, replaceData, type,
+                () -> storeProfile(skullBatch, block), true, meta, newBlockData, replacedBlockData);
     }
 
+    static int storeProfile(ConsumerWriteBatch batch, BlockState block) {
+        String owner = null;
+        String skin = null;
+        if (block instanceof Skull) {
+            Skull skull = (Skull) block;
+            owner = PaperAdapter.ADAPTER.getSkullOwner(skull);
+            skin = PaperAdapter.ADAPTER.getSkullSkin(skull);
+        }
+        else if (block instanceof WorldEditBlockState) {
+            WorldEditBlockState snapshot = (WorldEditBlockState) block;
+            owner = snapshot.getSkullOwner();
+            skin = snapshot.getSkullSkin();
+        }
+        if ((owner == null || owner.isEmpty()) && (skin == null || skin.isEmpty())) {
+            return 0;
+        }
+        return SkullStatement.insert(batch, (int) (System.currentTimeMillis() / 1000L), owner, skin);
+    }
 }

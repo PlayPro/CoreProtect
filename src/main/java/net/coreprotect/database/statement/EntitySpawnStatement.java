@@ -1,0 +1,744 @@
+package net.coreprotect.database.statement;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Types;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+import org.bukkit.Location;
+
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.ConsumerEntitySpawnUpdates;
+import net.coreprotect.database.ConsumerWriteBatch;
+import net.coreprotect.database.Database;
+import net.coreprotect.database.DatabaseType;
+import net.coreprotect.database.EntitySpawnUpdateCoordinator;
+import net.coreprotect.model.action.LookupActions;
+import net.coreprotect.model.entity.EntityContainerRollbackUpdate;
+import net.coreprotect.model.entity.EntityInteractionOrigin;
+import net.coreprotect.model.entity.EntitySpawnData;
+import net.coreprotect.model.entity.EntitySpawnIdentity;
+import net.coreprotect.model.entity.EntitySpawnRecord;
+import net.coreprotect.model.lookup.EntityLookupContext;
+import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.EntitySpawnTracking;
+import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.serialize.EntityDataCodec.Kind;
+
+public final class EntitySpawnStatement {
+
+    private static final String SPAWN_IDENTITY_COLUMNS = "rowid AS id,uuid,wid,origin_x,origin_y,origin_z,block_rowid";
+    private static final String LOOKUP_COLUMNS = "rowid AS id,block_rowid,time,uuid,current_wid,x,y,z";
+
+    private EntitySpawnStatement() {
+        throw new IllegalStateException("Database class");
+    }
+
+    public static int insert(ConsumerWriteBatch batch, int time, EntitySpawnData data, Location loggedLocation) throws Exception {
+        Location currentLocation = data.getLocation();
+        return batch.addEntitySpawn(time, null, null, data.getUuid(), WorldUtils.getWorldId(loggedLocation.getWorld().getName()), WorldUtils.getWorldId(currentLocation.getWorld().getName()), loggedLocation.getX(), loggedLocation.getY(), loggedLocation.getZ(), currentLocation.getX(), currentLocation.getY(), currentLocation.getZ(), currentLocation.getYaw(), currentLocation.getPitch(), null, 0);
+    }
+
+    public static EntitySpawnIdentity insertIdentity(ConsumerWriteBatch batch, int time, UUID uuid, EntityInteractionOrigin origin, Location currentLocation) throws Exception {
+        int rowId = batch.addEntitySpawn(time, null, null, uuid, origin.getWorldId(), WorldUtils.getWorldId(currentLocation.getWorld().getName()), origin.getX(), origin.getY(), origin.getZ(), currentLocation.getX(), currentLocation.getY(), currentLocation.getZ(), currentLocation.getYaw(), currentLocation.getPitch(), null, 0);
+        return new EntitySpawnIdentity(rowId, uuid, origin.getWorldId(), origin.getX(), origin.getY(), origin.getZ());
+    }
+
+    public static EntitySpawnIdentity insertTerminalIdentity(ConsumerWriteBatch batch, EntitySpawnData data) throws Exception {
+        EntityInteractionOrigin origin = data.getRemovalOrigin();
+        Location finalLocation = data.getLocation();
+        if (origin == null || finalLocation == null || finalLocation.getWorld() == null) {
+            throw new SQLException("Entity removal is missing its immutable identity snapshot");
+        }
+        int rowId = batch.addEntitySpawn(data.getRemovalTime(), null, null, data.getUuid(), origin.getWorldId(), WorldUtils.getWorldId(finalLocation.getWorld().getName()), origin.getX(), origin.getY(), origin.getZ(), finalLocation.getX(), finalLocation.getY(), finalLocation.getZ(), finalLocation.getYaw(), finalLocation.getPitch(), null, 1);
+        return new EntitySpawnIdentity(rowId, data.getUuid(), origin.getWorldId(), origin.getX(), origin.getY(), origin.getZ());
+    }
+
+    public static void linkBlock(ConsumerWriteBatch batch, int trackingRowId, long blockRowId) throws Exception {
+        batch.linkEntitySpawnBlock(trackingRowId, blockRowId);
+    }
+
+    public static void addKillLink(ConsumerWriteBatch batch, String uuid, int killRowId) throws Exception {
+        batch.linkEntitySpawnKill(UUID.fromString(uuid), killRowId);
+    }
+
+    public static Integer findRowIdByUuid(Connection connection, UUID uuid) throws SQLException {
+        String query = "SELECT rowid AS id FROM " + ConfigHandler.prefix + "entity_spawn WHERE uuid=? LIMIT 1";
+        try (PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setString(1, uuid.toString());
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next() ? resultSet.getInt("id") : null;
+            }
+        }
+    }
+
+    public static Map<Integer, EntitySpawnRecord> loadRecords(Connection connection, Collection<Integer> rowIds) throws SQLException {
+        return loadRecords(connection, rowIds, false, true);
+    }
+
+    public static Map<Integer, EntitySpawnRecord> loadLocationRecords(Connection connection, Collection<Integer> rowIds) throws SQLException {
+        return loadRecords(connection, rowIds, false, false);
+    }
+
+    public static Map<Integer, EntitySpawnRecord> loadRecordsByKillRowIds(Connection connection, Collection<Integer> killRowIds) throws SQLException {
+        return loadRecords(connection, killRowIds, true, false);
+    }
+
+    private static Map<Integer, EntitySpawnRecord> loadRecords(Connection connection, Collection<Integer> rowIds, boolean byKillRowId, boolean includeState) throws SQLException {
+        Map<Integer, EntitySpawnRecord> records = new HashMap<>();
+        String keyColumn = byKillRowId ? "kill_rowid" : "rowid";
+        String columns = "rowid AS id,kill_rowid,uuid,wid,origin_x,origin_y,origin_z,current_wid,x,y,z,yaw,pitch,removed" + (includeState ? ",data" : "");
+        String query = "SELECT " + columns + " FROM " + ConfigHandler.prefix + "entity_spawn WHERE " + keyColumn;
+        StatementBatches.selectIn(connection, query, rowIds, PreparedStatement::setInt, row -> {
+            int rowId = row.getInt("id");
+            int killRowId = row.getInt("kill_rowid");
+            List<Object> state = includeState ? EntityStatement.readData(row, "data", Kind.ENTITY_SPAWN) : null;
+            if (state != null && state.size() < 4) {
+                state = null;
+            }
+
+            EntitySpawnRecord record = new EntitySpawnRecord(rowId, killRowId, UUID.fromString(row.getString("uuid")), row.getInt("wid"),
+                    row.getDouble("origin_x"), row.getDouble("origin_y"), row.getDouble("origin_z"), row.getInt("current_wid"), row.getDouble("x"),
+                    row.getDouble("y"), row.getDouble("z"), row.getFloat("yaw"), row.getFloat("pitch"), row.getInt("removed") == 1, state);
+            records.put(byKillRowId ? killRowId : rowId, record);
+        });
+        return records;
+    }
+
+    public static Map<UUID, EntitySpawnIdentity> loadIdentities(Connection connection, Collection<UUID> uuids) throws SQLException {
+        Map<UUID, EntitySpawnIdentity> identities = new HashMap<>();
+        String query = "SELECT " + SPAWN_IDENTITY_COLUMNS + " FROM " + ConfigHandler.prefix + "entity_spawn WHERE uuid";
+        StatementBatches.selectIn(connection, query, uuids, (statement, index, uuid) -> statement.setString(index, uuid.toString()), row -> {
+            EntitySpawnIdentity identity = readIdentity(row);
+            identities.put(identity.getUuid(), identity);
+        });
+        return identities;
+    }
+
+    public static Map<Integer, EntitySpawnIdentity> loadIdentitiesByRowIds(Connection connection, Collection<Integer> rowIds) throws SQLException {
+        Map<Integer, EntitySpawnIdentity> identities = new HashMap<>();
+        String query = "SELECT " + SPAWN_IDENTITY_COLUMNS + " FROM " + ConfigHandler.prefix + "entity_spawn WHERE rowid";
+        StatementBatches.selectIn(connection, query, rowIds, PreparedStatement::setInt, row -> {
+            EntitySpawnIdentity identity = readIdentity(row);
+            identities.put(identity.getRowId(), identity);
+        });
+        return identities;
+    }
+
+    private static EntitySpawnIdentity readIdentity(ResultSet row) throws SQLException {
+        return new EntitySpawnIdentity(row.getInt("id"), UUID.fromString(row.getString("uuid")), row.getInt("wid"),
+                row.getDouble("origin_x"), row.getDouble("origin_y"), row.getDouble("origin_z"), row.getObject("block_rowid") != null);
+    }
+
+    public static Set<UUID> loadActiveUuids(Connection connection, Location location, Integer[] radius) throws Exception {
+        return loadActiveUuids(connection, location, radius, 0, 0);
+    }
+
+    public static Set<UUID> loadActiveUuids(Connection connection, Location location, Integer[] radius, long startTime, long endTime) throws Exception {
+        Set<UUID> uuids = new HashSet<>();
+        readChunkRows(connection, "uuid", true, location, radius, startTime, endTime,
+                row -> uuids.add(UUID.fromString(row.getString("uuid"))));
+        return uuids;
+    }
+
+    public static EntityLookupContext loadLookupContext(Connection connection, Location location, Integer[] radius) throws Exception {
+        return loadLookupContext(connection, location, radius, 0L, 0L);
+    }
+
+    public static EntityLookupContext loadLookupContext(Connection connection, Location location, Integer[] radius, long startTime, long endTime) throws Exception {
+        if (location == null || location.getWorld() == null || radius == null) {
+            return EntityLookupContext.legacy(Collections.emptySet(), Collections.emptySet());
+        }
+
+        Map<UUID, EntityLookupContext.Row> rows = new LinkedHashMap<>();
+        Set<UUID> databaseCandidates = new HashSet<>();
+        readChunkRows(connection, LOOKUP_COLUMNS + ",removed", false, location, radius, startTime, endTime, resultSet -> {
+            EntityLookupContext.Row row = lookupRow(resultSet);
+            rows.put(row.getUuid(), row);
+            if (resultSet.getInt("removed") == 0) {
+                databaseCandidates.add(row.getUuid());
+            }
+        });
+
+        EntitySpawnTracking.LoadedEntityRadius loadedEntities = EntitySpawnTracking.findLoadedEntities(location, radius, databaseCandidates);
+        Set<UUID> missing = new HashSet<>(loadedEntities.getInside());
+        missing.removeAll(rows.keySet());
+        if (!missing.isEmpty()) {
+            for (EntityLookupContext.Row row : loadLookupRows(connection, missing)) {
+                rows.put(row.getUuid(), row);
+            }
+        }
+        return EntityLookupContext.reusable(loadedEntities.getInside(), loadedEntities.getLoadedCandidates(), rows.values());
+    }
+
+    private static void readChunkRows(Connection connection, String columns, boolean activeOnly, Location location, Integer[] radius, long startTime,
+            long endTime, StatementBatches.RowReader read) throws Exception {
+        StringBuilder query = new StringBuilder("SELECT ").append(columns).append(" FROM ").append(ConfigHandler.prefix)
+                .append("entity_spawn WHERE current_wid=? AND x>=? AND x<? AND z>=? AND z<?");
+        if (activeOnly) {
+            query.append(" AND removed=0");
+        }
+        if (startTime > 0L) {
+            query.append(" AND time>?");
+        }
+        if (endTime > 0L) {
+            query.append(" AND time<=?");
+        }
+
+        try (PreparedStatement statement = connection.prepareStatement(query.toString())) {
+            statement.setInt(1, WorldUtils.getWorldId(location.getWorld().getName()));
+            statement.setLong(2, chunkStart(radius[1]));
+            statement.setLong(3, chunkStart(radius[2]) + 16L);
+            statement.setLong(4, chunkStart(radius[5]));
+            statement.setLong(5, chunkStart(radius[6]) + 16L);
+            int parameterIndex = 6;
+            if (startTime > 0L) {
+                statement.setLong(parameterIndex++, startTime);
+            }
+            if (endTime > 0L) {
+                statement.setLong(parameterIndex, endTime);
+            }
+            StatementBatches.readRows(statement, read);
+        }
+    }
+
+    private static long chunkStart(int coordinate) {
+        return Math.floorDiv((long) coordinate, 16L) * 16L;
+    }
+
+    private static List<EntityLookupContext.Row> loadLookupRows(Connection connection, Collection<UUID> uuids) throws SQLException {
+        List<EntityLookupContext.Row> rows = new ArrayList<>();
+        String query = "SELECT " + LOOKUP_COLUMNS + " FROM " + ConfigHandler.prefix + "entity_spawn WHERE uuid";
+        StatementBatches.selectIn(connection, query, uuids, (statement, index, uuid) -> statement.setString(index, uuid.toString()),
+                row -> rows.add(lookupRow(row)));
+        return rows;
+    }
+
+    private static EntityLookupContext.Row lookupRow(ResultSet resultSet) throws SQLException {
+        long blockRowId = resultSet.getLong("block_rowid");
+        Long linkedBlockRowId = resultSet.wasNull() ? null : blockRowId;
+        long time = resultSet.getLong("time");
+        Long lookupTime = resultSet.wasNull() ? null : time;
+        return new EntityLookupContext.Row(
+                resultSet.getInt("id"),
+                linkedBlockRowId,
+                lookupTime,
+                UUID.fromString(resultSet.getString("uuid")),
+                nullableInteger(resultSet, "current_wid"),
+                nullableDouble(resultSet, "x"),
+                nullableDouble(resultSet, "y"),
+                nullableDouble(resultSet, "z")
+        );
+    }
+
+    private static Integer nullableInteger(ResultSet resultSet, String column) throws SQLException {
+        int value = resultSet.getInt(column);
+        return resultSet.wasNull() ? null : value;
+    }
+
+    private static Double nullableDouble(ResultSet resultSet, String column) throws SQLException {
+        double value = resultSet.getDouble(column);
+        return resultSet.wasNull() ? null : value;
+    }
+
+    public static final class Updates implements ConsumerEntitySpawnUpdates {
+
+        private enum LocationMatch {
+            MISSING,
+            UNCHANGED,
+            CHANGED
+        }
+
+        private final ConsumerWriteBatch batch;
+        private final List<Statement> statements = new ArrayList<>();
+        private final PreparedStatement location;
+        private final PreparedStatement currentLocation;
+        private final PreparedStatement removed;
+        private final PreparedStatement revived;
+        private final PreparedStatement rollback;
+        private final PreparedStatement restore;
+        private final PreparedStatement killRollback;
+        private final PreparedStatement killRestore;
+        private final PreparedStatement compositeRollback;
+        private final PreparedStatement compositeRestore;
+        private final PreparedStatement blockState;
+        private final PreparedStatement exists;
+        private final PreparedStatement identity;
+        private final PreparedStatement trackingRowExists;
+        private final PreparedStatement trackingKillStateMatches;
+        private final PreparedStatement blockStateMatches;
+        private final Statement transitionStatement;
+        private final EntitySpawnUpdateCoordinator coordinator = new EntitySpawnUpdateCoordinator();
+        private final Set<UUID> processedRemovals = new HashSet<>();
+        private final DatabaseType databaseType;
+
+        public Updates(Connection connection) throws Exception {
+            this(connection, null, ConfigHandler.databaseType);
+        }
+
+        public Updates(Connection connection, ConsumerWriteBatch batch) throws Exception {
+            this(connection, batch, ConfigHandler.databaseType);
+        }
+
+        public Updates(Connection connection, ConsumerWriteBatch batch, DatabaseType databaseType) throws Exception {
+            this.batch = batch;
+            this.databaseType = databaseType;
+            try {
+                location = own(connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=? WHERE uuid=? AND removed=0"));
+                currentLocation = own(connection.prepareStatement("SELECT current_wid,x,y,z FROM " + ConfigHandler.prefix + "entity_spawn WHERE uuid=? AND removed=0 LIMIT 2"));
+                removed = own(connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,removed=1 WHERE uuid=? AND removed=0"));
+                revived = own(connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET uuid=?,current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,removed=0 WHERE uuid=? AND removed=1"));
+                rollback = own(connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=?,kill_rowid=NULL,removed=1 WHERE rowid=?"));
+                restore = own(connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET uuid=?,current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,kill_rowid=NULL,removed=0 WHERE rowid=?"));
+                killRollback = own(connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET uuid=?,current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,removed=0 WHERE rowid=? AND kill_rowid=?"));
+                killRestore = own(connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=NULL,removed=1 WHERE rowid=? AND kill_rowid=?"));
+                compositeRollback = own(connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET current_wid=?,x=?,y=?,z=?,yaw=?,pitch=?,data=?,removed=1 WHERE rowid=? AND kill_rowid=?"));
+                compositeRestore = own(connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "entity_spawn SET data=NULL,removed=1 WHERE rowid=? AND kill_rowid=?"));
+                blockState = own(connection.prepareStatement("UPDATE " + ConfigHandler.prefix + "block SET rolled_back=? WHERE rowid=? AND action=?"));
+                exists = own(connection.prepareStatement("SELECT 1 FROM " + ConfigHandler.prefix + "entity_spawn WHERE uuid=? AND removed=0 LIMIT 1"));
+                identity = own(connection.prepareStatement("SELECT rowid AS id,wid,origin_x,origin_y,origin_z,block_rowid FROM " + ConfigHandler.prefix + "entity_spawn WHERE uuid=? LIMIT 2"));
+                trackingRowExists = own(connection.prepareStatement("SELECT 1 FROM " + ConfigHandler.prefix + "entity_spawn WHERE rowid=? LIMIT 1"));
+                trackingKillStateMatches = own(connection.prepareStatement("SELECT uuid,removed FROM " + ConfigHandler.prefix + "entity_spawn WHERE rowid=? AND kill_rowid=? LIMIT 1"));
+                blockStateMatches = own(connection.prepareStatement("SELECT 1 FROM " + ConfigHandler.prefix + "block WHERE rowid=? AND action=? AND rolled_back=? LIMIT 1"));
+                transitionStatement = own(connection.createStatement());
+            }
+            catch (Exception exception) {
+                closeStatements(exception);
+                throw exception;
+            }
+        }
+
+        private <T extends Statement> T own(T statement) {
+            statements.add(statement);
+            return statement;
+        }
+
+        public EntitySpawnIdentity apply(EntitySpawnData data) {
+            if (!coordinator.begin(data)) {
+                return null;
+            }
+            if (data.getOperation() != EntitySpawnData.Operation.REMOVED) {
+                clearProcessedRemovals();
+            }
+            EntitySpawnIdentity createdIdentity = null;
+            try {
+                switch (data.getOperation()) {
+                    case VERIFY:
+                        if (exists(data.getUuid())) {
+                            coordinator.verificationFound(data);
+                        }
+                        else {
+                            coordinator.verificationMissing(data);
+                        }
+                        break;
+                    case LOCATION:
+                        Location targetLocation = data.getLocation();
+                        int worldId = WorldUtils.getWorldId(targetLocation.getWorld().getName());
+                        LocationMatch match = matchActiveLocation(data.getUuid(), worldId, targetLocation);
+                        if (match == LocationMatch.MISSING) {
+                            coordinator.locationMissing(data);
+                        }
+                        else {
+                            if (match == LocationMatch.CHANGED) {
+                                setLocation(location, worldId, targetLocation, 1);
+                                location.setString(7, data.getUuid().toString());
+                                location.executeUpdate();
+                            }
+                            coordinator.locationFound(data);
+                        }
+                        break;
+                    case REMOVED:
+                        createdIdentity = remove(data);
+                        break;
+                    case REVIVED:
+                        revived.setString(1, data.getUuid().toString());
+                        setLocation(revived, data.getLocation(), 2);
+                        revived.setString(8, data.getPreviousUuid().toString());
+                        if (revived.executeUpdate() > 0 || exists(data.getUuid())) {
+                            coordinator.entityFound(data.getUuid());
+                        }
+                        else {
+                            coordinator.entityMissing(data.getUuid());
+                        }
+                        break;
+                    case ROLLBACK:
+                    case RESTORE:
+                    case KILL_ROLLBACK:
+                    case KILL_RESTORE:
+                    case COMPOSITE_ROLLBACK:
+                    case COMPOSITE_RESTORE:
+                    case CLAIM_RELEASE:
+                        applyTransition(data);
+                        break;
+                    default:
+                        break;
+                }
+                coordinator.applied(data);
+            }
+            catch (PermanentTransitionException e) {
+                if (coordinator.permanentTransitionFailed(data, e)) {
+                    Database.acknowledgeRollbackOnlyTransaction();
+                }
+                ErrorReporter.report(e);
+            }
+            catch (Exception e) {
+                coordinator.failed(data);
+                clearProcessedRemovals();
+                Database.handleWriteFailure(e);
+            }
+            return createdIdentity;
+        }
+
+        public void applyCombined(EntityContainerRollbackUpdate update, Database.SavepointOperation rowUpdate) {
+            clearProcessedRemovals();
+            EntitySpawnData data = update.getTransition();
+            int trackingRowId = data.getTrackingRowId();
+            coordinator.beginCombined(update);
+            try {
+                Database.executeSavepoint(transitionStatement, "entity_container_transition", () -> {
+                    applyTransition(data);
+                    rowUpdate.execute();
+                });
+                coordinator.combinedApplied(trackingRowId);
+            }
+            catch (PermanentTransitionException e) {
+                if (coordinator.permanentCombinedFailed(data, e)) {
+                    Database.acknowledgeRollbackOnlyTransaction();
+                }
+                ErrorReporter.report(e);
+            }
+            catch (Exception e) {
+                coordinator.combinedFailed(data);
+                Database.handleWriteFailure(e);
+            }
+        }
+
+        public void identityFound(UUID uuid) {
+            clearProcessedRemovals();
+            coordinator.entityFound(uuid);
+        }
+
+        private void applyTransition(EntitySpawnData data) throws Exception {
+            switch (data.getOperation()) {
+                case ROLLBACK:
+                    applyRollback(data);
+                    break;
+                case RESTORE:
+                    applyRestore(data);
+                    break;
+                case KILL_ROLLBACK:
+                    applyKillRollback(data);
+                    break;
+                case KILL_RESTORE:
+                    applyKillRestore(data);
+                    break;
+                case COMPOSITE_ROLLBACK:
+                    applyCompositeRollback(data);
+                    break;
+                case COMPOSITE_RESTORE:
+                    applyCompositeRestore(data);
+                    break;
+                case CLAIM_RELEASE:
+                    if (!trackingRowExists(data.getTrackingRowId())) {
+                        throw new PermanentTransitionException("Missing entity spawn tracking row for claim release");
+                    }
+                    coordinator.transitionApplied(data.getTrackingRowId());
+                    break;
+                default:
+                    throw new PermanentTransitionException("Unsupported combined entity spawn transition " + data.getOperation());
+            }
+        }
+
+        private void applyRollback(EntitySpawnData data) throws Exception {
+            Database.executeSavepoint(transitionStatement, "entity_spawn_transition", () -> {
+                byte[] serializedState = data.getState();
+                Location rollbackLocation = data.getLocation();
+                setLocation(rollback, rollbackLocation, 1);
+                setNullableData(rollback, 7, serializedState);
+                rollback.setInt(8, data.getTrackingRowId());
+                requireTrackingUpdate(rollback.executeUpdate(), data.getTrackingRowId(), "entity spawn tracking rollback");
+                updateBlockState(data.getBlockRowId(), data.getRolledBack(), LookupActions.ENTITY_SPAWN);
+            });
+            coordinator.transitionApplied(data.getTrackingRowId());
+        }
+
+        private void applyRestore(EntitySpawnData data) throws Exception {
+            Database.executeSavepoint(transitionStatement, "entity_spawn_transition", () -> {
+                restore.setString(1, data.getUuid().toString());
+                setLocation(restore, data.getLocation(), 2);
+                restore.setInt(8, data.getTrackingRowId());
+                requireTrackingUpdate(restore.executeUpdate(), data.getTrackingRowId(), "entity spawn tracking restore");
+                updateBlockState(data.getBlockRowId(), data.getRolledBack(), LookupActions.ENTITY_SPAWN);
+            });
+            coordinator.entityFound(data.getUuid());
+            coordinator.transitionApplied(data.getTrackingRowId());
+        }
+
+        private void applyKillRollback(EntitySpawnData data) throws Exception {
+            Database.executeSavepoint(transitionStatement, "entity_spawn_kill_transition", () -> {
+                killRollback.setString(1, data.getUuid().toString());
+                setLocation(killRollback, data.getLocation(), 2);
+                killRollback.setInt(8, data.getTrackingRowId());
+                killRollback.setInt(9, data.getKillRowId());
+                requireTrackingKillUpdate(killRollback.executeUpdate(), data.getTrackingRowId(), data.getKillRowId(), false, data.getUuid(), "tracked entity kill rollback");
+                updateBlockState(data.getBlockRowId(), data.getRolledBack(), LookupActions.ENTITY_KILL);
+            });
+            coordinator.entityFound(data.getUuid());
+            coordinator.transitionApplied(data.getTrackingRowId());
+        }
+
+        private void applyKillRestore(EntitySpawnData data) throws Exception {
+            Database.executeSavepoint(transitionStatement, "entity_spawn_kill_transition", () -> {
+                setLocation(killRestore, data.getLocation(), 1);
+                killRestore.setInt(7, data.getTrackingRowId());
+                killRestore.setInt(8, data.getKillRowId());
+                requireTrackingKillUpdate(killRestore.executeUpdate(), data.getTrackingRowId(), data.getKillRowId(), true, null, "tracked entity kill restore");
+                updateBlockState(data.getBlockRowId(), data.getRolledBack(), LookupActions.ENTITY_KILL);
+            });
+            coordinator.transitionApplied(data.getTrackingRowId());
+        }
+
+        private void applyCompositeRestore(EntitySpawnData data) throws Exception {
+            Database.executeSavepoint(transitionStatement, "entity_spawn_composite_transition", () -> {
+                compositeRestore.setInt(1, data.getTrackingRowId());
+                compositeRestore.setInt(2, data.getKillRowId());
+                requireTrackingKillUpdate(compositeRestore.executeUpdate(), data.getTrackingRowId(), data.getKillRowId(), true, null, "tracked entity composite restore");
+                updateBlockState(data.getBlockRowId(), 0, LookupActions.ENTITY_SPAWN);
+                updateBlockState(data.getPairedBlockRowId(), 0, LookupActions.ENTITY_KILL);
+            });
+            coordinator.transitionApplied(data.getTrackingRowId());
+        }
+
+        private void applyCompositeRollback(EntitySpawnData data) throws Exception {
+            Database.executeSavepoint(transitionStatement, "entity_spawn_composite_transition", () -> {
+                setLocation(compositeRollback, data.getLocation(), 1);
+                setNullableData(compositeRollback, 7, data.getState());
+                compositeRollback.setInt(8, data.getTrackingRowId());
+                compositeRollback.setInt(9, data.getKillRowId());
+                requireTrackingKillUpdate(compositeRollback.executeUpdate(), data.getTrackingRowId(), data.getKillRowId(), true, null, "tracked entity composite rollback");
+                updateBlockState(data.getBlockRowId(), 1, LookupActions.ENTITY_SPAWN);
+                updateBlockState(data.getPairedBlockRowId(), 1, LookupActions.ENTITY_KILL);
+            });
+            coordinator.transitionApplied(data.getTrackingRowId());
+        }
+
+        private EntitySpawnIdentity remove(EntitySpawnData data) throws Exception {
+            setLocation(removed, data.getLocation(), 1);
+            removed.setString(7, data.getUuid().toString());
+            boolean cacheRemoval = batch != null && databaseType.isDuckDB() && !identity.getConnection().getAutoCommit();
+            if (cacheRemoval && processedRemovals.contains(data.getUuid())) {
+                return null;
+            }
+            int updated = removed.executeUpdate();
+            if (updated > 1) {
+                throw new SQLException("Entity removal matched multiple active tracking rows: " + data.getUuid());
+            }
+            EntitySpawnIdentity createdIdentity = null;
+            if (updated != 1 && loadIdentity(data.getUuid()) == null) {
+                if (batch == null) {
+                    throw new SQLException("Entity removal cannot create a terminal tracking row without a consumer write batch");
+                }
+                createdIdentity = insertTerminalIdentity(batch, data);
+            }
+            if (cacheRemoval) {
+                processedRemovals.add(data.getUuid());
+            }
+            return createdIdentity;
+        }
+
+        private void updateBlockState(long blockRowId, int rolledBack, int action) throws Exception {
+            blockState.setInt(1, rolledBack);
+            blockState.setLong(2, blockRowId);
+            blockState.setInt(3, action);
+            int updated = blockState.executeUpdate();
+            if (updated != 1 && (updated != 0 || !blockStateMatches(blockRowId, rolledBack, action))) {
+                throw new PermanentTransitionException("Expected one row for entity spawn block rollback state, updated " + updated);
+            }
+        }
+
+        private void requireTrackingUpdate(int updated, int trackingRowId, String operation) throws Exception {
+            if (updated != 1 && (updated != 0 || !trackingRowExists(trackingRowId))) {
+                throw new PermanentTransitionException("Expected one row for " + operation + ", updated " + updated);
+            }
+        }
+
+        private void requireTrackingKillUpdate(int updated, int trackingRowId, int killRowId, boolean removedState, UUID uuid, String operation) throws Exception {
+            if (updated == 1 || (updated == 0 && trackingKillStateMatches(trackingRowId, killRowId, removedState, uuid))) {
+                return;
+            }
+            throw new PermanentTransitionException("Expected one row for " + operation + ", updated " + updated);
+        }
+
+        private void setLocation(PreparedStatement statement, Location value, int offset) throws Exception {
+            setLocation(statement, WorldUtils.getWorldId(value.getWorld().getName()), value, offset);
+        }
+
+        private void setLocation(PreparedStatement statement, int worldId, Location value, int offset) throws Exception {
+            statement.setInt(offset, worldId);
+            statement.setDouble(offset + 1, value.getX());
+            statement.setDouble(offset + 2, value.getY());
+            statement.setDouble(offset + 3, value.getZ());
+            statement.setFloat(offset + 4, value.getYaw());
+            statement.setFloat(offset + 5, value.getPitch());
+        }
+
+        private LocationMatch matchActiveLocation(UUID uuid, int worldId, Location value) throws Exception {
+            currentLocation.setString(1, uuid.toString());
+            try (ResultSet resultSet = currentLocation.executeQuery()) {
+                if (!resultSet.next()) {
+                    return LocationMatch.MISSING;
+                }
+                int storedWorldId = resultSet.getInt(1);
+                boolean hasWorld = !resultSet.wasNull();
+                double storedX = resultSet.getDouble(2);
+                boolean hasX = !resultSet.wasNull();
+                double storedY = resultSet.getDouble(3);
+                boolean hasY = !resultSet.wasNull();
+                double storedZ = resultSet.getDouble(4);
+                boolean hasZ = !resultSet.wasNull();
+                if (!resultSet.next() && hasWorld && hasX && hasY && hasZ
+                        && storedWorldId == worldId
+                        && Location.locToBlock(storedX) == value.getBlockX()
+                        && Location.locToBlock(storedY) == value.getBlockY()
+                        && Location.locToBlock(storedZ) == value.getBlockZ()) {
+                    return LocationMatch.UNCHANGED;
+                }
+                return LocationMatch.CHANGED;
+            }
+        }
+
+        private void setNullableData(PreparedStatement statement, int index, byte[] value) throws Exception {
+            if (value == null) {
+                statement.setNull(index, Types.BLOB);
+            }
+            else {
+                statement.setBytes(index, value);
+            }
+        }
+
+        private boolean exists(UUID uuid) throws Exception {
+            exists.setString(1, uuid.toString());
+            try (ResultSet resultSet = exists.executeQuery()) {
+                return resultSet.next();
+            }
+        }
+
+        private EntitySpawnIdentity loadIdentity(UUID uuid) throws Exception {
+            identity.setString(1, uuid.toString());
+            try (ResultSet resultSet = identity.executeQuery()) {
+                if (!resultSet.next()) {
+                    return null;
+                }
+                EntitySpawnIdentity value = new EntitySpawnIdentity(resultSet.getInt("id"), uuid, resultSet.getInt("wid"), resultSet.getDouble("origin_x"), resultSet.getDouble("origin_y"), resultSet.getDouble("origin_z"), resultSet.getObject("block_rowid") != null);
+                if (resultSet.next()) {
+                    throw new SQLException("Entity UUID resolves to multiple tracking rows: " + uuid);
+                }
+                return value;
+            }
+        }
+
+        private boolean trackingRowExists(int trackingRowId) throws Exception {
+            trackingRowExists.setInt(1, trackingRowId);
+            try (ResultSet resultSet = trackingRowExists.executeQuery()) {
+                return resultSet.next();
+            }
+        }
+
+        private boolean trackingKillStateMatches(int trackingRowId, int killRowId, boolean removedState, UUID uuid) throws Exception {
+            trackingKillStateMatches.setInt(1, trackingRowId);
+            trackingKillStateMatches.setInt(2, killRowId);
+            try (ResultSet resultSet = trackingKillStateMatches.executeQuery()) {
+                if (!resultSet.next() || (resultSet.getInt("removed") == 1) != removedState) {
+                    return false;
+                }
+                return uuid == null || uuid.toString().equals(resultSet.getString("uuid"));
+            }
+        }
+
+        private boolean blockStateMatches(long blockRowId, int rolledBack, int action) throws Exception {
+            blockStateMatches.setLong(1, blockRowId);
+            blockStateMatches.setInt(2, action);
+            blockStateMatches.setInt(3, rolledBack);
+            try (ResultSet resultSet = blockStateMatches.executeQuery()) {
+                return resultSet.next();
+            }
+        }
+
+        public void afterCommit(boolean committed) {
+            clearProcessedRemovals();
+            coordinator.afterCommit(committed);
+        }
+
+        @Override
+        public void afterRetain() {
+            clearProcessedRemovals();
+            coordinator.afterRetain();
+        }
+
+        public void afterDiscard() {
+            clearProcessedRemovals();
+            coordinator.afterDiscard();
+        }
+
+        public void clearProcessedRemovals() {
+            processedRemovals.clear();
+        }
+
+        @Override
+        public void close() throws Exception {
+            Exception failure = null;
+            try {
+                afterCommit(false);
+            }
+            catch (Exception exception) {
+                failure = exception;
+            }
+            finally {
+                coordinator.clearDeferred();
+                failure = closeStatements(failure);
+            }
+            if (failure != null) {
+                throw failure;
+            }
+        }
+
+        private Exception closeStatements(Exception failure) {
+            for (int index = statements.size() - 1; index >= 0; index--) {
+                try {
+                    statements.get(index).close();
+                }
+                catch (Exception exception) {
+                    if (failure == null) {
+                        failure = exception;
+                    }
+                    else if (failure != exception) {
+                        failure.addSuppressed(exception);
+                    }
+                }
+            }
+            statements.clear();
+            return failure;
+        }
+
+        private static final class PermanentTransitionException extends SQLException {
+
+            private static final long serialVersionUID = 1L;
+
+            private PermanentTransitionException(String message) {
+                super(message);
+            }
+        }
+    }
+}

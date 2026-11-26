@@ -9,7 +9,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
 
-public final class PlayerJoinListener extends Queue implements Listener {
+public final class PlayerJoinListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(PlayerJoinEvent event) {

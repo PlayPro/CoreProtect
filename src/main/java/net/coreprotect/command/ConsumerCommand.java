@@ -6,6 +6,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.consumer.Consumer;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.utility.Chat;
@@ -26,12 +27,16 @@ public class ConsumerCommand {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.COMMAND_CONSOLE));
             return;
         }
-        if (ConfigHandler.converterRunning) {
+        if (ConfigHandler.converterRunning || ConfigHandler.migrationRunning) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.UPGRADE_IN_PROGRESS));
             return;
         }
         if (ConfigHandler.purgeRunning) {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.PURGE_IN_PROGRESS));
+            return;
+        }
+        if (Consumer.isPersistenceHalted() || Consumer.isDatabaseReloadPaused()) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
             return;
         }
 
@@ -41,23 +46,15 @@ public class ConsumerCommand {
             boolean resumeCommand = (action.equals("resume") || action.equals("enable") || action.equals("start"));
 
             if (pauseCommand || resumeCommand) {
-                if (ConfigHandler.pauseConsumer) {
-                    if (pauseCommand) {
-                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.CONSUMER_ERROR, Selector.FIRST)); // already paused
-                    }
-                    else {
-                        ConfigHandler.pauseConsumer = false;
-                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.CONSUMER_TOGGLED, Selector.SECOND)); // now started
-                    }
+                String selector = pauseCommand ? Selector.FIRST : Selector.SECOND;
+                if (ConfigHandler.pauseConsumer == pauseCommand) {
+                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.CONSUMER_ERROR, selector));
+                }
+                else if (Consumer.trySetManualPause(pauseCommand)) {
+                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.CONSUMER_TOGGLED, selector));
                 }
                 else {
-                    if (resumeCommand) {
-                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.CONSUMER_ERROR, Selector.SECOND)); // already running
-                    }
-                    else {
-                        ConfigHandler.pauseConsumer = true;
-                        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.CONSUMER_TOGGLED, Selector.FIRST)); // now paused
-                    }
+                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.DATABASE_BUSY));
                 }
                 return;
             }

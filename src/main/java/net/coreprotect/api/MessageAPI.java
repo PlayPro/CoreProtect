@@ -7,9 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import net.coreprotect.api.result.MessageResult;
-import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.database.Database;
+import net.coreprotect.database.LookupRaw;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.utility.WorldUtils;
 
@@ -38,33 +37,25 @@ public class MessageAPI {
     }
 
     private static List<MessageResult> performLookup(String table, CoreProtectAction action, LookupOptions options) {
-        List<MessageResult> result = new ArrayList<>();
-
-        if (!Config.getGlobal().API_ENABLED) {
-            return result;
-        }
-
-        try (Connection connection = Database.getConnection(false, 1000)) {
-            if (connection == null) {
-                return result;
-            }
-
-            LookupFilter filter = LookupFilter.fromOptions(connection, options);
-            if (filter.hasInvalidUser() || filter.hasInvalidLocation()) {
-                return result;
-            }
-
-            StringBuilder query = new StringBuilder("SELECT time,user,wid,x,y,z,message FROM ");
-            query.append(ConfigHandler.prefix).append(table).append(" ");
-            if (filter.hasLocation()) {
+        return LookupFilter.execute(options, (connection, filter, selected, result) -> {
+            StringBuilder query = new StringBuilder("SELECT time," + ConfigHandler.databaseType.getUserColumn() + ",wid,x,y,z,message FROM ");
+            query.append(filter.table(connection, table, "")).append(' ');
+            if (filter.hasLocation() && !ConfigHandler.databaseType.isDuckDB()) {
                 query.append(WorldUtils.getWidIndex(table));
             }
             filter.appendWhere(query);
-            query.append(" ORDER BY rowid DESC");
+            List<String> messageBindings = new ArrayList<>();
+            query = new StringBuilder(LookupRaw.appendMessageFilters(query.toString(),
+                    selected.getTextStartsWithAny(),
+                    selected.getTextStartsWithNone(), table, messageBindings));
+            query.append(" ORDER BY ").append(ConfigHandler.getDescendingEventOrder());
             filter.appendLimit(query);
 
             try (PreparedStatement statement = connection.prepareStatement(query.toString())) {
-                filter.bind(statement);
+                int parameterIndex = filter.bind(statement);
+                for (String binding : messageBindings) {
+                    statement.setString(parameterIndex++, binding);
+                }
 
                 try (ResultSet results = statement.executeQuery()) {
                     while (results.next()) {
@@ -72,46 +63,12 @@ public class MessageAPI {
                     }
                 }
             }
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        return result;
-    }
-
-    static Integer getUserId(Connection connection, String user) throws Exception {
-        if (user == null || user.isEmpty() || user.equalsIgnoreCase("#global")) {
-            return null;
-        }
-
-        Integer cachedId = ConfigHandler.playerIdCache.get(user.toLowerCase(java.util.Locale.ROOT));
-        if (cachedId != null) {
-            return cachedId;
-        }
-
-        String collate = Config.getGlobal().MYSQL ? "" : " COLLATE NOCASE";
-        try (PreparedStatement statement = connection.prepareStatement("SELECT rowid FROM " + ConfigHandler.prefix + "user WHERE user = ?" + collate + " ORDER BY rowid ASC LIMIT 0, 1")) {
-            statement.setString(1, user);
-            try (ResultSet results = statement.executeQuery()) {
-                if (results.next()) {
-                    int id = results.getInt("rowid");
-                    ConfigHandler.playerIdCache.put(user.toLowerCase(java.util.Locale.ROOT), id);
-                    ConfigHandler.playerIdCacheReversed.put(id, user);
-                    return id;
-                }
-            }
-        }
-
-        return -1;
+        });
     }
 
     private static MessageResult parseMessageResult(Connection connection, ResultSet results, int actionId) throws Exception {
         int userId = results.getInt("user");
-        String username = ConfigHandler.playerIdCacheReversed.get(userId);
-        if (username == null) {
-            username = UserStatement.loadName(connection, userId);
-        }
+        String username = UserStatement.getName(connection, userId);
 
         return new MessageResult(
                 results.getLong("time"), username, WorldUtils.getWorldName(results.getInt("wid")),
@@ -120,14 +77,4 @@ public class MessageAPI {
         );
     }
 
-    static int clampToInt(long value) {
-        if (value > Integer.MAX_VALUE) {
-            return Integer.MAX_VALUE;
-        }
-        else if (value < Integer.MIN_VALUE) {
-            return Integer.MIN_VALUE;
-        }
-
-        return (int) value;
-    }
 }

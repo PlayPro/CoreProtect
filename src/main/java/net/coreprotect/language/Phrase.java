@@ -4,8 +4,10 @@ import net.coreprotect.utility.ChatMessage;
 import net.coreprotect.utility.Color;
 import net.coreprotect.utility.StringUtils;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -29,11 +31,18 @@ public enum Phrase {
     CONTAINER_HEADER,
     CPU_CORES,
     DATABASE_BUSY,
+    DATABASE_FALLBACK,
     DATABASE_INDEX_ERROR,
     DATABASE_LOCKED_1,
     DATABASE_LOCKED_2,
     DATABASE_LOCKED_3,
     DATABASE_LOCKED_4,
+    DATABASE_PERSISTENCE_HALTED,
+    DATABASE_QUEUE_LOSS,
+    DATABASE_RECOVERY_FAILED,
+    DATABASE_RECOVERY_STARTED,
+    DATABASE_RECOVERY_SUCCESS,
+    DATABASE_TYPE_OVERRIDE,
     DATABASE_UNREACHABLE,
     DEVELOPMENT_BRANCH,
     DIRT_BLOCK,
@@ -50,8 +59,11 @@ public enum Phrase {
     HELP_ACTION_1,
     HELP_ACTION_2,
     HELP_COMMAND,
+    HELP_COORDINATES,
     HELP_EXCLUDE_1,
     HELP_EXCLUDE_2,
+    HELP_FILTER_1,
+    HELP_FILTER_2,
     HELP_HEADER,
     HELP_INCLUDE_1,
     HELP_INCLUDE_2,
@@ -67,6 +79,7 @@ public enum Phrase {
     HELP_LOOKUP_1,
     HELP_LOOKUP_2,
     HELP_LOOKUP_COMMAND,
+    HELP_NEAR_COMMAND,
     HELP_NO_INFO,
     HELP_PARAMETER,
     HELP_PARAMS_1,
@@ -81,6 +94,8 @@ public enum Phrase {
     HELP_PURGE_3,
     HELP_PURGE_4,
     HELP_PURGE_5,
+    HELP_PURGE_6,
+    HELP_PURGE_7,
     HELP_PURGE_COMMAND,
     HELP_RADIUS_1,
     HELP_RADIUS_2,
@@ -110,6 +125,7 @@ public enum Phrase {
     INVALID_INCLUDE,
     INVALID_INCLUDE_COMBO,
     INVALID_PARAMETER,
+    INVALID_ITEM_ID,
     INVALID_RADIUS,
     INVALID_SELECTION,
     INVALID_USERNAME,
@@ -135,7 +151,9 @@ public enum Phrase {
     LOOKUP_STORAGE,
     LOOKUP_TIME,
     LOOKUP_USERNAME,
+    MAXIMUM_PURGE_RADIUS,
     MAXIMUM_RADIUS,
+    MESSAGE_FILTER_TOO_SHORT,
     MISSING_ACTION_USER,
     MISSING_LOOKUP_TIME,
     MISSING_LOOKUP_USER,
@@ -158,6 +176,8 @@ public enum Phrase {
     PATCH_SKIP_UPDATE,
     PATCH_STARTED,
     PATCH_SUCCESS,
+    PATCH_TABLE_COMPLETED,
+    PATCH_TABLE_STARTED,
     PATCH_UPGRADING,
     PLEASE_SELECT,
     PREVIEW_CANCELLED,
@@ -168,7 +188,9 @@ public enum Phrase {
     PURGE_ABORTED,
     PURGE_ERROR,
     PURGE_FAILED,
+    PURGE_INCOMPLETE,
     PURGE_IN_PROGRESS,
+    PURGE_MAINTENANCE_FAILED,
     PURGE_MINIMUM_TIME,
     PURGE_NOTICE_1,
     PURGE_NOTICE_2,
@@ -180,6 +202,7 @@ public enum Phrase {
     PURGE_SUCCESS,
     RAM_STATS,
     RELOAD_STARTED,
+    RELOAD_FAILED,
     RELOAD_SUCCESS,
     ROLLBACK_ABORTED,
     ROLLBACK_CHUNKS_FOUND,
@@ -199,6 +222,7 @@ public enum Phrase {
     STATUS_AUTO_PURGE,
     STATUS_CONSUMER,
     STATUS_DATABASE,
+    STATUS_DATABASE_STATE,
     STATUS_INTEGRATION,
     STATUS_LICENSE,
     STATUS_SYSTEM,
@@ -206,6 +230,7 @@ public enum Phrase {
     TELEPORTED,
     TELEPORTED_SAFETY,
     TELEPORT_PLAYERS,
+    TELEPORT_UNSAFE,
     TIME_DAYS,
     TIME_HOURS,
     TIME_MINUTES,
@@ -220,18 +245,24 @@ public enum Phrase {
     UPGRADE_IN_PROGRESS,
     USER_NOT_FOUND,
     USER_OFFLINE,
+    USING_DATABASE,
     USING_MYSQL,
     USING_SQLITE,
     VALID_DONATION_KEY,
     VERSION_NOTICE,
     VERSION_INCOMPATIBLE,
     VERSION_REQUIRED,
-    WORLD_NOT_FOUND;
+    WORLD_NOT_FOUND,
+    LOOKUP_ENTITY_SPAWN,
+    LOOKUP_ENTITY_ORIGIN,
+    LOOKUP_ENTITY_INTERACTION,
+    LOOKUP_ENTITY_INTERACTION_ORIGIN;
 
     final private static Set<Phrase> HEADERS = new HashSet<>(Arrays.asList(Phrase.CONTAINER_HEADER, Phrase.HELP_HEADER, Phrase.INTERACTIONS_HEADER, Phrase.LOOKUP_HEADER, Phrase.SIGN_HEADER, Phrase.UPDATE_HEADER));
     final private static Set<String> COLORS = new HashSet<>(Arrays.asList(Color.WHITE, Color.DARK_AQUA));
     final private static String SPLIT = ":";
     final private static String FULL_WIDTH_SPLIT = "：";
+    private static final Pattern PHRASE_SELECTOR_PATTERN = Pattern.compile("(\\{[^{}]*\\|[^{}]*\\})");
 
     public String getPhrase() {
         return Language.getPhrase(this);
@@ -246,92 +277,128 @@ public enum Phrase {
     }
 
     public static String build(Phrase phrase, String... params) {
-        String output = phrase.getTranslatedPhrase();
-
-        // If translated phrase is null, fall back to the default phrase
-        if (output == null) {
-            output = phrase.getPhrase();
-            // If that's still null, use an empty string to avoid NullPointerException
-            if (output == null) {
-                output = "";
-            }
+        String template = phrase.getTranslatedPhrase();
+        if (template == null) {
+            template = phrase.getPhrase();
         }
 
         String color = "";
-
-        if (HEADERS.contains(phrase)) {
-            output = StringUtils.capitalize(output, true);
-        }
-
-        int index = 0;
-        int indexExtra = 0;
-        for (String param : params) {
-            if (index == 0 && COLORS.contains(param)) {
-                color = param;
-                indexExtra++;
-                continue;
-            }
-
-            if (Selector.SELECTORS.contains(param)) {
-                output = Selector.processSelection(output, param, color);
-                indexExtra++;
-                continue;
-            }
-
-            if (output.contains("{" + index + "}")) {
-                output = output.replace("{" + index + "}", param);
-                index++;
+        List<String> selectors = new ArrayList<>();
+        List<String> args = new ArrayList<>();
+        if (params != null) {
+            for (int i = 0; i < params.length; i++) {
+                String param = params[i];
+                if (i == 0 && COLORS.contains(param)) {
+                    color = param;
+                    continue;
+                }
+                if (Selector.SELECTORS.contains(param)) {
+                    selectors.add(param);
+                    continue;
+                }
+                args.add(param == null ? "" : param);
             }
         }
 
-        if ((index + indexExtra) != params.length) { // fallback for issues with user modified phrases
-            // System.out.println("buildInternal"); // debug
-            output = buildInternal(phrase, params, color);
+        boolean capitalizeHeader = HEADERS.contains(phrase);
+        String output = formatTemplate(template, args, selectors, color, capitalizeHeader, true);
+        if (output == null) {
+            output = formatTemplate(phrase.getPhrase(), args, selectors, color, capitalizeHeader, false);
         }
 
-        if (color.length() > 0) {
-            output = output.replaceFirst(SPLIT, SPLIT + color);
-            output = output.replaceFirst(FULL_WIDTH_SPLIT, FULL_WIDTH_SPLIT + color);
+        if (!color.isEmpty()) {
+            output = replaceFirstLiteral(output, SPLIT, SPLIT + color);
+            output = replaceFirstLiteral(output, FULL_WIDTH_SPLIT, FULL_WIDTH_SPLIT + color);
             output = ChatMessage.parseQuotes(output, color);
         }
 
         return output;
     }
 
-    private static String buildInternal(Phrase phrase, String[] params, String color) {
-        String output = phrase.getPhrase(); // get internal phrase
-
-        // If internal phrase is null, use an empty string to avoid NullPointerException
-        if (output == null) {
-            output = "";
-            return output; // Return empty string immediately if no phrase is available
+    private static String formatTemplate(String template, List<String> args, List<String> selectors, String color, boolean capitalizeHeader, boolean requireAllArgs) {
+        if (template == null) {
+            return "";
         }
 
-        int index = 0;
-        for (String param : params) {
-            if (index == 0 && COLORS.contains(param)) {
-                continue;
-            }
-            if (Selector.SELECTORS.contains(param)) {
-                output = Selector.processSelection(output, param, color);
-                continue;
-            }
-            output = output.replace("{" + index + "}", param);
-            index++;
+        String output = capitalizeHeader ? StringUtils.capitalize(template, true) : template;
+        for (String selector : selectors) {
+            output = Selector.processSelection(output, selector, color);
         }
 
-        return output;
+        if (args.isEmpty()) {
+            return output;
+        }
+
+        boolean[] usedArgs = new boolean[args.size()];
+        StringBuilder result = new StringBuilder(output.length());
+        int i = 0;
+        while (i < output.length()) {
+            char c = output.charAt(i);
+            if (c == '{') {
+                int close = output.indexOf('}', i + 1);
+                if (close > i + 1) {
+                    int argIndex = parseNonNegativeInt(output, i + 1, close);
+                    if (argIndex >= 0 && argIndex < args.size()) {
+                        result.append(args.get(argIndex));
+                        usedArgs[argIndex] = true;
+                        i = close + 1;
+                        continue;
+                    }
+                }
+            }
+            result.append(c);
+            i++;
+        }
+
+        if (requireAllArgs) {
+            for (boolean used : usedArgs) {
+                if (!used) {
+                    return null;
+                }
+            }
+        }
+
+        return result.toString();
+    }
+
+    private static int parseNonNegativeInt(String value, int start, int end) {
+        int result = 0;
+        for (int i = start; i < end; i++) {
+            char c = value.charAt(i);
+            if (c < '0' || c > '9') {
+                return -1;
+            }
+            int digit = c - '0';
+            if (result > (Integer.MAX_VALUE - digit) / 10) {
+                return -1;
+            }
+            result = result * 10 + digit;
+        }
+        return result;
+    }
+
+    private static String replaceFirstLiteral(String text, String target, String replacement) {
+        int index = text.indexOf(target);
+        if (index < 0) {
+            return text;
+        }
+        return new StringBuilder(text.length() - target.length() + replacement.length())
+                .append(text, 0, index)
+                .append(replacement)
+                .append(text, index + target.length(), text.length())
+                .toString();
     }
 
     public static String getPhraseSelector(Phrase phrase, String selector) {
         String translatedPhrase = phrase.getTranslatedPhrase();
-        // Return empty string if translated phrase is null
+        if (translatedPhrase == null) {
+            translatedPhrase = phrase.getPhrase();
+        }
         if (translatedPhrase == null) {
             return "";
         }
 
-        Pattern phrasePattern = Pattern.compile("(\\{[a-zA-Z| ]+})");
-        Matcher patternMatch = phrasePattern.matcher(translatedPhrase);
+        Matcher patternMatch = PHRASE_SELECTOR_PATTERN.matcher(translatedPhrase);
         String match = "";
         if (patternMatch.find()) {
             match = patternMatch.group(1);

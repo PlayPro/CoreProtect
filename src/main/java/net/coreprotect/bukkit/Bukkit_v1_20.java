@@ -1,29 +1,40 @@
 package net.coreprotect.bukkit;
 
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import org.bukkit.Color;
 import org.bukkit.DyeColor;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Tag;
+import org.bukkit.World;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.ChiseledBookshelf;
 import org.bukkit.block.Sign;
+import org.bukkit.block.TileState;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.type.PitcherCrop;
 import org.bukkit.block.sign.Side;
+import org.bukkit.block.sign.SignSide;
 import org.bukkit.entity.Arrow;
+import org.bukkit.entity.AbstractArrow;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionType;
+import org.bukkit.util.Vector;
 
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.utility.MaterialUtils;
 
 /**
  * Bukkit adapter implementation for Minecraft 1.20.
@@ -36,8 +47,18 @@ import net.coreprotect.model.BlockGroup;
  */
 public class Bukkit_v1_20 extends Bukkit_v1_19 {
 
-    private Boolean hasClickedPosition;
-    private Boolean hasBasePotionType;
+    private static final int PITCHER_CROP_DOUBLE_AGE = 3;
+    private static final boolean HAS_SIGN_TILE_UPDATE = hasPublicMethod(Player.class, "sendBlockUpdate", Location.class, TileState.class);
+    private static final boolean HAS_CLICKED_POSITION = hasPublicMethod(PlayerInteractEvent.class, "getClickedPosition")
+            && hasPublicMethod(ChiseledBookshelf.class, "getSlot", Vector.class);
+    private static final boolean HAS_BASE_POTION_TYPE = hasPublicMethod(Arrow.class, "getBasePotionType")
+            && hasPublicMethod(PotionMeta.class, "setBasePotionType", PotionType.class);
+    private static final boolean HAS_ARROW_ITEM = hasPublicMethod(AbstractArrow.class, "getItem");
+    private static final boolean HAS_ITEM_NAME = hasPublicMethod(ItemMeta.class, "getItemName")
+            && hasPublicMethod(ItemMeta.class, "hasItemName");
+    private static final boolean HAS_SPAWN_FUNCTION = hasPublicMethod(World.class, "spawn", Location.class, Class.class, Consumer.class);
+
+    private volatile boolean missingSignTargetSide;
 
     /**
      * Initializes the Bukkit_v1_20 adapter with 1.20-specific block groups and mappings.
@@ -46,15 +67,19 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
     public Bukkit_v1_20() {
         initializeBlockGroups();
         initializeTaggedBlocks();
+        BlockGroup.TRACK_TOP.addAll(Set.of(Material.TORCHFLOWER_CROP, Material.PITCHER_CROP));
+        BlockGroup.LOGGED_BY_LOWER_HALF.addAll(Set.of(Material.PITCHER_CROP, Material.PITCHER_PLANT));
+        BlockGroup.DIRECTIONAL_BLOCKS.addAll(Set.of(Material.PIGLIN_HEAD, Material.PIGLIN_WALL_HEAD));
+        BlockGroup.SCULK.add(Material.CALIBRATED_SCULK_SENSOR);
     }
 
     /**
      * Initializes the block groups specific to Minecraft 1.20.
      */
     private void initializeBlockGroups() {
-        BlockGroup.CONTAINERS = new HashSet<>(Arrays.asList(Material.JUKEBOX, Material.DISPENSER, Material.CHEST, Material.FURNACE, Material.BREWING_STAND, Material.TRAPPED_CHEST, Material.HOPPER, Material.DROPPER, Material.ARMOR_STAND, Material.ITEM_FRAME, Material.SHULKER_BOX, Material.BLACK_SHULKER_BOX, Material.BLUE_SHULKER_BOX, Material.BROWN_SHULKER_BOX, Material.CYAN_SHULKER_BOX, Material.GRAY_SHULKER_BOX, Material.GREEN_SHULKER_BOX, Material.LIGHT_BLUE_SHULKER_BOX, Material.LIME_SHULKER_BOX, Material.MAGENTA_SHULKER_BOX, Material.ORANGE_SHULKER_BOX, Material.PINK_SHULKER_BOX, Material.PURPLE_SHULKER_BOX, Material.RED_SHULKER_BOX, Material.LIGHT_GRAY_SHULKER_BOX, Material.WHITE_SHULKER_BOX, Material.YELLOW_SHULKER_BOX, Material.BARREL, Material.BLAST_FURNACE, Material.SMOKER, Material.LECTERN, Material.CHISELED_BOOKSHELF, Material.DECORATED_POT));
+        BlockGroup.CONTAINERS.addAll(List.of(Material.CHISELED_BOOKSHELF, Material.DECORATED_POT));
 
-        BlockGroup.UPDATE_STATE = new HashSet<>(Arrays.asList(Material.TORCH, Material.WALL_TORCH, Material.REDSTONE_WIRE, Material.RAIL, Material.POWERED_RAIL, Material.DETECTOR_RAIL, Material.FURNACE, Material.BLAST_FURNACE, Material.SMOKER, Material.LEVER, Material.REDSTONE_TORCH, Material.REDSTONE_WALL_TORCH, Material.GLOWSTONE, Material.JACK_O_LANTERN, Material.REPEATER, Material.REDSTONE_LAMP, Material.BEACON, Material.COMPARATOR, Material.DAYLIGHT_DETECTOR, Material.REDSTONE_BLOCK, Material.HOPPER, Material.CHEST, Material.TRAPPED_CHEST, Material.ACTIVATOR_RAIL, Material.SOUL_TORCH, Material.SOUL_WALL_TORCH, Material.SHROOMLIGHT, Material.RESPAWN_ANCHOR, Material.CRYING_OBSIDIAN, Material.TARGET, Material.SMALL_AMETHYST_BUD, Material.MEDIUM_AMETHYST_BUD, Material.LARGE_AMETHYST_BUD, Material.AMETHYST_CLUSTER, Material.CAVE_VINES, Material.CAVE_VINES_PLANT, Material.GLOW_LICHEN, Material.LIGHT, Material.LAVA_CAULDRON, Material.CHISELED_BOOKSHELF));
+        BlockGroup.UPDATE_STATE.add(Material.CHISELED_BOOKSHELF);
     }
 
     /**
@@ -70,52 +95,66 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
         BlockGroup.PRESSURE_PLATES.addAll(Tag.PRESSURE_PLATES.getValues());
 
         // Add all doors from tag
-        addMissingTaggedBlocks(Tag.DOORS.getValues(), BlockGroup.DOORS);
+        BlockGroup.DOORS.addAll(Tag.DOORS.getValues());
 
         // Add all fence gates to interaction blocks
-        addMissingTaggedBlocks(Tag.FENCE_GATES.getValues(), BlockGroup.INTERACT_BLOCKS);
-        addMissingTaggedBlocks(Tag.FENCE_GATES.getValues(), BlockGroup.SAFE_INTERACT_BLOCKS);
+        BlockGroup.INTERACT_BLOCKS.addAll(Tag.FENCE_GATES.getValues());
+        BlockGroup.SAFE_INTERACT_BLOCKS.addAll(Tag.FENCE_GATES.getValues());
 
         // Add all wooden trapdoors to interaction blocks
-        addMissingTaggedBlocks(Tag.WOODEN_TRAPDOORS.getValues(), BlockGroup.INTERACT_BLOCKS);
-        addMissingTaggedBlocks(Tag.WOODEN_TRAPDOORS.getValues(), BlockGroup.SAFE_INTERACT_BLOCKS);
+        BlockGroup.INTERACT_BLOCKS.addAll(Tag.WOODEN_TRAPDOORS.getValues());
+        BlockGroup.SAFE_INTERACT_BLOCKS.addAll(Tag.WOODEN_TRAPDOORS.getValues());
 
         // Add hanging signs to bottom-tracked blocks
-        addMissingTaggedBlocks(Tag.CEILING_HANGING_SIGNS.getValues(), BlockGroup.TRACK_BOTTOM);
+        BlockGroup.TRACK_BOTTOM.addAll(Tag.CEILING_HANGING_SIGNS.getValues());
 
         // Add wall signs to side-tracked blocks
-        addMissingTaggedBlocks(Tag.WALL_SIGNS.getValues(), BlockGroup.TRACK_SIDE);
+        BlockGroup.TRACK_SIDE.addAll(Tag.WALL_SIGNS.getValues());
 
         // Add saplings to top-tracked and non-attachable blocks
-        addMissingTaggedBlocks(Tag.SAPLINGS.getValues(), BlockGroup.TRACK_TOP);
-        addMissingTaggedBlocks(Tag.SAPLINGS.getValues(), BlockGroup.NON_ATTACHABLE);
+        BlockGroup.TRACK_TOP.addAll(Tag.SAPLINGS.getValues());
+        BlockGroup.NON_ATTACHABLE.addAll(Tag.SAPLINGS.getValues());
 
-        // Add flowers to top-tracked and non-attachable blocks
-        addMissingTaggedBlocks(Tag.FLOWERS.getValues(), BlockGroup.TRACK_TOP);
-        addMissingTaggedBlocks(Tag.FLOWERS.getValues(), BlockGroup.NON_ATTACHABLE);
+        for (Material flower : Tag.FLOWERS.getValues()) {
+            if (!Tag.LEAVES.isTagged(flower) && flower != Material.SPORE_BLOSSOM && flower != Material.CHORUS_FLOWER && flower != Material.MANGROVE_PROPAGULE) {
+                BlockGroup.TRACK_TOP.add(flower);
+                BlockGroup.NON_ATTACHABLE.add(flower);
+            }
+        }
 
         // Add signs (except wall signs) to top-tracked blocks
         for (Material value : Tag.SIGNS.getValues()) {
-            if (!Tag.WALL_SIGNS.isTagged(value) && !BlockGroup.TRACK_TOP.contains(value)) {
+            if (!Tag.WALL_SIGNS.isTagged(value)) {
                 BlockGroup.TRACK_TOP.add(value);
             }
         }
     }
 
-    /**
-     * Helper method to add missing blocks from a tag to a block group.
-     * 
-     * @param taggedBlocks
-     *            The collection of blocks from a tag
-     * @param targetGroup
-     *            The block group to add missing blocks to
-     */
-    private void addMissingTaggedBlocks(Iterable<Material> taggedBlocks, Set<Material> targetGroup) {
-        for (Material value : taggedBlocks) {
-            if (!targetGroup.contains(value)) {
-                targetGroup.add(value);
-            }
+    @Override
+    public void sendSignUpdate(Player player, Location location, Sign sign) {
+        if (HAS_SIGN_TILE_UPDATE) {
+            player.sendBlockUpdate(location, sign);
         }
+        else {
+            super.sendSignUpdate(player, location, sign);
+        }
+    }
+
+    @Override
+    public Boolean getSignInteractionSide(Sign sign, Player player) {
+        if (missingSignTargetSide) {
+            return null;
+        }
+
+        SignSide target;
+        try {
+            target = sign.getTargetSide(player);
+        }
+        catch (NoSuchMethodError e) {
+            missingSignTargetSide = true;
+            return null;
+        }
+        return target == null ? null : target == sign.getSide(Side.FRONT);
     }
 
     @Override
@@ -127,25 +166,35 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
     @Override
     public String parseLegacyName(String name) {
         switch (name) {
-            case "GRASS_PATH":
-                return "DIRT_PATH";
             case "GRASS":
-                return "SHORT_GRASS";
+            case "SHORT_GRASS":
+                return Material.getMaterial("SHORT_GRASS") != null ? "SHORT_GRASS" : "GRASS";
             case "SCUTE":
-                return "TURTLE_SCUTE";
+            case "TURTLE_SCUTE":
+                return Material.getMaterial("TURTLE_SCUTE") != null ? "TURTLE_SCUTE" : "SCUTE";
             default:
-                // Fallback until this method is moved up into v1_21
-                if ("SHORT_GRASS".equals(name) && Material.getMaterial(name) == null) {
-                    return "GRASS";
-                }
-                return name;
+                return super.parseLegacyName(name);
+        }
+    }
+
+    @Override
+    public int getLegacyBlockId(Material material) {
+        switch (material.name()) {
+            case "SHORT_GRASS":
+                return MaterialUtils.getBlockId("GRASS", false);
+            case "TURTLE_SCUTE":
+                return MaterialUtils.getBlockId("SCUTE", false);
+            default:
+                return super.getLegacyBlockId(material);
         }
     }
 
     @Override
     public void setColor(Sign sign, boolean isFront, int color) {
-        Side side = isFront ? Side.FRONT : Side.BACK;
-        sign.getSide(side).setColor(DyeColor.getByColor(Color.fromRGB(color)));
+        DyeColor dye = getSignDyeColor(color);
+        if (dye != null) {
+            sign.getSide(isFront ? Side.FRONT : Side.BACK).setColor(dye);
+        }
     }
 
     @Override
@@ -156,7 +205,8 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
     @Override
     public int getColor(Sign sign, boolean isFront) {
         Side side = isFront ? Side.FRONT : Side.BACK;
-        return sign.getSide(side).getColor().getColor().asRGB();
+        DyeColor dye = sign.getSide(side).getColor();
+        return dye == null ? 0 : dye.getColor().asRGB();
     }
 
     @Override
@@ -173,19 +223,18 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
     @Override
     public Material getPlantSeeds(Material material) {
         switch (material) {
-            case WHEAT:
-                return Material.WHEAT_SEEDS;
-            case PUMPKIN_STEM:
-                return Material.PUMPKIN_SEEDS;
-            case MELON_STEM:
-                return Material.MELON_SEEDS;
-            case BEETROOTS:
-                return Material.BEETROOT_SEEDS;
             case TORCHFLOWER_CROP:
                 return Material.TORCHFLOWER_SEEDS;
+            case PITCHER_CROP:
+                return Material.PITCHER_POD;
             default:
-                return material;
+                return super.getPlantSeeds(material);
         }
+    }
+
+    @Override
+    public boolean isSingleBlockPitcherCrop(BlockData blockData) {
+        return blockData instanceof PitcherCrop && ((PitcherCrop) blockData).getAge() < PITCHER_CROP_DOUBLE_AGE;
     }
 
     @Override
@@ -215,30 +264,30 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
 
     @Override
     public ItemStack getChiseledBookshelfBook(BlockState blockState, PlayerInteractEvent event) {
-        try {
-            if (hasClickedPosition == null) {
-                hasClickedPosition = true;
-                // Check if getClickedPosition method exists (Bukkit 1.20.1+)
-                PlayerInteractEvent.class.getMethod("getClickedPosition");
-            }
-            else if (Boolean.FALSE.equals(hasClickedPosition)) {
-                return null; // Method doesn't exist, return null
-            }
-
-            ChiseledBookshelf bookshelf = (ChiseledBookshelf) blockState;
-            int slot = bookshelf.getSlot(event.getClickedPosition());
-            ItemStack book = bookshelf.getInventory().getItem(slot);
-
-            return book == null ? new ItemStack(Material.AIR) : book;
-        }
-        catch (Exception e) {
-            hasClickedPosition = false;
+        if (!HAS_CLICKED_POSITION || !(blockState instanceof ChiseledBookshelf) || event == null) {
             return null;
         }
+
+        Vector clickedPosition = event.getClickedPosition();
+        if (clickedPosition == null) {
+            return null;
+        }
+
+        ChiseledBookshelf bookshelf = (ChiseledBookshelf) blockState;
+        int slot = bookshelf.getSlot(clickedPosition);
+        if (slot < 0) {
+            return null;
+        }
+
+        ItemStack book = bookshelf.getInventory().getItem(slot);
+        return book == null ? new ItemStack(Material.AIR) : book;
     }
 
     @Override
     public String getLine(Sign sign, int line) {
+        if (line < 0 || line >= 8) {
+            return "";
+        }
         if (line < 4) {
             return sign.getSide(Side.FRONT).getLine(line);
         }
@@ -249,6 +298,9 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
 
     @Override
     public void setLine(Sign sign, int line, String string) {
+        if (line < 0 || line >= 8) {
+            return;
+        }
         string = string == null ? "" : string;
 
         if (line < 4) {
@@ -265,40 +317,42 @@ public class Bukkit_v1_20 extends Bukkit_v1_19 {
     }
 
     @Override
+    public String getItemName(ItemMeta itemMeta) {
+        return HAS_ITEM_NAME && itemMeta.hasItemName() ? itemMeta.getItemName() : "";
+    }
+
+    @Override
+    public <T extends Entity> T spawn(World world, Location location, Class<T> entityClass, Consumer<? super T> function) {
+        return HAS_SPAWN_FUNCTION ? world.spawn(location, entityClass, function) : super.spawn(world, location, entityClass, function);
+    }
+
+    @Override
+    public ItemStack getArrowItem(AbstractArrow arrow) {
+        return HAS_ARROW_ITEM ? arrow.getItem() : null;
+    }
+
+    @Override
     public ItemStack getArrowMeta(Arrow arrow, ItemStack itemStack) {
-        try {
-            if (hasBasePotionType == null) {
-                hasBasePotionType = true;
-                // Check if getBasePotionType method exists (Bukkit 1.20.2+)
-                Arrow.class.getMethod("getBasePotionType");
-            }
-            else if (Boolean.FALSE.equals(hasBasePotionType)) {
-                return super.getArrowMeta(arrow, itemStack);
-            }
-
-            // Apply potion effects to the arrow
-            PotionType potionType = arrow.getBasePotionType();
-            Color color = arrow.getColor();
-
-            if (potionType != null || color != null) {
-                itemStack = new ItemStack(Material.TIPPED_ARROW);
-                PotionMeta meta = (PotionMeta) itemStack.getItemMeta();
-                meta.setBasePotionType(potionType);
-                meta.setColor(color);
-
-                for (PotionEffect effect : arrow.getCustomEffects()) {
-                    meta.addCustomEffect(effect, false);
-                }
-
-                itemStack.setItemMeta(meta);
-            }
-
-            return itemStack;
-        }
-        catch (Exception e) {
-            hasBasePotionType = false;
+        if (!HAS_BASE_POTION_TYPE) {
             return super.getArrowMeta(arrow, itemStack);
         }
+
+        PotionType potionType = arrow.getBasePotionType();
+        Color color = arrow.getColor();
+        if (potionType == null && color == null && !arrow.hasCustomEffects()) {
+            return itemStack;
+        }
+
+        ItemStack tippedArrow = new ItemStack(Material.TIPPED_ARROW);
+        PotionMeta meta = (PotionMeta) tippedArrow.getItemMeta();
+        meta.setBasePotionType(potionType);
+        meta.setColor(color);
+        for (PotionEffect effect : arrow.getCustomEffects()) {
+            meta.addCustomEffect(effect, false);
+        }
+
+        tippedArrow.setItemMeta(meta);
+        return tippedArrow;
     }
 
     @Override

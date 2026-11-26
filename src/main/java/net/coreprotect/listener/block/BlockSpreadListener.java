@@ -67,7 +67,6 @@ public final class BlockSpreadListener extends Queue implements Listener {
                     }
                     below.setY(below.getY() + 1);
                 }
-                below = null;
 
                 Queue.queueBlockPlaceDelayed("#bamboo", sourceBlock.getLocation(), type, null, sourceBlock.getState(), 0);
                 Queue.queueBlockPlaceDelayed("#bamboo", block.getLocation(), type, null, block.getState(), 0);
@@ -85,7 +84,6 @@ public final class BlockSpreadListener extends Queue implements Listener {
 
     private boolean checkCacheData(Block block, Material type) {
         String cacheId = block.getX() + "." + block.getY() + "." + block.getZ() + "." + WorldUtils.getWorldId(block.getWorld().getName());
-        Location location = block.getLocation();
         int timestamp = (int) (System.currentTimeMillis() / 1000L);
         Object[] cacheData = CacheHandler.spreadCache.get(cacheId);
         CacheHandler.spreadCache.put(cacheId, new Object[] { timestamp, type });

@@ -1,22 +1,49 @@
 package net.coreprotect.database.lookup;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.utility.LookupThrottle;
+import net.coreprotect.database.Database;
+import net.coreprotect.database.DuckDBLookupQuery;
+import net.coreprotect.database.LocationQuery;
+import net.coreprotect.database.statement.EntitySpawnStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.listener.channel.PluginChannelListener;
+import net.coreprotect.model.action.LookupActions;
 import net.coreprotect.utility.*;
 import org.bukkit.Material;
 import org.bukkit.block.BlockState;
 import org.bukkit.command.CommandSender;
 
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Locale;
+import java.util.StringJoiner;
+import java.util.UUID;
 
 public class BlockLookup {
 
     public static String performLookup(String command, Statement statement, BlockState block, CommandSender commandSender, int offset, int page, int limit) {
+        return performLookup(command, statement, block, commandSender, offset, page, limit, null);
+    }
+
+    public static String performEntityLookup(String command, Statement statement, BlockState block, CommandSender commandSender, int page, int limit, UUID entityUuid) throws SQLException {
+        Integer entitySpawnRowId = EntitySpawnStatement.findRowIdByUuid(statement.getConnection(), entityUuid);
+        if (entitySpawnRowId == null) {
+            String name = commandSender.getName();
+            LookupThrottle.publish(name, () -> {
+                ConfigHandler.lookupType.remove(name);
+                ConfigHandler.lookupCommand.remove(name);
+                ConfigHandler.lookupPage.remove(name);
+            });
+            return Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_DATA_LOCATION, Selector.FIRST);
+        }
+        return performLookup(command, statement, block, commandSender, 0, page, limit, entitySpawnRowId);
+    }
+
+    public static String performLookup(String command, Statement statement, BlockState block, CommandSender commandSender, int offset, int page, int limit, Integer entitySpawnRowId) {
         String resultText = "";
 
         try {
@@ -24,20 +51,7 @@ public class BlockLookup {
                 return resultText;
             }
 
-            if (command == null) {
-                if (commandSender.hasPermission("coreprotect.co")) {
-                    command = "co";
-                }
-                else if (commandSender.hasPermission("coreprotect.core")) {
-                    command = "core";
-                }
-                else if (commandSender.hasPermission("coreprotect.coreprotect")) {
-                    command = "coreprotect";
-                }
-                else {
-                    command = "co";
-                }
-            }
+            command = InspectorLookup.resolveCommand(command, commandSender);
 
             boolean found = false;
             int x = block.getX();
@@ -46,92 +60,122 @@ public class BlockLookup {
             long time = (System.currentTimeMillis() / 1000L);
             int worldId = WorldUtils.getWorldId(block.getWorld().getName());
             long checkTime = 0;
-            int count = 0;
-            int rowMax = page * limit;
-            int page_start = rowMax - limit;
             if (offset > 0) {
                 checkTime = time - offset;
             }
 
             String blockName = block.getType().name().toLowerCase(Locale.ROOT);
-
-            String query = "SELECT COUNT(*) as count from " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action IN(0,1) AND time >= '" + checkTime + "' LIMIT 0, 1";
-            ResultSet results = statement.executeQuery(query);
-            while (results.next()) {
-                count = results.getInt("count");
+            String where;
+            String index;
+            if (entitySpawnRowId == null) {
+                String placedEntityTypes = placedEntityTypeIds();
+                String placedEntityPredicate = ConfigHandler.databaseType.isDuckDB()
+                        ? "list_contains([" + placedEntityTypes + "],type)"
+                        : "type IN(" + placedEntityTypes + ")";
+                String actionPredicate = "(action IN(0,1," + LookupActions.ENTITY_SPAWN + ") OR (action=" + LookupActions.ENTITY_KILL + " AND " + placedEntityPredicate + "))";
+                where = LocationQuery.predicate("wid", " = " + worldId) + " AND " + LocationQuery.predicate("x", " = " + x) + " AND " + LocationQuery.predicate("z", " = " + z) + " AND y = " + y + " AND " + actionPredicate + " AND time >= " + checkTime;
+                index = WorldUtils.getWidIndex("block");
             }
-            results.close();
-            int totalPages = (int) Math.ceil(count / (limit + 0.0));
-
-            query = "SELECT time,user,action,type,data,rolled_back FROM " + ConfigHandler.prefix + "block " + WorldUtils.getWidIndex("block") + "WHERE wid = '" + worldId + "' AND x = '" + x + "' AND z = '" + z + "' AND y = '" + y + "' AND action IN(0,1) AND time >= '" + checkTime + "' ORDER BY rowid DESC LIMIT " + page_start + ", " + limit + "";
-            results = statement.executeQuery(query);
+            else {
+                where = "rowid IN(" + entityBlockRowIds(statement, entitySpawnRowId, checkTime) + ") AND action IN(" + LookupActions.ENTITY_SPAWN + "," + LookupActions.ENTITY_KILL + ") AND time >= " + checkTime;
+                index = "";
+            }
+            String table = ConfigHandler.prefix + "block";
+            String spatialTable = null;
+            if (ConfigHandler.databaseType.isDuckDB()) {
+                spatialTable = entitySpawnRowId == null ? DuckDBLookupQuery.spatialTable(statement.getConnection(), "block", worldId, x, x, z, z, "spatial_rows") : table;
+            }
+            String columns = "time," + ConfigHandler.databaseType.getUserColumn() + ",action,type,data,rolled_back" + (entitySpawnRowId == null ? "" : ",wid,x,y,z");
+            InspectorLookup.Page pageQuery = InspectorLookup.queryPage(statement, table, spatialTable, index, where, columns, ConfigHandler.getDescendingEventOrder(), false, page, limit);
+            long count = pageQuery.count;
 
             StringBuilder resultTextBuilder = new StringBuilder();
 
-            while (results.next()) {
-                int resultUserId = results.getInt("user");
-                int resultAction = results.getInt("action");
-                int resultType = results.getInt("type");
-                int resultData = results.getInt("data");
-                long resultTime = results.getLong("time");
-                int resultRolledBack = results.getInt("rolled_back");
-
-                if (ConfigHandler.playerIdCacheReversed.get(resultUserId) == null) {
-                    UserStatement.loadName(statement.getConnection(), resultUserId);
-                }
-
-                String resultUser = ConfigHandler.playerIdCacheReversed.get(resultUserId);
-                String timeAgo = ChatUtils.getTimeSince(resultTime, time, true);
-
-                if (!found) {
-                    resultTextBuilder = new StringBuilder(Color.WHITE + "----- " + Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "----- " + ChatUtils.getCoordinates(command, worldId, x, y, z, false, false) + "\n");
-                }
-                found = true;
-
-                Phrase phrase = Phrase.LOOKUP_BLOCK;
-                String selector = Selector.FIRST;
-                String tag = Color.WHITE + "-";
-                if (resultAction == 2 || resultAction == 3) {
-                    phrase = Phrase.LOOKUP_INTERACTION; // {clicked|killed}
-                    selector = (resultAction != 3 ? Selector.FIRST : Selector.SECOND);
-                    tag = (resultAction != 3 ? Color.WHITE + "-" : Color.RED + "-");
-                }
-                else {
-                    phrase = Phrase.LOOKUP_BLOCK; // {placed|broke}
-                    selector = (resultAction != 0 ? Selector.FIRST : Selector.SECOND);
-                    tag = (resultAction != 0 ? Color.GREEN + "+" : Color.RED + "-");
-                }
-
-                String rbFormat = "";
-                if (resultRolledBack == 1 || resultRolledBack == 3) {
-                    rbFormat = Color.STRIKETHROUGH;
-                }
-
-                String target;
-                if (resultAction == 3) {
-                    target = EntityUtils.getEntityType(resultType).name();
-                }
-                else {
-                    target = MaterialUtils.getBlockDisplayName(resultType, resultData);
-                    if (target.length() > 0 && !target.contains(":")) {
-                        target = "minecraft:" + target.toLowerCase(Locale.ROOT);
+            try (ResultSet results = statement.executeQuery(pageQuery.query)) {
+                while (results.next()) {
+                    if (pageQuery.combinedCount) {
+                        count = results.getLong("count");
+                        if (results.getObject("result_id") == null) {
+                            continue;
+                        }
                     }
-                }
-                if (target.length() > 0) {
-                    target = "" + target + "";
-                }
+                    int resultUserId = results.getInt("user");
+                    int resultAction = results.getInt("action");
+                    int resultType = results.getInt("type");
+                    int resultData = results.getInt("data");
+                    long resultTime = results.getLong("time");
+                    int resultRolledBack = results.getInt("rolled_back");
 
-                // Hide "minecraft:" for now.
-                if (target.startsWith("minecraft:")) {
-                    target = target.split(":")[1];
-                }
+                    String resultUser = UserStatement.getName(statement.getConnection(), resultUserId);
+                    String timeAgo = ChatUtils.getTimeSince(resultTime, time, true);
 
-                resultTextBuilder.append(timeAgo + " " + tag + " ").append(Phrase.build(phrase, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, Color.DARK_AQUA + rbFormat + target + Color.WHITE, selector)).append("\n");
-                PluginChannelListener.getInstance().sendData(commandSender, resultTime, phrase, selector, resultUser, target, -1, x, y, z, worldId, rbFormat, false, tag.contains("+"));
+                    if (!found) {
+                        resultTextBuilder = new StringBuilder(Color.WHITE + "----- " + Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "----- " + ChatUtils.getCoordinates(command, worldId, x, y, z, false, false) + "\n");
+                    }
+                    found = true;
+
+                    Phrase phrase = Phrase.LOOKUP_BLOCK;
+                    String selector = Selector.FIRST;
+                    String tag = Color.WHITE + "-";
+                    if (resultAction == LookupActions.ENTITY_SPAWN) {
+                        phrase = EntitySpawnTracking.isPlacedEntityType(EntityUtils.getEntityType(resultType)) ? Phrase.LOOKUP_BLOCK : Phrase.LOOKUP_ENTITY_SPAWN;
+                        selector = Selector.FIRST;
+                        tag = Color.GREEN + "+";
+                    }
+                    else if (resultAction == LookupActions.ENTITY_KILL && EntitySpawnTracking.isPlacedEntityType(EntityUtils.getEntityType(resultType))) {
+                        phrase = Phrase.LOOKUP_BLOCK;
+                        selector = Selector.SECOND;
+                        tag = Color.RED + "-";
+                    }
+                    else if (resultAction == 2 || resultAction == 3) {
+                        phrase = Phrase.LOOKUP_INTERACTION; // {clicked|killed}
+                        selector = (resultAction != 3 ? Selector.FIRST : Selector.SECOND);
+                        tag = (resultAction != 3 ? Color.WHITE + "-" : Color.RED + "-");
+                    }
+                    else {
+                        phrase = Phrase.LOOKUP_BLOCK; // {placed|broke}
+                        selector = (resultAction != 0 ? Selector.FIRST : Selector.SECOND);
+                        tag = (resultAction != 0 ? Color.GREEN + "+" : Color.RED + "-");
+                    }
+
+                    String rbFormat = "";
+                    if (resultRolledBack == 1 || resultRolledBack == 3) {
+                        rbFormat = Color.STRIKETHROUGH;
+                    }
+
+                    String target;
+                    if (resultAction == 3 || resultAction == LookupActions.ENTITY_SPAWN) {
+                        target = EntityInteractionLookup.entityName(resultType);
+                    }
+                    else {
+                        target = MaterialUtils.getBlockDisplayName(resultType, resultData);
+                        if (target.length() > 0 && !target.contains(":")) {
+                            target = "minecraft:" + target.toLowerCase(Locale.ROOT);
+                        }
+                    }
+                    if (target.length() > 0) {
+                        target = "" + target + "";
+                    }
+
+                    target = InspectorLookup.displayTarget(target);
+
+                    String coordinateInfo = "";
+                    if (entitySpawnRowId != null) {
+                        int originWorldId = results.getInt("wid");
+                        int originX = results.getInt("x");
+                        int originY = results.getInt("y");
+                        int originZ = results.getInt("z");
+                        if (originWorldId != worldId || originX != x || originY != y || originZ != z) {
+                            coordinateInfo = ChatUtils.getCoordinateTooltip(originWorldId, originX, originY, originZ, Phrase.build(Phrase.LOOKUP_ENTITY_ORIGIN), true);
+                        }
+                    }
+                    resultTextBuilder.append(timeAgo + " " + tag + " ").append(Phrase.build(phrase, Color.DARK_AQUA + rbFormat + resultUser + Color.WHITE + rbFormat, Color.DARK_AQUA + rbFormat + target + Color.WHITE + coordinateInfo, selector)).append("\n");
+                    PluginChannelListener.getInstance().sendData(commandSender, resultTime, phrase, selector, resultUser, target, -1, x, y, z, worldId, rbFormat, false, tag.contains("+"));
+                }
             }
 
             resultText = resultTextBuilder.toString();
-            results.close();
+            int totalPages = InspectorLookup.totalPages(count, limit);
 
             if (found) {
                 if (count > limit) {
@@ -141,26 +185,77 @@ public class BlockLookup {
                 }
             }
             else {
-                if (rowMax > count && count > 0) {
+                if (pageQuery.end > count && count > 0) {
                     resultText = Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_RESULTS_PAGE, Selector.SECOND);
                 }
                 else {
                     // resultText = Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Color.WHITE + "No block data found at " + Color.ITALIC + "x" + x + "/y" + y + "/z" + z + ".";
                     resultText = Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_DATA_LOCATION, Selector.FIRST);
-                    if (!blockName.equals("air") && !blockName.equals("cave_air")) {
+                    if (entitySpawnRowId == null && !BlockTypeUtils.isAir(blockName)) {
                         resultText = Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_DATA, Color.ITALIC + block.getType().name().toLowerCase(Locale.ROOT) + Color.WHITE) + "\n";
                     }
                 }
             }
 
-            ConfigHandler.lookupPage.put(commandSender.getName(), page);
-            ConfigHandler.lookupType.put(commandSender.getName(), 2);
-            ConfigHandler.lookupCommand.put(commandSender.getName(), x + "." + y + "." + z + "." + worldId + ".0." + limit);
+            String name = commandSender.getName();
+            String history = x + "." + y + "." + z + "." + worldId + ".0." + limit + (entitySpawnRowId == null ? "" : "." + entitySpawnRowId);
+            LookupThrottle.publish(name, () -> {
+                ConfigHandler.lookupPage.put(name, page);
+                ConfigHandler.lookupType.put(name, 2);
+                ConfigHandler.lookupCommand.put(name, history);
+            });
         }
         catch (Exception e) {
-            e.printStackTrace();
+            Database.reportDatabaseFailure(e);
         }
         return resultText;
+    }
+
+    private static String entityBlockRowIds(Statement statement, int entitySpawnRowId, long minimumTime) throws SQLException {
+        StringJoiner ids = new StringJoiner(",");
+        long blockRowId = 0L;
+        long killRowId = 0L;
+        long spawnTime = 0L;
+        try (ResultSet results = statement.executeQuery("SELECT block_rowid,kill_rowid,time FROM " + ConfigHandler.prefix + "entity_spawn WHERE rowid=" + entitySpawnRowId)) {
+            if (results.next()) {
+                blockRowId = results.getLong("block_rowid");
+                killRowId = results.getLong("kill_rowid");
+                spawnTime = results.getLong("time");
+                if (blockRowId > 0L) {
+                    ids.add(Long.toString(blockRowId));
+                }
+            }
+        }
+        if (killRowId > 0L) {
+            String query = "SELECT rowid AS id FROM " + ConfigHandler.prefix + "block WHERE action=" + LookupActions.ENTITY_KILL + " AND data=" + killRowId;
+            long candidateTime = Math.max(minimumTime, spawnTime);
+            String candidate = query + " AND time >= " + candidateTime + (blockRowId > 0L ? " AND rowid > " + blockRowId : "");
+            if (!appendBlockRowIds(statement, candidate, ids) && (blockRowId > 0L || candidateTime > minimumTime)) {
+                appendBlockRowIds(statement, query + " AND time >= " + minimumTime, ids);
+            }
+        }
+        return ids.length() == 0 ? "0" : ids.toString();
+    }
+
+    private static boolean appendBlockRowIds(Statement statement, String query, StringJoiner ids) throws SQLException {
+        try (ResultSet results = statement.executeQuery(query)) {
+            boolean found = results.next();
+            if (found) {
+                do {
+                    ids.add(Long.toString(results.getLong("id")));
+                }
+                while (results.next());
+            }
+            return found;
+        }
+    }
+
+    private static String placedEntityTypeIds() {
+        StringJoiner ids = new StringJoiner(",");
+        for (Integer id : EntitySpawnTracking.getPlacedEntityTypeIds()) {
+            ids.add(Integer.toString(id));
+        }
+        return ids.length() == 0 ? "0" : ids.toString();
     }
 
 }

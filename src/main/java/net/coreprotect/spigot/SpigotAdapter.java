@@ -3,12 +3,16 @@ package net.coreprotect.spigot;
 import java.util.List;
 import java.util.regex.Matcher;
 
+import org.bukkit.ChatColor;
+import org.bukkit.DyeColor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Villager;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.Color;
 import net.coreprotect.utility.Util;
 
 public class SpigotAdapter implements SpigotInterface {
@@ -24,30 +28,30 @@ public class SpigotAdapter implements SpigotInterface {
     public static final int SPIGOT_V1_19 = BukkitAdapter.BUKKIT_V1_19;
     public static final int SPIGOT_V1_20 = BukkitAdapter.BUKKIT_V1_20;
     public static final int SPIGOT_V1_21 = BukkitAdapter.BUKKIT_V1_21;
+    public static final int SPIGOT_V1_21_5 = BukkitAdapter.BUKKIT_V1_21_5;
+    public static final int SPIGOT_V1_21_11 = BukkitAdapter.BUKKIT_V1_21_11;
+    public static final int SPIGOT_V26_0 = BukkitAdapter.BUKKIT_V26_0;
+    public static final int SPIGOT_V26_1 = BukkitAdapter.BUKKIT_V26_1;
+    public static final int SPIGOT_V26_2 = BukkitAdapter.BUKKIT_V26_2;
+    public static final int SPIGOT_V26_3 = BukkitAdapter.BUKKIT_V26_3;
 
     public static void loadAdapter() {
-        int spigotVersion = ConfigHandler.SERVER_VERSION;
-        if (!ConfigHandler.isSpigot) {
-            spigotVersion = SPIGOT_UNAVAILABLE;
+        if (!ConfigHandler.isSpigot || ConfigHandler.SERVER_VERSION == SPIGOT_UNAVAILABLE) {
+            Color.DARK_AQUA = ChatColor.DARK_AQUA.toString();
+            SpigotAdapter.ADAPTER = new SpigotAdapter();
+            return;
         }
 
-        switch (spigotVersion) {
-            case SPIGOT_UNAVAILABLE:
-                SpigotAdapter.ADAPTER = new SpigotAdapter();
-                break;
-            case SPIGOT_V1_13:
-            case SPIGOT_V1_14:
-            case SPIGOT_V1_15:
-            case SPIGOT_V1_16:
-            case SPIGOT_V1_17:
-            case SPIGOT_V1_18:
-            case SPIGOT_V1_19:
-            case SPIGOT_V1_20:
-            case SPIGOT_V1_21:
-            default:
-                SpigotAdapter.ADAPTER = new SpigotHandler();
-                break;
-        }
+        SpigotAdapter.ADAPTER = new SpigotHandler();
+    }
+
+    @Override
+    public DyeColor getCushionColor(Entity entity) {
+        return null;
+    }
+
+    @Override
+    public void setCushionColor(Entity entity, DyeColor color) {
     }
 
     @Override
@@ -63,19 +67,34 @@ public class SpigotAdapter implements SpigotInterface {
     @Override
     public void sendComponent(CommandSender sender, String string, String bypass) {
         StringBuilder message = new StringBuilder();
+        StringBuilder plainBuilder = new StringBuilder();
 
         Matcher matcher = Util.tagParser.matcher(string);
         while (matcher.find()) {
             String value = matcher.group(1);
             if (value != null) {
+                if (plainBuilder.length() > 0) {
+                    message.append(Chat.unescapeComponentTags(plainBuilder.toString()));
+                    plainBuilder.setLength(0);
+                }
                 String[] data = value.split("\\|", 3);
-                if (data[0].equals(Chat.COMPONENT_COMMAND) || data[0].equals(Chat.COMPONENT_POPUP)) {
-                    message.append(data[2]);
+                if (data.length < 3) {
+                    message.append(Chat.COMPONENT_TAG_OPEN).append(value).append(Chat.COMPONENT_TAG_CLOSE);
+                }
+                else if (data[0].equals(Chat.COMPONENT_COMMAND) || data[0].equals(Chat.COMPONENT_POPUP)) {
+                    message.append(processComponent(data[2]));
+                }
+                else {
+                    message.append(Chat.COMPONENT_TAG_OPEN).append(value).append(Chat.COMPONENT_TAG_CLOSE);
                 }
             }
             else {
-                message.append(matcher.group(2));
+                plainBuilder.append(matcher.group(2));
             }
+        }
+
+        if (plainBuilder.length() > 0) {
+            message.append(Chat.unescapeComponentTags(plainBuilder.toString()));
         }
 
         if (bypass != null) {
@@ -100,6 +119,6 @@ public class SpigotAdapter implements SpigotInterface {
     }
 
     public String processComponent(String component) {
-        return component.replace(Chat.COMPONENT_PIPE, "|");
+        return Chat.unescapeComponent(component);
     }
 }

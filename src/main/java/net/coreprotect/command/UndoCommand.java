@@ -1,45 +1,58 @@
 package net.coreprotect.command;
 
 import java.util.List;
+import java.util.Locale;
 
 import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 
+import net.coreprotect.command.parser.ActionParser;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
 import net.coreprotect.utility.Chat;
 import net.coreprotect.utility.Color;
+import net.coreprotect.utility.ErrorReporter;
 
 public class UndoCommand {
     protected static void runCommand(CommandSender user, Command command, boolean permission, String[] args) {
+        if (!permission) {
+            Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));
+            return;
+        }
+        if (args.length > 1) {
+            Chat.sendMessage(user, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, args[1]));
+            return;
+        }
+
         try {
-            if (ConfigHandler.lastRollback.get(user.getName()) != null) {
-                List<Object> list = ConfigHandler.lastRollback.get(user.getName());
-                long startTime = (Long) list.get(0);
-                long endTime = (Long) list.get(1);
-                args = (String[]) list.get(2);
-                Location location = (Location) list.get(3);
-                for (String arg : args) {
-                    if (arg.equals("#preview")) {
-                        CancelCommand.runCommand(user, command, permission, args);
+            List<Object> savedRollback = ConfigHandler.lastRollback.get(user.getName());
+            if (savedRollback != null) {
+                long startTime = (Long) savedRollback.get(0);
+                long endTime = (Long) savedRollback.get(1);
+                String[] savedArgs = (String[]) savedRollback.get(2);
+                Location location = (Location) savedRollback.get(3);
+                for (int i = 1; i < savedArgs.length; i++) {
+                    if (ActionParser.isPreviewArgument(savedArgs[i])) {
+                        CancelCommand.cancelPreview(user, command, savedRollback);
                         return;
                     }
                 }
+                String[] undoArgs = savedArgs.clone();
                 boolean valid = true;
-                if (args[0].equals("rollback") || args[0].equals("rb") || args[0].equals("ro")) {
-                    args[0] = "restore";
+                String subcommand = (undoArgs.length > 0) ? undoArgs[0].toLowerCase(Locale.ROOT) : "";
+                if (subcommand.equals("rollback") || subcommand.equals("rb") || subcommand.equals("ro")) {
+                    undoArgs[0] = "restore";
                 }
-                else if (args[0].equals("restore") || args[0].equals("rs") || args[0].equals("re")) {
-                    args[0] = "rollback";
+                else if (subcommand.equals("restore") || subcommand.equals("rs") || subcommand.equals("re")) {
+                    undoArgs[0] = "rollback";
                 }
                 else {
                     valid = false;
                 }
                 if (valid) {
-                    ConfigHandler.lastRollback.remove(user.getName());
-                    RollbackRestoreCommand.runCommand(user, command, permission, args, location, startTime, endTime);
+                    RollbackRestoreCommand.runCommand(user, command, permission, undoArgs, location, startTime, endTime, savedRollback);
                 }
             }
             else {
@@ -47,7 +60,7 @@ public class UndoCommand {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 }

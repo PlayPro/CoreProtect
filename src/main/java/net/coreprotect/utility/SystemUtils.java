@@ -2,6 +2,8 @@ package net.coreprotect.utility;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -9,18 +11,34 @@ import java.util.regex.Pattern;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.config.Configurator;
 
-import oshi.SystemInfo;
-import oshi.hardware.CentralProcessor;
-
 public class SystemUtils {
 
-    private static boolean testMode = Boolean.getBoolean("net.coreprotect.test");
-    private static String processorInfo = null;
-    private static boolean log4jInitialized = false;
-    private static Double appleProcessorSpeed = null;
+    private static final Pattern GHZ_PATTERN = Pattern.compile("(\\d+\\.\\d+)GHz");
+    private static volatile boolean testMode = Boolean.getBoolean("net.coreprotect.test");
+    private static volatile String processorInfo = null;
+    private static volatile boolean log4jInitialized = false;
+    private static volatile Double appleProcessorSpeed = null;
 
     private SystemUtils() {
         throw new IllegalStateException("Utility class");
+    }
+
+    public static final class ProcessorInfo {
+        private final String name;
+        private final long maxFrequency;
+
+        private ProcessorInfo(String name, long maxFrequency) {
+            this.name = name;
+            this.maxFrequency = maxFrequency;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public long getMaxFrequency() {
+            return maxFrequency;
+        }
     }
 
     /**
@@ -42,8 +60,8 @@ public class SystemUtils {
      * @return True if running on Apple Silicon
      */
     public static boolean isAppleSilicon() {
-        String osName = System.getProperty("os.name", "").toLowerCase();
-        String osArch = System.getProperty("os.arch", "").toLowerCase();
+        String osName = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+        String osArch = System.getProperty("os.arch", "").toLowerCase(Locale.ROOT);
 
         return osName.contains("mac") && (osArch.contains("aarch64") || osArch.contains("arm"));
     }
@@ -62,17 +80,26 @@ public class SystemUtils {
             return 3.2; // Default test value
         }
 
-        // Try to determine the CPU model first to use for frequency lookup
         String modelName = getProcessorModel();
+        if (modelName == null) {
+            return 3.2; // Default fallback
+        }
 
-        // First attempt: Get frequency from machdep.cpu.brand_string if it contains GHz info
-        if (modelName != null && modelName.contains("GHz")) {
+        Double resolved = resolveAppleSiliconSpeed(modelName);
+        appleProcessorSpeed = resolved;
+        return resolved;
+    }
+
+    public static Double resolveAppleSiliconSpeed(String modelName) {
+        if (modelName == null) {
+            return 3.2;
+        }
+
+        if (modelName.contains("GHz")) {
             try {
-                Pattern pattern = Pattern.compile("(\\d+\\.\\d+)GHz");
-                Matcher matcher = pattern.matcher(modelName);
+                Matcher matcher = GHZ_PATTERN.matcher(modelName);
                 if (matcher.find()) {
-                    appleProcessorSpeed = Double.parseDouble(matcher.group(1));
-                    return appleProcessorSpeed;
+                    return Double.parseDouble(matcher.group(1));
                 }
             }
             catch (Exception e) {
@@ -80,66 +107,30 @@ public class SystemUtils {
             }
         }
 
-        // Second attempt: Use sysctl method to detect P-core maximum frequencies
-        try {
-            ProcessBuilder pb = new ProcessBuilder("sysctl", "-n", "machdep.cpu.brand_string");
-            Process process = pb.start();
-
-            if (process.waitFor(500, TimeUnit.MILLISECONDS)) {
-                String appleChipInfo = null;
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                    appleChipInfo = reader.readLine();
-                }
-
-                if (appleChipInfo != null) {
-                    // Extract M-series info
-                    if (appleChipInfo.contains("M1")) {
-                        return getMSeriesSpeed("M1", appleChipInfo);
-                    }
-                    else if (appleChipInfo.contains("M2")) {
-                        return getMSeriesSpeed("M2", appleChipInfo);
-                    }
-                    else if (appleChipInfo.contains("M3")) {
-                        return getMSeriesSpeed("M3", appleChipInfo);
-                    }
-                    else if (appleChipInfo.contains("M4")) {
-                        return getMSeriesSpeed("M4", appleChipInfo);
-                    }
-                }
-            }
+        if (modelName.contains("M5")) {
+            return getMSeriesSpeed("M5", modelName);
         }
-        catch (Exception e) {
-            // Failed with sysctl method
+        else if (modelName.contains("M4")) {
+            return getMSeriesSpeed("M4", modelName);
+        }
+        else if (modelName.contains("M3")) {
+            return getMSeriesSpeed("M3", modelName);
+        }
+        else if (modelName.contains("M2")) {
+            return getMSeriesSpeed("M2", modelName);
+        }
+        else if (modelName.contains("M1")) {
+            return getMSeriesSpeed("M1", modelName);
         }
 
-        // Fallback to reasonable defaults based on processor model
-        if (modelName != null) {
-            if (modelName.contains("M1")) {
-                appleProcessorSpeed = 3.2;
-            }
-            else if (modelName.contains("M2")) {
-                appleProcessorSpeed = 3.7;
-            }
-            else if (modelName.contains("M3")) {
-                appleProcessorSpeed = 4.05;
-            }
-            else if (modelName.contains("M4")) {
-                appleProcessorSpeed = 4.5;
-            }
-            else {
-                appleProcessorSpeed = 3.0; // Generic fallback
-            }
-            return appleProcessorSpeed;
-        }
-
-        return 3.2; // Default fallback
+        return 3.0; // Generic fallback
     }
 
     /**
      * Get the processor speed based on the M-series chip variant
      * 
      * @param series
-     *            The M-series (M1, M2, M3, M4)
+     *            The M-series (M1, M2, M3, M4, M5)
      * @param chipInfo
      *            The full chip info string
      * @return The processor speed in GHz
@@ -148,44 +139,32 @@ public class SystemUtils {
         switch (series) {
             case "M1":
                 if (chipInfo.contains("Pro") || chipInfo.contains("Max") || chipInfo.contains("Ultra")) {
-                    appleProcessorSpeed = 3.23; // M1 Pro/Max/Ultra P cores
+                    return 3.23; // M1 Pro/Max/Ultra P cores
                 }
-                else {
-                    appleProcessorSpeed = 3.2; // Base M1 P cores
-                }
-                break;
+                return 3.2; // Base M1 P cores
             case "M2":
                 if (chipInfo.contains("Pro") || chipInfo.contains("Max") || chipInfo.contains("Ultra")) {
-                    appleProcessorSpeed = 3.7; // M2 Pro/Max/Ultra P cores
+                    return 3.7; // M2 Pro/Max/Ultra P cores
                 }
-                else {
-                    appleProcessorSpeed = 3.5; // Base M2 P cores
-                }
-                break;
+                return 3.5; // Base M2 P cores
             case "M3":
                 if (chipInfo.contains("Pro") || chipInfo.contains("Max")) {
-                    appleProcessorSpeed = 4.05; // M3 Pro/Max P cores
+                    return 4.05; // M3 Pro/Max P cores
                 }
-                else {
-                    appleProcessorSpeed = 4.0; // Base M3 P cores
-                }
-                break;
+                return 4.0; // Base M3 P cores
             case "M4":
-                if (chipInfo.contains("Max")) {
-                    appleProcessorSpeed = 4.5; // M4 Max P cores
+                if (chipInfo.contains("Max") || chipInfo.contains("Pro")) {
+                    return 4.5; // M4 Pro/Max P cores
                 }
-                else if (chipInfo.contains("Pro")) {
-                    appleProcessorSpeed = 4.5; // M4 Pro P cores
+                return 4.3; // Base M4 P cores
+            case "M5":
+                if (chipInfo.contains("Max") || chipInfo.contains("Pro") || chipInfo.contains("Ultra")) {
+                    return 4.6; // M5 Pro/Max/Ultra P cores
                 }
-                else {
-                    appleProcessorSpeed = 4.3; // Base M4 P cores
-                }
-                break;
+                return 4.5; // Base M5 P cores
             default:
-                appleProcessorSpeed = 3.2; // Default
-                break;
+                return 3.2; // Default
         }
-        return appleProcessorSpeed;
     }
 
     /**
@@ -194,36 +173,52 @@ public class SystemUtils {
      * @return Processor model name, or null if unavailable
      */
     private static String getProcessorModel() {
+        Process process = null;
         try {
             ProcessBuilder pb = new ProcessBuilder("sysctl", "-n", "machdep.cpu.brand_string");
-            Process process = pb.start();
+            process = pb.start();
 
             if (process.waitFor(500, TimeUnit.MILLISECONDS)) {
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
                     return reader.readLine();
                 }
             }
         }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
         catch (Exception e) {
             // Failed to get CPU model
+        }
+        finally {
+            if (process != null) {
+                process.destroyForcibly();
+            }
         }
 
         return null;
     }
 
-    public static CentralProcessor getProcessorInfo() {
+    public static boolean requiresWin32ExceptionCheck() {
+        String osName = System.getProperty("os.name", "");
+        String archDataModel = System.getProperty("sun.arch.data.model", "");
+        return osName.startsWith("Windows") && !archDataModel.equals("64");
+    }
+
+    public static ProcessorInfo getProcessorInfo() {
         // In test mode, don't actually try to initialize hardware components
         if (testMode || isLog4jDisabled()) {
             return null;
         }
 
-        CentralProcessor result = null;
         try {
             Class.forName("com.sun.jna.Platform");
-            if (System.getProperty("os.name").startsWith("Windows") && !System.getProperty("sun.arch.data.model").equals("64")) {
+            String osName = System.getProperty("os.name", "");
+            String javaRuntimeName = System.getProperty("java.runtime.name", "");
+            if (requiresWin32ExceptionCheck()) {
                 Class.forName("com.sun.jna.platform.win32.Win32Exception");
             }
-            else if (System.getProperty("os.name").toLowerCase().contains("android") || System.getProperty("java.runtime.name").toLowerCase().contains("android")) {
+            else if (osName.toLowerCase(Locale.ROOT).contains("android") || javaRuntimeName.toLowerCase(Locale.ROOT).contains("android")) {
                 return null;
             }
 
@@ -237,14 +232,21 @@ public class SystemUtils {
                 // log4j configuration failure, continue without it
             }
 
-            SystemInfo systemInfo = new SystemInfo();
-            result = systemInfo.getHardware().getProcessor();
+            Class<?> systemInfoClass = Class.forName("oshi.SystemInfo");
+            Object systemInfo = systemInfoClass.getDeclaredConstructor().newInstance();
+            Object hardware = systemInfoClass.getMethod("getHardware").invoke(systemInfo);
+            Object processor = Class.forName("oshi.hardware.HardwareAbstractionLayer").getMethod("getProcessor").invoke(hardware);
+            Object identifier = Class.forName("oshi.hardware.CentralProcessor").getMethod("getProcessorIdentifier").invoke(processor);
+            String name = String.valueOf(identifier.getClass().getMethod("getName").invoke(identifier));
+            Object maxFrequency = Class.forName("oshi.hardware.CentralProcessor").getMethod("getMaxFreq").invoke(processor);
+
+            return new ProcessorInfo(name, ((Number) maxFrequency).longValue());
         }
-        catch (Exception e) {
+        catch (LinkageError | ReflectiveOperationException | RuntimeException e) {
             // unable to read processor information
         }
 
-        return result;
+        return null;
     }
 
     /**
@@ -257,9 +259,9 @@ public class SystemUtils {
             return processorInfo;
         }
 
-        CentralProcessor processor = getProcessorInfo();
+        ProcessorInfo processor = getProcessorInfo();
         if (processor != null) {
-            processorInfo = processor.getProcessorIdentifier().getName();
+            processorInfo = processor.getName();
             return processorInfo;
         }
 

@@ -1,0 +1,404 @@
+package net.coreprotect.database.clickhouse;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.YearMonth;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+import java.util.StringJoiner;
+import java.util.UUID;
+
+import net.coreprotect.database.PurgePolicy;
+import net.coreprotect.model.action.LookupActions;
+
+final class ClickHouseRetention {
+
+    private static final String MUTATION_SETTINGS = " SETTINGS mutations_sync=2,allow_nondeterministic_mutations=1";
+
+    private final ClickHouseJdbc jdbc;
+    private final UUID owner;
+    private final String eventTable;
+    private final String highWaterTable;
+    private final String prefix;
+    private final String databaseName;
+    private final String eventTableName;
+    private volatile PurgeAttempt activePurge;
+
+    ClickHouseRetention(ClickHouseJdbc jdbc, String database, String prefix, UUID owner) {
+        this.jdbc = Objects.requireNonNull(jdbc, "jdbc");
+        this.owner = Objects.requireNonNull(owner, "owner");
+        databaseName = ClickHouseIdentifiers.requireIdentifier(database, "ClickHouse database");
+        this.prefix = ClickHouseIdentifiers.requirePrefix(prefix);
+        eventTableName = this.prefix + "event_data";
+        eventTable = table("event_data");
+        highWaterTable = table("retention_high_water");
+    }
+
+    void cancelPurge() {
+        PurgeAttempt attempt = activePurge;
+        if (attempt == null) {
+            return;
+        }
+        attempt.cancelled = true;
+        Connection connection = attempt.connection;
+        if (connection == null) {
+            return;
+        }
+        try {
+            connection.abort(Runnable::run);
+        }
+        catch (Exception ignored) {
+            try {
+                connection.close();
+            }
+            catch (Exception closeIgnored) {
+            }
+        }
+    }
+
+    synchronized long purge(long startTime, long endTime, int worldId, List<Integer> blockTypes, boolean optimize, boolean exclusive) throws SQLException {
+        if (startTime < 0 || endTime <= startTime || endTime > 0xffff_ffffL) {
+            throw new IllegalArgumentException("Invalid ClickHouse purge time range");
+        }
+        if (worldId < 0) {
+            throw new IllegalArgumentException("ClickHouse purge world ID cannot be negative");
+        }
+        List<Integer> restrictedBlockTypes = blockTypes == null ? Collections.emptyList() : new ArrayList<>(blockTypes);
+        boolean directTimePurge = worldId == 0 && restrictedBlockTypes.isEmpty();
+        String targetSuffix = "purge_targets_" + UUID.randomUUID().toString().replace("-", "");
+        String targetTableName = prefix + targetSuffix;
+        String targetTable = table(targetSuffix);
+
+        PurgeAttempt attempt = new PurgeAttempt();
+        activePurge = attempt;
+        boolean recoverLookupGate = false;
+        Throwable failure = null;
+        try (Connection connection = jdbc.openMaintenanceConnection()) {
+            attempt.connection = connection;
+            requirePurgeNotCancelled();
+            cleanupAbandonedTargets(connection);
+            if (hasPendingMutation(connection, "")) {
+                throw new SQLException("ClickHouse purge requires earlier mutations to finish first");
+            }
+            if (exclusive) {
+                ClickHouseLookupIndex.recoverStale(connection, databaseName, prefix);
+            }
+            snapshotHighWaterMarks(connection);
+            requirePurgeNotCancelled();
+            recoverLookupGate = true;
+            ClickHouseLookupIndex.setReady(connection, eventTable, owner, false);
+            boolean completed = false;
+            Throwable targetFailure = null;
+            try {
+                createTargets(connection, targetTable);
+                long removed;
+                if (directTimePurge) {
+                    removed = countPrimaryRows(connection, startTime, endTime);
+                    dropCoveredPartitions(connection, startTime, endTime);
+                    deletePrimaryRows(connection, startTime, endTime);
+                }
+                else {
+                    selectPrimaryTargets(connection, targetTable, startTime, endTime, worldId, restrictedBlockTypes);
+                    removed = countTargets(connection, targetTable);
+                    deleteTargets(connection, targetTable);
+                }
+                removed += cleanupEntityData(connection, targetTable, startTime, endTime, worldId);
+
+                if (optimize) {
+                    try (Statement statement = connection.createStatement()) {
+                        statement.execute("OPTIMIZE TABLE " + eventTable + " FINAL");
+                    }
+                }
+                requirePurgeNotCancelled();
+                ClickHouseLookupIndex.setReady(connection, eventTable, owner, true);
+                recoverLookupGate = false;
+                completed = true;
+                return removed;
+            }
+            catch (SQLException | RuntimeException | Error exception) {
+                targetFailure = exception;
+                throw exception;
+            }
+            finally {
+                try {
+                    if (completed || !hasPendingMutation(connection, targetTableName)) {
+                        dropTargets(connection, targetTable);
+                    }
+                }
+                catch (SQLException cleanupFailure) {
+                    if (targetFailure == null) {
+                        throw cleanupFailure;
+                    }
+                    targetFailure.addSuppressed(cleanupFailure);
+                }
+            }
+        }
+        catch (SQLException | RuntimeException | Error exception) {
+            failure = exception;
+            throw exception;
+        }
+        finally {
+            activePurge = null;
+            if (recoverLookupGate) {
+                try (Connection connection = jdbc.openAuxiliaryConnection()) {
+                    ClickHouseLookupIndex.recover(connection, databaseName, prefix, owner);
+                }
+                catch (SQLException | RuntimeException recoveryFailure) {
+                    if (failure == null) {
+                        throw recoveryFailure;
+                    }
+                    failure.addSuppressed(recoveryFailure);
+                }
+            }
+        }
+    }
+
+    private void requirePurgeNotCancelled() throws SQLException {
+        PurgeAttempt attempt = activePurge;
+        if (attempt != null && attempt.cancelled) {
+            throw new SQLException("ClickHouse purge cancelled during shutdown");
+        }
+    }
+
+    private static final class PurgeAttempt {
+        private volatile boolean cancelled;
+        private volatile Connection connection;
+    }
+
+    private void cleanupAbandonedTargets(Connection connection) throws SQLException {
+        String targetPrefix = prefix + "purge_targets_";
+        String sql = "SELECT name FROM system.tables WHERE database=? AND startsWith(name,?)";
+        List<String> candidates = new ArrayList<>();
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, databaseName);
+            statement.setString(2, targetPrefix);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    String tableName = resultSet.getString(1);
+                    String suffix = tableName.substring(targetPrefix.length());
+                    if (suffix.matches("[0-9a-f]{32}")) {
+                        candidates.add(tableName);
+                    }
+                }
+            }
+        }
+        for (String candidate : candidates) {
+            if (!hasPendingMutation(connection, candidate)) {
+                dropTargets(connection, ClickHouseIdentifiers.qualified(databaseName, candidate));
+            }
+        }
+    }
+
+    private boolean hasPendingMutation(Connection connection, String targetTableName) throws SQLException {
+        String sql = "SELECT 1 FROM system.mutations WHERE database=? AND table=? AND is_done=0 AND position(command,?)>0 LIMIT 1";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, databaseName);
+            statement.setString(2, eventTableName);
+            statement.setString(3, targetTableName);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next();
+            }
+        }
+    }
+
+    private void snapshotHighWaterMarks(Connection connection) throws SQLException {
+        String sql = "INSERT INTO " + highWaterTable
+                + " (batch_sequence,family,rowid,recorded_at)"
+                + " SELECT max(batch_sequence),family,max(rowid),now64(3, 'UTC')"
+                + " FROM " + eventTable + " WHERE family!='" + ClickHouseSchema.BATCH_RECEIPT_FAMILY + "' GROUP BY family";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.execute();
+        }
+    }
+
+    private void createTargets(Connection connection, String targetTable) throws SQLException {
+        execute(connection, "CREATE TABLE " + targetTable
+                + " (family LowCardinality(String),rowid UInt64) ENGINE = MergeTree ORDER BY (family,rowid)"
+                + " SETTINGS fsync_after_insert=1,fsync_part_directory=1");
+    }
+
+    private void dropTargets(Connection connection, String targetTable) throws SQLException {
+        execute(connection, "DROP TABLE IF EXISTS " + targetTable);
+    }
+
+    private void clearTargets(Connection connection, String targetTable) throws SQLException {
+        execute(connection, "TRUNCATE TABLE " + targetTable);
+    }
+
+    void selectPrimaryTargets(Connection connection, String targetTable, long startTime, long endTime, int worldId, List<Integer> blockTypes) throws SQLException {
+        for (ClickHouseFamily family : ClickHouseFamily.values()) {
+            requirePurgeNotCancelled();
+            if (!family.isPurgeable()) {
+                continue;
+            }
+            if (!blockTypes.isEmpty() && !PurgePolicy.supportsBlockRestriction(family.getTableName())) {
+                continue;
+            }
+            if (worldId > 0 && !family.isWorldScoped()) {
+                continue;
+            }
+
+            StringBuilder sql = new StringBuilder("INSERT INTO ").append(targetTable)
+                    .append(" SELECT '").append(family.getTableName()).append("',rowid FROM ").append(table(family.getTableName()))
+                    .append(" WHERE time>=? AND time<?");
+            List<Integer> integerParameters = new ArrayList<>();
+
+            if (PurgePolicy.supportsBlockRestriction(family.getTableName()) && !blockTypes.isEmpty()) {
+                sql.append(" AND action NOT IN(").append(LookupActions.ENTITY_KILL).append(',').append(LookupActions.ENTITY_SPAWN).append(") AND type IN(");
+                StringJoiner placeholders = new StringJoiner(",");
+                for (Integer blockType : blockTypes) {
+                    placeholders.add("?");
+                    integerParameters.add(Objects.requireNonNull(blockType, "block type"));
+                }
+                sql.append(placeholders).append(')');
+            }
+
+            if (worldId > 0) {
+                sql.append(" AND wid IS NOT NULL AND _key_wid=?");
+                integerParameters.add(worldId);
+            }
+
+            try (PreparedStatement statement = connection.prepareStatement(sql.toString())) {
+                statement.setLong(1, startTime);
+                statement.setLong(2, endTime);
+                for (int index = 0; index < integerParameters.size(); index++) {
+                    statement.setInt(index + 3, integerParameters.get(index));
+                }
+                statement.execute();
+            }
+        }
+
+        if (!blockTypes.isEmpty()) {
+            return;
+        }
+        String blockTargets = "SELECT rowid FROM " + targetTable + " WHERE family='block'";
+        String killReferences = "SELECT assumeNotNull(data) FROM " + table("block")
+                + " WHERE action=" + LookupActions.ENTITY_KILL + " AND type>0 AND data>0 AND rowid";
+        execute(connection, "INSERT INTO " + targetTable + " SELECT 'entity',rowid FROM " + table("entity")
+                + " WHERE rowid IN(" + killReferences + " IN(" + blockTargets + "))"
+                + " AND rowid NOT IN(" + killReferences + " NOT IN(" + blockTargets + "))");
+    }
+
+    private long countPrimaryRows(Connection connection, long startTime, long endTime) throws SQLException {
+        long count = 0;
+        for (ClickHouseFamily family : ClickHouseFamily.values()) {
+            if (!family.isPurgeable()) {
+                continue;
+            }
+            String sql = "SELECT count() FROM " + table(family.getTableName()) + " WHERE time>=? AND time<?";
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setLong(1, startTime);
+                statement.setLong(2, endTime);
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    if (!resultSet.next()) {
+                        throw new SQLException("ClickHouse did not return a purge row count");
+                    }
+                    count += resultSet.getLong(1);
+                }
+            }
+        }
+        return count;
+    }
+
+    private void deletePrimaryRows(Connection connection, long startTime, long endTime) throws SQLException {
+        String sql = "ALTER TABLE " + eventTable + " DELETE WHERE " + ClickHouseLookupIndex.logicalFamily() + " IN(" + ClickHouseSchema.PURGEABLE_FAMILIES + ") AND time>=" + startTime + " AND time<" + endTime
+                + MUTATION_SETTINGS;
+        execute(connection, sql);
+    }
+
+    private long cleanupEntityData(Connection connection, String targetTable, long startTime, long endTime, int worldId) throws SQLException {
+        clearMissingReference(connection, "block_rowid", "block_rowid_present", "block");
+        clearMissingReference(connection, "kill_rowid", "kill_rowid_present", "entity");
+
+        clearTargets(connection, targetTable);
+        String orphanSpawns = "INSERT INTO " + targetTable
+                + " SELECT 'entity_spawn',rowid FROM " + table("entity_spawn")
+                + " WHERE time>=" + startTime + " AND time<" + endTime + (worldId > 0 ? " AND wid=" + worldId : "")
+                + " AND removed=1 AND block_rowid IS NULL AND kill_rowid IS NULL"
+                + " AND rowid NOT IN(SELECT assumeNotNull(entity_spawn_rowid) FROM " + table("entity_container") + " WHERE entity_spawn_rowid IS NOT NULL)"
+                + " AND rowid NOT IN(SELECT assumeNotNull(entity_spawn_rowid) FROM " + table("entity_interaction") + " WHERE entity_spawn_rowid IS NOT NULL)";
+        execute(connection, orphanSpawns);
+        long removed = countTargets(connection, targetTable);
+        deleteTargets(connection, targetTable);
+        return removed;
+    }
+
+    private void clearMissingReference(Connection connection, String valueColumn, String presenceColumn, String referencedFamily) throws SQLException {
+        String sql = "ALTER TABLE " + eventTable + " UPDATE " + valueColumn + "=NULL," + presenceColumn + "=0"
+                + " WHERE family='entity_spawn' AND " + presenceColumn + "=1"
+                + " AND " + valueColumn + " IS NOT NULL AND " + valueColumn + " NOT IN(SELECT rowid FROM " + table(referencedFamily) + ")"
+                + MUTATION_SETTINGS;
+        execute(connection, sql);
+    }
+
+    private long countTargets(Connection connection, String targetTable) throws SQLException {
+        try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery("SELECT count() FROM " + targetTable)) {
+            if (!resultSet.next()) {
+                throw new SQLException("ClickHouse did not return a purge target count");
+            }
+            return resultSet.getLong(1);
+        }
+    }
+
+    private void deleteTargets(Connection connection, String targetTable) throws SQLException {
+        if (countTargets(connection, targetTable) == 0) {
+            return;
+        }
+        String sql = "ALTER TABLE " + eventTable + " DELETE WHERE (" + ClickHouseLookupIndex.logicalFamily() + ",rowid) IN(SELECT family,rowid FROM " + targetTable + ")" + MUTATION_SETTINGS;
+        execute(connection, sql);
+    }
+
+    private void dropCoveredPartitions(Connection connection, long startTime, long endTime) throws SQLException {
+        String sql = "SELECT DISTINCT _partition_id FROM " + eventTable
+                + " WHERE family IN(" + ClickHouseSchema.PURGEABLE_FAMILIES + ") AND time>=? AND time<?";
+        List<String> partitions = new ArrayList<>();
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setLong(1, startTime);
+            statement.setLong(2, endTime);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    String partition = resultSet.getString(1);
+                    if (coversPartitionMonth(partition, startTime, endTime)) {
+                        partitions.add(partition);
+                    }
+                }
+            }
+        }
+        for (String partition : partitions) {
+            execute(connection, "ALTER TABLE " + eventTable + " DROP PARTITION ID '" + partition + "'");
+        }
+    }
+
+    static boolean coversPartitionMonth(String partitionId, long startTime, long endTime) {
+        if (partitionId == null || !partitionId.matches("[0-9]{6}")) {
+            return false;
+        }
+        int year = Integer.parseInt(partitionId.substring(0, 4));
+        int month = Integer.parseInt(partitionId.substring(4));
+        if (year < 1970 || month < 1 || month > 12) {
+            return false;
+        }
+        YearMonth partitionMonth = YearMonth.of(year, month);
+        long monthStart = partitionMonth.atDay(1).atStartOfDay().toEpochSecond(ZoneOffset.UTC);
+        long nextMonthStart = partitionMonth.plusMonths(1).atDay(1).atStartOfDay().toEpochSecond(ZoneOffset.UTC);
+        return monthStart >= startTime && nextMonthStart <= endTime;
+    }
+
+    private void execute(Connection connection, String sql) throws SQLException {
+        requirePurgeNotCancelled();
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        }
+    }
+
+    private String table(String suffix) {
+        return ClickHouseIdentifiers.qualified(databaseName, prefix, suffix);
+    }
+
+}

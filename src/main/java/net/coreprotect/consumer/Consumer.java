@@ -5,71 +5,142 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.LockSupport;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.bukkit.Bukkit;
-import org.bukkit.block.BlockState;
-import org.bukkit.inventory.ItemStack;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.process.Process;
+import net.coreprotect.database.Database;
+import net.coreprotect.database.DuckDBRecovery;
+import net.coreprotect.language.Phrase;
+import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.Color;
+import net.coreprotect.utility.ErrorReporter;
 
 public class Consumer extends Process implements Runnable, Thread.UncaughtExceptionHandler {
 
+    public enum OperationStartResult {
+        STARTED,
+        PURGE_RUNNING,
+        ROLLBACK_RUNNING,
+        RELOAD_RUNNING,
+        PERSISTENCE_HALTED,
+        INTERRUPTED
+    }
+
     private static Thread consumerThread = null;
+    private static final Object pauseMonitor = new Object();
+    private static boolean operationPaused = false;
+    private static boolean maintenancePaused = false;
+    private static final ReentrantReadWriteLock databaseLifecycle = new ReentrantReadWriteLock(true);
+    private static final Object rollbackPurgeGate = new Object();
+    private static long pendingRollbackPublications = 0;
+    private static volatile boolean backgroundPurgeRunning = false;
+    private static volatile boolean backgroundPurgePausesPersistence = false;
+    private static volatile boolean databaseReloadPaused = false;
+    private static volatile boolean databaseReloadRunning = false;
+    private static volatile boolean databaseReloadBlockedForShutdown = false;
+    private static CompletableFuture<Void> databaseReloadShutdownSignal = new CompletableFuture<>();
     public static volatile int currentConsumer = 0;
     public static volatile boolean isPaused = false;
     public static volatile boolean transacting = false;
     public static volatile boolean interrupt = false;
     protected static volatile boolean pausedSuccess = false;
+    private static volatile boolean persistenceHalted = false;
 
     public static ConcurrentHashMap<Integer, ArrayList<Object[]>> consumer = new ConcurrentHashMap<>(4, 0.75f, 2);
     // public static ConcurrentHashMap<Integer, Integer[]> consumer_id = new ConcurrentHashMap<>();
     public static Map<Integer, Integer[]> consumer_id = Collections.synchronizedMap(new HashMap<>());
     public static ConcurrentHashMap<Integer, Map<Integer, String[]>> consumerUsers = new ConcurrentHashMap<>(4, 0.75f, 2);
-    @Deprecated
-    public static ConcurrentHashMap<Integer, Map<Integer, String>> consumerStrings = new ConcurrentHashMap<>(4, 0.75f, 2);
-    @Deprecated
-    public static ConcurrentHashMap<Integer, Map<Integer, Object[]>> consumerSigns = new ConcurrentHashMap<>(4, 0.75f, 2);
-    @Deprecated
-    public static ConcurrentHashMap<Integer, Map<Integer, ItemStack[]>> consumerContainers = new ConcurrentHashMap<>(4, 0.75f, 2);
-    @Deprecated
-    public static ConcurrentHashMap<Integer, Map<Integer, Object>> consumerInventories = new ConcurrentHashMap<>(4, 0.75f, 2);
-    @Deprecated
-    public static ConcurrentHashMap<Integer, Map<Integer, List<BlockState>>> consumerBlockList = new ConcurrentHashMap<>(4, 0.75f, 2);
-    @Deprecated
-    public static ConcurrentHashMap<Integer, Map<Integer, List<Object[]>>> consumerObjectArrayList = new ConcurrentHashMap<>(4, 0.75f, 2);
-    @Deprecated
-    public static ConcurrentHashMap<Integer, Map<Integer, List<Object>>> consumerObjectList = new ConcurrentHashMap<>(4, 0.75f, 2);
-
     public static ConcurrentHashMap<Integer, Map<Integer, Object>> consumerObjects = new ConcurrentHashMap<>(4, 0.75f, 2);
-    // ^merge maps into single object based map
 
     private static void errorDelay() {
         try {
             Thread.sleep(30000); // 30 seconds
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 
-    protected static int newConsumerId(int consumer) {
-        int id = Consumer.consumer_id.get(consumer)[0];
-        Consumer.consumer_id.put(consumer, new Integer[] { id + 1, 1 });
-        return id;
+    protected static long reserveConsumer() {
+        return reserveConsumers(1);
+    }
+
+    protected static long reserveConsumers(int count) {
+        synchronized (Consumer.consumer_id) {
+            int consumer = Consumer.currentConsumer;
+            Integer[] state = Consumer.consumer_id.get(consumer);
+            int id = state[0];
+            Consumer.consumer_id.put(consumer, new Integer[] { id + count, state[1] + count });
+            return ((long) consumer << 32) | (id & 0xffffffffL);
+        }
+    }
+
+    protected static void completeReservation(long reservation, int count) {
+        int consumer = (int) (reservation >>> 32);
+        synchronized (Consumer.consumer_id) {
+            Integer[] state = Consumer.consumer_id.get(consumer);
+            if (count <= 0 || state == null || state[1] < count) {
+                throw new IllegalStateException("Invalid consumer reservation completion");
+            }
+            Consumer.consumer_id.put(consumer, new Integer[] { state[0], state[1] - count });
+        }
     }
 
     public static int getConsumerSize(int id) {
-        if (id == 0 || id == 1) {
-            return Consumer.consumer.get(id).size();
+        if (id != 0 && id != 1) {
+            return 0;
         }
+        synchronized (Queue.class) {
+            ArrayList<Object[]> records = consumer.get(id);
+            return records == null ? 0 : records.size();
+        }
+    }
 
-        return 0;
+    public static boolean hasPendingConsumerData() {
+        synchronized (Queue.class) {
+            synchronized (consumer_id) {
+                for (int id = 0; id < 2; id++) {
+                    Integer[] state = consumer_id.get(id);
+                    ArrayList<Object[]> data = consumer.get(id);
+                    if ((state != null && state[1] > 0) || (data != null && !data.isEmpty())) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
     }
 
     public static void initialize() {
+        synchronized (rollbackPurgeGate) {
+            persistenceHalted = false;
+            pendingRollbackPublications = 0;
+            databaseReloadBlockedForShutdown = false;
+            databaseReloadShutdownSignal.complete(null);
+            databaseReloadShutdownSignal = new CompletableFuture<>();
+        }
+        synchronized (pauseMonitor) {
+            operationPaused = false;
+            maintenancePaused = false;
+            isPaused = false;
+            pauseMonitor.notifyAll();
+        }
+        databaseReloadPaused = false;
+        databaseReloadRunning = false;
+        backgroundPurgeRunning = false;
+        backgroundPurgePausesPersistence = false;
+        resetPreparationFailures();
+        DuckDBRecovery.reset();
         Consumer.consumer.put(0, new ArrayList<>());
         Consumer.consumer.put(1, new ArrayList<>());
         Consumer.consumer_id.put(0, new Integer[] { 0, 0 });
@@ -78,71 +149,484 @@ public class Consumer extends Process implements Runnable, Thread.UncaughtExcept
         Consumer.consumerUsers.put(1, new HashMap<>());
         Consumer.consumerObjects.put(0, new HashMap<>());
         Consumer.consumerObjects.put(1, new HashMap<>());
-        Consumer.consumerStrings.put(0, new HashMap<>());
-        Consumer.consumerStrings.put(1, new HashMap<>());
-        Consumer.consumerSigns.put(0, new HashMap<>());
-        Consumer.consumerSigns.put(1, new HashMap<>());
-        Consumer.consumerInventories.put(0, new HashMap<>());
-        Consumer.consumerInventories.put(1, new HashMap<>());
-        Consumer.consumerBlockList.put(0, new HashMap<>());
-        Consumer.consumerBlockList.put(1, new HashMap<>());
-        Consumer.consumerObjectArrayList.put(0, new HashMap<>());
-        Consumer.consumerObjectArrayList.put(1, new HashMap<>());
-        Consumer.consumerObjectList.put(0, new HashMap<>());
-        Consumer.consumerObjectList.put(1, new HashMap<>());
-        Consumer.consumerContainers.put(0, new HashMap<>());
-        Consumer.consumerContainers.put(1, new HashMap<>());
+    }
+
+    public static boolean isConsumerThread() {
+        return Thread.currentThread() == consumerThread;
     }
 
     public static boolean isRunning() {
         return consumerThread != null && consumerThread.isAlive();
     }
 
-    private static void pauseConsumer(int process_id) {
+    public static boolean isPersistenceHalted() {
+        return persistenceHalted;
+    }
+
+    public static boolean claimLookupPause() throws InterruptedException {
+        synchronized (pauseMonitor) {
+            while (isPaused && !persistenceHalted) {
+                pauseMonitor.wait(1L);
+            }
+            if (persistenceHalted) {
+                return false;
+            }
+            operationPaused = true;
+            isPaused = true;
+            return true;
+        }
+    }
+
+    public static boolean tryClaimConsumerPause() {
+        synchronized (pauseMonitor) {
+            if (isPaused || persistenceHalted) {
+                return false;
+            }
+            operationPaused = true;
+            isPaused = true;
+            return true;
+        }
+    }
+
+    public static void releaseOperationPause() {
+        synchronized (pauseMonitor) {
+            operationPaused = false;
+            isPaused = maintenancePaused;
+            pauseMonitor.notifyAll();
+        }
+    }
+
+    public static void setMaintenancePaused(boolean paused) {
+        synchronized (pauseMonitor) {
+            maintenancePaused = paused;
+            isPaused = operationPaused || maintenancePaused;
+            pauseMonitor.notifyAll();
+        }
+    }
+
+    public static boolean isPauseAcknowledged() {
+        return pausedSuccess;
+    }
+
+    public static void lockDatabaseAccess() {
+        databaseLifecycle.readLock().lock();
+    }
+
+    public static boolean tryLockDatabaseAccess() {
+        if (isDatabaseReloadBlocked() || !databaseLifecycle.readLock().tryLock()) {
+            return false;
+        }
+        if (isDatabaseReloadBlocked()) {
+            unlockDatabaseAccess();
+            return false;
+        }
+        return true;
+    }
+
+    public static void unlockDatabaseAccess() {
+        databaseLifecycle.readLock().unlock();
+    }
+
+    public static void lockDatabaseMaintenance() {
+        databaseLifecycle.writeLock().lock();
+    }
+
+    public static void lockDatabaseMaintenanceInterruptibly() throws InterruptedException {
+        databaseLifecycle.writeLock().lockInterruptibly();
+    }
+
+    public static void unlockDatabaseMaintenance() {
+        databaseLifecycle.writeLock().unlock();
+    }
+
+    public static boolean isDatabaseReloadBlocked() {
+        return databaseReloadPaused && !databaseLifecycle.isWriteLockedByCurrentThread();
+    }
+
+    public static boolean isDatabaseReloadPaused() {
+        return databaseReloadPaused;
+    }
+
+    public static boolean isDatabaseReloadRunning() {
+        return databaseReloadRunning;
+    }
+
+    public static boolean trySetManualPause(boolean paused) {
+        synchronized (rollbackPurgeGate) {
+            if (databaseReloadPaused || persistenceHalted || ConfigHandler.converterRunning || ConfigHandler.migrationRunning || ConfigHandler.purgeRunning) {
+                return false;
+            }
+            ConfigHandler.pauseConsumer = paused;
+            return true;
+        }
+    }
+
+    public static boolean isBackgroundPurgeRunning() {
+        return backgroundPurgeRunning;
+    }
+
+    public static void requireDatabaseReload() {
+        synchronized (rollbackPurgeGate) {
+            databaseReloadPaused = true;
+        }
+    }
+
+    public static OperationStartResult beginDatabaseReload() {
+        return beginDatabaseReload(false);
+    }
+
+    public static OperationStartResult beginDatabaseRecovery() {
+        return beginDatabaseReload(true);
+    }
+
+    private static OperationStartResult beginDatabaseReload(boolean allowActiveRollbacks) {
+        synchronized (rollbackPurgeGate) {
+            if (databaseReloadBlockedForShutdown) {
+                return OperationStartResult.INTERRUPTED;
+            }
+            if (persistenceHalted) {
+                return OperationStartResult.PERSISTENCE_HALTED;
+            }
+            if (databaseReloadRunning) {
+                return OperationStartResult.RELOAD_RUNNING;
+            }
+            if (ConfigHandler.purgeRunning || backgroundPurgeRunning) {
+                return OperationStartResult.PURGE_RUNNING;
+            }
+            if (!allowActiveRollbacks && (!ConfigHandler.activeRollbacks.isEmpty() || pendingRollbackPublications > 0)) {
+                return OperationStartResult.ROLLBACK_RUNNING;
+            }
+            databaseReloadRunning = true;
+            databaseReloadPaused = true;
+        }
+        return OperationStartResult.STARTED;
+    }
+
+    public static void blockDatabaseReloadForShutdown() {
+        synchronized (rollbackPurgeGate) {
+            databaseReloadBlockedForShutdown = true;
+            databaseReloadShutdownSignal.complete(null);
+        }
+    }
+
+    public static CompletableFuture<Void> databaseReloadShutdownSignal() {
+        synchronized (rollbackPurgeGate) {
+            return databaseReloadShutdownSignal.copy();
+        }
+    }
+
+    public static void lockDatabaseReload() {
+        databaseLifecycle.writeLock().lock();
+    }
+
+    public static boolean lockDatabaseReload(long timeoutMillis) throws InterruptedException {
+        return databaseLifecycle.writeLock().tryLock(Math.max(0L, timeoutMillis), java.util.concurrent.TimeUnit.MILLISECONDS);
+    }
+
+    public static void endDatabaseReload(boolean resumePersistence) {
         try {
-            while ((ConfigHandler.serverRunning || ConfigHandler.converterRunning || ConfigHandler.migrationRunning) && (Consumer.isPaused || ConfigHandler.pauseConsumer || ConfigHandler.purgeRunning || Consumer.consumer_id.get(process_id)[1] == 1)) {
+            if (databaseLifecycle.isWriteLockedByCurrentThread()) {
+                databaseLifecycle.writeLock().unlock();
+            }
+        }
+        finally {
+            synchronized (rollbackPurgeGate) {
+                if (resumePersistence) {
+                    databaseReloadPaused = false;
+                    if (!ConfigHandler.converterRunning) {
+                        setMaintenancePaused(false);
+                    }
+                }
+                databaseReloadRunning = false;
+            }
+        }
+    }
+
+    public static synchronized void haltPersistence() {
+        synchronized (rollbackPurgeGate) {
+            if (persistenceHalted) {
+                return;
+            }
+            persistenceHalted = true;
+        }
+        ConfigHandler.databaseReachable = false;
+        Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.DATABASE_PERSISTENCE_HALTED));
+        Chat.sendConsoleMessage(Color.RED + "[CoreProtect] " + Phrase.build(Phrase.DATABASE_QUEUE_LOSS));
+    }
+
+    public static OperationStartResult claimPurge() {
+        synchronized (rollbackPurgeGate) {
+            if (persistenceHalted) {
+                return OperationStartResult.PERSISTENCE_HALTED;
+            }
+            if (databaseReloadPaused) {
+                return OperationStartResult.RELOAD_RUNNING;
+            }
+            if (ConfigHandler.purgeRunning || backgroundPurgeRunning) {
+                return OperationStartResult.PURGE_RUNNING;
+            }
+            if (!ConfigHandler.activeRollbacks.isEmpty() || pendingRollbackPublications > 0) {
+                return OperationStartResult.ROLLBACK_RUNNING;
+            }
+            ConfigHandler.purgeRunning = true;
+            return OperationStartResult.STARTED;
+        }
+    }
+
+    public static void releasePurge() {
+        synchronized (rollbackPurgeGate) {
+            ConfigHandler.purgeRunning = false;
+        }
+    }
+
+    public static OperationStartResult claimBackgroundPurge() {
+        boolean pausePersistence;
+        synchronized (rollbackPurgeGate) {
+            pausePersistence = ConfigHandler.databaseType.isClickHouse();
+            OperationStartResult result = beginBackgroundPurge(pausePersistence);
+            if (result != OperationStartResult.STARTED) {
+                return result;
+            }
+        }
+        return lockBackgroundPurge(pausePersistence);
+    }
+
+    public static OperationStartResult claimBackgroundPurge(boolean pausePersistence) {
+        synchronized (rollbackPurgeGate) {
+            OperationStartResult result = beginBackgroundPurge(pausePersistence);
+            if (result != OperationStartResult.STARTED) {
+                return result;
+            }
+        }
+        return lockBackgroundPurge(pausePersistence);
+    }
+
+    private static OperationStartResult beginBackgroundPurge(boolean pausePersistence) {
+        if (persistenceHalted) {
+            return OperationStartResult.PERSISTENCE_HALTED;
+        }
+        if (databaseReloadPaused) {
+            return OperationStartResult.RELOAD_RUNNING;
+        }
+        if (ConfigHandler.purgeRunning || backgroundPurgeRunning) {
+            return OperationStartResult.PURGE_RUNNING;
+        }
+        if (!ConfigHandler.activeRollbacks.isEmpty() || pendingRollbackPublications > 0) {
+            return OperationStartResult.ROLLBACK_RUNNING;
+        }
+        backgroundPurgeRunning = true;
+        backgroundPurgePausesPersistence = pausePersistence;
+        return OperationStartResult.STARTED;
+    }
+
+    private static OperationStartResult lockBackgroundPurge(boolean pausePersistence) {
+        if (pausePersistence) {
+            try {
+                databaseLifecycle.writeLock().lockInterruptibly();
+            }
+            catch (InterruptedException exception) {
+                synchronized (rollbackPurgeGate) {
+                    backgroundPurgePausesPersistence = false;
+                    backgroundPurgeRunning = false;
+                }
+                Thread.currentThread().interrupt();
+                return OperationStartResult.INTERRUPTED;
+            }
+            synchronized (rollbackPurgeGate) {
+                if (persistenceHalted) {
+                    databaseLifecycle.writeLock().unlock();
+                    backgroundPurgePausesPersistence = false;
+                    backgroundPurgeRunning = false;
+                    return OperationStartResult.PERSISTENCE_HALTED;
+                }
+            }
+        }
+        return OperationStartResult.STARTED;
+    }
+
+    public static void releaseBackgroundPurge() {
+        synchronized (rollbackPurgeGate) {
+            if (!backgroundPurgeRunning) {
+                return;
+            }
+            if (backgroundPurgePausesPersistence) {
+                databaseLifecycle.writeLock().unlock();
+            }
+            backgroundPurgePausesPersistence = false;
+            backgroundPurgeRunning = false;
+        }
+    }
+
+    public static OperationStartResult claimRollback(String user) {
+        return claimRollback(user, true);
+    }
+
+    public static OperationStartResult claimRollback(String user, boolean requiresPersistence) {
+        synchronized (rollbackPurgeGate) {
+            if (requiresPersistence && persistenceHalted) {
+                return OperationStartResult.PERSISTENCE_HALTED;
+            }
+            if (databaseReloadPaused) {
+                return OperationStartResult.RELOAD_RUNNING;
+            }
+            if (ConfigHandler.purgeRunning || backgroundPurgeRunning) {
+                return OperationStartResult.PURGE_RUNNING;
+            }
+            if (ConfigHandler.activeRollbacks.containsKey(user)) {
+                return OperationStartResult.ROLLBACK_RUNNING;
+            }
+            ConfigHandler.activeRollbacks.put(user, true);
+            return OperationStartResult.STARTED;
+        }
+    }
+
+    public static void releaseRollback(String user) {
+        synchronized (rollbackPurgeGate) {
+            ConfigHandler.activeRollbacks.remove(user);
+        }
+    }
+
+    public static void registerRollbackPublications(int count) {
+        if (count <= 0) {
+            return;
+        }
+        synchronized (rollbackPurgeGate) {
+            pendingRollbackPublications += count;
+        }
+    }
+
+    public static void completeRollbackPublications(int count) {
+        if (count <= 0) {
+            return;
+        }
+        synchronized (rollbackPurgeGate) {
+            if (pendingRollbackPublications < count) {
+                throw new IllegalStateException("Invalid rollback publication completion");
+            }
+            pendingRollbackPublications -= count;
+        }
+    }
+
+    public static boolean isShutdownDrainStopped() {
+        return databaseReloadBlockedForShutdown && !ConfigHandler.shutdownDrainRunning;
+    }
+
+    private static boolean pauseConsumer(int process_id) throws InterruptedException {
+        try {
+            while (Consumer.consumer_id.get(process_id)[1] > 0 || Consumer.isPaused
+                    || ((ConfigHandler.serverRunning || ConfigHandler.converterRunning || ConfigHandler.migrationRunning) && (ConfigHandler.pauseConsumer || ConfigHandler.purgeRunning))) {
+                if (persistenceHalted || isShutdownDrainStopped()) {
+                    return false;
+                }
                 pausedSuccess = true;
                 Thread.sleep(100);
             }
+            return !persistenceHalted && !isShutdownDrainStopped();
         }
-        catch (Exception e) {
-            e.printStackTrace();
+        finally {
+            pausedSuccess = false;
         }
-        pausedSuccess = false;
+    }
+
+    private static boolean lockConsumerDatabase(Lock lock) throws InterruptedException {
+        while (!persistenceHalted && !isShutdownDrainStopped()) {
+            if (lock.tryLock(100L, TimeUnit.MILLISECONDS)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static void processConsumerBatch(int processId, boolean lastRun) throws InterruptedException {
+        Lock databaseLock = databaseLifecycle.readLock();
+        if (!lockConsumerDatabase(databaseLock)) {
+            return;
+        }
+        try {
+            if (databaseReloadPaused || isPaused || persistenceHalted || isShutdownDrainStopped()) {
+                return;
+            }
+            Process.processConsumer(processId, lastRun);
+        }
+        finally {
+            if (databaseLock != null) {
+                databaseLock.unlock();
+            }
+        }
     }
 
     @Override
     public void run() {
         boolean lastRun = false;
+        boolean[] drained = { true, true };
 
-        while (ConfigHandler.serverRunning || ConfigHandler.converterRunning || !lastRun) {
+        while (!isShutdownDrainStopped()
+                && (ConfigHandler.serverRunning || ConfigHandler.converterRunning || !lastRun || hasPendingConsumerData())) {
             if (!ConfigHandler.serverRunning && !ConfigHandler.converterRunning) {
                 lastRun = true;
             }
-            try {
-                int process_id = 0;
-                if (currentConsumer == 0) {
-                    currentConsumer = 1;
+            if (persistenceHalted) {
+                if (lastRun) {
+                    break;
+                }
+                if (databaseReloadBlockedForShutdown) {
+                    LockSupport.parkNanos(100_000_000L);
                 }
                 else {
-                    process_id = 1;
-                    currentConsumer = 0;
+                    errorDelay();
                 }
-                Thread.sleep(500);
-                pauseConsumer(process_id);
-                Process.processConsumer(process_id, lastRun);
+                continue;
+            }
+            try {
+                if (DuckDBRecovery.isPending()) {
+                    DuckDBRecovery.recoverIfRequested();
+                    if (DuckDBRecovery.isPending()) {
+                        Thread.sleep(500L);
+                        continue;
+                    }
+                }
+                int process_id = 0;
+                synchronized (Consumer.consumer_id) {
+                    if (currentConsumer == 0) {
+                        currentConsumer = 1;
+                    }
+                    else {
+                        process_id = 1;
+                        currentConsumer = 0;
+                    }
+                }
+                Thread.sleep(consumerDelay(lastRun || !drained[0] || !drained[1]));
+                if (!pauseConsumer(process_id)) {
+                    continue;
+                }
+                try {
+                    processConsumerBatch(process_id, lastRun);
+                }
+                finally {
+                    drained[process_id] = getConsumerSize(process_id) == 0;
+                }
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
             }
             catch (Exception e) {
-                e.printStackTrace();
-                errorDelay();
+                ErrorReporter.report(e);
+                if (ConfigHandler.serverRunning || ConfigHandler.converterRunning) {
+                    errorDelay();
+                }
             }
         }
     }
 
     @Override
     public void uncaughtException(Thread thread, Throwable e) {
-        e.printStackTrace();
-        Bukkit.getPluginManager().disablePlugin(CoreProtect.getInstance());
+        haltPersistence();
+        ErrorReporter.report(e);
+        CoreProtect plugin = CoreProtect.getInstance();
+        if (plugin != null) {
+            Scheduler.runTask(plugin, () -> Bukkit.getPluginManager().disablePlugin(plugin));
+        }
     }
 
     public static void startConsumer() {

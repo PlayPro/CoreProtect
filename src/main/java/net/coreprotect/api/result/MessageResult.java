@@ -17,12 +17,12 @@ public class MessageResult implements CoreProtectResult {
 
     public MessageResult(long time, String username, String world, int x, int y, int z, String message, int actionId) {
         this.time = time;
-        this.username = username;
-        this.world = world;
+        this.username = username == null ? "" : username;
+        this.world = world == null ? "" : world;
         this.x = x;
         this.y = y;
         this.z = z;
-        this.message = message;
+        this.message = message == null ? "" : message;
         this.actionId = actionId;
     }
 

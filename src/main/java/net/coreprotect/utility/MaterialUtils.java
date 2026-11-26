@@ -7,9 +7,8 @@ import org.bukkit.Material;
 import org.bukkit.entity.Painting;
 
 import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.Queue;
 
-public class MaterialUtils extends Queue {
+public class MaterialUtils {
 
     private static final String NAMESPACE = "minecraft:";
 
@@ -34,74 +33,27 @@ public class MaterialUtils extends Queue {
     }
 
     public static int getBlockId(String name, boolean internal) {
-        int id = -1;
-
         name = name.toLowerCase(Locale.ROOT).trim();
         if (!name.contains(":")) {
             name = NAMESPACE + name;
         }
-
-        if (ConfigHandler.materials.get(name) != null) {
-            id = ConfigHandler.materials.get(name);
-        }
-        else if (internal) {
-            // Check if another server has already added this material (multi-server setup)
-            id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.MATERIALS, name);
-            if (id != -1) {
-                return id;
-            }
-
-            int mid = ConfigHandler.materialId + 1;
-            ConfigHandler.materials.put(name, mid);
-            ConfigHandler.materialsReversed.put(mid, name);
-            ConfigHandler.materialId = mid;
-            Queue.queueMaterialInsert(mid, name);
-            id = ConfigHandler.materials.get(name);
-        }
-
-        return id;
+        return ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.MATERIALS, name, internal);
     }
 
     public static int getBlockdataId(String data, boolean internal) {
-        int id = -1;
         data = data.toLowerCase(Locale.ROOT).trim();
-
-        if (ConfigHandler.blockdata.get(data) != null) {
-            id = ConfigHandler.blockdata.get(data);
-        }
-        else if (internal) {
-            // Check if another server has already added this blockdata (multi-server setup)
-            id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.BLOCKDATA, data);
-            if (id != -1) {
-                return id;
-            }
-
-            int bid = ConfigHandler.blockdataId + 1;
-            ConfigHandler.blockdata.put(data, bid);
-            ConfigHandler.blockdataReversed.put(bid, data);
-            ConfigHandler.blockdataId = bid;
-            Queue.queueBlockDataInsert(bid, data);
-            id = ConfigHandler.blockdata.get(data);
-        }
-
-        return id;
+        return ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.BLOCKDATA, data, internal);
     }
 
     public static String getBlockDataString(int id) {
         // Internal ID pulled from DB
-        String blockdata = "";
-        if (ConfigHandler.blockdataReversed.get(id) != null) {
-            blockdata = ConfigHandler.blockdataReversed.get(id);
-        }
-        return blockdata;
+        String blockdata = ConfigHandler.getIdentifierValue(ConfigHandler.CacheType.BLOCKDATA, id);
+        return blockdata == null ? "" : blockdata;
     }
 
     public static String getBlockName(int id) {
-        String name = "";
-        if (ConfigHandler.materialsReversed.get(id) != null) {
-            name = ConfigHandler.materialsReversed.get(id);
-        }
-        return name;
+        String name = ConfigHandler.getIdentifierValue(ConfigHandler.CacheType.MATERIALS, id);
+        return name == null ? "" : name;
     }
 
     public static String getBlockDisplayName(int id, int data) {
@@ -115,26 +67,34 @@ public class MaterialUtils extends Queue {
 
     public static String getBlockNameShort(int id) {
         String name = getBlockName(id);
-        if (name.contains(":")) {
-            name = name.split(":")[1];
-        }
-
-        return name;
+        int colon = name.indexOf(':');
+        return colon >= 0 ? name.substring(colon + 1) : name;
     }
 
     public static Material getType(int id) {
         // Internal ID pulled from DB
+        return id > 0 ? getTypeFromStoredName(getBlockName(id)) : null;
+    }
+
+    public static Material getTypeFromStoredName(String blockName) {
         Material material = null;
-        if (ConfigHandler.materialsReversed.get(id) != null && id > 0) {
-            String name = ConfigHandler.materialsReversed.get(id).toUpperCase(Locale.ROOT);
-            if (name.contains(NAMESPACE.toUpperCase(Locale.ROOT))) {
-                name = name.split(":")[1];
+        if (blockName != null && !blockName.isEmpty()) {
+            String name = blockName.toUpperCase(Locale.ROOT);
+            if (name.startsWith("MINECRAFT:")) {
+                name = name.substring("MINECRAFT:".length());
+            }
+            else if (name.indexOf(':') >= 0) {
+                return null;
+            }
+
+            if (name.isEmpty()) {
+                return null;
             }
 
             name = net.coreprotect.bukkit.BukkitAdapter.ADAPTER.parseLegacyName(name);
             material = Material.getMaterial(name);
 
-            if (material == null) {
+            if (material == null && Material.getMaterial(Material.LEGACY_PREFIX + name) != null) {
                 material = Material.getMaterial(name, true);
             }
         }
@@ -145,42 +105,45 @@ public class MaterialUtils extends Queue {
     public static Material getType(String name) {
         // Name entered by user
         Material material = null;
+        if (name == null) {
+            return null;
+        }
+
         name = name.toUpperCase(Locale.ROOT).trim();
-        if (!name.startsWith("#")) {
-            if (name.contains(NAMESPACE.toUpperCase(Locale.ROOT))) {
-                name = name.split(":")[1];
+        if (!name.isEmpty() && !name.startsWith("#")) {
+            if (name.startsWith("MINECRAFT:")) {
+                name = name.substring("MINECRAFT:".length());
+            }
+            else if (name.indexOf(':') >= 0) {
+                return null;
+            }
+
+            if (name.isEmpty()) {
+                return null;
             }
 
             name = net.coreprotect.bukkit.BukkitAdapter.ADAPTER.parseLegacyName(name);
-            material = Material.matchMaterial(name);
+            material = isEnumName(name) ? Material.getMaterial(name) : Material.matchMaterial(name);
         }
 
         return material;
     }
 
-    public static int getArtId(String name, boolean internal) {
-        int id = -1;
-        name = name.toLowerCase(Locale.ROOT).trim();
-
-        if (ConfigHandler.art.get(name) != null) {
-            id = ConfigHandler.art.get(name);
-        }
-        else if (internal) {
-            // Check if another server has already added this art (multi-server setup)
-            id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.ART, name);
-            if (id != -1) {
-                return id;
+    // matchMaterial only uppercases and strips whitespace and non-word characters before getMaterial, none of which changes an A-Z, 0-9 and underscore name
+    private static boolean isEnumName(String name) {
+        for (int index = 0; index < name.length(); index++) {
+            char character = name.charAt(index);
+            if ((character < 'A' || character > 'Z') && (character < '0' || character > '9') && character != '_') {
+                return false;
             }
-
-            int artID = ConfigHandler.artId + 1;
-            ConfigHandler.art.put(name, artID);
-            ConfigHandler.artReversed.put(artID, name);
-            ConfigHandler.artId = artID;
-            Queue.queueArtInsert(artID, name);
-            id = ConfigHandler.art.get(name);
         }
 
-        return id;
+        return !name.isEmpty();
+    }
+
+    public static int getArtId(String name, boolean internal) {
+        name = name.toLowerCase(Locale.ROOT).trim();
+        return ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.ART, name, internal);
     }
 
     public static String getPaintingArtName(Painting painting) {
@@ -189,26 +152,12 @@ public class MaterialUtils extends Queue {
 
     public static String getArtName(int id) {
         // Internal ID pulled from DB
-        String artname = "";
-        if (ConfigHandler.artReversed.get(id) != null) {
-            artname = ConfigHandler.artReversed.get(id);
-        }
-        return artname;
-    }
-
-    public static int getMaterialId(Material material) {
-        return getBlockId(material.name(), true);
+        String artName = ConfigHandler.getIdentifierValue(ConfigHandler.CacheType.ART, id);
+        return artName == null ? "" : artName;
     }
 
     public static boolean listContains(Set<Material> list, Material value) {
-        boolean result = false;
-        for (Material list_value : list) {
-            if (list_value.equals(value)) {
-                result = true;
-                break;
-            }
-        }
-        return result;
+        return list != null && value != null && list.contains(value);
     }
 
     public static int rolledBack(int rolledBack, boolean isInventory) {

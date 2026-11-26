@@ -1,13 +1,11 @@
 package net.coreprotect.thread;
 
-import java.util.concurrent.TimeUnit;
-
-import org.bukkit.Location;
-import org.bukkit.entity.Entity;
+import org.bukkit.Bukkit;
 import org.bukkit.scheduler.BukkitTask;
 
 import net.coreprotect.CoreProtect;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.paper.PaperAdapter;
 
 public class Scheduler {
 
@@ -16,36 +14,17 @@ public class Scheduler {
     }
 
     public static void scheduleSyncDelayedTask(CoreProtect plugin, Runnable task, Object regionData, int delay) {
+        scheduleSyncDelayedTask(plugin, task, null, regionData, delay);
+    }
+
+    public static void scheduleSyncDelayedTask(CoreProtect plugin, Runnable task, Runnable retiredTask, Object regionData, int delay) {
         if (ConfigHandler.isFolia) {
-            if (regionData instanceof Location) {
-                Location location = (Location) regionData;
-                if (delay == 0) {
-                    plugin.getServer().getRegionScheduler().run(plugin, location, value -> task.run());
-                }
-                else {
-                    plugin.getServer().getRegionScheduler().runDelayed(plugin, location, value -> task.run(), delay);
-                }
-            }
-            else if (regionData instanceof Entity) {
-                Entity entity = (Entity) regionData;
-                if (delay == 0) {
-                    entity.getScheduler().run(plugin, value -> task.run(), null);
-                }
-                else {
-                    entity.getScheduler().runDelayed(plugin, value -> task.run(), null, delay);
-                }
-            }
-            else {
-                if (delay == 0) {
-                    plugin.getServer().getGlobalRegionScheduler().run(plugin, value -> task.run());
-                }
-                else {
-                    plugin.getServer().getGlobalRegionScheduler().runDelayed(plugin, value -> task.run(), delay);
-                }
+            if (PaperAdapter.ADAPTER != null) {
+                PaperAdapter.ADAPTER.scheduleSyncDelayedTask(plugin, task, retiredTask, regionData, delay);
             }
         }
         else {
-            if (delay == 0) {
+            if (delay <= 0) {
                 plugin.getServer().getScheduler().runTask(plugin, task);
             }
             else {
@@ -56,34 +35,21 @@ public class Scheduler {
 
     public static Object scheduleSyncRepeatingTask(CoreProtect plugin, Runnable task, Object regionData, int delay, int period) {
         if (ConfigHandler.isFolia) {
-            if (regionData instanceof Location) {
-                Location location = (Location) regionData;
-                return plugin.getServer().getRegionScheduler().runAtFixedRate(plugin, location, value -> task.run(), delay, period);
-            }
-            else if (regionData instanceof Entity) {
-                Entity entity = (Entity) regionData;
-                return entity.getScheduler().runAtFixedRate(plugin, value -> task.run(), null, delay, period);
-            }
-            else {
-                return plugin.getServer().getGlobalRegionScheduler().runAtFixedRate(plugin, value -> task.run(), delay, period);
-            }
+            return PaperAdapter.ADAPTER != null ? PaperAdapter.ADAPTER.scheduleSyncRepeatingTask(plugin, task, regionData, delay, period) : null;
         }
         else {
-            return plugin.getServer().getScheduler().scheduleSyncRepeatingTask(plugin, task, delay, period);
+            return plugin.getServer().getScheduler().runTaskTimer(plugin, task, Math.max(0L, delay), Math.max(1L, period));
         }
     }
 
     public static void scheduleAsyncDelayedTask(CoreProtect plugin, Runnable task, int delay) {
         if (ConfigHandler.isFolia) {
-            if (delay == 0) {
-                plugin.getServer().getAsyncScheduler().runNow(plugin, value -> task.run());
-            }
-            else {
-                plugin.getServer().getAsyncScheduler().runDelayed(plugin, value -> task.run(), (delay * 50L), TimeUnit.MILLISECONDS);
+            if (PaperAdapter.ADAPTER != null) {
+                PaperAdapter.ADAPTER.scheduleAsyncDelayedTask(plugin, task, delay);
             }
         }
         else {
-            if (delay == 0) {
+            if (delay <= 0) {
                 plugin.getServer().getScheduler().runTaskAsynchronously(plugin, task);
             }
             else {
@@ -113,15 +79,18 @@ public class Scheduler {
     }
 
     public static void cancelTask(Object task) {
-        if (ConfigHandler.isFolia) {
-            if (task instanceof io.papermc.paper.threadedregions.scheduler.ScheduledTask) {
-                io.papermc.paper.threadedregions.scheduler.ScheduledTask scheduledTask = (io.papermc.paper.threadedregions.scheduler.ScheduledTask) task;
-                scheduledTask.cancel();
-            }
+        if (task == null) {
+            return;
         }
-        else if (task instanceof BukkitTask) {
+        if (ConfigHandler.isFolia && PaperAdapter.ADAPTER != null && PaperAdapter.ADAPTER.cancelScheduledTask(task)) {
+            return;
+        }
+        if (task instanceof BukkitTask) {
             BukkitTask bukkitTask = (BukkitTask) task;
             bukkitTask.cancel();
+        }
+        else if (task instanceof Integer) {
+            Bukkit.getScheduler().cancelTask((Integer) task);
         }
     }
 }

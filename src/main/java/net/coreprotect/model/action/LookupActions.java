@@ -8,12 +8,14 @@ public final class LookupActions {
     public static final int INTERACTION = 2;
     public static final int ENTITY_KILL = 3;
     public static final int CONTAINER = 4;
+    public static final int INSPECT_CONTAINER = 5;
     public static final int CHAT = 6;
     public static final int COMMAND = 7;
     public static final int SESSION = 8;
     public static final int USERNAME = 9;
     public static final int SIGN = 10;
     public static final int ITEM = 11;
+    public static final int ENTITY_SPAWN = 13;
 
     private LookupActions() {
         throw new IllegalStateException("Model class");
@@ -43,6 +45,8 @@ public final class LookupActions {
                 return "sign";
             case ITEM:
                 return "item";
+            case ENTITY_SPAWN:
+                return "spawn";
             default:
                 return "unknown";
         }

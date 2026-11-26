@@ -17,7 +17,8 @@ public enum CoreProtectAction {
     USERNAME(LookupActions.USERNAME),
     SIGN(LookupActions.SIGN),
     ITEM(LookupActions.ITEM),
-    UNKNOWN(-1);
+    UNKNOWN(-1),
+    ENTITY_SPAWN(LookupActions.ENTITY_SPAWN);
 
     private final int id;
 

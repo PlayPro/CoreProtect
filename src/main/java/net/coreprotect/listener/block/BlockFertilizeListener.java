@@ -72,6 +72,12 @@ public final class BlockFertilizeListener extends Queue implements Listener {
             }
         }
 
+        // Only growth attributed to a dispenser is skipped. Bone meal applied by other
+        // plugins without a player stays as "#bonemeal" and is still logged.
+        if (!config.DISPENSERS && "#dispenser".equals(user)) {
+            return;
+        }
+
         if (config.DUPLICATE_SUPPRESSION && "#dispenser".equals(user) && shouldSuppressBonemealDuplicate(location, blocks)) {
             return;
         }

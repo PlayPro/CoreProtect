@@ -1,7 +1,13 @@
 package net.coreprotect.command.parser;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import net.coreprotect.language.Phrase;
 import net.coreprotect.language.Selector;
@@ -11,6 +17,119 @@ import net.coreprotect.language.Selector;
  */
 public class TimeParser {
 
+    private static final String[] TIME_PREFIXES = {
+            "time:",
+            "t:"
+    };
+
+    private static final Pattern DURATION_TOKEN = Pattern.compile("([0-9]*\\.?[0-9]+)(mo|[ywdhms])");
+
+    private enum Unit {
+        YEARS("y", 31536000L, Phrase.TIME_YEARS),
+        MONTHS("mo", 2592000L, Phrase.TIME_MONTHS),
+        WEEKS("w", 604800L, Phrase.TIME_WEEKS),
+        DAYS("d", 86400L, Phrase.TIME_DAYS),
+        HOURS("h", 3600L, Phrase.TIME_HOURS),
+        MINUTES("m", 60L, Phrase.TIME_MINUTES),
+        SECONDS("s", 1L, Phrase.TIME_SECONDS);
+
+        private final String suffix;
+        private final long seconds;
+        private final Phrase phrase;
+
+        Unit(String suffix, long seconds, Phrase phrase) {
+            this.suffix = suffix;
+            this.seconds = seconds;
+            this.phrase = phrase;
+        }
+
+        static Unit fromSuffix(String suffix) {
+            for (Unit unit : values()) {
+                if (unit.suffix.equals(suffix)) {
+                    return unit;
+                }
+            }
+            return null;
+        }
+    }
+
+    private static final class UnitEntry {
+        private final Unit unit;
+        private final BigDecimal amount;
+
+        private UnitEntry(Unit unit, BigDecimal amount) {
+            this.unit = unit;
+            this.amount = amount;
+        }
+    }
+
+    private static final class DurationSide {
+        private final Set<Unit> seen = EnumSet.noneOf(Unit.class);
+        private final List<UnitEntry> entries = new ArrayList<>();
+
+        void merge(List<UnitEntry> parsedEntries) {
+            for (UnitEntry entry : parsedEntries) {
+                if (seen.add(entry.unit)) {
+                    entries.add(entry);
+                }
+            }
+        }
+
+        long toSeconds() {
+            return durationSeconds(entries);
+        }
+
+        void appendFormatted(StringBuilder builder, boolean compactRange) {
+            for (UnitEntry entry : entries) {
+                if (builder.length() > 0) {
+                    builder.append(' ');
+                }
+                String formattedAmount = timeString(entry.amount);
+                if (compactRange) {
+                    builder.append(formattedAmount).append(entry.unit.suffix);
+                }
+                else {
+                    String selector = (entry.amount.compareTo(BigDecimal.ONE) == 0) ? Selector.FIRST : Selector.SECOND;
+                    builder.append(Phrase.build(entry.unit.phrase, formattedAmount, selector));
+                }
+            }
+        }
+
+        boolean isEmpty() {
+            return entries.isEmpty();
+        }
+    }
+
+    public static final class ParsedTime {
+        private final DurationSide first = new DurationSide();
+        private final DurationSide second = new DurationSide();
+        private boolean range;
+        private String invalidArgument;
+
+        public long[] sortedSeconds() {
+            long firstSeconds = first.toSeconds();
+            long secondSeconds = range ? second.toSeconds() : 0L;
+            return new long[] { Math.max(firstSeconds, secondSeconds), Math.min(firstSeconds, secondSeconds) };
+        }
+
+        public String invalidArgument() {
+            return invalidArgument;
+        }
+
+        public String description() {
+            if (first.isEmpty()) {
+                return "";
+            }
+            StringBuilder builder = new StringBuilder();
+            first.appendFormatted(builder, range);
+            if (range && !second.isEmpty()) {
+                builder.append(" -");
+                second.appendFormatted(builder, true);
+            }
+            return builder.toString();
+        }
+    }
+
     /**
      * Parse time from command arguments
      * 
@@ -19,143 +138,37 @@ public class TimeParser {
      * @return An array of two longs - [time1, time2]
      */
     public static long[] parseTime(String[] inputArguments) {
-        String[] argumentArray = inputArguments.clone();
-        long timeStart = 0;
-        long timeEnd = 0;
-        int count = 0;
-        int next = 0;
-        boolean range = false;
-        double w = 0;
-        double d = 0;
-        double h = 0;
-        double m = 0;
-        double s = 0;
-        double mo = 0;
-        double y = 0;
+        return parseDurationArguments(inputArguments).sortedSeconds();
+    }
 
-        // Special case for test compatibility
-        for (String arg : argumentArray) {
-            if (arg.contains("3mo")) {
-                return new long[] { 7776000, 0 };
-            }
+    public static long[] parsePurgeTime(String[] inputArguments) {
+        ParsedTime parsed = parseDurationArguments(inputArguments);
+        long[] bounds = parsed.sortedSeconds();
+        if (!parsed.range) {
+            bounds[1] = bounds[0];
+            bounds[0] = 0L;
         }
+        return bounds;
+    }
 
-        for (String argument : argumentArray) {
-            if (count > 0) {
-                argument = argument.trim().toLowerCase(Locale.ROOT);
-                argument = argument.replaceAll("\\\\", "");
-                argument = argument.replaceAll("'", "");
+    public static boolean isValidDuration(String spec) {
+        return parseDurationSpec(spec, new ParsedTime());
+    }
 
-                if (argument.equals("t:") || argument.equals("time:")) {
-                    next = 1;
-                }
-                else if (next == 1 || argument.startsWith("t:") || argument.startsWith("time:")) {
-                    // time arguments
-                    argument = argument.replaceAll("time:", "");
-                    argument = argument.replaceAll("t:", "");
-
-                    // Special handling for months (mo) to avoid conflict with minutes (m)
-                    // Replace all occurrences of "mo" with "mo:" first
-                    argument = argument.replaceAll("mo", "mo:");
-
-                    // Then handle other time units
-                    argument = argument.replaceAll("y", "y:");
-                    argument = argument.replaceAll("(?<!o)m", "m:"); // Only match 'm' not preceded by 'o'
-                    argument = argument.replaceAll("w", "w:");
-                    argument = argument.replaceAll("d", "d:");
-                    argument = argument.replaceAll("h", "h:");
-                    argument = argument.replaceAll("s", "s:");
-                    range = argument.contains("-");
-
-                    int argCount = 0;
-                    String[] i2 = argument.split(":");
-                    for (String i3 : i2) {
-                        if (range && argCount > 0 && timeStart == 0 && i3.startsWith("-")) {
-                            timeStart = (long) (((y * 31536000) + (mo * 2592000) + (w * 604800) + (d * 86400) + (h * 3600) + (m * 60) + s));
-                            y = 0;
-                            mo = 0;
-                            w = 0;
-                            d = 0;
-                            h = 0;
-                            m = 0;
-                            s = 0;
-                        }
-
-                        if (i3.endsWith("y") && y == 0) {
-                            String i4 = i3.replaceAll("[^0-9.]", "");
-                            if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
-                                y = Double.parseDouble(i4);
-                            }
-                        }
-                        else if (i3.endsWith("mo") && mo == 0) {
-                            String i4 = i3.replaceAll("[^0-9.]", "");
-                            if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
-                                mo = Double.parseDouble(i4);
-
-                                // Special case for test compatibility
-                                if (i3.equals("3mo") && mo == 3.0) {
-                                    mo = 3.0; // Ensure this is exactly 3.0
-                                }
-                            }
-                        }
-                        else if (i3.endsWith("w") && w == 0) {
-                            String i4 = i3.replaceAll("[^0-9.]", "");
-                            if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
-                                w = Double.parseDouble(i4);
-                            }
-                        }
-                        else if (i3.endsWith("d") && d == 0) {
-                            String i4 = i3.replaceAll("[^0-9.]", "");
-                            if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
-                                d = Double.parseDouble(i4);
-                            }
-                        }
-                        else if (i3.endsWith("h") && h == 0) {
-                            String i4 = i3.replaceAll("[^0-9.]", "");
-                            if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
-                                h = Double.parseDouble(i4);
-                            }
-                        }
-                        else if (i3.endsWith("m") && m == 0) {
-                            String i4 = i3.replaceAll("[^0-9.]", "");
-                            if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
-                                m = Double.parseDouble(i4);
-                            }
-                        }
-                        else if (i3.endsWith("s") && s == 0) {
-                            String i4 = i3.replaceAll("[^0-9.]", "");
-                            if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
-                                s = Double.parseDouble(i4);
-                            }
-                        }
-
-                        argCount++;
-                    }
-
-                    // Calculate time values with correct constants
-                    // 1 year = 365 days = 31536000 seconds
-                    // 1 month = 30 days = 2592000 seconds
-                    if (timeStart > 0) {
-                        timeEnd = (long) (((y * 31536000) + (mo * 2592000) + (w * 604800) + (d * 86400) + (h * 3600) + (m * 60) + s));
-                    }
-                    else {
-                        timeStart = (long) (((y * 31536000) + (mo * 2592000) + (w * 604800) + (d * 86400) + (h * 3600) + (m * 60) + s));
-                    }
-                    next = 0;
-                }
-                else {
-                    next = 0;
-                }
-            }
-            count++;
+    public static long parseDurationSeconds(String value) {
+        if (value == null) {
+            return 0L;
         }
+        List<UnitEntry> entries = parseSide(value.trim().toLowerCase(Locale.ROOT).replace(" ", ""), false);
+        return entries == null ? 0L : durationSeconds(entries);
+    }
 
-        if (timeEnd >= timeStart) {
-            return new long[] { timeEnd, timeStart };
+    private static long durationSeconds(List<UnitEntry> entries) {
+        double total = 0.0;
+        for (UnitEntry entry : entries) {
+            total += entry.amount.doubleValue() * entry.unit.seconds;
         }
-        else {
-            return new long[] { timeStart, timeEnd };
-        }
+        return (long) total;
     }
 
     /**
@@ -166,155 +179,88 @@ public class TimeParser {
      * @return A formatted time string
      */
     public static String parseTimeString(String[] inputArguments) {
-        String[] argumentArray = inputArguments.clone();
-        String time = "";
-        int count = 0;
-        int next = 0;
-        boolean range = false;
-        BigDecimal w = new BigDecimal(0);
-        BigDecimal d = new BigDecimal(0);
-        BigDecimal h = new BigDecimal(0);
-        BigDecimal m = new BigDecimal(0);
-        BigDecimal s = new BigDecimal(0);
-        BigDecimal mo = new BigDecimal(0);
-        BigDecimal y = new BigDecimal(0);
-        for (String argument : argumentArray) {
-            if (count > 0) {
-                argument = argument.trim().toLowerCase(Locale.ROOT);
-                argument = argument.replaceAll("\\\\", "");
-                argument = argument.replaceAll("'", "");
+        return parseDurationArguments(inputArguments).description();
+    }
 
-                if (argument.equals("t:") || argument.equals("time:")) {
-                    next = 1;
+    public static ParsedTime parseDurationArguments(String[] inputArguments) {
+        ParsedTime parsed = new ParsedTime();
+        String pendingPrefix = null;
+
+        for (int index = 1; index < inputArguments.length; index++) {
+            String raw = inputArguments[index];
+            String argument = ParserUtils.normalize(raw);
+            String stripped = ParserUtils.stripPrefix(argument, TIME_PREFIXES);
+            if (pendingPrefix != null) {
+                if (stripped != null || !parseDurationSpec(argument, parsed)) {
+                    parsed.invalidArgument = pendingPrefix;
+                    return parsed;
                 }
-                else if (next == 1 || argument.startsWith("t:") || argument.startsWith("time:")) {
-                    // time arguments
-                    argument = argument.replaceAll("time:", "");
-                    argument = argument.replaceAll("t:", "");
-                    argument = argument.replaceAll("y", "y:");
-                    argument = argument.replaceAll("mo", "mo:");
-                    argument = argument.replaceAll("m", "m:");
-                    argument = argument.replaceAll("w", "w:");
-                    argument = argument.replaceAll("d", "d:");
-                    argument = argument.replaceAll("h", "h:");
-                    argument = argument.replaceAll("s", "s:");
-                    range = argument.contains("-");
-
-                    int argCount = 0;
-                    String[] i2 = argument.split(":");
-                    for (String i3 : i2) {
-                        if (range && argCount > 0 && !time.contains("-") && i3.startsWith("-")) {
-                            y = new BigDecimal(0);
-                            mo = new BigDecimal(0);
-                            w = new BigDecimal(0);
-                            d = new BigDecimal(0);
-                            h = new BigDecimal(0);
-                            m = new BigDecimal(0);
-                            s = new BigDecimal(0);
-                            time = time + " -";
-                        }
-
-                        if (i3.endsWith("y") && y.intValue() == 0) {
-                            String i4 = i3.replaceAll("[^0-9.]", "");
-                            if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
-                                y = new BigDecimal(i4);
-                                if (range) {
-                                    time = time + " " + timeString(y) + "y";
-                                }
-                                else {
-                                    time = time + " " + Phrase.build(Phrase.TIME_YEARS, timeString(y), (y.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND));
-                                }
-                            }
-                        }
-                        else if (i3.endsWith("mo") && mo.intValue() == 0) {
-                            String i4 = i3.replaceAll("[^0-9.]", "");
-                            if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
-                                mo = new BigDecimal(i4);
-                                if (range) {
-                                    time = time + " " + timeString(mo) + "mo";
-                                }
-                                else {
-                                    time = time + " " + Phrase.build(Phrase.TIME_MONTHS, timeString(mo), (mo.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND));
-                                }
-                            }
-                        }
-                        else if (i3.endsWith("w") && w.intValue() == 0) {
-                            String i4 = i3.replaceAll("[^0-9.]", "");
-                            if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
-                                w = new BigDecimal(i4);
-                                if (range) {
-                                    time = time + " " + timeString(w) + "w";
-                                }
-                                else {
-                                    time = time + " " + Phrase.build(Phrase.TIME_WEEKS, timeString(w), (w.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND));
-                                }
-                            }
-                        }
-                        else if (i3.endsWith("d") && d.intValue() == 0) {
-                            String i4 = i3.replaceAll("[^0-9.]", "");
-                            if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
-                                d = new BigDecimal(i4);
-                                if (range) {
-                                    time = time + " " + timeString(d) + "d";
-                                }
-                                else {
-                                    time = time + " " + Phrase.build(Phrase.TIME_DAYS, timeString(d), (d.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND));
-                                }
-                            }
-                        }
-                        else if (i3.endsWith("h") && h.intValue() == 0) {
-                            String i4 = i3.replaceAll("[^0-9.]", "");
-                            if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
-                                h = new BigDecimal(i4);
-                                if (range) {
-                                    time = time + " " + timeString(h) + "h";
-                                }
-                                else {
-                                    time = time + " " + Phrase.build(Phrase.TIME_HOURS, timeString(h), (h.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND));
-                                }
-                            }
-                        }
-                        else if (i3.endsWith("m") && m.intValue() == 0) {
-                            String i4 = i3.replaceAll("[^0-9.]", "");
-                            if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
-                                m = new BigDecimal(i4);
-                                if (range) {
-                                    time = time + " " + timeString(m) + "m";
-                                }
-                                else {
-                                    time = time + " " + Phrase.build(Phrase.TIME_MINUTES, timeString(m), (m.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND));
-                                }
-                            }
-                        }
-                        else if (i3.endsWith("s") && s.intValue() == 0) {
-                            String i4 = i3.replaceAll("[^0-9.]", "");
-                            if (i4.length() > 0 && i4.replaceAll("[^0-9]", "").length() > 0 && i4.indexOf('.') == i4.lastIndexOf('.')) {
-                                s = new BigDecimal(i4);
-                                if (range) {
-                                    time = time + " " + timeString(s) + "s";
-                                }
-                                else {
-                                    time = time + " " + Phrase.build(Phrase.TIME_SECONDS, timeString(s), (s.doubleValue() == 1 ? Selector.FIRST : Selector.SECOND));
-                                }
-                            }
-                        }
-
-                        argCount++;
-                    }
-                    next = 0;
-                }
-                else {
-                    next = 0;
-                }
+                pendingPrefix = null;
             }
-            count++;
+            else if ("".equals(stripped)) {
+                pendingPrefix = raw;
+            }
+            else if (stripped != null && !parseDurationSpec(stripped, parsed)) {
+                parsed.invalidArgument = raw;
+                return parsed;
+            }
         }
 
-        if (time.startsWith(" ")) {
-            time = time.substring(1);
-        }
+        parsed.invalidArgument = pendingPrefix;
+        return parsed;
+    }
 
-        return time;
+    private static boolean parseDurationSpec(String spec, ParsedTime parsed) {
+        int dashIndex = spec.indexOf('-');
+        if (dashIndex < 0) {
+            List<UnitEntry> entries = parseSide(spec, true);
+            if (entries == null) {
+                return false;
+            }
+            (parsed.range ? parsed.second : parsed.first).merge(entries);
+        }
+        else {
+            List<UnitEntry> startEntries = parseSide(spec.substring(0, dashIndex), true);
+            List<UnitEntry> endEntries = parseSide(spec.substring(dashIndex + 1), true);
+            if (startEntries == null || endEntries == null) {
+                return false;
+            }
+            parsed.first.merge(startEntries);
+            parsed.second.merge(endEntries);
+            parsed.range = true;
+        }
+        return true;
+    }
+
+    private static List<UnitEntry> parseSide(String spec, boolean allowCommandSyntax) {
+        if (spec.isEmpty()) {
+            return null;
+        }
+        List<UnitEntry> entries = new ArrayList<>();
+        Matcher matcher = DURATION_TOKEN.matcher(spec);
+        int position = 0;
+        while (position < spec.length()) {
+            char first = spec.charAt(position);
+            if (allowCommandSyntax && first == ',') {
+                position++;
+                continue;
+            }
+            matcher.region(position, spec.length());
+            if ((!allowCommandSyntax && first == '.') || !matcher.lookingAt()) {
+                return null;
+            }
+            String numberText = matcher.group(1);
+            if (!ParserUtils.isUnsignedDecimal(numberText)) {
+                return null;
+            }
+            Unit unit = Unit.fromSuffix(matcher.group(2));
+            if (unit == null) {
+                return null;
+            }
+            entries.add(new UnitEntry(unit, new BigDecimal(numberText)));
+            position = matcher.end();
+        }
+        return entries.isEmpty() ? null : entries;
     }
 
     /**
@@ -325,39 +271,43 @@ public class TimeParser {
      * @return The number of rows
      */
     public static int parseRows(String[] inputArguments) {
-        String[] argumentArray = inputArguments.clone();
         int rows = 0;
-        int count = 0;
         int next = 0;
 
-        for (String argument : argumentArray) {
-            if (count > 0) {
-                argument = argument.trim().toLowerCase(Locale.ROOT);
-                argument = argument.replaceAll("\\\\", "");
-                argument = argument.replaceAll("'", "");
+        for (int index = 1; index < inputArguments.length; index++) {
+            String argument = ParserUtils.normalize(inputArguments[index]);
+            if (argument.equals("rows:")) {
+                next = 1;
+                continue;
+            }
 
-                if (argument.equals("rows:")) {
-                    next = 1;
-                }
-                else if (next == 1 || argument.startsWith("rows:")) {
-                    argument = argument.replaceAll("rows:", "").trim();
-                    if (!argument.startsWith("-")) {
-                        String i2 = argument.replaceAll("[^0-9]", "");
-                        if (i2.length() > 0 && i2.length() < 10) {
-                            rows = Integer.parseInt(i2);
-                        }
-                    }
-
-                    next = 0;
-                }
-                else {
-                    next = 0;
+            String stripped = ParserUtils.stripPrefix(argument, "rows:");
+            if (next == 1 || stripped != null) {
+                String rowSpec = ((stripped != null) ? stripped : argument).trim();
+                next = 0;
+                if (isPositiveRowCount(rowSpec)) {
+                    rows = Integer.parseInt(rowSpec);
                 }
             }
-            count++;
+            else {
+                next = 0;
+            }
         }
 
         return rows;
+    }
+
+    private static boolean isPositiveRowCount(String value) {
+        if (value.isEmpty() || value.length() >= 10) {
+            return false;
+        }
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c < '0' || c > '9') {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static String timeString(BigDecimal input) {

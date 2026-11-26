@@ -1,14 +1,11 @@
 package net.coreprotect.database.logger;
 
-import java.sql.PreparedStatement;
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.Location;
-import org.bukkit.block.BlockState;
 
-import net.coreprotect.CoreProtect;
-import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
+import net.coreprotect.database.ConsumerWriteBatch;
 import net.coreprotect.database.statement.BlockStatement;
 import net.coreprotect.database.statement.UserStatement;
 import net.coreprotect.event.CoreProtectPreLogEvent;
@@ -23,10 +20,16 @@ public class PlayerInteractLogger {
         throw new IllegalStateException("Database class");
     }
 
-    public static void log(PreparedStatement preparedStmt, int batchCount, String user, BlockState block, Material blockType) {
+    public static void log(ConsumerWriteBatch preparedStmt, int batchCount, String user, Location location, Material blockType, String blockData) {
         try {
-            String blockData = block.getBlockData().getAsString();
             String blockKey = BlockTypeUtils.getBlockDataKey(blockData);
+            if (blockType != null && blockKey.length() > 0) {
+                Material blockDataType = MaterialUtils.getType(blockKey);
+                if (BlockTypeUtils.isAir(blockKey) || (blockDataType != null && !blockDataType.equals(blockType))) {
+                    blockKey = blockType.getKey().toString();
+                    blockData = null;
+                }
+            }
             if (blockKey.length() == 0 && blockType != null) {
                 blockKey = blockType.getKey().toString();
             }
@@ -34,20 +37,16 @@ public class PlayerInteractLogger {
                 return;
             }
 
-            int type = MaterialUtils.getBlockId(blockKey, true);
             if (ConfigHandler.isBlacklisted(user) || BlockTypeUtils.isAir(blockKey)) {
                 return;
             }
 
-            CoreProtectPreLogEvent event = new CoreProtectPreLogEvent(user, block.getLocation(), CoreProtectPreLogEvent.Action.PLAYER_INTERACTION, LookupActions.INTERACTION, blockType, null, null);
-            if (Config.getGlobal().API_ENABLED && !Bukkit.isPrimaryThread()) {
-                CoreProtect.getInstance().getServer().getPluginManager().callEvent(event);
-            }
-
-            if (event.isCancelled()) {
+            CoreProtectPreLogEvent event = LoggerPreLog.fire(user, location, CoreProtectPreLogEvent.Action.PLAYER_INTERACTION, LookupActions.INTERACTION, blockType, null, null);
+            if (event == null) {
                 return;
             }
 
+            int type = MaterialUtils.getBlockId(blockKey, true);
             int userId = UserStatement.getId(preparedStmt, event.getUser(), true);
             Location eventLocation = event.getLocation();
             int wid = WorldUtils.getWorldId(eventLocation.getWorld().getName());
@@ -59,7 +58,7 @@ public class PlayerInteractLogger {
             BlockStatement.insert(preparedStmt, batchCount, time, userId, wid, x, y, z, type, data, null, blockData, LookupActions.INTERACTION, 0);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            Database.handleWriteFailure(e);
         }
     }
 

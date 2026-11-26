@@ -4,8 +4,20 @@ import java.util.Locale;
 
 public class StringUtils {
 
+    public static final int MAX_USERNAME_LENGTH = 100;
+
     private StringUtils() {
         throw new IllegalStateException("Utility class");
+    }
+
+    public static String normalizeUsername(String user) {
+        if (user == null || user.length() <= MAX_USERNAME_LENGTH) {
+            return user;
+        }
+        if (user.codePointCount(0, user.length()) <= MAX_USERNAME_LENGTH) {
+            return user;
+        }
+        return user.substring(0, user.offsetByCodePoints(0, MAX_USERNAME_LENGTH));
     }
 
     public static String capitalize(String string, boolean allWords) {
@@ -88,28 +100,42 @@ public class StringUtils {
     }
 
     public static String hoverCommandFilter(String string) {
+        if (string == null) {
+            return null;
+        }
         StringBuilder command = new StringBuilder();
 
-        String[] data = string.toLowerCase().split(" ");
+        String[] data = string.trim().toLowerCase(Locale.ROOT).split("\\s+");
         if (data.length > 2) {
             if (data[1].equals("l")) {
                 data[1] = "page";
             }
 
             if (data[2].startsWith("wid:")) {
-                String nameWid = data[2].replaceFirst("wid:", "");
-                if (nameWid.length() > 0 && nameWid.equals(nameWid.replaceAll("[^0-9]", ""))) {
-                    nameWid = WorldUtils.getWorldName(Integer.parseInt(nameWid));
-                    if (nameWid.length() > 0) {
-                        data[2] = nameWid;
+                String nameWid = data[2].substring("wid:".length());
+                Integer worldId = tryParseNonNegativeInt(nameWid);
+                if (worldId != null) {
+                    String worldName = WorldUtils.getWorldName(worldId);
+                    if (worldName != null && !worldName.isEmpty() && !containsWhitespace(worldName)) {
+                        data[2] = worldName;
                     }
                 }
             }
 
-            if (data[1].equals("teleport") && data.length > 5) {
-                data[3] = Integer.toString((int) (Double.parseDouble(data[3]) - 0.50));
-                data[4] = Integer.toString(Integer.parseInt(data[4]));
-                data[5] = Integer.toString((int) (Double.parseDouble(data[5]) - 0.50));
+            if (data[1].equals("teleport") && data.length >= 6) {
+                int coordStart = data.length - 3;
+                Integer x = tryParseFloorCoordinate(data[coordStart], -0.50);
+                Integer y = tryParseInt(data[coordStart + 1]);
+                Integer z = tryParseFloorCoordinate(data[coordStart + 2], -0.50);
+                if (x != null) {
+                    data[coordStart] = Integer.toString(x);
+                }
+                if (y != null) {
+                    data[coordStart + 1] = Integer.toString(y);
+                }
+                if (z != null) {
+                    data[coordStart + 2] = Integer.toString(z);
+                }
             }
         }
 
@@ -128,11 +154,97 @@ public class StringUtils {
         return command.toString();
     }
 
+    private static Integer tryParseNonNegativeInt(String value) {
+        if (value == null || value.isEmpty()) {
+            return null;
+        }
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c < '0' || c > '9') {
+                return null;
+            }
+        }
+        try {
+            return Integer.valueOf(Integer.parseInt(value));
+        }
+        catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static Integer tryParseInt(String value) {
+        if (value == null || value.isEmpty()) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(Integer.parseInt(value));
+        }
+        catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static Integer tryParseFloorCoordinate(String value, double offset) {
+        if (value == null || value.isEmpty()) {
+            return null;
+        }
+        try {
+            double parsed = Double.parseDouble(value);
+            if (!Double.isFinite(parsed)) {
+                return null;
+            }
+            double shifted = Math.floor(parsed + offset);
+            if (shifted < Integer.MIN_VALUE || shifted > Integer.MAX_VALUE) {
+                return null;
+            }
+            return Integer.valueOf((int) shifted);
+        }
+        catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static boolean containsWhitespace(String value) {
+        for (int i = 0; i < value.length(); i++) {
+            if (Character.isWhitespace(value.charAt(i))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static Integer[] convertArray(String[] array) {
-        java.util.List<Integer> list = new java.util.ArrayList<>();
+        if (array == null || array.length == 0) {
+            return new Integer[0];
+        }
+        java.util.List<Integer> list = new java.util.ArrayList<>(array.length);
         for (String item : array) {
-            list.add(Integer.parseInt(item));
+            list.add(parseVersionSegment(item));
         }
         return list.toArray(new Integer[list.size()]);
+    }
+
+    private static int parseVersionSegment(String item) {
+        if (item == null) {
+            return 0;
+        }
+        String trimmed = item.trim();
+        int digitEnd = 0;
+        while (digitEnd < trimmed.length()) {
+            char c = trimmed.charAt(digitEnd);
+            if (c < '0' || c > '9') {
+                break;
+            }
+            digitEnd++;
+        }
+        if (digitEnd == 0) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(trimmed.substring(0, digitEnd));
+        }
+        catch (NumberFormatException e) {
+            return Integer.MAX_VALUE;
+        }
     }
 } 

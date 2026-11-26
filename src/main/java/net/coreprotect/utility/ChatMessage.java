@@ -100,14 +100,52 @@ public class ChatMessage {
     }
 
     public static String parseQuotes(String string, String textColor) {
-        int indexFirst = string.indexOf("\"");
-        int indexLast = string.lastIndexOf("\"");
-        if (indexFirst > -1 && indexLast > indexFirst) {
-            String quoteText = string.substring(indexFirst + 1, indexLast);
-            string = string.replace(quoteText, Color.DARK_AQUA + ChatColor.stripColor(quoteText) + textColor);
+        if (string == null || string.isEmpty()) {
+            return string;
         }
 
-        return string;
+        int firstQuote = string.indexOf('"');
+        if (firstQuote == -1) {
+            return string;
+        }
+
+        int secondQuote = string.indexOf('"', firstQuote + 1);
+        if (secondQuote == -1) {
+            return string;
+        }
+
+        StringBuilder result = new StringBuilder(string.length() + 16);
+        int cursor = 0;
+        int open = firstQuote;
+        int close = secondQuote;
+        while (open != -1 && close != -1) {
+            result.append(string, cursor, open + 1);
+            String quoteText = string.substring(open + 1, close);
+            result.append(Color.DARK_AQUA).append(stripColor(quoteText));
+            if (textColor != null) {
+                result.append(textColor);
+            }
+            result.append('"');
+            cursor = close + 1;
+            open = string.indexOf('"', cursor);
+            close = open != -1 ? string.indexOf('"', open + 1) : -1;
+        }
+        result.append(string, cursor, string.length());
+        return result.toString();
+    }
+
+    private static String stripColor(String value) {
+        if (value == null || value.isEmpty()) {
+            return "";
+        }
+        String current = value;
+        while (true) {
+            String stripped = ChatColor.stripColor(current);
+            if (stripped == null || stripped.equals(current)) {
+                return current;
+            }
+            current = stripped;
+        }
     }
 
     private static String createSpaces(String string, boolean seperatorOffset, boolean createSpaces) {

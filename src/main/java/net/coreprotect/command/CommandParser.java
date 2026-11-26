@@ -1,20 +1,19 @@
 package net.coreprotect.command;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import net.coreprotect.command.parser.*;
+import net.coreprotect.language.Phrase;
+import net.coreprotect.model.action.EntityActionFilter;
+import net.coreprotect.model.action.LookupActions;
+import net.coreprotect.utility.Chat;
+import net.coreprotect.utility.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
-
-import net.coreprotect.command.parser.ActionParser;
-import net.coreprotect.command.parser.LocationParser;
-import net.coreprotect.command.parser.MaterialParser;
-import net.coreprotect.command.parser.TimeParser;
-import net.coreprotect.command.parser.UserParser;
-import net.coreprotect.command.parser.WorldParser;
+import org.bukkit.entity.EntityType;
 
 /**
  * Main parser class for CoreProtect commands.
@@ -44,6 +43,22 @@ public class CommandParser {
         return ActionParser.parseAction(inputArguments);
     }
 
+    protected static List<Integer> parseAction(String[] inputArguments, boolean allowMultiple) {
+        return ActionParser.parseAction(inputArguments, allowMultiple);
+    }
+
+    protected static ActionParser.ParseResult parseActions(String[] inputArguments, boolean allowMultiple) {
+        return ActionParser.parseActions(inputArguments, allowMultiple);
+    }
+
+    protected static MessageFilterParser.ParseResult parseMessageFilters(String[] inputArguments) {
+        return MessageFilterParser.parse(inputArguments);
+    }
+
+    protected static RollbackStateParser.ParseResult parseRollbackState(String[] inputArguments) {
+        return RollbackStateParser.parse(inputArguments);
+    }
+
     /**
      * Parse coordinates from command arguments
      * 
@@ -68,6 +83,10 @@ public class CommandParser {
      */
     protected static boolean parseCount(String[] inputArguments) {
         return ActionParser.parseCount(inputArguments);
+    }
+
+    protected static boolean parseSummary(String[] inputArguments) {
+        return ActionParser.parseSummary(inputArguments);
     }
 
     /**
@@ -120,6 +139,15 @@ public class CommandParser {
      */
     protected static Location parseLocation(CommandSender user, String[] argumentArray) {
         return LocationParser.parseLocation(user, argumentArray);
+    }
+
+    static boolean validateCoordinates(CommandSender player, String[] args) {
+        String invalid = LocationParser.findInvalidCoordinateArgument(args);
+        if (invalid == null) {
+            return true;
+        }
+        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, invalid));
+        return false;
     }
 
     /**
@@ -315,15 +343,42 @@ public class CommandParser {
         return UserParser.parseUsers(inputArguments);
     }
 
-    /**
-     * Helper method for formatting BigDecimal values
-     * 
-     * @param input
-     *            The BigDecimal value to format
-     * @return The formatted string
-     */
-    private static String timeString(BigDecimal input) {
-        return input.stripTrailingZeros().toPlainString();
+    protected static Integer parseGivableItemId(String[] inputArguments) {
+        return GivableItemIdParser.parseGivableItemId(inputArguments);
     }
 
+    protected static boolean validateTargetCombination(CommandSender player, Iterable<Object> restricted, Iterable<Object> excluded, List<Integer> argAction, EntityActionFilter entityActionFilter, boolean lookup) {
+        boolean[] flags = new boolean[2];
+        if (!scanTargets(player, restricted, argAction, entityActionFilter, lookup, true, flags)
+                || !scanTargets(player, excluded, argAction, entityActionFilter, lookup, !lookup, flags)) {
+            return false;
+        }
+        if (flags[0] && flags[1]) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE_COMBO));
+            return false;
+        }
+        return true;
+    }
+
+    private static boolean scanTargets(CommandSender player, Iterable<Object> targets, List<Integer> argAction, EntityActionFilter entityActionFilter, boolean allowInteraction, boolean inferEntityActions, boolean[] flags) {
+        for (Object arg : targets) {
+            if (arg instanceof Material || arg instanceof String) {
+                flags[0] = true;
+            }
+            else if (arg instanceof EntityType) {
+                flags[1] = true;
+                if (argAction.isEmpty()) {
+                    if (inferEntityActions) {
+                        argAction.add(LookupActions.ENTITY_KILL);
+                        argAction.add(LookupActions.ENTITY_SPAWN);
+                    }
+                }
+                else if (!entityActionFilter.includesAnyEntity(argAction, true) && (!allowInteraction || !argAction.contains(LookupActions.INTERACTION))) {
+                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_INCLUDE_COMBO));
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
 }

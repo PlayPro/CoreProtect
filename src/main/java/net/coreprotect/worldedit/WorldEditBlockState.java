@@ -21,6 +21,10 @@ public final class WorldEditBlockState implements BlockState {
     protected Location location;
     protected Material material;
     protected BlockData blockData;
+    private BlockState lowerHalf;
+    private List<Object> capturedMetadata;
+    private String skullOwner;
+    private String skullSkin;
 
     public WorldEditBlockState(Location loc) {
         location = loc;
@@ -30,6 +34,38 @@ public final class WorldEditBlockState implements BlockState {
         location = loc;
         material = type;
         blockData = data;
+    }
+
+    /**
+     * The matching lower half of a top half, captured before the edit changed it, so queueing a break does not read the world afterwards.
+     */
+    public BlockState getLowerHalf() {
+        return lowerHalf;
+    }
+
+    public void setLowerHalf(BlockState lowerHalf) {
+        this.lowerHalf = lowerHalf;
+    }
+
+    public List<Object> getCapturedMetadata() {
+        return capturedMetadata;
+    }
+
+    void setCapturedMetadata(List<Object> metadata) {
+        capturedMetadata = metadata.isEmpty() ? null : List.copyOf(metadata);
+    }
+
+    public String getSkullOwner() {
+        return skullOwner;
+    }
+
+    public String getSkullSkin() {
+        return skullSkin;
+    }
+
+    void setSkullProfile(String owner, String skin) {
+        skullOwner = owner;
+        skullSkin = skin;
     }
 
     @Override

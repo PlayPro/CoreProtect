@@ -1,153 +1,365 @@
 package net.coreprotect.thread;
 
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.World;
 
 import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.listener.player.PlayerDropItemListener;
+import net.coreprotect.listener.player.PlayerInteractListener;
+import net.coreprotect.utility.ErrorReporter;
 
 public class CacheHandler implements Runnable {
 
-    public static Map<String, Object[]> lookupCache = Collections.synchronizedMap(new HashMap<>());
-    public static Map<String, Object[]> breakCache = Collections.synchronizedMap(new HashMap<>());
-    public static Map<String, Object[]> interactCache = Collections.synchronizedMap(new HashMap<>());
-    public static Map<String, Object[]> entityCache = Collections.synchronizedMap(new HashMap<>());
-    public static ConcurrentHashMap<String, Object[]> pistonCache = new ConcurrentHashMap<>(16, 0.75f, 2);
-    public static ConcurrentHashMap<String, Object[]> spreadCache = new ConcurrentHashMap<>(16, 0.75f, 2);
-    public static ConcurrentHashMap<String, Object[]> containerDuplicateCache = new ConcurrentHashMap<>(16, 0.75f, 2);
-    public static ConcurrentHashMap<String, Object[]> flowDuplicateCache = new ConcurrentHashMap<>(16, 0.75f, 2);
-    public static ConcurrentHashMap<String, Object[]> bonemealDuplicateCache = new ConcurrentHashMap<>(16, 0.75f, 2);
-    public static ConcurrentHashMap<String, Object[]> entityKillDuplicateCache = new ConcurrentHashMap<>(16, 0.75f, 2);
-    public static ConcurrentHashMap<String, Object[]> redstoneCache = new ConcurrentHashMap<>(16, 0.75f, 2);
-    public static ConcurrentHashMap<String, Object[]> fallingBlockSpawnCache = new ConcurrentHashMap<>(16, 0.75f, 2);
+    private static final long HOPPER_CACHE_TTL_MILLIS = 60_000L;
+    private static final long THROTTLE_CACHE_TTL_MILLIS = 60_000L;
+
+    public static Map<String, Object[]> lookupCache = new ConcurrentHashMap<>();
+    public static Map<String, Object[]> breakCache = new ConcurrentHashMap<>();
+    public static Map<String, Object[]> interactCache = new ConcurrentHashMap<>();
+    public static Map<String, Object[]> entityCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> pistonCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> spreadCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, int[]> containerDuplicateCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, int[]> flowDuplicateCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, int[]> bonemealDuplicateCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, int[]> entityKillDuplicateCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> redstoneCache = new ConcurrentHashMap<>();
+    public static ConcurrentHashMap<String, Object[]> fallingBlockSpawnCache = new ConcurrentHashMap<>();
+    private static final Map<String, Object[]> blockSources = new ConcurrentHashMap<>();
+
+    private static final Object LOCK = new Object();
+    private static volatile Thread thread;
+    private static volatile CacheHandler activeHandler;
+    private volatile boolean cancelled;
+
+    public static void startThread() {
+        synchronized (LOCK) {
+            Thread existing = thread;
+            CacheHandler existingHandler = activeHandler;
+            if (existing != null && existing.isAlive() && existingHandler != null && !existingHandler.cancelled) {
+                return;
+            }
+            CacheHandler handler = new CacheHandler();
+            Thread cacheThread = new Thread(handler, "CoreProtect-Cache");
+            cacheThread.setDaemon(true);
+            activeHandler = handler;
+            thread = cacheThread;
+            cacheThread.start();
+        }
+    }
+
+    public static void stopThread(long timeoutMillis) {
+        Thread cacheThread;
+        CacheHandler handler;
+        synchronized (LOCK) {
+            cacheThread = thread;
+            handler = activeHandler;
+            thread = null;
+            activeHandler = null;
+        }
+        clearBlockSources();
+        if (handler != null) {
+            handler.cancelled = true;
+        }
+        if (cacheThread == null) {
+            return;
+        }
+
+        cacheThread.interrupt();
+        long boundedTimeout = Math.max(0L, timeoutMillis);
+        if (boundedTimeout == 0L) {
+            return;
+        }
+
+        boolean callerInterrupted = Thread.interrupted();
+        try {
+            long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(boundedTimeout);
+            while (cacheThread.isAlive()) {
+                long remainingNanos = deadlineNanos - System.nanoTime();
+                if (remainingNanos <= 0L) {
+                    break;
+                }
+                long millis = TimeUnit.NANOSECONDS.toMillis(remainingNanos);
+                int nanos = (int) (remainingNanos - TimeUnit.MILLISECONDS.toNanos(millis));
+                try {
+                    if (millis > 0L || nanos > 0) {
+                        cacheThread.join(millis, nanos);
+                    }
+                }
+                catch (InterruptedException e) {
+                    callerInterrupted = true;
+                    if (cacheThread.isAlive()) {
+                        cacheThread.interrupt();
+                    }
+                }
+            }
+        }
+        finally {
+            if (callerInterrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
 
     public static String locationKey(Location location) {
         if (location == null || location.getWorld() == null) {
             return "";
         }
-        return location.getWorld().getUID() + ":" + location.getBlockX() + ":" + location.getBlockY() + ":" + location.getBlockZ();
+        return locationKey(location.getWorld(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
     }
 
-    public static boolean shouldSuppressRepeat(ConcurrentHashMap<String, Object[]> cache, String cacheId, int threshold, int resetWindowSeconds) {
+    public static String locationKey(World world, int x, int y, int z) {
+        return world.getUID() + ":" + x + ":" + y + ":" + z;
+    }
+
+    public static void recordBlockSource(World world, int x, int y, int z, String actor, Material material) {
+        blockSources.put(locationKey(world, x, y, z), new Object[] { System.currentTimeMillis(), actor, material });
+    }
+
+    public static Object[] getBlockSource(World world, int x, int y, int z) {
+        if (world == null) {
+            return null;
+        }
+        Object[] source = blockSources.get(locationKey(world, x, y, z));
+        if (source != null) {
+            return source;
+        }
+
+        String worldName = world.getName();
+        Integer worldId = worldName == null ? null : ConfigHandler.worlds.get(worldName);
+        return worldId == null ? null : lookupCache.get(x + "." + y + "." + z + "." + worldId);
+    }
+
+    public static String getBlockSourceActor(World world, int x, int y, int z) {
+        Object[] source = getBlockSource(world, x, y, z);
+        return source != null && source[1] instanceof String ? (String) source[1] : "";
+    }
+
+    public static void clearBlockSources() {
+        blockSources.clear();
+    }
+
+    public static boolean shouldSuppressRepeat(ConcurrentHashMap<String, int[]> cache, String cacheId, int threshold, int resetWindowSeconds) {
         if (cache == null || cacheId == null || cacheId.isEmpty() || threshold <= 0) {
             return false;
         }
 
         final int timestamp = (int) (System.currentTimeMillis() / 1000L);
-        Object[] result = cache.compute(cacheId, (key, value) -> {
-            int count = 1;
-            if (value != null) {
-                int previousTime = (int) value[0];
-                int previousCount = (int) value[1];
-                if (timestamp - previousTime <= resetWindowSeconds) {
-                    count = previousCount + 1;
-                }
+        final boolean[] suppress = new boolean[1];
+        cache.compute(cacheId, (key, value) -> {
+            if (value == null) {
+                suppress[0] = false;
+                return new int[] { timestamp, 1 };
             }
 
+            int previousTime = value[0];
+            int previousCount = value[1];
+            int count = (timestamp - previousTime <= resetWindowSeconds) ? (previousCount + 1) : 1;
             if (count > (threshold + 1)) {
                 count = threshold + 1;
             }
 
-            return new Object[] { timestamp, count };
+            value[0] = timestamp;
+            value[1] = count;
+            suppress[0] = count > threshold;
+            return value;
         });
 
-        return ((int) result[1]) > threshold;
+        return suppress[0];
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override
     public void run() {
-        while (ConfigHandler.serverRunning) {
-            try {
-                for (int id = 0; id < 14; id++) {
-                    Thread.sleep(1000);
-                    int scanTime = 30;
-                    Map cache = CacheHandler.lookupCache;
+        try {
+            while (ConfigHandler.serverRunning && !cancelled && !Thread.currentThread().isInterrupted()) {
+                try {
+                    for (int id = 0; id < 15; id++) {
+                        Thread.sleep(1000);
+                        if (!ConfigHandler.serverRunning || cancelled || Thread.currentThread().isInterrupted()) {
+                            return;
+                        }
 
-                    switch (id) {
-                        case 1:
-                            cache = CacheHandler.breakCache;
-                            break;
-                        case 2:
-                            cache = CacheHandler.pistonCache;
-                            scanTime = 900; // 15 minutes
-                            break;
-                        case 3:
-                            cache = CacheHandler.spreadCache;
-                            scanTime = 1800; // 30 minutes
-                            break;
-                        case 4:
-                            cache = CacheHandler.interactCache;
-                            scanTime = 5;
-                            break;
-                        case 5:
-                            cache = CacheHandler.redstoneCache;
-                            scanTime = 1;
-                            break;
-                        case 6:
-                            cache = CacheHandler.entityCache;
-                            scanTime = 3600; // 60 minutes
-                            break;
-                        case 7:
-                            cache = ConfigHandler.entityBlockMapper;
-                            scanTime = 5;
-                            break;
-                        case 8:
-                            // Clean up dispenserNoChange cache
+                        if (id == 8) {
                             cleanupDispenserCache();
+                            cleanupPopulatedChunks();
+                            cleanupHopperCaches();
+                            cleanupThrottleCaches();
+                            long now = System.currentTimeMillis();
+                            PlayerDropItemListener.clearExpiredAttributions(now);
+                            PlayerInteractListener.clearExpiredInspectorEvents(now);
                             continue;
-                        case 9:
-                            cache = CacheHandler.containerDuplicateCache;
-                            scanTime = 1800; // 30 minutes
-                            break;
-                        case 10:
-                            cache = CacheHandler.flowDuplicateCache;
-                            scanTime = 900; // 15 minutes
-                            break;
-                        case 11:
-                            cache = CacheHandler.bonemealDuplicateCache;
-                            scanTime = 900; // 15 minutes
-                            break;
-                        case 12:
-                            cache = CacheHandler.entityKillDuplicateCache;
-                            scanTime = 900; // 15 minutes
-                            break;
-                        case 13:
-                            cache = CacheHandler.fallingBlockSpawnCache;
-                            scanTime = 30; // 30 seconds
-                            break;
-                    }
+                        }
 
-                    int timestamp = (int) (System.currentTimeMillis() / 1000L) - scanTime;
-                    Iterator<Entry> iterator = cache.entrySet().iterator();
-                    while (iterator.hasNext()) {
-                        try {
-                            Map.Entry entry = iterator.next();
-                            Object[] data = (Object[]) entry.getValue();
-                            int time = (data[0] instanceof Long) ? (int) ((long) data[0] / 1000L) : (int) data[0];
-
-                            if (time < timestamp) {
-                                try {
-                                    iterator.remove();
-                                }
-                                catch (Exception e) {
-                                }
+                        if (id >= 9 && id <= 12) {
+                            int scanTime;
+                            ConcurrentHashMap<String, int[]> duplicateCache;
+                            switch (id) {
+                                case 9:
+                                    duplicateCache = CacheHandler.containerDuplicateCache;
+                                    scanTime = 1800; // 30 minutes
+                                    break;
+                                case 10:
+                                    duplicateCache = CacheHandler.flowDuplicateCache;
+                                    scanTime = 900; // 15 minutes
+                                    break;
+                                case 11:
+                                    duplicateCache = CacheHandler.bonemealDuplicateCache;
+                                    scanTime = 900; // 15 minutes
+                                    break;
+                                default:
+                                    duplicateCache = CacheHandler.entityKillDuplicateCache;
+                                    scanTime = 900; // 15 minutes
+                                    break;
                             }
+                            cleanupDuplicateCache(duplicateCache, scanTime);
+                            continue;
                         }
-                        catch (Exception e) {
-                            break;
+
+                        int scanTime = 30;
+                        Map cache = CacheHandler.lookupCache;
+
+                        switch (id) {
+                            case 1:
+                                cache = CacheHandler.breakCache;
+                                break;
+                            case 2:
+                                cache = CacheHandler.pistonCache;
+                                break;
+                            case 3:
+                                cache = CacheHandler.spreadCache;
+                                scanTime = 1800; // 30 minutes
+                                break;
+                            case 4:
+                                cache = CacheHandler.interactCache;
+                                scanTime = 5;
+                                break;
+                            case 5:
+                                cache = CacheHandler.redstoneCache;
+                                scanTime = 1;
+                                break;
+                            case 6:
+                                cache = CacheHandler.entityCache;
+                                scanTime = 3600; // 60 minutes
+                                break;
+                            case 7:
+                                cache = ConfigHandler.entityBlockMapper;
+                                scanTime = 5;
+                                break;
+                            case 13:
+                                cache = CacheHandler.fallingBlockSpawnCache;
+                                scanTime = 30; // 30 seconds
+                                break;
+                            case 14:
+                                cache = blockSources;
+                                break;
                         }
+
+                        long timestamp = System.currentTimeMillis() / 1000L - scanTime;
+                        cache.values().removeIf(value -> {
+                            try {
+                                Object[] data = (Object[]) value;
+                                long time = (data[0] instanceof Long) ? (long) data[0] / 1000L : (int) data[0];
+                                return time < timestamp;
+                            }
+                            catch (Exception e) {
+                                return true; // malformed entry
+                            }
+                        });
                     }
                 }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+                catch (Exception e) {
+                    ErrorReporter.report(e);
+                }
             }
-            catch (Exception e) {
-                e.printStackTrace();
+        }
+        finally {
+            synchronized (LOCK) {
+                if (thread == Thread.currentThread()) {
+                    thread = null;
+                    activeHandler = null;
+                }
             }
+        }
+    }
+
+    public static void cleanupDuplicateCache(ConcurrentHashMap<String, int[]> cache, int scanTimeSeconds) {
+        if (cache == null) {
+            return;
+        }
+        int timestamp = (int) (System.currentTimeMillis() / 1000L) - scanTimeSeconds;
+        cache.forEach((key, value) -> {
+            if (isDuplicateExpired(value, timestamp)) {
+                cache.computeIfPresent(key, (currentKey, currentValue) -> isDuplicateExpired(currentValue, timestamp) ? null : currentValue);
+            }
+        });
+    }
+
+    private static boolean isDuplicateExpired(int[] value, int cutoff) {
+        return value.length == 0 || value[0] < cutoff;
+    }
+
+    /**
+     * Removes populated chunk entries older than 240 seconds, the longest window BlockPlaceLogger checks them against
+     */
+    public static void cleanupPopulatedChunks() {
+        long expired = (System.currentTimeMillis() / 1000L) - 240;
+        for (UUID worldId : ConfigHandler.populatedChunks.keySet()) {
+            ConfigHandler.populatedChunks.computeIfPresent(worldId, (key, chunks) -> {
+                chunks.values().removeIf(populatedAt -> populatedAt == null || populatedAt < expired);
+                return chunks.isEmpty() ? null : chunks;
+            });
+        }
+    }
+
+    public static void cleanupHopperCaches() {
+        long currentTime = System.currentTimeMillis();
+        evictExpiredHopperMap(ConfigHandler.hopperSuccess, currentTime);
+        evictExpiredHopperMap(ConfigHandler.hopperAbort, currentTime);
+    }
+
+    private static void evictExpiredHopperMap(ConcurrentHashMap<String, Object[]> map, long currentTime) {
+        map.values().removeIf(data -> {
+            if (data == null || data.length < 3 || !(data[2] instanceof Long)) {
+                return true;
+            }
+            return (currentTime - (Long) data[2]) > HOPPER_CACHE_TTL_MILLIS;
+        });
+    }
+
+    public static void cleanupThrottleCaches() {
+        long currentTime = System.currentTimeMillis();
+        evictExpiredThrottleMap(ConfigHandler.lookupThrottle, currentTime);
+        evictExpiredThrottleMap(ConfigHandler.teleportThrottle, currentTime);
+    }
+
+    private static void evictExpiredThrottleMap(Map<String, Object[]> throttleMap, long currentTime) {
+        synchronized (throttleMap) {
+            throttleMap.entrySet().removeIf(entry -> {
+                Object[] data = entry.getValue();
+                if (data == null || data.length < 2) {
+                    return true;
+                }
+                if (Boolean.TRUE.equals(data[0])) {
+                    return false;
+                }
+                if (!(data[1] instanceof Long)) {
+                    return true;
+                }
+                return (currentTime - (Long) data[1]) > THROTTLE_CACHE_TTL_MILLIS;
+            });
         }
     }
 
@@ -200,7 +412,7 @@ public class CacheHandler implements Runnable {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
     }
 }

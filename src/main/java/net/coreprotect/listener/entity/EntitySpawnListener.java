@@ -7,8 +7,8 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntitySpawnEvent;
 
+import net.coreprotect.config.Config;
 import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.WorldUtils;
 
 public final class EntitySpawnListener implements Listener {
 
@@ -22,12 +22,13 @@ public final class EntitySpawnListener implements Listener {
         if (location.getWorld() == null) {
             return;
         }
+        if (!Config.getConfig(location.getWorld()).BLOCK_MOVEMENT) {
+            return;
+        }
 
-        int worldId = WorldUtils.getWorldId(location.getWorld().getName());
-        String originKey = location.getBlockX() + "." + location.getBlockY() + "." + location.getBlockZ() + "." + worldId;
         int timestamp = (int) (System.currentTimeMillis() / 1000L);
 
-        CacheHandler.fallingBlockSpawnCache.put(event.getEntity().getUniqueId().toString(), new Object[] { timestamp, originKey });
+        CacheHandler.fallingBlockSpawnCache.put(event.getEntity().getUniqueId().toString(), new Object[] { timestamp, location.clone() });
     }
 
 }

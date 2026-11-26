@@ -1,10 +1,16 @@
 package net.coreprotect.utility.entity;
 
+import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.BooleanSupplier;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import org.bukkit.Art;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
@@ -14,190 +20,228 @@ import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.Painting;
 import org.bukkit.inventory.ItemStack;
 
+import net.coreprotect.CoreProtect;
 import net.coreprotect.bukkit.BukkitAdapter;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.listener.player.PlayerInteractEntityListener;
 import net.coreprotect.model.BlockGroup;
+import net.coreprotect.paper.PaperAdapter;
+import net.coreprotect.thread.Scheduler;
 import net.coreprotect.utility.BlockUtils;
+import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.MaterialUtils;
 
 public class HangingUtil {
+
+    private static final List<BlockFace> WALL_FACES = List.of(BlockFace.WEST, BlockFace.EAST, BlockFace.NORTH, BlockFace.SOUTH);
+    private static final List<BlockFace> FRAME_FACES = List.of(BlockFace.WEST, BlockFace.EAST, BlockFace.NORTH, BlockFace.SOUTH, BlockFace.UP, BlockFace.DOWN);
 
     private HangingUtil() {
         throw new IllegalStateException("Utility class");
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    public static void spawnHanging(final BlockState blockstate, final Material rowType, final String hangingData, final int rowData) {
+    public static boolean isSupportedDecoration(Hanging entity) {
+        return entity instanceof ItemFrame || entity instanceof Painting;
+    }
+
+    public static Material getMaterial(Hanging entity) {
+        return entity instanceof ItemFrame ? BukkitAdapter.ADAPTER.getFrameType(entity) : Material.PAINTING;
+    }
+
+    public static String getFacingData(Hanging entity) {
+        return "FACING=" + entity.getFacing().name();
+    }
+
+    public static int getArtId(Hanging entity) {
+        if (entity instanceof Painting) {
+            try {
+                return MaterialUtils.getArtId(MaterialUtils.getPaintingArtName((Painting) entity), true);
+            }
+            catch (IncompatibleClassChangeError ignored) {
+                return 0;
+            }
+        }
+        return 0;
+    }
+
+    public static void logFrameItemRemoval(ItemFrame frame, String user, boolean logDrops) {
+        ItemStack item = frame.getItem();
+        if (item == null || BlockUtils.isAir(item.getType()) || item.getAmount() <= 0) {
+            return;
+        }
+
+        ItemStack[] before = { item.clone() };
+        PlayerInteractEntityListener.queueContainerSpecifiedItems(user, Material.ITEM_FRAME, new Object[] { before, new ItemStack[0], frame.getFacing() }, frame.getLocation(), logDrops);
+    }
+
+    public static boolean spawnHanging(BlockState state, Material type, String hangingData, int rowData) {
+        return restoreHanging(state, type, hangingData, rowData, null).getNow(true);
+    }
+
+    public static CompletableFuture<Boolean> restoreHanging(BlockState state, Material type, String hangingData, int rowData, BooleanSupplier beforeSpawn) {
         try {
-            Block block = blockstate.getBlock();
-            int x = block.getX();
-            int y = block.getY();
-            int z = block.getZ();
-
-            BlockFace hangingFace = null;
-            if (hangingData != null && !hangingData.contains(":") && hangingData.contains("=")) {
-                try {
-                    hangingFace = BlockFace.valueOf(hangingData.split("=")[1].toUpperCase(Locale.ROOT));
-                }
-                catch (Exception e) {
-                    e.printStackTrace();
-                }
+            boolean painting = type == Material.PAINTING;
+            if (!painting && !BukkitAdapter.ADAPTER.isItemFrame(type)) {
+                return CompletableFuture.completedFuture(false);
+            }
+            List<BlockFace> faces = painting ? WALL_FACES : FRAME_FACES;
+            Block block = state.getBlock();
+            BlockFace stored = parseFacing(hangingData);
+            BlockFace face = stored != null && faces.contains(stored) ? stored : findFacing(block, faces);
+            if (face == null) {
+                return CompletableFuture.completedFuture(false);
+            }
+            Art art = painting ? BukkitAdapter.ADAPTER.getPaintingArt(MaterialUtils.getArtName(rowData)) : null;
+            if (painting && art == null) {
+                return CompletableFuture.completedFuture(false);
             }
 
-            for (Entity e : block.getChunk().getEntities()) {
-                if ((BukkitAdapter.ADAPTER.isItemFrame(rowType) && e instanceof ItemFrame) || (rowType.equals(Material.PAINTING) && e instanceof Painting)) {
-                    Location el = e.getLocation();
-                    if (el.getBlockX() == x && el.getBlockY() == y && el.getBlockZ() == z) {
-                        if (hangingFace == null || ((Hanging) e).getFacing() == hangingFace) {
-                            e.remove();
-                            break;
-                        }
-                    }
+            Hanging existing = findAt(state, face, decoration -> getMaterial(decoration) == type, false);
+            Location location = block.getLocation();
+            CompletableFuture<Boolean> completion = new CompletableFuture<>();
+            if (painting) {
+                Location anchor = paintingAnchor(location, face, art.getBlockWidth(), art.getBlockHeight());
+                Runnable task = () -> completeSpawn(completion, beforeSpawn, existing, () -> BukkitAdapter.ADAPTER.spawn(
+                        anchor.getWorld(), anchor, Painting.class, restored -> {
+                            restored.setFacingDirection(face, true);
+                            restored.setArt(art, true);
+                        }));
+                if (owns(anchor.getWorld(), anchor.getBlockX(), anchor.getBlockZ())) {
+                    task.run();
                 }
-            }
-
-            BlockFace faceSet = null;
-            BlockFace face = null;
-            if (hangingFace == null) {
-                Block c1 = block.getWorld().getBlockAt((x + 1), y, z);
-                Block c2 = block.getWorld().getBlockAt((x - 1), y, z);
-                Block c3 = block.getWorld().getBlockAt(x, y, (z + 1));
-                Block c4 = block.getWorld().getBlockAt(x, y, (z - 1));
-
-                if (!BlockGroup.NON_ATTACHABLE.contains(c1.getType())) {
-                    faceSet = BlockFace.WEST;
-                    block = c1;
+                else if (existing == null) {
+                    Scheduler.scheduleSyncDelayedTask(CoreProtect.getInstance(), task, anchor, 0);
                 }
-                else if (!BlockGroup.NON_ATTACHABLE.contains(c2.getType())) {
-                    faceSet = BlockFace.EAST;
-                    block = c2;
-                }
-                else if (!BlockGroup.NON_ATTACHABLE.contains(c3.getType())) {
-                    faceSet = BlockFace.NORTH;
-                    block = c3;
-                }
-                else if (!BlockGroup.NON_ATTACHABLE.contains(c4.getType())) {
-                    faceSet = BlockFace.SOUTH;
-                    block = c4;
-                }
-
-                if (!BlockUtils.solidBlock(BlockUtils.getType(block.getRelative(BlockFace.EAST)))) {
-                    face = BlockFace.EAST;
-                }
-                else if (!BlockUtils.solidBlock(BlockUtils.getType(block.getRelative(BlockFace.NORTH)))) {
-                    face = BlockFace.NORTH;
-                }
-                else if (!BlockUtils.solidBlock(BlockUtils.getType(block.getRelative(BlockFace.WEST)))) {
-                    face = BlockFace.WEST;
-                }
-                else if (!BlockUtils.solidBlock(BlockUtils.getType(block.getRelative(BlockFace.SOUTH)))) {
-                    face = BlockFace.SOUTH;
+                else {
+                    completion.complete(false);
                 }
             }
             else {
-                faceSet = hangingFace;
-                face = hangingFace;
+                Material itemType = MaterialUtils.getType(rowData);
+                completeSpawn(completion, beforeSpawn, existing, () -> BukkitAdapter.ADAPTER.spawn(
+                        block.getWorld(), location, BukkitAdapter.ADAPTER.getFrameClass(type), frame -> {
+                            frame.setFacingDirection(face, true);
+                            if (itemType != null && !BlockUtils.isAir(itemType)) {
+                                frame.setItem(new ItemStack(itemType, 1));
+                            }
+                        }));
             }
-
-            if (faceSet != null && face != null) {
-                if (rowType.equals(Material.PAINTING)) {
-                    String name = MaterialUtils.getArtName(rowData);
-                    Art painting = BukkitAdapter.ADAPTER.getPaintingArt(name);
-                    if (painting == null) {
-                        return;
-                    }
-
-                    int height = painting.getBlockHeight();
-                    int width = painting.getBlockWidth();
-                    int paintingX = x;
-                    int paintingY = y;
-                    int paintingZ = z;
-                    if (height != 1 || width != 1) {
-                        if (height > 1) {
-                            if (height != 3) {
-                                paintingY = paintingY - 1;
-                            }
-                        }
-                        if (width > 1) {
-                            if (faceSet.equals(BlockFace.WEST)) {
-                                paintingZ--;
-                            }
-                            else if (faceSet.equals(BlockFace.SOUTH)) {
-                                paintingX--;
-                            }
-                        }
-                    }
-                    Block spawnBlock = hangingFace != null ? block : block.getRelative(face);
-                    if (hangingFace == null) {
-                        BlockUtils.setTypeAndData(spawnBlock, Material.AIR, null, true);
-                    }
-                    Painting hanging = null;
-                    try {
-                        hanging = block.getWorld().spawn(spawnBlock.getLocation(), Painting.class);
-                    }
-                    catch (Exception e) {
-                    }
-                    if (hanging != null) {
-                        hanging.teleport(block.getWorld().getBlockAt(paintingX, paintingY, paintingZ).getLocation());
-                        hanging.setFacingDirection(faceSet, true);
-                        hanging.setArt(painting, true);
-                    }
-                }
-                else if (BukkitAdapter.ADAPTER.isItemFrame(rowType)) {
-                    try {
-                        Block spawnBlock = hangingFace != null ? block : block.getRelative(face);
-                        if (hangingFace == null) {
-                            BlockUtils.setTypeAndData(spawnBlock, Material.AIR, null, true);
-                        }
-                        Class itemFrame = BukkitAdapter.ADAPTER.getFrameClass(rowType);
-                        Entity entity = block.getWorld().spawn(spawnBlock.getLocation(), itemFrame);
-                        if (entity instanceof ItemFrame) {
-                            ItemFrame hanging = (ItemFrame) entity;
-                            hanging.teleport(block.getWorld().getBlockAt(x, y, z).getLocation());
-                            hanging.setFacingDirection(faceSet, true);
-
-                            Material type = MaterialUtils.getType(rowData);
-                            if (type != null) {
-                                ItemStack istack = new ItemStack(type, 1);
-                                hanging.setItem(istack);
-                            }
-                        }
-                    }
-                    catch (Exception e) {
-                    }
-                }
-            }
+            return completion;
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
+            return CompletableFuture.completedFuture(false);
         }
     }
 
-    public static void removeHanging(final BlockState block, final String hangingData) {
+    private static void completeSpawn(CompletableFuture<Boolean> completion, BooleanSupplier beforeSpawn, Hanging existing, Supplier<? extends Hanging> spawn) {
         try {
-            BlockFace hangingFace = null;
-            if (hangingData != null && !hangingData.contains(":") && hangingData.contains("=")) {
-                try {
-                    hangingFace = BlockFace.valueOf(hangingData.split("=")[1].toUpperCase(Locale.ROOT));
-                }
-                catch (Exception e) {
-                    e.printStackTrace();
-                }
+            if (beforeSpawn != null && !beforeSpawn.getAsBoolean()) {
+                completion.complete(false);
+                return;
             }
-
-            for (Entity e : block.getChunk().getEntities()) {
-                if (e instanceof ItemFrame || e instanceof Painting) {
-                    Location el = e.getLocation();
-                    if (el.getBlockX() == block.getX() && el.getBlockY() == block.getY() && el.getBlockZ() == block.getZ()) {
-                        if (hangingFace == null || ((Hanging) e).getFacing() == hangingFace) {
-                            e.remove();
-                        }
-                    }
-                }
+            Hanging restored = spawn.get();
+            if (restored == null || !restored.isValid()) {
+                completion.complete(false);
+                return;
             }
+            if (existing != null) {
+                existing.remove();
+            }
+            completion.complete(true);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
+            completion.complete(false);
         }
     }
 
+    static Location paintingAnchor(Location location, BlockFace face, int width, int height) {
+        int x = width % 2 == 0 && face == BlockFace.SOUTH ? -1 : 0;
+        int y = height % 2 == 0 ? -1 : 0;
+        int z = width % 2 == 0 && face == BlockFace.WEST ? -1 : 0;
+        return location.clone().add(x, y, z);
+    }
+
+    private static BlockFace findFacing(Block block, List<BlockFace> faces) {
+        World world = block.getWorld();
+        for (BlockFace face : faces) {
+            BlockFace support = face.getOppositeFace();
+            if (owns(world, block.getX() + support.getModX(), block.getZ() + support.getModZ())) {
+                Material material = block.getRelative(support).getType();
+                if (!BlockUtils.isAir(material) && !BlockGroup.NON_ATTACHABLE.contains(material)) {
+                    return face;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static boolean owns(World world, int x, int z) {
+        return !ConfigHandler.isFolia || PaperAdapter.ADAPTER.isOwnedByCurrentRegion(world, x >> 4, z >> 4);
+    }
+
+    static BlockFace parseFacing(String data) {
+        if (data == null || !data.regionMatches(true, 0, "FACING=", 0, "FACING=".length())) {
+            return null;
+        }
+        return parseFrameFace(data.substring("FACING=".length()));
+    }
+
+    public static BlockFace parseFrameFace(String value) {
+        try {
+            BlockFace face = BlockFace.valueOf(value.trim().toUpperCase(Locale.ROOT));
+            return FRAME_FACES.contains(face) ? face : null;
+        }
+        catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
+    public static void removeHanging(BlockState state, String hangingData) {
+        removeHanging(state, null, hangingData);
+    }
+
+    public static boolean removeHanging(BlockState state, Material type, String hangingData) {
+        try {
+            BlockFace face = parseFacing(hangingData);
+            if (face == null && hangingData != null && !hangingData.isBlank()) {
+                return false;
+            }
+            Hanging target = findAt(state, face, decoration -> type == null || getMaterial(decoration) == type, true);
+            if (target != null) {
+                target.remove();
+                return true;
+            }
+        }
+        catch (Exception e) {
+            ErrorReporter.report(e);
+        }
+        return false;
+    }
+
+    private static Hanging findAt(BlockState state, BlockFace face, Predicate<Hanging> matchesType, boolean requireUnique) {
+        Hanging target = null;
+        for (Entity entity : state.getChunk().getEntities()) {
+            if (!(entity instanceof Hanging) || !isSupportedDecoration((Hanging) entity)) {
+                continue;
+            }
+            Hanging decoration = (Hanging) entity;
+            if (!matchesType.test(decoration)) {
+                continue;
+            }
+            Location location = entity.getLocation();
+            if (location.getBlockX() == state.getX() && location.getBlockY() == state.getY() && location.getBlockZ() == state.getZ()
+                    && (face == null || decoration.getFacing() == face)) {
+                if (!requireUnique) {
+                    return decoration;
+                }
+                if (target != null) {
+                    return null;
+                }
+                target = decoration;
+            }
+        }
+        return target;
+    }
 }

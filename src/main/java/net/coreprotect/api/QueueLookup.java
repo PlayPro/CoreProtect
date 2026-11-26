@@ -7,13 +7,18 @@ import java.util.Map;
 
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
+import org.bukkit.block.data.BlockData;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Consumer;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.consumer.QueuePayload;
 import net.coreprotect.consumer.process.Process;
+import net.coreprotect.model.action.LookupActions;
+import net.coreprotect.utility.ErrorReporter;
 import net.coreprotect.utility.MaterialUtils;
 import net.coreprotect.utility.StringUtils;
 import net.coreprotect.utility.WorldUtils;
@@ -22,7 +27,7 @@ import net.coreprotect.utility.WorldUtils;
  * Provides API methods for looking up block-related actions in the processing queue.
  * This class allows for retrieving actions that have not yet been saved to the database.
  */
-public class QueueLookup extends Queue {
+public class QueueLookup {
 
     /**
      * Private constructor to prevent instantiation.
@@ -47,96 +52,109 @@ public class QueueLookup extends Queue {
             return result;
         }
 
-        if (block == null) {
+        World world = block == null ? null : block.getWorld();
+        if (world == null) {
             return result;
         }
 
         try {
-            // Determine total count of actions in the consumer queues
-            int consumerCount = calculateConsumerCount();
-
-            if (consumerCount == 0) {
+            int worldId = WorldUtils.findHistoricalWorldId(world.getName());
+            if (worldId < 0) {
                 return result;
             }
 
-            // Get data from the current consumer
-            int currentConsumer = Consumer.currentConsumer;
-            ArrayList<Object[]> consumerData = Consumer.consumer.get(currentConsumer);
-            Map<Integer, String[]> users = Consumer.consumerUsers.get(currentConsumer);
-            Map<Integer, Object> consumerObject = Consumer.consumerObjects.get(currentConsumer);
-
-            // Current block location for comparison with actions in the queue
-            Location blockLocation = block.getLocation();
-
-            // Check for block actions in the processing queue
-            for (Object[] data : consumerData.toArray(Object[][]::new)) {
-                int id = (int) data[0];
-                int action = (int) data[1];
-
-                // Only process block break and place actions
-                if (action != Process.BLOCK_BREAK && action != Process.BLOCK_PLACE) {
-                    continue;
+            String time = Long.toString(System.currentTimeMillis() / 1000L);
+            for (PendingAction entry : snapshotBlockActions()) {
+                Object payload = QueuePayload.primary(entry.payload);
+                int action = (int) entry.data[1];
+                if (action == Process.STRUCTURE_GROWTH) {
+                    List<BlockState> states = QueuePayload.detail(entry.payload);
+                    if (states != null) {
+                        int replacedCount = (int) entry.data[6];
+                        for (int index = 0; index < states.size(); index++) {
+                            BlockState state = states.get(index);
+                            if (matches(state, block, world)) {
+                                BlockData data = state.getBlockData();
+                                int resultAction = index < replacedCount ? LookupActions.BLOCK_BREAK : LookupActions.BLOCK_PLACE;
+                                result.add(toLookupRow(block, worldId, time, entry.user, resultAction, state.getType(), 0, data == null ? null : data.getAsString()));
+                            }
+                        }
+                    }
                 }
-
-                String[] userData = users.get(id);
-                Object objectData = consumerObject.get(id);
-
-                // Verify the action pertains to the requested block
-                if (isActionForBlock(userData, objectData, blockLocation)) {
-                    Material blockType = (Material) data[2];
-                    int legacyData = (int) data[3];
-                    String blockData = (String) data[7];
-                    String user = userData[0];
-                    BlockState blockState = (BlockState) objectData;
-                    Location location = blockState.getLocation();
-                    int worldId = WorldUtils.getWorldId(location.getWorld().getName());
-                    int resultType = MaterialUtils.getBlockId(blockType);
-                    int time = (int) (System.currentTimeMillis() / 1000L);
-
-                    String[] lookupData = new String[] { String.valueOf(time), user, String.valueOf(location.getBlockX()), String.valueOf(location.getBlockY()), String.valueOf(location.getBlockZ()), String.valueOf(resultType), String.valueOf(legacyData), String.valueOf(action), "0", String.valueOf(worldId), blockData };
-
-                    result.add(StringUtils.toStringArray(lookupData));
+                else if (matches(payload, block, world)) {
+                    int resultAction = action == Process.PLAYER_INTERACTION ? LookupActions.INTERACTION
+                            : action == Process.BLOCK_PLACE ? LookupActions.BLOCK_PLACE : LookupActions.BLOCK_BREAK;
+                    result.add(toLookupRow(block, worldId, time, entry.user, resultAction, (Material) entry.data[2], (int) entry.data[3], (String) entry.data[7]));
                 }
             }
 
-            // Reverse the result list to match database lookup order (most recent first)
             Collections.reverse(result);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return result;
     }
 
-    /**
-     * Calculates the total count of actions in the consumer queues.
-     * 
-     * @return The total count of actions in the consumer queues
-     */
-    private static int calculateConsumerCount() {
-        int currentConsumerSize = Process.getCurrentConsumerSize();
-        if (currentConsumerSize == 0) {
-            return Consumer.getConsumerSize(0) + Consumer.getConsumerSize(1);
+    private static List<PendingAction> snapshotBlockActions() {
+        List<PendingAction> actions = new ArrayList<>();
+        synchronized (Queue.class) {
+            synchronized (Consumer.consumer_id) {
+                int active = Consumer.currentConsumer;
+                for (int buffer : new int[] { 1 - active, active }) {
+                    List<Object[]> rows = Consumer.consumer.get(buffer);
+                    if (rows == null || rows.isEmpty()) {
+                        continue;
+                    }
+                    Map<Integer, String[]> users = Consumer.consumerUsers.get(buffer);
+                    Map<Integer, Object> objects = Consumer.consumerObjects.get(buffer);
+                    for (Object[] row : rows) {
+                        int action = (int) row[1];
+                        if (action != Process.BLOCK_BREAK && action != Process.BLOCK_PLACE && action != Process.NATURAL_BLOCK_BREAK
+                                && action != Process.STRUCTURE_GROWTH && action != Process.PLAYER_INTERACTION) {
+                            continue;
+                        }
+                        int id = (int) row[0];
+                        String[] user = users.get(id);
+                        Object object = objects.get(id);
+                        if (user != null && object != null) {
+                            actions.add(new PendingAction(row, user[0], object));
+                        }
+                    }
+                }
+            }
         }
-        else {
-            int consumerId = (Consumer.currentConsumer == 1) ? 1 : 0;
-            return Consumer.getConsumerSize(consumerId) + currentConsumerSize;
-        }
+        return actions;
     }
 
-    /**
-     * Determines if an action in the queue pertains to the specified block location.
-     * 
-     * @param userData
-     *            User data associated with the action
-     * @param objectData
-     *            Object data associated with the action
-     * @param blockLocation
-     *            Location of the block being looked up
-     * @return true if the action pertains to the specified block, false otherwise
-     */
-    private static boolean isActionForBlock(String[] userData, Object objectData, Location blockLocation) {
-        return userData != null && objectData != null && (objectData instanceof BlockState) && ((BlockState) objectData).getLocation().equals(blockLocation);
+    private static boolean matches(Object payload, Block block, World world) {
+        if (payload instanceof BlockState) {
+            BlockState state = (BlockState) payload;
+            return world.equals(state.getWorld()) && block.getX() == state.getX() && block.getY() == state.getY() && block.getZ() == state.getZ();
+        }
+        if (payload instanceof Location) {
+            Location location = (Location) payload;
+            return world.equals(location.getWorld()) && block.getX() == location.getBlockX() && block.getY() == location.getBlockY() && block.getZ() == location.getBlockZ();
+        }
+        return false;
+    }
+
+    private static String[] toLookupRow(Block block, int worldId, String time, String user, int action, Material type, int data, String blockData) {
+        int typeId = MaterialUtils.getBlockId(type == null ? Material.AIR.name() : type.name(), false);
+        return StringUtils.toStringArray(new String[] { time, user, String.valueOf(block.getX()), String.valueOf(block.getY()),
+                String.valueOf(block.getZ()), String.valueOf(typeId), String.valueOf(data), String.valueOf(action), "0", String.valueOf(worldId), blockData });
+    }
+
+    private static final class PendingAction {
+        private final Object[] data;
+        private final String user;
+        private final Object payload;
+
+        private PendingAction(Object[] data, String user, Object payload) {
+            this.data = data;
+            this.user = user;
+            this.payload = payload;
+        }
     }
 }

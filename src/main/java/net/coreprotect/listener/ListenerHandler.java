@@ -1,8 +1,10 @@
 package net.coreprotect.listener;
 
+import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.PluginManager;
 
 import net.coreprotect.CoreProtect;
+import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.listener.block.BlockBreakListener;
 import net.coreprotect.listener.block.BlockBurnListener;
 import net.coreprotect.listener.block.BlockDispenseListener;
@@ -28,13 +30,22 @@ import net.coreprotect.listener.entity.EntityDamageByEntityListener;
 import net.coreprotect.listener.entity.EntityDeathListener;
 import net.coreprotect.listener.entity.EntityExplodeListener;
 import net.coreprotect.listener.entity.EntityInteractListener;
+import net.coreprotect.listener.entity.EntityPlaceListener;
+import net.coreprotect.listener.entity.EntityChunkListener;
+import net.coreprotect.listener.entity.LegacyEntityChunkListener;
 import net.coreprotect.listener.entity.EntityPickupItemListener;
+import net.coreprotect.listener.entity.CushionBreakListener;
 import net.coreprotect.listener.entity.EntitySpawnListener;
+import net.coreprotect.listener.entity.EntityTransformListener;
 import net.coreprotect.listener.entity.HangingBreakByEntityListener;
 import net.coreprotect.listener.entity.HangingBreakListener;
 import net.coreprotect.listener.entity.HangingPlaceListener;
+import net.coreprotect.listener.entity.VehicleDamageListener;
+import net.coreprotect.listener.entity.VehicleDestroyListener;
+import net.coreprotect.listener.entity.TrackedEntityRemoveListener;
+import net.coreprotect.listener.entity.TrackedEntityTeleportListener;
 import net.coreprotect.listener.player.ArmorStandManipulateListener;
-import net.coreprotect.listener.player.CraftItemListener;
+import net.coreprotect.listener.player.EntityInteractionListener;
 import net.coreprotect.listener.player.FoodLevelChangeListener;
 import net.coreprotect.listener.player.InventoryChangeListener;
 import net.coreprotect.listener.player.InventoryClickListener;
@@ -53,15 +64,20 @@ import net.coreprotect.listener.player.PlayerQuitListener;
 import net.coreprotect.listener.player.PlayerTakeLecternBookListener;
 import net.coreprotect.listener.player.ProjectileLaunchListener;
 import net.coreprotect.listener.player.SignChangeListener;
+import net.coreprotect.listener.player.SpawnEggUseListener;
 import net.coreprotect.listener.world.ChunkPopulateListener;
 import net.coreprotect.listener.world.LeavesDecayListener;
 import net.coreprotect.listener.world.PortalCreateListener;
 import net.coreprotect.listener.world.StructureGrowListener;
 import net.coreprotect.paper.listener.BlockPreDispenseListener;
 import net.coreprotect.paper.listener.CopperGolemChestListener;
+import net.coreprotect.paper.listener.CushionListener;
 import net.coreprotect.paper.listener.FlowerPotManipulateListener;
+import net.coreprotect.listener.player.FlowerPotListener;
 import net.coreprotect.paper.listener.LegacyTNTPrimeListener;
 import net.coreprotect.paper.listener.PaperChatListener;
+import net.coreprotect.paper.listener.LegacyVehicleRemoveListener;
+import net.coreprotect.spigot.listener.CushionPlaceListener;
 
 public final class ListenerHandler {
 
@@ -74,7 +90,7 @@ public final class ListenerHandler {
             Class.forName("io.papermc.paper.event.block.BlockPreDispenseEvent"); // Paper 1.16+
             pluginManager.registerEvents(new BlockPreDispenseListener(), plugin);
         }
-        catch (Exception e) {
+        catch (Exception | LinkageError e) {
             BlockPreDispenseListener.useBlockPreDispenseEvent = false;
         }
 
@@ -82,8 +98,21 @@ public final class ListenerHandler {
             Class.forName("io.papermc.paper.event.entity.ItemTransportingEntityValidateTargetEvent"); // Paper 1.21.10+
             pluginManager.registerEvents(new CopperGolemChestListener(plugin), plugin);
         }
-        catch (Exception e) {
+        catch (Exception | LinkageError e) {
             // Ignore registration failures to remain compatible with older servers.
+        }
+
+        try {
+            Class.forName("io.papermc.paper.event.entity.EntityBreakEvent");
+            pluginManager.registerEvents(new CushionListener(), plugin);
+        }
+        catch (ClassNotFoundException | LinkageError e) {
+            try {
+                Class.forName("org.bukkit.entity.Cushion");
+                pluginManager.registerEvents(new CushionPlaceListener(), plugin);
+            }
+            catch (ClassNotFoundException | LinkageError ignored) {
+            }
         }
 
         // Block Listeners
@@ -103,7 +132,7 @@ public final class ListenerHandler {
             Class.forName("org.bukkit.event.block.CampfireStartEvent"); // Bukkit 1.20+
             pluginManager.registerEvents(new CampfireStartListener(), plugin);
         }
-        catch (Exception e) {
+        catch (Exception | LinkageError e) {
             CampfireStartListener.useCampfireStartEvent = false;
         }
         try {
@@ -111,13 +140,13 @@ public final class ListenerHandler {
             pluginManager.registerEvents(new TNTPrimeListener(), plugin);
             TNTPrimeUtil.useTNTPrimeEvent = true;
         }
-        catch (Exception e) {
+        catch (Exception | LinkageError e) {
             try {
                 Class.forName("com.destroystokyo.paper.event.block.TNTPrimeEvent"); // Paper 1.16+
                 pluginManager.registerEvents(new LegacyTNTPrimeListener(), plugin);
                 TNTPrimeUtil.useTNTPrimeEvent = true;
             }
-            catch (Exception ignored) {
+            catch (Exception | LinkageError ignored) {
                 // Ignore registration failures to remain compatible with older servers.
             }
         }
@@ -131,31 +160,50 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new EntityDeathListener(), plugin);
         pluginManager.registerEvents(new EntityExplodeListener(), plugin);
         pluginManager.registerEvents(new EntityInteractListener(), plugin);
+        pluginManager.registerEvents(new EntityPlaceListener(), plugin);
         pluginManager.registerEvents(new EntityPickupItemListener(), plugin);
         pluginManager.registerEvents(new EntitySpawnListener(), plugin);
+        pluginManager.registerEvents(new CushionBreakListener(), plugin);
+        pluginManager.registerEvents(new EntityTransformListener(), plugin);
         pluginManager.registerEvents(new HangingPlaceListener(), plugin);
         pluginManager.registerEvents(new HangingBreakListener(), plugin);
         pluginManager.registerEvents(new HangingBreakByEntityListener(), plugin);
-
-        // Paper Listeners / Fallbacks (Player Listeners)
+        pluginManager.registerEvents(new VehicleDamageListener(), plugin);
+        pluginManager.registerEvents(new VehicleDestroyListener(), plugin);
+        pluginManager.registerEvents(new TrackedEntityTeleportListener(), plugin);
         try {
-            Class.forName("net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer"); // Paper 1.16+
-            pluginManager.registerEvents(new PaperChatListener(), plugin);
+            Class.forName("org.bukkit.event.world.EntitiesUnloadEvent");
+            pluginManager.registerEvents(new EntityChunkListener(), plugin);
         }
-        catch (Exception e) {
-            pluginManager.registerEvents(new PlayerChatListener(), plugin);
+        catch (Exception | LinkageError e) {
+            pluginManager.registerEvents(new LegacyEntityChunkListener(), plugin);
         }
+        try {
+            Class.forName("org.bukkit.event.entity.EntityRemoveEvent");
+            pluginManager.registerEvents(new TrackedEntityRemoveListener(), plugin);
+        }
+        catch (Exception | LinkageError e) {
+            try {
+                Class.forName("com.destroystokyo.paper.event.entity.EntityRemoveFromWorldEvent");
+                pluginManager.registerEvents(new LegacyVehicleRemoveListener(), plugin);
+            }
+            catch (Exception | LinkageError ignored) {
+                // Entity removal events are unavailable on older Bukkit versions.
+            }
+        }
+        // Paper Listeners / Fallbacks (Player Listeners)
+        registerChatListener(pluginManager, plugin, ConfigHandler.isPaper);
         try {
             Class.forName("io.papermc.paper.event.player.PlayerFlowerPotManipulateEvent");
             pluginManager.registerEvents(new FlowerPotManipulateListener(), plugin);
         }
-        catch (Exception e) {
-            // Ignore registration failures to remain compatible with older servers.
+        catch (Exception | LinkageError e) {
+            pluginManager.registerEvents(new FlowerPotListener(), plugin);
         }
 
         // Player Listeners
         pluginManager.registerEvents(new ArmorStandManipulateListener(), plugin);
-        pluginManager.registerEvents(new CraftItemListener(), plugin);
+        pluginManager.registerEvents(new EntityInteractionListener(), plugin);
         pluginManager.registerEvents(new FoodLevelChangeListener(), plugin);
         pluginManager.registerEvents(new InventoryChangeListener(), plugin);
         pluginManager.registerEvents(new InventoryClickListener(), plugin);
@@ -171,6 +219,7 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new PlayerJoinListener(), plugin);
         pluginManager.registerEvents(new PlayerQuitListener(), plugin);
         pluginManager.registerEvents(new SignChangeListener(), plugin);
+        pluginManager.registerEvents(new SpawnEggUseListener(), plugin);
         pluginManager.registerEvents(new PlayerTakeLecternBookListener(), plugin);
         pluginManager.registerEvents(new ProjectileLaunchListener(), plugin);
 
@@ -179,21 +228,56 @@ public final class ListenerHandler {
         pluginManager.registerEvents(new LeavesDecayListener(), plugin);
         pluginManager.registerEvents(new PortalCreateListener(), plugin);
         pluginManager.registerEvents(new StructureGrowListener(), plugin);
+    }
 
-        // Plugin channel events
-        pluginManager.registerEvents(new PluginChannelListener(), plugin);
+    static void registerChatListener(PluginManager pluginManager, CoreProtect plugin, boolean isPaper) {
+        if (isPaper
+                && classExists("io.papermc.paper.event.player.AsyncChatEvent")
+                && classExists("net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer")) {
+            try {
+                pluginManager.registerEvents(new PaperChatListener(), plugin);
+                return;
+            }
+            catch (Exception | LinkageError e) {
+                // Fall back to Bukkit's PlayerChatListener if Paper's chat event fails to link.
+            }
+        }
+        pluginManager.registerEvents(new PlayerChatListener(), plugin);
+    }
+
+    private static boolean classExists(String className) {
+        try {
+            Class.forName(className);
+            return true;
+        }
+        catch (Exception | LinkageError e) {
+            return false;
+        }
     }
 
     public static void registerNetworking() {
-        CoreProtect.getInstance().getServer().getMessenger().registerIncomingPluginChannel(CoreProtect.getInstance(), PluginChannelHandshakeListener.pluginChannel, new PluginChannelHandshakeListener());
-        CoreProtect.getInstance().getServer().getMessenger().registerOutgoingPluginChannel(CoreProtect.getInstance(), PluginChannelHandshakeListener.pluginChannel);
-        CoreProtect.getInstance().getServer().getMessenger().registerOutgoingPluginChannel(CoreProtect.getInstance(), PluginChannelListener.pluginChannel);
+        PluginChannelHandshakeListener handshakeListener = new PluginChannelHandshakeListener();
+        new PluginChannelListener();
+        CoreProtect plugin = CoreProtect.getInstance();
+        plugin.getServer().getMessenger().registerIncomingPluginChannel(plugin, PluginChannelHandshakeListener.pluginChannel, handshakeListener);
+        plugin.getServer().getPluginManager().registerEvents(handshakeListener, plugin);
+        plugin.getServer().getMessenger().registerOutgoingPluginChannel(plugin, PluginChannelHandshakeListener.pluginChannel);
+        plugin.getServer().getMessenger().registerOutgoingPluginChannel(plugin, PluginChannelListener.pluginChannel);
     }
 
     public static void unregisterNetworking() {
-        CoreProtect.getInstance().getServer().getMessenger().unregisterIncomingPluginChannel(CoreProtect.getInstance(), PluginChannelHandshakeListener.pluginChannel);
-        CoreProtect.getInstance().getServer().getMessenger().unregisterOutgoingPluginChannel(CoreProtect.getInstance(), PluginChannelHandshakeListener.pluginChannel);
-        CoreProtect.getInstance().getServer().getMessenger().unregisterOutgoingPluginChannel(CoreProtect.getInstance(), PluginChannelListener.pluginChannel);
+        PluginChannelHandshakeListener handshakeListener = PluginChannelHandshakeListener.getInstance();
+        if (handshakeListener != null) {
+            handshakeListener.clearPlayers();
+            HandlerList.unregisterAll(handshakeListener);
+        }
+        CoreProtect plugin = CoreProtect.getInstance();
+        if (plugin == null || plugin.getServer() == null) {
+            return;
+        }
+        plugin.getServer().getMessenger().unregisterIncomingPluginChannel(plugin, PluginChannelHandshakeListener.pluginChannel);
+        plugin.getServer().getMessenger().unregisterOutgoingPluginChannel(plugin, PluginChannelHandshakeListener.pluginChannel);
+        plugin.getServer().getMessenger().unregisterOutgoingPluginChannel(plugin, PluginChannelListener.pluginChannel);
     }
 
 }

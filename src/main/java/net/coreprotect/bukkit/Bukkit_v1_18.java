@@ -1,7 +1,17 @@
 package net.coreprotect.bukkit;
 
+import java.net.URL;
+import java.util.UUID;
+
+import org.bukkit.Bukkit;
+import org.bukkit.block.Skull;
+import org.bukkit.World;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
+import org.bukkit.profile.PlayerProfile;
+import org.bukkit.profile.PlayerTextures;
+
+import net.coreprotect.utility.SkullProfileUtils;
 
 /**
  * Bukkit adapter implementation for Minecraft 1.18.
@@ -10,14 +20,23 @@ import org.bukkit.inventory.MerchantRecipe;
  */
 public class Bukkit_v1_18 extends Bukkit_v1_17 {
 
-    /**
-     * Flag to track whether the MerchantRecipe.adjust() method is available.
-     * This is initialized on first use and prevents repeated reflection checks.
-     * - null: Not yet checked
-     * - true: Method exists and should be used
-     * - false: Method doesn't exist or failed, fallback to parent implementation
-     */
-    private Boolean hasAdjustMethod = null;
+    @Override
+    public boolean isUltraWarm(World world) {
+        return world.isUltraWarm();
+    }
+
+    private static final boolean HAS_RECIPE_ADJUST = hasPublicMethod(MerchantRecipe.class, "adjust", ItemStack.class);
+    private static final boolean HAS_SKULL_PROFILES = hasPublicMethod(Skull.class, "getOwnerProfile");
+
+    protected static boolean hasPublicMethod(Class<?> type, String name, Class<?>... parameters) {
+        try {
+            type.getMethod(name, parameters);
+            return true;
+        }
+        catch (NoSuchMethodException e) {
+            return false;
+        }
+    }
 
     /**
      * Adjusts an ingredient in a merchant recipe for version 1.18+.
@@ -31,32 +50,97 @@ public class Bukkit_v1_18 extends Bukkit_v1_17 {
      */
     @Override
     public ItemStack adjustIngredient(MerchantRecipe recipe, ItemStack itemStack) {
-        if (itemStack == null) {
-            return null;
+        if (itemStack == null || !HAS_RECIPE_ADJUST) {
+            return super.adjustIngredient(recipe, itemStack);
         }
 
         try {
-            // First-time detection of adjust method availability
-            if (hasAdjustMethod == null) {
-                hasAdjustMethod = true;
-                // Test if the adjust method exists using reflection
-                MerchantRecipe.class.getMethod("adjust", ItemStack.class); // Bukkit 1.18.1+
-            }
-            // Skip if we've already determined the method isn't available
-            else if (Boolean.FALSE.equals(hasAdjustMethod)) {
-                return super.adjustIngredient(recipe, itemStack);
-            }
-
-            // Create a clone to avoid modifying the original itemStack
             ItemStack adjustedStack = itemStack.clone();
             recipe.adjust(adjustedStack);
             return adjustedStack;
         }
-        catch (Exception e) {
-            // Method doesn't exist or failed, mark it for future calls
-            hasAdjustMethod = false;
+        catch (RuntimeException e) {
             return super.adjustIngredient(recipe, itemStack);
         }
     }
 
+    @Override
+    public String getSkullProfileOwner(Skull skull) {
+        return HAS_SKULL_PROFILES ? SkullProfiles.getOwner(skull) : null;
+    }
+
+    @Override
+    public void setSkullProfileOwner(Skull skull, String name) {
+        if (HAS_SKULL_PROFILES && SkullProfileUtils.isOwnerName(name)) {
+            SkullProfiles.setOwner(skull, name);
+        }
+    }
+
+    @Override
+    public String getSkullSkin(Skull skull) {
+        return HAS_SKULL_PROFILES ? SkullProfiles.getSkin(skull) : null;
+    }
+
+    @Override
+    public void setSkullSkin(Skull skull, String skin) {
+        if (HAS_SKULL_PROFILES) {
+            SkullProfiles.setSkin(skull, skin);
+        }
+    }
+
+    private static final class SkullProfiles {
+        private static PlayerProfile getProfile(Skull skull) {
+            try {
+                return skull.getOwnerProfile();
+            }
+            catch (IllegalArgumentException e) {
+                return null;
+            }
+        }
+
+        private static String getOwner(Skull skull) {
+            PlayerProfile profile = getProfile(skull);
+            if (profile == null) {
+                return null;
+            }
+
+            UUID uuid = profile.getUniqueId();
+            return uuid == null ? profile.getName() : uuid.toString();
+        }
+
+        private static void setOwner(Skull skull, String name) {
+            try {
+                skull.setOwnerProfile(Bukkit.createPlayerProfile(name));
+            }
+            catch (IllegalArgumentException ignored) {
+            }
+        }
+
+        private static String getSkin(Skull skull) {
+            PlayerProfile profile = getProfile(skull);
+            URL skin = profile == null ? null : profile.getTextures().getSkin();
+            return skin == null ? null : skin.toString();
+        }
+
+        private static void setSkin(Skull skull, String skin) {
+            URL url = SkullProfileUtils.getSkinUrl(skin);
+            if (url == null) {
+                return;
+            }
+
+            try {
+                PlayerProfile profile = getProfile(skull);
+                if (profile == null || (profile.getUniqueId() == null && !SkullProfileUtils.isOwnerName(profile.getName()))) {
+                    profile = Bukkit.createPlayerProfile(UUID.randomUUID());
+                }
+
+                PlayerTextures textures = profile.getTextures();
+                textures.setSkin(url);
+                profile.setTextures(textures);
+                skull.setOwnerProfile(profile);
+            }
+            catch (IllegalArgumentException ignored) {
+            }
+        }
+    }
 }

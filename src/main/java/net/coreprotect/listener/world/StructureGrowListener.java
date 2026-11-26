@@ -18,6 +18,7 @@ import org.bukkit.event.world.StructureGrowEvent;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
+import net.coreprotect.utility.BlockUtils;
 
 public final class StructureGrowListener extends Queue implements Listener {
 
@@ -56,11 +57,12 @@ public final class StructureGrowListener extends Queue implements Listener {
                     user = player.getName();
                 }
 
-                List<BlockState> structureBlocks = new ArrayList<>(blocks);
-                structureBlocks.removeIf(replacedBlock -> replacedBlock.getY() > location.getBlockY());
-                for (int i = 0; i < structureBlocks.size(); i++) {
-                    BlockState replacedBlock = structureBlocks.get(i);
-                    structureBlocks.set(i, replacedBlock.getBlock().getState());
+                List<BlockState> structureBlocks = new ArrayList<>(blocks.size());
+                for (BlockState changedBlock : blocks) {
+                    BlockState original = changedBlock.getBlock().getState();
+                    if (!BlockUtils.isAir(original.getType())) {
+                        structureBlocks.add(original);
+                    }
                 }
 
                 int replacedListSize = structureBlocks.size();

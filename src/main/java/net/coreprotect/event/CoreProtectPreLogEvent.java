@@ -1,11 +1,14 @@
 package net.coreprotect.event;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.EntityType;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
+
+import net.coreprotect.utility.StringUtils;
 
 public class CoreProtectPreLogEvent extends Event implements Cancellable {
 
@@ -19,7 +22,11 @@ public class CoreProtectPreLogEvent extends Event implements Cancellable {
         SIGN_TEXT,
         CONTAINER_TRANSACTION,
         ITEM_TRANSACTION,
-        PLAYER_COMMAND
+        PLAYER_COMMAND,
+        ENTITY_SPAWN,
+        ENTITY_INTERACTION,
+        PLAYER_CHAT,
+        PLAYER_SESSION
     }
 
     private static final HandlerList handlers = new HandlerList();
@@ -37,9 +44,9 @@ public class CoreProtectPreLogEvent extends Event implements Cancellable {
     }
 
     public CoreProtectPreLogEvent(String user, Location location, Action action, int actionId, Material material, EntityType entityType, String message) {
-        super(true);
-        this.user = user;
-        this.location = location;
+        super(Bukkit.getServer() == null || !Bukkit.isPrimaryThread());
+        this.user = StringUtils.normalizeUsername(user);
+        this.location = location == null ? null : location.clone();
         this.action = action == null ? Action.UNKNOWN : action;
         this.actionId = actionId;
         this.material = material;
@@ -60,8 +67,9 @@ public class CoreProtectPreLogEvent extends Event implements Cancellable {
         return user;
     }
 
+    /** Returns a copy. Use {@link #setLocation(Location)} to relocate the event. */
     public Location getLocation() {
-        return location;
+        return location == null ? null : location.clone();
     }
 
     public Action getAction() {
@@ -99,7 +107,7 @@ public class CoreProtectPreLogEvent extends Event implements Cancellable {
             throw new IllegalArgumentException("Invalid user");
         }
 
-        this.user = newUser;
+        this.user = StringUtils.normalizeUsername(newUser);
     }
 
     public void setLocation(Location newLocation) {
@@ -107,7 +115,12 @@ public class CoreProtectPreLogEvent extends Event implements Cancellable {
             throw new IllegalArgumentException("Invalid location");
         }
 
-        this.location = newLocation;
+        Location copy = newLocation.clone();
+        if (copy.getWorld() == null) {
+            throw new IllegalArgumentException("Invalid location");
+        }
+
+        this.location = copy;
     }
 
     @Override

@@ -6,7 +6,7 @@ import java.sql.Statement;
 
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.database.Database;
+import net.coreprotect.utility.ErrorReporter;
 
 public class __2_15_0 {
 
@@ -21,42 +21,31 @@ public class __2_15_0 {
 
             String query = "SELECT rowid as id, material FROM " + ConfigHandler.prefix + "material_map";
             String preparedQuery = "UPDATE " + ConfigHandler.prefix + "material_map SET material = ? WHERE rowid = ?";
-            PreparedStatement preparedStatement = statement.getConnection().prepareStatement(preparedQuery);
-
-            Database.beginTransaction(statement, Config.getGlobal().MYSQL);
-            ResultSet rs = statement.executeQuery(query);
-            while (rs.next()) {
-                int rowid = rs.getInt("id");
-                String material = rs.getString("material");
-                if (material.startsWith("minecraft:") && !material.contains("minecraft:legacy_")) {
-                    material = material.replace("minecraft:", "minecraft:legacy_");
-                    preparedStatement.setString(1, material);
-                    preparedStatement.setInt(2, rowid);
-                    preparedStatement.executeUpdate();
+            LegacyPatchTransaction.run(statement, () -> {
+                try (PreparedStatement update = statement.getConnection().prepareStatement(preparedQuery);
+                        ResultSet rows = statement.executeQuery(query)) {
+                    while (rows.next()) {
+                        String material = rows.getString("material");
+                        if (material != null && material.startsWith("minecraft:") && !material.startsWith("minecraft:legacy_")) {
+                            update.setString(1, "minecraft:legacy_" + material.substring("minecraft:".length()));
+                            update.setLong(2, rows.getLong("id"));
+                            update.executeUpdate();
+                        }
+                    }
                 }
-            }
-            rs.close();
-            Database.commitTransaction(statement, Config.getGlobal().MYSQL);
+            });
 
-            try {
-                if (Config.getGlobal().MYSQL) {
-                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "block MODIFY COLUMN rowid bigint NOT NULL AUTO_INCREMENT, ADD COLUMN blockdata BLOB");
-                }
-                else {
-                    statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "block ADD COLUMN blockdata BLOB");
-                }
+            String block = ConfigHandler.prefix + "block";
+            if (Config.getGlobal().MYSQL && !LegacyPatchSchema.columns(statement, block).getOrDefault("rowid", "").startsWith("bigint")) {
+                statement.executeUpdate("ALTER TABLE " + block + " MODIFY COLUMN rowid BIGINT NOT NULL AUTO_INCREMENT");
             }
-            catch (Exception e) {
-                // already updated
-            }
-
-            ConfigHandler.loadTypes(statement);
+            LegacyPatchSchema.ensureColumn(statement, block, "blockdata", "BLOB");
+            return ConfigHandler.loadTypes(statement);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
+            return false;
         }
-
-        return true;
     }
 
 }

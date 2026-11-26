@@ -13,10 +13,13 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockFromToEvent;
 
+import net.coreprotect.CoreProtect;
+import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.config.Config;
 import net.coreprotect.consumer.Queue;
-import net.coreprotect.database.Lookup;
 import net.coreprotect.thread.CacheHandler;
+import net.coreprotect.thread.Scheduler;
+import net.coreprotect.utility.BlockUtils;
 import net.coreprotect.utility.WorldUtils;
 
 public final class BlockFromToListener extends Queue implements Listener {
@@ -42,20 +45,13 @@ public final class BlockFromToListener extends Queue implements Listener {
             Config config = Config.getConfig(world);
             if ((config.WATER_FLOW && type.equals(Material.WATER)) || (config.LAVA_FLOW && type.equals(Material.LAVA))) {
                 Block toBlock = event.getToBlock();
-                BlockState toBlockState = toBlock.getState();
+                BlockState before = toBlock.getState();
+                BlockState toBlockState = BlockUtils.isAir(before.getType()) ? null : before;
 
                 if (blockData instanceof Levelled) {
                     Levelled levelled = (Levelled) blockData;
-                    int waterLevel = levelled.getLevel() + 1;
-                    if (waterLevel > 8) {
-                        waterLevel = waterLevel - 8;
-                    }
-                    levelled.setLevel(waterLevel);
-                    blockData = levelled;
-                }
-
-                if ((toBlock.getBlockData() instanceof Waterlogged) || toBlock.isEmpty()) {
-                    toBlockState = null;
+                    int spread = type == Material.LAVA && !BukkitAdapter.ADAPTER.isUltraWarm(world) ? 2 : 1;
+                    levelled.setLevel(flowLevel(levelled.getLevel(), toBlock.getY() < block.getY(), spread));
                 }
 
                 String f = "#flow";
@@ -66,13 +62,8 @@ public final class BlockFromToListener extends Queue implements Listener {
                     f = "#lava";
                 }
 
-                int unixtimestamp = (int) (System.currentTimeMillis() / 1000L);
-                int x = toBlock.getX();
-                int y = toBlock.getY();
-                int z = toBlock.getZ();
-                int wid = WorldUtils.getWorldId(block.getWorld().getName());
                 if (config.LIQUID_TRACKING) {
-                    String p = Lookup.whoPlacedCache(block);
+                    String p = CacheHandler.getBlockSourceActor(world, block.getX(), block.getY(), block.getZ());
                     if (p.length() > 0) {
                         f = p;
                     }
@@ -92,8 +83,25 @@ public final class BlockFromToListener extends Queue implements Listener {
                     return;
                 }
 
-                CacheHandler.lookupCache.put("" + x + "." + y + "." + z + "." + wid + "", new Object[] { unixtimestamp, f, type });
-                Queue.queueBlockPlace(f, toBlock.getState(), block.getType(), toBlockState, type, -1, 0, blockData.getAsString());
+                if (toBlockState != null && before.getBlockData() instanceof Waterlogged) {
+                    String user = f;
+                    Material liquid = type;
+                    boolean wasWaterlogged = ((Waterlogged) before.getBlockData()).isWaterlogged();
+                    String flowData = blockData.getAsString();
+                    Scheduler.runTask(CoreProtect.getInstance(), () -> {
+                        BlockData after = toBlock.getBlockData();
+                        if (after.getMaterial() == liquid) {
+                            queueFlow(user, before, before, liquid, after.getAsString());
+                        }
+                        else if (liquid == Material.WATER && !wasWaterlogged && after.getMaterial() == before.getType()
+                                && after instanceof Waterlogged && ((Waterlogged) after).isWaterlogged()) {
+                            queueFlow(user, before, null, liquid, flowData);
+                        }
+                    }, before.getLocation());
+                }
+                else {
+                    queueFlow(f, before, toBlockState, type, blockData.getAsString());
+                }
             }
             else if (type.equals(Material.DRAGON_EGG)) {
                 Location location = block.getLocation();
@@ -109,7 +117,7 @@ public final class BlockFromToListener extends Queue implements Listener {
                     long newTime = System.currentTimeMillis();
                     long oldTime = (long) data[0];
 
-                    if ((newTime - oldTime) < 20) { // 50ms = 1 tick
+                    if ((newTime - oldTime) >= 0 && (newTime - oldTime) <= 50) {
                         user = (String) data[2];
                     }
                     CacheHandler.interactCache.remove(coordinates);
@@ -129,6 +137,15 @@ public final class BlockFromToListener extends Queue implements Listener {
                 }
             }
         }
+    }
+
+    static int flowLevel(int sourceLevel, boolean falling, int spread) {
+        return falling ? 8 : Math.min(7, (sourceLevel & 7) + spread);
+    }
+
+    private static void queueFlow(String user, BlockState target, BlockState replaced, Material liquid, String data) {
+        CacheHandler.recordBlockSource(target.getWorld(), target.getX(), target.getY(), target.getZ(), user, liquid);
+        Queue.queueBlockPlace(user, target, liquid, replaced, liquid, -1, 0, data);
     }
 
     private boolean shouldSuppressFlowDuplicate(String user, Block sourceBlock, Block targetBlock, Material liquidType, BlockData blockData, BlockState replacedState) {

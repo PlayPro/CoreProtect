@@ -2,26 +2,90 @@ package net.coreprotect.api;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.StringJoiner;
+import java.util.stream.Collectors;
 
 import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.World;
 
+import net.coreprotect.config.Config;
+import net.coreprotect.config.ConfigHandler;
+import net.coreprotect.database.Database;
+import net.coreprotect.database.DatabaseType;
+import net.coreprotect.database.DuckDBLookupQuery;
+import net.coreprotect.database.DuckDBSpatialIndex;
+import net.coreprotect.database.LocationQuery;
+import net.coreprotect.database.statement.UserStatement;
+import net.coreprotect.model.action.LookupActions;
+import net.coreprotect.utility.ErrorReporter;
+import net.coreprotect.utility.ItemUtils;
+import net.coreprotect.utility.MaterialUtils;
+import net.coreprotect.utility.StringUtils;
 import net.coreprotect.utility.WorldUtils;
 
 final class LookupFilter {
     private final Integer userId;
     private final int checkTime;
     private final Location location;
+    private final Integer worldId;
+    private final boolean invalidLocation;
     private final int radius;
     private final int limitOffset;
     private final int limitCount;
+    private final List<Material> includeMaterials;
+    private final List<Material> excludeMaterials;
+    private final Map<Integer, Material> materialTypes;
+    private final String includeUserIds;
+    private final String excludeUserIds;
 
-    private LookupFilter(Integer userId, int checkTime, Location location, int radius, int limitOffset, int limitCount) {
+    private LookupFilter(Integer userId, int checkTime, Location location, Integer worldId, boolean invalidLocation, int radius, int limitOffset, int limitCount, List<Material> includeMaterials, List<Material> excludeMaterials, Map<Integer, Material> materialTypes, String includeUserIds, String excludeUserIds) {
         this.userId = userId;
         this.checkTime = checkTime;
         this.location = location;
+        this.worldId = worldId;
+        this.invalidLocation = invalidLocation;
         this.radius = radius;
         this.limitOffset = limitOffset;
         this.limitCount = limitCount;
+        this.includeMaterials = includeMaterials;
+        this.excludeMaterials = excludeMaterials;
+        this.materialTypes = materialTypes;
+        this.includeUserIds = includeUserIds;
+        this.excludeUserIds = excludeUserIds;
+    }
+
+    static <R> List<R> execute(LookupOptions options, TypedReader<R> reader) {
+        List<R> result = new ArrayList<>();
+        if (!Config.getGlobal().API_ENABLED || (options != null && options.hasInvalidLocation())) {
+            return result;
+        }
+
+        LookupOptions selected = options == null ? LookupOptions.builder().build() : options;
+        try (Connection connection = Database.getConnection(false, 1000)) {
+            if (connection != null) {
+                LookupFilter filter = fromOptions(connection, selected);
+                if (!filter.hasInvalidUser() && !filter.hasInvalidLocation()) {
+                    reader.read(connection, filter, selected, result);
+                }
+            }
+        }
+        catch (Exception exception) {
+            ErrorReporter.report(exception);
+        }
+        return result;
+    }
+
+    @FunctionalInterface
+    interface TypedReader<R> {
+        void read(Connection connection, LookupFilter filter, LookupOptions options, List<R> result) throws Exception;
     }
 
     static LookupFilter fromOptions(Connection connection, LookupOptions options) throws Exception {
@@ -29,48 +93,363 @@ final class LookupFilter {
             options = LookupOptions.builder().build();
         }
 
-        Integer userId = MessageAPI.getUserId(connection, options.getUser());
+        Integer userId = getUserId(connection, options.getUser());
         int checkTime = 0;
         if (options.getTime() > 0) {
-            checkTime = (int) (System.currentTimeMillis() / 1000L) - options.getTime();
+            checkTime = clampToInt(Math.max(0L, System.currentTimeMillis() / 1000L - options.getTime()));
         }
 
-        return new LookupFilter(userId, checkTime, options.getLocation(), options.getRadius(), options.getLimitOffset(), options.getLimitCount());
+        Location location = options.getLocation();
+        World world = location == null ? options.getWorld() : location.getWorld();
+        Integer worldId = world == null ? null : WorldUtils.findWorldId(connection, world.getName());
+        boolean invalidLocation = options.hasInvalidLocation() || (location != null && world == null) || (worldId != null && worldId < 0);
+        Map<Integer, Material> materialTypes = Collections.emptyMap();
+        if (!invalidLocation && (!options.getIncludeMaterials().isEmpty() || !options.getExcludeMaterials().isEmpty())) {
+            materialTypes = readMaterialTypes(connection);
+        }
+
+        return new LookupFilter(userId, checkTime, location, worldId, invalidLocation, options.getRadius(), options.getLimitOffset(), options.getLimitCount(),
+                options.getIncludeMaterials(), options.getExcludeMaterials(), materialTypes,
+                options.getUsers().isEmpty() ? null : userIds(connection, options.getUsers()), userIds(connection, options.getExcludeUsers()));
+    }
+
+    private static Map<Integer, Material> readMaterialTypes(Connection connection) throws Exception {
+        Map<Integer, String> cached = ConfigHandler.materialsReversed;
+        Map<Integer, String> materialNames;
+        synchronized (cached) {
+            materialNames = new HashMap<>(cached);
+        }
+        materialNames.keySet().removeIf(id -> id < 0);
+        boolean shared = (ConfigHandler.databaseType == DatabaseType.MYSQL || ConfigHandler.databaseType.isClickHouse()) && !Config.getGlobal().DATABASE_LOCK;
+        if (materialNames.isEmpty() || shared) {
+            String uncached = materialNames.isEmpty() ? "" : materialNames.keySet().stream().map(String::valueOf)
+                    .collect(Collectors.joining(",", " WHERE id NOT IN (", ")"));
+            try (PreparedStatement statement = connection.prepareStatement("SELECT id, material FROM " + ConfigHandler.prefix + "material_map" + uncached);
+                    ResultSet results = statement.executeQuery()) {
+                while (results.next()) {
+                    materialNames.put(results.getInt("id"), results.getString("material"));
+                }
+            }
+        }
+        Map<Integer, Material> materialTypes = new HashMap<>();
+        materialNames.forEach((id, material) -> materialTypes.put(id, MaterialUtils.getTypeFromStoredName(material)));
+        return materialTypes;
     }
 
     boolean hasInvalidUser() {
-        return userId != null && userId == -1;
+        return userId != null && userId < 0;
     }
 
     boolean hasInvalidLocation() {
-        return location != null && location.getWorld() == null;
+        return invalidLocation;
     }
 
     boolean hasLocation() {
         return location != null;
     }
 
+    boolean beginDuckDBSnapshot(Connection connection) throws Exception {
+        if (!ConfigHandler.databaseType.isDuckDB() || location == null || !connection.getAutoCommit()) {
+            return false;
+        }
+        connection.setAutoCommit(false);
+        return true;
+    }
+
+    void endDuckDBSnapshot(Connection connection, boolean started) throws Exception {
+        if (!started) {
+            return;
+        }
+        try {
+            connection.rollback();
+        }
+        finally {
+            connection.setAutoCommit(true);
+        }
+    }
+
     void appendWhere(StringBuilder query) {
-        query.append("WHERE time > ?");
+        appendWhere(query, "");
+    }
+
+    void appendWhere(StringBuilder query, String alias) {
+        String qualifier = alias.isEmpty() ? "" : alias + ".";
+        query.append("WHERE ").append(qualifier).append("time > ?");
 
         if (userId != null) {
-            query.append(" AND user = ?");
+            query.append(" AND ").append(qualifier).append(ConfigHandler.databaseType.getUserColumn()).append(" = ?");
         }
+        appendUserWhere(query, alias, includeUserIds, excludeUserIds);
 
+        if (worldId != null) {
+            query.append(" AND ").append(LocationQuery.predicate(qualifier + "wid", " = ?"));
+        }
         if (location != null) {
-            query.append(" AND wid = ?");
             if (radius > 0) {
-                query.append(" AND x >= ? AND x <= ? AND z >= ? AND z <= ?");
+                query.append(" AND ").append(LocationQuery.predicate(qualifier + "x", " >= ?"))
+                        .append(" AND ").append(LocationQuery.predicate(qualifier + "x", " <= ?"))
+                        .append(" AND ").append(LocationQuery.predicate(qualifier + "z", " >= ?"))
+                        .append(" AND ").append(LocationQuery.predicate(qualifier + "z", " <= ?"));
             }
             else {
-                query.append(" AND x = ? AND y = ? AND z = ?");
+                query.append(" AND ").append(LocationQuery.predicate(qualifier + "x", " = ?"))
+                        .append(" AND ").append(qualifier).append("y = ? AND ").append(LocationQuery.predicate(qualifier + "z", " = ?"));
             }
         }
     }
 
+    void appendEntityContainerWhere(StringBuilder query, String transactionAlias, String entityAlias) {
+        appendTrackedEntityWhere(query, transactionAlias, entityAlias, null);
+    }
+
+    void appendEntityWhere(Connection connection, StringBuilder query, String alias) {
+        appendTrackedEntityWhere(query, alias, "spawn_rows", table(connection, "block", "original_rows"));
+    }
+
+    private void appendTrackedEntityWhere(StringBuilder query, String transactionAlias, String entityAlias, String originalTable) {
+        String transaction = transactionAlias + ".";
+        String entity = entityAlias + ".";
+        query.append("WHERE ").append(transaction).append("time > ?");
+        if (userId != null) {
+            query.append(" AND ").append(transaction).append(ConfigHandler.databaseType.getUserColumn()).append(" = ?");
+        }
+        appendUserWhere(query, transactionAlias, includeUserIds, excludeUserIds);
+        if (worldId == null) {
+            return;
+        }
+
+        String original = originalTable == null ? transaction : "original_rows.";
+        String tracked = ") OR (";
+        String ending = "))";
+        if (originalTable != null) {
+            String trackingId = ConfigHandler.databaseType.isClickHouse() ? "accurateCastOrNull(linked_rows.data, 'UInt64')" : "linked_rows.data";
+            String trackedRows = "SELECT " + entity + "block_rowid AS rowid FROM " + ConfigHandler.prefix + "entity_spawn " + entityAlias
+                    + " INNER JOIN " + ConfigHandler.prefix + "block linked_rows ON linked_rows.rowid=" + entity + "block_rowid AND " + trackingId + "=" + entity + "rowid"
+                    + " AND linked_rows.action=" + LookupActions.ENTITY_SPAWN + " WHERE (";
+            if (location == null) {
+                query.append(" AND (").append(LocationQuery.predicate(transaction + "wid", " = ?"))
+                        .append(" OR ").append(transaction).append("rowid IN (").append(trackedRows).append(entity).append("current_wid = ?)))");
+                return;
+            }
+            // Separate location candidates keep both spatial indexes usable, including on MySQL.
+            query.append(" AND ").append(transaction).append("rowid IN (SELECT rowid FROM (SELECT original_rows.rowid AS rowid FROM ").append(originalTable).append(" WHERE (");
+            tracked = ") UNION ALL " + trackedRows;
+            ending = ")) entity_locations)";
+        }
+        else {
+            query.append(" AND ((");
+        }
+
+        query.append(LocationQuery.predicate(original + "wid", " = ?"));
+        if (location == null) {
+            query.append(tracked).append(entity).append("current_wid = ?").append(ending);
+            return;
+        }
+
+        if (radius > 0) {
+            query.append(" AND ").append(LocationQuery.predicate(original + "x", " >= ?"))
+                    .append(" AND ").append(LocationQuery.predicate(original + "x", " <= ?"))
+                    .append(" AND ").append(LocationQuery.predicate(original + "z", " >= ?"))
+                    .append(" AND ").append(LocationQuery.predicate(original + "z", " <= ?"));
+        }
+        else {
+            query.append(" AND ").append(LocationQuery.predicate(original + "x", " = ?"))
+                    .append(" AND ").append(original).append("y = ? AND ").append(LocationQuery.predicate(original + "z", " = ?"));
+        }
+
+        query.append(tracked).append(entity).append("current_wid = ?");
+        if (radius > 0) {
+            query.append(" AND ").append(entity).append("x >= ? AND ").append(entity).append("x < ? AND ").append(entity).append("z >= ? AND ").append(entity).append("z < ?");
+        }
+        else {
+            query.append(" AND ").append(entity).append("x >= ? AND ").append(entity).append("x < ? AND ").append(entity).append("y >= ? AND ").append(entity).append("y < ? AND ").append(entity).append("z >= ? AND ").append(entity).append("z < ?");
+        }
+        query.append(ending);
+    }
+
+    static void appendActionWhere(StringBuilder query, String alias, int[] actions) {
+        if (actions.length > 0) {
+            StringJoiner ids = new StringJoiner(",");
+            for (int action : actions) {
+                ids.add(String.valueOf(action));
+            }
+            query.append(" AND ").append(alias.isEmpty() ? "" : alias + ".").append("action IN (").append(ids).append(")");
+        }
+    }
+
+    void appendMaterialWhere(StringBuilder query) {
+        appendMaterialWhere(query, "");
+    }
+
+    void appendMaterialWhere(StringBuilder query, String alias) {
+        appendMaterialWhere(query, alias, false);
+    }
+
+    void appendMaterialWhere(StringBuilder query, String alias, boolean inventoryBlock) {
+        String qualifier = alias.isEmpty() ? "" : alias + ".";
+        if (!includeMaterials.isEmpty()) {
+            appendIdWhere(query, qualifier + "type", materialIds(includeMaterials, inventoryBlock), true);
+        }
+        if (!excludeMaterials.isEmpty()) {
+            appendIdWhere(query, qualifier + "type", materialIds(excludeMaterials, inventoryBlock), false);
+        }
+    }
+
+    void appendBlockMaterialWhere(StringBuilder query) {
+        String entityActions = LookupActions.ENTITY_KILL + "," + LookupActions.ENTITY_SPAWN;
+        if (!includeMaterials.isEmpty()) {
+            String predicate = blockMaterialPredicate(includeMaterials);
+            if (predicate == null) {
+                query.append(" AND 1 = 0");
+            }
+            else {
+                query.append(" AND action NOT IN (").append(entityActions).append(") AND ").append(predicate);
+            }
+        }
+        if (!excludeMaterials.isEmpty()) {
+            String predicate = blockMaterialPredicate(excludeMaterials);
+            if (predicate != null) {
+                query.append(" AND (action IN (").append(entityActions).append(") OR NOT ").append(predicate).append(")");
+            }
+        }
+    }
+
+    private String blockMaterialPredicate(List<Material> materials) {
+        List<Material> blockMaterials = materials.stream().filter(material -> material != Material.STONE).collect(Collectors.toList());
+        String ids = materialIds(blockMaterials, false);
+        String stone = legacyStonePredicate(materials);
+        if (ids.isEmpty()) {
+            return stone;
+        }
+        String type = "type IN (" + ids + ")";
+        return stone == null ? "(" + type + ")" : "(" + type + " OR " + stone + ")";
+    }
+
+    private String legacyStonePredicate(List<Material> materials) {
+        StringJoiner stoneData = new StringJoiner(",");
+        for (int data = 1; data <= 6; data++) {
+            Material material = Material.getMaterial(StringUtils.nameFilter("stone", data).toUpperCase(Locale.ROOT));
+            if (material != null && materials.contains(material)) {
+                stoneData.add(String.valueOf(data));
+            }
+        }
+
+        StringJoiner predicates = new StringJoiner(" OR ");
+        if (materials.contains(Material.STONE)) {
+            predicates.add("COALESCE(data,0) NOT BETWEEN 1 AND 6");
+        }
+        if (stoneData.length() > 0) {
+            predicates.add("COALESCE(data,0) IN (" + stoneData + ")");
+        }
+        if (predicates.length() == 0) {
+            return null;
+        }
+
+        String ids = materialIds(List.of(Material.STONE), false);
+        return ids.isEmpty() ? null : "(type IN (" + ids + ") AND (" + predicates + "))";
+    }
+
+    String table(Connection connection, String table, String alias) {
+        if (location == null) {
+            return ConfigHandler.prefix + table + alias(alias);
+        }
+
+        int x = location.getBlockX();
+        int z = location.getBlockZ();
+        int minimumX = radius > 0 ? clampToInt((long) x - radius) : x;
+        int maximumX = radius > 0 ? clampToInt((long) x + radius) : x;
+        int minimumZ = radius > 0 ? clampToInt((long) z - radius) : z;
+        int maximumZ = radius > 0 ? clampToInt((long) z + radius) : z;
+        return DuckDBLookupQuery.spatialTable(connection, table, worldId, minimumX, maximumX, minimumZ, maximumZ, alias);
+    }
+
+    String entityContainerTable(Connection connection, String alias) throws Exception {
+        return trackedEntityTable(connection, "entity_container", alias);
+    }
+
+    String entityTable(Connection connection, String alias) throws Exception {
+        return trackedEntityTable(connection, "block", alias);
+    }
+
+    private String trackedEntityTable(Connection connection, String table, String alias) throws Exception {
+        if (location == null || !ConfigHandler.databaseType.isDuckDB()) {
+            return ConfigHandler.prefix + table + alias(alias);
+        }
+
+        int x = location.getBlockX();
+        int z = location.getBlockZ();
+        int minimumX = radius > 0 ? clampToInt((long) x - radius) : x;
+        int maximumX = radius > 0 ? clampToInt((long) x + radius) : x;
+        int minimumZ = radius > 0 ? clampToInt((long) z - radius) : z;
+        int maximumZ = radius > 0 ? clampToInt((long) z + radius) : z;
+        boolean block = table.equals("block");
+        List<Long> rowIds = loadCurrentEntityRowIds(connection, block ? "block_rowid" : "rowid");
+        if (!block && rowIds.stream().anyMatch(id -> id > Integer.MAX_VALUE)) {
+            return ConfigHandler.prefix + table + alias(alias);
+        }
+        return DuckDBSpatialIndex.tableExpression(
+                connection,
+                ConfigHandler.prefix,
+                table,
+                worldId,
+                minimumX,
+                maximumX,
+                minimumZ,
+                maximumZ,
+                block ? Collections.emptySet() : rowIds.stream().map(Long::intValue).collect(Collectors.toList()),
+                block ? rowIds : Collections.emptySet(),
+                alias
+        );
+    }
+
+    private List<Long> loadCurrentEntityRowIds(Connection connection, String column) throws Exception {
+        List<Long> rowIds = new ArrayList<>();
+        StringBuilder query = new StringBuilder("SELECT ").append(column).append(" FROM ").append(ConfigHandler.prefix).append("entity_spawn WHERE current_wid=?");
+        if (radius > 0) {
+            query.append(" AND x>=? AND x<? AND z>=? AND z<?");
+        }
+        else {
+            query.append(" AND x>=? AND x<? AND y>=? AND y<? AND z>=? AND z<?");
+        }
+        try (PreparedStatement statement = connection.prepareStatement(query.toString())) {
+            int parameterIndex = 1;
+            int x = location.getBlockX();
+            int y = location.getBlockY();
+            int z = location.getBlockZ();
+            statement.setInt(parameterIndex++, worldId);
+            if (radius > 0) {
+                int minimumX = clampToInt((long) x - radius);
+                int maximumX = clampToInt((long) x + radius);
+                int minimumZ = clampToInt((long) z - radius);
+                int maximumZ = clampToInt((long) z + radius);
+                statement.setInt(parameterIndex++, minimumX);
+                statement.setLong(parameterIndex++, (long) maximumX + 1L);
+                statement.setInt(parameterIndex++, minimumZ);
+                statement.setLong(parameterIndex, (long) maximumZ + 1L);
+            }
+            else {
+                statement.setInt(parameterIndex++, x);
+                statement.setLong(parameterIndex++, (long) x + 1L);
+                statement.setInt(parameterIndex++, y);
+                statement.setLong(parameterIndex++, (long) y + 1L);
+                statement.setInt(parameterIndex++, z);
+                statement.setLong(parameterIndex, (long) z + 1L);
+            }
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next() && rowIds.size() <= 4_096) {
+                    long rowId = resultSet.getLong(1);
+                    if (!resultSet.wasNull()) {
+                        rowIds.add(rowId);
+                    }
+                }
+            }
+        }
+        return rowIds;
+    }
+
     void appendLimit(StringBuilder query) {
         if (limitOffset >= 0 && limitCount >= 0) {
-            query.append(" LIMIT ").append(limitOffset).append(", ").append(limitCount);
+            query.append(" LIMIT ").append(limitCount).append(" OFFSET ").append(limitOffset);
         }
     }
 
@@ -85,17 +464,19 @@ final class LookupFilter {
             statement.setInt(parameterIndex++, userId);
         }
 
+        if (worldId != null) {
+            statement.setInt(parameterIndex++, worldId);
+        }
+
         if (location != null) {
             int x = location.getBlockX();
             int y = location.getBlockY();
             int z = location.getBlockZ();
-            statement.setInt(parameterIndex++, WorldUtils.getWorldId(location.getWorld().getName()));
-
             if (radius > 0) {
-                statement.setInt(parameterIndex++, MessageAPI.clampToInt((long) x - radius));
-                statement.setInt(parameterIndex++, MessageAPI.clampToInt((long) x + radius));
-                statement.setInt(parameterIndex++, MessageAPI.clampToInt((long) z - radius));
-                statement.setInt(parameterIndex++, MessageAPI.clampToInt((long) z + radius));
+                statement.setInt(parameterIndex++, clampToInt((long) x - radius));
+                statement.setInt(parameterIndex++, clampToInt((long) x + radius));
+                statement.setInt(parameterIndex++, clampToInt((long) z - radius));
+                statement.setInt(parameterIndex++, clampToInt((long) z + radius));
             }
             else {
                 statement.setInt(parameterIndex++, x);
@@ -105,5 +486,129 @@ final class LookupFilter {
         }
 
         return parameterIndex;
+    }
+
+    int bindEntityContainer(PreparedStatement statement, int parameterIndex) throws Exception {
+        return bindTrackedEntity(statement, parameterIndex);
+    }
+
+    int bindTrackedEntity(PreparedStatement statement, int parameterIndex) throws Exception {
+        statement.setInt(parameterIndex++, checkTime);
+        if (userId != null) {
+            statement.setInt(parameterIndex++, userId);
+        }
+        if (worldId == null) {
+            return parameterIndex;
+        }
+
+        if (location == null) {
+            statement.setInt(parameterIndex++, worldId);
+            statement.setInt(parameterIndex++, worldId);
+            return parameterIndex;
+        }
+
+        int x = location.getBlockX();
+        int y = location.getBlockY();
+        int z = location.getBlockZ();
+        statement.setInt(parameterIndex++, worldId);
+        if (radius > 0) {
+            int minimumX = clampToInt((long) x - radius);
+            int maximumX = clampToInt((long) x + radius);
+            int minimumZ = clampToInt((long) z - radius);
+            int maximumZ = clampToInt((long) z + radius);
+            statement.setInt(parameterIndex++, minimumX);
+            statement.setInt(parameterIndex++, maximumX);
+            statement.setInt(parameterIndex++, minimumZ);
+            statement.setInt(parameterIndex++, maximumZ);
+            statement.setInt(parameterIndex++, worldId);
+            statement.setInt(parameterIndex++, minimumX);
+            statement.setLong(parameterIndex++, (long) maximumX + 1L);
+            statement.setInt(parameterIndex++, minimumZ);
+            statement.setLong(parameterIndex++, (long) maximumZ + 1L);
+        }
+        else {
+            statement.setInt(parameterIndex++, x);
+            statement.setInt(parameterIndex++, y);
+            statement.setInt(parameterIndex++, z);
+            statement.setInt(parameterIndex++, worldId);
+            statement.setInt(parameterIndex++, x);
+            statement.setLong(parameterIndex++, (long) x + 1L);
+            statement.setInt(parameterIndex++, y);
+            statement.setLong(parameterIndex++, (long) y + 1L);
+            statement.setInt(parameterIndex++, z);
+            statement.setLong(parameterIndex++, (long) z + 1L);
+        }
+        return parameterIndex;
+    }
+
+    static String userIds(Connection connection, List<String> users) throws Exception {
+        StringJoiner result = new StringJoiner(",");
+        for (String user : users) {
+            Integer id = getUserId(connection, user);
+            if (id == null) {
+                // An empty name or #global matches every user.
+                return null;
+            }
+            if (id >= 0) {
+                result.add(String.valueOf(id));
+            }
+        }
+        return result.toString();
+    }
+
+    static void appendUserWhere(StringBuilder query, String alias, String includeUserIds, String excludeUserIds) {
+        String column = (alias.isEmpty() ? "" : alias + ".") + ConfigHandler.databaseType.getUserColumn();
+        if (includeUserIds != null) {
+            appendIdWhere(query, column, includeUserIds, true);
+        }
+        if (excludeUserIds == null) {
+            query.append(" AND 1 = 0");
+        }
+        else {
+            appendIdWhere(query, column, excludeUserIds, false);
+        }
+    }
+
+    private static void appendIdWhere(StringBuilder query, String column, String ids, boolean include) {
+        if (!ids.isEmpty()) {
+            query.append(" AND ").append(column).append(include ? " IN (" : " NOT IN (").append(ids).append(")");
+        }
+        else if (include) {
+            query.append(" AND 1 = 0");
+        }
+    }
+
+    private String materialIds(List<Material> materials, boolean inventoryBlock) {
+        StringJoiner result = new StringJoiner(",");
+        for (Map.Entry<Integer, Material> entry : materialTypes.entrySet()) {
+            Material material = inventoryBlock ? ItemUtils.itemFilter(entry.getValue(), true) : entry.getValue();
+            if (entry.getKey() >= 0 && material != null && materials.contains(material)) {
+                result.add(String.valueOf(entry.getKey()));
+            }
+        }
+        return result.toString();
+    }
+
+    private static String alias(String alias) {
+        return alias == null || alias.isEmpty() ? "" : " AS " + alias;
+    }
+
+    static Integer getUserId(Connection connection, String user) throws Exception {
+        if (user == null || user.isEmpty() || user.equalsIgnoreCase("#global")) {
+            return null;
+        }
+
+        return UserStatement.findId(connection, user);
+    }
+
+    static int clampToInt(long value) {
+        if (value > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        }
+        else if (value < Integer.MIN_VALUE) {
+            return Integer.MIN_VALUE;
+        }
+
+        return (int) value;
     }
 }

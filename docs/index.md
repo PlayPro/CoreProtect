@@ -2,6 +2,8 @@
 
 For more information about CoreProtect, visit [coreprotect.net](http://coreprotect.net).
 
+Looking for another platform? Visit [CoreProtect for Fabric](https://coreprotect.net/fabric) or [CoreProtect for Hytale](https://coreprotect.net/hytale).
+
 ## Getting Started
 
 Please visit one of the following links for more information.
@@ -19,7 +21,10 @@ A list of all language codes that can be used with CoreProtect.
 Log your own block changes, perform lookups, rollbacks, restores, and more.  
 
 [**Database Migration**](/database-migration/)  
-Migrate your CoreProtect database between SQLite and MySQL.  
+Migrate your CoreProtect database between supported backends.
+
+[**Automatic Purging**](/auto-purge/)  
+Automatically remove old CoreProtect data on a daily schedule.  
 
 [**Compatible Third-Party Plugins & Tools**](/tools-integrations/)  
 A list of plugins and tools that are compatible with CoreProtect.  

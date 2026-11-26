@@ -1,5 +1,8 @@
 package net.coreprotect.command;
 
+import java.util.Locale;
+import java.util.Map;
+
 import org.bukkit.command.CommandSender;
 
 import net.coreprotect.config.ConfigHandler;
@@ -11,39 +14,44 @@ import net.coreprotect.utility.Color;
 public class InspectCommand {
     protected static void runCommand(CommandSender player, boolean permission, String[] args) {
         if (permission) {
-
             int command = -1;
-            ConfigHandler.inspecting.putIfAbsent(player.getName(), false);
-
-            if (args.length > 1) {
-                String action = args[1];
-                if (action.equalsIgnoreCase("on")) {
-                    command = 1;
-                }
-                else if (action.equalsIgnoreCase("off")) {
-                    command = 0;
-                }
-            }
-
-            if (!ConfigHandler.inspecting.get(player.getName())) {
-                if (command == 0) {
-                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INSPECTOR_ERROR, Selector.SECOND)); // already disabled
-                }
-                else {
-                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INSPECTOR_TOGGLED, Selector.FIRST)); // now enabled
-                    ConfigHandler.inspecting.put(player.getName(), true);
-                }
-            }
-            else {
-                if (command == 1) {
-                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INSPECTOR_ERROR, Selector.FIRST)); // already enabled
-                }
-                else {
-                    Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INSPECTOR_TOGGLED, Selector.SECOND)); // now disabled
-                    ConfigHandler.inspecting.put(player.getName(), false);
+            String invalidParameter = args.length > 2 ? args[2] : null;
+            if (args.length == 2) {
+                switch (args[1].toLowerCase(Locale.ROOT)) {
+                    case "on":
+                    case "enable":
+                    case "true":
+                    case "1":
+                        command = 1;
+                        break;
+                    case "off":
+                    case "disable":
+                    case "false":
+                    case "0":
+                        command = 0;
+                        break;
+                    case "toggle":
+                        break;
+                    default:
+                        invalidParameter = args[1];
                 }
             }
+            if (invalidParameter != null) {
+                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.INVALID_PARAMETER, invalidParameter));
+                return;
+            }
 
+            Map<String, Boolean> inspecting = ConfigHandler.inspecting;
+            String playerName = player.getName();
+            boolean wasEnabled;
+            boolean enabled;
+            synchronized (inspecting) {
+                wasEnabled = Boolean.TRUE.equals(inspecting.get(playerName));
+                enabled = command < 0 ? !wasEnabled : command == 1;
+                inspecting.put(playerName, enabled);
+            }
+            Phrase phrase = enabled == wasEnabled ? Phrase.INSPECTOR_ERROR : Phrase.INSPECTOR_TOGGLED;
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(phrase, enabled ? Selector.FIRST : Selector.SECOND));
         }
         else {
             Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.NO_PERMISSION));

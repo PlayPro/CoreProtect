@@ -4,6 +4,7 @@ public final class SignActions {
     public static final int BREAK = LookupActions.BLOCK_BREAK;
     public static final int PLACE = LookupActions.BLOCK_PLACE;
     public static final int EDIT = 2;
+    public static final int BEFORE = 3;
 
     private SignActions() {
         throw new IllegalStateException("Model class");

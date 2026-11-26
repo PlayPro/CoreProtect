@@ -1,15 +1,18 @@
 package net.coreprotect.listener.block;
 
+import java.util.Set;
+
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.type.Scaffolding;
 import org.bukkit.entity.Player;
 
 import net.coreprotect.bukkit.BukkitAdapter;
 import net.coreprotect.model.BlockGroup;
 import net.coreprotect.thread.CacheHandler;
-import net.coreprotect.utility.WorldUtils;
 
 public class BlockUtil {
 
@@ -17,7 +20,16 @@ public class BlockUtil {
     public static final int TOP = 5;
     public static final int BOTTOM = 6;
 
-    public static boolean verticalBreakScan(Player player, String user, Block block, Block scanBlock, Material scanType, int scanMin) {
+    static boolean isFloatingScaffolding(BlockData blockData) {
+        if (!(blockData instanceof Scaffolding)) {
+            return false;
+        }
+        Scaffolding scaffolding = (Scaffolding) blockData;
+        int maxDistance = scaffolding.getMaximumDistance();
+        return maxDistance > 0 && scaffolding.getDistance() >= maxDistance;
+    }
+
+    static boolean verticalBreakScan(Player player, String user, Block block, Block scanBlock, Material scanType, int scanMin, Set<Block> recordedBlocks) {
         if (!BlockGroup.VERTICAL.contains(scanType)) {
             return false;
         }
@@ -33,7 +45,13 @@ public class BlockUtil {
         boolean top = BlockGroup.VERTICAL_TOP_BOTTOM.contains(scanType) || BlockGroup.VERTICAL_TOP.contains(scanType);
         boolean bottom = BlockGroup.VERTICAL_TOP_BOTTOM.contains(scanType) || BlockGroup.VERTICAL_BOTTOM.contains(scanType);
         if ((top && scanMin == TOP) || (bottom && scanMin == BOTTOM)) {
-            BlockBreakListener.processBlockBreak(player, user, scanBlock, true, (scanMin == BOTTOM ? TOP : BOTTOM));
+            if (!BlockBreakListener.isAttached(block, scanBlock, scanMin)) {
+                return false;
+            }
+            if (recordedBlocks != null) {
+                recordedBlocks.add(scanBlock);
+            }
+            BlockBreakListener.processBlockBreak(player, user, scanBlock, true, (scanMin == BOTTOM ? TOP : BOTTOM), recordedBlocks);
             return true;
         }
 
@@ -42,13 +60,11 @@ public class BlockUtil {
 
     public static Block gravityScan(Location location, Material type, String player) {
         Block block = location.getBlock();
-        int timestamp = (int) (System.currentTimeMillis() / 1000L);
         if (type.hasGravity() || type == Material.ARMOR_STAND) {
             int x = location.getBlockX();
             int y = location.getBlockY();
             int z = location.getBlockZ();
             World world = location.getWorld();
-            int wid = WorldUtils.getWorldId(world.getName());
             int yc = y - 1;
             // user placing sand/gravel. Find the bottom block
             int bottomfound = 0;
@@ -69,8 +85,7 @@ public class BlockUtil {
                         bottomfound = 1;
                     }
                     else {
-                        String cords = "" + x + "." + yc + "." + z + "." + wid + "";
-                        Object[] data = CacheHandler.lookupCache.get(cords);
+                        Object[] data = CacheHandler.getBlockSource(world, x, yc, z);
                         if (data != null) {
                             Material t = (Material) data[2];
                             if (type.equals(t) && type != Material.ARMOR_STAND) {
@@ -82,7 +97,7 @@ public class BlockUtil {
                     yc--;
                 }
             }
-            CacheHandler.lookupCache.put("" + x + "." + block.getY() + "." + z + "." + wid + "", new Object[] { timestamp, player, type });
+            CacheHandler.recordBlockSource(world, x, block.getY(), z, player, type);
         }
 
         return block;

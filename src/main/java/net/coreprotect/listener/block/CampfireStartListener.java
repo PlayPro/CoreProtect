@@ -15,7 +15,7 @@ import net.coreprotect.utility.WorldUtils;
 
 public final class CampfireStartListener extends Queue implements Listener {
 
-    public static boolean useCampfireStartEvent = true;
+    public static volatile boolean useCampfireStartEvent = true;
 
     @EventHandler(priority = EventPriority.MONITOR)
     protected void onCampfireStart(CampfireStartEvent event) {
@@ -29,20 +29,20 @@ public final class CampfireStartListener extends Queue implements Listener {
         String user = "#entity";
 
         Object[] data = CacheHandler.interactCache.get(coordinates);
-        if (data != null && data[1].equals(event.getSource())) {
-            long newTime = System.currentTimeMillis();
-            long oldTime = (long) data[0];
-            if ((newTime - oldTime) < 20) { // 50ms = 1 tick
+        ItemStack source = event.getSource();
+        if (data != null && data[1] instanceof ItemStack && ((ItemStack) data[1]).isSimilar(source)
+                && CacheHandler.interactCache.remove(coordinates, data)) {
+            long elapsed = System.currentTimeMillis() - (long) data[0];
+            if (elapsed >= 0 && elapsed <= 50) {
                 user = (String) data[2];
             }
-            CacheHandler.interactCache.remove(coordinates);
         }
 
         if (user.equals("#entity")) {
             return;
         }
 
-        ItemStack itemStack = event.getSource().clone();
+        ItemStack itemStack = source.clone();
         itemStack.setAmount(1);
         PlayerDropItemListener.playerDropItem(event.getBlock().getLocation(), user, itemStack);
     }

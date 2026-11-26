@@ -1,18 +1,10 @@
 package net.coreprotect.api.result;
 
-import java.util.Locale;
-
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.EntityType;
 
 import net.coreprotect.model.action.LookupActions;
-import net.coreprotect.utility.BlockUtils;
-import net.coreprotect.utility.BlockTypeUtils;
-import net.coreprotect.utility.EntityUtils;
-import net.coreprotect.utility.MaterialUtils;
-import net.coreprotect.utility.StringUtils;
 
 /**
  * Represents a logged block action.
@@ -32,8 +24,8 @@ public class BlockResult implements CoreProtectResult {
 
     public BlockResult(long time, String username, String world, int x, int y, int z, int type, int data, String blockData, int actionId, int rolledBack) {
         this.time = time;
-        this.username = username;
-        this.world = world;
+        this.username = username == null ? "" : username;
+        this.world = world == null ? "" : world;
         this.x = x;
         this.y = y;
         this.z = z;
@@ -66,47 +58,27 @@ public class BlockResult implements CoreProtectResult {
     }
 
     public Material getType() {
-        if (actionId == LookupActions.ENTITY_KILL) {
+        if (isEntityAction()) {
             return null;
         }
 
-        Material material = MaterialUtils.getType(type);
-        if (material == null) {
-            return null;
-        }
-
-        String typeName = material.name().toLowerCase(Locale.ROOT);
-        return MaterialUtils.getType(StringUtils.nameFilter(typeName, data));
+        return BlockResultValues.material(type, data);
     }
 
     public EntityType getEntityType() {
-        if (actionId != LookupActions.ENTITY_KILL) {
+        if (!isEntityAction()) {
             return null;
         }
 
-        if (type == 0) {
-            return EntityType.PLAYER;
-        }
-
-        return EntityUtils.getEntityType(type);
+        return BlockResultValues.entityType(type, actionId);
     }
 
     public BlockData getBlockData() {
-        if (actionId == LookupActions.ENTITY_KILL) {
+        if (isEntityAction()) {
             return null;
         }
 
-        if (blockData == null || blockData.isEmpty()) {
-            Material material = getType();
-            if (material != null) {
-                return material.createBlockData();
-            }
-
-            return BlockUtils.createBlockData(type);
-        }
-
-        BlockData result = BlockTypeUtils.createBlockDataFromString(blockData);
-        return result != null ? result : Bukkit.getServer().createBlockData(blockData);
+        return BlockResultValues.blockData(type, blockData, this::getType);
     }
 
     public int getX() {
@@ -122,7 +94,11 @@ public class BlockResult implements CoreProtectResult {
     }
 
     public boolean isRolledBack() {
-        return rolledBack == 1 || rolledBack == 3;
+        return BlockResultValues.isRolledBack(rolledBack);
+    }
+
+    private boolean isEntityAction() {
+        return actionId == LookupActions.ENTITY_KILL || actionId == LookupActions.ENTITY_SPAWN;
     }
 
     public String worldName() {

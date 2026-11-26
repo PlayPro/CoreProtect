@@ -2,11 +2,13 @@ package net.coreprotect.command;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 import net.coreprotect.CoreProtect;
+import net.coreprotect.command.parser.ParserUtils;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.language.Phrase;
 import net.coreprotect.thread.Scheduler;
@@ -31,89 +33,93 @@ public class TeleportCommand {
             return;
         }
 
-        if (ConfigHandler.teleportThrottle.get(player.getName()) != null) {
-            Object[] lookupThrottle = ConfigHandler.teleportThrottle.get(player.getName());
-            if ((boolean) lookupThrottle[0] || ((System.currentTimeMillis() - (long) lookupThrottle[1])) < 500) {
-                Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.COMMAND_THROTTLED));
-                return;
-            }
-        }
-
-        if (resultc < 3) {
-            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co teleport <world> <x> <y> <z>"));
+        Object[] teleportThrottle = ConfigHandler.teleportThrottle.get(player.getName());
+        if (teleportThrottle != null && ((boolean) teleportThrottle[0] || System.currentTimeMillis() - (long) teleportThrottle[1] < 500)) {
+            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.COMMAND_THROTTLED));
             return;
         }
 
-        String worldName = args[1];
-        int wid = WorldUtils.matchWorld(worldName);
-        if (wid == -1 && resultc >= 5) {
-            Chat.sendMessage(player, new ChatMessage(Phrase.build(Phrase.WORLD_NOT_FOUND, worldName)).build());
+        if (resultc < 3 || resultc > 5) {
+            sendUsage(player);
             return;
         }
 
-        Location location = ((Player) player).getLocation().clone();
+        Server server = Bukkit.getServer();
+        String firstArgument = args[1].trim();
+        boolean coordinateFirst = resultc == 4 && isCoordinateCharactersOnly(firstArgument);
+        World exactWorld = coordinateFirst ? server.getWorld(firstArgument) : null;
+        boolean hasWorldArg = resultc == 5 || (resultc == 4 && (!coordinateFirst || exactWorld != null));
+        int coordStart = hasWorldArg ? 2 : 1;
+        boolean hasY = resultc - coordStart == 3;
+        double x = parseCoordinate(args[coordStart]);
+        double y = hasY ? parseCoordinate(args[coordStart + 1]) : 0.0;
+        double z = parseCoordinate(args[resultc - 1]);
+        if (Double.isNaN(x) || Double.isNaN(y) || Double.isNaN(z)) {
+            sendUsage(player);
+            return;
+        }
+
+        Player executor = (Player) player;
+        Location location = executor.getLocation().clone();
         World world = location.getWorld();
-        if (wid > -1) {
-            world = Bukkit.getServer().getWorld(WorldUtils.getWorldName(wid));
-            if (world == null) {
-                Chat.sendMessage(player, new ChatMessage(Phrase.build(Phrase.WORLD_NOT_FOUND, worldName)).build());
-                return;
-            }
+        if (exactWorld != null) {
+            world = exactWorld;
         }
-
-        String x = null;
-        String y = null;
-        String z = null;
-
-        for (int i = 1; i < args.length; i++) {
-            if (i == 1 && wid > -1) {
-                continue;
-            }
-
-            if (x == null) {
-                x = args[i].replaceAll("[^0-9.\\-]", "");
-            }
-            else if (z == null) {
-                z = args[i].replaceAll("[^0-9.\\-]", "");
-            }
-            else if (y == null) {
-                y = z;
-                z = args[i].replaceAll("[^0-9.\\-]", "");
-            }
+        else if (hasWorldArg) {
+            int wid = WorldUtils.matchWorld(firstArgument);
+            world = wid == -1 ? null : server.getWorld(WorldUtils.getWorldName(wid));
         }
-
-        if (y == null) {
-            if (location.getBlockY() > 63) {
-                location.setY(63);
-            }
-            y = Double.toString(location.getY());
-        }
-
-        String xValidate = x.replaceAll("[^.\\-]", "");
-        String yValidate = y.replaceAll("[^.\\-]", "");
-        String zValidate = z.replaceAll("[^.\\-]", "");
-
-        if ((x.length() == 0 || x.length() >= 12 || x.equals(xValidate)) || (y.length() == 0 || y.length() >= 12 || y.equals(yValidate)) || (z.length() == 0 || z.length() >= 12 || z.equals(zValidate))) {
-            Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co teleport <world> <x> <y> <z>"));
+        if (world == null) {
+            Chat.sendMessage(player, new ChatMessage(Phrase.build(Phrase.WORLD_NOT_FOUND, firstArgument)).build());
             return;
         }
 
         location.setWorld(world);
-        location.setX(Double.parseDouble(x));
-        location.setY(Double.parseDouble(y));
-        location.setZ(Double.parseDouble(z));
+        location.setX(x);
+        if (hasY) {
+            location.setY(y);
+        }
+        location.setZ(z);
 
         int chunkX = location.getBlockX() >> 4;
         int chunkZ = location.getBlockZ() >> 4;
         Scheduler.runTask(CoreProtect.getInstance(), () -> {
+            if (Bukkit.getServer() != server || !executor.isOnline() || server.getPlayer(executor.getUniqueId()) != executor) {
+                return;
+            }
             if (!location.getWorld().isChunkLoaded(chunkX, chunkZ)) {
                 location.getWorld().getChunkAt(location);
             }
 
-            // Teleport the player to a safe location
-            Teleport.performSafeTeleport(((Player) player), location, true);
+            Teleport.performSafeTeleport(executor, location, true);
         }, location);
 
         ConfigHandler.teleportThrottle.put(player.getName(), new Object[] { false, System.currentTimeMillis() });
+    }
+
+    private static void sendUsage(CommandSender player) {
+        Chat.sendMessage(player, Color.DARK_AQUA + "CoreProtect " + Color.WHITE + "- " + Phrase.build(Phrase.MISSING_PARAMETERS, "/co teleport <world> <x> <y> <z>"));
+    }
+
+    private static double parseCoordinate(String value) {
+        String trimmed = value.trim();
+        if (!ParserUtils.isSignedDecimal(trimmed)) {
+            return Double.NaN;
+        }
+        double coordinate = Double.parseDouble(trimmed);
+        return coordinate >= Integer.MIN_VALUE && coordinate < (double) Integer.MAX_VALUE + 1.0 ? coordinate : Double.NaN;
+    }
+
+    private static boolean isCoordinateCharactersOnly(String value) {
+        if (value.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if ((c < '0' || c > '9') && c != '.' && c != '-') {
+                return false;
+            }
+        }
+        return true;
     }
 }

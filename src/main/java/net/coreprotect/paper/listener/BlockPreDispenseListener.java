@@ -5,6 +5,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.type.Dispenser;
 import org.bukkit.event.EventHandler;
@@ -18,11 +19,12 @@ import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.consumer.Queue;
 import net.coreprotect.listener.player.InventoryChangeListener;
+import net.coreprotect.paper.PaperAdapter;
 
 public final class BlockPreDispenseListener extends Queue implements Listener {
 
-    public static boolean useBlockPreDispenseEvent = true;
-    public static boolean useForDroppers = false;
+    public static volatile boolean useBlockPreDispenseEvent = true;
+    public static volatile boolean useForDroppers = false;
 
     // Maximum time to keep entries in the cache (in milliseconds)
     private static final long CACHE_EXPIRY_TIME = 5000; // 5 seconds
@@ -32,7 +34,7 @@ public final class BlockPreDispenseListener extends Queue implements Listener {
         Block block = event.getBlock();
         World world = block.getWorld();
         Config config = Config.getConfig(world);
-        if (!config.BLOCK_PLACE) {
+        if (event.isCancelled()) {
             return;
         }
 
@@ -42,13 +44,17 @@ public final class BlockPreDispenseListener extends Queue implements Listener {
                 useForDroppers = true;
             }
 
+            if (!config.ITEM_TRANSACTIONS) {
+                return;
+            }
+
             // Safeguard against null items
             ItemStack item = event.getItemStack();
             if (item == null) {
                 return;
             }
 
-            String locationKey = block.getWorld().getUID().toString() + "." + block.getX() + "." + block.getY() + "." + block.getZ();
+            String locationKey = world.getUID().toString() + "." + block.getX() + "." + block.getY() + "." + block.getZ();
             if (config.DUPLICATE_SUPPRESSION) {
                 String eventKey = event.getSlot() + "." + item.getType().name() + ":" + item.getAmount();
 
@@ -79,8 +85,9 @@ public final class BlockPreDispenseListener extends Queue implements Listener {
 
             // Process the inventory transaction
             String user = "#dispenser";
-            ItemStack[] inventory = ((InventoryHolder) block.getState()).getInventory().getStorageContents();
-            InventoryChangeListener.inventoryTransaction(user, block.getLocation(), inventory);
+            BlockState blockState = PaperAdapter.ADAPTER.getBlockState(block, false);
+            ItemStack[] inventory = ((InventoryHolder) blockState).getInventory().getStorageContents();
+            InventoryChangeListener.inventoryTransaction(user, blockState, inventory);
         }
     }
 }

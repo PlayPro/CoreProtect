@@ -1,71 +1,118 @@
 package net.coreprotect.utility;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 
 import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.consumer.Queue;
+import net.coreprotect.database.ConsumerWriteBatch.ReferenceKind;
+import net.coreprotect.database.Database;
 
-public class WorldUtils extends Queue {
+public class WorldUtils {
 
     private WorldUtils() {
         throw new IllegalStateException("Utility class");
     }
 
     public static int getWorldId(String name) {
-        int id = -1;
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            return ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.WORLDS, name, true);
+        }
         try {
-            if (ConfigHandler.worlds.get(name) == null) {
-                // Check if another server has already added this world (multi-server setup)
-                id = ConfigHandler.reloadAndGetId(ConfigHandler.CacheType.WORLDS, name);
-                if (id != -1) {
-                    return id;
-                }
-
-                int wid = ConfigHandler.worldId + 1;
-                ConfigHandler.worlds.put(name, wid);
-                ConfigHandler.worldsReversed.put(wid, name);
-                ConfigHandler.worldId = wid;
-                Queue.queueWorldInsert(wid, name);
-            }
-            id = ConfigHandler.worlds.get(name);
+            return ConfigHandler.resolveIdentifierId(ConfigHandler.CacheType.WORLDS, name, true);
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
+            return -1;
         }
-        return id;
+    }
+
+    public static int findHistoricalWorldId(String name) throws SQLException {
+        Integer cached = ConfigHandler.worlds.get(name);
+        if (cached != null) {
+            return cached;
+        }
+        return ConfigHandler.databaseType.isClickHouse() ? Database.findClickHouseIdentifierId(ReferenceKind.WORLD, name) : -1;
+    }
+
+    public static int findWorldId(Connection connection, String name) throws SQLException {
+        Integer cached = ConfigHandler.worlds.get(name);
+        if (cached != null) {
+            return cached;
+        }
+
+        try (PreparedStatement statement = connection.prepareStatement("SELECT id, world FROM " + ConfigHandler.prefix + "world WHERE world = ?")) {
+            statement.setString(1, name);
+            try (ResultSet results = statement.executeQuery()) {
+                while (results.next()) {
+                    if (name.equals(results.getString("world"))) {
+                        long id = results.getLong("id");
+                        return id >= 0 && id <= Integer.MAX_VALUE ? (int) id : -1;
+                    }
+                }
+            }
+        }
+        return -1;
     }
 
     public static String getWorldName(int id) {
-        String name = "";
+        if (ConfigHandler.databaseType.isClickHouse()) {
+            String name = ConfigHandler.getIdentifierValue(ConfigHandler.CacheType.WORLDS, id);
+            return name == null ? "" : name;
+        }
         try {
-            if (ConfigHandler.worldsReversed.get(id) != null) {
-                name = ConfigHandler.worldsReversed.get(id);
-            }
+            String name = ConfigHandler.getIdentifierValue(ConfigHandler.CacheType.WORLDS, id);
+            return name == null ? "" : name;
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
+            return "";
         }
-        return name;
     }
 
     public static int matchWorld(String name) {
+        if (name == null) {
+            return -1;
+        }
+
         int id = -1;
         try {
             // Parse wid:# parameter used internally for /co tp click events
             if (name.startsWith("wid:")) {
-                String nameWid = name.replaceFirst("wid:", "");
-                if (nameWid.length() > 0 && nameWid.equals(nameWid.replaceAll("[^0-9]", ""))) {
-                    nameWid = getWorldName(Integer.parseInt(nameWid));
-                    if (nameWid.length() > 0) {
-                        name = nameWid;
+                String nameWid = name.substring("wid:".length());
+                if (!isAsciiDigits(nameWid)) {
+                    return -1;
+                }
+                int wid;
+                try {
+                    wid = Integer.parseInt(nameWid);
+                }
+                catch (NumberFormatException e) {
+                    return -1;
+                }
+                String resolved = getWorldName(wid);
+                if (resolved.isEmpty()) {
+                    return -1;
+                }
+                for (World world : Bukkit.getServer().getWorlds()) {
+                    if (resolved.equals(world.getName())) {
+                        return wid;
                     }
                 }
+                return -1;
             }
 
             // Determine closest match on world name
             String result = "";
             name = name.replaceFirst("#", "").toLowerCase(java.util.Locale.ROOT).trim();
+            if (name.isEmpty()) {
+                return -1;
+            }
+
             for (World world : Bukkit.getServer().getWorlds()) {
                 String worldName = world.getName();
                 if (worldName.toLowerCase(java.util.Locale.ROOT).equals(name)) {
@@ -85,19 +132,31 @@ public class WorldUtils extends Queue {
             }
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return id;
     }
 
+    private static boolean isAsciiDigits(String value) {
+        if (value == null || value.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c < '0' || c > '9') {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public static String getWidIndex(String queryTable) {
         String index = "";
-        boolean isMySQL = net.coreprotect.config.Config.getGlobal().MYSQL;
-        if (isMySQL) {
+        if (ConfigHandler.databaseType.isMySQL()) {
             index = "USE INDEX(wid) ";
         }
-        else {
+        else if (ConfigHandler.databaseType.isSQLite()) {
             switch (queryTable) {
                 case "block":
                     index = "INDEXED BY block_index ";

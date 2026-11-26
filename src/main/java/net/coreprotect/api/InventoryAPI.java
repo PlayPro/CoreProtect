@@ -3,18 +3,19 @@ package net.coreprotect.api;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.StringJoiner;
 
 import net.coreprotect.api.result.InventoryResult;
-import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
-import net.coreprotect.database.Database;
 import net.coreprotect.database.statement.UserStatement;
+import net.coreprotect.model.item.InventorySources;
 import net.coreprotect.utility.WorldUtils;
+import net.coreprotect.utility.DatabaseUtils;
 
 /**
- * Provides API methods for normalized player inventory transaction lookups.
+ * Provides API methods for normalized player inventory transaction lookups. Tracked entity-container rows match their original or persisted
+ * current/final location and expose the persisted current/final location as container-source results.
  */
 public class InventoryAPI {
 
@@ -23,84 +24,104 @@ public class InventoryAPI {
     }
 
     public static List<InventoryResult> performLookup(LookupOptions options) {
-        List<InventoryResult> result = new ArrayList<>();
+        return LookupFilter.execute(options, (connection, filter, selected, result) -> {
+            boolean snapshot = filter.beginDuckDBSnapshot(connection);
+            try {
+                StringBuilder whereBuilder = new StringBuilder();
+                filter.appendWhere(whereBuilder);
+                StringBuilder blockWhereBuilder = new StringBuilder(whereBuilder);
+                filter.appendMaterialWhere(blockWhereBuilder, "", true);
+                filter.appendMaterialWhere(whereBuilder);
+                String where = whereBuilder.toString();
+                StringBuilder entityWhereBuilder = new StringBuilder();
+                filter.appendEntityContainerWhere(entityWhereBuilder, "entity_rows", "spawn_rows");
+                filter.appendMaterialWhere(entityWhereBuilder, "entity_rows");
+                String query = buildQuery(
+                        blockWhereBuilder.toString(),
+                        where,
+                        entityWhereBuilder.toString(),
+                        selected.getInventoryActions(),
+                        selected.hasLimit(),
+                        filter.table(connection, "block", ""),
+                        filter.table(connection, "container", ""),
+                        filter.entityContainerTable(connection, "entity_rows"),
+                        filter.table(connection, "item", "")
+                );
 
-        if (!Config.getGlobal().API_ENABLED) {
-            return result;
-        }
+                try (PreparedStatement statement = connection.prepareStatement(query)) {
+                    int parameterIndex = filter.bind(statement);
+                    parameterIndex = filter.bind(statement, parameterIndex);
+                    parameterIndex = filter.bindEntityContainer(statement, parameterIndex);
+                    parameterIndex = filter.bind(statement, parameterIndex);
+                    if (selected.hasLimit()) {
+                        statement.setInt(parameterIndex++, selected.getLimitCount());
+                        statement.setInt(parameterIndex, selected.getLimitOffset());
+                    }
 
-        if (options == null) {
-            options = LookupOptions.builder().build();
-        }
-
-        try (Connection connection = Database.getConnection(false, 1000)) {
-            if (connection == null) {
-                return result;
-            }
-
-            LookupFilter filter = LookupFilter.fromOptions(connection, options);
-            if (filter.hasInvalidUser() || filter.hasInvalidLocation()) {
-                return result;
-            }
-
-            StringBuilder whereBuilder = new StringBuilder();
-            filter.appendWhere(whereBuilder);
-            String where = whereBuilder.toString();
-            String query = buildQuery(where, options.hasLimit());
-
-            try (PreparedStatement statement = connection.prepareStatement(query)) {
-                int parameterIndex = filter.bind(statement);
-                parameterIndex = filter.bind(statement, parameterIndex);
-                parameterIndex = filter.bind(statement, parameterIndex);
-                if (options.hasLimit()) {
-                    statement.setInt(parameterIndex++, options.getLimitOffset());
-                    statement.setInt(parameterIndex, options.getLimitCount());
-                }
-
-                try (ResultSet results = statement.executeQuery()) {
-                    while (results.next()) {
-                        result.add(parseInventoryResult(connection, results));
+                    try (ResultSet results = statement.executeQuery()) {
+                        while (results.next()) {
+                            result.add(parseInventoryResult(connection, results));
+                        }
                     }
                 }
             }
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        return result;
+            finally {
+                filter.endDuckDBSnapshot(connection, snapshot);
+            }
+        });
     }
 
-    private static String buildQuery(String where, boolean hasLimit) {
+    private static String buildQuery(String blockWhere, String where, String entityWhere, List<InventoryAction> actions, boolean hasLimit, String blockTable, String containerTable, String entityContainerTable, String itemTable) {
         StringBuilder query = new StringBuilder("SELECT * FROM (");
-        query.append("SELECT 0 AS source,rowid AS id,time,user,wid,x,y,z,type,data,1 AS amount,meta AS metadata,action,rolled_back FROM ")
-                .append(ConfigHandler.prefix).append("block ").append(where).append(" AND action = 1");
+        query.append("SELECT 0 AS source,rowid AS id,time,").append(ConfigHandler.databaseType.getUserColumn()).append(",wid,x,y,z,type,data,1 AS amount,meta AS metadata,action,rolled_back FROM ")
+                .append(blockTable).append(' ').append(blockWhere).append(" AND action = 1");
         query.append(" UNION ALL ");
-        query.append("SELECT 1 AS source,rowid AS id,time,user,wid,x,y,z,type,data,amount,metadata,action,rolled_back FROM ")
-                .append(ConfigHandler.prefix).append("container ").append(where);
+        query.append("SELECT 1 AS source,rowid AS id,time,").append(ConfigHandler.databaseType.getUserColumn()).append(",wid,x,y,z,type,data,amount,metadata,action,rolled_back FROM ")
+                .append(containerTable).append(' ').append(where);
         query.append(" UNION ALL ");
-        query.append("SELECT 2 AS source,rowid AS id,time,user,wid,x,y,z,type,0 AS data,amount,data AS metadata,action,rolled_back FROM ")
-                .append(ConfigHandler.prefix).append("item ").append(where);
-        query.append(") AS inventory_lookup ORDER BY time DESC, source DESC, id DESC");
+        query.append("SELECT ").append(InventorySources.ENTITY_CONTAINER).append(" AS source,entity_rows.rowid AS id,entity_rows.time,entity_rows.").append(ConfigHandler.databaseType.getUserColumn()).append(",spawn_rows.current_wid AS wid,spawn_rows.x,spawn_rows.y,spawn_rows.z,entity_rows.type,entity_rows.data,entity_rows.amount,entity_rows.metadata,entity_rows.action,entity_rows.rolled_back FROM ")
+                .append(entityContainerTable).append(" JOIN ").append(ConfigHandler.prefix).append("entity_spawn spawn_rows ON spawn_rows.rowid=entity_rows.entity_spawn_rowid ").append(entityWhere);
+        query.append(" UNION ALL ");
+        query.append("SELECT 2 AS source,rowid AS id,time,").append(ConfigHandler.databaseType.getUserColumn()).append(",wid,x,y,z,type,0 AS data,amount,data AS metadata,action,rolled_back FROM ")
+                .append(itemTable).append(' ').append(where);
+        query.append(") AS inventory_lookup");
+        appendActionWhere(query, actions);
+        query.append(" ORDER BY time DESC, source DESC, id DESC");
         if (hasLimit) {
-            query.append(" LIMIT ?, ?");
+            query.append(" LIMIT ? OFFSET ?");
         }
 
         return query.toString();
     }
 
+    private static void appendActionWhere(StringBuilder query, List<InventoryAction> actions) {
+        if (!actions.isEmpty()) {
+            StringJoiner predicates = new StringJoiner(" OR ");
+            for (InventoryAction action : actions) {
+                String sources = String.valueOf(action.sourceId());
+                if (action.sourceId() == InventorySources.CONTAINER) {
+                    sources += "," + InventorySources.ENTITY_CONTAINER;
+                }
+                predicates.add("(source IN (" + sources + ") AND action = " + action.id() + ")");
+            }
+            query.append(" WHERE (").append(predicates).append(")");
+        }
+    }
+
     private static InventoryResult parseInventoryResult(Connection connection, ResultSet results) throws Exception {
         int userId = results.getInt("user");
-        String username = ConfigHandler.playerIdCacheReversed.get(userId);
-        if (username == null) {
-            username = UserStatement.loadName(connection, userId);
+        String username = UserStatement.getName(connection, userId);
+
+        int source = results.getInt("source");
+        if (source == InventorySources.ENTITY_CONTAINER) {
+            source = InventorySources.CONTAINER;
         }
 
         return new InventoryResult(
                 results.getLong("time"), username, WorldUtils.getWorldName(results.getInt("wid")),
-                results.getInt("x"), results.getInt("y"), results.getInt("z"),
-                results.getInt("type"), results.getInt("data"), results.getInt("amount"), results.getBytes("metadata"),
-                results.getInt("action"), results.getInt("rolled_back"), results.getInt("source")
+                (int) Math.floor(results.getDouble("x")), (int) Math.floor(results.getDouble("y")), (int) Math.floor(results.getDouble("z")),
+                results.getInt("type"), results.getInt("data"), results.getInt("amount"), DatabaseUtils.getBytes(results, "metadata"),
+                results.getInt("action"), results.getInt("rolled_back"), source
         );
     }
 }

@@ -16,7 +16,7 @@ ___
 | [/co reload](#co-reload) | Reload the configuration file |
 | [/co status](#co-status) | View the plugin status |
 | [/co consumer](#co-consumer) | Toggle consumer processing |
-| [/co migrate-db](#co-migrate-db) | Migrate between SQLite and MySQL |
+| [/co migrate-db](#co-migrate-db) | Migrate between database backends |
 
 ### Alias Commands
 
@@ -56,6 +56,7 @@ Perform a lookup. Nearly all of the parameters are optional.
 | [`a:<action>`](#aaction) | Restrict the lookup to a certain action. |
 | [`i:<include>`](#iinclude) | Include specific blocks/entities in the lookup. |
 | [`e:<exclude>`](#eexclude) | Exclude blocks/entities from the lookup. |
+| [`f:<filter>`](#ffilter) | Include or exclude chat, command, or sign text by prefix. |
 | [`#<hashtag>`](#hashtag) | Add a hashtag to perform additional actions. |
 
 #### Pagination
@@ -94,7 +95,7 @@ Purge old block data. Useful for freeing up space on your HDD if you don't need 
 
 | Command | Parameters |
 | --- | --- |
-| /co purge | `t:<time> r:<world> i:<include>` |
+| /co purge | `t:<time> r:<world/radius> i:<include> e:<exclude> a:kill` |
 
 For example, `/co purge t:30d` will delete all data older than one month, and only keep the last 30 days of data.
 
@@ -105,15 +106,34 @@ For example, `/co purge t:30d` will delete all data older than one month, and on
 You can optionally specify a world in CoreProtect v19+.  
 For example, `/co purge t:30d r:#world_nether` will delete all data older than one month in the Nether, without removing data in any other worlds.
 
+**Purging by Radius**  
+A radius can limit a purge of specific block types or entity kills to the area around you. It only applies to block and entity kill data, so it must be combined with `i:` or `a:kill`, and it can only be used in-game. A radius always applies to the world you are in, so it cannot be combined with a world such as `r:#world_nether`. The radius is limited by `max-radius` in the config, like other commands.
+For example, `/co purge t:30d r:50 i:zombie` will delete zombie kills older than one month within 50 blocks of you, without removing any other data. Use `r:50x10` to also limit the height to 10 blocks above and below you.
+
 **Purging Blocks**  
 You can optionally specify block types in CoreProtect v23+.  
 For example, `/co purge t:30d i:stone,dirt` will delete all stone and dirt data older than one month, without removing other block data.
 
-**MySQL Optimization**  
-In CoreProtect v2.15+, adding "#optimize" to the end of the command (e.g. `/co purge t:30d #optimize`) will also optimize your tables and reclaim disk space.
-This option is only available when using MySQL, as SQLite purges do this by default.
+**Purging Entity Kills**  
+Entity kill logs can be purged separately from other data on SQLite, MySQL, and DuckDB. Each kill also removes the saved entity data used to restore the mob on rollback.
 
-*Please note adding the #optimize option will significantly slow down your purge, and is generally unnecessary.*
+* `/co purge t:30d a:kill` deletes all entity kills older than one month, and keeps all other data.
+* `/co purge t:30d i:zombie,skeleton` deletes zombie and skeleton kills older than one month. Entity and block types can be combined in `i:`.
+* `/co purge t:30d e:villager,wolf` deletes all data older than one month, but keeps villager and wolf kills.
+* `/co purge t:30d a:kill e:villager r:#world` deletes entity kills older than one month in the overworld, except villager kills.
+
+`e:` only accepts entity types. It cannot be combined with entity types in `i:`, or with only block types in `i:`, because a block restriction already keeps every kill. `a:kill` cannot be combined with block types in `i:`.
+
+**Database Optimization**
+
+In CoreProtect v2.15+, adding `#optimize` to the end of the command (for example, `/co purge t:30d #optimize`) will also optimize supported database tables and reclaim unused disk space. How this option is handled depends on the database backend:
+
+* SQLite already rebuilds the database from retained data and reclaims unused file space as part of a manual purge, so `#optimize` is not needed.
+* MySQL normally deletes matching rows. Adding `#optimize` also removes saved entity data in the purged time range that no entity kill references anymore (this requires the `CREATE TEMPORARY TABLES` privilege), then optimizes its tables to reclaim unused space.
+* DuckDB deletes matching rows in one transaction and checkpoints afterward. `#optimize` has no additional effect.
+* ClickHouse drops fully covered monthly partitions for an unfiltered time purge and synchronously removes rows from partial or filtered partitions. Adding `#optimize` also runs `OPTIMIZE TABLE ... FINAL`.
+
+`#optimize` can significantly slow MySQL and ClickHouse purges and is generally unnecessary.
 
 ___
 
@@ -130,13 +150,17 @@ Console command to pause or resume consumer queue processing.
 ___
 
 ### /co migrate-db
-Migrate your CoreProtect database between SQLite and MySQL. Console-only command.
+Migrate data from the active database backend to a different backend. This is a console-only command.
 
 | Command | Parameters |
 | --- | --- |
-| /co migrate-db | `<sqlite|mysql>` |
+| /co migrate-db | `<sqlite|mysql|duckdb|clickhouse> [--full-validation]` |
 
-> **Note:** This feature is exclusive to CoreProtect 23.0+ Patreon builds for Patron supporters.
+By default, migration validates all table statistics and compares approximately 1% of each large history table, with full comparisons for small and reference tables. Add `--full-validation` to compare every copied row.
+
+The target namespace must contain no CoreProtect data; a DuckDB target must use a new database file, and `database-lock` must remain enabled. After a successful migration, CoreProtect automatically updates `database-type` in `config.yml` before queued writes resume.
+
+> **Note:** Migrations between SQLite and MySQL require a CoreProtect 23.0+ Patreon build. Any migration involving DuckDB or ClickHouse requires CoreProtect 25.0+.
 
 For complete migration instructions, safety guidelines, and troubleshooting information, see the [Database Migration documentation](/database-migration/).
 
@@ -203,6 +227,7 @@ ___
 | `a:+item` | items picked up or withdrawn by players |
 | `a:-item` | items dropped, thrown, or deposited by players |
 | `a:kill` | mobs/animals killed |
+| `a:spawn` | entities placed or spawned by players |
 | `a:session` | player logins/logouts |
 | `a:+session` | player logins |
 | `a:-session` | player logouts |
@@ -231,6 +256,20 @@ ___
 
 ---
 
+### `f:<filter>`
+
+*Filter message prefixes when using `a:chat`, `a:command`, or `a:sign`.*
+
+* Example: `a:command f:/ban` *(commands starting with "/ban")*
+* Example: `a:command f:/ban,/kick` *(commands starting with either prefix)*
+* Example: `a:command f:/ban,-/banlist` *(include "/ban" and exclude "/banlist")*
+* Example: `a:chat f:-hello` *(exclude messages starting with "hello")*
+* Example: `a:sign f:Diamond Shop,-Diamond Shop Closed` *(filter prefixes on the recorded sign face)*
+
+> Separate filters with commas. Included prefixes are alternatives; any matching excluded prefix removes the result. Exclusions can be used on their own. Each prefix requires at least three characters, excluding the leading `-` marker. Spaces are allowed, and `*`, `%`, `_`, and `~` are matched literally.
+
+---
+
 ### `#<hashtag>`
 
 Add a hashtag to the end of your command to perform additional actions.
@@ -242,6 +281,7 @@ Add a hashtag to the end of your command to perform additional actions.
 | --- | --- |
 | `#preview` | Preview a rollback/restore |
 | `#count` | Return the number of rows found in a lookup query |
+| `#summary` | Return the row count and per-user material totals |
 | `#verbose` | Display additional information during a rollback/restore |
 | `#silent` | Display minimal information during a rollback/restore |
 
@@ -294,5 +334,7 @@ Lookup commands are generally the same as rollback commands. The primary differe
   *(lookup all logins ever done by Notch)*
 * `/co lookup u:Notch a:username`  
   *(lookup previous usernames used by Notch)*
+* `/co lookup r:50 t:7d a:block #summary`
+  *(show the matching row count and material totals for each user within the same area and time range)*
 
 ___

@@ -5,6 +5,7 @@ import java.sql.Statement;
 import net.coreprotect.config.Config;
 import net.coreprotect.config.ConfigHandler;
 import net.coreprotect.patch.Patch;
+import net.coreprotect.utility.ErrorReporter;
 
 public class __2_5_0 {
 
@@ -19,7 +20,7 @@ public class __2_5_0 {
                     statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "user MODIFY user VARCHAR(32)");
                 }
                 catch (Exception e) {
-                    e.printStackTrace();
+                    ErrorReporter.report(e);
                 }
 
                 if (!Patch.continuePatch()) {
@@ -30,7 +31,7 @@ public class __2_5_0 {
             statement.executeUpdate("ALTER TABLE " + ConfigHandler.prefix + "block ADD COLUMN meta BLOB");
         }
         catch (Exception e) {
-            e.printStackTrace();
+            ErrorReporter.report(e);
         }
 
         return true;

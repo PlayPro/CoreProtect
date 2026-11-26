@@ -73,7 +73,9 @@ final class FastAsyncWorldEditLogger implements IBatchProcessor {
                 int x = index & 15;
                 int y = (layer << 4) + (index >> 8);
                 int z = (index >> 4) & 15;
-                CompoundTag tile = tiles.isEmpty() ? null : tiles.get(BlockVector3.at(x, y, z));
+                // FAWE's tile map adapts values without a null check, so get() on a missing key throws an NPE; check containsKey first.
+                BlockVector3 tilePosition = BlockVector3.at(x, y, z);
+                CompoundTag tile = tiles.isEmpty() || !tiles.containsKey(tilePosition) ? null : tiles.get(tilePosition);
                 logChange(get, set, cached, chunkX, chunkZ, x, y, z, oldOrdinal, newOrdinal, tile, config);
             }
         }
